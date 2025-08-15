@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>My Projects - NoodlePlanner</title>
+    <title>Planning Room - NoodlePlanner</title>
 </head>
 <body>
     <nav style="margin-bottom: 1em; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center;">
-            <a href="/projects" style="font-weight: bold; margin-right: 1em;">Projects</a>
+            <a href="/projects" style="margin-right: 1em;">Projects</a>
+            <a href="/projects/{{ project.id }}" style="font-weight: bold;">Planning</a>
             <!-- Add more rooms/tabs here as needed -->
         </div>
         <div style="display: flex; align-items: center; gap: 1em;">
@@ -17,12 +18,10 @@
             </form>
         </div>
     </nav>
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>My Projects</h1>
-    </div>
-    <form method="post" action="/projects/create" style="margin-bottom: 1em;">
-        <input type="text" name="project_name" placeholder="New project name" required>
-        <button type="submit">Create Project</button>
+    <h1>Planning Room for Project: {{ project.name }}</h1>
+    <form method="post" action="/projects/{{ project.id }}/products" style="margin-bottom: 1em;">
+        <input type="text" name="product_name" placeholder="New product name" required>
+        <button type="submit">Add Product</button>
     </form>
     {% if error %}
     <p style="color:red;">{{ error }}</p>
@@ -30,16 +29,17 @@
     {% if success %}
     <p style="color:green;">{{ success }}</p>
     {% endif %}
-    {% if projects %}
+    <h2>Products</h2>
+    {% if project.products %}
         <ul>
-        {% for project in projects %}
+        {% for product in project.products %}
             <li>
-                <a href="/projects/{{ project.id }}" class="editable-project" data-project-id="{{ project.id }}" data-original-name="{{ project.name }}">{{ project.name }}</a>
+                <span class="editable-product" data-product-id="{{ product.id }}" data-original-name="{{ product.name }}">{{ product.name }}</span>
             </li>
         {% endfor %}
         </ul>
     {% else %}
-        <p>You have no projects.</p>
+        <p>No products for this project yet.</p>
     {% endif %}
 </body>
 <script src="/static/inline-rename.js"></script>
