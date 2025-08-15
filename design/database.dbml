@@ -1,0 +1,54 @@
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table Projects {
+  id integer [primary key]
+  name varchar
+  owner integer // owner ID
+  tenant_id integer // foreign key to users table
+}
+
+Table People {
+  id integer [primary key]
+  firstname varchar
+  surname varchar
+}
+
+Table Tasks {
+  id integer [primary key]
+  title varchar
+  project_id integer
+}
+
+Table Task_assignments {
+  id integer [primary key]
+  task_id integer
+  person_id integer
+}
+
+Table Risks {
+  id integer [primary key]
+  title varchar
+  severity varchar
+  tenant_id integer // foreign key
+}
+
+Table Products {
+  id integer [pk]
+  title varchar
+  description varchar
+  project_id integer 
+}
+
+Table Tenants {
+  id integer [pk]
+  name varchar
+}
+
+Ref Project_Owners: People.id > Projects.owner
+Ref: "Projects"."id" < "Tasks"."project_id"
+Ref: "Tasks"."id" < "Task_assignments"."task_id"
+Ref: "People"."id" < "Task_assignments"."person_id"
+Ref: "Projects"."id" < "Products"."project_id"
+Ref: "Projects"."tenant_id" < "Tenants"."id"
+Ref: "Risks"."tenant_id" < "Tenants"."id"
