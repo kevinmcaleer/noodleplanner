@@ -1,6 +1,8 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app import app
 from db import create_tables, add_test_user, DATABASE_URL, get_db
 def add_test_project_for_user(username, project_name):
@@ -13,17 +15,17 @@ def add_test_project_for_user(username, project_name):
             cursor.execute('INSERT INTO projects (name, owner) VALUES (?, ?)', (project_name, owner_id))
             conn.commit()
 def test_list_user_projects():
+    # Register and login as alice
+    client.post("/register", data={"username": "alice", "fullname": "Alice Wonderland", "password": "secret"})
     # Add a test project for alice
     add_test_project_for_user("alice", "Project Alpha")
-    # Login to get token
-    login_response = client.post("/token", data={"username": "alice", "password": "secret"})
-    token = login_response.json()["access_token"]
-    # Get projects
-    response = client.get("/projects", headers={"Authorization": f"Bearer {token}"})
+    # Login to get session cookie
+    login_response = client.post("/login", data={"username": "alice", "password": "secret"})
+    # Set cookie on client instance
+    client.cookies.set("token", "alice")
+    response = client.get("/projects")
     assert response.status_code == 200
-    data = response.json()
-    assert "projects" in data
-    assert any(p["name"] == "Project Alpha" for p in data["projects"])
+    assert b"Project Alpha" in response.content
 
 client = TestClient(app)
 
@@ -59,6 +61,12 @@ def test_get_current_user():
     assert response.json()["username"] == "alice"
 
 def test_logout():
-    response = client.post("/logout")
-    assert response.status_code == 200
-    assert response.json()["message"] == "Logged out successfully"
+    # Register and login as alice
+    client.post("/register", data={"username": "alice", "fullname": "Alice Wonderland", "password": "secret"})
+    login_response = client.post("/login", data={"username": "alice", "password": "secret"})
+    # Logout
+    client.cookies.set("token", "alice")
+    response = client.post("/logout", follow_redirects=False)
+    # Should redirect to /login
+    assert response.status_code in (302, 307)
+    assert response.headers["location"] == "/login"

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Projects - NoodlePlanner</title>
+</head>
+<body>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>My Projects</h1>
+        <div>
+            <form method="post" action="/logout" style="display:inline;">
+                <button type="submit">Logout</button>
+            </form>
+            <!-- Future: Account/Profile menu here -->
+        </div>
+    </div>
+    <form method="post" action="/projects/create" style="margin-bottom: 1em;">
+        <input type="text" name="project_name" placeholder="New project name" required>
+        <button type="submit">Create Project</button>
+    </form>
+    {% if error %}
+    <p style="color:red;">{{ error }}</p>
+    {% endif %}
+    {% if success %}
+    <p style="color:green;">{{ success }}</p>
+    {% endif %}
+    {% if projects %}
+        <ul>
+        {% for project in projects %}
+            <li>{{ project.name }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>You have no projects.</p>
+    {% endif %}
+</body>
+</html>
