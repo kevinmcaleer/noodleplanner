@@ -1,8 +1,22 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from app import app
+from db import create_tables, add_test_user, DATABASE_URL
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def setup_and_teardown_db():
+    # Remove the test database if it exists
+    if os.path.exists(DATABASE_URL):
+        os.remove(DATABASE_URL)
+    create_tables()
+    add_test_user()
+    yield
+    # Clean up after tests
+    if os.path.exists(DATABASE_URL):
+        os.remove(DATABASE_URL)
 
 def test_login_success():
     response = client.post("/token", data={"username": "alice", "password": "secret"})

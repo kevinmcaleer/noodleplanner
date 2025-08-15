@@ -1,41 +1,32 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from models import User, UserInDB
-from typing import Optional
+from db import get_user_by_username, add_test_user, create_tables
 
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Dummy user database for demonstration
-fake_users_db = {
-    "alice": {
-        "username": "alice",
-        "full_name": "Alice Wonderland",
-        "hashed_password": "fakehashedsecret",
-        "disabled": False,
-    }
-}
-
 def fake_hash_password(password: str):
     return "fakehashed" + password
 
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
+def get_user(username: str):
+    user_dict = get_user_by_username(username)
+    if user_dict:
         return UserInDB(**user_dict)
 
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username)
+def authenticate_user(username: str, password: str):
+    user = get_user(username)
     if not user:
         return None
     if user.hashed_password != fake_hash_password(password):
         return None
     return user
 
+
 @router.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -46,7 +37,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @router.get("/users/me")
 async def read_users_me(token: str = Depends(oauth2_scheme)):
-    user = get_user(fake_users_db, token)
+    user = get_user(token)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid authentication credentials")
     return user
