@@ -21,7 +21,24 @@ def create_tables():
             hashed_password TEXT NOT NULL,
             disabled BOOLEAN DEFAULT 0
         )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            owner INTEGER NOT NULL,
+            tenant_id INTEGER
+        )''')
         conn.commit()
+def get_projects_by_username(username: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT p.id, p.name
+            FROM projects p
+            JOIN users u ON p.owner = u.id
+            WHERE u.username = ?
+        ''', (username,))
+        rows = cursor.fetchall()
+        return [{"id": row[0], "name": row[1]} for row in rows]
 
 def add_test_user():
     with get_db() as conn:

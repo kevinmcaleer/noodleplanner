@@ -1,11 +1,20 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from models import User, UserInDB
-from db import get_user_by_username, add_test_user, create_tables
+from db import get_user_by_username, add_test_user, create_tables, get_projects_by_username
+from fastapi import Request
 
 router = APIRouter()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@router.get("/projects")
+async def list_user_projects(request: Request, token: str = Depends(oauth2_scheme)):
+    user = get_user(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    projects = get_projects_by_username(user.username)
+    return {"projects": projects}
 
 def fake_hash_password(password: str):
     return "fakehashed" + password
