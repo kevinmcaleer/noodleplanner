@@ -1,15 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+    <!-- jsTree and jQuery -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/themes/default/style.min.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/jstree.min.js"></script>
     <meta charset="UTF-8">
     <title>Planning Room - NoodlePlanner</title>
+    <style>
+        #canvas .node {
+            background: #fff;
+            border: 2px solid #6c7ae0;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #0001;
+            min-width: 120px;
+            min-height: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            user-select: none;
+            z-index: 2;
+        }
+        #canvas .node .label {
+            font-weight: bold;
+            margin: 0.5em 0 0.2em 0;
+            text-align: center;
+            width: 100%;
+        }
+        #canvas .handles {
+            position: absolute;
+            width: calc(100% + 32px);
+            left: -16px;
+            top: -24px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        #canvas .handle {
+            width: 16px;
+            height: 16px;
+            background: #222;
+            border-radius: 4px;
+            border: 2px solid #fff;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 2px 8px #0003;
+            pointer-events: auto;
+        }
+        #canvas .handle:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px #2223;
+        }
+        #canvas .node.group {
+            background: #ffe3e3;
+            border-color: #e06c6c;
+            border-radius: 4px;
+            box-shadow: 4px 4px 12px #e06c6c33;
+            transform: skew(-18deg);
+        }
+        #canvas .node.group .label {
+            transform: skew(18deg);
+        }
+        #canvas .connection {
+            stroke: #6c7ae0;
+            stroke-width: 3px;
+            fill: none;
+        }
+    </style>
 </head>
+
 <body>
     <nav style="margin-bottom: 1em; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center;">
             <a href="/projects" style="margin-right: 1em;">Projects</a>
             <a href="/projects/{{ project.id }}" style="font-weight: bold;">Planning</a>
-            <!-- Add more rooms/tabs here as needed -->
+            <a href="/projects/{{ project.id }}/canvas" style="margin-left: 1em;">Canvas</a>
         </div>
         <div style="display: flex; align-items: center; gap: 1em;">
             <span style="font-style: italic; color: #555;">{{ user.full_name or user.username }}</span>
@@ -18,29 +86,228 @@
             </form>
         </div>
     </nav>
-    <h1>Planning Room for Project: {{ project.name }}</h1>
-    <form method="post" action="/projects/{{ project.id }}/products" style="margin-bottom: 1em;">
-        <input type="text" name="product_name" placeholder="New product name" required>
-        <button type="submit">Add Product</button>
-    </form>
-    {% if error %}
-    <p style="color:red;">{{ error }}</p>
-    {% endif %}
-    {% if success %}
-    <p style="color:green;">{{ success }}</p>
-    {% endif %}
-    <h2>Products</h2>
-    {% if project.products %}
-        <ul>
-        {% for product in project.products %}
-            <li>
-                <span class="editable-product" data-product-id="{{ product.id }}" data-original-name="{{ product.name }}">{{ product.name }}</span>
-            </li>
-        {% endfor %}
-        </ul>
-    {% else %}
-        <p>No products for this project yet.</p>
-    {% endif %}
+    <div id="canvas-container" style="display: flex; height: 85vh;">
+        <div id="product-list" style="width: 22%; min-width: 200px; max-width: 320px; background: #f7f7f7; border-right: 1px solid #ddd; padding: 1em; overflow-y: auto;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <h2 style="margin: 0;">Products for Project: {{ project.name }}</h2>
+                <div class="dropdown" style="position: relative;">
+                    <button id="hamburger-menu" style="background: none; border: none; font-size: 1.7em; cursor: pointer; padding: 0 0.3em;">&#9776;</button>
+                    <div id="dropdown-menu" style="display: none; position: absolute; right: 0; top: 2em; background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 8px #0002; z-index: 100; min-width: 160px;">
+                        <a href="#" id="export-csv" style="display: block; padding: 0.5em 1em; text-decoration: none; color: #333;">Export to CSV</a>
+                        <a href="#" id="export-excel" style="display: block; padding: 0.5em 1em; text-decoration: none; color: #333;">Export to Excel</a>
+                    </div>
+                </div>
+            </div>
+            <form id="quick-add-product" style="margin-bottom: 1em; display: flex; gap: 0.5em;">
+                <input type="text" id="quick-product-name" placeholder="New product name" required style="flex:1;">
+                <button type="submit">Add</button>
+            </form>
+            <div id="product-tree"></div>
+            <script id="products-json" type="application/json">{{ project.products | tojson }}</script>
+            <script id="all-products-json" type="application/json">{{ project.products | tojson }}</script>
+<script>
+// Hamburger menu dropdown logic
+$(function() {
+    $('#hamburger-menu').on('click', function(e) {
+        e.stopPropagation();
+        $('#dropdown-menu').toggle();
+    });
+    $(document).on('click', function() {
+        $('#dropdown-menu').hide();
+    });
+    $('#dropdown-menu').on('click', function(e) {
+        e.stopPropagation();
+    });
+    // Export to CSV with indentation
+    $('#export-csv').on('click', function(e) {
+        e.preventDefault();
+        var tree = $('#product-tree').jstree(true);
+        // Get nodes in depth-first order with depth
+        function getDepth(nodeId, tree) {
+            var depth = 0;
+            var node = tree.get_node(nodeId);
+            while (node.parent && node.parent !== '#') {
+                depth++;
+                node = tree.get_node(node.parent);
+            }
+            return depth;
+        }
+        var nodes = tree.get_json('#', { flat: true });
+        // Sort nodes in depth-first order
+        function dfs(parentId, out) {
+            tree.get_children_dom(parentId).each(function() {
+                var nodeId = $(this).attr('id');
+                var node = tree.get_node(nodeId);
+                var depth = getDepth(nodeId, tree);
+                out.push({
+                    id: node.id,
+                    name: node.text,
+                    parent: node.parent,
+                    depth: depth
+                });
+                dfs(nodeId, out);
+            });
+        }
+        var ordered = [];
+        dfs('#', ordered);
+        var csv = 'id,name,parent_id\n';
+        ordered.forEach(function(n) {
+            var indented = '    '.repeat(n.depth) + n.name;
+            csv += [n.id, '"' + indented.replace(/"/g, '""') + '"', n.parent === '#' ? '' : n.parent].join(',') + '\n';
+        });
+        var blob = new Blob([csv], { type: 'text/csv' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'product-list.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+    // Export to Excel (placeholder: just CSV for now)
+    $('#export-excel').on('click', function(e) {
+        e.preventDefault();
+        // Download from backend endpoint
+        var url = '/projects/{{ project.id }}/export-products-xlsx';
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'product-list.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+});
+</script>
+        </div>
+    <div id="canvas" style="flex: 1; min-width: 0; position: relative; background: #f0f0f0; min-height: 100%; min-width: 100%; overflow: auto;">
+            <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:auto;background:rgba(255,0,0,0.05);border: 3px solid blue;"></svg>
+            <!-- Nodes will be rendered here by JS -->
+        <style>#canvas { background: #f0f0f0 !important; border: 3px dashed green !important; }</style>
+        </div>
+    </div>
+    <script src="/static/inline-rename.js"></script>
+    <script src="/static/product-tree.js"></script>
+    <script src="/static/selectable-product-list.js"></script>
+    <script src="/static/canvas.js"></script>
 </body>
-<script src="/static/inline-rename.js"></script>
+<script>
+function updateAllProductsJson() {
+    // Get latest data from jsTree
+    var tree = $('#product-tree').jstree(true);
+    var nodes = tree.get_json('#', { flat: true });
+    // Convert jsTree nodes back to product objects
+    var products = nodes.map(function(n) {
+        return {
+            id: parseInt(n.id),
+            name: n.text,
+            plan_id: n.parent === '#' ? null : parseInt(n.parent),
+            // Optionally add sort_order if needed
+        };
+    });
+    document.getElementById('all-products-json').textContent = JSON.stringify(products);
+}
+
+function refreshProductJsonAndCanvas() {
+    $.get('/projects/{{ project.id }}', { ajax: 1 }, function(html) {
+        var temp = document.createElement('div');
+        temp.innerHTML = html;
+        var newProductsJson = temp.querySelector('#products-json');
+        var newAllProductsJson = temp.querySelector('#all-products-json');
+        if (newProductsJson && newAllProductsJson) {
+            document.getElementById('products-json').textContent = newProductsJson.textContent;
+            document.getElementById('all-products-json').textContent = newAllProductsJson.textContent;
+            if (window.renderNodes) window.renderNodes();
+        }
+    });
+}
+
+// Quick-add product form handler
+$('#quick-add-product').on('submit', function(e) {
+    e.preventDefault();
+    var name = $('#quick-product-name').val().trim();
+    if (!name) return;
+    $.post('/projects/{{ project.id }}/products', { product_name: name }, function() {
+        refreshProductJsonAndCanvas();
+        location.reload();
+    });
+    $('#quick-product-name').val('');
+});
+$(function() {
+    // Convert your flat product list to jsTree format
+    function buildTree(products) {
+        return products.map(function(prod) {
+            return {
+                id: prod.id.toString(),
+                parent: prod.plan_id ? prod.plan_id.toString() : '#',
+                text: prod.name
+            };
+        });
+    }
+    var products = JSON.parse(document.getElementById('products-json').textContent);
+    $('#product-tree').jstree({
+        'core': {
+            'check_callback': true,
+            'data': buildTree(products)
+        },
+        'plugins': ['dnd', 'contextmenu', 'unique', 'wholerow']
+    });
+    // Expand all nodes by default
+    $('#product-tree').on('ready.jstree', function() {
+        $('#product-tree').jstree('open_all');
+    });
+    // CREATE
+    $('#product-tree').on('create_node.jstree', function(e, data) {
+        $.post('/projects/{{ project.id }}/products', {
+            product_name: data.node.text,
+            parent_id: data.node.parent === '#' ? null : data.node.parent
+        }).done(function(response) {
+            refreshProductJsonAndCanvas();
+            location.reload();
+        });
+    });
+
+    // RENAME
+    $('#product-tree').on('rename_node.jstree', function(e, data) {
+        $.ajax({
+            url: '/rename-product/' + data.node.id,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ name: data.text }),
+            success: function(response) {
+                refreshProductJsonAndCanvas();
+            }
+        });
+    });
+
+    // DELETE
+    $('#product-tree').on('delete_node.jstree', function(e, data) {
+        $.post('/projects/delete-product/' + data.node.id)
+            .done(function(response) {
+                refreshProductJsonAndCanvas();
+            });
+    });
+
+    // MOVE (drag-and-drop)
+    $('#product-tree').on('move_node.jstree', function(e, data) {
+        $.ajax({
+            url: '/projects/update-product-parent/' + data.node.id,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                plan_id: data.parent === '#' ? null : data.parent,
+                sort_order: data.position + 1
+            }),
+            success: function(response) {
+                // Update the all-products-json to match the new order and update canvas immediately
+                updateAllProductsJson();
+                setTimeout(function() {
+                    if (window.renderNodes) window.renderNodes();
+                }, 0);
+                // Do NOT immediately refresh from backend, to avoid overwriting with stale data
+            }
+        });
+    });
+});
+</script>
 </html>

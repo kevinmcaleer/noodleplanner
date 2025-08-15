@@ -1,20 +1,40 @@
-# Feature: Planning Room and Rooms Navigation
 
-## Description
-Introduce a navigation bar with the concept of rooms (pages/tabs). When a user selects a project, they enter the planning room for that project, where they can add and view products linked to the project. Products are associated with plans using the existing database model.
+# Feature: Planning Room & Canvas (2025-08-15)
 
-## Tasks
-- [ ] Add a navigation bar for rooms (Projects, Planning, etc.)
-- [ ] Implement backend route to fetch project details and products
-- [ ] Implement backend route to add a product to a project
-- [ ] Create planning room page to display project and products
-- [ ] Add form to planning room to add new products
-- [ ] Link products to plans in the database
-- [ ] Update tests for navigation, planning room, and product management
+## Overview
+The planning room and canvas provide a hierarchical, interactive product breakdown structure for each project. Key features include:
 
-## Related User Stories
-- docs/story-planning-room.md
+- Hierarchical product list with drag-and-drop, powered by jsTree
+- Persistent `sort_order` for products, maintained in the database
+- All move, indent, and outdent logic handled by backend endpoints
+- Product list and canvas order always match, with live updates after any change
+- Canvas auto-expands and draws classic vertical tree layout with elbow lines
+- All CRUD operations (add, rename, delete) are backend-driven and reflected instantly in the UI
+- Product list is fully expanded by default
+- Export product list hierarchy to Excel/CSV via a hamburger menu above the product list
 
-## Notes
-- Only authenticated users can access rooms and planning features.
-- The UI should make it easy to switch between rooms and select projects.
+## Endpoints
+
+- `POST /projects/move-product-up/{product_id}`: Move a product up in its sibling order
+- `POST /projects/move-product-down/{product_id}`: Move a product down in its sibling order
+- `POST /projects/indent-product/{product_id}`: Indent a product (make it a child of its previous sibling)
+- `POST /projects/outdent-product/{product_id}`: Outdent a product (move it up a level)
+- `POST /rename-product/{product_id}`: Rename a product
+- `POST /projects/delete-product/{product_id}`: Delete a product
+- `POST /projects/update-product-parent/{product_id}`: Update a product's parent and sort order
+
+## Data Model
+
+- Each product has a `sort_order` (integer, unique within its parent), a `plan_id` (parent product or null), and a `project_id`.
+- All ordering and hierarchy changes are persisted in the database and reflected in the UI.
+
+## UI Integration
+
+- The product list uses jsTree for drag-and-drop, inline renaming, and CRUD.
+- The canvas reads the product hierarchy and order from the backend and updates live after any change.
+- All nodes are rendered in a classic vertical tree layout, with elbow lines connecting parents and children.
+
+## Testing
+
+- Full test coverage for CRUD, move, indent, outdent, and ordering logic.
+- See `tests/test_products_crud_and_order.py` for examples.

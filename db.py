@@ -34,6 +34,7 @@ def create_tables():
             name TEXT NOT NULL,
             project_id INTEGER NOT NULL,
             plan_id INTEGER,
+            sort_order INTEGER DEFAULT 0,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         )''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS plans (
@@ -52,9 +53,9 @@ def get_project_with_products(project_id: int):
         project_row = cursor.fetchone()
         if not project_row:
             return None
-        cursor.execute('SELECT id, name, plan_id FROM products WHERE project_id = ?', (project_id,))
+        cursor.execute('SELECT id, name, plan_id, sort_order FROM products WHERE project_id = ? ORDER BY sort_order ASC, id ASC', (project_id,))
         products = [
-            {"id": row[0], "name": row[1], "plan_id": row[2]} for row in cursor.fetchall()
+            {"id": row[0], "name": row[1], "plan_id": row[2], "sort_order": row[3]} for row in cursor.fetchall()
         ]
         return {"id": project_row[0], "name": project_row[1], "products": products}
 
@@ -62,7 +63,10 @@ def get_project_with_products(project_id: int):
 def add_product_to_project(project_id: int, product_name: str, plan_id: Optional[int] = None):
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO products (name, project_id, plan_id) VALUES (?, ?, ?)', (product_name, project_id, plan_id))
+        # Find max sort_order for this project
+        cursor.execute('SELECT COALESCE(MAX(sort_order), 0) FROM products WHERE project_id = ?', (project_id,))
+        max_order = cursor.fetchone()[0] or 0
+        cursor.execute('INSERT INTO products (name, project_id, plan_id, sort_order) VALUES (?, ?, ?, ?)', (product_name, project_id, plan_id, max_order + 1))
         conn.commit()
 def get_projects_by_username(username: str):
     with get_db() as conn:

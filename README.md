@@ -1,6 +1,7 @@
 # noodleplanner
 Noodle Planner - a project management tool for smart people
 
+
 ## Features
 - User registration and login
 - Secure session management (cookie-based)
@@ -10,6 +11,22 @@ Noodle Planner - a project management tool for smart people
 - Jinja2 templated UI
 - SQLite backend
 - Full test coverage with pytest
+
+- Hierarchical product list with drag-and-drop, powered by jsTree
+- Persistent `sort_order` for products, maintained in the database
+- All move, indent, and outdent logic handled by backend endpoints
+- Product list and canvas order always match, with live updates after any change
+- Canvas auto-expands and draws classic vertical tree layout with elbow lines
+- All CRUD operations (add, rename, delete) are backend-driven and reflected instantly in the UI
+- Product list is fully expanded by default
++- Export product list hierarchy to Excel/CSV via a hamburger menu above the product list
+- Hierarchical product list with drag-and-drop, powered by jsTree
+- Persistent `sort_order` for products, maintained in the database
+- All move, indent, and outdent logic handled by backend endpoints
+- Product list and canvas order always match, with live updates after any change
+- Canvas auto-expands and draws classic vertical tree layout with elbow lines
+- All CRUD operations (add, rename, delete) are backend-driven and reflected instantly in the UI
+- Product list is fully expanded by default
 
 ## Setup
 1. Clone the repository and install dependencies:
