@@ -1,3 +1,145 @@
+<script>
+// --- Product Details Side Panel Logic ---
+const PRODUCT_FIELDS = [
+    { key: 'name', label: 'Name' },
+    { key: 'description', label: 'Description', textarea: true },
+    { key: 'dependencies', label: 'Dependencies', textarea: true },
+    { key: 'resources', label: 'Resources (People)', textarea: true },
+    { key: 'skills', label: 'Skills', textarea: true },
+    { key: 'derived_from', label: 'Derived From', textarea: true },
+    { key: 'composed_of', label: 'Composed Of', textarea: true },
+    { key: 'acceptance_criteria', label: 'Acceptance Criteria', textarea: true }
+];
+let selectedProductId = null;
+function showProductDetails(product) {
+    selectedProductId = product ? product.id : null;
+    const panel = document.getElementById('product-details-panel');
+    panel.style.display = 'flex';
+    const fieldsDiv = document.getElementById('product-details-fields');
+    fieldsDiv.innerHTML = '';
+    if (!product) {
+        fieldsDiv.innerHTML = '<div style="color:#888;">Select a product to edit details.</div>';
+        return;
+    }
+    // Create a traditional webform
+    const form = document.createElement('form');
+    form.id = 'product-details-form';
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        // Save all fields at once
+        const formData = new FormData(form);
+        const payload = {};
+        PRODUCT_FIELDS.forEach(f => {
+            payload[f.key] = formData.get(f.key);
+        });
+        saveProductFields(payload);
+    };
+    PRODUCT_FIELDS.forEach(f => {
+        const wrapper = document.createElement('div');
+        wrapper.style.marginBottom = '0.7em';
+        const label = document.createElement('label');
+        label.textContent = f.label;
+        label.setAttribute('for', 'product-field-' + f.key);
+        label.style.fontWeight = 'bold';
+        label.style.display = 'block';
+        label.style.marginBottom = '0.2em';
+        wrapper.appendChild(label);
+        let input;
+        if (f.textarea) {
+            input = document.createElement('textarea');
+            input.rows = 2;
+            input.style.width = '100%';
+        } else {
+            input = document.createElement('input');
+            input.type = 'text';
+            input.style.width = '100%';
+        }
+        input.id = 'product-field-' + f.key;
+        input.name = f.key;
+        input.value = product[f.key] || '';
+        wrapper.appendChild(input);
+        form.appendChild(wrapper);
+    });
+    // Add a save button
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'submit';
+    saveBtn.textContent = 'Save';
+    saveBtn.style.marginTop = '0.5em';
+    form.appendChild(saveBtn);
+    fieldsDiv.appendChild(form);
+}
+function saveProductFields(payload) {
+    if (!selectedProductId) return;
+    fetch(`/projects/update-product-order/${selectedProductId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(() => {
+        // Always update all-products-json before rendering nodes
+        if (window.updateAllProductsJson) {
+            window.updateAllProductsJson();
+        }
+        if (window.refreshProductJsonAndCanvas) {
+            window.refreshProductJsonAndCanvas();
+            setTimeout(() => {
+                if (window.currentlySelectedProductId) {
+                    selectProductById(window.currentlySelectedProductId);
+                }
+            }, 350);
+        }
+    });
+}
+function hideProductDetails() {
+    document.getElementById('product-details-panel').style.display = 'none';
+    selectedProductId = null;
+}
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle/collapse panel
+    document.getElementById('toggle-details-panel').onclick = function() {
+        const panel = document.getElementById('product-details-panel');
+        if (panel.style.right === '-320px') {
+            panel.style.right = '0';
+            panel.style.display = 'flex';
+        } else {
+            panel.style.right = '-320px';
+            setTimeout(() => { panel.style.display = 'none'; }, 300);
+        }
+    };
+    // Show message if no product is selected
+    showProductDetails(null);
+    // Select first product by default if available
+    const products = JSON.parse(document.getElementById('all-products-json').textContent);
+    if (products && products.length > 0) {
+        window.currentlySelectedProductId = products[0].id;
+        showProductDetails(products[0]);
+    } else {
+        window.currentlySelectedProductId = null;
+    }
+
+    // Register jsTree selection event handler here to ensure it always works
+    $('#product-tree').on('select_node.jstree', function(e, data) {
+        selectProductById(data.node.id);
+    });
+
+    // Register canvas node click event handler here to ensure it always works
+    document.getElementById('canvas').addEventListener('click', function(e) {
+        const node = e.target.closest('.node');
+        if (node && node.dataset.productId) {
+            selectProductById(node.dataset.productId);
+        }
+    });
+});
+// Listen for product selection from jsTree
+function selectProductById(productId) {
+    const products = JSON.parse(document.getElementById('all-products-json').textContent);
+    const prod = products.find(p => String(p.id) === String(productId));
+    if (prod) {
+        window.currentlySelectedProductId = prod.id;
+        showProductDetails(prod);
+    }
+}
+// ...removed duplicate event handlers, now registered in DOMContentLoaded...
+</script>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -181,10 +323,14 @@ $(function() {
 </script>
         </div>
     <div id="canvas" style="flex: 1; min-width: 0; position: relative; background: #f0f0f0; min-height: 100%; min-width: 100%; overflow: auto;">
-            <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:auto;background:rgba(255,0,0,0.05);border: 3px solid blue;"></svg>
-            <!-- Nodes will be rendered here by JS -->
-        <style>#canvas { background: #f0f0f0 !important; border: 3px dashed green !important; }</style>
-        </div>
+        <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:auto;"></svg>
+        <!-- Nodes will be rendered here by JS -->
+    </div>
+    <div id="product-details-panel" style="width: 340px; background: #fff; border-left: 1px solid #ddd; box-shadow: 0 0 8px #0001; padding: 1em; overflow-y: auto; display: flex; flex-direction: column; position: absolute; right: 0; top: 0; height: 100%; z-index: 2000; transition: right 0.3s;">
+        <button id="toggle-details-panel" style="position: absolute; left: -32px; top: 1em; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer;">&#9776;</button>
+        <h3>Product Details</h3>
+        <div id="product-details-fields" style="display: flex; flex-direction: column; gap: 0.7em;"></div>
+    </div>
     </div>
     <script src="/static/inline-rename.js"></script>
     <script src="/static/product-tree.js"></script>
@@ -192,20 +338,15 @@ $(function() {
     <script src="/static/canvas.js"></script>
 </body>
 <script>
+// Ensure the details panel is visible and positioned absolutely to the right
+document.addEventListener('DOMContentLoaded', function() {
+    const panel = document.getElementById('product-details-panel');
+    panel.style.display = 'flex';
+    panel.style.right = '0';
+});
 function updateAllProductsJson() {
-    // Get latest data from jsTree
-    var tree = $('#product-tree').jstree(true);
-    var nodes = tree.get_json('#', { flat: true });
-    // Convert jsTree nodes back to product objects
-    var products = nodes.map(function(n) {
-        return {
-            id: parseInt(n.id),
-            name: n.text,
-            plan_id: n.parent === '#' ? null : parseInt(n.parent),
-            // Optionally add sort_order if needed
-        };
-    });
-    document.getElementById('all-products-json').textContent = JSON.stringify(products);
+    // Always refresh from backend to get all fields
+    refreshProductJsonAndCanvas();
 }
 
 function refreshProductJsonAndCanvas() {

@@ -35,9 +35,17 @@ Table Risks {
 
 Table Products {
   id integer [pk]
-  title varchar
+  name varchar
+  project_id integer
+  plan_id integer
+  sort_order integer
   description varchar
-  project_id integer 
+  dependencies varchar
+  resources varchar
+  skills varchar
+  derived_from varchar
+  composed_of varchar
+  acceptance_criteria varchar
 }
 
 Table Tenants {

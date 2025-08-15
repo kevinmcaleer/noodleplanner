@@ -35,6 +35,13 @@ def create_tables():
             project_id INTEGER NOT NULL,
             plan_id INTEGER,
             sort_order INTEGER DEFAULT 0,
+            description TEXT,
+            dependencies TEXT,
+            resources TEXT,
+            skills TEXT,
+            derived_from TEXT,
+            composed_of TEXT,
+            acceptance_criteria TEXT,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         )''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS plans (
@@ -53,9 +60,22 @@ def get_project_with_products(project_id: int):
         project_row = cursor.fetchone()
         if not project_row:
             return None
-        cursor.execute('SELECT id, name, plan_id, sort_order FROM products WHERE project_id = ? ORDER BY sort_order ASC, id ASC', (project_id,))
+        cursor.execute('''SELECT id, name, plan_id, sort_order, description, dependencies, resources, skills, derived_from, composed_of, acceptance_criteria
+                          FROM products WHERE project_id = ? ORDER BY sort_order ASC, id ASC''', (project_id,))
         products = [
-            {"id": row[0], "name": row[1], "plan_id": row[2], "sort_order": row[3]} for row in cursor.fetchall()
+            {
+                "id": row[0],
+                "name": row[1],
+                "plan_id": row[2],
+                "sort_order": row[3],
+                "description": row[4] or "",
+                "dependencies": row[5] or "",
+                "resources": row[6] or "",
+                "skills": row[7] or "",
+                "derived_from": row[8] or "",
+                "composed_of": row[9] or "",
+                "acceptance_criteria": row[10] or ""
+            } for row in cursor.fetchall()
         ]
         return {"id": project_row[0], "name": project_row[1], "products": products}
 
@@ -66,7 +86,9 @@ def add_product_to_project(project_id: int, product_name: str, plan_id: Optional
         # Find max sort_order for this project
         cursor.execute('SELECT COALESCE(MAX(sort_order), 0) FROM products WHERE project_id = ?', (project_id,))
         max_order = cursor.fetchone()[0] or 0
-        cursor.execute('INSERT INTO products (name, project_id, plan_id, sort_order) VALUES (?, ?, ?, ?)', (product_name, project_id, plan_id, max_order + 1))
+        cursor.execute('''INSERT INTO products (name, project_id, plan_id, sort_order, description, dependencies, resources, skills, derived_from, composed_of, acceptance_criteria)
+                          VALUES (?, ?, ?, ?, '', '', '', '', '', '', '')''',
+                       (product_name, project_id, plan_id, max_order + 1))
         conn.commit()
 def get_projects_by_username(username: str):
     with get_db() as conn:

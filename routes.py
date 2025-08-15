@@ -196,27 +196,70 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
-    plan_id = payload.get("plan_id")
-    sort_order = payload.get("sort_order")
+    plan_id = payload.get("plan_id", None)
+    sort_order = payload.get("sort_order", None)
+    # Support updating new fields if present
+    description = payload.get("description")
+    dependencies = payload.get("dependencies")
+    resources = payload.get("resources")
+    skills = payload.get("skills")
+    derived_from = payload.get("derived_from")
+    composed_of = payload.get("composed_of")
+    acceptance_criteria = payload.get("acceptance_criteria")
     with get_db() as conn:
         cursor = conn.cursor()
         # Only allow update if user owns the project this product belongs to
-        cursor.execute("SELECT p.project_id, pr.owner, p.plan_id FROM products p JOIN projects pr ON p.project_id = pr.id WHERE p.id = ?", (product_id,))
+        cursor.execute("SELECT p.project_id, pr.owner, p.plan_id, p.sort_order FROM products p JOIN projects pr ON p.project_id = pr.id WHERE p.id = ?", (product_id,))
         row = cursor.fetchone()
         if not row or row[1] != user_id:
             return JSONResponse({"success": False, "error": "Permission denied"}, status_code=403)
         project_id_db = row[0]
-        # Update plan_id and sort_order
-        cursor.execute("UPDATE products SET plan_id = ?, sort_order = ? WHERE id = ?", (plan_id, sort_order, product_id))
+        current_plan_id = row[2]
+        current_sort_order = row[3]
+        # Only update plan_id and sort_order if explicitly provided in payload
+        update_fields = []
+        update_values = []
+        if plan_id is not None:
+            update_fields.append("plan_id = ?")
+            update_values.append(plan_id)
+        if sort_order is not None:
+            update_fields.append("sort_order = ?")
+            update_values.append(sort_order)
+        if description is not None:
+            update_fields.append("description = ?")
+            update_values.append(description)
+        if dependencies is not None:
+            update_fields.append("dependencies = ?")
+            update_values.append(dependencies)
+        if resources is not None:
+            update_fields.append("resources = ?")
+            update_values.append(resources)
+        if skills is not None:
+            update_fields.append("skills = ?")
+            update_values.append(skills)
+        if derived_from is not None:
+            update_fields.append("derived_from = ?")
+            update_values.append(derived_from)
+        if composed_of is not None:
+            update_fields.append("composed_of = ?")
+            update_values.append(composed_of)
+        if acceptance_criteria is not None:
+            update_fields.append("acceptance_criteria = ?")
+            update_values.append(acceptance_criteria)
+        if update_fields:
+            update_values.append(product_id)
+            cursor.execute(f"UPDATE products SET {', '.join(update_fields)} WHERE id = ?", update_values)
 
-        # Re-sequence only the affected sibling group (same project_id and plan_id)
-        if plan_id is None:
-            cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id IS NULL ORDER BY sort_order ASC, id ASC", (project_id_db,))
-        else:
-            cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id = ? ORDER BY sort_order ASC, id ASC", (project_id_db, plan_id))
-        siblings = [r[0] for r in cursor.fetchall()]
-        for idx, sib_id in enumerate(siblings, start=1):
-            cursor.execute("UPDATE products SET sort_order = ? WHERE id = ?", (idx, sib_id))
+        # Only re-sequence if sort_order or plan_id was changed
+        if plan_id is not None or sort_order is not None:
+            effective_plan_id = plan_id if plan_id is not None else current_plan_id
+            if effective_plan_id is None:
+                cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id IS NULL ORDER BY sort_order ASC, id ASC", (project_id_db,))
+            else:
+                cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id = ? ORDER BY sort_order ASC, id ASC", (project_id_db, effective_plan_id))
+            siblings = [r[0] for r in cursor.fetchall()]
+            for idx, sib_id in enumerate(siblings, start=1):
+                cursor.execute("UPDATE products SET sort_order = ? WHERE id = ?", (idx, sib_id))
 
         # Ensure all plan_id references are valid (set to NULL if parent does not exist)
         cursor.execute("UPDATE products SET plan_id = NULL WHERE plan_id IS NOT NULL AND plan_id NOT IN (SELECT id FROM products)")
