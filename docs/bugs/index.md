@@ -6,6 +6,7 @@
 | BUG-0002 | User accounts not persisted across app restart | fixed | medium | P1 | 2025-08-20 | 102e87f4 | db, app lifecycle |
 | BUG-0003 | Flow Diagram tab does not activate & raw tab logic text displayed | fixed | medium | P2 | 2025-08-20 | 934b9fb4 | planning_room template |
 | BUG-0004 | Editing product details broke parent-child canvas connections | fixed | medium | P2 | 2025-08-20 | 2a0dbc7 | product ordering / update endpoint |
+| ENH-0001 | Product details panel overlapping navigation/logout | fixed | low | P3 | 2025-08-20 |  | product details panel |
 
 _Update this table whenever a bug is added or resolved._
 
@@ -18,5 +19,5 @@ _Update this table whenever a bug is added or resolved._
 ## Metrics (Generated)
 
 - Open: 0
-- Fixed: 4
+- Fixed: 5
 - Regression Rate: 0%
