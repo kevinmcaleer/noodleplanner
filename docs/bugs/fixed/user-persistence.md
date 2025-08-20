@@ -40,5 +40,5 @@ Restart app; confirm previously created users can still login.
 
 ## References
 
-- Commit: (add hash once committed)
+- Commit: 102e87f499cb9d09845fb821f9c39830d50b6e01
 

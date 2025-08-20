@@ -21,7 +21,7 @@ When moving existing products around in the treeview, it did not update the canv
 
 ## Fix Details
 
-- Fixed in commit: (fill with commit hash after commit)
+- Fixed in commit: 102e87f499cb9d09845fb821f9c39830d50b6e01
 - PR / Merge Request: (if applicable)
 - Added / updated tests: `tests/test_bug_0001_reorder_canvas_sync.py`
 - Code changes: Enhanced ordering logic in `routes.py` (`update_product_parent`, `update_product_order`) ensuring sibling resequencing and canvas data reflects updated order.
