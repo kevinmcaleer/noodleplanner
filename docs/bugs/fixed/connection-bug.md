@@ -41,6 +41,6 @@ Automated: regression test `tests/test_bug_0004_connection_integrity.py` verifie
 
 ## References
 
-- Commit: 8ff74db (assumed connection fix commit)
+- Commit: 2a0dbc7 (fix & regression tests)
 - File: `routes.py` (`update_product_order`)
 - Doc: `docs/connection-bug-fix.md`
