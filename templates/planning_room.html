@@ -345,29 +345,34 @@ $(function() {
                 <iframe id="flow-canvas-frame" src="/projects/{{ project.id }}/flow-canvas" style="width:100%;height:100%;border:none;"></iframe>
             </div>
         </div>
-// Tab switching logic
+<script>
+// Tab switching logic (moved into script so it executes)
 document.addEventListener('DOMContentLoaded', function() {
     const pbsTab = document.getElementById('pbs-tab');
     const flowTab = document.getElementById('flow-tab');
     const pbsContainer = document.getElementById('pbs-canvas-container');
     const flowContainer = document.getElementById('flow-canvas-container');
-    pbsTab.onclick = function() {
+    function activatePBS() {
         pbsTab.classList.add('active');
         flowTab.classList.remove('active');
         pbsTab.style.borderBottom = '2px solid #6c7ae0';
         flowTab.style.borderBottom = '2px solid transparent';
         pbsContainer.style.display = '';
         flowContainer.style.display = 'none';
-    };
-    flowTab.onclick = function() {
+    }
+    function activateFlow() {
         flowTab.classList.add('active');
         pbsTab.classList.remove('active');
         flowTab.style.borderBottom = '2px solid #6c7ae0';
         pbsTab.style.borderBottom = '2px solid transparent';
         pbsContainer.style.display = 'none';
         flowContainer.style.display = '';
-    };
+        // Lazy load iframe if needed (already loaded, but placeholder for future)
+    }
+    pbsTab.onclick = activatePBS;
+    flowTab.onclick = activateFlow;
 });
+</script>
     <script src="/static/inline-rename.js"></script>
     <script src="/static/product-tree.js"></script>
     <script src="/static/selectable-product-list.js"></script>

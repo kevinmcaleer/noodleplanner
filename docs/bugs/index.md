@@ -4,7 +4,7 @@
 |----|-------|--------|----------|----------|--------|-------|-----------|
 | BUG-0001 | Reordering not updating canvas | fixed | high | P1 | 2025-08-20 | (commit pending) | canvas, product tree |
 | BUG-0002 | User persistence lost on restart | fixed | medium | P1 | 2025-08-20 | (commit pending) | auth, db |
-| BUG-0003 | Flow tab inactive & code visible | open | medium | P2 | 2025-08-20 | - | ui |
+| BUG-0003 | Flow tab inactive & code visible | fixed | medium | P2 | 2025-08-20 | (commit pending) | ui |
 
 _Update this table whenever a bug is added or resolved._
 
@@ -16,6 +16,6 @@ _Update this table whenever a bug is added or resolved._
 
 ## Metrics (Manual for now)
 
-- Open: 1
-- Fixed: 2
+- Open: 0
+- Fixed: 3
 - Regression Rate: 0%
