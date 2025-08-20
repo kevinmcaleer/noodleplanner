@@ -42,6 +42,7 @@ async def get_project_dependencies(request: Request, project_id: int):
 
 @router.post("/projects/{project_id}/dependencies")
 async def add_project_dependency(request: Request, project_id: int):
+    """Add a dependency ensuring both products exist in the specified project."""
     username = request.cookies.get("token")
     user = get_user(username) if username else None
     if not user:
@@ -51,15 +52,34 @@ async def add_project_dependency(request: Request, project_id: int):
     to_id = data.get("to_product_id")
     if not from_id or not to_id:
         return JSONResponse({"success": False, "error": "Missing product IDs"}, status_code=400)
+    # Validate both products belong to this project
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM products WHERE id IN (?, ?) AND project_id = ?", (from_id, to_id, project_id))
+        count = cursor.fetchone()[0]
+    if count != 2:
+        return JSONResponse({"success": False, "error": "Products must exist in the project"}, status_code=400)
     add_dependency(from_id, to_id)
     return JSONResponse({"success": True})
 
 @router.delete("/projects/{project_id}/dependencies/{dep_id}")
 async def delete_project_dependency(request: Request, project_id: int, dep_id: int):
+    """Delete dependency only if both endpoint products belong to project."""
     username = request.cookies.get("token")
     user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT COUNT(*) FROM dependencies d
+            JOIN products p1 ON d.from_product_id = p1.id
+            JOIN products p2 ON d.to_product_id = p2.id
+            WHERE d.id = ? AND p1.project_id = ? AND p2.project_id = ?
+        """, (dep_id, project_id, project_id))
+        ok = cursor.fetchone()[0] == 1
+    if not ok:
+        return JSONResponse({"success": False, "error": "Dependency not found in project"}, status_code=404)
     remove_dependency(dep_id)
     return JSONResponse({"success": True})
 
@@ -164,10 +184,10 @@ async def move_product_down(request: Request, product_id: int = Path(...)):
             return JSONResponse({"success": False, "error": "Permission denied"}, status_code=403)
         # Find next sibling (same parent, higher sort_order)
         cursor.execute("SELECT id, sort_order FROM products WHERE project_id = ? AND (plan_id IS ? OR (plan_id IS NULL AND ? IS NULL)) AND sort_order > ? ORDER BY sort_order ASC LIMIT 1", (project_id, plan_id, plan_id, sort_order))
-        next = cursor.fetchone()
-        if not next:
+        next_sib = cursor.fetchone()
+        if not next_sib:
             return JSONResponse({"success": True, "moved": False})
-        next_id, next_order = next
+        next_id, next_order = next_sib
         cursor.execute("UPDATE products SET sort_order = ? WHERE id = ?", (next_order, product_id))
         cursor.execute("UPDATE products SET sort_order = ? WHERE id = ?", (sort_order, next_id))
         conn.commit()
@@ -262,7 +282,6 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
             return JSONResponse({"success": False, "error": "Permission denied"}, status_code=403)
         project_id_db = row[0]
         current_plan_id = row[2]
-        current_sort_order = row[3]
         # Only update plan_id and sort_order if explicitly provided in payload
         update_fields = []
         update_values = []
@@ -313,8 +332,7 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
 
         conn.commit()
     return JSONResponse({"success": True})
-templates = Jinja2Templates(directory="templates")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# Duplicate templates/oauth2_scheme removed (declared at top)
 
 @router.post("/projects/delete-product/{product_id}")
 async def delete_product(request: Request, product_id: int):
@@ -351,17 +369,50 @@ async def update_product_parent(request: Request, product_id: int, payload: dict
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
-    plan_id = payload.get("plan_id")
+    plan_id = payload.get("plan_id")  # New parent (may be None for root)
+    new_sort_order = payload.get("sort_order")  # Desired 1-based position among siblings (optional)
     with get_db() as conn:
         cursor = conn.cursor()
-        # Only allow update if user owns the project this product belongs to
-        cursor.execute("SELECT p.project_id, pr.owner FROM products p JOIN projects pr ON p.project_id = pr.id WHERE p.id = ?", (product_id,))
+        # Validate ownership and get current data
+        cursor.execute("SELECT p.project_id, pr.owner, p.plan_id, p.sort_order FROM products p JOIN projects pr ON p.project_id = pr.id WHERE p.id = ?", (product_id,))
         row = cursor.fetchone()
         if not row or row[1] != user_id:
             return JSONResponse({"success": False, "error": "Permission denied"}, status_code=403)
-        cursor.execute("UPDATE products SET plan_id = ? WHERE id = ?", (plan_id, product_id))
+        project_id = row[0]
+        current_parent = row[2]
+
+        # If parent is unchanged and no sort order specified, nothing to do
+        if plan_id == current_parent and new_sort_order is None:
+            return JSONResponse({"success": True, "changed": False})
+
+        # Update parent if changed
+        if plan_id != current_parent:
+            cursor.execute("UPDATE products SET plan_id = ? WHERE id = ?", (plan_id, product_id))
+
+        # Rebuild sibling ordering (including this product)
+        # Fetch siblings (excluding this product for now) for the target parent
+        if plan_id is None:
+            cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id IS NULL AND id != ? ORDER BY sort_order ASC, id ASC", (project_id, product_id))
+        else:
+            cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id = ? AND id != ? ORDER BY sort_order ASC, id ASC", (project_id, plan_id, product_id))
+        sibling_ids = [r[0] for r in cursor.fetchall()]
+
+        # Determine insertion index
+        if new_sort_order is None or new_sort_order < 1:
+            # Place at end if no explicit position
+            insert_index = len(sibling_ids)  # zero-based
+        else:
+            insert_index = min(new_sort_order - 1, len(sibling_ids))
+
+        # Insert product id into list at computed position
+        sibling_ids.insert(insert_index, product_id)
+
+        # Re-sequence sort_order starting at 1
+        for idx, sib_id in enumerate(sibling_ids, start=1):
+            cursor.execute("UPDATE products SET sort_order = ? WHERE id = ?", (idx, sib_id))
+
         conn.commit()
-    return JSONResponse({"success": True})
+    return JSONResponse({"success": True, "changed": True, "new_position": insert_index + 1})
 def get_user_id(user):
     with get_db() as conn:
         cursor = conn.cursor()
@@ -445,7 +496,7 @@ async def add_product(request: Request, project_id: int, product_name: str = For
         if isinstance(plan_id, str):
             try:
                 plan_id = int(plan_id)
-            except Exception:
+            except ValueError:
                 plan_id = None
         else:
             plan_id = None
@@ -531,7 +582,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     return response
 
 @router.post("/logout")
-async def logout(request: Request):
+async def logout(_: Request):
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie(key="token")
     return response

@@ -1,9 +1,13 @@
 import sqlite3
-
+import os
 from typing import Optional
 from contextlib import contextmanager
 
-DATABASE_URL = "test.db"
+# Use absolute path so app restarts from different working directories still use the same DB file.
+# Allow override via NOODLEPLANNER_DB for testing persistence behaviors.
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_DB = os.path.join(_BASE_DIR, "test.db")
+DATABASE_URL = os.environ.get("NOODLEPLANNER_DB", _DEFAULT_DB)
 
 @contextmanager
 def get_db():
