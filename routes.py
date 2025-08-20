@@ -263,8 +263,11 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
-    plan_id = payload.get("plan_id", None)
-    sort_order = payload.get("sort_order", None)
+    # Distinguish between absence of key and explicit null (for moving to root)
+    plan_id_explicit = 'plan_id' in payload
+    sort_order_explicit = 'sort_order' in payload
+    plan_id = payload.get("plan_id", None) if plan_id_explicit else None
+    sort_order = payload.get("sort_order", None) if sort_order_explicit else None
     # Support updating new fields if present
     description = payload.get("description")
     dependencies = payload.get("dependencies")
@@ -285,10 +288,11 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
         # Only update plan_id and sort_order if explicitly provided in payload
         update_fields = []
         update_values = []
-        if plan_id is not None:
+        if plan_id_explicit:
+            # Allow setting to NULL explicitly
             update_fields.append("plan_id = ?")
             update_values.append(plan_id)
-        if sort_order is not None:
+        if sort_order_explicit and sort_order is not None:
             update_fields.append("sort_order = ?")
             update_values.append(sort_order)
         if description is not None:
@@ -316,9 +320,9 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
             update_values.append(product_id)
             cursor.execute(f"UPDATE products SET {', '.join(update_fields)} WHERE id = ?", update_values)
 
-        # Only re-sequence if sort_order or plan_id was changed
-        if plan_id is not None or sort_order is not None:
-            effective_plan_id = plan_id if plan_id is not None else current_plan_id
+        # Only re-sequence if sort_order or plan_id explicitly provided
+        if plan_id_explicit or sort_order_explicit:
+            effective_plan_id = plan_id if plan_id_explicit else current_plan_id
             if effective_plan_id is None:
                 cursor.execute("SELECT id FROM products WHERE project_id = ? AND plan_id IS NULL ORDER BY sort_order ASC, id ASC", (project_id_db,))
             else:

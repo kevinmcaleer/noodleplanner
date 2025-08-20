@@ -37,7 +37,7 @@ Manual tests:
 2. Edit child description only -> hierarchy unchanged in list & canvas.
 3. Change child parent -> hierarchy updates correctly and canvas reflects change.
 
-Automated: (Add regression test placeholder `tests/test_bug_0004_connection_integrity.py`).
+Automated: regression test `tests/test_bug_0004_connection_integrity.py` verifies non-structural edits preserve hierarchy; structural edits resequence correctly.
 
 ## References
 
