@@ -18,6 +18,14 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -27,6 +35,15 @@ jobs:
       - name: Run tests
         run: |
           pytest -q
+
+      - name: Cache pytest cache
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: pytest-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            pytest-${{ runner.os }}-
 
       - name: Upload test results (always)
         if: always()
