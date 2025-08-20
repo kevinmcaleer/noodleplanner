@@ -1,0 +1,154 @@
+:root { --nav-height: 64px; }
+#main-grid {
+  display: grid;
+  grid-template-areas:
+    "nav nav nav account-management"
+    "prod-list canvas-area canvas-area prod-details";
+  grid-template-columns: 320px 1fr 1fr 340px;
+  grid-template-rows: var(--nav-height) 1fr;
+  height: 100vh;
+  width: 100vw;
+  gap: 0;
+}
+#main-nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  padding-left: 1em;
+  border-bottom: 1px solid #ccc;
+  background: #fff;
+  height: var(--nav-height);
+}
+#account-management {
+  grid-area: account-management;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1em;
+  padding-right: 1em;
+  background: #fff;
+  height: var(--nav-height);
+  border-bottom: 1px solid #ccc;
+}
+#tab-bar {
+  grid-column: 1 / span 4;
+  grid-row: 2;
+  display: flex;
+  border-bottom: 1px solid #ccc;
+  background: #f7f7f7;
+  padding-left: 1em;
+  align-items: center;
+}
+#product-list {
+  grid-area: prod-list;
+  background: #f7f7f7;
+  border-right: 1px solid #ddd;
+  padding: 1em;
+  overflow-y: auto;
+  min-width: 200px;
+  max-width: 320px;
+}
+#canvas-area {
+  grid-area: canvas-area;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f0f0f0;
+  min-width: 0;
+  position: relative;
+}
+#canvas {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: #f0f0f0;
+  min-height: 100%;
+  min-width: 100%;
+  overflow: auto;
+}
+#product-details-panel {
+  grid-area: prod-details;
+  width: 340px;
+  background: #fff;
+  border-left: 1px solid #ddd;
+  box-shadow: 0 0 8px #0001;
+  padding: 1em;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  height: 100%;
+  z-index: 2000;
+  transition: right 0.3s;
+}
+#toggle-details-panel {
+  position: absolute;
+  left: -32px;
+  top: 0.75em;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  background: #f7f7f7;
+  cursor: pointer;
+}
+#canvas .node {
+  background: #fff;
+  border: 2px solid #6c7ae0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #0001;
+  min-width: 120px;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  user-select: none;
+  z-index: 2;
+}
+#canvas .node .label {
+  font-weight: bold;
+  margin: 0.5em 0 0.2em 0;
+  text-align: center;
+  width: 100%;
+}
+#canvas .handles {
+  position: absolute;
+  width: calc(100% + 32px);
+  left: -16px;
+  top: -24px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+#canvas .handle {
+  width: 16px;
+  height: 16px;
+  background: #222;
+  border-radius: 4px;
+  border: 2px solid #fff;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px #0003;
+  pointer-events: auto;
+}
+#canvas .handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px #2223;
+}
+#canvas .node.group {
+  background: #ffe3e3;
+  border-color: #e06c6c;
+  border-radius: 4px;
+  box-shadow: 4px 4px 12px #e06c6c33;
+  transform: skew(-18deg);
+}
+#canvas .node.group .label {
+  transform: skew(18deg);
+}
+#canvas .connection {
+  stroke: #6c7ae0;
+  stroke-width: 3px;
+  fill: none;
+}

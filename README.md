@@ -13,12 +13,13 @@ Noodle Planner - a project management tool for smart people
 - Jinja2 templated UI
 - SQLite backend
 - Full test coverage with pytest
-- Hierarchical product list with drag-and-drop, powered by jsTree
+- Hierarchical product list with drag-and-drop and right-click context menu (rename, delete), powered by jsTree
 - Persistent `sort_order` for products, maintained in the database
-- All move, indent, and outdent logic handled by backend endpoints
+- All move, indent, outdent, and CRUD logic handled by backend endpoints
 - Product list and canvas order always match, with live updates after any change
 - Canvas auto-expands and draws classic vertical tree layout with elbow lines
-- All CRUD operations (add, rename, delete) are backend-driven and reflected instantly in the UI
+- All CRUD operations (add, rename, delete, edit details) are backend-driven and reflected instantly in the UI and canvas
+- Product details panel supports editing and saving all fields, with changes persisted in the backend
 - Product list is fully expanded by default
 - Export product list hierarchy to Excel/CSV via a hamburger menu above the product list
 
@@ -64,6 +65,9 @@ chmod +x .githooks/pre-commit
    - `story-create-project.md`, `feature-create-project.md`
    - `story-register-account.md`, `feature-logout-account-menu.md`
    - `login.md` (epic template)
+- Changelog: `docs/CHANGELOG-2025-08-20.md`
+- Bug tracking: `docs/bugs/index.md`, `docs/bugs/fixed/product-details-save-bug-2025-08-20.md`
+- Test docs: `docs/test-product-details-save.md`
 
 ## Usage
 

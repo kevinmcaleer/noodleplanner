@@ -82,21 +82,25 @@
             </div>
         </div>
         <div id="flow-wrapper">
-            <div id="flow-canvas">
-                <svg id="connections"></svg>
-            </div>
+            <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;"></svg>
+            <div id="flow-canvas"></div>
         </div>
     </div>
-    <aside id="details-panel">
-        <button id="toggle-details">&#9776;</button>
-        <h3 style="margin-top:0;">Product Details</h3>
-        <div id="details-content" style="font-size:0.8rem; display:flex; flex-direction:column; gap:0.6em;"></div>
-    </aside>
+    <!-- Ensure the products JSON is always available for JS -->
+    <script id="all-products-json" type="application/json">{{ products|tojson }}</script>
+    <script src="/static/canvas.js"></script>
+    <!-- Product details panel removed: handled by main planning room -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // --- Product Flow Diagram Enhanced Logic ---
         const projectId = "{{ project.id }}";
-        let products = JSON.parse(`{{ products | tojson | safe }}`);
+        let products = [];
+        try {
+            products = JSON.parse(document.getElementById('all-products-json').textContent);
+        } catch (e) {
+            // fallback: try inline Jinja2 (legacy)
+            try { products = JSON.parse(`{{ products | tojson | safe }}`); } catch (e2) { products = []; }
+        }
         let dependencies = [];
         let nodeMap = {}; // productId -> node element
         let nodeData = {}; // productId -> { x,y }
@@ -214,6 +218,10 @@
 
         function drawConnections() {
             const svg = document.getElementById('connections');
+            if (!svg) {
+                console.error('SVG element with id="connections" not found.');
+                return;
+            }
             svg.innerHTML = '';
             dependencies.forEach(dep => {
                 const fromNode = nodeMap[dep.from_product_id];
@@ -298,40 +306,7 @@
                 .then(r=>r.json()).then(resp => { if (resp.success) { products.push(resp.product); nodeData[resp.product.id] = { x: 60, y: 60 }; renderNodes(); renderLists(); showDetails(resp.product.id); document.getElementById('quick-add-name').value=''; } });
         });
 
-        // --- Details Panel ---
-        const PRODUCT_FIELDS = [
-            { key:'name', label:'Name' },
-            { key:'description', label:'Description', textarea:true },
-            { key:'dependencies', label:'Dependencies', textarea:true },
-            { key:'resources', label:'Resources (People)', textarea:true },
-            { key:'skills', label:'Skills', textarea:true },
-            { key:'derived_from', label:'Derived From', textarea:true },
-            { key:'composed_of', label:'Composed Of', textarea:true },
-            { key:'acceptance_criteria', label:'Acceptance Criteria', textarea:true }
-        ];
-        function showDetails(id) {
-            selectedNode = id; updateNodeSelection();
-            const prod = products.find(p => p.id === id);
-            const container = document.getElementById('details-content');
-            container.innerHTML = '';
-            if (!prod) { container.textContent = 'Select a product.'; return; }
-            const form = document.createElement('form'); form.id='product-details-form';
-            PRODUCT_FIELDS.forEach(f => {
-                const wrap = document.createElement('div'); wrap.style.marginBottom = '0.5em';
-                const label = document.createElement('label'); label.textContent = f.label; label.style.fontWeight='600'; label.style.display='block'; label.style.fontSize='0.7rem'; label.htmlFor = 'fld-'+f.key; wrap.appendChild(label);
-                let input; if (f.textarea) { input = document.createElement('textarea'); input.rows=2; } else { input=document.createElement('input'); input.type='text'; }
-                input.name = f.key; input.id='fld-'+f.key; input.value = prod[f.key] || ''; input.style.fontSize='0.75rem';
-                wrap.appendChild(input); form.appendChild(wrap);
-            });
-            const saveBtn = document.createElement('button'); saveBtn.textContent='Save'; saveBtn.type='submit'; saveBtn.style.marginTop='0.3em'; form.appendChild(saveBtn);
-            form.addEventListener('submit', ev => { ev.preventDefault(); const data = new FormData(form); const payload = {}; PRODUCT_FIELDS.forEach(f => payload[f.key]=data.get(f.key)); fetch(`/projects/update-product-order/${id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(()=> refreshProducts().then(()=> { showDetails(id); renderLists(); })); });
-            container.appendChild(form);
-        }
-        document.getElementById('toggle-details').addEventListener('click', () => {
-            const panel = document.getElementById('details-panel');
-            if (panel.style.right === '-320px') { panel.style.right='0'; panel.style.display='flex'; }
-            else { panel.style.right='-320px'; setTimeout(()=> panel.style.display='none', 300); }
-        });
+    // --- Details Panel removed: handled by main planning room --- 
 
         // --- Init ---
         fetchDependencies().then(() => { renderLists(); renderNodes(); });

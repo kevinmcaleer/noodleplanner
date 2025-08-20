@@ -3,7 +3,11 @@
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    const canvas = document.getElementById('canvas');
+    console.log('[canvas.js] window.location.href:', window.location.href);
+    console.log('[canvas.js] Is in iframe:', window.self !== window.top);
+    console.log('[canvas.js] BODY HTML at startup:', document.body.innerHTML);
+    // Support both PBS (#canvas) and PFD (#flow-canvas)
+    const canvas = document.getElementById('canvas') || document.getElementById('flow-canvas');
     const svg = document.getElementById('connections');
     let nodeData = {};
     let dragging = null, offsetX = 0, offsetY = 0;
@@ -31,14 +35,31 @@ document.addEventListener('DOMContentLoaded', function() {
         clearNodes();
         // Remove all child nodes from canvas to prevent duplicates, but keep the SVG for connections
         const svg = document.getElementById('connections');
+        if (!canvas) {
+            console.error('[canvas.js] #flow-canvas not found!');
+            return;
+        }
         Array.from(canvas.childNodes).forEach(child => {
             if (child !== svg) {
                 canvas.removeChild(child);
             }
         });
+        const jsonEl = document.getElementById('all-products-json');
+        if (jsonEl) {
+            console.log('[canvas.js] RAW #all-products-json:', jsonEl.textContent);
+        } else {
+            console.warn('[canvas.js] #all-products-json element not found!');
+        }
         const products = getProducts();
-        // Debug: log products array
+        // Debug: log products array and canvas element
         console.log('[canvas.js] products from #all-products-json:', products);
+        console.log('[canvas.js] canvas element:', canvas);
+        if (!products || products.length === 0) {
+            console.warn('[canvas.js] No products found, nodes will not be rendered.');
+        }
+        if (!canvas) {
+            console.error('[canvas.js] #flow-canvas not found!');
+        }
     // --- Classic vertical tree layout: parent on its own row, children beneath ---
     const NODE_WIDTH = 140;
     const NODE_HEIGHT = 60;
@@ -68,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Second pass: layout nodes
         function layoutTree(el, depth, x, y) {
             if (!el) return;
+            console.log('[canvas.js] layoutTree called for:', el);
             const id = el.id || el.productId || el['productId'] || el['id'];
             if (!id) return;
             const type = 'product';
@@ -150,6 +172,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     connecting = { from: node, pos: handle.dataset.pos, startEvent: e };
                     document.querySelectorAll('.node .handles').forEach(h => h.style.display = 'flex');
                     drawConnections();
+                    // Debug: count and log all .node elements in #flow-canvas
+                    if (canvas) {
+                        const nodeEls = canvas.querySelectorAll('.node');
+                        console.log(`[canvas.js] .node elements in #flow-canvas: count=${nodeEls.length}`, nodeEls);
+                    }
                 });
             });
             // Layout children: each on a new row beneath the parent, all in the same column (X)
@@ -323,12 +350,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Deselect connection on canvas click
-    canvas.addEventListener('click', function(e) {
-        if (e.target.tagName !== 'path') {
-            svg.querySelectorAll('.connection.selected').forEach(p => p.classList.remove('selected'));
-            selectedConnection = null;
-        }
-    });
+    if (canvas) {
+        canvas.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'path') {
+                svg.querySelectorAll('.connection.selected').forEach(p => p.classList.remove('selected'));
+                selectedConnection = null;
+            }
+        });
+    }
 
     // Delete connection with Delete key
     document.addEventListener('keydown', function(e) {
@@ -384,10 +413,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Listen for product add/rename via DOM changes
     const productList = document.getElementById('product-list');
-    const observer = new MutationObserver(() => {
-        renderNodes();
-    });
     if (productList) {
+        const observer = new MutationObserver(() => {
+            renderNodes();
+        });
         observer.observe(productList, { childList: true, subtree: true, characterData: true });
     }
 
