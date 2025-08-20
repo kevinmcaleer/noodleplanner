@@ -26,7 +26,7 @@ STATUS_OPEN = {'open', 'in-progress'}
 
 FRONT_MATTER_RE = re.compile(r'^---\n(.*?)\n---', re.DOTALL)
 FIELD_RE = re.compile(r'^(\w+):\s*(.*)$')
-COMMIT_RE = re.compile(r'([0-9a-f]{40})')
+COMMIT_RE = re.compile(r'([0-9a-f]{7,40})')
 
 
 def parse_front_matter(text: str) -> dict:
@@ -48,7 +48,7 @@ def parse_front_matter(text: str) -> dict:
 def find_commit_hash(text: str) -> str | None:
     # Prefer 'Commit:' or 'Fixed in commit:' lines
     for line in text.splitlines():
-        if 'commit' in line.lower():
+        if 'commit:' in line.lower():
             m = COMMIT_RE.search(line)
             if m:
                 return m.group(1)[:8]
