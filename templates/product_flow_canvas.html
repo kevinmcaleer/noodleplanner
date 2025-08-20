@@ -4,210 +4,337 @@
     <meta charset="UTF-8">
     <title>Product Flow Diagram - NoodlePlanner</title>
     <style>
-        body { font-family: sans-serif; }
-        #canvas-container { display: flex; height: 90vh; }
-        #product-list { width: 220px; background: #f7f7f7; border-right: 1px solid #ddd; padding: 1em; overflow-y: auto; }
-        #flow-canvas { flex: 1; position: relative; background: #f0f0f0; min-height: 100vh; }
+        body { font-family: sans-serif; margin:0; }
+        :root { --panel-width: 340px; --nav-height: 56px; }
+        #canvas-container { display: flex; height: calc(100vh - var(--nav-height)); }
+        #left-panel { width: 240px; background: #f7f7f7; border-right: 1px solid #ddd; padding: 0.75em; overflow-y: auto; }
+        #flow-wrapper { flex: 1; position: relative; overflow: auto; }
+        #flow-canvas { position: relative; background: #f0f0f0; min-height: 2000px; min-width: 2000px; }
+        #connections { position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none; }
         .node {
             position: absolute;
-            min-width: 120px;
-            min-height: 40px;
-            background: #e3eaff;
+            min-width: 140px;
+            min-height: 48px;
+            background: #fff;
             border: 2px solid #6c7ae0;
-            border-radius: 8px;
+            border-radius: 10px;
             box-shadow: 0 2px 8px #0001;
             cursor: move;
-            padding: 0.5em 1em;
+            padding: 0.25em 0.75em 0.6em;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             user-select: none;
             z-index: 2;
+            font-size: 0.85rem;
         }
-        .node.selected { border: 2.5px solid #e06c6c; background: #ffe3e3; }
-        .handle {
-            width: 14px; height: 14px; background: #6c7ae0; border-radius: 50%; cursor: pointer; border: 2px solid #fff;
-        }
-        .node .label { font-weight: bold; margin: 2px 0; }
-        .connection {
-            stroke: #6c7ae0;
-            stroke-width: 3px;
-            fill: none;
-        }
+        .node.unconnected { border-color:#e06c6c; background:#ffe9e9; }
+        .node.selected { outline: 3px solid #e06c6c; }
+        .node .label { font-weight: 600; margin: 0.2em 0 0.4em; text-align:center; }
+        .handles-row { display:flex; justify-content:space-between; }
+        .mini-btn { background:#6c7ae0; border:none; color:#fff; width:20px; height:20px; border-radius:4px; cursor:pointer; font-size:14px; line-height:20px; display:flex; align-items:center; justify-content:center; }
+        .mini-btn:hover { background:#8192ff; }
+        .handle { width: 14px; height: 14px; background: #6c7ae0; border-radius: 50%; cursor: pointer; border: 2px solid #fff; margin: 0 auto; }
+        .connection { stroke: #6c7ae0; stroke-width: 3px; fill: none; }
         .connection.selected { stroke: #e06c6c; stroke-width: 4px; stroke-dasharray: 6,4; }
+        #details-panel { position:fixed; right:0; top:var(--nav-height); width: var(--panel-width); height: calc(100vh - var(--nav-height)); background:#fff; border-left:1px solid #ddd; box-shadow:0 0 8px #0002; padding:0.75em 1em; overflow-y:auto; z-index:20; display:flex; flex-direction:column; }
+        #toggle-details { position:absolute; left:-30px; top:8px; width:26px; height:26px; border-radius:50%; border:1px solid #ccc; background:#f7f7f7; cursor:pointer; }
+        form#product-details-form textarea, form#product-details-form input { width:100%; box-sizing:border-box; }
+        nav { height: var(--nav-height); display:flex; align-items:center; justify-content:space-between; padding:0 1em; background:#fff; border-bottom:1px solid #ddd; }
+        h3 { margin-top:0; }
+        .list-section { margin-bottom:1.2em; }
+        .list-section ul { list-style:none; padding:0; margin:0; }
+        .list-section li { padding:4px 6px; margin:2px 0; background:#fff; border:1px solid #ccc; border-radius:4px; cursor:grab; font-size:0.8rem; }
+        .list-section li.unconnected { border-color:#e06c6c; background:#ffe9e9; }
+        .add-inline-btn { display:inline-block; margin:0.25em 0 0; font-size:0.65rem; color:#555; cursor:pointer; text-align:center; }
+        .add-inline-btn:hover { color:#000; text-decoration:underline; }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
-        <div id="product-list">
-            <h3>Products</h3>
-            <ul style="list-style:none; padding:0;">
-            {% for product in products %}
-                <li draggable="true" class="product-list-item" data-product-id="{{ product.id }}">{{ product.name }}</li>
-            {% endfor %}
-            </ul>
+    <nav>
+        <div style="display:flex; gap:1em; align-items:center;">
+            <a href="/projects" style="text-decoration:none;">Projects</a>
+            <a href="/projects/{{ project.id }}" style="font-weight:600; text-decoration:none;">Back to Planning Room</a>
         </div>
-        <div id="flow-canvas">
-            <svg id="connections" width="100%" height="100%" style="position:absolute;top:0;left:0;z-index:0;"></svg>
-            <!-- Nodes will be rendered here by JS -->
+        <div style="display:flex; align-items:center; gap:0.75em;">
+            <span style="font-style:italic; color:#555; font-size:0.9rem;">{{ user.full_name or user.username }}</span>
+            <form method="post" action="/logout" style="display:inline;">
+                <button type="submit" style="padding:0.4em 0.9em;">Logout</button>
+            </form>
+        </div>
+    </nav>
+    <div id="canvas-container">
+        <div id="left-panel">
+            <div class="list-section">
+                <h3 style="margin:0 0 0.4em; font-size:1rem;">In Flow</h3>
+                <ul id="in-flow-list"></ul>
+            </div>
+            <div class="list-section">
+                <h3 style="margin:0 0 0.4em; font-size:1rem;">Unused</h3>
+                <ul id="unused-list"></ul>
+            </div>
+            <div class="list-section">
+                <h3 style="margin:0 0 0.4em; font-size:1rem;">Add Product</h3>
+                <form id="quick-add-form" style="display:flex; gap:0.4em;">
+                    <input type="text" id="quick-add-name" placeholder="New product name" required style="flex:1;">
+                    <button type="submit">Add</button>
+                </form>
+            </div>
+        </div>
+        <div id="flow-wrapper">
+            <div id="flow-canvas">
+                <svg id="connections"></svg>
+            </div>
         </div>
     </div>
+    <aside id="details-panel">
+        <button id="toggle-details">&#9776;</button>
+        <h3 style="margin-top:0;">Product Details</h3>
+        <div id="details-content" style="font-size:0.8rem; display:flex; flex-direction:column; gap:0.6em;"></div>
+    </aside>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // --- Product Flow Diagram Interactive Logic ---
+        // --- Product Flow Diagram Enhanced Logic ---
         const projectId = "{{ project.id }}";
-        let nodes = [];
+        let products = JSON.parse(`{{ products | tojson | safe }}`);
         let dependencies = [];
-        let nodeMap = {};
+        let nodeMap = {}; // productId -> node element
+        let nodeData = {}; // productId -> { x,y }
         let selectedNode = null;
         let selectedConnection = null;
         let dragging = null, offsetX = 0, offsetY = 0;
         let connecting = null;
+        const flowCanvas = document.getElementById('flow-canvas');
 
+        // --- Data Fetchers ---
         function fetchDependencies() {
             return fetch(`/projects/${projectId}/dependencies`).then(r => r.json()).then(data => {
                 dependencies = data.dependencies || [];
             });
         }
-
-        function renderNodes() {
-            const canvas = document.getElementById('flow-canvas');
-            // Remove all nodes except SVG
-            Array.from(canvas.children).forEach(child => {
-                if (child.tagName !== 'SVG') canvas.removeChild(child);
+        function refreshProducts() {
+            // Re-fetch planning room fragment via lightweight endpoint (reuse existing HTML route with ajax param)
+            return fetch(`/projects/${projectId}?ajax=1`).then(r=>r.text()).then(html => {
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const scriptTag = temp.querySelector('#all-products-json');
+                if (scriptTag) {
+                    try { products = JSON.parse(scriptTag.textContent); } catch(e) {}
+                }
             });
+        }
+
+        // --- Classification ---
+        function computeConnectivity() {
+            const deg = {};
+            products.forEach(p => deg[p.id] = { in:0, out:0 });
+            dependencies.forEach(d => { if (deg[d.from_product_id]) deg[d.from_product_id].out++; if (deg[d.to_product_id]) deg[d.to_product_id].in++; });
+            return deg;
+        }
+
+        // --- Rendering Lists ---
+        function renderLists() {
+            const deg = computeConnectivity();
+            const inFlow = products.filter(p => (deg[p.id].in + deg[p.id].out) > 0);
+            const unused = products.filter(p => (deg[p.id].in + deg[p.id].out) === 0);
+            const inFlowList = document.getElementById('in-flow-list');
+            const unusedList = document.getElementById('unused-list');
+            inFlowList.innerHTML = '';
+            unusedList.innerHTML = '';
+            inFlow.forEach(p => {
+                const li = document.createElement('li');
+                li.textContent = p.name;
+                li.dataset.productId = p.id;
+                li.draggable = true;
+                li.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', p.id));
+                inFlowList.appendChild(li);
+            });
+            unused.forEach(p => {
+                const li = document.createElement('li');
+                li.textContent = p.name;
+                li.dataset.productId = p.id;
+                li.draggable = true;
+                li.classList.add('unconnected');
+                li.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', p.id));
+                unusedList.appendChild(li);
+            });
+        }
+
+        // --- Node Layout (simple incremental grid; preserve existing positions) ---
+        function ensureNodePositions() {
+            const spacingX = 220, spacingY = 110;
+            let x = 60, y = 60;
+            products.forEach(p => {
+                if (!nodeData[p.id]) {
+                    nodeData[p.id] = { x, y };
+                    y += spacingY;
+                    if (y > 800) { y = 60; x += spacingX; }
+                }
+            });
+        }
+
+        // --- Render Nodes & Connections ---
+        function renderNodes() {
+            ensureNodePositions();
+            // Clear nodes
+            Array.from(flowCanvas.children).forEach(child => { if (child.tagName !== 'SVG') flowCanvas.removeChild(child); });
             nodeMap = {};
-            // Simple left-to-right layout
-            let x = 60, y = 60, yStep = 100, xStep = 220;
-            nodes.forEach((prod, i) => {
+            const deg = computeConnectivity();
+            products.forEach(p => {
+                const pos = nodeData[p.id];
                 const node = document.createElement('div');
                 node.className = 'node';
-                node.style.left = x + 'px';
-                node.style.top = y + 'px';
-                node.dataset.productId = prod.id;
-                node.innerHTML = `<div class="label">${prod.name}</div><div class="handle" title="Connect"></div>`;
-                canvas.appendChild(node);
-                nodeMap[prod.id] = node;
-                // Drag logic
-                node.addEventListener('mousedown', function(e) {
-                    if (e.target.classList.contains('handle')) return;
+                if (deg[p.id].in + deg[p.id].out === 0) node.classList.add('unconnected');
+                node.style.left = pos.x + 'px';
+                node.style.top = pos.y + 'px';
+                node.dataset.productId = p.id;
+                node.innerHTML = `
+                    <div class="handles-row">
+                        <button class="mini-btn add-pre" title="Add predecessor" data-dir="pre">+</button>
+                        <div class="handle" title="Connect"></div>
+                        <button class="mini-btn add-succ" title="Add successor" data-dir="succ">+</button>
+                    </div>
+                    <div class="label">${p.name}</div>
+                `;
+                flowCanvas.appendChild(node);
+                nodeMap[p.id] = node;
+                // Drag
+                node.addEventListener('mousedown', e => {
+                    if (e.target.closest('.handle') || e.target.classList.contains('mini-btn')) return;
                     dragging = node;
-                    offsetX = e.offsetX;
-                    offsetY = e.offsetY;
-                    selectedNode = prod.id;
-                    updateNodeSelection();
+                    offsetX = e.offsetX; offsetY = e.offsetY;
+                    selectedNode = p.id; updateNodeSelection(); showDetails(p.id);
                 });
-                node.querySelector('.handle').addEventListener('mousedown', function(e) {
-                    e.stopPropagation();
-                    connecting = { from: node, startEvent: e };
-                });
-                y += yStep;
-                if (y > 500) { y = 60; x += xStep; }
+                node.querySelector('.handle').addEventListener('mousedown', e => { e.stopPropagation(); connecting = { from: node }; });
+                node.querySelector('.add-pre').addEventListener('click', e => { e.stopPropagation(); addInlineProduct(p.id, 'pre'); });
+                node.querySelector('.add-succ').addEventListener('click', e => { e.stopPropagation(); addInlineProduct(p.id, 'succ'); });
             });
             drawConnections();
         }
 
         function drawConnections() {
             const svg = document.getElementById('connections');
-            if (!svg) {
-                console.warn("SVG element with id 'connections' not found.");
-                return;
-            }
             svg.innerHTML = '';
             dependencies.forEach(dep => {
                 const fromNode = nodeMap[dep.from_product_id];
                 const toNode = nodeMap[dep.to_product_id];
-                if (!fromNode || !toNode) return;
+                if (!(fromNode && toNode)) return;
                 const fromRect = fromNode.getBoundingClientRect();
                 const toRect = toNode.getBoundingClientRect();
-                const canvasRect = document.getElementById('flow-canvas').getBoundingClientRect();
+                const canvasRect = flowCanvas.getBoundingClientRect();
                 const x1 = fromRect.right - canvasRect.left;
                 const y1 = fromRect.top + fromRect.height/2 - canvasRect.top;
                 const x2 = toRect.left - canvasRect.left;
                 const y2 = toRect.top + toRect.height/2 - canvasRect.top;
-                // Bezier noodle
                 const d = `M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`;
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', d);
                 path.setAttribute('class', 'connection');
-                path.setAttribute('data-dep-id', dep.id);
-                path.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    selectedConnection = dep.id;
-                    updateConnectionSelection();
-                });
+                path.dataset.depId = dep.id;
+                path.addEventListener('click', e => { e.stopPropagation(); selectedConnection = dep.id; updateConnectionSelection(); });
                 if (selectedConnection === dep.id) path.classList.add('selected');
                 svg.appendChild(path);
             });
         }
 
-        function updateNodeSelection() {
-            Object.values(nodeMap).forEach(node => node.classList.remove('selected'));
-            if (selectedNode && nodeMap[selectedNode]) nodeMap[selectedNode].classList.add('selected');
-        }
-        function updateConnectionSelection() {
-            document.querySelectorAll('.connection').forEach(p => p.classList.remove('selected'));
-            if (selectedConnection) {
-                const sel = document.querySelector(`.connection[data-dep-id='${selectedConnection}']`);
-                if (sel) sel.classList.add('selected');
-            }
-        }
+        function updateNodeSelection() { Object.values(nodeMap).forEach(n => n.classList.remove('selected')); if (selectedNode && nodeMap[selectedNode]) nodeMap[selectedNode].classList.add('selected'); }
+        function updateConnectionSelection() { document.querySelectorAll('.connection').forEach(p => p.classList.remove('selected')); if (selectedConnection) { const sel = document.querySelector(`.connection[data-dep-id='${selectedConnection}']`); if (sel) sel.classList.add('selected'); } }
 
-        document.addEventListener('mousemove', function(e) {
-            if (dragging) {
-                const canvas = document.getElementById('flow-canvas');
-                const rect = canvas.getBoundingClientRect();
-                let x = e.clientX - rect.left - offsetX;
-                let y = e.clientY - rect.top - offsetY;
-                dragging.style.left = x + 'px';
-                dragging.style.top = y + 'px';
-                drawConnections();
-            } else if (connecting) {
-                // Draw temp noodle (optional)
-            }
+        document.addEventListener('mousemove', e => {
+            if (dragging) { const rect = flowCanvas.getBoundingClientRect(); dragging.style.left = (e.clientX - rect.left - offsetX) + 'px'; dragging.style.top = (e.clientY - rect.top - offsetY) + 'px'; const id = parseInt(dragging.dataset.productId); nodeData[id].x = parseInt(dragging.style.left); nodeData[id].y = parseInt(dragging.style.top); drawConnections(); }
         });
-        document.addEventListener('mouseup', function(e) {
+        document.addEventListener('mouseup', e => {
             if (dragging) dragging = null;
             if (connecting) {
-                // Find node under mouse
-                const canvas = document.getElementById('flow-canvas');
-                const target = Object.values(nodeMap).find(nd => {
-                    const rect = nd.getBoundingClientRect();
-                    return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-                });
+                const target = Object.values(nodeMap).find(nd => { const r = nd.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; });
                 if (target && target !== connecting.from) {
-                    // Add dependency
                     const fromId = parseInt(connecting.from.dataset.productId);
                     const toId = parseInt(target.dataset.productId);
-                    fetch(`/projects/${projectId}/dependencies`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ from_product_id: fromId, to_product_id: toId })
-                    }).then(() => {
-                        fetchDependencies().then(renderNodes);
-                    });
+                    fetch(`/projects/${projectId}/dependencies`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ from_product_id: fromId, to_product_id: toId }) }).then(() => { fetchDependencies().then(() => { renderNodes(); renderLists(); }); });
                 }
                 connecting = null;
             }
         });
-
-        document.getElementById('connections').addEventListener('click', function(e) {
+        document.getElementById('connections').addEventListener('click', e => {
             if (selectedConnection) {
-                // Delete dependency
-                fetch(`/projects/${projectId}/dependencies/${selectedConnection}`, { method: 'DELETE' })
-                    .then(() => {
-                        selectedConnection = null;
-                        fetchDependencies().then(renderNodes);
-                    });
+                fetch(`/projects/${projectId}/dependencies/${selectedConnection}`, { method:'DELETE' }).then(() => { selectedConnection = null; fetchDependencies().then(() => { renderNodes(); renderLists(); }); });
             }
         });
 
-        // Initial load
-        nodes = Array.from(document.querySelectorAll('.product-list-item')).map(li => ({
-            id: parseInt(li.dataset.productId),
-            name: li.textContent.trim()
-        }));
-        fetchDependencies().then(renderNodes);
+        // --- Drag from lists onto canvas to place node ---
+        flowCanvas.addEventListener('dragover', e => { e.preventDefault(); });
+        flowCanvas.addEventListener('drop', e => {
+            e.preventDefault();
+            const id = parseInt(e.dataTransfer.getData('text/plain'));
+            if (!id) return;
+            if (!nodeData[id]) nodeData[id] = { x: e.offsetX, y: e.offsetY };
+            renderNodes(); drawConnections();
+        });
+
+        // --- Inline Add Pre/Succ ---
+        function addInlineProduct(targetId, dir) {
+            const name = prompt(dir === 'pre' ? 'New predecessor product name:' : 'New successor product name:');
+            if (!name) return;
+            fetch(`/projects/${projectId}/products/json`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) })
+                .then(r=>r.json()).then(resp => {
+                    if (!resp.success) return;
+                    const newProd = resp.product; products.push(newProd);
+                    // Position new node near target
+                    const tgtPos = nodeData[targetId] || { x: 60, y: 60 };
+                    nodeData[newProd.id] = { x: tgtPos.x + (dir==='pre'?-180:180), y: tgtPos.y };
+                    const fromId = dir === 'pre' ? newProd.id : targetId;
+                    const toId = dir === 'pre' ? targetId : newProd.id;
+                    fetch(`/projects/${projectId}/dependencies`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ from_product_id: fromId, to_product_id: toId }) })
+                        .then(()=> fetchDependencies().then(()=> { renderNodes(); renderLists(); showDetails(newProd.id); }));
+                });
+        }
+
+        // --- Quick Add Form ---
+        document.getElementById('quick-add-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const name = document.getElementById('quick-add-name').value.trim();
+            if (!name) return;
+            fetch(`/projects/${projectId}/products/json`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) })
+                .then(r=>r.json()).then(resp => { if (resp.success) { products.push(resp.product); nodeData[resp.product.id] = { x: 60, y: 60 }; renderNodes(); renderLists(); showDetails(resp.product.id); document.getElementById('quick-add-name').value=''; } });
+        });
+
+        // --- Details Panel ---
+        const PRODUCT_FIELDS = [
+            { key:'name', label:'Name' },
+            { key:'description', label:'Description', textarea:true },
+            { key:'dependencies', label:'Dependencies', textarea:true },
+            { key:'resources', label:'Resources (People)', textarea:true },
+            { key:'skills', label:'Skills', textarea:true },
+            { key:'derived_from', label:'Derived From', textarea:true },
+            { key:'composed_of', label:'Composed Of', textarea:true },
+            { key:'acceptance_criteria', label:'Acceptance Criteria', textarea:true }
+        ];
+        function showDetails(id) {
+            selectedNode = id; updateNodeSelection();
+            const prod = products.find(p => p.id === id);
+            const container = document.getElementById('details-content');
+            container.innerHTML = '';
+            if (!prod) { container.textContent = 'Select a product.'; return; }
+            const form = document.createElement('form'); form.id='product-details-form';
+            PRODUCT_FIELDS.forEach(f => {
+                const wrap = document.createElement('div'); wrap.style.marginBottom = '0.5em';
+                const label = document.createElement('label'); label.textContent = f.label; label.style.fontWeight='600'; label.style.display='block'; label.style.fontSize='0.7rem'; label.htmlFor = 'fld-'+f.key; wrap.appendChild(label);
+                let input; if (f.textarea) { input = document.createElement('textarea'); input.rows=2; } else { input=document.createElement('input'); input.type='text'; }
+                input.name = f.key; input.id='fld-'+f.key; input.value = prod[f.key] || ''; input.style.fontSize='0.75rem';
+                wrap.appendChild(input); form.appendChild(wrap);
+            });
+            const saveBtn = document.createElement('button'); saveBtn.textContent='Save'; saveBtn.type='submit'; saveBtn.style.marginTop='0.3em'; form.appendChild(saveBtn);
+            form.addEventListener('submit', ev => { ev.preventDefault(); const data = new FormData(form); const payload = {}; PRODUCT_FIELDS.forEach(f => payload[f.key]=data.get(f.key)); fetch(`/projects/update-product-order/${id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(()=> refreshProducts().then(()=> { showDetails(id); renderLists(); })); });
+            container.appendChild(form);
+        }
+        document.getElementById('toggle-details').addEventListener('click', () => {
+            const panel = document.getElementById('details-panel');
+            if (panel.style.right === '-320px') { panel.style.right='0'; panel.style.display='flex'; }
+            else { panel.style.right='-320px'; setTimeout(()=> panel.style.display='none', 300); }
+        });
+
+        // --- Init ---
+        fetchDependencies().then(() => { renderLists(); renderNodes(); });
     });
     </script>
 </body>

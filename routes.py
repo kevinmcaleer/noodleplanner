@@ -510,6 +510,46 @@ async def add_product(request: Request, project_id: int, product_name: str = For
     project = get_project_with_products(project_id)
     return templates.TemplateResponse(request, "planning_room.html", {"project": project, "user": user, "success": "Product added successfully!"})
 
+@router.post("/projects/{project_id}/products/json")
+async def add_product_json(request: Request, project_id: int):
+    """Lightweight JSON endpoint to add a product (used by Flow Diagram inline + buttons).
+    Accepts JSON {"name": "...", "plan_id": optional int}. Returns new product record.
+    """
+    username = request.cookies.get("token")
+    user = get_user(username) if username else None
+    if not user:
+        return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    name = (payload.get("name") or "").strip()
+    plan_id = payload.get("plan_id")
+    if not name:
+        return JSONResponse({"success": False, "error": "Name required"}, status_code=400)
+    # Validate project ownership
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT owner FROM projects WHERE id = ?", (project_id,))
+        row = cursor.fetchone()
+        if not row:
+            return JSONResponse({"success": False, "error": "Project not found"}, status_code=404)
+        owner_id = row[0]
+        user_id = get_user_id(user)
+        if owner_id != user_id:
+            return JSONResponse({"success": False, "error": "Permission denied"}, status_code=403)
+    add_product_to_project(project_id, name, plan_id if isinstance(plan_id, int) else None)
+    # Fetch the newly added product (by max id for project & name)
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, plan_id, sort_order, description, dependencies, resources, skills, derived_from, composed_of, acceptance_criteria FROM products WHERE project_id = ? ORDER BY id DESC LIMIT 1", (project_id,))
+        row = cursor.fetchone()
+    if not row:
+        return JSONResponse({"success": False, "error": "Creation failed"}, status_code=500)
+    keys = ["id","name","plan_id","sort_order","description","dependencies","resources","skills","derived_from","composed_of","acceptance_criteria"]
+    product = {k: v for k, v in zip(keys, row)}
+    return JSONResponse({"success": True, "product": product})
+
 
 
 
