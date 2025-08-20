@@ -1,22 +1,69 @@
-
-
+# --- Imports (move to top) ---
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Body, Path
 from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.templating import Jinja2Templates
 import pandas as pd
 import io
-from fastapi.templating import Jinja2Templates
-from db import get_user_by_username, get_projects_by_username, get_project_with_products, add_product_to_project, get_db
+from db import (
+    get_user_by_username, get_projects_by_username, get_project_with_products, add_product_to_project, get_db,
+    add_dependency, remove_dependency, get_dependencies_for_project
+)
 from models import UserInDB
 
-
-
-# --- Update product parent (plan_id) for dependency tree ---
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Body
-from fastapi import Path
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-## (Removed duplicate imports)
+# --- Router ---
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# --- Product Flow Diagram Canvas Route ---
+@router.get("/projects/{project_id}/flow-canvas", response_class=HTMLResponse)
+async def product_flow_canvas(request: Request, project_id: int):
+    username = request.cookies.get("token")
+    if not username:
+        return RedirectResponse(url="/login", status_code=302)
+    user = get_user(username)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    project = get_project_with_products(project_id)
+    if not project:
+        return HTMLResponse("Project not found", status_code=404)
+    products = project.get("products", [])
+    return templates.TemplateResponse("product_flow_canvas.html", {"request": request, "project": project, "products": products, "user": user})
+# --- Dependency Endpoints for Product Flow Diagram ---
+@router.get("/projects/{project_id}/dependencies")
+async def get_project_dependencies(request: Request, project_id: int):
+    username = request.cookies.get("token")
+    user = get_user(username) if username else None
+    if not user:
+        return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
+    deps = get_dependencies_for_project(project_id)
+    return JSONResponse({"success": True, "dependencies": deps})
+
+@router.post("/projects/{project_id}/dependencies")
+async def add_project_dependency(request: Request, project_id: int):
+    username = request.cookies.get("token")
+    user = get_user(username) if username else None
+    if not user:
+        return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
+    data = await request.json()
+    from_id = data.get("from_product_id")
+    to_id = data.get("to_product_id")
+    if not from_id or not to_id:
+        return JSONResponse({"success": False, "error": "Missing product IDs"}, status_code=400)
+    add_dependency(from_id, to_id)
+    return JSONResponse({"success": True})
+
+@router.delete("/projects/{project_id}/dependencies/{dep_id}")
+async def delete_project_dependency(request: Request, project_id: int, dep_id: int):
+    username = request.cookies.get("token")
+    user = get_user(username) if username else None
+    if not user:
+        return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
+    remove_dependency(dep_id)
+    return JSONResponse({"success": True})
+
+
 
 # --- Export Product List to Excel ---
 @router.get("/projects/{project_id}/export-products-xlsx")

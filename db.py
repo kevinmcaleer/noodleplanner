@@ -50,7 +50,49 @@ def create_tables():
             project_id INTEGER NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id)
         )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS dependencies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            from_product_id INTEGER NOT NULL,
+            to_product_id INTEGER NOT NULL,
+            -- Optionally: type TEXT, notes TEXT
+            FOREIGN KEY(from_product_id) REFERENCES products(id),
+            FOREIGN KEY(to_product_id) REFERENCES products(id)
+        )''')
         conn.commit()
+# Dependency CRUD
+def add_dependency(from_product_id: int, to_product_id: int):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''INSERT INTO dependencies (from_product_id, to_product_id) VALUES (?, ?)''', (from_product_id, to_product_id))
+        conn.commit()
+
+def remove_dependency(dep_id: int):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM dependencies WHERE id = ?', (dep_id,))
+        conn.commit()
+
+def get_dependencies_for_project(project_id: int):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT d.id, d.from_product_id, d.to_product_id
+            FROM dependencies d
+            JOIN products p1 ON d.from_product_id = p1.id
+            JOIN products p2 ON d.to_product_id = p2.id
+            WHERE p1.project_id = ? AND p2.project_id = ?
+        ''', (project_id, project_id))
+        return [
+            {"id": row[0], "from_product_id": row[1], "to_product_id": row[2]} for row in cursor.fetchall()
+        ]
+
+def get_all_dependencies():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, from_product_id, to_product_id FROM dependencies')
+        return [
+            {"id": row[0], "from_product_id": row[1], "to_product_id": row[2]} for row in cursor.fetchall()
+        ]
 
 # Get project details and all products for a project
 def get_project_with_products(project_id: int):

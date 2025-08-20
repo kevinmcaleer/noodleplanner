@@ -219,7 +219,6 @@ function selectProductById(productId) {
         <div style="display: flex; align-items: center;">
             <a href="/projects" style="margin-right: 1em;">Projects</a>
             <a href="/projects/{{ project.id }}" style="font-weight: bold;">Planning</a>
-            <a href="/projects/{{ project.id }}/canvas" style="margin-left: 1em;">Canvas</a>
         </div>
         <div style="display: flex; align-items: center; gap: 1em;">
             <span style="font-style: italic; color: #555;">{{ user.full_name or user.username }}</span>
@@ -228,25 +227,33 @@ function selectProductById(productId) {
             </form>
         </div>
     </nav>
-    <div id="canvas-container" style="display: flex; height: 85vh;">
-        <div id="product-list" style="width: 22%; min-width: 200px; max-width: 320px; background: #f7f7f7; border-right: 1px solid #ddd; padding: 1em; overflow-y: auto;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <h2 style="margin: 0;">Products for Project: {{ project.name }}</h2>
-                <div class="dropdown" style="position: relative;">
-                    <button id="hamburger-menu" style="background: none; border: none; font-size: 1.7em; cursor: pointer; padding: 0 0.3em;">&#9776;</button>
-                    <div id="dropdown-menu" style="display: none; position: absolute; right: 0; top: 2em; background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 8px #0002; z-index: 100; min-width: 160px;">
-                        <a href="#" id="export-csv" style="display: block; padding: 0.5em 1em; text-decoration: none; color: #333;">Export to CSV</a>
-                        <a href="#" id="export-excel" style="display: block; padding: 0.5em 1em; text-decoration: none; color: #333;">Export to Excel</a>
+    <div style="display: flex; flex-direction: column; height: 100%;">
+      <div id="tab-bar" style="display: flex; border-bottom: 1px solid #ccc;">
+        <button id="pbs-tab" class="tab-btn active" style="padding: 0.7em 1.5em; border: none; background: #f7f7f7; border-bottom: 2px solid #6c7ae0; cursor: pointer; font-weight: bold;">Product Breakdown Structure</button>
+        <button id="flow-tab" class="tab-btn" style="padding: 0.7em 1.5em; border: none; background: #f7f7f7; border-bottom: 2px solid transparent; cursor: pointer;">Product Flow Diagram</button>
+      </div>
+      <div id="pbs-canvas-container">
+        <div id="canvas-container" style="display: flex; height: 85vh;">
+            <div id="product-list" style="width: 22%; min-width: 200px; max-width: 320px; background: #f7f7f7; border-right: 1px solid #ddd; padding: 1em; overflow-y: auto;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h2 style="margin: 0;">Products for Project: {{ project.name }}</h2>
+                    <div class="dropdown" style="position: relative;">
+                        <button id="hamburger-menu" style="background: none; border: none; font-size: 1.7em; cursor: pointer; padding: 0 0.3em;">&#9776;</button>
+                        <div id="dropdown-menu" style="display: none; position: absolute; right: 0; top: 2em; background: #fff; border: 1px solid #ccc; box-shadow: 0 2px 8px #0002; z-index: 100; min-width: 160px;">
+                            <a href="#" id="export-csv" style="display: block; padding: 0.5em 1em; text-decoration: none; color: #333;">Export to CSV</a>
+                            <a href="#" id="export-excel" style="display: block; padding: 0.5em 1em; text-decoration: none; color: #333;">Export to Excel</a>
+                        </div>
                     </div>
                 </div>
+                <form id="quick-add-product" style="margin-bottom: 1em; display: flex; gap: 0.5em;">
+                    <input type="text" id="quick-product-name" placeholder="New product name" required style="flex:1;">
+                    <button type="submit">Add</button>
+                </form>
+                <div id="product-tree"></div>
+                <script id="products-json" type="application/json">{{ project.products | tojson }}</script>
+                <script id="all-products-json" type="application/json">{{ project.products | tojson }}</script>
             </div>
-            <form id="quick-add-product" style="margin-bottom: 1em; display: flex; gap: 0.5em;">
-                <input type="text" id="quick-product-name" placeholder="New product name" required style="flex:1;">
-                <button type="submit">Add</button>
-            </form>
-            <div id="product-tree"></div>
-            <script id="products-json" type="application/json">{{ project.products | tojson }}</script>
-            <script id="all-products-json" type="application/json">{{ project.products | tojson }}</script>
+            <div id="pbs-main-content" style="flex: 1; display: flex; flex-direction: column;">
 <script>
 // Hamburger menu dropdown logic
 $(function() {
@@ -322,16 +329,45 @@ $(function() {
 });
 </script>
         </div>
-    <div id="canvas" style="flex: 1; min-width: 0; position: relative; background: #f0f0f0; min-height: 100%; min-width: 100%; overflow: auto;">
-        <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:auto;"></svg>
-        <!-- Nodes will be rendered here by JS -->
-    </div>
-    <div id="product-details-panel" style="width: 340px; background: #fff; border-left: 1px solid #ddd; box-shadow: 0 0 8px #0001; padding: 1em; overflow-y: auto; display: flex; flex-direction: column; position: absolute; right: 0; top: 0; height: 100%; z-index: 2000; transition: right 0.3s;">
-        <button id="toggle-details-panel" style="position: absolute; left: -32px; top: 1em; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer;">&#9776;</button>
-        <h3>Product Details</h3>
-        <div id="product-details-fields" style="display: flex; flex-direction: column; gap: 0.7em;"></div>
-    </div>
-    </div>
+                                <div id="canvas" style="flex: 1; min-width: 0; position: relative; background: #f0f0f0; min-height: 100%; min-width: 100%; overflow: auto;">
+                                        <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:auto;"></svg>
+                                        <!-- Nodes will be rendered here by JS -->
+                                </div>
+                                <div id="product-details-panel" style="width: 340px; background: #fff; border-left: 1px solid #ddd; box-shadow: 0 0 8px #0001; padding: 1em; overflow-y: auto; display: flex; flex-direction: column; position: absolute; right: 0; top: 0; height: 100%; z-index: 2000; transition: right 0.3s;">
+                                        <button id="toggle-details-panel" style="position: absolute; left: -32px; top: 1em; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer;">&#9776;</button>
+                                        <h3>Product Details</h3>
+                                        <div id="product-details-fields" style="display: flex; flex-direction: column; gap: 0.7em;"></div>
+                                </div>
+                        </div>
+                </div>
+            </div>
+            <div id="flow-canvas-container" style="display:none; height:85vh;">
+                <iframe id="flow-canvas-frame" src="/projects/{{ project.id }}/flow-canvas" style="width:100%;height:100%;border:none;"></iframe>
+            </div>
+        </div>
+// Tab switching logic
+document.addEventListener('DOMContentLoaded', function() {
+    const pbsTab = document.getElementById('pbs-tab');
+    const flowTab = document.getElementById('flow-tab');
+    const pbsContainer = document.getElementById('pbs-canvas-container');
+    const flowContainer = document.getElementById('flow-canvas-container');
+    pbsTab.onclick = function() {
+        pbsTab.classList.add('active');
+        flowTab.classList.remove('active');
+        pbsTab.style.borderBottom = '2px solid #6c7ae0';
+        flowTab.style.borderBottom = '2px solid transparent';
+        pbsContainer.style.display = '';
+        flowContainer.style.display = 'none';
+    };
+    flowTab.onclick = function() {
+        flowTab.classList.add('active');
+        pbsTab.classList.remove('active');
+        flowTab.style.borderBottom = '2px solid #6c7ae0';
+        pbsTab.style.borderBottom = '2px solid transparent';
+        pbsContainer.style.display = 'none';
+        flowContainer.style.display = '';
+    };
+});
     <script src="/static/inline-rename.js"></script>
     <script src="/static/product-tree.js"></script>
     <script src="/static/selectable-product-list.js"></script>

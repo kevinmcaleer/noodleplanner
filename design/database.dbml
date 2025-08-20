@@ -53,7 +53,14 @@ Table Tenants {
   name varchar
 }
 
-Ref Project_Owners: People.id > Projects.owner
+Table dependencies {
+  id integer [primary key, increment]
+  from_product_id integer [ref: > products.id]
+  to_product_id integer [ref: > products.id]
+  // Optionally: type varchar, notes text
+}
+
+Ref: "Project_Owners": People.id > Projects.owner
 Ref: "Projects"."id" < "Tasks"."project_id"
 Ref: "Tasks"."id" < "Task_assignments"."task_id"
 Ref: "People"."id" < "Task_assignments"."person_id"

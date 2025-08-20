@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Product Flow Diagram - NoodlePlanner</title>
+    <style>
+        body { font-family: sans-serif; }
+        #canvas-container { display: flex; height: 90vh; }
+        #product-list { width: 220px; background: #f7f7f7; border-right: 1px solid #ddd; padding: 1em; overflow-y: auto; }
+        #flow-canvas { flex: 1; position: relative; background: #f0f0f0; min-height: 100vh; }
+        .node {
+            position: absolute;
+            min-width: 120px;
+            min-height: 40px;
+            background: #e3eaff;
+            border: 2px solid #6c7ae0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px #0001;
+            cursor: move;
+            padding: 0.5em 1em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            z-index: 2;
+        }
+        .node.selected { border: 2.5px solid #e06c6c; background: #ffe3e3; }
+        .handle {
+            width: 14px; height: 14px; background: #6c7ae0; border-radius: 50%; cursor: pointer; border: 2px solid #fff;
+        }
+        .node .label { font-weight: bold; margin: 2px 0; }
+        .connection {
+            stroke: #6c7ae0;
+            stroke-width: 3px;
+            fill: none;
+        }
+        .connection.selected { stroke: #e06c6c; stroke-width: 4px; stroke-dasharray: 6,4; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div id="product-list">
+            <h3>Products</h3>
+            <ul style="list-style:none; padding:0;">
+            {% for product in products %}
+                <li draggable="true" class="product-list-item" data-product-id="{{ product.id }}">{{ product.name }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+        <div id="flow-canvas">
+            <svg id="connections" width="100%" height="100%" style="position:absolute;top:0;left:0;z-index:0;"></svg>
+            <!-- Nodes will be rendered here by JS -->
+        </div>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Product Flow Diagram Interactive Logic ---
+        const projectId = "{{ project.id }}";
+        let nodes = [];
+        let dependencies = [];
+        let nodeMap = {};
+        let selectedNode = null;
+        let selectedConnection = null;
+        let dragging = null, offsetX = 0, offsetY = 0;
+        let connecting = null;
+
+        function fetchDependencies() {
+            return fetch(`/projects/${projectId}/dependencies`).then(r => r.json()).then(data => {
+                dependencies = data.dependencies || [];
+            });
+        }
+
+        function renderNodes() {
+            const canvas = document.getElementById('flow-canvas');
+            // Remove all nodes except SVG
+            Array.from(canvas.children).forEach(child => {
+                if (child.tagName !== 'SVG') canvas.removeChild(child);
+            });
+            nodeMap = {};
+            // Simple left-to-right layout
+            let x = 60, y = 60, yStep = 100, xStep = 220;
+            nodes.forEach((prod, i) => {
+                const node = document.createElement('div');
+                node.className = 'node';
+                node.style.left = x + 'px';
+                node.style.top = y + 'px';
+                node.dataset.productId = prod.id;
+                node.innerHTML = `<div class="label">${prod.name}</div><div class="handle" title="Connect"></div>`;
+                canvas.appendChild(node);
+                nodeMap[prod.id] = node;
+                // Drag logic
+                node.addEventListener('mousedown', function(e) {
+                    if (e.target.classList.contains('handle')) return;
+                    dragging = node;
+                    offsetX = e.offsetX;
+                    offsetY = e.offsetY;
+                    selectedNode = prod.id;
+                    updateNodeSelection();
+                });
+                node.querySelector('.handle').addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    connecting = { from: node, startEvent: e };
+                });
+                y += yStep;
+                if (y > 500) { y = 60; x += xStep; }
+            });
+            drawConnections();
+        }
+
+        function drawConnections() {
+            const svg = document.getElementById('connections');
+            if (!svg) {
+                console.warn("SVG element with id 'connections' not found.");
+                return;
+            }
+            svg.innerHTML = '';
+            dependencies.forEach(dep => {
+                const fromNode = nodeMap[dep.from_product_id];
+                const toNode = nodeMap[dep.to_product_id];
+                if (!fromNode || !toNode) return;
+                const fromRect = fromNode.getBoundingClientRect();
+                const toRect = toNode.getBoundingClientRect();
+                const canvasRect = document.getElementById('flow-canvas').getBoundingClientRect();
+                const x1 = fromRect.right - canvasRect.left;
+                const y1 = fromRect.top + fromRect.height/2 - canvasRect.top;
+                const x2 = toRect.left - canvasRect.left;
+                const y2 = toRect.top + toRect.height/2 - canvasRect.top;
+                // Bezier noodle
+                const d = `M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`;
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', d);
+                path.setAttribute('class', 'connection');
+                path.setAttribute('data-dep-id', dep.id);
+                path.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    selectedConnection = dep.id;
+                    updateConnectionSelection();
+                });
+                if (selectedConnection === dep.id) path.classList.add('selected');
+                svg.appendChild(path);
+            });
+        }
+
+        function updateNodeSelection() {
+            Object.values(nodeMap).forEach(node => node.classList.remove('selected'));
+            if (selectedNode && nodeMap[selectedNode]) nodeMap[selectedNode].classList.add('selected');
+        }
+        function updateConnectionSelection() {
+            document.querySelectorAll('.connection').forEach(p => p.classList.remove('selected'));
+            if (selectedConnection) {
+                const sel = document.querySelector(`.connection[data-dep-id='${selectedConnection}']`);
+                if (sel) sel.classList.add('selected');
+            }
+        }
+
+        document.addEventListener('mousemove', function(e) {
+            if (dragging) {
+                const canvas = document.getElementById('flow-canvas');
+                const rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left - offsetX;
+                let y = e.clientY - rect.top - offsetY;
+                dragging.style.left = x + 'px';
+                dragging.style.top = y + 'px';
+                drawConnections();
+            } else if (connecting) {
+                // Draw temp noodle (optional)
+            }
+        });
+        document.addEventListener('mouseup', function(e) {
+            if (dragging) dragging = null;
+            if (connecting) {
+                // Find node under mouse
+                const canvas = document.getElementById('flow-canvas');
+                const target = Object.values(nodeMap).find(nd => {
+                    const rect = nd.getBoundingClientRect();
+                    return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+                });
+                if (target && target !== connecting.from) {
+                    // Add dependency
+                    const fromId = parseInt(connecting.from.dataset.productId);
+                    const toId = parseInt(target.dataset.productId);
+                    fetch(`/projects/${projectId}/dependencies`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ from_product_id: fromId, to_product_id: toId })
+                    }).then(() => {
+                        fetchDependencies().then(renderNodes);
+                    });
+                }
+                connecting = null;
+            }
+        });
+
+        document.getElementById('connections').addEventListener('click', function(e) {
+            if (selectedConnection) {
+                // Delete dependency
+                fetch(`/projects/${projectId}/dependencies/${selectedConnection}`, { method: 'DELETE' })
+                    .then(() => {
+                        selectedConnection = null;
+                        fetchDependencies().then(renderNodes);
+                    });
+            }
+        });
+
+        // Initial load
+        nodes = Array.from(document.querySelectorAll('.product-list-item')).map(li => ({
+            id: parseInt(li.dataset.productId),
+            name: li.textContent.trim()
+        }));
+        fetchDependencies().then(renderNodes);
+    });
+    </script>
+</body>
+</html>

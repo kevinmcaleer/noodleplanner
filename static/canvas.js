@@ -363,8 +363,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Expose renderNodes globally so other scripts (e.g., planning_room) can trigger re-draw after data updates
+    window.renderNodes = renderNodes;
+
     // Initial render
     renderNodes();
+
+    // Re-render when the hidden JSON blob with all products changes (order / hierarchy updates)
+    const allProductsEl = document.getElementById('all-products-json');
+    if (allProductsEl) {
+        const jsonObserver = new MutationObserver(() => {
+            // Slight debounce to batch rapid changes
+            clearTimeout(window.__npRenderDebounce);
+            window.__npRenderDebounce = setTimeout(() => {
+                renderNodes();
+            }, 30);
+        });
+        jsonObserver.observe(allProductsEl, { characterData: true, childList: true, subtree: true });
+    }
 
     // Listen for product add/rename via DOM changes
     const productList = document.getElementById('product-list');
