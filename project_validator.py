@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 """
@@ -389,6 +388,38 @@ def main():
     # Exit code
     exit_bad = any(i.level == "ERROR" for i in issues) or (args.warn_as_error and any(issues))
     sys.exit(1 if exit_bad else 0)
+
+def validate_project_yaml(data):
+    # Accept both old and new schemas
+    # New: top-level key is project name, value is list of phases
+    # Old: top-level 'tasks' key
+    if 'tasks' in data:
+        # Old schema
+        issues, _ = validate(data)
+        if any(i.level == "ERROR" for i in issues):
+            raise Exception("Validation failed: " + ", ".join(f"{i.code}: {i.message}" for i in issues))
+        return True
+    else:
+        # New schema: top-level key is project name
+        if len(data) != 1:
+            raise Exception("Validation failed: Top-level must have exactly one project key.")
+        project_name = list(data.keys())[0]
+        phases = data[project_name]
+        if not isinstance(phases, list):
+            raise Exception("Validation failed: Project value must be a list of phases.")
+        # Each phase should be a dict with phase name as key and list of tasks as value
+        for phase in phases:
+            if not isinstance(phase, dict):
+                raise Exception("Validation failed: Each phase must be a dict.")
+            for phase_name, items in phase.items():
+                if not isinstance(items, list):
+                    raise Exception(f"Validation failed: Phase '{phase_name}' must be a list of tasks.")
+                if not items:
+                    raise Exception(f"Validation failed: Phase '{phase_name}' must not be empty.")
+                for item in items:
+                    if not isinstance(item, str):
+                        raise Exception(f"Validation failed: Task in phase '{phase_name}' must be a string.")
+        return True
 
 if __name__ == "__main__":
     main()
