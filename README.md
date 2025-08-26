@@ -3,8 +3,14 @@
 Noodle Planner - a project management tool for smart people
 
 
+
 ## Features
 
+- Timeline visualization engine for project phases and milestones (YAML to Markdown)
+- Proportional, visually aligned ASCII/Markdown timeline output
+- Milestone logic: duration=0 or phase end, with correct placement of dates/labels
+- Only one 'Start' and 'Finish' label/date above timeline; all other milestones below
+- No duplicate labels or stray characters in timeline output
 - User registration and login
 - Secure session management (cookie-based)
 - List projects for the logged-in user
@@ -58,9 +64,12 @@ git config core.hooksPath .githooks
 chmod +x .githooks/pre-commit
 ```
 
+
 ## Documentation
 
 - User stories and features are documented in the `docs/` folder:
+   - `story-phase-timeline.md`, `feature-phase-timeline.md`
+   - `epics/epic-phase-timeline.md`, `epics/epic-project-yaml-schema.md`
    - `story-login-project-list.md`, `feature-login-project-list.md`
    - `story-create-project.md`, `feature-create-project.md`
    - `story-register-account.md`, `feature-logout-account-menu.md`
