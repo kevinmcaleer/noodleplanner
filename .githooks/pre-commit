@@ -1,8 +1,10 @@
 #!/bin/sh
 # Pre-commit hook: synchronize bug docs and update index automatically.
 
+VENV_PY="/Users/kev/Python/noodleplanner/venv/bin/python"
+
 echo "[pre-commit] Running bug sync script..."
-python scripts/sync_bugs.py || {
+$VENV_PY scripts/sync_bugs.py || {
   echo "[pre-commit] Bug sync failed; aborting commit." >&2
   exit 1
 }

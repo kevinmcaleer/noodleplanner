@@ -1,0 +1,29 @@
+project:
+  id: "4b2a6d5a-8e39-4f7a-9e46-69a9b2e1f1ab"
+  name: "Robot Coffee"
+  description: "A robot barista that makes great espresso."
+  created_at: "2025-08-20T12:34:56Z"
+  updated_at: "2025-08-26T09:00:00Z"
+
+products:
+  - id: "b6b1d6b0-3b9f-4a1c-8d2b-1c2d3e4f5a6b"
+    name: "Espresso Module"
+    plan_id: null
+    sort_order: 1
+    description: "Core espresso brewing unit"
+    created_at: "2025-08-20T12:35:00Z"
+    updated_at: "2025-08-26T09:01:00Z"
+  - id: "c7c2e7c1-4c0a-5b2d-9e3f-2d3e4f5a6b7c"
+    name: "Water Pump"
+    plan_id: "b6b1d6b0-3b9f-4a1c-8d2b-1c2d3e4f5a6b"
+    sort_order: 1
+    description: "High pressure water pump"
+    created_at: "2025-08-20T12:36:00Z"
+    updated_at: "2025-08-26T09:02:00Z"
+  - id: "d8d3f8d2-5d1b-6c3e-a04f-3e4f5a6b7c8d"
+    name: "Grinder"
+    plan_id: "b6b1d6b0-3b9f-4a1c-8d2b-1c2d3e4f5a6b"
+    sort_order: 2
+    description: "Burr grinder for beans"
+    created_at: "2025-08-20T12:37:00Z"
+    updated_at: "2025-08-26T09:03:00Z"

@@ -22,4 +22,12 @@
 - This changelog summarizes the 2025-08-20 improvements.
 - See `docs/bugs/index.md` for bug status and `docs/story-planning-room.md` for user story coverage.
 
+## Recent Changes (2025-08-26)
+
+- Added Gantt chart output to the scheduling engine (Python).
+- Gantt chart now includes Task ID column and week start date heading row.
+- Horizontal line added after Gantt chart heading for clarity.
+- Timeline and Gantt chart outputs are visually aligned and readable.
+- Documentation updated to reflect new Gantt chart feature and acceptance criteria.
+
 ---
