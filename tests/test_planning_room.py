@@ -1,4 +1,5 @@
 import os
+from test_helpers import create_test_jwt_token
 import pytest
 from fastapi.testclient import TestClient
 import sys
@@ -20,7 +21,7 @@ def setup_and_teardown_db():
 def create_and_login_user(username="alice", password="secret"):
     client.post("/register", data={"username": username, "fullname": "Alice Wonderland", "password": password})
     client.post("/login", data={"username": username, "password": password})
-    client.cookies.set("token", username)
+    client.cookies.set("token", create_test_jwt_token(username))
     return username
 
 def create_project_for_user(username, project_name):

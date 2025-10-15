@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app import app
 from db import create_tables, add_test_user, DATABASE_URL, get_db
+from routes import create_access_token
 def add_test_project_for_user(username, project_name):
     with get_db() as conn:
         cursor = conn.cursor()
@@ -19,10 +20,9 @@ def test_list_user_projects():
     client.post("/register", data={"username": "alice", "fullname": "Alice Wonderland", "password": "secret"})
     # Add a test project for alice
     add_test_project_for_user("alice", "Project Alpha")
-    # Login to get session cookie
-    login_response = client.post("/login", data={"username": "alice", "password": "secret"})
-    # Set cookie on client instance
-    client.cookies.set("token", "alice")
+    # Create JWT token for alice
+    token = create_access_token(data={"sub": "alice"})
+    client.cookies.set("token", token)
     response = client.get("/projects")
     assert response.status_code == 200
     assert b"Project Alpha" in response.content
@@ -63,9 +63,9 @@ def test_get_current_user():
 def test_logout():
     # Register and login as alice
     client.post("/register", data={"username": "alice", "fullname": "Alice Wonderland", "password": "secret"})
-    login_response = client.post("/login", data={"username": "alice", "password": "secret"})
-    # Logout
-    client.cookies.set("token", "alice")
+    # Create JWT token for alice
+    token = create_access_token(data={"sub": "alice"})
+    client.cookies.set("token", token)
     response = client.post("/logout", follow_redirects=False)
     # Should redirect to /login
     assert response.status_code in (302, 307)

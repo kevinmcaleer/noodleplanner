@@ -407,7 +407,7 @@ def validate_project_yaml(data):
         phases = data[project_name]
         if not isinstance(phases, list):
             raise Exception("Validation failed: Project value must be a list of phases.")
-        # Each phase should be a dict with phase name as key and list of tasks as value
+        # Each phase should be a dict with phase name as key and list of tasks (strings or dicts) as value
         for phase in phases:
             if not isinstance(phase, dict):
                 raise Exception("Validation failed: Each phase must be a dict.")
@@ -417,8 +417,8 @@ def validate_project_yaml(data):
                 if not items:
                     raise Exception(f"Validation failed: Phase '{phase_name}' must not be empty.")
                 for item in items:
-                    if not isinstance(item, str):
-                        raise Exception(f"Validation failed: Task in phase '{phase_name}' must be a string.")
+                    if not (isinstance(item, str) or isinstance(item, dict)):
+                        raise Exception(f"Validation failed: Task in phase '{phase_name}' must be a string or dict.")
         return True
 
 if __name__ == "__main__":

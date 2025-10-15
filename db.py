@@ -2,6 +2,7 @@ import sqlite3
 import os
 from typing import Optional
 from contextlib import contextmanager
+import bcrypt
 
 # Use absolute path so app restarts from different working directories still use the same DB file.
 # Allow override via NOODLEPLANNER_DB for testing persistence behaviors.
@@ -149,11 +150,19 @@ def get_projects_by_username(username: str):
         return [{"id": row[0], "name": row[1]} for row in rows]
 
 def add_test_user():
+    """Add test user 'alice' with password 'secret' for testing purposes."""
     with get_db() as conn:
         cursor = conn.cursor()
         try:
+            # Hash the test password using bcrypt
+            password = "secret"
+            password_bytes = password.encode('utf-8')
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password_bytes, salt)
+            hashed_password = hashed.decode('utf-8')
+
             cursor.execute('''INSERT INTO users (username, full_name, hashed_password, disabled) VALUES (?, ?, ?, ?)''',
-                ("alice", "Alice Wonderland", "fakehashedsecret", 0))
+                ("alice", "Alice Wonderland", hashed_password, 0))
             conn.commit()
         except sqlite3.IntegrityError:
             pass  # User already exists

@@ -1,4 +1,5 @@
 import os
+from test_helpers import create_test_jwt_token
 import pytest
 from fastapi.testclient import TestClient
 import sys
@@ -21,7 +22,7 @@ def test_create_project_success():
     # Register and login as alice
     client.post("/register", data={"username": "alice", "fullname": "Alice Wonderland", "password": "secret"})
     client.post("/login", data={"username": "alice", "password": "secret"})
-    client.cookies.set("token", "alice")
+    client.cookies.set("token", create_test_jwt_token("alice"))
     # Create a new project
     response = client.post("/projects/create", data={"project_name": "Project Beta"})
     assert response.status_code == 200
@@ -31,7 +32,7 @@ def test_create_project_success():
 def test_create_project_empty_name():
     client.post("/register", data={"username": "alice", "fullname": "Alice Wonderland", "password": "secret"})
     client.post("/login", data={"username": "alice", "password": "secret"})
-    client.cookies.set("token", "alice")
+    client.cookies.set("token", create_test_jwt_token("alice"))
     response = client.post("/projects/create", data={"project_name": "   "})
     assert response.status_code == 200
     assert b"Project name cannot be empty" in response.content

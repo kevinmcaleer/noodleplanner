@@ -7,19 +7,13 @@ import pandas as pd
 import io
 import bcrypt
 import jwt
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
-import logging
 from db import (
     get_user_by_username, get_projects_by_username, get_project_with_products, add_product_to_project, get_db,
     add_dependency, remove_dependency, get_dependencies_for_project
 )
 from models import UserInDB
-from logging_config import get_auth_logger
-
-# Setup loggers
-logger = logging.getLogger(__name__)
-auth_logger = get_auth_logger()
 
 # --- Router ---
 router = APIRouter()
@@ -46,7 +40,7 @@ async def product_flow_canvas(request: Request, project_id: int):
 @router.get("/projects/{project_id}/dependencies")
 async def get_project_dependencies(request: Request, project_id: int):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     deps = get_dependencies_for_project(project_id)
@@ -56,7 +50,7 @@ async def get_project_dependencies(request: Request, project_id: int):
 async def add_project_dependency(request: Request, project_id: int):
     """Add a dependency ensuring both products exist in the specified project."""
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     data = await request.json()
@@ -78,7 +72,7 @@ async def add_project_dependency(request: Request, project_id: int):
 async def delete_project_dependency(request: Request, project_id: int, dep_id: int):
     """Delete dependency only if both endpoint products belong to project."""
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     with get_db() as conn:
@@ -101,6 +95,9 @@ async def delete_project_dependency(request: Request, project_id: int, dep_id: i
 @router.get("/projects/{project_id}/export-products-xlsx")
 async def export_products_xlsx(request: Request, project_id: int):
     user = get_current_user_from_cookie(request)
+    if not username:
+        return RedirectResponse(url="/login", status_code=302)
+    user = get_user(username)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     project = get_project_with_products(project_id)
@@ -144,7 +141,7 @@ async def export_products_xlsx(request: Request, project_id: int):
 @router.post("/projects/move-product-up/{product_id}")
 async def move_product_up(request: Request, product_id: int = Path(...)):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -176,7 +173,7 @@ async def move_product_up(request: Request, product_id: int = Path(...)):
 @router.post("/projects/move-product-down/{product_id}")
 async def move_product_down(request: Request, product_id: int = Path(...)):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -205,7 +202,7 @@ async def move_product_down(request: Request, product_id: int = Path(...)):
 @router.post("/projects/indent-product/{product_id}")
 async def indent_product(request: Request, product_id: int = Path(...)):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -236,7 +233,7 @@ async def indent_product(request: Request, product_id: int = Path(...)):
 @router.post("/projects/outdent-product/{product_id}")
 async def outdent_product(request: Request, product_id: int = Path(...)):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -268,7 +265,7 @@ async def outdent_product(request: Request, product_id: int = Path(...)):
 @router.post("/projects/update-product-order/{product_id}")
 async def update_product_order(request: Request, product_id: int, payload: dict = Body(...)):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -350,7 +347,7 @@ async def update_product_order(request: Request, product_id: int, payload: dict 
 @router.post("/projects/delete-product/{product_id}")
 async def delete_product(request: Request, product_id: int):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -378,7 +375,7 @@ async def delete_product(request: Request, product_id: int):
 @router.post("/projects/update-product-parent/{product_id}")
 async def update_product_parent(request: Request, product_id: int, payload: dict = Body(...)):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -437,7 +434,7 @@ def get_user_id(user):
 @router.post("/rename-project/{project_id}")
 async def rename_project(request: Request, project_id: int):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -459,7 +456,7 @@ async def rename_project(request: Request, project_id: int):
 @router.post("/rename-product/{product_id}")
 async def rename_product(request: Request, product_id: int):
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     user_id = get_user_id(user)
@@ -482,6 +479,9 @@ async def rename_product(request: Request, product_id: int):
 @router.get("/projects/{project_id}", response_class=HTMLResponse)
 async def planning_room(request: Request, project_id: int):
     user = get_current_user_from_cookie(request)
+    if not username:
+        return RedirectResponse(url="/login", status_code=302)
+    user = get_user(username)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     project = get_project_with_products(project_id)
@@ -492,6 +492,9 @@ async def planning_room(request: Request, project_id: int):
 @router.post("/projects/{project_id}/products", response_class=HTMLResponse)
 async def add_product(request: Request, project_id: int, product_name: str = Form(...)):
     user = get_current_user_from_cookie(request)
+    if not username:
+        return RedirectResponse(url="/login", status_code=302)
+    user = get_user(username)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     if not product_name.strip():
@@ -519,7 +522,7 @@ async def add_product_json(request: Request, project_id: int):
     Accepts JSON {"name": "...", "plan_id": optional int}. Returns new product record.
     """
     user = get_current_user_from_cookie(request)
-    # JWT validation now handled by get_current_user_from_cookie
+    user = get_user(username) if username else None
     if not user:
         return JSONResponse({"success": False, "error": "Not authenticated"}, status_code=401)
     try:
@@ -559,14 +562,19 @@ async def add_product_json(request: Request, project_id: int):
 
 @router.post("/projects/create", response_class=HTMLResponse)
 async def create_project(request: Request, project_name: str = Form(...)):
-    logger.debug("/projects/create route hit")
+    print("DEBUG: /projects/create route hit", flush=True)
     user = get_current_user_from_cookie(request)
-    logger.debug(f"user from cookie: {user}")
-    if not user:
-        logger.debug("No user found in cookie, redirecting to login")
+    print(f"DEBUG: username from cookie: {username}", flush=True)
+    if not username:
+        print("DEBUG: No username in cookie, redirecting to login", flush=True)
         return RedirectResponse(url="/login", status_code=302)
+    user = get_user(username)
+    print(f"DEBUG: user from get_user: {user}", flush=True)
     user_id = get_user_id(user) if user else None
-    logger.debug(f"user_id from user_dict_id: {user_id}")
+    print(f"DEBUG: user_id from user_dict_id: {user_id}", flush=True)
+    if not user:
+        print("DEBUG: No user found, redirecting to login", flush=True)
+        return RedirectResponse(url="/login", status_code=302)
     if not project_name.strip():
         projects = get_projects_by_username(user.username)
         return templates.TemplateResponse(request, "projects.html", {"projects": projects, "user": user, "error": "Project name cannot be empty.", "success": None})
@@ -588,7 +596,6 @@ async def register_page(request: Request):
 async def register_submit(request: Request, username: str = Form(...), fullname: str = Form(...), password: str = Form(...)):
     # Check if user exists
     if get_user(username):
-        auth_logger.warning(f"Registration attempt with existing username: {username}")
         return templates.TemplateResponse(request, "register.html", {"error": "Username already taken", "success": None})
     # Add user to DB
     with get_db() as conn:
@@ -596,7 +603,6 @@ async def register_submit(request: Request, username: str = Form(...), fullname:
         cursor.execute('''INSERT INTO users (username, full_name, hashed_password, disabled) VALUES (?, ?, ?, ?)''',
             (username, fullname, hash_password(password), 0))
         conn.commit()
-    auth_logger.info(f"New user registered: {username}")
     return templates.TemplateResponse(request, "register.html", {"error": None, "success": "Registration successful! Please log in."})
 
 
@@ -619,12 +625,10 @@ async def login_page(request: Request):
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     user = authenticate_user(username, password)
     if not user:
-        auth_logger.warning(f"Failed login attempt for username: {username}")
         return templates.TemplateResponse(request, "login.html", {"error": "Invalid username or password"})
 
     # Create JWT token
     access_token = create_access_token(data={"sub": user.username})
-    auth_logger.info(f"Successful login for user: {username}")
 
     response = RedirectResponse(url="/projects", status_code=302)
     response.set_cookie(
@@ -638,10 +642,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
     return response
 
 @router.post("/logout")
-async def logout(request: Request):
-    user = get_current_user_from_cookie(request)
-    if user:
-        auth_logger.info(f"User logged out: {user.username}")
+async def logout(_: Request):
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie(key="token")
     return response
@@ -672,9 +673,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """Create a JWT access token with optional expiration."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+        expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -685,14 +686,11 @@ def decode_access_token(token: str) -> Optional[str]:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            auth_logger.warning("JWT token missing username (sub claim)")
             return None
         return username
     except jwt.ExpiredSignatureError:
-        auth_logger.warning("JWT token expired")
         return None
     except jwt.InvalidTokenError:
-        auth_logger.warning("Invalid JWT token")
         return None
 
 def get_user(username: str):
