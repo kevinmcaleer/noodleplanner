@@ -475,64 +475,6 @@ def yaml_to_markdown_table(yaml_path):
     return md
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    path = args[0] if args else "docs/examples/minimal_project.sample.yaml"
-    markdown_mode = any(a in ('-md', '--markdown') for a in args)
-    output = yaml_to_markdown_table(path)
-    if markdown_mode:
-        # Pre-compute overall project start/finish for fallback timeline
-        overall_start = None
-        overall_finish = None
-        for line in output.splitlines():
-            # Look for task table rows: start date in 4th pipe-separated column
-            if line.startswith('| ') and '|' in line and ' Phase ' not in line and ' Task ' not in line:
-                parts = line.split('|')
-                if len(parts) > 5:
-                    start_candidate = parts[3].strip()
-                    finish_candidate = parts[4].strip()
-                    if re.match(r'\d{4}-\d{2}-\d{2}', start_candidate) and re.match(r'\d{4}-\d{2}-\d{2}', finish_candidate):
-                        if not overall_start or start_candidate < overall_start:
-                            overall_start = start_candidate
-                        if not overall_finish or finish_candidate > overall_finish:
-                            overall_finish = finish_candidate
-        # Split output into sections
-        project_table = []
-        timeline = []
-        gantt = []
-        lines = output.splitlines()
-        section = None
-        for line in lines:
-            if line.startswith('# Gantt Chart'):
-                section = 'gantt'
-                gantt.append(line)
-            elif line.startswith('# Project Timeline'):
-                section = 'timeline'
-                timeline.append(line)
-            elif line.startswith('# '):
-                section = 'project_table'
-                project_table.append(line)
-            else:
-                if section == 'gantt':
-                    gantt.append(line)
-                elif section == 'timeline':
-                    timeline.append(line)
-                elif section == 'project_table':
-                    project_table.append(line)
-        with open('project_table.md', 'w', encoding='utf-8') as f:
-            f.write('\n'.join(project_table).strip() + '\n')
-        # If timeline section is empty, output start/finish dates for the project
-        timeline_content = [line for line in timeline if line.strip()]
-        if not timeline_content:
-            if overall_start and overall_finish:
-                timeline_content = [f"Project Start: {overall_start}", f"Project Finish: {overall_finish}"]
-            else:
-                timeline_content = ["Project timeline unavailable"]
-        with open('timeline.md', 'w', encoding='utf-8') as f:
-            f.write('\n'.join(timeline_content).strip() + '\n')
-        with open('gantt.md', 'w', encoding='utf-8') as f:
-            f.write('\n'.join(gantt).strip() + '\n')
-        logger.info("Markdown output written to 'project_table.md', 'timeline.md', and 'gantt.md'.")
-        print("Markdown output written to 'project_table.md', 'timeline.md', and 'gantt.md'.")
-    else:
-        logger.info("Rendering project schedule output")
-        print(output)
+    from projects.scheduling_engine.cli import main
+
+    raise SystemExit(main(sys.argv[1:]))

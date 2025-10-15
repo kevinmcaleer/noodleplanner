@@ -119,6 +119,7 @@ Generated from code review: 2025-10-13
 ---
 
 ### 6. Refactor scheduling_engine.py 🔧
+- [x] Relocate scheduling engine into `projects/scheduling_engine` package with CLI entrypoint
 - [ ] Break down `schedule_tasks()` (136 lines → <50 lines each):
   - [ ] Extract metadata parsing to separate function
   - [ ] Extract scheduling logic to separate function

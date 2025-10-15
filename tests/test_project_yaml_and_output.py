@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from project_validator import validate_project_yaml
-import scheduling_engine
+from projects.scheduling_engine import yaml_to_markdown_table
 from pathlib import Path
 
 def test_valid_project_yaml():
@@ -24,7 +24,7 @@ def test_invalid_project_yaml():
 def test_scheduling_engine_output():
     # Run the scheduling engine and check output contains expected sections
     sample_path = 'docs/examples/minimal_project.sample.yaml'
-    output = scheduling_engine.yaml_to_markdown_table(sample_path)
+    output = yaml_to_markdown_table(sample_path)
     # Accept either '# Project Timeline' or the project name as a valid header
     assert ('# Project Timeline' in output) or ('# House move' in output)
     assert '# Gantt Chart' in output
