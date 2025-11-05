@@ -37,17 +37,40 @@ def extract_metadata(task_str, task_name=None):
     comment_match = re.search(r'!(?:"([^"]+)"|\'([^\']+)\')', task_str)
     if comment_match:
         meta['comment'] = comment_match.group(1) if comment_match.group(1) is not None else comment_match.group(2)
-    percent_match = re.search(r'\bp(\d{1,3})\b', task_str)
+
+    # Support both new format (10%) and old format (p10)
+    percent_match = re.search(r'(\d{1,3})%', task_str)
     if percent_match:
         meta['percent'] = int(percent_match.group(1))
+    else:
+        # Fall back to old format
+        percent_match = re.search(r'\bp(\d{1,3})\b', task_str)
+        if percent_match:
+            meta['percent'] = int(percent_match.group(1))
+
     date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str)
     if date_match:
         meta['due'] = date_match.group(1)
         meta['start'] = parse_date(date_match.group(1))
-    duration_match = re.search(r':p(\d+)d', task_str)
+
+    # Support new simple format: 10d, 2w, 3m
+    duration_match = re.search(r'\b(\d+)([dwm])\b', task_str)
     if duration_match:
-        meta['duration'] = timedelta(days=int(duration_match.group(1)))
-    desc_match = re.match(r"\*?(.*?)(@|#|!|p|\d{4}-\d{2}-\d{2}|:p\d+d|$)", task_str)
+        value = int(duration_match.group(1))
+        unit = duration_match.group(2)
+        if unit == 'd':
+            meta['duration'] = timedelta(days=value)
+        elif unit == 'w':
+            meta['duration'] = timedelta(weeks=value)
+        elif unit == 'm':
+            meta['duration'] = timedelta(days=value * 30)  # Approximate month as 30 days
+    else:
+        # Fall back to old format :p10d
+        duration_match = re.search(r':p(\d+)d', task_str)
+        if duration_match:
+            meta['duration'] = timedelta(days=int(duration_match.group(1)))
+
+    desc_match = re.match(r"\*?(.*?)(@|#|!|p|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwm]|\d+%|$)", task_str)
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
@@ -200,10 +223,15 @@ def schedule_tasks(phases):
 
 # --- Gantt chart rendering ---
 def render_gantt_chart(tasks, start_date, finish_date, width=80):
-    chart = "# Gantt Chart\n\n"
+    chart = "# Gantt Chart\n\n```\n"
     total_days = (finish_date - start_date).days or 1
-    # Determine max ID width
-    max_id_width = max([len(str(t.get('name',''))) for t in tasks] + [2])
+    # Determine max ID width - use numeric IDs
+    max_id_width = max(len(str(len(tasks))), 2)
+
+    # Determine max task name width
+    max_name_width = max([len(t.get('description', '')) for t in tasks] + [20])
+    max_name_width = min(max_name_width, 40)  # Cap at 40 chars for readability
+
     # Week heading row
     week_row = [' '] * width
     week_dates = []
@@ -216,11 +244,11 @@ def render_gantt_chart(tasks, start_date, finish_date, width=80):
                 week_row[pos + i] = c
         week_dates.append(current)
         current += timedelta(days=7)
-    chart += f"{'ID':<{max_id_width}}  Task Name           |" + ''.join(week_row) + '|\n'
-    chart += '-' * (max_id_width + 2 + 18 + width) + '\n'  # Adjust horizontal line
+    chart += f"{'ID':<{max_id_width}}  {'Task Name':<{max_name_width}} |" + ''.join(week_row) + '|\n'
+    chart += '-' * (max_id_width + 2 + max_name_width + 1 + width) + '\n'  # Adjust horizontal line
     # Track last summary task for indentation
     last_summary_phase = None
-    for t in tasks:
+    for idx, t in enumerate(tasks, start=1):
         bar_start = int((t['start'] - start_date).days / total_days * (width-1))
         bar_end = int((t['finish'] - start_date).days / total_days * (width-1))
         line = [' '] * width
@@ -252,10 +280,22 @@ def render_gantt_chart(tasks, start_date, finish_date, width=80):
                         line[i] = '='
                     else:
                         line[i] = '-'
-        task_id = str(t.get('name',''))
+        # Use numeric ID
+        task_id = str(idx)
         label = f"{indent}{t.get('description','')}"
+
+        # Make summary tasks stand out visually
+        if t.get('summary'):
+            # Use uppercase for summary task labels
+            label = label.upper()
+
+        # Truncate label to max_name_width if needed
+        if len(label) > max_name_width:
+            label = label[:max_name_width-3] + '...'
+
         line_str = ''.join(line)
-        chart += f"{task_id:<{max_id_width}}  {label[:18]:<18} |{line_str}|\n"
+        chart += f"{task_id:<{max_id_width}}  {label:<{max_name_width}} |{line_str}|\n"
+    chart += "```\n"
     return chart
 def render_custom_timeline(phases, milestones, start_date, finish_date, timeline_width=80):
     # Timeline line
@@ -361,6 +401,265 @@ def render_timeline(phases, milestones, start_date, finish_date, timeline_width=
     )
     return timeline_output
 
+def natural_language_to_yaml(text, project_name="Project"):
+    """Convert natural language task definitions to YAML structure.
+
+    Format examples:
+        design @kev @jen 10d
+        *build @kev #design 5d 2025-12-01
+        test @jen #build !"Run all tests" p50 3d
+
+    Summary tasks (no details, with indented subtasks):
+        Phase 1
+          design @kev 10d
+          build @kev 5d
+    """
+    lines = text.split('\n')
+    tasks = {}
+    phase_tasks = {}  # Track tasks by phase for nested structure
+    current_phase = None
+
+    for line in lines:
+        if not line.strip():
+            continue
+
+        # Detect indentation level
+        indent_level = len(line) - len(line.lstrip())
+        stripped = line.strip()
+
+        # Extract task name (first word, may have * prefix)
+        parts = stripped.split()
+        if not parts:
+            continue
+
+        first_part = parts[0]
+        task_name = first_part.lstrip('*')
+
+        # Check if this is a summary task (no @ or duration markers)
+        has_details = any(marker in stripped for marker in ['@', 'd', 'w', 'm', '%', '!', '#', '2025-', '2024-', '2026-'])
+
+        if indent_level == 0 and not has_details:
+            # This is a summary/phase task
+            current_phase = task_name
+            phase_tasks[current_phase] = {}
+        elif indent_level > 0 and current_phase:
+            # This is a subtask under the current phase
+            phase_tasks[current_phase][task_name] = stripped
+        else:
+            # Regular top-level task
+            tasks[task_name] = stripped
+            current_phase = None
+
+    # Combine phase tasks and regular tasks
+    if phase_tasks:
+        return {project_name: [phase_tasks, tasks] if tasks else [phase_tasks]}
+    else:
+        return {project_name: [tasks]}
+
+def calculate_resource_allocation(tasks, start_date, finish_date):
+    """Calculate daily resource allocation in hours per day.
+
+    Returns a dict with:
+    - resources: list of resource names
+    - days: list of dates from start to finish
+    - allocation: dict[resource][date] = hours
+    """
+    from collections import defaultdict
+
+    # Collect all resources
+    resources = set()
+    for t in tasks:
+        res = t.get('resources', '')
+        if res:
+            for r in res.split(','):
+                resources.add(r.strip())
+
+    resources = sorted(list(resources))
+
+    # Generate all days from start to finish
+    days = []
+    current = start_date
+    while current <= finish_date:
+        days.append(current)
+        current += timedelta(days=1)
+
+    # Calculate allocation for each resource on each day
+    allocation = defaultdict(lambda: defaultdict(float))
+
+    for t in tasks:
+        task_start = t.get('start')
+        task_finish = t.get('finish')
+        if not task_start or not task_finish:
+            continue
+
+        # Get resources for this task
+        res = t.get('resources', '')
+        if not res:
+            continue
+
+        task_resources = [r.strip() for r in res.split(',')]
+        if not task_resources:
+            continue
+
+        # Calculate working days for this task (exclude weekends)
+        task_days = []
+        current = task_start
+        while current < task_finish:
+            # 0 = Monday, 6 = Sunday
+            if current.weekday() < 5:  # Monday-Friday
+                task_days.append(current)
+            current += timedelta(days=1)
+
+        if not task_days:
+            task_days = [task_start]
+
+        # Assume 8 hours per working day, split among resources
+        hours_per_day = 8.0 / len(task_resources)
+
+        for resource in task_resources:
+            for day in task_days:
+                allocation[resource][day] += hours_per_day
+
+    return {
+        'resources': resources,
+        'days': days,
+        'allocation': allocation
+    }
+
+def text_to_markdown_table(text, is_yaml=True, project_name="Project"):
+    """Convert text (YAML or natural language) to markdown table.
+
+    Args:
+        text: Input text (YAML or natural language)
+        is_yaml: If True, parse as YAML; if False, parse as natural language
+        project_name: Project name to use
+    """
+    today = datetime.today()
+
+    if is_yaml:
+        data = yaml.safe_load(text)
+        project_name = list(data.keys())[0]
+        phases_raw = data[project_name]
+    else:
+        # Parse natural language
+        data = natural_language_to_yaml(text, project_name)
+        phases_raw = data[project_name]
+
+    # If phases_raw is a list, pass as-is; if dict, wrap in a list
+    if isinstance(phases_raw, list):
+        phases = phases_raw
+    elif isinstance(phases_raw, dict):
+        phases = [phases_raw]
+    else:
+        phases = []
+    tasks = schedule_tasks(phases)
+
+    # Compute phase timelines
+    phase_dates = {}
+    for t in tasks:
+        phase = t.get('phase')
+        start = t.get('start') or today
+        finish = t.get('finish') or (start + (t.get('duration') or timedelta(days=1)))
+        if phase:
+            if phase not in phase_dates:
+                phase_dates[phase] = {'start': start, 'end': finish}
+            else:
+                if start < phase_dates[phase]['start']:
+                    phase_dates[phase]['start'] = start
+                if finish > phase_dates[phase]['end']:
+                    phase_dates[phase]['end'] = finish
+
+    # Markdown table for tasks
+    md = f"# {project_name}\n\n| ID | Task Name | Start | Finish | Duration | Resources | % Complete | Comment |\n|----|-----------|-------|--------|----------|-----------|------------|---------|\n"
+    for idx, t in enumerate(tasks, start=1):
+        start = t.get('start') or today
+        finish = t.get('finish') or (start + (t.get('duration') or timedelta(days=1)))
+        resources = t.get('resources','')
+        if resources:
+            resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
+        percent = t.get('percent', '')
+        comment = t.get('comment','')
+
+        # Use description as task name, fallback to name if no description
+        task_name = t.get('description') or t.get('name', '')
+
+        # Make summary task names bold
+        if t.get('summary'):
+            task_name = f"**{task_name}**"
+
+        md += f"| {idx} | {task_name} | {start.strftime('%Y-%m-%d')} | {finish.strftime('%Y-%m-%d')} | {t.get('duration',timedelta(days=1)).days}d | {resources} | {percent} | {comment} |\n"
+
+    # Timeline output block
+    milestones = []
+    if phase_dates:
+        # Timeline table
+        md += "\n# Project Timeline\n\n| Phase | Start | End |\n|-------|-------|-----|\n"
+        for phase, dates in phase_dates.items():
+            md += f"| {phase} | {dates['start'].strftime('%Y-%m-%d')} | {dates['end'].strftime('%Y-%m-%d')} |\n"
+        # Tasks with duration 0 are milestones
+        for t in tasks:
+            duration = t.get('duration', timedelta(days=1))
+            if isinstance(duration, timedelta) and duration.days == 0:
+                milestones.append({'name': t.get('description',''), 'date': t.get('start')})
+        # End of each phase is a milestone
+        for phase, dates in phase_dates.items():
+            milestones.append({'name': f"End of {phase}", 'date': dates['end']})
+        phase_objs = [{'name': k, 'start': v['start']} for k,v in phase_dates.items()]
+        timeline_width = 80
+        # Only call min/max if tasks is not empty
+        if tasks:
+            start_date = min([t.get('start', today) for t in tasks])
+            finish_date = max([t.get('finish', today) for t in tasks])
+        else:
+            start_date = today
+            finish_date = today
+        # Custom timeline block (header will be rendered below, not here)
+        # Timeline line with symbols
+        timeline_row, milestone_labels, milestone_dates, milestone_full_dates = render_custom_timeline(phase_objs, milestones, start_date, finish_date, timeline_width)
+        # Only show one 'Start' and one 'Finish' label/date above timeline
+        # Find unique Start and Finish labels/dates (first and last milestones)
+        start_idx = 0
+        finish_idx = len(milestone_labels) - 1
+        start_date_str = milestone_full_dates[start_idx] if milestone_full_dates else ''
+        finish_date_str = milestone_full_dates[finish_idx] if milestone_full_dates else ''
+        # Render only one Start and one Finish label/date above timeline
+        # Render timeline header only once
+        timeline_header = f"{project_name}\nStart{' ' * (timeline_width - 10)}Finish\n{start_date_str}{' ' * (timeline_width - len(start_date_str) - len(finish_date_str))}{finish_date_str}\n"
+        md += timeline_header
+        md += f"{timeline_row}\n"
+        # Show only non-start/finish milestone labels/dates below timeline
+        non_sf_labels = []
+        for idx, label in enumerate(milestone_labels):
+            if idx == start_idx or idx == finish_idx:
+                continue
+            non_sf_labels.append((idx, label))
+        for idx, label in non_sf_labels:
+            md += f"{label}\n"
+            # Place the full date string for this milestone, right-aligned with the label
+            label_end = max([i for i, c in enumerate(label) if c != ' '], default=0)
+            date_str = milestone_full_dates[idx] if idx < len(milestone_full_dates) else ''
+            date_line = [' '] * timeline_width
+            if label_end + len(date_str) > timeline_width:
+                start_pos = max(0, timeline_width - len(date_str))
+            else:
+                start_pos = label_end
+            for i, c in enumerate(date_str):
+                if start_pos + i < timeline_width:
+                    date_line[start_pos + i] = c
+            md += f"{''.join(date_line)}\n"
+    # Gantt chart output
+    timeline_width = 80
+    # Only call min/max if tasks is not empty
+    if tasks:
+        start_date = min([t.get('start', today) for t in tasks])
+        finish_date = max([t.get('finish', today) for t in tasks])
+    else:
+        start_date = today
+        finish_date = today
+    md += "\n"
+    md += render_gantt_chart(tasks, start_date, finish_date, timeline_width)
+    return md
+
 def yaml_to_markdown_table(yaml_path):
     today = datetime.today()
     with open(yaml_path, encoding="utf-8") as f:
@@ -392,8 +691,8 @@ def yaml_to_markdown_table(yaml_path):
                     phase_dates[phase]['end'] = finish
 
     # Markdown table for tasks
-    md = f"# {project_name}\n\n| # | Phase | Task | Start | Finish | Duration | Resources | % Complete | Comment |\n|---|-------|------|-------|--------|----------|-----------|------------|---------|\n"
-    for t in tasks:
+    md = f"# {project_name}\n\n| ID | Task Name | Start | Finish | Duration | Resources | % Complete | Comment |\n|----|-----------|-------|--------|----------|-----------|------------|---------|\n"
+    for idx, t in enumerate(tasks, start=1):
         start = t.get('start') or today
         finish = t.get('finish') or (start + (t.get('duration') or timedelta(days=1)))
         resources = t.get('resources','')
@@ -401,7 +700,15 @@ def yaml_to_markdown_table(yaml_path):
             resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
         percent = t.get('percent', '')
         comment = t.get('comment','')
-        md += f"| {str(t.get('name',''))} | {t.get('phase','')} | {t.get('description','')} | {start.strftime('%Y-%m-%d')} | {finish.strftime('%Y-%m-%d')} | {t.get('duration',timedelta(days=1)).days}d | {resources} | {percent} | {comment} |\n"
+
+        # Use description as task name, fallback to name if no description
+        task_name = t.get('description') or t.get('name', '')
+
+        # Make summary task names bold
+        if t.get('summary'):
+            task_name = f"**{task_name}**"
+
+        md += f"| {idx} | {task_name} | {start.strftime('%Y-%m-%d')} | {finish.strftime('%Y-%m-%d')} | {t.get('duration',timedelta(days=1)).days}d | {resources} | {percent} | {comment} |\n"
 
     # Timeline output block
     milestones = []
