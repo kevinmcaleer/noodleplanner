@@ -120,10 +120,15 @@ Generated from code review: 2025-10-13
 
 ### 6. Refactor scheduling_engine.py 🔧
 - [x] Relocate scheduling engine into `projects/scheduling_engine` package with CLI entrypoint
-- [ ] Break down `schedule_tasks()` (136 lines → <50 lines each):
-  - [ ] Extract metadata parsing to separate function
-  - [ ] Extract scheduling logic to separate function
-  - [ ] Extract summary task creation to separate function
+- [x] Rewrite `schedule_tasks()` to handle arbitrary nesting ✅ COMPLETED 2025-11-05:
+  - [x] Replace 2-level phase+task logic with recursive traversal
+  - [x] Support arbitrary nesting levels from natural_language_to_yaml
+  - [x] Extract tasks with level attribute (hierarchy depth)
+  - [x] Track parent-child relationships using parent attribute
+  - [x] Create summary tasks for nodes with children
+  - [x] Calculate summary dates from children's min(start)/max(finish)
+  - [x] Update table rendering to use level-based indentation
+  - [x] Update Gantt chart rendering to use level-based indentation
 - [ ] Break down `yaml_to_markdown_table()` (113 lines):
   - [ ] Extract table rendering to separate function
   - [ ] Extract timeline rendering to separate function
@@ -132,8 +137,17 @@ Generated from code review: 2025-10-13
 - [ ] Add type hints to all functions
 - [ ] Add docstrings to complex functions
 
-**Current:** 534 lines, complex nested logic
-**Target:** Functions <50 lines, clear single responsibility
+**Changes Completed (2025-11-05):**
+- Rewrote `natural_language_to_yaml()` to build tree structure using stack-based algorithm
+- Completely rewrote `schedule_tasks()` with recursive traversal for arbitrary nesting
+- Each task now includes: level (depth), parent (parent task name), summary (boolean)
+- Summary tasks auto-calculated from children: start=min(children), finish=max(children)
+- Updated both table and Gantt rendering to use level-based indentation (4 spaces per level)
+- Tested successfully with up to 4 levels of nesting
+- Maintains backward compatibility with existing 2-level hierarchy
+
+**Current:** Full arbitrary nesting support ✅
+**Target:** Functions <50 lines, clear single responsibility, arbitrary nesting support ✅
 
 ---
 

@@ -70,7 +70,7 @@ def extract_metadata(task_str, task_name=None):
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(@|#|!|p|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwm]|\d+%|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)(@|#|!|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwm]|\d+%|$)", task_str)
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
@@ -84,142 +84,219 @@ def extract_metadata(task_str, task_name=None):
         meta['description'] = desc_match.group(1).strip()
     return meta
 def schedule_tasks(phases):
-    tasks = []
-    # If the input is a list of dicts or strings, treat each as a top-level task
-    if isinstance(phases, list):
-        for entry in phases:
-            if isinstance(entry, dict):
-                for task_name, task_str in entry.items():
-                    if isinstance(task_str, dict):
-                        # Nested dict, treat each subtask
-                        for sub_name, sub_str in task_str.items():
-                            meta = extract_metadata(sub_str, sub_name)
-                            meta['phase'] = ''
-                            tasks.append(meta)
-                    elif isinstance(task_str, list):
-                        # List of subtasks
-                        for sub_str in task_str:
-                            if isinstance(sub_str, dict):
-                                for sub_name, sub_val in sub_str.items():
-                                    meta = extract_metadata(sub_val, sub_name)
-                                    meta['phase'] = ''
-                                    tasks.append(meta)
-                            elif isinstance(sub_str, str):
-                                meta = extract_metadata(sub_str, task_name)
-                                meta['phase'] = ''
-                                tasks.append(meta)
-                    elif isinstance(task_str, str):
-                        meta = extract_metadata(task_str, task_name)
-                        meta['phase'] = ''
-                        tasks.append(meta)
-            elif isinstance(entry, str):
-                meta = extract_metadata(entry)
-                meta['phase'] = ''
-                meta['name'] = meta.get('description', entry)
-                tasks.append(meta)
-    # If the input is a list of dicts with phases, handle as before
-    else:
-        for phase in phases:
-            if isinstance(phase, dict):
-                for phase_name, items in phase.items():
-                    if isinstance(items, list):
-                        for task_entry in items:
-                            if isinstance(task_entry, dict):
-                                for task_name, task_str in task_entry.items():
-                                    meta = extract_metadata(task_str, task_name)
-                                    meta['phase'] = phase_name
-                                    tasks.append(meta)
-                            elif isinstance(task_entry, str):
-                                meta = extract_metadata(task_entry)
-                                meta['phase'] = phase_name
-                                meta['name'] = meta.get('description', task_entry)
-                                tasks.append(meta)
-                    elif isinstance(items, dict):
-                        for task_name, task_str in items.items():
-                            meta = extract_metadata(task_str, task_name)
-                            meta['phase'] = phase_name
-                            tasks.append(meta)
-                    elif isinstance(items, str):
-                        meta = extract_metadata(items)
-                        meta['phase'] = phase_name
-                        meta['name'] = meta.get('description', items)
-                        tasks.append(meta)
-    # Schedule all main tasks
-    name_lookup = {t['name']: t for t in tasks if 'name' in t}
-    for idx, t in enumerate(tasks):
-        if t.get('sequential'):
-            # Find previous non-summary task in the same phase (or top-level)
-            prev = None
-            for j in range(idx-1, -1, -1):
-                if (tasks[j].get('phase') == t.get('phase')) and not tasks[j].get('summary'):
-                    prev = tasks[j]
+    """Schedule tasks from arbitrarily nested structure.
+
+    Args:
+        phases: Nested dict structure from natural_language_to_yaml or YAML.
+                Leaf tasks have {'_text': str, '_level': int}
+                Summary tasks have nested dicts with '_level' and '_is_summary' markers
+
+    Returns:
+        List of tasks, each with: name, description, level, resources, start, finish,
+        duration, percent, comment, summary (bool), parent, phase
+    """
+    all_tasks = []
+
+    def traverse_nested_dict(node, parent_name=None, parent_level=-1):
+        """Recursively traverse nested dict and extract tasks."""
+        if isinstance(node, list):
+            # Handle list of dicts at top level
+            for item in node:
+                traverse_nested_dict(item, parent_name, parent_level)
+            return
+
+        if not isinstance(node, dict):
+            return
+
+        # Check if this is a leaf task
+        if '_text' in node:
+            # Leaf task - extract metadata
+            task_name = None
+            for key in node.keys():
+                if key not in ('_text', '_level'):
+                    task_name = key
                     break
+
+            text = node['_text']
+            level = node.get('_level', parent_level + 1)
+
+            # Extract task name from text if not already set
+            if not task_name:
+                parts = text.split()
+                if parts:
+                    task_name = parts[0].lstrip('*')
+                else:
+                    task_name = text
+
+            meta = extract_metadata(text, task_name)
+            meta['level'] = level
+            meta['parent'] = parent_name
+            meta['phase'] = parent_name or ''
+            meta['summary'] = False
+            all_tasks.append(meta)
+            return
+
+        # This is a summary task with children
+        is_summary = node.get('_is_summary', False)
+        level = node.get('_level', parent_level + 1)
+
+        # Process each child
+        for key, value in node.items():
+            if key.startswith('_'):
+                continue
+
+            # Check if child is a leaf or summary
+            if isinstance(value, dict):
+                if '_text' in value:
+                    # Leaf task
+                    meta = extract_metadata(value['_text'], key)
+                    meta['level'] = value.get('_level', level + 1)
+                    meta['parent'] = parent_name
+                    meta['phase'] = parent_name or ''
+                    meta['summary'] = False
+                    all_tasks.append(meta)
+                elif '_is_summary' in value or any(isinstance(v, dict) for v in value.values()):
+                    # Summary task with children
+                    summary_meta = {
+                        'name': key,
+                        'description': key,
+                        'level': value.get('_level', level + 1),
+                        'parent': parent_name,
+                        'phase': parent_name or '',
+                        'summary': True,
+                        'resources': '',
+                        'percent': 0,
+                        'comment': ''
+                    }
+                    all_tasks.append(summary_meta)
+                    # Recursively process children
+                    traverse_nested_dict(value, parent_name=key, parent_level=value.get('_level', level + 1))
+                else:
+                    # Single key-value that might be a simple dict
+                    traverse_nested_dict(value, parent_name=key, parent_level=level + 1)
+
+    # Start traversal
+    if isinstance(phases, list):
+        traverse_nested_dict(phases)
+    else:
+        traverse_nested_dict(phases)
+
+    # Schedule leaf tasks (non-summary tasks)
+    name_lookup = {t['name']: t for t in all_tasks if 'name' in t}
+
+    for idx, t in enumerate(all_tasks):
+        # Skip summary tasks - their dates will be calculated from children
+        if t.get('summary'):
+            continue
+
+        # Apply scheduling logic
+        if t.get('sequential'):
+            # Find previous non-summary task at same level or with same parent
+            prev = None
+            for j in range(idx - 1, -1, -1):
+                if (all_tasks[j].get('parent') == t.get('parent') and
+                    not all_tasks[j].get('summary')):
+                    prev = all_tasks[j]
+                    break
+
             if prev and 'finish' in prev:
                 t['start'] = prev['finish']
-            elif prev:
-                t['start'] = prev.get('finish', datetime.now())
             else:
                 t['start'] = datetime.now()
             t['finish'] = t['start'] + (t.get('duration') or timedelta(days=1))
+
         elif 'start' in t:
+            # Has explicit start date
             t['finish'] = t['start'] + (t.get('duration') or timedelta(days=1))
+
         elif 'depends' in t and t['depends']:
-            dep_finishes = [name_lookup[n]['finish'] for n in t['depends'] if n in name_lookup and 'finish' in name_lookup[n]]
+            # Has dependencies
+            dep_finishes = [name_lookup[n]['finish'] for n in t['depends']
+                          if n in name_lookup and 'finish' in name_lookup[n]]
             if dep_finishes:
                 t['start'] = max(dep_finishes)
-                t['finish'] = t['start'] + (t.get('duration') or timedelta(days=1))
-            else:
-                t['start'] = datetime.now()
-                t['finish'] = t['start'] + (t.get('duration') or timedelta(days=1))
-        else:
-            if idx > 0:
-                prev = tasks[idx-1]
-                t['start'] = prev.get('finish', datetime.now())
             else:
                 t['start'] = datetime.now()
             t['finish'] = t['start'] + (t.get('duration') or timedelta(days=1))
+
+        else:
+            # Default: start after previous task
+            if idx > 0 and 'finish' in all_tasks[idx - 1]:
+                t['start'] = all_tasks[idx - 1]['finish']
+            else:
+                t['start'] = datetime.now()
+            t['finish'] = t['start'] + (t.get('duration') or timedelta(days=1))
+
+        # Ensure duration is set
         if 'duration' not in t or not t['duration']:
             t['duration'] = timedelta(days=1)
-    # Only create summary tasks for tasks with children (phases with >1 subtask)
-    summary_tasks = []
-    if not isinstance(phases, list):
-        for phase in phases:
-            if isinstance(phase, dict):
-                for phase_name, items in phase.items():
-                    phase_subtasks = [t for t in tasks if t.get('phase') == phase_name and not t.get('summary')]
-                    if len(phase_subtasks) > 1:
-                        phase_start = min([t['start'] for t in phase_subtasks if 'start' in t])
-                        phase_finish = max([t['finish'] for t in phase_subtasks if 'finish' in t])
-                        phase_duration = phase_finish - phase_start
-                        percents = [t.get('percent', 0) for t in phase_subtasks if 'percent' in t]
-                        percent = int(sum(percents) / len(percents)) if percents else 0
-                        summary_tasks.append({
-                            'name': phase_name,
-                            'description': f"{phase_name} (summary)",
-                            'phase': phase_name,
-                            'start': phase_start,
-                            'finish': phase_finish,
-                            'duration': phase_duration,
-                            'resources': '',
-                            'percent': percent,
-                            'comment': '',
-                            'summary': True
-                        })
-    # Insert each summary task immediately before its subtasks
-    ordered_tasks = []
-    if summary_tasks:
-        for phase in phases:
-            if isinstance(phase, dict):
-                for phase_name, items in phase.items():
-                    summary = next((s for s in summary_tasks if s['phase'] == phase_name), None)
-                    if summary:
-                        ordered_tasks.append(summary)
-                    for t in tasks:
-                        if t.get('phase') == phase_name and not t.get('summary'):
-                            ordered_tasks.append(t)
-    else:
-        ordered_tasks = tasks
-    return ordered_tasks
+
+    # Calculate summary task dates from children
+    def calculate_summary_dates(task_name):
+        """Calculate start/finish for a summary task from its children."""
+        children = [t for t in all_tasks if t.get('parent') == task_name]
+        if not children:
+            return
+
+        # Recursively calculate for any summary children first
+        for child in children:
+            if child.get('summary'):
+                calculate_summary_dates(child['name'])
+
+        # Get the summary task
+        summary_task = next((t for t in all_tasks if t.get('name') == task_name and t.get('summary')), None)
+        if not summary_task:
+            return
+
+        # Calculate from children's dates
+        starts = [c['start'] for c in children if 'start' in c]
+        finishes = [c['finish'] for c in children if 'finish' in c]
+
+        if starts and finishes:
+            summary_task['start'] = min(starts)
+            summary_task['finish'] = max(finishes)
+            summary_task['duration'] = summary_task['finish'] - summary_task['start']
+
+            # Calculate average percent complete
+            percents = [c.get('percent', 0) for c in children]
+            if percents:
+                summary_task['percent'] = int(sum(percents) / len(percents))
+
+    # Calculate dates for all summary tasks
+    for t in all_tasks:
+        if t.get('summary'):
+            calculate_summary_dates(t['name'])
+
+    # Re-order tasks so summary tasks appear immediately before their children
+    def build_ordered_list():
+        """Build properly ordered list with summary tasks before children."""
+        ordered = []
+        processed = set()
+
+        def add_task_and_children(task):
+            """Recursively add task and its children in order."""
+            if task['name'] in processed:
+                return
+            processed.add(task['name'])
+
+            # Add the task itself
+            ordered.append(task)
+
+            # If it's a summary task, add its children
+            if task.get('summary'):
+                children = [t for t in all_tasks if t.get('parent') == task['name']]
+                # Sort children to maintain original order
+                for child in children:
+                    add_task_and_children(child)
+
+        # Start with top-level tasks (no parent)
+        top_level = [t for t in all_tasks if not t.get('parent')]
+        for task in top_level:
+            add_task_and_children(task)
+
+        return ordered
+
+    return build_ordered_list()
 
 # --- Gantt chart rendering ---
 def render_gantt_chart(tasks, start_date, finish_date, width=80):
@@ -228,9 +305,8 @@ def render_gantt_chart(tasks, start_date, finish_date, width=80):
     # Determine max ID width - use numeric IDs
     max_id_width = max(len(str(len(tasks))), 2)
 
-    # Determine max task name width
+    # Determine max task name width - use full length of longest task name
     max_name_width = max([len(t.get('description', '')) for t in tasks] + [20])
-    max_name_width = min(max_name_width, 40)  # Cap at 40 chars for readability
 
     # Week heading row
     week_row = [' '] * width
@@ -246,14 +322,19 @@ def render_gantt_chart(tasks, start_date, finish_date, width=80):
         current += timedelta(days=7)
     chart += f"{'ID':<{max_id_width}}  {'Task Name':<{max_name_width}} |" + ''.join(week_row) + '|\n'
     chart += '-' * (max_id_width + 2 + max_name_width + 1 + width) + '\n'  # Adjust horizontal line
-    # Track last summary task for indentation
-    last_summary_phase = None
     for idx, t in enumerate(tasks, start=1):
+        # Skip tasks without start or finish dates
+        if 'start' not in t or 'finish' not in t:
+            continue
         bar_start = int((t['start'] - start_date).days / total_days * (width-1))
         bar_end = int((t['finish'] - start_date).days / total_days * (width-1))
         line = [' '] * width
         percent = t.get('percent', 0)
-        indent = ''
+
+        # Calculate indentation based on level (0=no indent, 1=4 spaces, 2=8 spaces, etc.)
+        level = t.get('level', 0)
+        indent = '    ' * (level - 1) if level > 0 else ''
+
         if t.get('summary'):
             # Summary task: use [ and ] for boundaries, show progress
             if bar_start < width:
@@ -266,14 +347,9 @@ def render_gantt_chart(tasks, start_date, finish_date, width=80):
                     line[i] = '='
                 else:
                     line[i] = '-'
-            last_summary_phase = t.get('phase')
-            indent = ''
         else:
             # Regular task: show progress with '=' and '-' based on percent
             progress_end = bar_start + int((bar_end - bar_start) * percent / 100)
-            # Indent if this task belongs to the last summary phase
-            if last_summary_phase and t.get('phase') == last_summary_phase:
-                indent = '    '
             for i in range(bar_start, bar_end+1):
                 if i < width:
                     if i <= progress_end:
@@ -288,10 +364,6 @@ def render_gantt_chart(tasks, start_date, finish_date, width=80):
         if t.get('summary'):
             # Use uppercase for summary task labels
             label = label.upper()
-
-        # Truncate label to max_name_width if needed
-        if len(label) > max_name_width:
-            label = label[:max_name_width-3] + '...'
 
         line_str = ''.join(line)
         chart += f"{task_id:<{max_id_width}}  {label:<{max_name_width}} |{line_str}|\n"
@@ -402,59 +474,86 @@ def render_timeline(phases, milestones, start_date, finish_date, timeline_width=
     return timeline_output
 
 def natural_language_to_yaml(text, project_name="Project"):
-    """Convert natural language task definitions to YAML structure.
+    """Convert natural language task text to hierarchical structure.
 
-    Format examples:
-        design @kev @jen 10d
-        *build @kev #design 5d 2025-12-01
-        test @jen #build !"Run all tests" p50 3d
-
-    Summary tasks (no details, with indented subtasks):
-        Phase 1
-          design @kev 10d
-          build @kev 5d
+    Supports arbitrary nesting levels via indentation.
+    A task without details and with indented tasks below it is a summary task.
     """
     lines = text.split('\n')
-    tasks = {}
-    phase_tasks = {}  # Track tasks by phase for nested structure
-    current_phase = None
+
+    # Build tree structure using a stack
+    root = {'children': [], 'indent': -1, 'text': '', 'name': project_name, 'level': 0}
+    stack = [root]
 
     for line in lines:
         if not line.strip():
             continue
 
-        # Detect indentation level
         indent_level = len(line) - len(line.lstrip())
         stripped = line.strip()
 
-        # Extract task name (first word, may have * prefix)
+        # Check if has task details
+        has_duration = re.search(r'\b\d+[dwm]\b', stripped) is not None
+        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration
+
+        # Extract task name
         parts = stripped.split()
         if not parts:
             continue
+        task_name = parts[0].lstrip('*')
+        full_name = stripped if not has_details else task_name
 
-        first_part = parts[0]
-        task_name = first_part.lstrip('*')
+        # Create node
+        node = {
+            'indent': indent_level,
+            'text': stripped,
+            'name': task_name,
+            'full_name': full_name,
+            'has_details': has_details,
+            'children': [],
+            'level': 0
+        }
 
-        # Check if this is a summary task (no @ or duration markers)
-        has_details = any(marker in stripped for marker in ['@', 'd', 'w', 'm', '%', '!', '#', '2025-', '2024-', '2026-'])
+        # Find parent (pop stack until we find item with lower indent)
+        while len(stack) > 1 and stack[-1]['indent'] >= indent_level:
+            stack.pop()
 
-        if indent_level == 0 and not has_details:
-            # This is a summary/phase task
-            current_phase = task_name
-            phase_tasks[current_phase] = {}
-        elif indent_level > 0 and current_phase:
-            # This is a subtask under the current phase
-            phase_tasks[current_phase][task_name] = stripped
-        else:
-            # Regular top-level task
-            tasks[task_name] = stripped
-            current_phase = None
+        parent = stack[-1]
+        node['level'] = parent['level'] + 1
+        parent['children'].append(node)
+        stack.append(node)
 
-    # Combine phase tasks and regular tasks
-    if phase_tasks:
-        return {project_name: [phase_tasks, tasks] if tasks else [phase_tasks]}
-    else:
-        return {project_name: [tasks]}
+    # Convert tree to nested dict structure
+    def tree_to_nested_dict(node):
+        """Recursively convert tree to nested dicts."""
+        if not node['children']:
+            # Leaf node - return text with level marker
+            return {'_text': node['text'], '_level': node['level']}
+
+        # Has children - create nested dict
+        result = {}
+        for child in node['children']:
+            child_result = tree_to_nested_dict(child)
+            if '_text' in child_result:
+                # Leaf task
+                result[child['name']] = child_result
+            else:
+                # Summary task with children
+                result[child['full_name']] = child_result
+
+        # Mark as summary with level
+        result['_level'] = node['level']
+        result['_is_summary'] = True
+        return result
+
+    result_dict = tree_to_nested_dict(root)
+    # Remove root markers
+    if '_level' in result_dict:
+        del result_dict['_level']
+    if '_is_summary' in result_dict:
+        del result_dict['_is_summary']
+
+    return {project_name: [result_dict] if result_dict else []}
 
 def calculate_resource_allocation(tasks, start_date, finish_date):
     """Calculate daily resource allocation in hours per day.
@@ -587,6 +686,12 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project"):
         if t.get('summary'):
             task_name = f"**{task_name}**"
 
+        # Indent based on level (0=no indent, 1=4 spaces, 2=8 spaces, etc.)
+        level = t.get('level', 0)
+        if level > 0:
+            indent = '&nbsp;' * 4 * level
+            task_name = f"{indent}{task_name}"
+
         md += f"| {idx} | {task_name} | {start.strftime('%Y-%m-%d')} | {finish.strftime('%Y-%m-%d')} | {t.get('duration',timedelta(days=1)).days}d | {resources} | {percent} | {comment} |\n"
 
     # Timeline output block
@@ -707,6 +812,12 @@ def yaml_to_markdown_table(yaml_path):
         # Make summary task names bold
         if t.get('summary'):
             task_name = f"**{task_name}**"
+
+        # Indent based on level (0=no indent, 1=4 spaces, 2=8 spaces, etc.)
+        level = t.get('level', 0)
+        if level > 0:
+            indent = '&nbsp;' * 4 * level
+            task_name = f"{indent}{task_name}"
 
         md += f"| {idx} | {task_name} | {start.strftime('%Y-%m-%d')} | {finish.strftime('%Y-%m-%d')} | {t.get('duration',timedelta(days=1)).days}d | {resources} | {percent} | {comment} |\n"
 

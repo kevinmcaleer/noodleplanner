@@ -104,7 +104,7 @@ def get():
                             P("Press Enter in the text area to update the schedule.",
                               style="color: #666; font-style: italic;"),
                             id="output_area",
-                            style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 5px; overflow-y: auto; max-height: 45vh;"
+                            style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; overflow-y: auto; max-height: 45vh;"
                         ),
                         style="flex: 1; margin-bottom: 10px;"
                     ),
@@ -191,10 +191,14 @@ def get():
         """),
         Style("""
             body { margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
-            th { background-color: #f2f2f2; font-weight: bold; }
+            table { border-collapse: collapse; margin: 20px 0; table-layout: auto; width: auto; min-width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; white-space: nowrap; }
+            th { background-color: #f2f2f2; font-weight: bold; resize: horizontal; overflow: auto; position: relative; }
             tr:nth-child(even) { background-color: #f9f9f9; }
+            /* Allow task name column to wrap if needed */
+            th:nth-child(2), td:nth-child(2) { white-space: normal; max-width: 300px; }
+            /* Comment column can also wrap */
+            th:nth-child(8), td:nth-child(8) { white-space: normal; max-width: 250px; }
             pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 12px; }
             code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
             h1 { font-size: 24px; margin-top: 20px; margin-bottom: 10px; }
