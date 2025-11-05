@@ -15,38 +15,104 @@ from projects.scheduling_engine.scheduling_engine import (
 import tempfile
 import markdown
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 app, rt = fast_app()
 
-DEFAULT_YAML = """House move:
-  - pre-move:
-      - find_home: "find a new home @Kevin @Jenni #pack #mortgage !\\"Visit 3 houses\\" p10 2025-08-26 :p14d"
-      - pack: "pack belongings @Kevin #find !\\"Pack carefully\\" p100 2025-09-09 :p1d"
-      - hire_movers: "hire movers @Jenni #pack !\\"Book van\\" p50 2025-09-10 :p7d"
-      - offer: "make an offer @Kevin #find !\\"Offer submitted\\" p100 2025-09-17 :p1d"
-      - get_mortgage: "get a mortgage @Jenni #offer !\\"Mortgage approved\\" p0 2025-09-18 :p1d"
-      - exchange: "exchange contracts @Kevin #mortgage !\\"Contracts exchanged\\" p0 2025-09-19 :p1d"
-  - move:
-      - load: "*load belongings onto the moving truck @Kevin #exchange 'Loading day' p0 2025-09-20 :p1d #exchange"
-      - drive: "*drive to the new home @Kevin #load !\\"Drive safely\\" p0 2025-09-21 :p1d"
-      - unload: "*unload belongings from the moving truck @Jenni #drive !\\"Unloading day\\" p0 2025-09-22 :p1d"
-      - unpack: "*unpack belongings @Kevin @Jenni #unload !\\"Unpack essentials\\" p0 2025-09-23 :p1d"
-  - post-move:
-      - clean: "*clean the old home @Kevin #unpack !\\"Clean up\\" p0 2025-09-24 :p5d #unpack"
-      - settle: "*settle into the new home @Kevin @Jenni #clean !\\"Settle in\\" p0 2025-09-25 :p10d"
-"""
+# Load default templates from external files
+def load_default_yaml():
+    """Load default YAML template from file."""
+    template_path = Path(__file__).parent / "templates" / "default_yaml.yaml"
+    if template_path.exists():
+        return template_path.read_text()
+    return ""
 
-DEFAULT_NATURAL = """Phase 1: Design
-  design @kev @jen 2025-12-01 10d
-  mockups @jen 2025-12-01 5d
-Phase 2: Build
-  *implement @kev #design !"Build the feature" 5d
-  *test @jen #implement !"Run all tests" 50% 3d
-Phase 3: Deploy
-  *deploy @kev @jen #test !"Deploy to production" 1d
-  review @jen #deploy !"Final review" 0% 2w"""
+def load_default_natural():
+    """Load default natural language template from file."""
+    template_path = Path(__file__).parent / "templates" / "default_natural.txt"
+    if template_path.exists():
+        return template_path.read_text()
+    return ""
+
+DEFAULT_YAML = load_default_yaml()
+DEFAULT_NATURAL = load_default_natural()
+
+
+def generate_interactive_task_table(tasks, today):
+    """Generate an interactive HTML table for tasks with highlighting and reordering."""
+    if not tasks:
+        return '<p style="color: #666; font-style: italic;">No tasks to display.</p>'
+
+    html = '<div style="margin-bottom: 20px;">'
+    html += '<div style="margin-bottom: 10px;">'
+    html += '<button id="move-up-btn" onclick="moveTaskUp()" style="padding: 8px 16px; margin-right: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;" disabled>↑ Move Up</button>'
+    html += '<button id="move-down-btn" onclick="moveTaskDown()" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;" disabled>↓ Move Down</button>'
+    html += '</div>'
+    html += '<table id="task-table" style="width: 100%; border-collapse: collapse; font-size: 14px;">'
+    html += '<thead><tr style="background: #f2f2f2;">'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">ID</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Task Name</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Start</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Finish</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Duration</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Resources</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">% Complete</th>'
+    html += '<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Comment</th>'
+    html += '</tr></thead><tbody>'
+
+    for idx, task in enumerate(tasks, start=1):
+        start = task.get('start') or today
+        finish = task.get('finish') or (start + (task.get('duration') or timedelta(days=1)))
+        resources = task.get('resources', '')
+        if resources:
+            resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
+        percent = task.get('percent', '')
+        comment = task.get('comment', '')
+
+        # Use description as task name, fallback to name
+        task_name = task.get('description') or task.get('name', '')
+
+        # Make summary task names bold
+        is_summary = task.get('summary', False)
+        if is_summary:
+            task_name = f"<strong>{task_name}</strong>"
+
+        # Indent based on level
+        level = task.get('level', 0)
+        if level > 0:
+            indent = '&nbsp;' * 4 * level
+            task_name = f"{indent}{task_name}"
+
+        # Store task data as JSON in data attribute for reordering
+        task_data = {
+            'name': task.get('name', ''),
+            'description': task.get('description', ''),
+            'level': level,
+            'summary': is_summary,
+            'parent': task.get('parent'),
+            'phase': task.get('phase', '')
+        }
+
+        row_style = "cursor: pointer; transition: background-color 0.2s;"
+        if is_summary:
+            row_style += " font-weight: 500;"
+
+        html += f'<tr id="task-row-{idx}" class="task-row" onclick="selectRow({idx})" '
+        html += f'data-task-index="{idx-1}" data-level="{level}" data-summary="{str(is_summary).lower()}" '
+        html += f'style="{row_style}">'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{idx}</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{task_name}</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{start.strftime("%Y-%m-%d")}</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{finish.strftime("%Y-%m-%d")}</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{task.get("duration", timedelta(days=1)).days}d</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{resources}</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{percent}</td>'
+        html += f'<td style="border: 1px solid #ddd; padding: 12px;">{comment}</td>'
+        html += '</tr>'
+
+    html += '</tbody></table></div>'
+    return html
 
 
 @rt("/")
@@ -93,7 +159,7 @@ def get():
                         ),
                         style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 20px; font-size: 14px; max-height: 20vh; overflow-y: auto;"
                     ),
-                    style="flex: 1; padding: 20px; overflow-y: auto; background: #252525;"
+                    style="flex: 1; padding: 20px; overflow-y: auto; background: #252525; min-width: 0;"
                 ),
                 # Right panel - Output (split into schedule and resources)
                 Div(
@@ -106,7 +172,7 @@ def get():
                             id="output_area",
                             style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; overflow-y: auto; max-height: 45vh;"
                         ),
-                        style="flex: 1; margin-bottom: 10px;"
+                        style="flex: 1; margin-bottom: 10px; min-height: 0;"
                     ),
                     # Bottom: Resource Allocation
                     Div(
@@ -116,13 +182,13 @@ def get():
                             id="resource_area",
                             style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; overflow-y: auto; max-height: 40vh;"
                         ),
-                        style="flex: 1;"
+                        style="flex: 1; min-height: 0;"
                     ),
-                    style="flex: 1; padding: 20px; border-left: 2px solid #ddd; display: flex; flex-direction: column; overflow-y: auto;"
+                    style="flex: 1; padding: 20px; border-left: 2px solid #ddd; display: flex; flex-direction: column; overflow-y: auto; min-width: 0;"
                 ),
-                style="display: flex; height: 100vh;"
+                style="display: flex; height: 100vh; width: 100vw;"
             ),
-            style="margin: 0; padding: 0;"
+            style="margin: 0; padding: 0; width: 100%; height: 100%;"
         ),
         Script("""
             const textarea = document.getElementById('task_input');
@@ -188,9 +254,105 @@ def get():
             window.addEventListener('load', () => {
                 generateSchedule();
             });
+
+            // Task row selection and reordering functions
+            let selectedRowId = null;
+
+            function selectRow(rowId) {
+                // Remove previous selection
+                const allRows = document.querySelectorAll('.task-row');
+                allRows.forEach(row => {
+                    row.style.backgroundColor = '';
+                });
+
+                // Highlight new selection
+                const row = document.getElementById('task-row-' + rowId);
+                if (row) {
+                    row.style.backgroundColor = '#e3f2fd';
+                    selectedRowId = rowId;
+                    updateMoveButtons();
+                }
+            }
+
+            function updateMoveButtons() {
+                const moveUpBtn = document.getElementById('move-up-btn');
+                const moveDownBtn = document.getElementById('move-down-btn');
+                const allRows = document.querySelectorAll('.task-row');
+
+                if (selectedRowId === null) {
+                    moveUpBtn.disabled = true;
+                    moveDownBtn.disabled = true;
+                    return;
+                }
+
+                // Enable/disable based on position
+                moveUpBtn.disabled = (selectedRowId === 1);
+                moveDownBtn.disabled = (selectedRowId === allRows.length);
+            }
+
+            function moveTaskUp() {
+                if (selectedRowId === null || selectedRowId === 1) return;
+                moveTask(selectedRowId, selectedRowId - 1);
+            }
+
+            function moveTaskDown() {
+                const allRows = document.querySelectorAll('.task-row');
+                if (selectedRowId === null || selectedRowId === allRows.length) return;
+                moveTask(selectedRowId, selectedRowId + 1);
+            }
+
+            function moveTask(fromId, toId) {
+                const lines = textarea.value.split('\\n');
+
+                // Find the line indices (accounting for 0-based vs 1-based indexing)
+                let currentLineIdx = 0;
+                let taskLineIndices = [];
+                let lineToTaskMap = [];
+
+                // Map each line to a task (considering indentation and summary tasks)
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.trim()) {
+                        taskLineIndices.push(i);
+                        lineToTaskMap.push(currentLineIdx);
+                        currentLineIdx++;
+                    }
+                }
+
+                // Swap the tasks
+                const fromIdx = fromId - 1;
+                const toIdx = toId - 1;
+
+                if (fromIdx < taskLineIndices.length && toIdx < taskLineIndices.length) {
+                    const fromLineIdx = taskLineIndices[fromIdx];
+                    const toLineIdx = taskLineIndices[toIdx];
+
+                    // Swap lines
+                    const temp = lines[fromLineIdx];
+                    lines[fromLineIdx] = lines[toLineIdx];
+                    lines[toLineIdx] = temp;
+
+                    // Update textarea
+                    textarea.value = lines.join('\\n');
+
+                    // Regenerate schedule
+                    setTimeout(() => {
+                        const event = new Event('keydown');
+                        event.key = 'Enter';
+                        textarea.dispatchEvent(event);
+
+                        // Reselect the moved row
+                        setTimeout(() => {
+                            selectRow(toId);
+                        }, 100);
+                    }, 50);
+                }
+            }
         """),
         Style("""
-            body { margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+            #app-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
             table { border-collapse: collapse; margin: 20px 0; table-layout: auto; width: auto; min-width: 100%; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; white-space: nowrap; }
             th { background-color: #f2f2f2; font-weight: bold; resize: horizontal; overflow: auto; position: relative; }
@@ -227,14 +389,8 @@ async def post(task_input: str):
 
         tasks = schedule_tasks(phases)
 
-        # Generate schedule markdown
-        markdown_output = text_to_markdown_table(task_input, is_yaml=False, project_name="Project")
-
-        # Convert markdown to HTML
-        schedule_html = markdown.markdown(
-            markdown_output,
-            extensions=['tables', 'fenced_code']
-        )
+        # Generate interactive HTML table instead of markdown
+        schedule_html = generate_interactive_task_table(tasks, today)
 
         # Generate resource allocation
         if tasks:

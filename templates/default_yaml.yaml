@@ -1,0 +1,16 @@
+House move:
+  - pre-move:
+      - find_home: "find a new home @Kevin @Jenni #pack #mortgage !\"Visit 3 houses\" p10 2025-08-26 :p14d"
+      - pack: "pack belongings @Kevin #find !\"Pack carefully\" p100 2025-09-09 :p1d"
+      - hire_movers: "hire movers @Jenni #pack !\"Book van\" p50 2025-09-10 :p7d"
+      - offer: "make an offer @Kevin #find !\"Offer submitted\" p100 2025-09-17 :p1d"
+      - get_mortgage: "get a mortgage @Jenni #offer !\"Mortgage approved\" p0 2025-09-18 :p1d"
+      - exchange: "exchange contracts @Kevin #mortgage !\"Contracts exchanged\" p0 2025-09-19 :p1d"
+  - move:
+      - load: "*load belongings onto the moving truck @Kevin #exchange 'Loading day' p0 2025-09-20 :p1d #exchange"
+      - drive: "*drive to the new home @Kevin #load !\"Drive safely\" p0 2025-09-21 :p1d"
+      - unload: "*unload belongings from the moving truck @Jenni #drive !\"Unloading day\" p0 2025-09-22 :p1d"
+      - unpack: "*unpack belongings @Kevin @Jenni #unload !\"Unpack essentials\" p0 2025-09-23 :p1d"
+  - post-move:
+      - clean: "*clean the old home @Kevin #unpack !\"Clean up\" p0 2025-09-24 :p5d #unpack"
+      - settle: "*settle into the new home @Kevin @Jenni #clean !\"Settle in\" p0 2025-09-25 :p10d"
