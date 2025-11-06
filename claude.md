@@ -8,3 +8,4 @@
 - new functions should have tests over no tests
 - code coverage should be at least 80%
 - add the plan of tasks to the todo.md and make sure its alwasys up to date
+- use bootstrap for formatting and layout for web apps

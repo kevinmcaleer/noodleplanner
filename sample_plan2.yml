@@ -1,8 +1,0 @@
-House move:
-  - pre-move:
-    1. find a new home, t: [2025-08-26], d: P14D, "Kevin, Jenni"
-    2. pack belongings, depends: [1]
-    3. hire movers, duration: "P7D", depends: [2]
-    4. make an offer, depends: [3]
-    5. get a mortgage, depdends: [4]
-    6. exchange contracts, depends: [5]

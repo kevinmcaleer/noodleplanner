@@ -1,9 +1,0 @@
-Phase 1: Design
-  design @kev @jen 2025-12-01 10d
-  mockups @jen 2025-12-01 5d
-Phase 2: Build
-  *implement @kev #design !"Build the feature" 5d
-  *test @jen #implement !"Run all tests" 50% 3d
-Phase 3: Deploy
-  *deploy @kev @jen #test !"Deploy to production" 1d
-  review @jen #deploy !"Final review" 0% 2w

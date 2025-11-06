@@ -1,8 +1,0 @@
-Software Development:
-  - req: "define requirements p100 @kevin"
-  - dev: "*develop code"
-  - test: "*test code"
-  - golive: "*deploy code"
-  - support: "*monitor performance"
-  - feedback: "*gather feedback"
-  - sprint: "*iterate on feedback"
