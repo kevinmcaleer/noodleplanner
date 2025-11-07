@@ -1,0 +1,13 @@
+#!/Users/kev/Python/noodleplanner/cli_venv/bin/python3
+"""Noodle Planner CLI entry point."""
+
+import sys
+from pathlib import Path
+
+# Add the project root to the path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from projects.scheduling_engine.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

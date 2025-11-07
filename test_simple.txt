@@ -1,0 +1,6 @@
+Requirements
+  capture_requirements @Alice 3d 50%
+Design
+  low_level_design @Andy 2d #capture_requirements
+Build
+  develop_software @Bob 5d #low_level_design
