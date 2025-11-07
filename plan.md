@@ -23,7 +23,7 @@ Project
     develop software @Bob 5days [depends Low Level Design] "agile development"
   Test
     test plan @Charlie 3days [depends develop software]
-    * system testing @Charlie 4days
+    * system testing @Charlie @Andy 4days
     * user acceptance testing @Diana 2days
     * Testing Complete 0d
   Deploy
