@@ -17,6 +17,70 @@ logger = logging.getLogger(__name__)
 
 DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
 
+def get_next_working_day(date, holidays=None):
+    """Get the next working day from a given date.
+
+    If the given date is already a working day, return it.
+    Otherwise, find the next working day (skipping weekends and holidays).
+
+    Args:
+        date: The date to check
+        holidays: Set of holiday dates to skip (optional)
+
+    Returns:
+        The next working day (could be the same date if it's already a working day)
+    """
+    if holidays is None:
+        holidays = set()
+
+    current_date = date
+    while True:
+        is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
+        is_holiday = current_date in holidays
+
+        if not is_weekend and not is_holiday:
+            return current_date
+
+        current_date += timedelta(days=1)
+
+def add_working_days(start_date, num_days, holidays=None):
+    """Add working days to a start date, skipping weekends and holidays.
+
+    The finish date is the end of the last working day.
+    For example, a 1-day task starting Monday will finish on Tuesday (end of Monday's work).
+
+    Args:
+        start_date: The starting date
+        num_days: Number of working days to add
+        holidays: Set of holiday dates to skip (optional)
+
+    Returns:
+        The finish date after adding working days
+    """
+    if holidays is None:
+        holidays = set()
+
+    if num_days == 0:
+        # Zero-duration tasks (milestones) finish on the same day
+        return start_date
+
+    # Ensure we start from a working day
+    current_date = get_next_working_day(start_date, holidays)
+    days_added = 0
+
+    while days_added < num_days:
+        # Check if current date is a working day
+        is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
+        is_holiday = current_date in holidays
+
+        if not is_weekend and not is_holiday:
+            days_added += 1
+
+        # Always increment to next day
+        current_date += timedelta(days=1)
+
+    return current_date
+
 def parse_duration(s):
     if not s:
         return None
@@ -43,6 +107,18 @@ def extract_metadata(task_str, task_name=None):
     if dep_matches:
         # Strip whitespace from each dependency
         meta['depends'] = [d.strip() for d in dep_matches]
+
+    # Also support [depends task1, task2, ...] syntax for multiple dependencies
+    bracket_dep_pattern = r'\[depends\s+([^\]]+)\]'
+    bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
+    if bracket_dep_match:
+        # Split by comma and strip whitespace
+        dep_list = [d.strip() for d in bracket_dep_match.group(1).split(',')]
+        # Merge with any existing dependencies from # syntax
+        if 'depends' in meta:
+            meta['depends'].extend(dep_list)
+        else:
+            meta['depends'] = dep_list
     if task_name:
         meta['name'] = task_name
     if str(task_str).startswith('*'):
@@ -215,25 +291,32 @@ def schedule_tasks(phases):
 
         # Apply scheduling logic
         if t.get('sequential'):
-            # Find previous non-summary task at same level or with same parent
+            # Find previous non-summary task (skip summary tasks, work across parents)
             prev = None
             for j in range(idx - 1, -1, -1):
-                if (all_tasks[j].get('parent') == t.get('parent') and
-                    not all_tasks[j].get('summary')):
+                if not all_tasks[j].get('summary'):
                     prev = all_tasks[j]
                     break
 
             if prev and 'finish' in prev:
                 t['start'] = prev['finish']
             else:
-                t['start'] = datetime.now()
+                t['start'] = get_next_working_day(datetime.now())
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            t['finish'] = t['start'] + duration
+            # Calculate finish date using working days
+            if isinstance(duration, timedelta):
+                t['finish'] = add_working_days(t['start'], duration.days)
+            else:
+                t['finish'] = t['start'] + timedelta(days=1)
 
         elif 'start' in t:
             # Has explicit start date
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            t['finish'] = t['start'] + duration
+            # Calculate finish date using working days
+            if isinstance(duration, timedelta):
+                t['finish'] = add_working_days(t['start'], duration.days)
+            else:
+                t['finish'] = t['start'] + timedelta(days=1)
 
         elif 'depends' in t and t['depends']:
             # Has dependencies (case-insensitive lookup)
@@ -242,9 +325,13 @@ def schedule_tasks(phases):
             if dep_finishes:
                 t['start'] = max(dep_finishes)
             else:
-                t['start'] = datetime.now()
+                t['start'] = get_next_working_day(datetime.now())
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            t['finish'] = t['start'] + duration
+            # Calculate finish date using working days
+            if isinstance(duration, timedelta):
+                t['finish'] = add_working_days(t['start'], duration.days)
+            else:
+                t['finish'] = t['start'] + timedelta(days=1)
 
         else:
             # Default: start in parallel (at parent's start or now)
@@ -263,12 +350,16 @@ def schedule_tasks(phases):
                 if first_sibling:
                     t['start'] = first_sibling['start']
                 else:
-                    t['start'] = datetime.now()
+                    t['start'] = get_next_working_day(datetime.now())
             else:
-                t['start'] = datetime.now()
+                t['start'] = get_next_working_day(datetime.now())
 
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            t['finish'] = t['start'] + duration
+            # Calculate finish date using working days
+            if isinstance(duration, timedelta):
+                t['finish'] = add_working_days(t['start'], duration.days)
+            else:
+                t['finish'] = t['start'] + timedelta(days=1)
 
         # Ensure duration is set (but allow 0 duration for milestones)
         if 'duration' not in t or t['duration'] is None:
@@ -440,13 +531,23 @@ def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
         chart += f"{task_id:<{max_id_width}}  {label:<{max_name_width}} |{line_str}|\n"
     return chart
 
-def render_resource_sheet(tasks, start_date, finish_date, holidays=None, terminal_width=80):
+def render_resource_sheet(tasks, start_date, finish_date, holidays=None, terminal_width=80, resource_map=None):
     """
     Render a resource allocation sheet showing workload per resource over time.
     Non-working days (weekends and holidays) are marked with ░ character.
+
+    Args:
+        tasks: List of tasks
+        start_date: Project start date
+        finish_date: Project finish date
+        holidays: Set of holiday dates
+        terminal_width: Width of terminal for formatting
+        resource_map: Dict mapping short names to full names (e.g., {'kev': 'Kevin McAleer'})
     """
     if holidays is None:
         holidays = set()
+    if resource_map is None:
+        resource_map = {}
 
     sheet = "# Resource Sheet\n\n"
 
@@ -468,17 +569,13 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
         duration = t.get('duration', timedelta(days=1))
 
         if task_start and task_finish:
-            # Calculate hours (8 hours per day for working days)
-            working_days = 0
-            current_day = task_start
-            while current_day < task_finish:
-                is_weekend = current_day.weekday() >= 5
-                is_holiday = current_day in holidays
-                if not (is_weekend or is_holiday):
-                    working_days += 1
-                current_day += timedelta(days=1)
-
-            task_hours = working_days * 8
+            # Calculate hours based on task duration (8 hours per day)
+            # Use the duration from the task, which is the planned duration
+            if isinstance(duration, timedelta):
+                task_hours = duration.days * 8
+            else:
+                # If duration is not set, calculate from dates
+                task_hours = (task_finish - task_start).days * 8
 
             for resource in resource_list:
                 # Normalize to lowercase for case-insensitive comparison
@@ -497,7 +594,8 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
 
     # Calculate appropriate time scale based on project duration and terminal width
     total_days = (finish_date - start_date).days or 1
-    max_name_width = max([len(resource_display_names.get(key, key)) for key in resource_workload.keys()] + [8])
+    # Calculate max width considering both display names and full names from resource_map
+    max_name_width = max([len(resource_map.get(key, resource_display_names.get(key, key))) for key in resource_workload.keys()] + [8])
     hours_width = 5  # Width for hours column (e.g., "999h")
     overhead = max_name_width + hours_width + 5  # Name + Hours + " | " + " |" + "|"
     chart_width = max(20, terminal_width - overhead)
@@ -574,20 +672,22 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
         # Fill in working days
         for task_start, task_finish, duration_days in allocations:
             if scale == 'day':
-                for day_offset in range(duration_days):
-                    day = task_start + timedelta(days=day_offset)
-                    if day > finish_date:
+                # Iterate through all calendar days from start to finish
+                current_day = task_start
+                while current_day < task_finish:
+                    if current_day > finish_date:
                         break
-                    pos = (day - start_date).days
+                    pos = (current_day - start_date).days
                     if 0 <= pos < chart_width:
                         # Check if it's a working day
-                        is_weekend = day.weekday() >= 5
-                        is_holiday = day in holidays
+                        is_weekend = current_day.weekday() >= 5
+                        is_holiday = current_day in holidays
 
                         if is_weekend or is_holiday:
                             line[pos] = '░'  # Non-working day
                         else:
                             line[pos] = '█'  # Working day
+                    current_day += timedelta(days=1)
             else:
                 # For week/month/quarter scale, show allocation as blocks
                 start_period = int((task_start - start_date).days * chart_width / total_days)
@@ -609,7 +709,10 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
 
         line_str = ''.join(line)
         hours = resource_hours.get(resource_name, 0)
+        # First get the display name from task resources, then check resource_map for full name
         display_name = resource_display_names.get(resource_name, resource_name)
+        # Use full name from resource_map if available (case-insensitive lookup)
+        display_name = resource_map.get(resource_name, display_name)
         sheet += f"{display_name:<{max_name_width}} | {hours:>{hours_width-1}}h |{line_str}|\n"
 
     return sheet
@@ -1965,11 +2068,12 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
 
     # Timeline output block
     milestones = []
-    if phase_dates:
+    # Show timeline if there are phases OR if there are tasks (even without phases)
+    if phase_dates or tasks:
         # Build list of milestone entries (phases, summary tasks, and 0-duration tasks)
         milestone_entries = []
 
-        # Add phases
+        # Add phases (if any)
         for phase, dates in phase_dates.items():
             milestone_entries.append({
                 'name': phase,
@@ -2002,6 +2106,24 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
                     'type': 'milestone'
                 })
                 milestones.append({'name': display_name, 'date': t.get('start')})
+
+        # If no phases, add all tasks as milestones for the timeline
+        if not phase_dates:
+            for t in tasks:
+                # Skip summary tasks (already added above)
+                if t.get('summary'):
+                    continue
+                task_name = t.get('description', t.get('name', ''))
+                # Replace underscores with spaces for display
+                display_name = task_name.replace('_', ' ')
+                milestone_entries.append({
+                    'name': display_name,
+                    'start': t.get('start'),
+                    'end': t.get('finish'),
+                    'type': 'task'
+                })
+                # Add task completion as a milestone for the visual timeline
+                milestones.append({'name': f"{display_name}", 'date': t.get('finish')})
 
         # Remove duplicates (same name and dates) - keep phases over summaries
         seen = set()
@@ -2132,7 +2254,7 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
     md += "\n"
     md += render_gantt_chart(tasks, start_date, finish_date, timeline_width)
     md += "\n"
-    md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width)
+    md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width, resource_map=resource_map)
     return md
 
 def yaml_to_markdown_table(yaml_path, terminal_width=80):
@@ -2276,11 +2398,12 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
 
     # Timeline output block
     milestones = []
-    if phase_dates:
+    # Show timeline if there are phases OR if there are tasks (even without phases)
+    if phase_dates or tasks:
         # Build list of milestone entries (phases, summary tasks, and 0-duration tasks)
         milestone_entries = []
 
-        # Add phases
+        # Add phases (if any)
         for phase, dates in phase_dates.items():
             milestone_entries.append({
                 'name': phase,
@@ -2313,6 +2436,24 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
                     'type': 'milestone'
                 })
                 milestones.append({'name': display_name, 'date': t.get('start')})
+
+        # If no phases, add all tasks as milestones for the timeline
+        if not phase_dates:
+            for t in tasks:
+                # Skip summary tasks (already added above)
+                if t.get('summary'):
+                    continue
+                task_name = t.get('description', t.get('name', ''))
+                # Replace underscores with spaces for display
+                display_name = task_name.replace('_', ' ')
+                milestone_entries.append({
+                    'name': display_name,
+                    'start': t.get('start'),
+                    'end': t.get('finish'),
+                    'type': 'task'
+                })
+                # Add task completion as a milestone for the visual timeline
+                milestones.append({'name': f"{display_name}", 'date': t.get('finish')})
 
         # Remove duplicates (same name and dates) - keep phases over summaries
         seen = set()
@@ -2443,7 +2584,7 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
     md += "\n"
     md += render_gantt_chart(tasks, start_date, finish_date, timeline_width)
     md += "\n"
-    md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width)
+    md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width, resource_map=resource_map)
     return md
 
 if __name__ == "__main__":
