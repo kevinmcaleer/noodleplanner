@@ -35,9 +35,14 @@ def extract_metadata(task_str, task_name=None):
     resources = [t for t in tokens if t.startswith('@')]
     if resources:
         meta['resources'] = ', '.join([r.lstrip('@') for r in resources])
-    dependencies = [t[1:] for t in tokens if t.startswith('#')]
-    if dependencies:
-        meta['depends'] = dependencies
+
+    # Extract dependencies using regex to support multi-word task names
+    # Matches #taskname or #task name (up to next @ % # ! or end of string)
+    dep_pattern = r'#([^@%#!]+?)(?=\s+[@%#!]|$)'
+    dep_matches = re.findall(dep_pattern, task_str)
+    if dep_matches:
+        # Strip whitespace from each dependency
+        meta['depends'] = [d.strip() for d in dep_matches]
     if task_name:
         meta['name'] = task_name
     if str(task_str).startswith('*'):
@@ -200,7 +205,8 @@ def schedule_tasks(phases):
         traverse_nested_dict(phases)
 
     # Schedule leaf tasks (non-summary tasks)
-    name_lookup = {t['name']: t for t in all_tasks if 'name' in t}
+    # Use lowercase keys for case-insensitive task name lookup
+    name_lookup = {t['name'].lower(): t for t in all_tasks if 'name' in t}
 
     for idx, t in enumerate(all_tasks):
         # Skip summary tasks - their dates will be calculated from children
@@ -230,9 +236,9 @@ def schedule_tasks(phases):
             t['finish'] = t['start'] + duration
 
         elif 'depends' in t and t['depends']:
-            # Has dependencies
-            dep_finishes = [name_lookup[n]['finish'] for n in t['depends']
-                          if n in name_lookup and 'finish' in name_lookup[n]]
+            # Has dependencies (case-insensitive lookup)
+            dep_finishes = [name_lookup[n.lower()]['finish'] for n in t['depends']
+                          if n.lower() in name_lookup and 'finish' in name_lookup[n.lower()]]
             if dep_finishes:
                 t['start'] = max(dep_finishes)
             else:
@@ -241,11 +247,26 @@ def schedule_tasks(phases):
             t['finish'] = t['start'] + duration
 
         else:
-            # Default: start after previous task
-            if idx > 0 and 'finish' in all_tasks[idx - 1]:
-                t['start'] = all_tasks[idx - 1]['finish']
+            # Default: start in parallel (at parent's start or now)
+            # Look for parent task or first sibling to determine start
+            parent_name = t.get('parent')
+            if parent_name:
+                # Find first sibling (non-summary task with same parent)
+                first_sibling = None
+                for j in range(len(all_tasks)):
+                    if (all_tasks[j].get('parent') == parent_name and
+                        not all_tasks[j].get('summary') and
+                        'start' in all_tasks[j]):
+                        first_sibling = all_tasks[j]
+                        break
+
+                if first_sibling:
+                    t['start'] = first_sibling['start']
+                else:
+                    t['start'] = datetime.now()
             else:
                 t['start'] = datetime.now()
+
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             t['finish'] = t['start'] + duration
 
@@ -430,8 +451,9 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
     sheet = "# Resource Sheet\n\n"
 
     # Extract all resources from tasks
-    resource_workload = {}  # {resource_name: [(start_date, finish_date, duration_days)]}
-    resource_hours = {}  # {resource_name: total_hours}
+    resource_workload = {}  # {resource_name_lower: [(start_date, finish_date, duration_days)]}
+    resource_hours = {}  # {resource_name_lower: total_hours}
+    resource_display_names = {}  # {resource_name_lower: original_case_name}
 
     for t in tasks:
         resources = t.get('resources', '')
@@ -459,18 +481,23 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
             task_hours = working_days * 8
 
             for resource in resource_list:
-                if resource not in resource_workload:
-                    resource_workload[resource] = []
-                    resource_hours[resource] = 0
-                resource_workload[resource].append((task_start, task_finish, duration.days))
-                resource_hours[resource] += task_hours
+                # Normalize to lowercase for case-insensitive comparison
+                resource_key = resource.lower()
+                # Keep first occurrence's case for display
+                if resource_key not in resource_display_names:
+                    resource_display_names[resource_key] = resource
+                if resource_key not in resource_workload:
+                    resource_workload[resource_key] = []
+                    resource_hours[resource_key] = 0
+                resource_workload[resource_key].append((task_start, task_finish, duration.days))
+                resource_hours[resource_key] += task_hours
 
     if not resource_workload:
         return ""  # No resources to display
 
     # Calculate appropriate time scale based on project duration and terminal width
     total_days = (finish_date - start_date).days or 1
-    max_name_width = max([len(name) for name in resource_workload.keys()] + [8])
+    max_name_width = max([len(resource_display_names.get(key, key)) for key in resource_workload.keys()] + [8])
     hours_width = 5  # Width for hours column (e.g., "999h")
     overhead = max_name_width + hours_width + 5  # Name + Hours + " | " + " |" + "|"
     chart_width = max(20, terminal_width - overhead)
@@ -582,7 +609,8 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
 
         line_str = ''.join(line)
         hours = resource_hours.get(resource_name, 0)
-        sheet += f"{resource_name:<{max_name_width}} | {hours:>{hours_width-1}}h |{line_str}|\n"
+        display_name = resource_display_names.get(resource_name, resource_name)
+        sheet += f"{display_name:<{max_name_width}} | {hours:>{hours_width-1}}h |{line_str}|\n"
 
     return sheet
 
@@ -891,12 +919,30 @@ def natural_language_to_yaml(text, project_name="Project"):
         has_quotes = '"' in stripped or "'" in stripped
         has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes
 
-        # Extract task name
-        parts = stripped.split()
-        if not parts:
-            continue
-        task_name = parts[0].lstrip('*')
-        full_name = stripped if not has_details else task_name
+        # Extract task name (everything before metadata)
+        if has_details:
+            # Find where metadata starts
+            metadata_start = len(stripped)
+            for char in ['@', '%', '#', '!']:
+                pos = stripped.find(char)
+                if pos > 0:
+                    metadata_start = min(metadata_start, pos)
+
+            # Also check for dates and durations
+            date_match = re.search(r'\d{4}-\d{2}-\d{2}', stripped)
+            if date_match and date_match.start() > 0:
+                metadata_start = min(metadata_start, date_match.start())
+
+            duration_match = re.search(r'\d+[dwm]', stripped)
+            if duration_match and duration_match.start() > 0:
+                metadata_start = min(metadata_start, duration_match.start())
+
+            task_name = stripped[:metadata_start].strip().lstrip('*')
+        else:
+            # No metadata, entire line is the task name
+            task_name = stripped.lstrip('*')
+
+        full_name = task_name
 
         # Create node
         node = {
@@ -954,21 +1000,27 @@ def calculate_resource_allocation(tasks, start_date, finish_date):
     """Calculate daily resource allocation in hours per day.
 
     Returns a dict with:
-    - resources: list of resource names
+    - resources: list of resource names (display names)
     - days: list of dates from start to finish
     - allocation: dict[resource][date] = hours
     """
     from collections import defaultdict
 
-    # Collect all resources
-    resources = set()
+    # Collect all resources (case-insensitive)
+    resources_lower = set()
+    resource_display_names = {}
     for t in tasks:
         res = t.get('resources', '')
         if res:
             for r in res.split(','):
-                resources.add(r.strip())
+                r_stripped = r.strip()
+                r_key = r_stripped.lower()
+                resources_lower.add(r_key)
+                # Keep first occurrence's case for display
+                if r_key not in resource_display_names:
+                    resource_display_names[r_key] = r_stripped
 
-    resources = sorted(list(resources))
+    resources = sorted([resource_display_names[r] for r in resources_lower])
 
     # Generate all days from start to finish
     days = []
@@ -1011,8 +1063,11 @@ def calculate_resource_allocation(tasks, start_date, finish_date):
         hours_per_day = 8.0 / len(task_resources)
 
         for resource in task_resources:
+            # Use display name for allocation key
+            resource_key = resource.lower()
+            display_name = resource_display_names.get(resource_key, resource)
             for day in task_days:
-                allocation[resource][day] += hours_per_day
+                allocation[display_name][day] += hours_per_day
 
     return {
         'resources': resources,
@@ -1119,7 +1174,8 @@ def parse_resource_mappings(original_text):
                 full_info = match.group(2).strip()
                 # Extract just the name (before the first comma)
                 name_only = full_info.split(',')[0].strip()
-                resource_map[short_name] = name_only
+                # Store with lowercase key for case-insensitive lookup
+                resource_map[short_name.lower()] = name_only
 
     return resource_map
 
@@ -1175,7 +1231,11 @@ def analyze_plan(text, original_text=None):
 
     # Check 2: Resources without full names/roles in front matter
     if resource_map and resources_used:
-        missing_resource_details = resources_used - set(resource_map.keys())
+        # Compare resources case-insensitively
+        resources_used_lower = {r.lower() for r in resources_used}
+        missing_resource_details_lower = resources_used_lower - set(resource_map.keys())
+        # Find original case versions of missing resources
+        missing_resource_details = {r for r in resources_used if r.lower() in missing_resource_details_lower}
         if missing_resource_details:
             for res in sorted(missing_resource_details):
                 suggestions.append({
@@ -1553,9 +1613,9 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         # Get resources and map to full names if available
         resources_str = task.get('resources', '')
         if resources_str and resource_map:
-            # Split multiple resources, map each one, and join back
+            # Split multiple resources, map each one, and join back (case-insensitive)
             resource_list = [r.strip() for r in resources_str.split(',')]
-            mapped_resources = [resource_map.get(r, r) for r in resource_list]
+            mapped_resources = [resource_map.get(r.lower(), r) for r in resource_list]
             resources_str = ', '.join(mapped_resources)
 
         # Calculate RAG status (skip for summary tasks)
@@ -1707,6 +1767,7 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         # Calculate resource allocation
         resource_hours = {}
         resource_tasks = {}
+        resource_display_names = {}
 
         for task in tasks:
             resources_str = task.get('resources', '')
@@ -1718,17 +1779,23 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                     task_name = task.get('description', task.get('name', ''))
 
                     for resource in task_resources:
-                        resource_hours[resource] = resource_hours.get(resource, 0) + hours
-                        if resource not in resource_tasks:
-                            resource_tasks[resource] = []
-                        resource_tasks[resource].append(task_name)
+                        # Normalize to lowercase for case-insensitive comparison
+                        resource_key = resource.lower()
+                        # Keep first occurrence's case for display
+                        if resource_key not in resource_display_names:
+                            resource_display_names[resource_key] = resource
+                        resource_hours[resource_key] = resource_hours.get(resource_key, 0) + hours
+                        if resource_key not in resource_tasks:
+                            resource_tasks[resource_key] = []
+                        resource_tasks[resource_key].append(task_name)
 
         # Add resource data
-        for resource in sorted(resource_hours.keys()):
+        for resource_key in sorted(resource_hours.keys()):
+            display_name = resource_display_names.get(resource_key, resource_key)
             row = [
-                resource,
-                round(resource_hours[resource], 1),
-                ', '.join(resource_tasks[resource])
+                display_name,
+                round(resource_hours[resource_key], 1),
+                ', '.join(resource_tasks[resource_key])
             ]
             ws_resources.append(row)
 
@@ -1745,15 +1812,22 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     wb.save(output_path)
     logger.info(f"Exported project data to {output_path}")
 
-def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_width=80):
+def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_width=80, original_text=None):
     """Convert text (YAML or natural language) to markdown table.
 
     Args:
         text: Input text (YAML or natural language)
         is_yaml: If True, parse as YAML; if False, parse as natural language
         project_name: Project name to use
+        terminal_width: Width of terminal for formatting
+        original_text: Original text before conversion (for extracting resource mappings)
     """
     today = datetime.today()
+
+    # Parse resource mappings from original text if provided
+    resource_map = {}
+    if original_text:
+        resource_map = parse_resource_mappings(original_text)
 
     if is_yaml:
         data = yaml.safe_load(text)
@@ -1816,6 +1890,11 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
         resources = t.get('resources','')
         if resources:
             resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
+            # Map to full names if available (case-insensitive)
+            if resource_map:
+                resource_list = [r.strip() for r in resources.split(',')]
+                mapped_resources = [resource_map.get(r.lower(), r) for r in resource_list]
+                resources = ', '.join(mapped_resources)
         percent = t.get('percent', '')
         comment = t.get('comment','')
 
@@ -2058,8 +2137,16 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
 
 def yaml_to_markdown_table(yaml_path, terminal_width=80):
     today = datetime.today()
+
+    # Read file content for resource mappings
     with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        original_text = f.read()
+
+    # Parse resource mappings
+    resource_map = parse_resource_mappings(original_text)
+
+    # Parse YAML
+    data = yaml.safe_load(original_text)
     project_name = list(data.keys())[0]
     phases_raw = data[project_name]
     # If phases_raw is a list, pass as-is; if dict, wrap in a list
@@ -2114,6 +2201,11 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
         resources = t.get('resources','')
         if resources:
             resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
+            # Map to full names if available (case-insensitive)
+            if resource_map:
+                resource_list = [r.strip() for r in resources.split(',')]
+                mapped_resources = [resource_map.get(r.lower(), r) for r in resource_list]
+                resources = ', '.join(mapped_resources)
         percent = t.get('percent', '')
         comment = t.get('comment','')
 

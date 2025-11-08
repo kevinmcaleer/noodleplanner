@@ -32,13 +32,15 @@ def convert_plan_format_to_standard(text: str) -> str:
         line = re.sub(r'(\d+)weeks?', r'\1w', line)
         line = re.sub(r'(\d+)months?', r'\1m', line)
 
-        # Convert dependency format: [depends taskname] -> #taskname
-        # Handle multi-word task names by replacing spaces with underscores
+        # Convert dependency format: [depends taskname] or [depends task1, task2] -> #taskname or #task1 #task2
+        # Support multiple comma-separated dependencies
         def convert_depends(match):
-            task_name = match.group(1).strip()
-            # Replace spaces and special chars with underscores
-            task_name = re.sub(r'[^a-zA-Z0-9]+', '_', task_name)
-            return f'#{task_name}'
+            depends_str = match.group(1).strip()
+            # Split by comma to handle multiple dependencies
+            task_names = [name.strip() for name in depends_str.split(',')]
+            # Convert each task name to #taskname format (preserve spaces, don't convert to snake_case)
+            result = ' '.join(f'#{name}' for name in task_names)
+            return result
 
         line = re.sub(r'\[depends\s+([^\]]+)\]', convert_depends, line, flags=re.IGNORECASE)
 
@@ -72,10 +74,8 @@ def convert_plan_format_to_standard(text: str) -> str:
             task_name = stripped[:metadata_start].strip()
             metadata = stripped[metadata_start:].strip()
 
-            # Convert task name to snake_case
-            if ' ' in task_name:
-                task_name = re.sub(r'[^a-zA-Z0-9]+', '_', task_name)
-                task_name = task_name.strip('_')
+            # Don't convert task names - preserve them as-is
+            # Task names are for display and should keep spaces
 
             # Reconstruct line
             seq_prefix = '*' if is_sequential else ''

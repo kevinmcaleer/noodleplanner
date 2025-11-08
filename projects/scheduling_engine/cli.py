@@ -102,7 +102,7 @@ def _command_render(args: argparse.Namespace) -> int:
         # Natural language format - convert from plan.md format if needed
         converted_content = convert_plan_format_to_standard(content)
         project_name = args.project_name or input_path.stem.replace("_", " ").title()
-        markdown = text_to_markdown_table(converted_content, is_yaml=False, project_name=project_name, terminal_width=terminal_width)
+        markdown = text_to_markdown_table(converted_content, is_yaml=False, project_name=project_name, terminal_width=terminal_width, original_text=content)
 
     if args.split_markdown:
         _write_markdown_outputs(markdown, args.output_dir)

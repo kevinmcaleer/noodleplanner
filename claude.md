@@ -5,7 +5,12 @@
 - small functions over large functions
 - functions with single responsibility over multi-purpose functions
 - sql should be stored in .sql files over inline sql
-- new functions should have tests over no tests
+- all functions should have tests over no tests
 - code coverage should be at least 80%
 - add the plan of tasks to the todo.md and make sure its alwasys up to date
 - use bootstrap for formatting and layout for web apps
+- store html, css, js in separate files over inline in python code
+- use jinja2 templating for html generation over string concatenation
+- use alembic for database migrations over manual scripts
+- use environment variables for configuration over hardcoding values
+- use logging module for logging over print statements
