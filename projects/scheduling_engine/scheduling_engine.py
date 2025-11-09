@@ -501,9 +501,9 @@ def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
             progress_end = bar_start + int((bar_end - bar_start + 1) * percent / 100)
             for i in range(bar_start + 1, bar_end):
                 if i < progress_end:
-                    line[i] = '='
+                    line[i] = '═'  # U+2550 - Box drawing double horizontal
                 else:
-                    line[i] = '-'
+                    line[i] = '─'  # U+2500 - Box drawing light horizontal
         else:
             # Regular task: show progress with '=' and '-' based on percent
             # Calculate progress: use < instead of <= to handle 0% correctly
@@ -511,9 +511,9 @@ def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
             for i in range(bar_start, bar_end+1):
                 if i < chart_width:
                     if i < progress_end:
-                        line[i] = '='
+                        line[i] = '═'  # U+2550 - Box drawing double horizontal
                     else:
-                        line[i] = '-'
+                        line[i] = '─'  # U+2500 - Box drawing light horizontal
         # Use numeric ID
         task_id = str(idx)
         label = f"{indent}{t.get('description','')}"
@@ -718,8 +718,8 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
     return sheet
 
 def render_custom_timeline(phases, milestones, start_date, finish_date, timeline_width=80):
-    # Timeline line
-    timeline = ['-'] * timeline_width
+    # Timeline line using box drawing character
+    timeline = ['─'] * timeline_width  # U+2500 - Box drawing light horizontal
     milestone_positions = []
     milestone_data = []
     all_items = []
@@ -2182,12 +2182,20 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
         start_date_str = milestone_full_dates[0] if milestone_full_dates else ''
         finish_date_str = milestone_full_dates[-1] if milestone_full_dates else ''
 
-        # Create connector line with '|' at all milestone positions
+        # Create connector line with vertical bars at milestone positions (no T-junctions)
         def create_connector_line():
             connector = [' '] * timeline_width
-            for pos in milestone_positions:
-                if 0 <= pos < timeline_width:
-                    connector[pos] = '|'
+            if not milestone_positions:
+                return ''.join(connector)
+
+            # Find valid positions within timeline width
+            valid_positions = [p for p in milestone_positions if 0 <= p < timeline_width]
+            if not valid_positions:
+                return ''.join(connector)
+
+            # Place vertical bars at all milestone positions
+            for pos in valid_positions:
+                connector[pos] = '│'  # U+2502 - Box drawing light vertical
             return ''.join(connector)
 
         # Render timeline header (project name and Start/Finish labels with dates)
@@ -2203,39 +2211,73 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
         if milestone_labels:
             md += f"{create_connector_line()}\n"
 
-        # Render the timeline itself
-        md += f"{timeline_row}\n"
-
-        # Calculate and render progress line
-        progress_line = [' '] * timeline_width
+        # Combine timeline with progress and T-junctions
+        combined_timeline = list(timeline_row)
         total_days = (finish_date - start_date).days or 1
 
-        # Calculate progress for each phase
-        for phase, dates in phase_dates.items():
-            # Find all tasks in this phase
-            phase_tasks = [t for t in tasks if t.get('phase') == phase and not t.get('summary')]
+        # Calculate progress for each phase and integrate into timeline
+        if phase_dates:
+            # If we have phases, calculate progress per phase
+            for phase, dates in phase_dates.items():
+                # Find all tasks in this phase
+                phase_tasks = [t for t in tasks if t.get('phase') == phase and not t.get('summary')]
 
-            if phase_tasks:
-                # Calculate average progress for the phase
-                total_progress = sum([t.get('percent', 0) for t in phase_tasks])
-                avg_progress = total_progress / len(phase_tasks) if phase_tasks else 0
+                if phase_tasks:
+                    # Calculate average progress for the phase
+                    total_progress = sum([t.get('percent', 0) for t in phase_tasks])
+                    avg_progress = total_progress / len(phase_tasks) if phase_tasks else 0
 
-                # Calculate phase position on timeline
-                phase_start_pos = int((dates['start'] - start_date).days / total_days * (timeline_width - 1))
-                phase_end_pos = int((dates['end'] - start_date).days / total_days * (timeline_width - 1))
+                    # Calculate phase position on timeline
+                    phase_start_pos = int((dates['start'] - start_date).days / total_days * (timeline_width - 1))
+                    phase_end_pos = int((dates['end'] - start_date).days / total_days * (timeline_width - 1))
 
-                # Fill in progress for this phase
-                phase_length = phase_end_pos - phase_start_pos + 1
-                progress_length = int(phase_length * avg_progress / 100)
+                    # Fill in progress for this phase (skip milestone positions)
+                    phase_length = phase_end_pos - phase_start_pos + 1
+                    progress_length = int(phase_length * avg_progress / 100)
 
-                for i in range(phase_start_pos, phase_end_pos + 1):
-                    if i < timeline_width:
-                        if i < phase_start_pos + progress_length:
-                            progress_line[i] = '='
-                        else:
-                            progress_line[i] = '-'
+                    for i in range(phase_start_pos, phase_end_pos + 1):
+                        if i < timeline_width and combined_timeline[i] != '◆':
+                            if i < phase_start_pos + progress_length:
+                                combined_timeline[i] = '═'  # U+2550 - Box drawing double horizontal
+                            else:
+                                combined_timeline[i] = '─'  # U+2500 - Box drawing light horizontal
+        else:
+            # If no phases, calculate progress for individual tasks
+            for t in tasks:
+                if t.get('summary'):
+                    continue
 
-        md += f"{''.join(progress_line)}\n"
+                # Skip 0-duration tasks (milestones)
+                duration = t.get('duration', timedelta(days=1))
+                if isinstance(duration, timedelta) and duration.days == 0:
+                    continue
+
+                task_start = t.get('start')
+                task_finish = t.get('finish')
+                task_percent = t.get('percent', 0)
+
+                if task_start and task_finish:
+                    # Calculate task position on timeline
+                    task_start_pos = int((task_start - start_date).days / total_days * (timeline_width - 1))
+                    task_end_pos = int((task_finish - start_date).days / total_days * (timeline_width - 1))
+
+                    # Fill in progress for this task (skip milestone positions)
+                    task_length = task_end_pos - task_start_pos + 1
+                    progress_length = int(task_length * task_percent / 100)
+
+                    for i in range(task_start_pos, task_end_pos + 1):
+                        if i < timeline_width and combined_timeline[i] != '◆':
+                            if i < task_start_pos + progress_length:
+                                combined_timeline[i] = '═'  # U+2550 - Box drawing double horizontal
+                            else:
+                                combined_timeline[i] = '─'  # U+2500 - Box drawing light horizontal
+
+        # Add T-junctions at the start and end (always, even if there are milestones)
+        combined_timeline[0] = '├'  # U+251C - Left T-junction at start
+        combined_timeline[-1] = '┤'  # U+2524 - Right T-junction at end
+
+        # Render the combined timeline
+        md += f"{''.join(combined_timeline)}\n"
 
         # Add connector from timeline to dates below
         md += f"{create_connector_line()}\n"
@@ -2512,12 +2554,20 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
         start_date_str = milestone_full_dates[0] if milestone_full_dates else ''
         finish_date_str = milestone_full_dates[-1] if milestone_full_dates else ''
 
-        # Create connector line with '|' at all milestone positions
+        # Create connector line with vertical bars at milestone positions (no T-junctions)
         def create_connector_line():
             connector = [' '] * timeline_width
-            for pos in milestone_positions:
-                if 0 <= pos < timeline_width:
-                    connector[pos] = '|'
+            if not milestone_positions:
+                return ''.join(connector)
+
+            # Find valid positions within timeline width
+            valid_positions = [p for p in milestone_positions if 0 <= p < timeline_width]
+            if not valid_positions:
+                return ''.join(connector)
+
+            # Place vertical bars at all milestone positions
+            for pos in valid_positions:
+                connector[pos] = '│'  # U+2502 - Box drawing light vertical
             return ''.join(connector)
 
         # Render timeline header (project name and Start/Finish labels with dates)
@@ -2533,39 +2583,73 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
         if milestone_labels:
             md += f"{create_connector_line()}\n"
 
-        # Render the timeline itself
-        md += f"{timeline_row}\n"
-
-        # Calculate and render progress line
-        progress_line = [' '] * timeline_width
+        # Combine timeline with progress and T-junctions
+        combined_timeline = list(timeline_row)
         total_days = (finish_date - start_date).days or 1
 
-        # Calculate progress for each phase
-        for phase, dates in phase_dates.items():
-            # Find all tasks in this phase
-            phase_tasks = [t for t in tasks if t.get('phase') == phase and not t.get('summary')]
+        # Calculate progress for each phase and integrate into timeline
+        if phase_dates:
+            # If we have phases, calculate progress per phase
+            for phase, dates in phase_dates.items():
+                # Find all tasks in this phase
+                phase_tasks = [t for t in tasks if t.get('phase') == phase and not t.get('summary')]
 
-            if phase_tasks:
-                # Calculate average progress for the phase
-                total_progress = sum([t.get('percent', 0) for t in phase_tasks])
-                avg_progress = total_progress / len(phase_tasks) if phase_tasks else 0
+                if phase_tasks:
+                    # Calculate average progress for the phase
+                    total_progress = sum([t.get('percent', 0) for t in phase_tasks])
+                    avg_progress = total_progress / len(phase_tasks) if phase_tasks else 0
 
-                # Calculate phase position on timeline
-                phase_start_pos = int((dates['start'] - start_date).days / total_days * (timeline_width - 1))
-                phase_end_pos = int((dates['end'] - start_date).days / total_days * (timeline_width - 1))
+                    # Calculate phase position on timeline
+                    phase_start_pos = int((dates['start'] - start_date).days / total_days * (timeline_width - 1))
+                    phase_end_pos = int((dates['end'] - start_date).days / total_days * (timeline_width - 1))
 
-                # Fill in progress for this phase
-                phase_length = phase_end_pos - phase_start_pos + 1
-                progress_length = int(phase_length * avg_progress / 100)
+                    # Fill in progress for this phase (skip milestone positions)
+                    phase_length = phase_end_pos - phase_start_pos + 1
+                    progress_length = int(phase_length * avg_progress / 100)
 
-                for i in range(phase_start_pos, phase_end_pos + 1):
-                    if i < timeline_width:
-                        if i < phase_start_pos + progress_length:
-                            progress_line[i] = '='
-                        else:
-                            progress_line[i] = '-'
+                    for i in range(phase_start_pos, phase_end_pos + 1):
+                        if i < timeline_width and combined_timeline[i] != '◆':
+                            if i < phase_start_pos + progress_length:
+                                combined_timeline[i] = '═'  # U+2550 - Box drawing double horizontal
+                            else:
+                                combined_timeline[i] = '─'  # U+2500 - Box drawing light horizontal
+        else:
+            # If no phases, calculate progress for individual tasks
+            for t in tasks:
+                if t.get('summary'):
+                    continue
 
-        md += f"{''.join(progress_line)}\n"
+                # Skip 0-duration tasks (milestones)
+                duration = t.get('duration', timedelta(days=1))
+                if isinstance(duration, timedelta) and duration.days == 0:
+                    continue
+
+                task_start = t.get('start')
+                task_finish = t.get('finish')
+                task_percent = t.get('percent', 0)
+
+                if task_start and task_finish:
+                    # Calculate task position on timeline
+                    task_start_pos = int((task_start - start_date).days / total_days * (timeline_width - 1))
+                    task_end_pos = int((task_finish - start_date).days / total_days * (timeline_width - 1))
+
+                    # Fill in progress for this task (skip milestone positions)
+                    task_length = task_end_pos - task_start_pos + 1
+                    progress_length = int(task_length * task_percent / 100)
+
+                    for i in range(task_start_pos, task_end_pos + 1):
+                        if i < timeline_width and combined_timeline[i] != '◆':
+                            if i < task_start_pos + progress_length:
+                                combined_timeline[i] = '═'  # U+2550 - Box drawing double horizontal
+                            else:
+                                combined_timeline[i] = '─'  # U+2500 - Box drawing light horizontal
+
+        # Add T-junctions at the start and end (always, even if there are milestones)
+        combined_timeline[0] = '├'  # U+251C - Left T-junction at start
+        combined_timeline[-1] = '┤'  # U+2524 - Right T-junction at end
+
+        # Render the combined timeline
+        md += f"{''.join(combined_timeline)}\n"
 
         # Add connector from timeline to dates below
         md += f"{create_connector_line()}\n"

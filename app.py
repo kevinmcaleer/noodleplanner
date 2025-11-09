@@ -71,7 +71,7 @@ async def index():
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
             color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -86,7 +86,7 @@ async def index():
         }
 
         header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -302,7 +302,7 @@ async def index():
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
             color: white;
             padding: 15px 30px;
             border: none;
