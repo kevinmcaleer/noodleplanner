@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  noodleplanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: noodleplanner
+    ports:
+      - "8007:8007"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8007
+      - MAX_FILE_SIZE=1048576
+      - RELOAD=false
+    volumes:
+      # Mount local directory for development (optional - comment out for production)
+      - ./projects:/app/projects
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
