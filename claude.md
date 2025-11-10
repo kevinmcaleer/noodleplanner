@@ -14,3 +14,10 @@
 - use alembic for database migrations over manual scripts
 - use environment variables for configuration over hardcoding values
 - use logging module for logging over print statements
+- database changes should be documented in the design/database.dbml file over no documentation
+- database changes should be managed using migrations over manual changes
+- the noodleplanner database should be used on 192.168.2.1:5433 over other databases
+ database migration documentation should be stored in design/migrations/ over other locations
+- ensure the database.dbml is always updated with any schema changes over neglecting it
+- document how new features work in design/epic.md over no documentation (and update this for existing features too)
+- ensure deployment_tasks is updated with any new deployment steps over neglecting it

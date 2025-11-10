@@ -12,6 +12,7 @@ from fastapi.responses import Response, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
+from dotenv import load_dotenv
 
 from projects.scheduling_engine.scheduling_engine import (
     text_to_markdown_table,
@@ -19,6 +20,11 @@ from projects.scheduling_engine.scheduling_engine import (
     export_timeline_to_powerpoint
 )
 from projects.scheduling_engine.format_converter import convert_plan_format_to_standard
+from middleware import ActivityLoggingMiddleware
+from database import init_db, test_connection
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +40,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Add activity logging middleware
+app.add_middleware(ActivityLoggingMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,6 +50,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    logger.info("Starting up application...")
+    if test_connection():
+        logger.info("Database connection successful")
+        logger.info("Note: Database schema is managed via Alembic migrations")
+        logger.info("Run 'alembic upgrade head' to apply pending migrations")
+    else:
+        logger.warning("Database connection failed - activity logging may not work")
 
 
 class RenderRequest(BaseModel):

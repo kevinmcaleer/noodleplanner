@@ -11,6 +11,8 @@ services:
       - PORT=8007
       - MAX_FILE_SIZE=1048576
       - RELOAD=false
+      - DATABASE_URL=${DATABASE_URL}
+      - ENABLE_ACTIVITY_LOGGING=${ENABLE_ACTIVITY_LOGGING:-true}
     volumes:
       # Mount local directory for development (optional - comment out for production)
       - ./projects:/app/projects
@@ -21,3 +23,4 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    network_mode: host

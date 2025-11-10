@@ -35,3 +35,7 @@ tzdata==2025.2
 uvicorn==0.35.0
 pyyaml
 python-pptx
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+alembic==1.13.1

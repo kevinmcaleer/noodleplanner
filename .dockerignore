@@ -33,6 +33,11 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Documentation
 *.md
 !requirements.txt
