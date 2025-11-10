@@ -53,6 +53,36 @@ Noodle Planner - a project management tool for smart people
    pytest
    ```
 
+### Docker Setup
+
+Run with Docker Compose:
+
+```sh
+docker-compose up -d
+```
+
+**Quick Rebuild with Cache-Busting:**
+
+When you've updated `app.py` or other application files and want to rebuild quickly without clearing all Docker cache:
+
+1. Edit `docker-compose.yml` and increment the `CACHEBUST` value:
+   ```yaml
+   args:
+     CACHEBUST: 2  # Change from 1 to 2, then 3, etc.
+   ```
+
+2. Rebuild and restart:
+   ```sh
+   docker-compose up -d --build
+   ```
+
+This approach preserves the cached layers for system dependencies and Python packages, but forces Docker to rebuild from the application code copy step onwards.
+
+Alternatively, you can set it via command line without editing the file:
+```sh
+docker-compose build --build-arg CACHEBUST=$(date +%s) && docker-compose up -d
+```
+
 ### (Optional) Enable Bug Docs Auto-Sync
 
 The repository includes a pre-commit hook that auto-runs `scripts/sync_bugs.py` to enforce bug doc consistency. It has been configured via `core.hooksPath=.githooks`.

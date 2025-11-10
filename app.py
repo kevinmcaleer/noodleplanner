@@ -74,13 +74,17 @@ class RenderRequest(BaseModel):
 @app.get("/")
 async def index():
     """Serve the main HTML page."""
-    return HTMLResponse(content="""
+    return HTMLResponse(content=r"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Noodle Planner - Project Planning Tool</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
         * {
             margin: 0;
@@ -256,6 +260,14 @@ async def index():
 
         textarea::placeholder {
             color: #666;
+        }
+
+        textarea {
+            cursor: text;
+        }
+
+        textarea:hover {
+            cursor: text;
         }
 
         .output-container {
@@ -526,6 +538,180 @@ async def index():
 
             .output-container {
                 font-size: 11px;
+            }
+        }
+
+        /* Task Form Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .task-form-modal {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2em;
+            cursor: pointer;
+            line-height: 0.8;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #108BB9;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
+        }
+
+        .btn-secondary {
+            flex: 1;
+            background: #6c757d;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 480px) {
+            .modal-body {
+                padding: 20px;
+            }
+
+            .form-actions {
+                flex-direction: column;
             }
         }
     </style>
@@ -923,7 +1109,362 @@ Build
                 }, 5000);
             }
         }
+
+        // Task Form Modal Functions
+        let currentTaskLineNumber = null;
+
+        function openTaskForm(lineNumber) {
+            const editor = document.getElementById('planEditor');
+            const lines = editor.value.split('\n');
+            const taskLine = lines[lineNumber - 1];
+
+            // Parse task details from line
+            const task = parseTaskLine(taskLine, lineNumber);
+
+            // Populate form
+            document.getElementById('taskName').value = task.name || '';
+            document.getElementById('taskDuration').value = task.duration || '';
+            document.getElementById('taskPercent').value = task.percent || '';
+            document.getElementById('taskResources').value = task.resources || '';
+            document.getElementById('taskComment').value = task.comment || '';
+            document.getElementById('taskDependencies').value = task.dependencies || '';
+
+            currentTaskLineNumber = lineNumber;
+            updateRagDisplay();
+            updateProgressBar();
+            document.getElementById('taskFormOverlay').classList.add('active');
+        }
+
+        function updateRagDisplay() {
+            const percent = parseInt(document.getElementById('taskPercent').value) || 0;
+            const ragDisplay = document.getElementById('ragDisplay');
+
+            let ragStatus, bgColor, textColor;
+
+            if (percent === 100) {
+                ragStatus = 'Green';
+                bgColor = '#4caf50';
+                textColor = 'white';
+            } else if (percent === 0) {
+                ragStatus = 'Red';
+                bgColor = '#f44336';
+                textColor = 'white';
+            } else if (percent < 50) {
+                ragStatus = 'Red';
+                bgColor = '#f44336';
+                textColor = 'white';
+            } else if (percent < 80) {
+                ragStatus = 'Amber';
+                bgColor = '#ff9800';
+                textColor = 'white';
+            } else {
+                ragStatus = 'Green';
+                bgColor = '#4caf50';
+                textColor = 'white';
+            }
+
+            ragDisplay.textContent = ragStatus;
+            ragDisplay.style.backgroundColor = bgColor;
+            ragDisplay.style.color = textColor;
+        }
+
+        function updateProgressBar() {
+            const percent = parseInt(document.getElementById('taskPercent').value) || 0;
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            progressBar.style.width = percent + '%';
+            progressBar.setAttribute('aria-valuenow', percent);
+            progressText.textContent = percent > 0 ? percent + '%' : '';
+
+            // Update color based on percentage
+            progressBar.className = 'progress-bar progress-bar-striped';
+            if (percent === 100) {
+                progressBar.classList.add('bg-success');
+            } else if (percent >= 80) {
+                progressBar.classList.add('bg-success');
+            } else if (percent >= 50) {
+                progressBar.classList.add('bg-warning');
+            } else if (percent > 0) {
+                progressBar.classList.add('bg-danger');
+            } else {
+                progressBar.classList.add('bg-secondary');
+            }
+        }
+
+        function closeTaskForm() {
+            document.getElementById('taskFormOverlay').classList.remove('active');
+            currentTaskLineNumber = null;
+        }
+
+        function saveTask() {
+            if (currentTaskLineNumber === null) return;
+
+            const editor = document.getElementById('planEditor');
+            const lines = editor.value.split('\n');
+            const originalLine = lines[currentTaskLineNumber - 1];
+
+            // Get form values
+            const name = document.getElementById('taskName').value.trim();
+            const duration = document.getElementById('taskDuration').value.trim();
+            const percent = document.getElementById('taskPercent').value.trim();
+            const resources = document.getElementById('taskResources').value.trim();
+            const comment = document.getElementById('taskComment').value.trim();
+            const dependencies = document.getElementById('taskDependencies').value.trim();
+
+            // Get previous task name for dependency check
+            const previousTaskName = getPreviousTaskName(lines, currentTaskLineNumber);
+
+            // Parse dependencies - split by comma if multiple
+            const depList = dependencies ? dependencies.split(',').map(d => d.trim()).filter(d => d) : [];
+
+            // Filter out the previous task from explicit dependencies (will use * instead)
+            const nonPreviousDeps = depList.filter(dep => dep !== previousTaskName);
+
+            // Check if task depends on previous task
+            const dependsOnPrevious = depList.includes(previousTaskName);
+
+            // Reconstruct task line
+            const indent = originalLine.match(/^\s*/)[0];
+            let taskNamePart = dependsOnPrevious ? '*' + name : name;
+            let newLine = indent + taskNamePart;
+
+            if (duration) newLine += ' ' + duration;
+
+            // Handle multiple resources - split by comma and add @ prefix to each
+            if (resources) {
+                const resourceList = resources.split(',').map(r => r.trim()).filter(r => r);
+                resourceList.forEach(resource => {
+                    newLine += ' @' + resource;
+                });
+            }
+
+            if (percent) newLine += ' ' + percent + '%';
+            if (comment) newLine += ' "' + comment + '"';
+            // Only add #depends if there are dependencies other than the previous task
+            if (nonPreviousDeps.length > 0) newLine += ' #' + nonPreviousDeps.join(',');
+
+            // Update the line
+            lines[currentTaskLineNumber - 1] = newLine;
+            editor.value = lines.join('\n');
+
+            // Update line numbers
+            updateLineNumbers();
+        }
+
+        function getPreviousTaskName(lines, currentLineNum) {
+            // Look backwards from current line to find the previous task
+            for (let i = currentLineNum - 2; i >= 0; i--) {
+                const line = lines[i].trim();
+                // Skip empty lines, phase headers, and summary lines
+                if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
+                    // Extract task name (remove * prefix if present)
+                    let taskName = line.replace(/^\*/, '').trim();
+
+                    // Use same logic as parseTaskLine to extract just the task name
+                    // Task name ends at first: digit+d (duration), @ (resource), # (dependency), % (percent), " (comment), Red/Amber/Green
+                    const nameMatch = taskName.match(/^([^\d@#%"]+?)(?=\s+\d+d|\s+@|\s+#|\s+\d+%|\s+"|\s+Red|\s+Amber|\s+Green|$)/);
+                    if (nameMatch) {
+                        return nameMatch[1].trim();
+                    } else {
+                        // Fallback: just take everything before @ # % "
+                        const fallbackMatch = taskName.match(/^([^@#%"]+)/);
+                        if (fallbackMatch) {
+                            return fallbackMatch[1].trim();
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function parseTaskLine(line, lineNum) {
+            const task = {
+                lineNumber: lineNum,
+                name: '',
+                duration: '',
+                percent: '',
+                resources: '',
+                comment: '',
+                dependencies: ''
+            };
+
+            // Remove leading whitespace and get the task text
+            const trimmed = line.trim();
+            if (!trimmed) return task;
+
+            let remaining = trimmed;
+
+            // Check for * prefix (depends on previous task)
+            const hasStar = remaining.startsWith('*');
+            if (hasStar) {
+                remaining = remaining.substring(1).trim();
+            }
+
+            // Extract task name - everything before first duration, @, #, %, ", or RAG status
+            // Task name ends at first: digit+d (duration), @ (resource), # (dependency), % (percent), " (comment), Red/Amber/Green
+            const nameMatch = remaining.match(/^([^\d@#%"]+?)(?=\s+\d+d|\s+@|\s+#|\s+\d+%|\s+"|\s+Red|\s+Amber|\s+Green|$)/);
+            if (nameMatch) {
+                task.name = nameMatch[1].trim();
+            } else {
+                // Fallback: just take everything before @ # % "
+                const fallbackMatch = remaining.match(/^([^@#%"]+)/);
+                if (fallbackMatch) {
+                    task.name = fallbackMatch[1].trim();
+                }
+            }
+
+            // Extract duration (numbers followed by 'd')
+            const durationMatch = remaining.match(/\b(\d+d)\b/);
+            if (durationMatch) {
+                task.duration = durationMatch[1];
+            }
+
+            // Extract percent (number followed by %)
+            const percentMatch = remaining.match(/\b(\d+)%/);
+            if (percentMatch) {
+                task.percent = percentMatch[1];
+            }
+
+            // Extract ALL resources (all @ symbols) - handle multiple @resource entries
+            const resourceMatches = remaining.match(/@([^\s@#%!"]+)/g);
+            if (resourceMatches) {
+                const resources = resourceMatches.map(r => r.substring(1)); // Remove @ prefix
+                task.resources = resources.join(', ');
+            }
+
+            // Extract dependencies (after #)
+            const depMatch = remaining.match(/#([^\s@%!"]+)/);
+            const explicitDeps = depMatch ? depMatch[1].split(',').map(d => d.trim()) : [];
+
+            // If task has * prefix, add previous task as dependency
+            const editor = document.getElementById('planEditor');
+            if (hasStar && editor) {
+                const lines = editor.value.split('\n');
+                const previousTaskName = getPreviousTaskName(lines, lineNum);
+                if (previousTaskName) {
+                    explicitDeps.unshift(previousTaskName);
+                }
+            }
+
+            task.dependencies = explicitDeps.join(', ');
+
+            // Extract comment (text in speech marks)
+            const commentMatch = remaining.match(/"([^"]*)"/);
+            if (commentMatch) {
+                task.comment = commentMatch[1];
+            }
+
+            return task;
+        }
+
+        // Initialize event listeners after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Close modal when clicking overlay
+            const overlay = document.getElementById('taskFormOverlay');
+            if (overlay) {
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeTaskForm();
+                    }
+                });
+            }
+
+            // Add double-click handler to editor for opening task form
+            const editor = document.getElementById('planEditor');
+            if (editor) {
+                editor.addEventListener('dblclick', function(e) {
+                    const textarea = e.target;
+                    const cursorPosition = textarea.selectionStart;
+                    const textBeforeCursor = textarea.value.substring(0, cursorPosition);
+                    const lineNumber = textBeforeCursor.split('\n').length;
+
+                    // Get the line content
+                    const lines = textarea.value.split('\n');
+                    const line = lines[lineNumber - 1];
+
+                    // Only open form for task lines (not empty lines, phase headers, or summary lines)
+                    if (line && line.trim() && !line.includes('===') && !line.includes('---')) {
+                        // Check if it looks like a task (has indentation or task markers)
+                        const trimmed = line.trim();
+                        if (trimmed && !trimmed.startsWith('#')) {
+                            openTaskForm(lineNumber);
+                        }
+                    }
+                });
+            }
+        });
     </script>
+
+    <!-- Task Form Modal -->
+    <div id="taskFormOverlay" class="modal-overlay">
+        <div class="task-form-modal">
+            <div class="modal-header">
+                <h2>✏️ Edit Task</h2>
+                <button class="close-btn" onclick="closeTaskForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <div class="form-group">
+                        <label for="taskName">Task Name *</label>
+                        <input type="text" id="taskName" required placeholder="Enter task name" oninput="saveTask()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskDuration">Duration</label>
+                        <input type="text" id="taskDuration" placeholder="e.g., 5d, 10d" oninput="saveTask()">
+                        <small>Format: number followed by 'd' (e.g., 5d for 5 days)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskPercent">Completion %</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
+                                   style="width: 80px; flex-shrink: 0;"
+                                   oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
+                            <div class="progress" style="flex: 1; height: 25px;">
+                                <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
+                                     role="progressbar" style="width: 0%; transition: width 0.3s ease;"
+                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    <span id="progressText"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>RAG Status</label>
+                        <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center;">
+                            -
+                        </div>
+                        <small>Calculated automatically based on completion %</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskResources">Resources</label>
+                        <input type="text" id="taskResources" placeholder="e.g., John, Alice" oninput="saveTask()">
+                        <small>Separate multiple resources with commas</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskComment">Comment</label>
+                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTask()"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskDependencies">Dependencies</label>
+                        <input type="text" id="taskDependencies" placeholder="e.g., Task1, Task2" oninput="saveTask()">
+                        <small>Task names this task depends on</small>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" onclick="closeTaskForm()">Done</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
     """)
