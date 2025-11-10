@@ -61,13 +61,19 @@ class ActivityLoggingMiddleware(BaseHTTPMiddleware):
         if not ENABLE_ACTIVITY_LOGGING:
             return await call_next(request)
 
+        # Get endpoint path
+        endpoint = str(request.url.path)
+
+        # Skip logging for health check endpoints
+        if endpoint.lower() in ["/health", "/healthz", "/health/"]:
+            return await call_next(request)
+
         # Record start time
         start_time = time.time()
 
         # Get request details
         ip_address = get_client_ip(request)
         user_agent = request.headers.get("User-Agent", "unknown")
-        endpoint = str(request.url.path)
         method = request.method
 
         # Process the request
