@@ -2434,34 +2434,36 @@ Build
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="taskResources">Resources</label>
-                        <div class="autocomplete-container">
-                            <input type="text" id="taskResources" placeholder="e.g., John, Alice"
-                                   oninput="handleResourceInput()"
-                                   onkeydown="handleResourceKeydown(event)"
-                                   autocomplete="off">
-                            <div id="resourceAutocomplete" class="autocomplete-dropdown"></div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="taskResources">Resources</label>
+                            <div class="autocomplete-container">
+                                <input type="text" id="taskResources" placeholder="e.g., John, Alice"
+                                       oninput="handleResourceInput()"
+                                       onkeydown="handleResourceKeydown(event)"
+                                       autocomplete="off">
+                                <div id="resourceAutocomplete" class="autocomplete-dropdown"></div>
+                            </div>
+                            <small>Separate multiple resources with commas</small>
                         </div>
-                        <small>Separate multiple resources with commas</small>
+
+                        <div class="form-group">
+                            <label for="taskDependencies">Dependencies</label>
+                            <div class="autocomplete-container">
+                                <input type="text" id="taskDependencies" placeholder="e.g., Task1, Task2"
+                                       oninput="handleDependencyInput()"
+                                       onkeydown="handleDependencyKeydown(event)"
+                                       autocomplete="off">
+                                <div id="dependencyAutocomplete" class="autocomplete-dropdown"></div>
+                            </div>
+                            <small>Task names this task depends on</small>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="taskComment">Comment</label>
                         <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTask()"
                                   style="background: white; color: black;"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="taskDependencies">Dependencies</label>
-                        <div class="autocomplete-container">
-                            <input type="text" id="taskDependencies" placeholder="e.g., Task1, Task2"
-                                   oninput="handleDependencyInput()"
-                                   onkeydown="handleDependencyKeydown(event)"
-                                   autocomplete="off">
-                            <div id="dependencyAutocomplete" class="autocomplete-dropdown"></div>
-                        </div>
-                        <small>Task names this task depends on</small>
                     </div>
 
                     <div class="form-actions">
