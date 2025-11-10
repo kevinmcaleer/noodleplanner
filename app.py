@@ -79,6 +79,9 @@ HTML_CONTENT = r"""
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Noodle Planner - Project Planning Tool</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
@@ -827,8 +830,7 @@ HTML_CONTENT = r"""
 <body>
     <div class="container">
         <header>
-            <h1>🍜 Noodle Planner</h1>
-            <p class="subtitle">Smart Project Planning & Scheduling Tool</p>
+            <img src="/logo.png" alt="Noodle Planner" style="height: 120px; display: block; margin: 0 auto;">
         </header>
 
         <div class="content">
@@ -2482,6 +2484,24 @@ Build
 async def index():
     """Serve the main HTML page."""
     return HTMLResponse(content=HTML_CONTENT)
+
+
+@app.get("/favicon.png")
+async def favicon():
+    """Serve the favicon."""
+    favicon_path = Path(__file__).parent / "favicon.png"
+    if favicon_path.exists():
+        return FileResponse(favicon_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Favicon not found")
+
+
+@app.get("/logo.png")
+async def logo():
+    """Serve the logo."""
+    logo_path = Path(__file__).parent / "logo.png"
+    if logo_path.exists():
+        return FileResponse(logo_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Logo not found")
 
 
 @app.get("/health")
