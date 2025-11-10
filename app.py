@@ -595,6 +595,17 @@ async def index():
         .modal-header h2 {
             margin: 0;
             font-size: 1.5em;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .modal-header h2:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header h2:focus {
+            background-color: rgba(255, 255, 255, 0.2);
         }
 
         .close-btn {
@@ -1123,7 +1134,10 @@ Build
 
             // Populate form
             document.getElementById('taskName').value = task.name || '';
+            document.getElementById('taskFormTitle').textContent = task.name || 'Task Name';
             document.getElementById('taskDuration').value = task.duration || '';
+            document.getElementById('taskStartDate').value = task.startDate || '';
+            document.getElementById('taskFinishDate').value = task.finishDate || '';
             document.getElementById('taskPercent').value = task.percent || '';
             document.getElementById('taskResources').value = task.resources || '';
             document.getElementById('taskComment').value = task.comment || '';
@@ -1135,37 +1149,111 @@ Build
             document.getElementById('taskFormOverlay').classList.add('active');
         }
 
+        function updateDatesAndDuration() {
+            const startDate = document.getElementById('taskStartDate').value;
+            const finishDate = document.getElementById('taskFinishDate').value;
+
+            if (startDate && finishDate) {
+                const start = new Date(startDate);
+                const finish = new Date(finishDate);
+                const diffTime = Math.abs(finish - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                document.getElementById('taskDuration').value = diffDays + 'd';
+            } else {
+                document.getElementById('taskDuration').value = '';
+            }
+        }
+
+        function updateTaskNameFromTitle() {
+            const title = document.getElementById('taskFormTitle').textContent.trim();
+            document.getElementById('taskName').value = title;
+            saveTask();
+        }
+
         function updateRagDisplay() {
             const percent = parseInt(document.getElementById('taskPercent').value) || 0;
+            const startDateStr = document.getElementById('taskStartDate').value;
+            const finishDateStr = document.getElementById('taskFinishDate').value;
             const ragDisplay = document.getElementById('ragDisplay');
+            const ragReasoning = document.getElementById('ragReasoning');
 
-            let ragStatus, bgColor, textColor;
+            let ragStatus, bgColor, textColor, reasoning;
 
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // RAG logic based on backend rules (from calculate_rag_status):
+
+            // Green: Task is 100% complete
             if (percent === 100) {
                 ragStatus = 'Green';
                 bgColor = '#4caf50';
                 textColor = 'white';
-            } else if (percent === 0) {
+                reasoning = 'Task is complete';
+            }
+            // Green: Task hasn't started yet (start date is in the future)
+            else if (startDateStr && new Date(startDateStr) > today) {
+                ragStatus = 'Green';
+                bgColor = '#4caf50';
+                textColor = 'white';
+                reasoning = 'Task not yet started';
+            }
+            // Red: Start date is in the past and no progress or 0%
+            else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
                 ragStatus = 'Red';
                 bgColor = '#f44336';
                 textColor = 'white';
+                reasoning = 'Task started but no progress';
+            }
+            // Calculate expected progress based on dates
+            else if (startDateStr && finishDateStr) {
+                const startDate = new Date(startDateStr);
+                const finishDate = new Date(finishDateStr);
+                const totalDuration = (finishDate - startDate) / (1000 * 60 * 60 * 24);
+                const elapsedDays = Math.max(0, (today - startDate) / (1000 * 60 * 60 * 24));
+                const expectedPercent = Math.min(100, (elapsedDays / Math.max(1, totalDuration)) * 100);
+
+                // Amber: Actual progress is less than expected
+                if (percent < expectedPercent) {
+                    ragStatus = 'Amber';
+                    bgColor = '#ff9800';
+                    textColor = 'white';
+                    reasoning = `Behind schedule: ${percent}% complete, expected ${Math.round(expectedPercent)}%`;
+                } else {
+                    // Green: On track or ahead
+                    ragStatus = 'Green';
+                    bgColor = '#4caf50';
+                    textColor = 'white';
+                    reasoning = 'On track or ahead of schedule';
+                }
+            }
+            // Fallback: Use simple percentage thresholds if no dates
+            else if (percent === 0) {
+                ragStatus = 'Red';
+                bgColor = '#f44336';
+                textColor = 'white';
+                reasoning = 'No progress made';
             } else if (percent < 50) {
                 ragStatus = 'Red';
                 bgColor = '#f44336';
                 textColor = 'white';
+                reasoning = 'Progress below 50%';
             } else if (percent < 80) {
                 ragStatus = 'Amber';
                 bgColor = '#ff9800';
                 textColor = 'white';
+                reasoning = 'Progress 50-79%';
             } else {
                 ragStatus = 'Green';
                 bgColor = '#4caf50';
                 textColor = 'white';
+                reasoning = 'Progress ≥80%';
             }
 
             ragDisplay.textContent = ragStatus;
             ragDisplay.style.backgroundColor = bgColor;
             ragDisplay.style.color = textColor;
+            ragReasoning.textContent = reasoning;
         }
 
         function updateProgressBar() {
@@ -1283,6 +1371,8 @@ Build
                 lineNumber: lineNum,
                 name: '',
                 duration: '',
+                startDate: '',
+                finishDate: '',
                 percent: '',
                 resources: '',
                 comment: '',
@@ -1400,20 +1490,39 @@ Build
     <div id="taskFormOverlay" class="modal-overlay">
         <div class="task-form-modal">
             <div class="modal-header">
-                <h2>✏️ Edit Task</h2>
+                <h2 id="taskFormTitle" contenteditable="true" style="flex: 1; outline: none; cursor: text;" oninput="updateTaskNameFromTitle()">Task Name</h2>
                 <button class="close-btn" onclick="closeTaskForm()">&times;</button>
             </div>
             <div class="modal-body">
                 <form onsubmit="event.preventDefault();">
-                    <div class="form-group">
-                        <label for="taskName">Task Name *</label>
-                        <input type="text" id="taskName" required placeholder="Enter task name" oninput="saveTask()">
+                    <input type="hidden" id="taskName">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="taskDuration">Duration</label>
+                            <input type="text" id="taskDuration" placeholder="e.g., 5d, 10d" readonly style="background: #f0f0f0; cursor: not-allowed;">
+                            <small>Auto-calculated from dates</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>RAG Status</label>
+                            <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center; margin-bottom: 5px;">
+                                -
+                            </div>
+                            <small id="ragReasoning" style="display: block; color: #666;">-</small>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="taskDuration">Duration</label>
-                        <input type="text" id="taskDuration" placeholder="e.g., 5d, 10d" oninput="saveTask()">
-                        <small>Format: number followed by 'd' (e.g., 5d for 5 days)</small>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="taskStartDate">Start Date</label>
+                            <input type="date" id="taskStartDate" onchange="updateDatesAndDuration(); saveTask(); updateRagDisplay()">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taskFinishDate">Finish Date</label>
+                            <input type="date" id="taskFinishDate" onchange="updateDatesAndDuration(); saveTask(); updateRagDisplay()">
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -1433,14 +1542,6 @@ Build
                     </div>
 
                     <div class="form-group">
-                        <label>RAG Status</label>
-                        <div id="ragDisplay" style="padding: 8px; border-radius: 4px; font-weight: bold; text-align: center;">
-                            -
-                        </div>
-                        <small>Calculated automatically based on completion %</small>
-                    </div>
-
-                    <div class="form-group">
                         <label for="taskResources">Resources</label>
                         <input type="text" id="taskResources" placeholder="e.g., John, Alice" oninput="saveTask()">
                         <small>Separate multiple resources with commas</small>
@@ -1448,7 +1549,8 @@ Build
 
                     <div class="form-group">
                         <label for="taskComment">Comment</label>
-                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTask()"></textarea>
+                        <textarea id="taskComment" placeholder="Add notes or comments" oninput="saveTask()"
+                                  style="background: white; color: black;"></textarea>
                     </div>
 
                     <div class="form-group">
