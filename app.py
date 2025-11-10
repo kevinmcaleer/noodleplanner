@@ -439,6 +439,95 @@ async def index():
         .hidden {
             display: none;
         }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .subtitle {
+                font-size: 1em;
+            }
+
+            header {
+                padding: 20px;
+            }
+
+            .content {
+                padding: 15px;
+            }
+
+            .editor-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+                min-height: auto;
+                gap: 15px;
+            }
+
+            .editor-panel, .output-panel {
+                height: auto;
+                min-height: 400px;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            .tab {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+
+            .options {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .btn-group {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .editor-wrapper {
+                min-height: 300px;
+            }
+
+            .output-container {
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .subtitle {
+                font-size: 0.9em;
+            }
+
+            header {
+                padding: 15px;
+            }
+
+            .content {
+                padding: 10px;
+            }
+
+            textarea {
+                font-size: 12px;
+            }
+
+            .output-container {
+                font-size: 11px;
+            }
+        }
     </style>
 </head>
 <body>
