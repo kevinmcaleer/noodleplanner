@@ -1,6 +1,39 @@
 """Convert between different task file formats."""
 
 import re
+import yaml
+
+
+def extract_title_from_frontmatter(text: str) -> str:
+    """Extract title from YAML front matter.
+
+    Returns:
+        The title from the front matter, or None if not found
+    """
+    lines = text.split('\n')
+    in_frontmatter = False
+    frontmatter_lines = []
+
+    for line in lines:
+        if line.strip() == '---':
+            if not in_frontmatter:
+                in_frontmatter = True
+                continue
+            else:
+                # End of front matter
+                break
+        if in_frontmatter:
+            frontmatter_lines.append(line)
+
+    if frontmatter_lines:
+        try:
+            frontmatter = yaml.safe_load('\n'.join(frontmatter_lines))
+            if isinstance(frontmatter, dict) and 'title' in frontmatter:
+                return frontmatter['title']
+        except:
+            pass
+
+    return None
 
 
 def convert_plan_format_to_standard(text: str) -> str:

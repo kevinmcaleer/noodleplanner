@@ -737,8 +737,13 @@ def render_custom_timeline(phases, milestones, start_date, finish_date, timeline
     all_items.sort(key=lambda x: x['date'])
 
     # Process milestones and calculate positions
+    # Handle case where start_date equals finish_date (single day plan)
+    duration_days = (finish_date - start_date).days
+    if duration_days == 0:
+        duration_days = 1  # Treat as single day, all items at same position
+
     for item in all_items:
-        pos = int((item['date'] - start_date).days / (finish_date - start_date).days * (timeline_width - 1))
+        pos = int((item['date'] - start_date).days / duration_days * (timeline_width - 1))
         if item['type'] == 'milestone':
             symbol = '◆'
             timeline[pos] = symbol
@@ -2199,7 +2204,7 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
             return ''.join(connector)
 
         # Render timeline header (project name and Start/Finish labels with dates)
-        md += f"{project_name}\n"
+        md += f"Project: {project_name}\n"
         md += f"Start{' ' * (timeline_width - 11)}Finish\n"
         md += f"{start_date_str}{' ' * (timeline_width - len(start_date_str) - len(finish_date_str))}{finish_date_str}\n"
 
@@ -2571,7 +2576,7 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
             return ''.join(connector)
 
         # Render timeline header (project name and Start/Finish labels with dates)
-        md += f"{project_name}\n"
+        md += f"Project: {project_name}\n"
         md += f"Start{' ' * (timeline_width - 11)}Finish\n"
         md += f"{start_date_str}{' ' * (timeline_width - len(start_date_str) - len(finish_date_str))}{finish_date_str}\n"
 
@@ -2670,6 +2675,76 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
     md += "\n"
     md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width, resource_map=resource_map)
     return md
+
+
+def export_to_pdf(text, output_path, is_yaml=True, project_name="Project", original_text=None):
+    """Export the project plan to a PDF file."""
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Preformatted
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.pdfgen import canvas
+
+    # Generate the markdown table output
+    ascii_output = text_to_markdown_table(
+        text,
+        is_yaml=is_yaml,
+        project_name=project_name,
+        terminal_width=120,
+        original_text=original_text
+    )
+
+    # Create PDF document
+    doc = SimpleDocTemplate(
+        output_path,
+        pagesize=A4,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30
+    )
+
+    # Container for content
+    story = []
+
+    # Get default styles
+    styles = getSampleStyleSheet()
+
+    # Create custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor='#108BB9',
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+
+    # Create monospace style for plan output
+    mono_style = ParagraphStyle(
+        'Monospace',
+        parent=styles['Code'],
+        fontName='Courier',
+        fontSize=8,
+        leading=10,
+        leftIndent=0,
+        rightIndent=0,
+        alignment=TA_LEFT
+    )
+
+    # Add title
+    title = Paragraph(f"{project_name} - Project Plan", title_style)
+    story.append(title)
+    story.append(Spacer(1, 12))
+
+    # Add the ASCII output as preformatted text
+    preformatted = Preformatted(ascii_output, mono_style)
+    story.append(preformatted)
+
+    # Build PDF
+    doc.build(story)
+
 
 if __name__ == "__main__":
     from projects.scheduling_engine.cli import main
