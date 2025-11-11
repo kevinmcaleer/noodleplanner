@@ -50,7 +50,12 @@ Noodle Planner - a project management tool for smart people
 3. Run tests:
 
    ```sh
-   pytest
+   pytest tests/ -v
+
+   # Run with coverage report
+   pytest tests/ -v --cov=. --cov-report=term-missing --cov-report=html
+
+   # See docs/testing.md for detailed testing guide
    ```
 
 ### Docker Setup
@@ -59,6 +64,16 @@ Run with Docker Compose:
 
 ```sh
 docker-compose up -d
+```
+
+**Run Tests in Docker:**
+
+```sh
+# Run all tests
+docker exec noodleplanner pytest tests/ -v
+
+# Run with coverage
+docker exec noodleplanner pytest tests/ -v --cov=. --cov-report=term-missing
 ```
 
 **Quick Rebuild with Cache-Busting:**
@@ -100,10 +115,12 @@ chmod +x .githooks/pre-commit
 - User stories and features are documented in the `docs/` folder:
    - `story-phase-timeline.md`, `feature-phase-timeline.md`
    - `epics/epic-phase-timeline.md`, `epics/epic-project-yaml-schema.md`
+   - `epics/epic-web-application-enhancements.md` - Web UI features
    - `story-login-project-list.md`, `feature-login-project-list.md`
    - `story-create-project.md`, `feature-create-project.md`
    - `story-register-account.md`, `feature-logout-account-menu.md`
    - `login.md` (epic template)
+- Testing: `docs/testing.md` - **Comprehensive testing guide with 122 test cases**
 - Changelog: `docs/CHANGELOG-2025-08-20.md`
 - Bug tracking: `docs/bugs/index.md`, `docs/bugs/fixed/product-details-save-bug-2025-08-20.md`
 - Test docs: `docs/test-product-details-save.md`

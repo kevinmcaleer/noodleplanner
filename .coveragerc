@@ -1,0 +1,37 @@
+# Coverage configuration for Noodle Planner
+# Target: 80% code coverage per CLAUDE.md
+
+[run]
+source = .
+omit =
+    */tests/*
+    */venv/*
+    */env/*
+    */cli_venv/*
+    */__pycache__/*
+    */site-packages/*
+    setup.py
+    */migrations/*
+    */alembic/*
+    manage.py
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+fail_under = 80
+
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+    @abstractmethod
+    pass
+
+[html]
+directory = htmlcov
