@@ -6,7 +6,7 @@ services:
       args:
         # Change this value to force rebuild of app code layer
         # Example: CACHEBUST=2, CACHEBUST=3, or use date +%s
-        CACHEBUST: 63
+        CACHEBUST: 64
     container_name: noodleplanner
     ports:
       - "8007:8007"
@@ -18,8 +18,8 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - ENABLE_ACTIVITY_LOGGING=${ENABLE_ACTIVITY_LOGGING:-true}
     volumes:
-      # Mount local directory for development (optional - comment out for production)
-      - ./projects:/app/projects
+      # Mount packages for development (optional - comment out for production)
+      - ./packages:/app/packages
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health').read()"]

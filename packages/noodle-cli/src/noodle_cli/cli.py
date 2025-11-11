@@ -9,8 +9,14 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from .scheduling_engine import yaml_to_markdown_table, text_to_markdown_table, export_to_excel, analyze_plan, export_timeline_to_powerpoint
-from .format_converter import convert_plan_format_to_standard
+from noodle_core import (
+    yaml_to_markdown_table,
+    text_to_markdown_table,
+    export_to_excel,
+    analyze_plan,
+    export_timeline_to_powerpoint,
+    convert_plan_format_to_standard,
+)
 
 logger = logging.getLogger(__name__)
 

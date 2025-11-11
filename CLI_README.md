@@ -24,9 +24,17 @@ EOF
 
 ## Installation
 
+This project uses [uv](https://github.com/astral-sh/uv) workspaces for dependency management.
+
 ```bash
-# The CLI is ready to use - just run the noodle script
-./noodle --help
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Sync all workspace dependencies
+uv sync
+
+# The CLI is now ready to use
+uv run noodle --help
 ```
 
 ## Commands
@@ -37,16 +45,16 @@ Render a project file to markdown schedule output.
 
 ```bash
 # Auto-detect format (natural language or YAML)
-./noodle render my_project.txt
+uv run noodle render my_project.txt
 
 # Explicitly specify format
-./noodle render my_project.txt --format natural
+uv run noodle render my_project.txt --format natural
 
 # Split output into separate files
-./noodle render my_project.txt --split-markdown --output-dir output/
+uv run noodle render my_project.txt --split-markdown --output-dir output/
 
 # Custom project name
-./noodle render tasks.txt --project-name "My Awesome Project"
+uv run noodle render tasks.txt --project-name "My Awesome Project"
 ```
 
 **Options:**
@@ -60,10 +68,10 @@ Render a project file to markdown schedule output.
 Create a starter YAML project file.
 
 ```bash
-./noodle init sample_project.yaml
+uv run noodle init sample_project.yaml
 
 # Overwrite existing file
-./noodle init sample_project.yaml --force
+uv run noodle init sample_project.yaml --force
 ```
 
 ### `validate` - Validate Project
@@ -71,7 +79,7 @@ Create a starter YAML project file.
 Validate a project file.
 
 ```bash
-./noodle validate my_project.yaml
+uv run noodle validate my_project.yaml
 ```
 
 ## Natural Language Format
@@ -161,56 +169,60 @@ The CLI generates three sections:
 ### Logging
 ```bash
 # Verbose output
-./noodle render my_project.txt --log-level INFO
+uv run noodle render my_project.txt --log-level INFO
 
 # Debug mode
-./noodle render my_project.txt --log-level DEBUG
+uv run noodle render my_project.txt --log-level DEBUG
 ```
 
 ### Piping Output
 ```bash
 # Save to file
-./noodle render my_project.txt > schedule.md
+uv run noodle render my_project.txt > schedule.md
 
 # View with less
-./noodle render my_project.txt | less
+uv run noodle render my_project.txt | less
 
 # Copy to clipboard (macOS)
-./noodle render my_project.txt | pbcopy
+uv run noodle render my_project.txt | pbcopy
 ```
 
 ## Requirements
 
-- Python 3.10+
-- pyyaml
-- python-dateutil
-
-Dependencies are installed in the `cli_venv` virtual environment.
+- Python 3.11+
+- uv package manager
+- All dependencies managed automatically via uv workspace
 
 ## Architecture
 
 ```
-noodle (entry point)
-├── cli_venv/ (Python virtual environment)
-└── projects/scheduling_engine/
-    ├── cli.py (CLI interface)
-    ├── scheduling_engine.py (Core logic)
-    └── __init__.py
+noodleplanner/
+├── pyproject.toml                      # Workspace root
+├── packages/
+│   ├── noodle-cli/                    # CLI package
+│   │   └── src/noodle_cli/
+│   │       ├── cli.py                 # CLI interface
+│   │       └── __init__.py
+│   └── noodle-core/                   # Core engine package
+│       └── src/noodle_core/
+│           ├── scheduling_engine.py   # Core logic
+│           ├── format_converter.py    # Format conversion
+│           └── __init__.py
+└── tests/                             # Shared test suite
 ```
 
 ## Troubleshooting
 
-### Permission denied
+### Command not found: uv
 ```bash
-chmod +x noodle
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Module not found
 ```bash
-# Recreate the virtual environment
-rm -rf cli_venv
-python3 -m venv cli_venv
-cli_venv/bin/pip install pyyaml python-dateutil
+# Resync the workspace
+uv sync
 ```
 
 ### Task dates seem wrong
@@ -223,8 +235,8 @@ cli_venv/bin/pip install pyyaml python-dateutil
 See the `test_project.txt` file for a working example, or run:
 
 ```bash
-./noodle init example.yaml
-./noodle render example.yaml
+uv run noodle init example.yaml
+uv run noodle render example.yaml
 ```
 
 ## Next Steps

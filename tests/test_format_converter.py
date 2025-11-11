@@ -1,7 +1,7 @@
 """Tests for format_converter module."""
 
 import pytest
-from projects.scheduling_engine.format_converter import (
+from noodle_core import (
     convert_plan_format_to_standard,
     extract_title_from_frontmatter
 )

@@ -6,54 +6,99 @@ Noodle Planner - a project management tool for smart people
 
 ## Features
 
+### Core Planning Engine
 - Timeline visualization engine for project phases and milestones (YAML to Markdown)
 - Proportional, visually aligned ASCII/Markdown timeline output
 - Milestone logic: duration=0 or phase end, with correct placement of dates/labels
 - Only one 'Start' and 'Finish' label/date above timeline; all other milestones below
 - No duplicate labels or stray characters in timeline output
-- User registration and login
-- Secure session management (cookie-based)
-- List projects for the logged-in user
-- Create new projects (with validation)
-- Logout functionality
-- Jinja2 templated UI
-- SQLite backend
-- Full test coverage with pytest
-- Hierarchical product list with drag-and-drop and right-click context menu (rename, delete), powered by jsTree
-- Persistent `sort_order` for products, maintained in the database
-- All move, indent, outdent, and CRUD logic handled by backend endpoints
-- Product list and canvas order always match, with live updates after any change
-- Canvas auto-expands and draws classic vertical tree layout with elbow lines
-- All CRUD operations (add, rename, delete, edit details) are backend-driven and reflected instantly in the UI and canvas
-- Product details panel supports editing and saving all fields, with changes persisted in the backend
-- Product list is fully expanded by default
-- Export product list hierarchy to Excel/CSV via a hamburger menu above the product list
+- Full test coverage with pytest (119 tests passing)
+
+### Web Application
+- **Interactive Kanban Board** 🆕
+  - 3 view modes: Phase, Resource, Progress
+  - Drag-and-drop tasks between columns
+  - Drag-and-drop to reorder tasks within columns
+  - Drag-and-drop entire phase columns to reorder
+  - Add new tasks and phases directly from Kanban
+  - Auto-sync with text editor (bi-directional)
+  - Full accessibility (ARIA, keyboard navigation)
+  - Mobile responsive design
+  - Resource normalization (case-insensitive)
+
+- **Plan Editor**
+  - Live Markdown editor with syntax highlighting
+  - Line numbers and syntax hints
+  - Double-click any line to edit task details
+  - Auto-render on Enter key
+  - Upload and Download plan files
+  - Export to Excel, PowerPoint, and PDF
+
+- **User Management**
+  - User registration and login
+  - Secure session management (cookie-based)
+  - List projects for the logged-in user
+  - Create new projects (with validation)
+
+- **Product Management**
+  - Hierarchical product list with drag-and-drop
+  - Right-click context menu (rename, delete)
+  - Canvas with classic vertical tree layout
+  - Export to Excel/CSV
+
+## Project Structure (UV Workspace)
+
+This project uses [uv](https://github.com/astral-sh/uv) workspaces for managing multiple packages:
+
+```
+noodleplanner/
+├── pyproject.toml              # Workspace root configuration
+├── packages/
+│   ├── noodle-core/           # Core scheduling engine
+│   ├── noodle-cli/            # Command-line interface
+│   └── noodle-web/            # Web application
+└── tests/                      # Shared test suite (119 tests)
+```
 
 ## Setup
 
-1. Clone the repository and install dependencies:
+### Prerequisites
+
+Install uv (fast Python package manager):
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Installation
+
+1. Clone and setup workspace:
 
    ```sh
    git clone <repo-url>
    cd noodleplanner
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+   uv sync
    ```
 
-2. Run the app:
+2. Run the web app:
 
    ```sh
-   uvicorn app:app --reload
+   uv run uvicorn noodle_web.app:app --reload
    ```
 
-3. Run tests:
+3. Run the CLI:
 
    ```sh
-   pytest tests/ -v
+   uv run noodle --help
+   uv run noodle render plan.md
+   ```
+
+4. Run tests (all 119 tests):
+
+   ```sh
+   uv run pytest tests/ -v
 
    # Run with coverage report
-   pytest tests/ -v --cov=. --cov-report=term-missing --cov-report=html
+   uv run pytest tests/ -v --cov=packages --cov-report=term-missing
 
    # See docs/testing.md for detailed testing guide
    ```
@@ -69,11 +114,11 @@ docker-compose up -d
 **Run Tests in Docker:**
 
 ```sh
-# Run all tests
-docker exec noodleplanner pytest tests/ -v
+# Run all tests (119 tests, all passing)
+docker exec noodleplanner uv run pytest tests/ -v
 
 # Run with coverage
-docker exec noodleplanner pytest tests/ -v --cov=. --cov-report=term-missing
+docker exec noodleplanner uv run pytest tests/ --cov=packages --cov-report=term-missing
 ```
 
 **Quick Rebuild with Cache-Busting:**

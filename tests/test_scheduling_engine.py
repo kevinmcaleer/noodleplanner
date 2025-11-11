@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timedelta
-from projects.scheduling_engine.scheduling_engine import (
+from noodle_core import (
     get_next_working_day,
     add_working_days,
     parse_duration,

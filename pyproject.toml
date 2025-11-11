@@ -1,0 +1,13 @@
+[tool.uv.workspace]
+members = [
+    "packages/noodle-core",
+    "packages/noodle-cli",
+    "packages/noodle-web"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.4.1",
+    "pytest-cov>=7.0.0",
+    "httpx",
+]
