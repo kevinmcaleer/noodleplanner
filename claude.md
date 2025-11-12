@@ -21,3 +21,4 @@
 - ensure the database.dbml is always updated with any schema changes over neglecting it
 - document how new features work in design/epic.md over no documentation (and update this for existing features too)
 - ensure deployment_tasks is updated with any new deployment steps over neglecting it
+- keep the interface tour (script.js lines 2384-2589) updated with any significant interface changes over neglecting it

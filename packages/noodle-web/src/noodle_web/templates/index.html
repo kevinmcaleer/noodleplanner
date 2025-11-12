@@ -22,21 +22,45 @@
                 <button class="tab active" onclick="switchTab('editor')">Editor</button>
                 <button class="tab" onclick="switchTab('kanban')">Kanban</button>
                 <button class="tab" onclick="switchTab('guide')">Syntax Guide</button>
+                <div class="nav-export-dropdown">
+                    <button class="export-btn" onclick="toggleExportMenu(event)">
+                        Export ▾
+                    </button>
+                    <div class="export-menu" id="exportMenu">
+                        <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
+                            📊 Export to Excel
+                        </div>
+                        <div class="export-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
+                            📽️ Export to PowerPoint
+                        </div>
+                        <div class="export-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
+                            📄 Export to PDF
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="editor-tab" class="tab-content active">
                 <div class="editor-layout">
                     <div class="editor-panel">
-                        <div class="panel-header">
-                            <span>📝 Plan Editor</span>
-                            <div class="panel-header-buttons">
-                                <button class="save-btn" onclick="switchTab('upload')" title="Upload a plan file">
-                                    📁 Upload
-                                </button>
-                                <button class="save-btn" onclick="downloadMarkdown()" title="Download as Markdown">
-                                    💾 Download
-                                </button>
-                            </div>
+                        <div class="editor-toolbar">
+                            <button class="toolbar-btn" onclick="openProjectDetailsForm()" title="Project Details">
+                                📋
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="outdentSelectedLines()" title="Outdent selected lines (Cmd+[)">
+                                ⇤
+                            </button>
+                            <button class="toolbar-btn" onclick="indentSelectedLines()" title="Indent selected lines (Cmd+])">
+                                ⇥
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="switchTab('upload')" title="Upload a plan file">
+                                📁
+                            </button>
+                            <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
+                                💾
+                            </button>
                         </div>
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
@@ -66,25 +90,6 @@ Press Enter to render..."></textarea>
                     <div class="resizer" id="resizer"></div>
 
                     <div class="output-panel">
-                        <div class="panel-header">
-                            <span>📊 Rendered Output</span>
-                            <div class="export-dropdown">
-                                <button class="export-btn" onclick="toggleExportMenu(event)">
-                                    Export ▾
-                                </button>
-                                <div class="export-menu" id="exportMenu">
-                                    <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
-                                        📊 Export to Excel
-                                    </div>
-                                    <div class="export-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
-                                        📽️ Export to PowerPoint
-                                    </div>
-                                    <div class="export-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
-                                        📄 Export to PDF
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         <div class="output-container empty" id="editorOutput">
                             <div class="welcome-screen">
                                 <img src="/logo.png" alt="Noodle Planner" class="welcome-logo">
@@ -152,23 +157,64 @@ Press Enter to render..."></textarea>
             </div>
 
             <div id="kanban-tab" class="tab-content">
-                <div class="kanban-container">
-                    <div class="kanban-header" role="toolbar" aria-label="Kanban view controls">
-                        <div class="kanban-view-switcher">
-                            <label for="kanbanViewMode">View by:</label>
-                            <select id="kanbanViewMode" class="form-select" onchange="switchKanbanView(this.value)" aria-label="Select Kanban view mode">
-                                <option value="phase" selected>Phase</option>
-                                <option value="resource">Resource</option>
-                                <option value="progress">Progress</option>
-                                <!-- Label view disabled until issue #34 is implemented -->
-                            </select>
+                <div class="kanban-layout">
+                    <!-- Collapsible Editor Panel -->
+                    <div class="kanban-editor-panel" id="kanbanEditorPanel">
+                        <div class="editor-toolbar">
+                            <button class="toolbar-btn" onclick="openProjectDetailsForm()" title="Project Details">
+                                📋
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="outdentSelectedLines()" title="Outdent selected lines (Cmd+[)">
+                                ⇤
+                            </button>
+                            <button class="toolbar-btn" onclick="indentSelectedLines()" title="Indent selected lines (Cmd+])">
+                                ⇥
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="switchTab('upload')" title="Upload a plan file">
+                                📁
+                            </button>
+                            <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
+                                💾
+                            </button>
+                        </div>
+                        <div class="editor-wrapper">
+                            <div class="line-numbers" id="kanbanLineNumbers">1</div>
+                            <div class="editor-highlight-layer" id="kanbanHighlightLayer"></div>
+                            <textarea id="kanbanPlanEditor" class="editor-textarea" placeholder="Same editor as Plan Editor tab...
+Changes here are synced automatically."></textarea>
                         </div>
                     </div>
 
-                    <div class="kanban-board" id="kanbanBoard">
-                        <div class="kanban-empty-state">
-                            <h3>Welcome to Kanban View</h3>
-                            <p>Add tasks in the Editor tab and they will appear here automatically.</p>
+                    <!-- Splitter with collapse arrow -->
+                    <div class="kanban-splitter" id="kanbanSplitter">
+                        <button class="splitter-arrow" id="kanbanSplitterArrow" onclick="toggleKanbanEditor()" title="Toggle editor panel">
+                            ◀
+                        </button>
+                    </div>
+
+                    <!-- Kanban Board Panel -->
+                    <div class="kanban-panel">
+                        <div class="kanban-container">
+                            <div class="kanban-header" role="toolbar" aria-label="Kanban view controls">
+                                <div class="kanban-view-switcher">
+                                    <label for="kanbanViewMode">View by:</label>
+                                    <select id="kanbanViewMode" class="form-select" onchange="switchKanbanView(this.value)" aria-label="Select Kanban view mode">
+                                        <option value="phase" selected>Phase</option>
+                                        <option value="resource">Resource</option>
+                                        <option value="progress">Progress</option>
+                                        <option value="label">Label</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="kanban-board" id="kanbanBoard">
+                                <div class="kanban-empty-state">
+                                    <h3>Welcome to Kanban View</h3>
+                                    <p>Add tasks in the Editor tab and they will appear here automatically.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -318,6 +364,18 @@ Build
                             </div>
                             <small>Task names this task depends on</small>
                         </div>
+
+                        <div class="form-group">
+                            <label for="taskLabels">Labels</label>
+                            <div class="autocomplete-container">
+                                <input type="text" id="taskLabels" placeholder="e.g., DEV, HIGH, URGENT"
+                                       oninput="handleLabelInput()"
+                                       onkeydown="handleLabelKeydown(event)"
+                                       autocomplete="off">
+                                <div id="labelAutocomplete" class="autocomplete-dropdown"></div>
+                            </div>
+                            <small>Tags/labels for categorization</small>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -330,6 +388,100 @@ Build
                         <button type="button" class="btn-primary" onclick="closeTaskForm()">Done</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Details Modal -->
+    <div id="projectDetailsModal" class="modal-overlay">
+        <div class="task-form-modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; color: white; font-size: 20px; font-weight: 600; outline: none; padding: 0;">
+                <button class="close-btn" onclick="closeProjectDetailsForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="projectDetailsForm">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectOwner">Project Owner</label>
+                            <input type="text" id="projectOwner" placeholder="e.g., John Smith">
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectStartDate">Project Start Date</label>
+                            <input type="date" id="projectStartDate">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectStatus">Status</label>
+                            <select id="projectStatus">
+                                <option value="Open">Open</option>
+                                <option value="Closed">Closed</option>
+                                <option value="On Hold">On Hold</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectBudget">Budget</label>
+                            <input type="text" id="projectBudget" placeholder="e.g., $100,000">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="projectDescription">Description</label>
+                        <textarea id="projectDescription" placeholder="Brief description of the project" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="projectLabels">Labels</label>
+                        <div class="autocomplete-container">
+                            <input type="text" id="projectLabels" placeholder="e.g., DEV, HIGH, URGENT"
+                                   oninput="handleProjectLabelInput()"
+                                   onkeydown="handleProjectLabelKeydown(event)"
+                                   autocomplete="off">
+                            <div id="projectLabelAutocomplete" class="autocomplete-dropdown"></div>
+                        </div>
+                        <small>Comma-separated labels for categorization</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Resources</label>
+                            <div id="resourcesList"></div>
+                            <button type="button" class="btn-secondary" onclick="addResourceRow()">+ Add Resource</button>
+                            <small>Format: @shortname, firstname lastname, role, email</small>
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label>Key Stakeholders</label>
+                            <div id="stakeholdersList"></div>
+                            <button type="button" class="btn-secondary" onclick="addStakeholderRow()">+ Add Stakeholder</button>
+                            <small>Format: @shortname, firstname lastname, role, email</small>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface Tour -->
+    <div id="tourOverlay" class="tour-overlay">
+        <div id="tourSpotlight" class="tour-spotlight"></div>
+        <div id="tourPopup" class="tour-popup">
+            <div class="tour-popup-content">
+                <h3 id="tourTitle"></h3>
+                <p id="tourMessage"></p>
+                <div class="tour-actions">
+                    <button id="tourSkip" class="btn-secondary">Skip Tour</button>
+                    <div class="tour-progress" id="tourProgress"></div>
+                    <button id="tourNext" class="btn-primary">Next</button>
+                </div>
             </div>
         </div>
     </div>

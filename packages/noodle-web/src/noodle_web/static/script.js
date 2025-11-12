@@ -12,6 +12,7 @@ function switchTab(tabName) {
 // Initialize editor functionality when DOM is ready
 window.addEventListener('load', function() {
     initializeEditor();
+    initializeKanbanEditor();
     initializeUploadTab();
 });
 
@@ -24,6 +25,24 @@ function initializeEditor() {
         console.error('Editor or line numbers not found');
         return;
     }
+
+    setupEditor(editor, lineNumbers, highlightLayer, true);
+}
+
+function initializeKanbanEditor() {
+    const editor = document.getElementById('kanbanPlanEditor');
+    const lineNumbers = document.getElementById('kanbanLineNumbers');
+    const highlightLayer = document.getElementById('kanbanHighlightLayer');
+
+    if (!editor || !lineNumbers) {
+        console.error('Kanban editor or line numbers not found');
+        return;
+    }
+
+    setupEditor(editor, lineNumbers, highlightLayer, false);
+}
+
+function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Syntax highlighting function
     function highlightSyntax(text) {
@@ -77,9 +96,14 @@ function initializeEditor() {
                 return savePlaceholder('<span class="syntax-date">' + date + '</span>');
             });
 
-            // Highlight dependencies (e.g., #Design, #Task1)
+            // Highlight dependencies (e.g., [depends Task1, Task2])
+            highlighted = highlighted.replace(/\[depends\s+([^\]]+)\]/gi, (match, deps) => {
+                return savePlaceholder('<span class="syntax-dependency">[depends ' + deps + ']</span>');
+            });
+
+            // Highlight labels/tags (e.g., #DEV, #HIGH)
             highlighted = highlighted.replace(/#(\w+)/g, (match, name) => {
-                return savePlaceholder('<span class="syntax-dependency">#' + name + '</span>');
+                return savePlaceholder('<span class="syntax-label">#' + name + '</span>');
             });
 
             // Replace all placeholders with actual HTML
@@ -97,17 +121,40 @@ function initializeEditor() {
         const lines = content.split('\n');
         const lineCount = lines.length;
 
-        let numbersText = '';
+        // Create line number elements instead of plain text
+        lineNumbers.innerHTML = '';
         for (let i = 1; i <= lineCount; i++) {
-            numbersText += i + '\n';
+            const lineNumSpan = document.createElement('div');
+            lineNumSpan.className = 'line-number';
+            lineNumSpan.textContent = i;
+            lineNumSpan.dataset.lineNumber = i;
+            lineNumbers.appendChild(lineNumSpan);
         }
-
-        lineNumbers.textContent = numbersText.trim();
 
         // Update syntax highlighting
         if (highlightLayer) {
             const highlighted = highlightSyntax(content);
             highlightLayer.innerHTML = highlighted;
+        }
+
+        // Update active line indicator
+        updateActiveLine();
+    }
+
+    // Update the active line indicator
+    function updateActiveLine() {
+        const cursorPosition = editor.selectionStart;
+        const textBeforeCursor = editor.value.substring(0, cursorPosition);
+        const currentLine = textBeforeCursor.split('\n').length;
+
+        // Remove active class from all line numbers
+        const allLineNumbers = lineNumbers.querySelectorAll('.line-number');
+        allLineNumbers.forEach(ln => ln.classList.remove('active'));
+
+        // Add active class to current line
+        const activeLineElement = lineNumbers.querySelector(`[data-line-number="${currentLine}"]`);
+        if (activeLineElement) {
+            activeLineElement.classList.add('active');
         }
     }
 
@@ -123,18 +170,185 @@ function initializeEditor() {
     // Initialize
     updateLineNumbers();
 
-    // Update on input
-    editor.addEventListener('input', updateLineNumbers);
+    // Debounce timer for render requests
+    let renderDebounceTimer = null;
+
+    // Update on input and auto-render with debounce (only for main editor)
+    editor.addEventListener('input', function() {
+        updateLineNumbers();
+
+        // Only trigger auto-render for the main editor
+        if (shouldRender) {
+            // Clear previous timer if it exists
+            if (renderDebounceTimer) {
+                clearTimeout(renderDebounceTimer);
+            }
+
+            // Auto-render after 1 second of inactivity
+            renderDebounceTimer = setTimeout(() => {
+                renderText();
+                renderDebounceTimer = null;
+            }, 1000);
+        }
+    });
 
     // Sync scroll
     editor.addEventListener('scroll', syncScroll);
 
-    // Render on Enter - use input event after Enter to catch the newline
+    // Track cursor position for active line indicator
+    editor.addEventListener('click', updateActiveLine);
+    editor.addEventListener('keyup', updateActiveLine);
+    editor.addEventListener('focus', updateActiveLine);
+
+    // Keyboard shortcuts
     editor.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            setTimeout(renderText, 10);
+
+        // Indent with Cmd+] (macOS) or Ctrl+] (Windows/Linux)
+        if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+            e.preventDefault();
+            indentSelectedLines();
+        }
+
+        // Outdent with Cmd+[ (macOS) or Ctrl+[ (Windows/Linux)
+        if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+            e.preventDefault();
+            outdentSelectedLines();
         }
     });
+
+    // Long-press on line numbers to open task form (mobile support)
+    let longPressTimer = null;
+    let longPressLineNumber = null;
+
+    lineNumbers.addEventListener('touchstart', function(e) {
+        const target = e.target.closest('.line-number');
+        if (!target) return;
+
+        longPressLineNumber = parseInt(target.dataset.lineNumber);
+        longPressTimer = setTimeout(() => {
+            if (typeof openTaskForm === 'function') {
+                openTaskForm(longPressLineNumber);
+            }
+        }, 500); // 500ms long press
+    });
+
+    lineNumbers.addEventListener('touchend', function(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+
+    lineNumbers.addEventListener('touchmove', function(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+}
+
+/**
+ * Indent selected lines in the editor by 2 spaces
+ */
+function indentSelectedLines() {
+    // Get the currently focused editor (main or kanban)
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
+    if (!editor) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+
+    // Find the start of the first selected line
+    let lineStart = start;
+    while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+        lineStart--;
+    }
+
+    // Find the end of the last selected line
+    let lineEnd = end;
+    while (lineEnd < text.length && text[lineEnd] !== '\n') {
+        lineEnd++;
+    }
+
+    // Extract the selected lines
+    const selectedText = text.substring(lineStart, lineEnd);
+    const lines = selectedText.split('\n');
+
+    // Indent each line by 2 spaces
+    const indentedLines = lines.map(line => '  ' + line);
+    const indentedText = indentedLines.join('\n');
+
+    // Replace the selected text with indented version
+    editor.value = text.substring(0, lineStart) + indentedText + text.substring(lineEnd);
+
+    // Restore selection, adjusting for added spaces
+    const newStart = start + 2; // First line gets 2 spaces
+    const newEnd = end + (indentedLines.length * 2); // Each line gets 2 spaces
+    editor.setSelectionRange(newStart, newEnd);
+
+    // Trigger render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Outdent selected lines in the editor by up to 2 spaces
+ */
+function outdentSelectedLines() {
+    // Get the currently focused editor (main or kanban)
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
+    if (!editor) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+
+    // Find the start of the first selected line
+    let lineStart = start;
+    while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+        lineStart--;
+    }
+
+    // Find the end of the last selected line
+    let lineEnd = end;
+    while (lineEnd < text.length && text[lineEnd] !== '\n') {
+        lineEnd++;
+    }
+
+    // Extract the selected lines
+    const selectedText = text.substring(lineStart, lineEnd);
+    const lines = selectedText.split('\n');
+
+    // Outdent each line by up to 2 spaces
+    const outdentedLines = lines.map(line => {
+        // Remove up to 2 leading spaces
+        if (line.startsWith('  ')) {
+            return line.substring(2);
+        } else if (line.startsWith(' ')) {
+            return line.substring(1);
+        }
+        return line;
+    });
+    const outdentedText = outdentedLines.join('\n');
+
+    // Calculate how many characters were removed
+    const removedChars = selectedText.length - outdentedText.length;
+
+    // Replace the selected text with outdented version
+    editor.value = text.substring(0, lineStart) + outdentedText + text.substring(lineEnd);
+
+    // Restore selection, adjusting for removed spaces
+    const charsRemovedBeforeStart = Math.min(2, selectedText.substring(0, start - lineStart).match(/^ */)[0].length);
+    const newStart = Math.max(lineStart, start - charsRemovedBeforeStart);
+    const newEnd = Math.max(newStart, end - removedChars);
+    editor.setSelectionRange(newStart, newEnd);
+
+    // Trigger render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function initializeUploadTab() {
@@ -288,14 +502,7 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
             // ASCII output
             const result = await response.json();
             output.textContent = result.ascii_output;
-            if (prefix === 'editor') {
-                showMessage(prefix, 'success', 'Rendered!');
-                setTimeout(() => {
-                    message.style.display = 'none';
-                }, 2000);
-            } else {
-                showMessage(prefix, 'success', 'Plan rendered successfully!');
-            }
+            // No success message needed - silent render
         } else {
             // Download file (ZIP, Excel, PowerPoint, or PDF)
             const blob = await response.blob();
@@ -724,6 +931,12 @@ function openTaskForm(lineNumber) {
     document.getElementById('taskComment').value = task.comment || '';
     document.getElementById('taskDependencies').value = task.dependencies || '';
 
+    // Populate labels field if it exists
+    const labelsInput = document.getElementById('taskLabels');
+    if (labelsInput) {
+        labelsInput.value = task.labels || '';
+    }
+
     currentTaskLineNumber = lineNumber;
     updateRagDisplay();
     updateProgressBar();
@@ -990,7 +1203,19 @@ function saveTask() {
     if (comment) newLine += ' "' + comment + '"';
 
     // Add dependencies (only non-previous ones, as * handles previous)
-    if (nonPreviousDeps.length > 0) newLine += ' #' + nonPreviousDeps.join(',');
+    if (nonPreviousDeps.length > 0) newLine += ' [depends ' + nonPreviousDeps.join(', ') + ']';
+
+    // Add labels (if labels field exists in form)
+    const labelsInput = document.getElementById('taskLabels');
+    if (labelsInput) {
+        const labels = labelsInput.value.trim();
+        if (labels) {
+            const labelList = labels.split(',').map(l => l.trim()).filter(l => l);
+            labelList.forEach(label => {
+                newLine += ' #' + label;
+            });
+        }
+    }
 
     // Update the line
     lines[currentTaskLineNumber - 1] = newLine;
@@ -1027,7 +1252,8 @@ function parseTaskLine(line, lineNum) {
         percent: '',
         resources: '',
         comment: '',
-        dependencies: ''
+        dependencies: '',
+        labels: ''
     };
 
     // Remove leading whitespace
@@ -1051,12 +1277,23 @@ function parseTaskLine(line, lineNum) {
         text = text.replace(/"[^"]*"/, '').trim();
     }
 
+    // Handle dependencies (everything in square brackets [depends ...])
+    const dependencies = [];
+    const dependsMatch = text.match(/\[depends\s+([^\]]+)\]/i);
+    if (dependsMatch) {
+        // Parse dependencies - can be comma-separated
+        const depText = dependsMatch[1];
+        dependencies.push(...depText.split(',').map(d => d.trim()).filter(d => d));
+        // Remove the dependency from the text
+        text = text.replace(/\[depends\s+[^\]]+\]/i, '').trim();
+    }
+
     // Split by spaces to get tokens
     const tokens = text.split(/\s+/);
 
     const nameTokens = [];
     const resources = [];
-    const dependencies = [];
+    const labels = [];
     const dates = [];
 
     for (let i = 0; i < tokens.length; i++) {
@@ -1071,8 +1308,8 @@ function parseTaskLine(line, lineNum) {
             resources.push(token.substring(1));
         }
         else if (token.startsWith('#')) {
-            // Dependency: #Design
-            dependencies.push(token.substring(1));
+            // Label/Tag: #DEV, #HIGH
+            labels.push(token.substring(1));
         }
         else if (token.match(/^\d+[dmw]$/)) {
             // Duration: 5d, 2w, 3m
@@ -1121,8 +1358,49 @@ function parseTaskLine(line, lineNum) {
     }
 
     task.dependencies = dependencies.join(', ');
+    task.labels = labels.join(', ');
 
     return task;
+}
+
+/**
+ * Parse front matter from plan text to extract resource mappings
+ * Returns an object mapping lowercase shortnames to full names
+ * Example: { "kev": "Kevin McAleer", "jen": "Jennifer" }
+ */
+function parseResourceMappings(planText) {
+    const resourceMap = {};
+    const lines = planText.split('\n');
+    let inFrontMatter = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Detect front matter boundaries
+        if (line.trim() === '---') {
+            if (!inFrontMatter) {
+                inFrontMatter = true;
+            } else {
+                // End of front matter
+                break;
+            }
+            continue;
+        }
+
+        // Parse resources in front matter: - @kev: Kevin McAleer, role
+        if (inFrontMatter && line.trim().match(/^-\s*@(\w+):\s*(.+)/)) {
+            const match = line.trim().match(/^-\s*@(\w+):\s*(.+)/);
+            if (match) {
+                const shortname = match[1].toLowerCase(); // Normalize to lowercase
+                const fullInfo = match[2].trim();
+                // Extract just the name (before comma if present)
+                const fullName = fullInfo.split(',')[0].trim();
+                resourceMap[shortname] = fullName;
+            }
+        }
+    }
+
+    return resourceMap;
 }
 
 // Autocomplete functionality for dependencies and resources
@@ -1260,14 +1538,23 @@ function getAllResourceNames() {
     const editor = document.getElementById('planEditor');
     if (!editor) return [];
 
+    // Get resource mappings from front matter
+    const resourceMap = parseResourceMappings(editor.value);
+
+    // If front matter defines resources, use those (lowercase shortnames)
+    if (Object.keys(resourceMap).length > 0) {
+        return Object.keys(resourceMap).sort();
+    }
+
+    // Fallback: collect resources from existing tasks
     const lines = editor.value.split('\n');
     const resourceSet = new Set();
 
     for (let i = 0; i < lines.length; i++) {
         const task = parseTaskLine(lines[i], i + 1);
         if (task.resources) {
-            // Split resources by comma and add each one
-            const resources = task.resources.split(',').map(r => r.trim()).filter(r => r);
+            // Split resources by comma and normalize to lowercase
+            const resources = task.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
             resources.forEach(r => resourceSet.add(r));
         }
     }
@@ -1378,6 +1665,237 @@ function selectResource(name) {
     resourceAutocompleteSelectedIndex = -1;
     input.focus();
     saveTask();
+}
+
+// Label autocomplete functionality
+let labelAutocompleteSelectedIndex = -1;
+
+function getAllLabelNames() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return [];
+
+    const lines = editor.value.split('\n');
+    const labelSet = new Set();
+
+    for (let i = 0; i < lines.length; i++) {
+        const task = parseTaskLine(lines[i], i + 1);
+        if (task.labels) {
+            // Split labels by comma and collect unique ones
+            const labels = task.labels.split(',').map(l => l.trim()).filter(l => l);
+            labels.forEach(l => labelSet.add(l));
+        }
+    }
+
+    return Array.from(labelSet).sort();
+}
+
+function handleLabelInput() {
+    const input = document.getElementById('taskLabels');
+    const dropdown = document.getElementById('labelAutocomplete');
+    const value = input.value;
+
+    // Get the current word being typed (after the last comma)
+    const lastCommaIndex = value.lastIndexOf(',');
+    const currentWord = value.substring(lastCommaIndex + 1).trim();
+
+    if (currentWord.length === 0) {
+        dropdown.style.display = 'none';
+        labelAutocompleteSelectedIndex = -1;
+        saveTask();
+        return;
+    }
+
+    // Get all label names and filter by current word
+    const allLabels = getAllLabelNames();
+    const matches = allLabels.filter(name =>
+        name.toLowerCase().includes(currentWord.toLowerCase())
+    );
+
+    if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        labelAutocompleteSelectedIndex = -1;
+        saveTask();
+        return;
+    }
+
+    // Build dropdown HTML
+    dropdown.innerHTML = '';
+    matches.forEach((name, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = name;
+        item.onclick = function() {
+            selectLabel(name);
+        };
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+    labelAutocompleteSelectedIndex = -1;
+    saveTask();
+}
+
+function handleLabelKeydown(event) {
+    const dropdown = document.getElementById('labelAutocomplete');
+    if (dropdown.style.display !== 'block') return;
+
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        labelAutocompleteSelectedIndex = Math.min(labelAutocompleteSelectedIndex + 1, items.length - 1);
+        updateLabelAutocompleteSelection(items);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        labelAutocompleteSelectedIndex = Math.max(labelAutocompleteSelectedIndex - 1, -1);
+        updateLabelAutocompleteSelection(items);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (labelAutocompleteSelectedIndex >= 0) {
+            const selectedItem = items[labelAutocompleteSelectedIndex];
+            selectLabel(selectedItem.textContent);
+        }
+    } else if (event.key === 'Escape') {
+        dropdown.style.display = 'none';
+        labelAutocompleteSelectedIndex = -1;
+    }
+}
+
+function updateLabelAutocompleteSelection(items) {
+    items.forEach((item, index) => {
+        if (index === labelAutocompleteSelectedIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+function selectLabel(name) {
+    const input = document.getElementById('taskLabels');
+    const value = input.value;
+
+    // Replace the current word being typed with the selected name
+    const lastCommaIndex = value.lastIndexOf(',');
+    let newValue;
+    if (lastCommaIndex >= 0) {
+        newValue = value.substring(0, lastCommaIndex + 1) + ' ' + name;
+    } else {
+        newValue = name;
+    }
+
+    input.value = newValue;
+    const dropdown = document.getElementById('labelAutocomplete');
+    dropdown.style.display = 'none';
+    labelAutocompleteSelectedIndex = -1;
+    input.focus();
+    saveTask();
+}
+
+// Project label autocomplete functionality
+let projectLabelAutocompleteSelectedIndex = -1;
+
+function handleProjectLabelInput() {
+    const input = document.getElementById('projectLabels');
+    const dropdown = document.getElementById('projectLabelAutocomplete');
+    const value = input.value;
+
+    // Get the current word being typed (after the last comma)
+    const lastCommaIndex = value.lastIndexOf(',');
+    const currentWord = value.substring(lastCommaIndex + 1).trim();
+
+    if (currentWord.length === 0) {
+        dropdown.style.display = 'none';
+        projectLabelAutocompleteSelectedIndex = -1;
+        return;
+    }
+
+    // Get all label names and filter by current word
+    const allLabels = getAllLabelNames();
+    const matches = allLabels.filter(name =>
+        name.toLowerCase().includes(currentWord.toLowerCase())
+    );
+
+    if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        projectLabelAutocompleteSelectedIndex = -1;
+        return;
+    }
+
+    // Build dropdown HTML
+    dropdown.innerHTML = '';
+    matches.forEach((name, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = name;
+        item.onclick = function() {
+            selectProjectLabel(name);
+        };
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+    projectLabelAutocompleteSelectedIndex = -1;
+}
+
+function handleProjectLabelKeydown(event) {
+    const dropdown = document.getElementById('projectLabelAutocomplete');
+    if (dropdown.style.display !== 'block') return;
+
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        projectLabelAutocompleteSelectedIndex = Math.min(projectLabelAutocompleteSelectedIndex + 1, items.length - 1);
+        updateProjectLabelAutocompleteSelection(items);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        projectLabelAutocompleteSelectedIndex = Math.max(projectLabelAutocompleteSelectedIndex - 1, -1);
+        updateProjectLabelAutocompleteSelection(items);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (projectLabelAutocompleteSelectedIndex >= 0) {
+            const selectedItem = items[projectLabelAutocompleteSelectedIndex];
+            selectProjectLabel(selectedItem.textContent);
+        }
+    } else if (event.key === 'Escape') {
+        dropdown.style.display = 'none';
+        projectLabelAutocompleteSelectedIndex = -1;
+    }
+}
+
+function updateProjectLabelAutocompleteSelection(items) {
+    items.forEach((item, index) => {
+        if (index === projectLabelAutocompleteSelectedIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+function selectProjectLabel(name) {
+    const input = document.getElementById('projectLabels');
+    const value = input.value;
+
+    // Replace the current word being typed with the selected name
+    const lastCommaIndex = value.lastIndexOf(',');
+    let newValue;
+    if (lastCommaIndex >= 0) {
+        newValue = value.substring(0, lastCommaIndex + 1) + ' ' + name;
+    } else {
+        newValue = name;
+    }
+
+    input.value = newValue;
+    const dropdown = document.getElementById('projectLabelAutocomplete');
+    dropdown.style.display = 'none';
+    projectLabelAutocompleteSelectedIndex = -1;
+    input.focus();
 }
 
 // Initialize event listeners after DOM is loaded
@@ -1562,4 +2080,542 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+});
+
+/**
+ * Project Details Form Functions
+ */
+
+function openProjectDetailsForm() {
+    const modal = document.getElementById('projectDetailsModal');
+    modal.classList.add('active');
+
+    // Parse and populate form from front matter
+    populateProjectDetailsFromFrontMatter();
+
+    // Focus on the first input
+    setTimeout(() => {
+        const firstInput = document.getElementById('projectOwner');
+        if (firstInput) firstInput.focus();
+    }, 100);
+}
+
+function closeProjectDetailsForm() {
+    const modal = document.getElementById('projectDetailsModal');
+    modal.classList.remove('active');
+}
+
+// Add ESC key handler for project details modal
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('projectDetailsModal');
+        if (modal && modal.classList.contains('active')) {
+            closeProjectDetailsForm();
+        }
+    }
+});
+
+// Add click outside handler for project details modal
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('projectDetailsModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            // Close if clicking on the overlay (not on the modal content)
+            if (e.target === modal) {
+                closeProjectDetailsForm();
+            }
+        });
+    }
+});
+
+function populateProjectDetailsFromFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    const content = editor.value;
+
+    // Parse front matter
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) {
+        // No front matter, initialize empty form
+        clearProjectDetailsForm();
+        return;
+    }
+
+    const frontMatter = frontMatterMatch[1];
+    const lines = frontMatter.split('\n');
+
+    // Clear existing form
+    document.getElementById('projectTitle').value = '';
+    document.getElementById('projectOwner').value = '';
+    document.getElementById('projectStartDate').value = '';
+    document.getElementById('projectStatus').value = 'Open';
+    document.getElementById('projectDescription').value = '';
+    document.getElementById('projectBudget').value = '';
+    document.getElementById('projectLabels').value = '';
+    document.getElementById('resourcesList').innerHTML = '';
+    document.getElementById('stakeholdersList').innerHTML = '';
+
+    let inResources = false;
+    let inStakeholders = false;
+
+    for (let line of lines) {
+        line = line.trim();
+
+        // Check for section headers
+        if (line.toLowerCase() === 'resources:') {
+            inResources = true;
+            inStakeholders = false;
+            continue;
+        } else if (line.toLowerCase() === 'key stakeholders:' || line.toLowerCase() === 'stakeholders:') {
+            inStakeholders = true;
+            inResources = false;
+            continue;
+        } else if (line.match(/^[a-z\s]+:/i) && !line.startsWith('-')) {
+            // New section, stop parsing resources/stakeholders
+            inResources = false;
+            inStakeholders = false;
+        }
+
+        // Parse resources and stakeholders
+        if (inResources && line.startsWith('- @')) {
+            const resourceData = line.substring(2).trim(); // Remove "- "
+            addResourceRow(resourceData);
+        } else if (inStakeholders && line.startsWith('- @')) {
+            const stakeholderData = line.substring(2).trim(); // Remove "- "
+            addStakeholderRow(stakeholderData);
+        }
+
+        // Parse other fields
+        const match = line.match(/^([^:]+):\s*(.*)$/);
+        if (match && !inResources && !inStakeholders) {
+            const key = match[1].trim().toLowerCase();
+            const value = match[2].trim();
+
+            switch (key) {
+                case 'title':
+                    document.getElementById('projectTitle').value = value;
+                    break;
+                case 'project manager':
+                case 'project owner':
+                case 'owner':
+                    document.getElementById('projectOwner').value = value;
+                    break;
+                case 'start date':
+                case 'project start date':
+                    document.getElementById('projectStartDate').value = value;
+                    break;
+                case 'status':
+                    document.getElementById('projectStatus').value = value;
+                    break;
+                case 'description':
+                    document.getElementById('projectDescription').value = value;
+                    break;
+                case 'budget':
+                    document.getElementById('projectBudget').value = value;
+                    break;
+                case 'labels':
+                    // Parse labels: [red, green, blue] format
+                    const labelsMatch = value.match(/\[([^\]]+)\]/);
+                    if (labelsMatch) {
+                        document.getElementById('projectLabels').value = labelsMatch[1].trim();
+                    } else {
+                        document.getElementById('projectLabels').value = value;
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+function clearProjectDetailsForm() {
+    document.getElementById('projectTitle').value = '';
+    document.getElementById('projectOwner').value = '';
+    document.getElementById('projectStartDate').value = '';
+    document.getElementById('projectStatus').value = 'Open';
+    document.getElementById('projectDescription').value = '';
+    document.getElementById('projectBudget').value = '';
+    document.getElementById('projectLabels').value = '';
+    document.getElementById('resourcesList').innerHTML = '';
+    document.getElementById('stakeholdersList').innerHTML = '';
+}
+
+function addResourceRow(data = '') {
+    const container = document.getElementById('resourcesList');
+    const row = document.createElement('div');
+    row.className = 'resource-row';
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '@shortname, firstname lastname, role, email';
+    input.value = data;
+    input.style.cssText = 'flex: 1;';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = '✕';
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.onclick = function() { row.remove(); };
+    deleteBtn.style.cssText = 'background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;';
+
+    row.appendChild(input);
+    row.appendChild(deleteBtn);
+    container.appendChild(row);
+}
+
+function addStakeholderRow(data = '') {
+    const container = document.getElementById('stakeholdersList');
+    const row = document.createElement('div');
+    row.className = 'stakeholder-row';
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '@shortname, firstname lastname, role, email';
+    input.value = data;
+    input.style.cssText = 'flex: 1;';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = '✕';
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.onclick = function() { row.remove(); };
+    deleteBtn.style.cssText = 'background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;';
+
+    row.appendChild(input);
+    row.appendChild(deleteBtn);
+    container.appendChild(row);
+}
+
+function saveProjectDetails() {
+    const editor = document.getElementById('planEditor');
+    let content = editor.value;
+
+    // Collect form data
+    const title = document.getElementById('projectTitle').value.trim();
+    const owner = document.getElementById('projectOwner').value.trim();
+    const startDate = document.getElementById('projectStartDate').value.trim();
+    const status = document.getElementById('projectStatus').value;
+    const description = document.getElementById('projectDescription').value.trim();
+    const budget = document.getElementById('projectBudget').value.trim();
+    const labelsInput = document.getElementById('projectLabels').value.trim();
+
+    // Collect resources
+    const resources = [];
+    const resourceInputs = document.querySelectorAll('#resourcesList input');
+    resourceInputs.forEach(input => {
+        if (input.value.trim()) {
+            resources.push(input.value.trim());
+        }
+    });
+
+    // Collect stakeholders
+    const stakeholders = [];
+    const stakeholderInputs = document.querySelectorAll('#stakeholdersList input');
+    stakeholderInputs.forEach(input => {
+        if (input.value.trim()) {
+            stakeholders.push(input.value.trim());
+        }
+    });
+
+    // Build front matter
+    let frontMatter = '---\n';
+    if (title) frontMatter += `title: ${title}\n`;
+    if (owner) frontMatter += `project manager: ${owner}\n`;
+    if (startDate) frontMatter += `start date: ${startDate}\n`;
+    if (status && status !== 'Open') frontMatter += `status: ${status}\n`;
+    if (description) frontMatter += `description: ${description}\n`;
+    if (budget) frontMatter += `budget: ${budget}\n`;
+    if (labelsInput) frontMatter += `labels: [${labelsInput}]\n`;
+
+    if (resources.length > 0) {
+        frontMatter += 'Resources:\n';
+        resources.forEach(r => {
+            frontMatter += `- ${r}\n`;
+        });
+    }
+
+    if (stakeholders.length > 0) {
+        frontMatter += 'Key Stakeholders:\n';
+        stakeholders.forEach(s => {
+            frontMatter += `- ${s}\n`;
+        });
+    }
+
+    frontMatter += '---\n';
+
+    // Remove existing front matter if present
+    content = content.replace(/^---\s*\n[\s\S]*?\n---\n*/, '');
+
+    // Add new front matter at the beginning
+    editor.value = frontMatter + '\n' + content;
+
+    // Trigger input event to update line numbers and render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Close modal
+    closeProjectDetailsForm();
+}
+
+/**
+ * Kanban Editor Panel Functions
+ */
+
+// Toggle Kanban editor panel
+function toggleKanbanEditor() {
+    const panel = document.getElementById('kanbanEditorPanel');
+    const splitter = document.getElementById('kanbanSplitter');
+    const arrow = document.getElementById('kanbanSplitterArrow');
+
+    if (panel && splitter && arrow) {
+        const isCollapsed = panel.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            panel.classList.remove('collapsed');
+            splitter.classList.remove('collapsed');
+            arrow.textContent = '◀';
+        } else {
+            // Collapse
+            panel.classList.add('collapsed');
+            splitter.classList.add('collapsed');
+            arrow.textContent = '▶';
+        }
+    }
+}
+
+// Initialize Kanban editor sync
+document.addEventListener('DOMContentLoaded', function() {
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+
+    if (mainEditor && kanbanEditor) {
+        // Sync from main editor to kanban editor
+        mainEditor.addEventListener('input', function() {
+            if (kanbanEditor.value !== mainEditor.value) {
+                kanbanEditor.value = mainEditor.value;
+                // Trigger input event on Kanban editor to update line numbers
+                kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        // Sync from kanban editor to main editor
+        kanbanEditor.addEventListener('input', function() {
+            if (mainEditor.value !== kanbanEditor.value) {
+                mainEditor.value = kanbanEditor.value;
+                mainEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        // Initial sync
+        kanbanEditor.value = mainEditor.value;
+        // Trigger input event to initialize line numbers
+        kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+});
+
+/**
+ * Interface Tour System
+ */
+
+const tourSteps = [
+    {
+        title: "Welcome to Noodle Planner! 🎉",
+        message: "Let's take a quick tour to show you around. This will only take a minute!",
+        target: null,
+        position: "center"
+    },
+    {
+        title: "Plan Editor",
+        message: "This is where you write your project plan. Use a simple text format to create tasks, assign resources, set dates, and more.",
+        target: ".editor-panel",
+        position: "right"
+    },
+    {
+        title: "Toolbar Actions",
+        message: "Use these buttons to manage your project. Open Project Details, indent/outdent tasks, upload files, or download your plan.",
+        target: ".editor-toolbar",
+        position: "bottom"
+    },
+    {
+        title: "Kanban Board",
+        message: "Switch to the Kanban tab to see your tasks as cards. Drag and drop to organize by Phase, Resource, Progress, or Label.",
+        target: ".tab:nth-child(2)",
+        position: "bottom",
+        action: () => switchTab('kanban')
+    },
+    {
+        title: "Collapsible Editor",
+        message: "In Kanban view, you can collapse the editor for more space, or keep it open to edit while viewing your board.",
+        target: "#kanbanEditorPanel",
+        position: "right"
+    },
+    {
+        title: "Syntax Guide",
+        message: "Need help with the syntax? Check out the Syntax Guide tab for examples and detailed instructions.",
+        target: ".tab:nth-child(3)",
+        position: "bottom"
+    },
+    {
+        title: "You're Ready! 🚀",
+        message: "That's it! Start by creating your first task in the editor, or visit the Syntax Guide to learn more about all the features.",
+        target: null,
+        position: "center"
+    }
+];
+
+let currentTourStep = 0;
+
+function startTour() {
+    // Check if tour has been completed
+    if (getCookie('tourCompleted') === 'true') {
+        return;
+    }
+
+    currentTourStep = 0;
+    showTourStep(0);
+}
+
+function showTourStep(stepIndex) {
+    if (stepIndex >= tourSteps.length) {
+        endTour();
+        return;
+    }
+
+    const step = tourSteps[stepIndex];
+    const overlay = document.getElementById('tourOverlay');
+    const popup = document.getElementById('tourPopup');
+    const spotlight = document.getElementById('tourSpotlight');
+    const title = document.getElementById('tourTitle');
+    const message = document.getElementById('tourMessage');
+    const progress = document.getElementById('tourProgress');
+    const nextBtn = document.getElementById('tourNext');
+
+    // Execute step action if any
+    if (step.action) {
+        step.action();
+    }
+
+    // Show overlay
+    overlay.classList.add('active');
+
+    // Update content
+    title.textContent = step.title;
+    message.textContent = step.message;
+    progress.textContent = `${stepIndex + 1} / ${tourSteps.length}`;
+
+    // Update button text for last step
+    if (stepIndex === tourSteps.length - 1) {
+        nextBtn.textContent = 'Finish';
+    } else {
+        nextBtn.textContent = 'Next';
+    }
+
+    // Position spotlight and popup
+    if (step.target) {
+        const targetElement = document.querySelector(step.target);
+        if (targetElement) {
+            const rect = targetElement.getBoundingClientRect();
+
+            // Position spotlight
+            spotlight.style.left = rect.left - 10 + 'px';
+            spotlight.style.top = rect.top - 10 + 'px';
+            spotlight.style.width = rect.width + 20 + 'px';
+            spotlight.style.height = rect.height + 20 + 'px';
+            spotlight.style.display = 'block';
+
+            // Position popup based on position hint
+            positionPopup(popup, rect, step.position);
+        }
+    } else {
+        // Center popup for non-targeted steps
+        spotlight.style.display = 'none';
+        popup.style.left = '50%';
+        popup.style.top = '50%';
+        popup.style.transform = 'translate(-50%, -50%)';
+    }
+}
+
+function positionPopup(popup, targetRect, position) {
+    const padding = 20;
+
+    switch (position) {
+        case 'right':
+            popup.style.left = targetRect.right + padding + 'px';
+            popup.style.top = targetRect.top + 'px';
+            popup.style.transform = 'none';
+            break;
+        case 'left':
+            popup.style.left = targetRect.left - popup.offsetWidth - padding + 'px';
+            popup.style.top = targetRect.top + 'px';
+            popup.style.transform = 'none';
+            break;
+        case 'bottom':
+            popup.style.left = targetRect.left + 'px';
+            popup.style.top = targetRect.bottom + padding + 'px';
+            popup.style.transform = 'none';
+            break;
+        case 'top':
+            popup.style.left = targetRect.left + 'px';
+            popup.style.top = targetRect.top - popup.offsetHeight - padding + 'px';
+            popup.style.transform = 'none';
+            break;
+        default:
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+    }
+}
+
+function nextTourStep() {
+    currentTourStep++;
+    showTourStep(currentTourStep);
+}
+
+function skipTour() {
+    endTour();
+}
+
+function endTour() {
+    const overlay = document.getElementById('tourOverlay');
+    overlay.classList.remove('active');
+
+    // Set cookie to remember tour completion (expires in 1 year)
+    setCookie('tourCompleted', 'true', 365);
+}
+
+// Cookie helper functions
+function setCookie(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = name + '=' + value + ';expires=' + expires.toUTCString() + ';path=/';
+}
+
+function getCookie(name) {
+    const nameEQ = name + '=';
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+// Initialize tour event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const nextBtn = document.getElementById('tourNext');
+    const skipBtn = document.getElementById('tourSkip');
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextTourStep);
+    }
+
+    if (skipBtn) {
+        skipBtn.addEventListener('click', skipTour);
+    }
+
+    // Start tour after a short delay to ensure everything is loaded
+    setTimeout(() => {
+        startTour();
+    }, 1000);
 });

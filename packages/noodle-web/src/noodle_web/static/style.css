@@ -86,6 +86,11 @@ h1 {
     border-bottom-color: #667eea;
 }
 
+.nav-export-dropdown {
+    margin-left: auto;
+    position: relative;
+}
+
 .tab-content {
     display: none;
     flex: 1;
@@ -165,6 +170,47 @@ h1 {
 .panel-header-buttons {
     display: flex;
     gap: 8px;
+}
+
+/* Editor Toolbar */
+.editor-toolbar {
+    display: flex;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #252526;
+    border-bottom: 1px solid #3a3a3a;
+    flex-shrink: 0;
+}
+
+.toolbar-btn {
+    background: transparent;
+    color: #d4d4d4;
+    border: 1px solid transparent;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+}
+
+.toolbar-btn:hover {
+    background: #3a3a3a;
+    border-color: #555;
+}
+
+.toolbar-btn:active {
+    background: #2a2a2a;
+}
+
+.toolbar-separator {
+    width: 1px;
+    background: #3a3a3a;
+    margin: 0 4px;
 }
 
 .save-btn {
@@ -275,6 +321,11 @@ h1 {
     color: #569cd6;
 }
 
+.syntax-label {
+    color: #c586c0;
+    font-weight: 600;
+}
+
 .syntax-star {
     color: #858585;
 }
@@ -294,6 +345,30 @@ h1 {
     white-space: pre;
 }
 
+.line-number {
+    line-height: 1.5;
+    position: relative;
+    padding-right: 8px;
+}
+
+.line-number.active {
+    color: #fff;
+    font-weight: bold;
+}
+
+.line-number.active::before {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    background: #108BB9;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(16, 139, 185, 0.5);
+}
+
 textarea {
     flex: 1;
     padding: 15px;
@@ -308,7 +383,7 @@ textarea {
     min-height: 0;
 }
 
-textarea:not(.editor-textarea) {
+#planEditor {
     background: #1e1e1e;
     color: #d4d4d4;
 }
@@ -724,6 +799,10 @@ input[type="checkbox"] {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
+.modal-header input {
+    color: white !important;
+}
+
 .close-btn {
     background: none;
     border: none;
@@ -753,6 +832,16 @@ input[type="checkbox"] {
     margin-bottom: 20px;
 }
 
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.form-row .form-group {
+    margin-bottom: 0;
+}
+
 .form-group label {
     display: block;
     font-weight: 600;
@@ -762,6 +851,7 @@ input[type="checkbox"] {
 
 .form-group input[type="text"],
 .form-group input[type="number"],
+.form-group input[type="date"],
 .form-group textarea,
 .form-group select {
     width: 100%;
@@ -770,6 +860,8 @@ input[type="checkbox"] {
     border-radius: 5px;
     font-size: 14px;
     font-family: inherit;
+    background: white;
+    color: black;
     transition: border-color 0.2s;
 }
 
@@ -830,6 +922,22 @@ input[type="checkbox"] {
 .btn-secondary:hover {
     background: #5a6268;
     transform: translateY(-2px);
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #667eea;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.btn-link:hover {
+    color: #5568d3;
+    text-decoration: underline;
 }
 
 /* Export dropdown styles */
@@ -943,6 +1051,78 @@ input[type="checkbox"] {
 /* ========================================
    Kanban View Styles
    ======================================== */
+
+/* Kanban Layout with Collapsible Editor */
+.kanban-layout {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+.kanban-editor-panel {
+    width: 30%;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.kanban-editor-panel.collapsed {
+    width: 0;
+    min-width: 0;
+}
+
+.kanban-splitter {
+    width: 6px;
+    background: #dee2e6;
+    cursor: col-resize;
+    position: relative;
+    flex-shrink: 0;
+    transition: width 0.3s ease;
+}
+
+.kanban-splitter.collapsed {
+    width: 30px;
+    cursor: pointer;
+}
+
+.splitter-arrow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #108BB9;
+    color: white;
+    border: none;
+    width: 24px;
+    height: 48px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0;
+}
+
+.kanban-splitter:hover .splitter-arrow,
+.kanban-splitter.collapsed .splitter-arrow {
+    opacity: 1;
+}
+
+.splitter-arrow:hover {
+    background: #0d7096;
+}
+
+.kanban-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
 
 .kanban-container {
     height: 100%;
@@ -1094,6 +1274,23 @@ input[type="checkbox"] {
     background: rgba(255, 255, 255, 0.2);
     padding: 2px 8px;
     border-radius: 12px;
+}
+
+.kanban-column-delete {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 5px;
+    margin-left: 8px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.kanban-column-delete:hover {
+    opacity: 1;
 }
 
 .kanban-column-body {
@@ -1374,6 +1571,12 @@ input[type="checkbox"] {
     color: #1971c2;
 }
 
+.label-tag {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    font-weight: 600;
+}
+
 /* Empty State */
 .kanban-empty-state {
     text-align: center;
@@ -1438,4 +1641,103 @@ input[type="checkbox"] {
         height: 24px;
         font-size: 10px;
     }
+}
+
+/* ========================================
+   Interface Tour Styles
+   ======================================== */
+
+.tour-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    display: none;
+}
+
+.tour-overlay.active {
+    display: block;
+}
+
+.tour-spotlight {
+    position: absolute;
+    border: 3px solid #108BB9;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7),
+                0 0 20px rgba(16, 139, 185, 0.8);
+    transition: all 0.4s ease;
+    pointer-events: none;
+    z-index: 10001;
+}
+
+.tour-popup {
+    position: absolute;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    min-width: 300px;
+    z-index: 10002;
+    transition: all 0.4s ease;
+}
+
+.tour-popup-content {
+    padding: 24px;
+}
+
+.tour-popup h3 {
+    margin: 0 0 12px 0;
+    color: #108BB9;
+    font-size: 20px;
+}
+
+.tour-popup p {
+    margin: 0 0 20px 0;
+    color: #333;
+    line-height: 1.6;
+}
+
+.tour-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.tour-progress {
+    flex: 1;
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+}
+
+.tour-actions button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.tour-actions .btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.tour-actions .btn-secondary:hover {
+    background: #5a6268;
+}
+
+.tour-actions .btn-primary {
+    background: #108BB9;
+    color: white;
+}
+
+.tour-actions .btn-primary:hover {
+    background: #0d7096;
 }

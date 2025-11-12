@@ -11,6 +11,7 @@ class KanbanBoard {
         this.columns = [];
         this.phases = [];
         this.resourceMap = {}; // Maps shortname to full name from front matter
+        this.labelsFromFrontMatter = []; // Labels defined in front matter
     }
 
     /**
@@ -34,12 +35,49 @@ class KanbanBoard {
         this.tasks = [];
         this.phases = [];
         this.resourceMap = {};
+        this.labelsFromFrontMatter = [];
         let currentPhase = null;
         let currentIndent = 0;
         let inFrontMatter = false;
         let frontMatterStart = -1;
 
-        // First pass: Parse front matter to extract resource mappings
+        // First pass: Parse front matter to extract resource mappings and labels
+        // Use shared parseResourceMappings function if available, otherwise inline
+        if (typeof parseResourceMappings === 'function') {
+            this.resourceMap = parseResourceMappings(planText);
+        } else {
+            // Fallback inline implementation for resources
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                // Detect front matter boundaries
+                if (line.trim() === '---') {
+                    if (!inFrontMatter) {
+                        inFrontMatter = true;
+                        frontMatterStart = i;
+                    } else {
+                        // End of front matter
+                        break;
+                    }
+                    continue;
+                }
+
+                // Parse resources in front matter
+                if (inFrontMatter && line.trim().match(/^-\s*@(\w+):\s*(.+)/)) {
+                    const match = line.trim().match(/^-\s*@(\w+):\s*(.+)/);
+                    if (match) {
+                        const shortname = match[1].toLowerCase(); // Normalize to lowercase
+                        const fullInfo = match[2].trim();
+                        // Extract just the name (before comma if present)
+                        const fullName = fullInfo.split(',')[0].trim();
+                        this.resourceMap[shortname] = fullName;
+                    }
+                }
+            }
+        }
+
+        // Parse labels in front matter (always do this, regardless of resource parsing method)
+        inFrontMatter = false;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
 
@@ -47,7 +85,6 @@ class KanbanBoard {
             if (line.trim() === '---') {
                 if (!inFrontMatter) {
                     inFrontMatter = true;
-                    frontMatterStart = i;
                 } else {
                     // End of front matter
                     break;
@@ -55,15 +92,12 @@ class KanbanBoard {
                 continue;
             }
 
-            // Parse resources in front matter
-            if (inFrontMatter && line.trim().match(/^-\s*@(\w+):\s*(.+)/)) {
-                const match = line.trim().match(/^-\s*@(\w+):\s*(.+)/);
+            // Parse labels in front matter: labels: [red, green, blue]
+            if (inFrontMatter && line.trim().match(/^labels:\s*\[([^\]]+)\]/)) {
+                const match = line.trim().match(/^labels:\s*\[([^\]]+)\]/);
                 if (match) {
-                    const shortname = match[1].toLowerCase(); // Normalize to lowercase
-                    const fullInfo = match[2].trim();
-                    // Extract just the name (before comma if present)
-                    const fullName = fullInfo.split(',')[0].trim();
-                    this.resourceMap[shortname] = fullName;
+                    const labelsString = match[1];
+                    this.labelsFromFrontMatter = labelsString.split(',').map(l => l.trim()).filter(l => l);
                 }
             }
         }
@@ -154,13 +188,13 @@ class KanbanBoard {
                     task.dependencies.split(',').map(d => d.trim()).filter(d => d) :
                     [];
 
+                // Parse labels into array
+                task.labelsArray = task.labels ?
+                    task.labels.split(',').map(l => l.trim()).filter(l => l) :
+                    [];
+
                 // Determine progress status
                 task.progressStatus = this.getProgressStatus(task.percent);
-
-                // Extract labels from dependencies that look like labels
-                task.labelsArray = task.dependenciesArray.filter(dep =>
-                    dep.match(/^[A-Z][a-z]+$/) // Simple heuristic: capitalized words
-                );
 
                 this.tasks.push(task);
             }
@@ -174,9 +208,12 @@ class KanbanBoard {
      * Determine progress status from percentage
      */
     getProgressStatus(percent) {
-        if (!percent || percent === '') return 'not_started';
+        // Handle undefined, null, empty string, or 0
+        if (percent === undefined || percent === null || percent === '' || percent === '0' || percent === 0) {
+            return 'not_started';
+        }
         const p = parseInt(percent);
-        if (p === 0) return 'not_started';
+        if (isNaN(p) || p === 0) return 'not_started';
         if (p >= 100) return 'complete';
         return 'in_progress';
     }
@@ -303,7 +340,12 @@ class KanbanBoard {
         const columns = [];
         const labelSet = new Set();
 
-        // Collect all unique labels
+        // Add labels from front matter first (so they appear even if no tasks have them)
+        this.labelsFromFrontMatter.forEach(label => {
+            labelSet.add(label);
+        });
+
+        // Collect all unique labels from tasks
         this.tasks.forEach(task => {
             task.labelsArray.forEach(label => {
                 labelSet.add(label);
@@ -372,15 +414,15 @@ class KanbanBoard {
             boardContainer.appendChild(columnEl);
         });
 
-        // Add "Add Column" button for phase view
-        if (this.viewMode === 'phase') {
+        // Add "Add Column" button for phase and label views
+        if (this.viewMode === 'phase' || this.viewMode === 'label') {
             const addColumnEl = this.renderAddColumnButton();
             boardContainer.appendChild(addColumnEl);
         }
     }
 
     /**
-     * Render "Add Column" button for phase view
+     * Render "Add Column" button for phase and label views
      */
     renderAddColumnButton() {
         const addColumnEl = document.createElement('div');
@@ -388,11 +430,20 @@ class KanbanBoard {
 
         const button = document.createElement('button');
         button.className = 'kanban-add-column-btn';
-        button.innerHTML = '+ Add Phase';
-        button.setAttribute('aria-label', 'Add new phase column');
-        button.addEventListener('click', () => {
-            this.addNewPhase();
-        });
+
+        if (this.viewMode === 'phase') {
+            button.innerHTML = '+ Add Phase';
+            button.setAttribute('aria-label', 'Add new phase column');
+            button.addEventListener('click', () => {
+                this.addNewPhase();
+            });
+        } else if (this.viewMode === 'label') {
+            button.innerHTML = '+ Add Label';
+            button.setAttribute('aria-label', 'Add new label column');
+            button.addEventListener('click', () => {
+                this.addNewLabel();
+            });
+        }
 
         addColumnEl.appendChild(button);
         return addColumnEl;
@@ -411,10 +462,41 @@ class KanbanBoard {
         // Column header
         const headerEl = document.createElement('div');
         headerEl.className = 'kanban-column-header';
-        headerEl.innerHTML = `
-            <h3 class="kanban-column-title">${this.escapeHtml(column.title)}</h3>
-            <span class="kanban-column-count">${column.count} ${column.count === 1 ? 'task' : 'tasks'}</span>
-        `;
+
+        const titleEl = document.createElement('h3');
+        titleEl.className = 'kanban-column-title';
+        titleEl.textContent = column.title;
+
+        // Make title editable in label view (except Unlabeled)
+        if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
+            titleEl.style.cursor = 'pointer';
+            titleEl.title = 'Click to rename label';
+            titleEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.renameLabel(column.title);
+            });
+        }
+
+        headerEl.appendChild(titleEl);
+
+        const countEl = document.createElement('span');
+        countEl.className = 'kanban-column-count';
+        countEl.textContent = `${column.count} ${column.count === 1 ? 'task' : 'tasks'}`;
+        headerEl.appendChild(countEl);
+
+        // Add delete button for label view (except Unlabeled)
+        if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'kanban-column-delete';
+            deleteBtn.innerHTML = '&times;';
+            deleteBtn.title = `Remove label "${column.title}"`;
+            deleteBtn.setAttribute('aria-label', `Remove label ${column.title}`);
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeLabel(column.title);
+            });
+            headerEl.appendChild(deleteBtn);
+        }
 
         // Make column header draggable in phase view (except Unassigned)
         if (this.viewMode === 'phase' && column.title !== 'Unassigned') {
@@ -703,11 +785,20 @@ class KanbanBoard {
             const labelsEl = document.createElement('div');
             labelsEl.className = 'kanban-card-labels';
 
-            // Show dependencies as labels
+            // Show dependencies
             task.dependenciesArray.forEach(dep => {
                 const labelEl = document.createElement('span');
                 labelEl.className = 'label label-dependency';
-                labelEl.textContent = `#${dep}`;
+                labelEl.textContent = `→ ${dep}`;
+                labelEl.title = `Depends on: ${dep}`;
+                labelsEl.appendChild(labelEl);
+            });
+
+            // Show labels
+            task.labelsArray.forEach(label => {
+                const labelEl = document.createElement('span');
+                labelEl.className = 'label label-tag';
+                labelEl.textContent = `#${label}`;
                 labelsEl.appendChild(labelEl);
             });
 
@@ -803,6 +894,22 @@ class KanbanBoard {
                 lines[taskLineNumber - 1] = updatedLine;
                 updated = true;
                 break;
+
+            case 'label':
+                // Update label assignment
+                const labelName = targetColumn.title;
+                if (labelName !== 'Unlabeled') {
+                    // Add the new label (replace existing labels)
+                    const updatedLine = this.replaceLabelsInTaskLine(taskLine, labelName);
+                    lines[taskLineNumber - 1] = updatedLine;
+                    updated = true;
+                } else {
+                    // Moving to Unlabeled - remove all labels
+                    const updatedLine = this.removeLabelsFromTaskLine(taskLine);
+                    lines[taskLineNumber - 1] = updatedLine;
+                    updated = true;
+                }
+                break;
         }
 
         if (updated) {
@@ -821,7 +928,6 @@ class KanbanBoard {
             setTimeout(() => {
                 this.parse();
                 this.render();
-                showKanbanMessage('Task updated successfully', 'success');
 
                 // Re-enable editor listener after update
                 setTimeout(() => {
@@ -921,7 +1027,6 @@ class KanbanBoard {
         setTimeout(() => {
             this.parse();
             this.render();
-            showKanbanMessage(`Phase "${draggedPhaseTitle}" moved`, 'success');
 
             // Re-enable editor listener
             setTimeout(() => {
@@ -979,7 +1084,6 @@ class KanbanBoard {
         setTimeout(() => {
             this.parse();
             this.render();
-            showKanbanMessage('Task reordered', 'success');
 
             // Re-enable editor listener
             setTimeout(() => {
@@ -1012,7 +1116,8 @@ class KanbanBoard {
                 continue;
             }
             if (token.match(/^\d+[dmw]$/) || token.match(/^\d+%$/) ||
-                token.match(/^\d{4}-\d{2}-\d{2}$/) || token.startsWith('"') || token.startsWith('#')) {
+                token.match(/^\d{4}-\d{2}-\d{2}$/) || token.startsWith('"') ||
+                token.startsWith('#') || token.startsWith('[depends')) {
                 break;
             }
             insertIndex = i + 1;
@@ -1129,6 +1234,48 @@ class KanbanBoard {
     }
 
     /**
+     * Replace all labels in task line with a single new label
+     */
+    replaceLabelsInTaskLine(line, newLabel) {
+        const indent = line.match(/^(\s*)/)[1];
+        const trimmed = line.trim();
+
+        // Remove all existing #label tokens
+        let updated = trimmed.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
+
+        // Add the new label at the end (before dependencies, dates, comment, or percent)
+        const tokens = updated.split(/\s+/);
+        let insertIndex = tokens.length;
+
+        // Find position before dependencies, dates, percent, or comment
+        for (let i = tokens.length - 1; i >= 0; i--) {
+            const token = tokens[i];
+            if (token.match(/^\d+%$/) || token.match(/^\d{4}-\d{2}-\d{2}$/) ||
+                token.startsWith('"') || token.startsWith('[depends')) {
+                insertIndex = i;
+            } else {
+                break;
+            }
+        }
+
+        // Insert new label
+        tokens.splice(insertIndex, 0, `#${newLabel}`);
+        return indent + tokens.join(' ');
+    }
+
+    /**
+     * Remove all labels from task line
+     */
+    removeLabelsFromTaskLine(line) {
+        const indent = line.match(/^(\s*)/)[1];
+        const trimmed = line.trim();
+
+        // Remove all #label tokens and clean up extra spaces
+        const updated = trimmed.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
+        return indent + updated;
+    }
+
+    /**
      * Move task to a different phase
      */
     moveTaskToPhase(lines, taskLineNumber, targetColumn) {
@@ -1138,7 +1285,6 @@ class KanbanBoard {
 
         // Check if task is already in this phase
         if (task.phase === targetColumn.title) {
-            showKanbanMessage('Task is already in this phase', 'info');
             return false;
         }
 
@@ -1298,7 +1444,6 @@ class KanbanBoard {
         setTimeout(() => {
             this.parse();
             this.render();
-            showKanbanMessage('New task added', 'success');
 
             // Open the task form for the new task
             setTimeout(() => {
@@ -1354,7 +1499,289 @@ class KanbanBoard {
         setTimeout(() => {
             this.parse();
             this.render();
-            showKanbanMessage(`Phase "${phaseName.trim()}" added`, 'success');
+
+            // Re-enable editor listener
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
+     * Add a new label to the front matter
+     */
+    addNewLabel() {
+        const labelName = prompt('Enter new label name:');
+        if (!labelName || labelName.trim() === '') {
+            return;
+        }
+
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        let inFrontMatter = false;
+        let frontMatterEnd = -1;
+        let labelsLineIndex = -1;
+
+        // Find front matter and labels line
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    frontMatterEnd = i;
+                    break;
+                }
+                continue;
+            }
+
+            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
+                labelsLineIndex = i;
+            }
+        }
+
+        // If labels line exists, add to it
+        if (labelsLineIndex >= 0) {
+            const labelsLine = lines[labelsLineIndex];
+            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+            if (match) {
+                const existingLabels = match[2].trim();
+                const newLabels = existingLabels ?
+                    existingLabels + ', ' + labelName.trim() :
+                    labelName.trim();
+                lines[labelsLineIndex] = match[1] + newLabels + match[3];
+            }
+        } else if (frontMatterEnd >= 0) {
+            // Front matter exists but no labels line - add it before the closing ---
+            lines.splice(frontMatterEnd, 0, `labels: [${labelName.trim()}]`);
+        } else {
+            // No front matter - create it at the beginning
+            lines.unshift('');  // Blank line after front matter
+            lines.unshift('---');  // Closing ---
+            lines.unshift(`labels: [${labelName.trim()}]`);  // Labels line
+            lines.unshift('---');  // Opening ---
+        }
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        // Update editor
+        editor.value = lines.join('\n');
+
+        // Dispatch input event to trigger editor listeners (e.g., line numbers, render)
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Refresh Kanban
+        setTimeout(() => {
+            this.parse();
+            this.render();
+
+            // Re-enable editor listener
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
+     * Rename a label in front matter and all tasks
+     */
+    renameLabel(oldLabelName) {
+        const newLabelName = prompt(`Rename label "${oldLabelName}" to:`, oldLabelName);
+        if (!newLabelName || newLabelName.trim() === '' || newLabelName === oldLabelName) {
+            return;
+        }
+
+        const trimmedNewName = newLabelName.trim();
+
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        let inFrontMatter = false;
+        let labelsLineIndex = -1;
+
+        // Find front matter and labels line
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
+                labelsLineIndex = i;
+            }
+        }
+
+        // Rename label in front matter
+        if (labelsLineIndex >= 0) {
+            const labelsLine = lines[labelsLineIndex];
+            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+            if (match) {
+                const existingLabels = match[2].trim();
+                const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
+                const updatedLabels = labelArray.map(l => l === oldLabelName ? trimmedNewName : l);
+                lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
+            }
+        }
+
+        // Rename label in all tasks
+        inFrontMatter = false;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Skip front matter
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    inFrontMatter = false;
+                }
+                continue;
+            }
+            if (inFrontMatter) continue;
+
+            // Check if line has the old label
+            const labelPattern = new RegExp(`#${oldLabelName}\\b`, 'g');
+            if (labelPattern.test(line)) {
+                // Replace the old label with the new label
+                lines[i] = line.replace(labelPattern, `#${trimmedNewName}`);
+            }
+        }
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        // Update editor
+        editor.value = lines.join('\n');
+
+        // Dispatch input event to trigger editor listeners
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Refresh Kanban
+        setTimeout(() => {
+            this.parse();
+            this.render();
+
+            // Re-enable editor listener
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
+     * Remove a label from front matter and all tasks
+     */
+    removeLabel(labelName) {
+        if (!confirm(`Remove label "${labelName}" from all tasks and front matter?`)) {
+            return;
+        }
+
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        let inFrontMatter = false;
+        let labelsLineIndex = -1;
+
+        // Find front matter and labels line
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
+                labelsLineIndex = i;
+            }
+        }
+
+        // Remove label from front matter
+        if (labelsLineIndex >= 0) {
+            const labelsLine = lines[labelsLineIndex];
+            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+            if (match) {
+                const existingLabels = match[2].trim();
+                const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
+                const updatedLabels = labelArray.filter(l => l !== labelName);
+
+                if (updatedLabels.length > 0) {
+                    lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
+                } else {
+                    // Remove the entire labels line if no labels left
+                    lines.splice(labelsLineIndex, 1);
+                }
+            }
+        }
+
+        // Remove label from all tasks
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Skip front matter
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    inFrontMatter = false;
+                }
+                continue;
+            }
+            if (inFrontMatter) continue;
+
+            // Check if line has the label
+            const labelPattern = new RegExp(`#${labelName}\\b`, 'g');
+            if (labelPattern.test(line)) {
+                // Remove the label from this line
+                lines[i] = line.replace(labelPattern, '').replace(/\s+/g, ' ').trim();
+
+                // Restore indentation
+                const indent = line.match(/^(\s*)/)[1];
+                lines[i] = indent + lines[i];
+            }
+        }
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        // Update editor
+        editor.value = lines.join('\n');
+
+        // Dispatch input event to trigger editor listeners
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Refresh Kanban
+        setTimeout(() => {
+            this.parse();
+            this.render();
 
             // Re-enable editor listener
             setTimeout(() => {
@@ -1395,9 +1822,6 @@ function syncKanbanFromEditor() {
 
     kanbanBoard.parse();
     kanbanBoard.render();
-
-    // Show success message
-    showKanbanMessage('Kanban view synced from editor', 'success');
 }
 
 /**
@@ -1410,14 +1834,6 @@ function switchKanbanView(mode) {
     }
 
     kanbanBoard.switchViewMode(mode);
-
-    // Show message
-    const modeNames = {
-        'phase': 'Phase',
-        'resource': 'Resource',
-        'progress': 'Progress'
-    };
-    showKanbanMessage(`Switched to ${modeNames[mode]} view`, 'info');
 }
 
 /**
