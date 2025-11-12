@@ -403,9 +403,10 @@ function handleFile(file) {
     uploadBtn.disabled = false;
     dropZone.innerHTML = '<div class="upload-icon">✓</div><h3>' + file.name + '</h3><p>Ready to render</p>';
 
-    if (!document.getElementById('uploadProjectName').value) {
+    const uploadProjectNameField = document.getElementById('uploadProjectName');
+    if (uploadProjectNameField && !uploadProjectNameField.value) {
         const name = file.name.replace(/\.(md|txt)$/i, '').replace(/_/g, ' ');
-        document.getElementById('uploadProjectName').value = name;
+        uploadProjectNameField.value = name;
     }
 }
 
@@ -2015,10 +2016,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Add double-click handler to editor for opening task form
-    const editor = document.getElementById('planEditor');
-    if (editor) {
-        // Double-click support
+    // Function to attach double-click handler to any editor
+    function attachDoubleClickHandler(editor) {
+        if (!editor) return;
+
         editor.addEventListener('dblclick', function(e) {
             const textarea = e.target;
             const cursorPosition = textarea.selectionStart;
@@ -2038,6 +2039,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+
+    // Add double-click handler to both editors for opening task form
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+
+    attachDoubleClickHandler(mainEditor);
+    attachDoubleClickHandler(kanbanEditor);
+
+    // Mobile support - only for main editor for now
+    if (mainEditor) {
 
         // Double-tap support for mobile
         let lastTapTime = 0;

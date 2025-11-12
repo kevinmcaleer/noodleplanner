@@ -286,6 +286,15 @@
 
 **Status:** Complete! Tasks without progress now correctly appear in the "Not Started" column, and all three progress columns always display.
 
+### Kanban View Width Issues (GitHub Issue #70) - ✅ CLOSED
+- [x] Added width: 100% to .kanban-board to ensure full width usage
+- [x] Changed .kanban-column from fixed width (300px) to flexible (flex: 1)
+- [x] Set max-width: 400px on columns to prevent them getting too wide
+- [x] Added max-width: 600px to .kanban-editor-panel to prevent oversizing
+- [x] Added flex-shrink: 0 to editor panel to prevent unwanted width changes
+
+**Status:** Complete! Kanban columns now expand to fill available width when there are few columns (Resource, Progress, Label views), while maintaining proper layout when there are many columns (Phase view). Editor panel width remains stable across view changes.
+
 ## In Progress 🔄
 
 ### Dependency Loop Detection (GitHub Issue #22)
@@ -447,6 +456,7 @@
 - #66: Project title text color (fixed to be white in modal header) - ✅ CLOSED
 - #67: Progress view task display (tasks with no progress now show in Not Started column) - ✅ CLOSED
 - #68: Click on column header to rename summary task (clickable headers with rename dialog) - ✅ COMPLETED
+- #70: Kanban view width issues (columns now expand to fill available space) - ✅ CLOSED
 - #54: Update Interface - Epic with tabs for Summary, Milestones, Timeline, Gantt, Resources (core functionality complete) - 🔄 IN PROGRESS
 
 ---

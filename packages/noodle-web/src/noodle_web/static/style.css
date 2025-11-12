@@ -95,10 +95,16 @@ h1 {
     display: none;
     flex: 1;
     overflow: hidden;
+    width: 100%; /* Ensure full width */
 }
 
 .tab-content.active {
     display: flex;
+    width: 100%; /* Ensure full width when active */
+}
+
+#kanban-tab {
+    width: 100%; /* Force Kanban tab to full width */
 }
 
 #upload-tab.active,
@@ -1056,17 +1062,21 @@ input[type="checkbox"] {
 .kanban-layout {
     display: flex;
     height: 100%;
+    width: 100%; /* Force full width */
     overflow: hidden;
+    border: 3px solid red !important; /* DEBUG: Red border for layout */
 }
 
 .kanban-editor-panel {
     width: 30%;
     min-width: 200px;
+    max-width: 600px; /* Prevent editor from getting too wide */
     display: flex;
     flex-direction: column;
     background: #1e1e1e;
     transition: width 0.3s ease;
     overflow: hidden;
+    flex-shrink: 0; /* Prevent shrinking when content changes */
 }
 
 .kanban-editor-panel.collapsed {
@@ -1119,16 +1129,20 @@ input[type="checkbox"] {
 
 .kanban-panel {
     flex: 1;
+    width: 100%; /* Ensure panel uses full available width */
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    border: 3px solid blue !important; /* DEBUG: Blue border for panel */
 }
 
 .kanban-container {
     height: 100%;
+    width: 100%; /* Ensure container uses full available width */
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    border: 3px solid green !important; /* DEBUG: Green border for container */
 }
 
 .kanban-header {
@@ -1198,6 +1212,8 @@ input[type="checkbox"] {
     background: #f0f2f5;
     align-items: stretch;
     min-height: 0;
+    width: 100%; /* Ensure board uses full width */
+    border: 3px solid orange !important; /* DEBUG: Orange border for board */
 }
 
 .kanban-board::-webkit-scrollbar {
@@ -1220,7 +1236,8 @@ input[type="checkbox"] {
 /* Kanban Columns */
 .kanban-column {
     min-width: 300px;
-    max-width: 300px;
+    flex: 1; /* Allow columns to grow to fill available space */
+    max-width: 400px; /* Limit maximum width so columns don't get too wide */
     background: #ffffff;
     border-radius: 8px;
     display: flex;
@@ -1229,6 +1246,7 @@ input[type="checkbox"] {
     height: 100%;
     max-height: 100%;
     transition: all 0.2s;
+    border: 3px solid purple !important; /* DEBUG: Purple border for columns */
 }
 
 .kanban-column.draggable-column {
