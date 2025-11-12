@@ -295,6 +295,73 @@
 - [ ] Highlight which tasks have problematic dependencies
 - [ ] Add user-friendly error messages
 
+### Rename Summary Tasks via Column Headers (GitHub Issue #68) - ✅ COMPLETED
+- [x] Parse ASCII output to identify phase/summary task rows
+- [x] Make phase/summary names clickable in rendered output
+- [x] Implement rename dialog with prompt or inline editing
+- [x] Update plan editor text when summary task name is changed
+- [x] Maintain sync between rendered output and editor
+- [x] Add visual indicator for clickable headers (cursor pointer)
+
+**Status:** Complete! Phase/summary task names are now clickable with blue underline styling. Clicking opens a prompt dialog to rename, and the editor updates automatically with re-rendering.
+
+### Enhanced Interface with Tabs (GitHub Issue #54) - EPIC - 🔄 IN PROGRESS
+**Backend:**
+- [x] Create /api/parse endpoint to return structured JSON (tasks, phases, resources, dates, etc.)
+- [x] Add RAG status calculation to JSON response
+- [x] Include front matter data in response (title, manager, sponsor, budget, status)
+
+**Frontend - Tab Structure:**
+- [x] Create tabbed interface for rendered output area
+- [x] Add tabs: ASCII, Project Summary, Milestones, Timeline, Gantt, Resources
+- [x] Implement tab switching functionality
+- [x] Add CSS styling for tabs and views
+
+**Project Summary Tab:**
+- [x] Display project title from front matter
+- [x] Show project manager, sponsor, budget
+- [x] Calculate and display overall status (Green/Amber/Red based on task RAG)
+- [x] Show RAG summary with counts (Red/Amber/Green tasks)
+- [x] Beautiful card-based layout
+
+**Milestones Table Tab:**
+- [x] Display project table with all task data
+- [x] Show ID, Task Name, Start, Finish, Duration, Resources, %, RAG, Comment
+- [x] Proper indentation for task hierarchy
+- [x] Color-coded RAG status
+- [ ] Implement inline editing for non-calculated fields (future enhancement)
+- [ ] Add selectable rows and columns (future enhancement)
+- [ ] Sync edits with plan editor in real-time (future enhancement)
+
+**Timeline Tab:**
+- [x] Add placeholder view for timeline
+- [ ] Display timeline visualization (future enhancement)
+- [ ] Add export options (save as image, PDF, text file) (future enhancement)
+- [ ] Show phases and milestones on timeline (future enhancement)
+- [ ] Interactive zoom/scale controls (future enhancement)
+
+**Gantt Chart Tab:**
+- [x] Add placeholder view for Gantt chart
+- [ ] Display Gantt chart with spreadsheet look and feel (future enhancement)
+- [ ] Show progress bars for tasks (future enhancement)
+- [ ] Implement inline editing for non-calculated fields synced with editor (future enhancement)
+- [ ] Add draggable progress bar ends (expand/collapse start/end dates) (future enhancement)
+- [ ] Make progress bar middle draggable (shift task in time) (future enhancement)
+- [ ] Implement task reordering (up/down) with editor sync (future enhancement)
+- [ ] Add scale selector (days, weeks, months, quarters, years) (future enhancement)
+- [ ] Highlight weekends and non-working days (future enhancement)
+- [ ] Auto-update task duration when dragging (future enhancement)
+
+**Resources Tab:**
+- [x] Display resource allocation table
+- [x] Show full names with resource mapping
+- [x] Display total hours and days
+- [x] Clean table layout with proper styling
+- [ ] Create timesheet-style layout with hours per day/week (future enhancement)
+- [ ] Spreadsheet look and feel with selectable cells (future enhancement)
+
+**Status:** Core functionality complete! The tabbed interface is working with Project Summary, Milestones, and Resources tabs fully functional. Timeline and Gantt views have placeholders for future enhancement. Advanced features like inline editing, drag-and-drop, and interactive visualizations are marked for future development.
+
 ## Pending 📋
 
 ### Test Execution
@@ -379,6 +446,8 @@
 - #65: Export button navigation (moved to top right of navigation bar) - ✅ CLOSED
 - #66: Project title text color (fixed to be white in modal header) - ✅ CLOSED
 - #67: Progress view task display (tasks with no progress now show in Not Started column) - ✅ CLOSED
+- #68: Click on column header to rename summary task (clickable headers with rename dialog) - ✅ COMPLETED
+- #54: Update Interface - Epic with tabs for Summary, Milestones, Timeline, Gantt, Resources (core functionality complete) - 🔄 IN PROGRESS
 
 ---
 

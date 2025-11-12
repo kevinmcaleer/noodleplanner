@@ -219,6 +219,340 @@ async function renderFile() {
     await renderText();
 }
 
+function renderOutputWithClickableHeaders(outputElement, asciiOutput) {
+    /**
+     * Parse ASCII table output and make phase/summary task names clickable for renaming.
+     * Phase/summary tasks are identified by having no indentation in the Task Name column.
+     */
+    const lines = asciiOutput.split('\n');
+    const contentDiv = document.createElement('div');
+    contentDiv.style.fontFamily = 'monospace';
+    contentDiv.style.whiteSpace = 'pre';
+    contentDiv.style.fontSize = '0.9em';
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lineDiv = document.createElement('div');
+
+        // Check if this is a data row in the task table (not header, separator, or title)
+        // Data rows have pattern: ID | Task Name | ...
+        if (i > 2 && line.includes('|') && !line.includes('---')) {
+            const columns = line.split('|');
+            if (columns.length >= 2) {
+                const idCol = columns[0].trim();
+                const taskNameCol = columns[1];
+
+                // Check if this is likely a summary/phase task
+                // Summary tasks typically have no leading spaces in the task name
+                // (They're not indented, unlike child tasks)
+                const trimmedTaskName = taskNameCol.trim();
+                const hasIndentation = taskNameCol.startsWith('  ') || taskNameCol.startsWith('\t');
+
+                // If task name has no indentation and ID is a number, it might be a phase/summary
+                if (!hasIndentation && trimmedTaskName && idCol.match(/^\d+$/)) {
+                    // Create clickable version
+                    const idPart = columns[0];
+                    const otherCols = columns.slice(2).join('|');
+
+                    lineDiv.innerHTML = idPart + '| <span class="clickable-header" style="cursor: pointer; text-decoration: underline; color: #108BB9;" data-line-id="' + idCol + '" title="Click to rename">' +
+                        escapeHtml(trimmedTaskName) + '</span>' +
+                        taskNameCol.substring(taskNameCol.indexOf(trimmedTaskName) + trimmedTaskName.length) +
+                        '|' + otherCols;
+
+                    lineDiv.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('clickable-header')) {
+                            const taskName = e.target.textContent.trim();
+                            const lineId = e.target.dataset.lineId;
+                            renameSummaryTask(taskName, lineId);
+                        }
+                    });
+                } else {
+                    lineDiv.textContent = line;
+                }
+            } else {
+                lineDiv.textContent = line;
+            }
+        } else {
+            lineDiv.textContent = line;
+        }
+
+        contentDiv.appendChild(lineDiv);
+    }
+
+    outputElement.innerHTML = '';
+    outputElement.appendChild(contentDiv);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renameSummaryTask(oldName, lineId) {
+    /**
+     * Prompt user to rename a summary task and update the editor
+     */
+    const newName = prompt('Rename summary task:', oldName);
+
+    if (!newName || newName === oldName) {
+        return; // User cancelled or didn't change the name
+    }
+
+    // Update the plan editor
+    const editor = document.getElementById('planEditor');
+    const lines = editor.value.split('\n');
+
+    // Find the line with this task name (looking for phase headers or non-indented tasks)
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Check if this line starts with the old task name (phase header or task without indentation)
+        // Match phase headers (no indentation) or task lines that start with the task name
+        if (!line.startsWith('  ') && !line.startsWith('\t') && !line.startsWith('*')) {
+            // Check if this is the task line
+            if (trimmed.startsWith(oldName)) {
+                // Replace the task name
+                const afterName = trimmed.substring(oldName.length);
+                lines[i] = newName + afterName;
+                break;
+            }
+        }
+    }
+
+    // Update editor and re-render
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input')); // Trigger line numbers update
+    renderText();
+}
+
+let parsedPlanData = null; // Store parsed plan data globally
+
+function switchOutputTab(tabName) {
+    // Update tab active states
+    document.querySelectorAll('.output-tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+
+    // Hide all views
+    document.getElementById('editorOutput').style.display = 'none';
+    document.querySelectorAll('.output-view').forEach(view => view.style.display = 'none');
+
+    // Show selected view
+    if (tabName === 'ascii') {
+        document.getElementById('editorOutput').style.display = 'block';
+    } else {
+        document.getElementById('enhancedViews').style.display = 'block';
+        const viewMap = {
+            'summary': 'summaryView',
+            'milestones': 'milestonesView',
+            'timeline': 'timelineView',
+            'gantt': 'ganttView',
+            'resources': 'resourcesView'
+        };
+        const viewId = viewMap[tabName];
+        if (viewId) {
+            document.getElementById(viewId).style.display = 'block';
+            // Render the view content if not already rendered
+            if (parsedPlanData) {
+                renderEnhancedView(tabName, parsedPlanData);
+            }
+        }
+    }
+}
+
+async function fetchParsedData(planText) {
+    /**
+     * Fetch structured plan data from the /api/parse endpoint
+     */
+    try {
+        const response = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_text: planText })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to parse plan data');
+        }
+
+        const data = await response.json();
+        parsedPlanData = data;
+        return data;
+    } catch (error) {
+        console.error('Error fetching parsed data:', error);
+        return null;
+    }
+}
+
+function renderEnhancedView(viewName, data) {
+    /**
+     * Render content for each enhanced view tab
+     */
+    switch(viewName) {
+        case 'summary':
+            renderProjectSummary(data);
+            break;
+        case 'milestones':
+            renderMilestonesTable(data);
+            break;
+        case 'timeline':
+            renderTimelineView(data);
+            break;
+        case 'gantt':
+            renderGanttChart(data);
+            break;
+        case 'resources':
+            renderResourcesTable(data);
+            break;
+    }
+}
+
+function renderProjectSummary(data) {
+    const container = document.querySelector('#summaryView .summary-content');
+    const project = data.project;
+
+    const statusColor = {
+        'GREEN': '#28a745',
+        'AMBER': '#ffc107',
+        'RED': '#dc3545'
+    }[project.status] || '#6c757d';
+
+    container.innerHTML = `
+        <div style="max-width: 800px; margin: 0 auto;">
+            <h2 style="color: #333; margin-bottom: 30px;">${project.title || project.name}</h2>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px;">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Project Manager</h4>
+                    <p style="margin: 0; font-size: 1.2em; color: #333;">${project.manager || 'Not specified'}</p>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Sponsor</h4>
+                    <p style="margin: 0; font-size: 1.2em; color: #333;">${project.sponsor || 'Not specified'}</p>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Budget</h4>
+                    <p style="margin: 0; font-size: 1.2em; color: #333;">${project.budget || 'Not specified'}</p>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Overall Status</h4>
+                    <p style="margin: 0; font-size: 1.5em; font-weight: bold; color: ${statusColor};">${project.status}</p>
+                </div>
+            </div>
+
+            <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+                <h3 style="margin: 0 0 15px 0; color: #333;">RAG Summary</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+                    <div>
+                        <div style="font-size: 2em; font-weight: bold; color: #dc3545;">${project.rag_summary.red}</div>
+                        <div style="color: #666;">Red Tasks</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2em; font-weight: bold; color: #ffc107;">${project.rag_summary.amber}</div>
+                        <div style="color: #666;">Amber Tasks</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2em; font-weight: bold; color: #28a745;">${project.rag_summary.green}</div>
+                        <div style="color: #666;">Green Tasks</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderMilestonesTable(data) {
+    const container = document.querySelector('#milestonesView .milestones-content');
+
+    let html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; background: white;">';
+    html += '<thead><tr style="background: #667eea; color: white;">';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">ID</th>';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Task Name</th>';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Start</th>';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Finish</th>';
+    html += '<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Duration</th>';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Resources</th>';
+    html += '<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">%</th>';
+    html += '<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">RAG</th>';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Comment</th>';
+    html += '</tr></thead><tbody>';
+
+    data.tasks.forEach((task, idx) => {
+        const level = task.level || 0;
+        const indent = '&nbsp;'.repeat(level * 4);
+        const ragColor = {
+            'RED': '#dc3545',
+            'AMBER': '#ffc107',
+            'GREEN': '#28a745'
+        }[task.rag] || '';
+
+        html += '<tr style="border-bottom: 1px solid #eee;">';
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${idx + 1}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${indent}${task.description || task.name || ''}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.start || ''}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.finish || ''}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${task.duration_days || 0}d</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.resources || ''}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${task.percent || ''}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: ${ragColor};">${task.rag || ''}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.comment || ''}</td>`;
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function renderTimelineView(data) {
+    const container = document.querySelector('#timelineView .timeline-content');
+    container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h3>Timeline View</h3>
+            <p>Timeline visualization will be implemented here.</p>
+            <p>This will show phases and milestones on a visual timeline.</p>
+        </div>
+    `;
+}
+
+function renderGanttChart(data) {
+    const container = document.querySelector('#ganttView .gantt-content');
+    container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h3>Gantt Chart</h3>
+            <p>Interactive Gantt chart will be implemented here.</p>
+            <p>This will show tasks with draggable progress bars and date controls.</p>
+        </div>
+    `;
+}
+
+function renderResourcesTable(data) {
+    const container = document.querySelector('#resourcesView .resources-content');
+
+    let html = '<div style="max-width: 800px; margin: 0 auto;">';
+    html += '<h3 style="margin-bottom: 20px; color: #333;">Resource Allocation</h3>';
+    html += '<table style="width: 100%; border-collapse: collapse; background: white;">';
+    html += '<thead><tr style="background: #667eea; color: white;">';
+    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Resource Name</th>';
+    html += '<th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Total Hours</th>';
+    html += '<th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Days</th>';
+    html += '</tr></thead><tbody>';
+
+    data.resources.forEach(resource => {
+        html += '<tr style="border-bottom: 1px solid #eee;">';
+        html += `<td style="padding: 10px; border: 1px solid #ddd;">${resource.name}</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${resource.hours} hrs</td>`;
+        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${resource.days} days</td>`;
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
 async function renderText() {
     const text = document.getElementById('planEditor').value.trim();
 
@@ -226,8 +560,16 @@ async function renderText() {
         const output = document.getElementById('editorOutput');
         output.textContent = 'Press Enter in the editor to render your plan...';
         output.classList.add('empty');
+        // Hide tabs when no content
+        document.getElementById('outputTabs').style.display = 'none';
         return;
     }
+
+    // Fetch parsed data for enhanced views
+    await fetchParsedData(text);
+
+    // Show tabs after rendering
+    document.getElementById('outputTabs').style.display = 'flex';
 
     await render(text, null, false, false, false, 'editor');
 }
@@ -287,7 +629,8 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
         if (contentType.includes('application/json')) {
             // ASCII output
             const result = await response.json();
-            output.textContent = result.ascii_output;
+            // Render with clickable phase/summary headers
+            renderOutputWithClickableHeaders(output, result.ascii_output);
             if (prefix === 'editor') {
                 showMessage(prefix, 'success', 'Rendered!');
                 setTimeout(() => {

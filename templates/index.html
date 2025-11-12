@@ -83,6 +83,18 @@ Press Enter to render..."></textarea>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Output View Tabs -->
+                        <div class="output-tabs" id="outputTabs" style="display: none;">
+                            <button class="output-tab active" onclick="switchOutputTab('ascii')">ASCII</button>
+                            <button class="output-tab" onclick="switchOutputTab('summary')">Project Summary</button>
+                            <button class="output-tab" onclick="switchOutputTab('milestones')">Milestones</button>
+                            <button class="output-tab" onclick="switchOutputTab('timeline')">Timeline</button>
+                            <button class="output-tab" onclick="switchOutputTab('gantt')">Gantt Chart</button>
+                            <button class="output-tab" onclick="switchOutputTab('resources')">Resources</button>
+                        </div>
+
+                        <!-- ASCII Output (default) -->
                         <div class="output-container empty" id="editorOutput">Press Enter in the editor to render your plan...
 
 
@@ -106,6 +118,35 @@ Press Enter to render..."></textarea>
 
 
 </div>
+
+                        <!-- Enhanced Views Container -->
+                        <div class="enhanced-views" id="enhancedViews" style="display: none;">
+                            <!-- Project Summary Tab -->
+                            <div id="summaryView" class="output-view" style="display: none;">
+                                <div class="summary-content"></div>
+                            </div>
+
+                            <!-- Milestones Tab -->
+                            <div id="milestonesView" class="output-view" style="display: none;">
+                                <div class="milestones-content"></div>
+                            </div>
+
+                            <!-- Timeline Tab -->
+                            <div id="timelineView" class="output-view" style="display: none;">
+                                <div class="timeline-content"></div>
+                            </div>
+
+                            <!-- Gantt Chart Tab -->
+                            <div id="ganttView" class="output-view" style="display: none;">
+                                <div class="gantt-content"></div>
+                            </div>
+
+                            <!-- Resources Tab -->
+                            <div id="resourcesView" class="output-view" style="display: none;">
+                                <div class="resources-content"></div>
+                            </div>
+                        </div>
+
                         <div class="spinner" id="editorSpinner"></div>
                     </div>
                 </div>

@@ -16,13 +16,13 @@ from pydantic import BaseModel, Field
 import uvicorn
 from dotenv import load_dotenv
 
-from projects.scheduling_engine.scheduling_engine import (
+from noodle_core.scheduling_engine import (
     text_to_markdown_table,
     export_to_excel,
     export_timeline_to_powerpoint,
     export_to_pdf
 )
-from projects.scheduling_engine.format_converter import convert_plan_format_to_standard, extract_title_from_frontmatter
+from noodle_core.format_converter import convert_plan_format_to_standard, extract_title_from_frontmatter
 from middleware import ActivityLoggingMiddleware
 from database import init_db, test_connection
 
@@ -107,6 +107,136 @@ async def logo():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+@app.post("/api/parse")
+async def parse_plan(data: RenderRequest):
+    """Parse a project plan and return structured JSON data for the enhanced interface."""
+    logger.info(f"Parse request received")
+
+    # Extract title from front matter if present
+    title_from_frontmatter = extract_title_from_frontmatter(data.plan_text)
+    project_name = data.project_name or title_from_frontmatter or "Project"
+
+    try:
+        # Import required functions
+        from noodle_core.scheduling_engine import schedule_tasks, calculate_rag_status, parse_resource_mappings
+        from noodle_core.format_converter import natural_language_to_yaml, extract_frontmatter
+
+        # Extract front matter
+        frontmatter = extract_frontmatter(data.plan_text)
+
+        # Convert plan format
+        converted_content = convert_plan_format_to_standard(data.plan_text)
+
+        # Parse to YAML structure
+        parsed_data = natural_language_to_yaml(converted_content, project_name)
+
+        # Get phases
+        phases_raw = parsed_data[project_name]
+        if isinstance(phases_raw, list):
+            phases = phases_raw
+        elif isinstance(phases_raw, dict):
+            phases = [phases_raw]
+        else:
+            phases = []
+
+        # Schedule tasks
+        tasks = schedule_tasks(phases)
+
+        # Parse resource mappings
+        resource_map = parse_resource_mappings(data.plan_text)
+
+        # Calculate overall project status based on RAG
+        red_count = 0
+        amber_count = 0
+        green_count = 0
+
+        # Enhance tasks with RAG status and format data
+        enhanced_tasks = []
+        for t in tasks:
+            if not t.get('summary'):
+                rag = calculate_rag_status(t)
+                t['rag'] = rag
+                if rag == 'RED':
+                    red_count += 1
+                elif rag == 'AMBER':
+                    amber_count += 1
+                elif rag == 'GREEN':
+                    green_count += 1
+            else:
+                t['rag'] = ''
+
+            # Format dates as strings
+            if 'start' in t and t['start']:
+                t['start'] = t['start'].strftime('%Y-%m-%d')
+            if 'finish' in t and t['finish']:
+                t['finish'] = t['finish'].strftime('%Y-%m-%d')
+            if 'duration' in t and hasattr(t['duration'], 'days'):
+                t['duration_days'] = t['duration'].days
+                del t['duration']
+
+            enhanced_tasks.append(t)
+
+        # Determine overall status
+        if red_count > 0:
+            overall_status = 'RED'
+        elif amber_count > 0:
+            overall_status = 'AMBER'
+        else:
+            overall_status = 'GREEN'
+
+        # Calculate resource allocations
+        resource_hours = {}
+        for task in enhanced_tasks:
+            if task.get('summary'):
+                continue
+            resources_str = task.get('resources', '')
+            if resources_str:
+                task_resources = [r.strip() for r in resources_str.split(',')]
+                duration_days = task.get('duration_days', 0)
+                hours = duration_days * 8.0 / len(task_resources)
+
+                for resource in task_resources:
+                    resource_key = resource.lower()
+                    full_name = resource_map.get(resource_key, resource)
+                    if full_name not in resource_hours:
+                        resource_hours[full_name] = 0
+                    resource_hours[full_name] += hours
+
+        # Build response
+        response_data = {
+            "project": {
+                "name": project_name,
+                "title": frontmatter.get('title', project_name),
+                "manager": frontmatter.get('project manager', frontmatter.get('manager', '')),
+                "sponsor": frontmatter.get('sponsor', ''),
+                "budget": frontmatter.get('budget', ''),
+                "status": overall_status,
+                "rag_summary": {
+                    "red": red_count,
+                    "amber": amber_count,
+                    "green": green_count
+                }
+            },
+            "tasks": enhanced_tasks,
+            "resources": [
+                {
+                    "name": name,
+                    "hours": round(hours, 1),
+                    "days": round(hours / 8, 1)
+                }
+                for name, hours in resource_hours.items()
+            ],
+            "resource_map": resource_map,
+            "frontmatter": frontmatter
+        }
+
+        return response_data
+
+    except Exception as e:
+        logger.error(f"Error parsing plan: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to parse plan: {str(e)}")
 
 
 @app.post("/render")
