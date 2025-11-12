@@ -504,6 +504,9 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
             const result = await response.json();
             output.textContent = result.ascii_output;
             // No success message needed - silent render
+
+            // Also update the Project Summary tab
+            await updateProjectSummary(planText, projectName);
         } else {
             // Download file (ZIP, Excel, PowerPoint, or PDF)
             const blob = await response.blob();
@@ -539,6 +542,322 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
         if (btn) btn.disabled = false;
         spinner.style.display = 'none';
     }
+}
+
+async function updateProjectSummary(planText, projectName) {
+    try {
+        const data = {
+            plan_text: planText,
+            project_name: projectName || null
+        };
+
+        const response = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            console.error('Failed to parse plan for summary');
+            return;
+        }
+
+        const result = await response.json();
+
+        // Show summary content, hide placeholder
+        const placeholder = document.querySelector('#summary-view .summary-placeholder');
+        const content = document.querySelector('#summary-view .summary-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Update project title
+        const titleElement = document.getElementById('summaryTitle');
+        if (titleElement) {
+            titleElement.textContent = result.project_name || 'Untitled Project';
+        }
+
+        // Update front matter fields
+        const frontMatter = result.front_matter || {};
+
+        const managerElement = document.getElementById('summaryManager');
+        if (managerElement) {
+            managerElement.textContent = frontMatter.manager || frontMatter.owner || '-';
+        }
+
+        const sponsorElement = document.getElementById('summarySponsor');
+        if (sponsorElement) {
+            sponsorElement.textContent = frontMatter.sponsor || '-';
+        }
+
+        const budgetElement = document.getElementById('summaryBudget');
+        if (budgetElement) {
+            budgetElement.textContent = frontMatter.budget || '-';
+        }
+
+        const statusElement = document.getElementById('summaryStatus');
+        if (statusElement) {
+            statusElement.textContent = frontMatter.status || '-';
+        }
+
+        // Calculate RAG counts from the ASCII output
+        // Parse the output to count Red, Amber, Green tasks
+        const asciiOutput = result.ascii_output || '';
+        const ragCounts = calculateRAGCounts(asciiOutput);
+
+        const ragRedElement = document.getElementById('ragRedCount');
+        if (ragRedElement) {
+            ragRedElement.textContent = ragCounts.red;
+        }
+
+        const ragAmberElement = document.getElementById('ragAmberCount');
+        if (ragAmberElement) {
+            ragAmberElement.textContent = ragCounts.amber;
+        }
+
+        const ragGreenElement = document.getElementById('ragGreenCount');
+        if (ragGreenElement) {
+            ragGreenElement.textContent = ragCounts.green;
+        }
+
+        // Update Milestones Table
+        updateMilestonesTable(result.tasks || []);
+
+        // Update Resources Table
+        updateResourcesTable(result.tasks || []);
+
+    } catch (error) {
+        console.error('Error updating project summary:', error);
+    }
+}
+
+function updateMilestonesTable(tasks) {
+    try {
+        // Show milestones content, hide placeholder
+        const placeholder = document.querySelector('#milestones-view .milestones-placeholder');
+        const content = document.querySelector('#milestones-view .milestones-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Get table body
+        const tbody = document.getElementById('milestonesTableBody');
+        if (!tbody) {
+            console.error('Milestones table body not found');
+            return;
+        }
+
+        // Clear existing rows
+        tbody.innerHTML = '';
+
+        // Populate with task data
+        tasks.forEach(task => {
+            const row = document.createElement('tr');
+
+            // Apply class based on task level for indentation
+            if (task.level > 0) {
+                row.classList.add(`level-${task.level}`);
+            }
+
+            // Apply class for summary tasks (phase headers)
+            if (task.is_summary) {
+                row.classList.add('summary-task');
+            }
+
+            // ID cell
+            const idCell = document.createElement('td');
+            idCell.textContent = task.id;
+            row.appendChild(idCell);
+
+            // Task Name cell (with indentation)
+            const nameCell = document.createElement('td');
+            const indent = '  '.repeat(task.level); // 2 spaces per level
+            nameCell.textContent = indent + task.name;
+            nameCell.classList.add('task-name');
+            row.appendChild(nameCell);
+
+            // Start cell
+            const startCell = document.createElement('td');
+            startCell.textContent = task.start || '-';
+            row.appendChild(startCell);
+
+            // Finish cell
+            const finishCell = document.createElement('td');
+            finishCell.textContent = task.finish || '-';
+            row.appendChild(finishCell);
+
+            // Duration cell
+            const durationCell = document.createElement('td');
+            durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+            row.appendChild(durationCell);
+
+            // Resources cell
+            const resourcesCell = document.createElement('td');
+            resourcesCell.textContent = task.resources || '-';
+            row.appendChild(resourcesCell);
+
+            // Percent cell
+            const percentCell = document.createElement('td');
+            percentCell.textContent = task.percent || '-';
+            row.appendChild(percentCell);
+
+            // RAG cell
+            const ragCell = document.createElement('td');
+            ragCell.textContent = task.rag || '-';
+            if (task.rag) {
+                ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
+            }
+            row.appendChild(ragCell);
+
+            // Comment cell
+            const commentCell = document.createElement('td');
+            commentCell.textContent = task.comment || '-';
+            row.appendChild(commentCell);
+
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Error updating milestones table:', error);
+    }
+}
+
+function updateResourcesTable(tasks) {
+    try {
+        // Show resources content, hide placeholder
+        const placeholder = document.querySelector('#resources-view .resources-placeholder');
+        const content = document.querySelector('#resources-view .resources-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Get table body
+        const tbody = document.getElementById('resourcesTableBody');
+        if (!tbody) {
+            console.error('Resources table body not found');
+            return;
+        }
+
+        // Clear existing rows
+        tbody.innerHTML = '';
+
+        // Aggregate resource data from tasks
+        const resourceData = {};
+
+        tasks.forEach(task => {
+            // Skip summary tasks and tasks without resources
+            if (task.is_summary || !task.resources) {
+                return;
+            }
+
+            // Parse resources (may be comma-separated)
+            const resources = task.resources.split(',').map(r => r.trim()).filter(r => r && r !== '-');
+
+            resources.forEach(resource => {
+                if (!resourceData[resource]) {
+                    resourceData[resource] = {
+                        name: resource,
+                        taskCount: 0,
+                        totalDays: 0,
+                        totalHours: 0
+                    };
+                }
+
+                resourceData[resource].taskCount++;
+                resourceData[resource].totalDays += task.duration_days || 0;
+                resourceData[resource].totalHours += (task.duration_days || 0) * 8; // Assuming 8 hour work days
+            });
+        });
+
+        // Convert to array and sort by name
+        const sortedResources = Object.values(resourceData).sort((a, b) =>
+            a.name.localeCompare(b.name)
+        );
+
+        // Populate table rows
+        sortedResources.forEach(resource => {
+            const row = document.createElement('tr');
+
+            // Resource Name cell
+            const nameCell = document.createElement('td');
+            nameCell.textContent = resource.name;
+            nameCell.classList.add('resource-name');
+            row.appendChild(nameCell);
+
+            // Tasks Assigned cell
+            const tasksCell = document.createElement('td');
+            tasksCell.textContent = resource.taskCount;
+            tasksCell.classList.add('text-center');
+            row.appendChild(tasksCell);
+
+            // Total Days cell
+            const daysCell = document.createElement('td');
+            daysCell.textContent = resource.totalDays;
+            daysCell.classList.add('text-center');
+            row.appendChild(daysCell);
+
+            // Total Hours cell
+            const hoursCell = document.createElement('td');
+            hoursCell.textContent = resource.totalHours;
+            hoursCell.classList.add('text-center');
+            row.appendChild(hoursCell);
+
+            tbody.appendChild(row);
+        });
+
+        // Add totals row if there are resources
+        if (sortedResources.length > 0) {
+            const totalRow = document.createElement('tr');
+            totalRow.classList.add('totals-row');
+
+            const totalLabelCell = document.createElement('td');
+            totalLabelCell.textContent = 'Total';
+            totalLabelCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalLabelCell);
+
+            const totalTasksCell = document.createElement('td');
+            totalTasksCell.textContent = sortedResources.reduce((sum, r) => sum + r.taskCount, 0);
+            totalTasksCell.classList.add('text-center');
+            totalTasksCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalTasksCell);
+
+            const totalDaysCell = document.createElement('td');
+            totalDaysCell.textContent = sortedResources.reduce((sum, r) => sum + r.totalDays, 0);
+            totalDaysCell.classList.add('text-center');
+            totalDaysCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalDaysCell);
+
+            const totalHoursCell = document.createElement('td');
+            totalHoursCell.textContent = sortedResources.reduce((sum, r) => sum + r.totalHours, 0);
+            totalHoursCell.classList.add('text-center');
+            totalHoursCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalHoursCell);
+
+            tbody.appendChild(totalRow);
+        }
+
+    } catch (error) {
+        console.error('Error updating resources table:', error);
+    }
+}
+
+function calculateRAGCounts(asciiOutput) {
+    // Count occurrences of Red, Amber, Green in the ASCII output
+    const redMatches = asciiOutput.match(/Red/g) || [];
+    const amberMatches = asciiOutput.match(/Amber/g) || [];
+    const greenMatches = asciiOutput.match(/Green/g) || [];
+
+    return {
+        red: redMatches.length,
+        amber: amberMatches.length,
+        green: greenMatches.length
+    };
 }
 
 function showMessage(prefix, type, text) {
@@ -1916,6 +2235,31 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// Switch between output tabs (ASCII, Summary, Milestones, etc.)
+function switchOutputTab(tabName) {
+    // Hide all tab content
+    document.querySelectorAll('.output-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Remove active from all tab buttons
+    document.querySelectorAll('.output-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Show selected tab content
+    const tabView = document.getElementById(`${tabName}-view`);
+    if (tabView) {
+        tabView.classList.add('active');
+    }
+
+    // Mark selected tab button as active
+    const activeTab = document.querySelector(`.output-tab[data-tab="${tabName}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+}
+
 // Resizer functionality
 let isResizing = false;
 let startX = 0;
@@ -2030,9 +2374,30 @@ document.addEventListener('DOMContentLoaded', function() {
             const lines = textarea.value.split('\n');
             const line = lines[lineNumber - 1];
 
-            // Only open form for task lines (not empty lines, phase headers, or summary lines)
-            if (line && line.trim() && !line.includes('===') && !line.includes('---')) {
-                // Check if it looks like a task (has indentation or task markers)
+            // Check if we're in the front matter
+            let inFrontMatter = false;
+
+            if (lines[0] && lines[0].trim() === '---') {
+                // Front matter starts on line 1
+                let endLineNumber = -1;
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim() === '---') {
+                        // Found end of front matter
+                        endLineNumber = i + 1; // Line numbers are 1-based
+                        break;
+                    }
+                }
+                // Check if current line is within front matter (including the --- delimiters)
+                if (endLineNumber > 0 && lineNumber >= 1 && lineNumber <= endLineNumber) {
+                    inFrontMatter = true;
+                }
+            }
+
+            if (inFrontMatter) {
+                // Open project details form for front matter
+                openProjectDetailsForm();
+            } else if (line && line.trim() && !line.includes('===') && !line.includes('---')) {
+                // Only open form for task lines (not empty lines, phase headers, or summary lines)
                 const trimmed = line.trim();
                 if (trimmed && !trimmed.startsWith('#')) {
                     openTaskForm(lineNumber);

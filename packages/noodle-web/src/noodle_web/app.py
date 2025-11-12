@@ -23,6 +23,10 @@ from noodle_core import (
     export_to_pdf,
     convert_plan_format_to_standard,
     extract_title_from_frontmatter,
+    natural_language_to_yaml,
+    schedule_tasks,
+    calculate_rag_status,
+    parse_resource_mappings,
 )
 from .middleware import ActivityLoggingMiddleware
 from .database import init_db, test_connection
@@ -323,6 +327,119 @@ def generate_exports(
     # Get the ZIP file bytes
     zip_buffer.seek(0)
     return zip_buffer.read()
+
+
+@app.post("/api/parse")
+async def parse_plan(data: RenderRequest):
+    """Parse a project plan and return structured JSON data for tabbed views."""
+    logger.info(f"Parse request received")
+
+    try:
+        # Extract title from front matter if present
+        title_from_frontmatter = extract_title_from_frontmatter(data.plan_text)
+        project_name = data.project_name or title_from_frontmatter or "Project"
+
+        # Convert plan format (strip front matter)
+        converted_content = convert_plan_format_to_standard(data.plan_text)
+
+        # Generate report output (for Report tab)
+        ascii_output = text_to_markdown_table(
+            converted_content,
+            is_yaml=False,
+            project_name=project_name,
+            terminal_width=120,
+            original_text=data.plan_text
+        )
+
+        # Parse resource mappings from front matter
+        resource_map = parse_resource_mappings(data.plan_text)
+
+        # Extract front matter data for Project Summary tab
+        front_matter = {}
+        lines = data.plan_text.split('\n')
+        in_front_matter = False
+
+        for i, line in enumerate(lines):
+            if line.strip() == '---':
+                if not in_front_matter:
+                    in_front_matter = True
+                    continue
+                else:
+                    break
+
+            if in_front_matter:
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    front_matter[key.strip().lower()] = value.strip()
+
+        # Parse and schedule tasks for Milestones Table
+        yaml_data = natural_language_to_yaml(converted_content, project_name)
+        phases_raw = yaml_data[project_name]
+
+        # Handle both list and dict formats
+        if isinstance(phases_raw, list):
+            phases = phases_raw
+        elif isinstance(phases_raw, dict):
+            phases = [phases_raw]
+        else:
+            phases = []
+
+        # Schedule tasks and prepare for JSON serialization
+        tasks = schedule_tasks(phases)
+        tasks_data = []
+
+        for idx, task in enumerate(tasks, start=1):
+            # Convert datetime objects to ISO strings
+            start = task.get('start')
+            finish = task.get('finish')
+            duration = task.get('duration')
+
+            # Get resources and map to full names
+            resources = task.get('resources', '')
+            if resources:
+                resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
+                if resource_map:
+                    resource_list = [r.strip() for r in resources.split(',')]
+                    mapped_resources = [resource_map.get(r.lower(), r) for r in resource_list]
+                    resources = ', '.join(mapped_resources)
+
+            # Calculate RAG status (skip for summary tasks)
+            rag_status = ''
+            if not task.get('summary'):
+                rag_status = calculate_rag_status(task)
+
+            # Get task name (description or name)
+            task_name = task.get('description') or task.get('name', '')
+
+            task_data = {
+                'id': idx,
+                'name': task_name,
+                'start': start.strftime('%Y-%m-%d') if start else '',
+                'finish': finish.strftime('%Y-%m-%d') if finish else '',
+                'duration_days': duration.days if duration else 0,
+                'resources': resources,
+                'percent': task.get('percent', ''),
+                'rag': rag_status,
+                'comment': task.get('comment', ''),
+                'level': task.get('level', 0),
+                'is_summary': task.get('summary', False),
+                'phase': task.get('phase', '')
+            }
+            tasks_data.append(task_data)
+
+        # Return structured JSON
+        return {
+            "success": True,
+            "project_name": project_name,
+            "ascii_output": ascii_output,
+            "front_matter": front_matter,
+            "resource_map": resource_map,
+            "tasks": tasks_data,
+        }
+
+    except Exception as e:
+        logger.error(f"Error parsing plan: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to parse plan: {str(e)}")
 
 
 if __name__ == "__main__":

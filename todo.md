@@ -292,8 +292,22 @@
 - [x] Set max-width: 400px on columns to prevent them getting too wide
 - [x] Added max-width: 600px to .kanban-editor-panel to prevent oversizing
 - [x] Added flex-shrink: 0 to editor panel to prevent unwanted width changes
+- [x] Added width: 100% to .kanban-layout to force full width
+- [x] Added width: 100% to .tab-content for consistent width
+- [x] Added width: 100% to .tab-content.active when tab is visible
+- [x] Added specific #kanban-tab width: 100% rule
+- [x] Added width: 100% to .kanban-panel and .kanban-container
 
-**Status:** Complete! Kanban columns now expand to fill available width when there are few columns (Resource, Progress, Label views), while maintaining proper layout when there are many columns (Phase view). Editor panel width remains stable across view changes.
+**Status:** Complete! Fixed container hierarchy width issues that caused the Kanban board to shrink when switching views. All containers now maintain full width across Phase, Resource, Progress, and Label views. Columns expand appropriately based on available space.
+
+### Double-Click Front Matter for Project Details (GitHub Issue #69) - ✅ CLOSED
+- [x] Modified double-click handler to detect front matter boundaries
+- [x] Added logic to check if clicked line is within front matter (lines 1 to closing ---)
+- [x] Opens Project Details form when double-clicking anywhere in front matter
+- [x] Maintains existing behavior for tasks (opens Task form)
+- [x] Works in both main editor and Kanban editor
+
+**Status:** Complete! Double-clicking anywhere in the front matter (including on the --- delimiters or any property line) now opens the Project Details form for easy editing of project metadata.
 
 ## In Progress 🔄
 
@@ -315,29 +329,79 @@
 **Status:** Complete! Phase/summary task names are now clickable with blue underline styling. Clicking opens a prompt dialog to rename, and the editor updates automatically with re-rendering.
 
 ### Enhanced Interface with Tabs (GitHub Issue #54) - EPIC - 🔄 IN PROGRESS
-**Backend:**
-- [x] Create /api/parse endpoint to return structured JSON (tasks, phases, resources, dates, etc.)
-- [x] Add RAG status calculation to JSON response
-- [x] Include front matter data in response (title, manager, sponsor, budget, status)
+
+**Phase 1: Foundation & Infrastructure - ✅ COMPLETED**
+- [x] Create /api/parse endpoint to return structured JSON
+  - Returns project_name, ascii_output, front_matter, resource_map
+  - Parses plan text with front matter extraction
+  - Handles errors gracefully
+- [x] Create tabbed interface structure in HTML
+  - Added output-tabs navigation with 6 tabs
+  - Created tab content areas for each view
+  - Added placeholders for non-implemented views
+- [x] Implement tab switching JavaScript
+  - Added switchOutputTab(tabName) function
+  - Handles active state for buttons and content
+  - Smooth transitions between tabs
+- [x] Add CSS styling for tabs
+  - Styled .output-tabs navigation bar
+  - Tab buttons with hover effects and active state
+  - Tab content areas with proper display logic
+  - Placeholder styling for empty views
 
 **Frontend - Tab Structure:**
 - [x] Create tabbed interface for rendered output area
-- [x] Add tabs: ASCII, Project Summary, Milestones, Timeline, Gantt, Resources
+- [x] Add tabs: Report, Project Summary, Milestones, Timeline, Gantt, Resources
 - [x] Implement tab switching functionality
 - [x] Add CSS styling for tabs and views
 
-**Project Summary Tab:**
-- [x] Display project title from front matter
-- [x] Show project manager, sponsor, budget
-- [x] Calculate and display overall status (Green/Amber/Red based on task RAG)
-- [x] Show RAG summary with counts (Red/Amber/Green tasks)
-- [x] Beautiful card-based layout
+**Phase 2: Project Summary Tab - ✅ COMPLETED**
+- [x] Created HTML structure with summary cards and RAG display
+  - Project title display
+  - Four info cards: Manager, Sponsor, Budget, Status
+  - RAG summary section with colored cards
+- [x] Implemented updateProjectSummary() JavaScript function
+  - Calls /api/parse endpoint to get structured data
+  - Populates all summary fields from front matter
+  - Shows/hides placeholder vs content
+- [x] Implemented calculateRAGCounts() function
+  - Parses ASCII output to count Red/Amber/Green tasks
+  - Updates RAG display dynamically
+- [x] Added comprehensive CSS styling
+  - Card-based layout with hover effects
+  - Gradient backgrounds for RAG items
+  - Responsive grid layout
+  - Professional typography and spacing
+- [x] Integrated with existing render() function
+  - Automatically updates when plan is rendered
+  - Falls back gracefully on errors
 
-**Milestones Table Tab:**
-- [x] Display project table with all task data
-- [x] Show ID, Task Name, Start, Finish, Duration, Resources, %, RAG, Comment
-- [x] Proper indentation for task hierarchy
-- [x] Color-coded RAG status
+**Phase 3: Milestones Table Tab - ✅ COMPLETED**
+- [x] Enhanced /api/parse endpoint to return structured task data
+  - Added schedule_tasks import
+  - Parse tasks using natural_language_to_yaml and schedule_tasks
+  - Convert datetime objects to ISO strings
+  - Map resource shortnames to full names
+  - Calculate RAG status for each task
+  - Return comprehensive task array with all fields
+- [x] Created HTML table structure
+  - Added milestones-content div with table wrapper
+  - Table with 9 columns: ID, Task Name, Start, Finish, Duration, Resources, %, RAG, Comment
+  - Thead with gradient background
+  - Tbody populated dynamically
+- [x] Implemented updateMilestonesTable() JavaScript function
+  - Creates table rows dynamically from task data
+  - Applies indentation based on task level (2 spaces per level)
+  - Adds summary-task class for phase headers
+  - Color-codes RAG cells (red/amber/green)
+  - Shows/hides placeholder vs content
+- [x] Added comprehensive CSS styling
+  - Table with gradient header
+  - Row hover effects
+  - Summary task highlighting (light purple background)
+  - Color-coded RAG cells with border radius
+  - Monospace font for task names to preserve indentation
+  - Responsive table wrapper with horizontal scroll
 - [ ] Implement inline editing for non-calculated fields (future enhancement)
 - [ ] Add selectable rows and columns (future enhancement)
 - [ ] Sync edits with plan editor in real-time (future enhancement)
@@ -361,15 +425,34 @@
 - [ ] Highlight weekends and non-working days (future enhancement)
 - [ ] Auto-update task duration when dragging (future enhancement)
 
-**Resources Tab:**
-- [x] Display resource allocation table
-- [x] Show full names with resource mapping
-- [x] Display total hours and days
-- [x] Clean table layout with proper styling
+**Phase 4: Resources Tab - ✅ COMPLETED**
+- [x] Created HTML table structure for resource allocation
+  - Added resources-content div with table wrapper
+  - Table with 4 columns: Resource Name, Tasks Assigned, Total Days, Total Hours
+  - Thead with gradient background
+  - Tbody populated dynamically
+- [x] Implemented updateResourcesTable() JavaScript function
+  - Aggregates resource data from all tasks
+  - Skips summary tasks
+  - Handles comma-separated resources per task
+  - Calculates task count per resource
+  - Sums total days and hours (8 hours per day)
+  - Sorts resources alphabetically
+  - Adds totals row at bottom
+  - Shows/hides placeholder vs content
+- [x] Added comprehensive CSS styling
+  - Table with gradient header matching other tabs
+  - Row hover effects
+  - Totals row highlighted with light purple background
+  - Resource name styling with medium font weight
+  - Centered numeric columns
+  - Responsive table wrapper
+- [x] Display resource allocation table with full names
+- [x] Show task counts and totals
 - [ ] Create timesheet-style layout with hours per day/week (future enhancement)
 - [ ] Spreadsheet look and feel with selectable cells (future enhancement)
 
-**Status:** Core functionality complete! The tabbed interface is working with Project Summary, Milestones, and Resources tabs fully functional. Timeline and Gantt views have placeholders for future enhancement. Advanced features like inline editing, drag-and-drop, and interactive visualizations are marked for future development.
+**Status:** Core functionality complete! The tabbed interface is working with Report, Project Summary, Milestones, and Resources tabs fully functional. Timeline and Gantt views have placeholders for future enhancement. Advanced features like inline editing, drag-and-drop, and interactive visualizations are marked for future development.
 
 ## Pending 📋
 
@@ -456,6 +539,7 @@
 - #66: Project title text color (fixed to be white in modal header) - ✅ CLOSED
 - #67: Progress view task display (tasks with no progress now show in Not Started column) - ✅ CLOSED
 - #68: Click on column header to rename summary task (clickable headers with rename dialog) - ✅ COMPLETED
+- #69: Double-click front matter to open Project Details form - ✅ CLOSED
 - #70: Kanban view width issues (columns now expand to fill available space) - ✅ CLOSED
 - #54: Update Interface - Epic with tabs for Summary, Milestones, Timeline, Gantt, Resources (core functionality complete) - 🔄 IN PROGRESS
 

@@ -90,18 +90,152 @@ Press Enter to render..."></textarea>
                     <div class="resizer" id="resizer"></div>
 
                     <div class="output-panel">
-                        <div class="output-container empty" id="editorOutput">
-                            <div class="welcome-screen">
-                                <img src="/logo.png" alt="Noodle Planner" class="welcome-logo">
-                                <h2>Welcome to Noodle Planner</h2>
-                                <p>Get started by:</p>
-                                <ul>
-                                    <li>📝 Type your plan in the editor on the left</li>
-                                    <li>📁 Upload a plan file from the Upload tab</li>
-                                    <li>❓ Check the Syntax Guide tab for help</li>
-                                </ul>
-                                <p class="welcome-hint">Press <kbd>Enter</kbd> in the editor to render your plan</p>
+                        <!-- Output Tabs Navigation -->
+                        <div class="output-tabs">
+                            <button class="output-tab active" data-tab="report" onclick="switchOutputTab('report')">Report</button>
+                            <button class="output-tab" data-tab="summary" onclick="switchOutputTab('summary')">Project Summary</button>
+                            <button class="output-tab" data-tab="milestones" onclick="switchOutputTab('milestones')">Milestones</button>
+                            <button class="output-tab" data-tab="timeline" onclick="switchOutputTab('timeline')">Timeline</button>
+                            <button class="output-tab" data-tab="gantt" onclick="switchOutputTab('gantt')">Gantt</button>
+                            <button class="output-tab" data-tab="resources" onclick="switchOutputTab('resources')">Resources</button>
+                        </div>
+
+                        <!-- Report View (default) -->
+                        <div id="report-view" class="output-tab-content active">
+                            <div class="output-container empty" id="editorOutput">
+                                <div class="welcome-screen">
+                                    <img src="/logo.png" alt="Noodle Planner" class="welcome-logo">
+                                    <h2>Welcome to Noodle Planner</h2>
+                                    <p>Get started by:</p>
+                                    <ul>
+                                        <li>📝 Type your plan in the editor on the left</li>
+                                        <li>📁 Upload a plan file from the Upload tab</li>
+                                        <li>❓ Check the Syntax Guide tab for help</li>
+                                    </ul>
+                                    <p class="welcome-hint">Press <kbd>Enter</kbd> in the editor to render your plan</p>
+                                </div>
                             </div>
+                        </div>
+
+                        <!-- Project Summary View -->
+                        <div id="summary-view" class="output-tab-content">
+                            <div class="summary-placeholder">
+                                <h3>Project Summary</h3>
+                                <p>Render your plan to see project summary information here.</p>
+                            </div>
+                            <div class="summary-content" style="display: none;">
+                                <h2 class="summary-title" id="summaryTitle">Project Title</h2>
+
+                                <div class="summary-cards">
+                                    <div class="summary-card">
+                                        <div class="summary-card-label">Project Manager</div>
+                                        <div class="summary-card-value" id="summaryManager">-</div>
+                                    </div>
+                                    <div class="summary-card">
+                                        <div class="summary-card-label">Sponsor</div>
+                                        <div class="summary-card-value" id="summarySponsor">-</div>
+                                    </div>
+                                    <div class="summary-card">
+                                        <div class="summary-card-label">Budget</div>
+                                        <div class="summary-card-value" id="summaryBudget">-</div>
+                                    </div>
+                                    <div class="summary-card">
+                                        <div class="summary-card-label">Status</div>
+                                        <div class="summary-card-value" id="summaryStatus">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="summary-section">
+                                    <h3>Project Status</h3>
+                                    <div class="rag-summary">
+                                        <div class="rag-item rag-red">
+                                            <div class="rag-count" id="ragRedCount">0</div>
+                                            <div class="rag-label">Red Tasks</div>
+                                        </div>
+                                        <div class="rag-item rag-amber">
+                                            <div class="rag-count" id="ragAmberCount">0</div>
+                                            <div class="rag-label">Amber Tasks</div>
+                                        </div>
+                                        <div class="rag-item rag-green">
+                                            <div class="rag-count" id="ragGreenCount">0</div>
+                                            <div class="rag-label">Green Tasks</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Milestones View -->
+                        <div id="milestones-view" class="output-tab-content">
+                            <div class="milestones-placeholder">
+                                <h3>Milestones Table</h3>
+                                <p>Render your plan to see the milestones table here.</p>
+                            </div>
+                            <div class="milestones-content" style="display: none;">
+                                <div class="milestones-table-wrapper">
+                                    <table class="milestones-table">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Task Name</th>
+                                                <th>Start</th>
+                                                <th>Finish</th>
+                                                <th>Duration</th>
+                                                <th>Resources</th>
+                                                <th>%</th>
+                                                <th>RAG</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="milestonesTableBody">
+                                            <!-- Task rows will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Timeline View -->
+                        <div id="timeline-view" class="output-tab-content">
+                            <div class="placeholder-view">
+                                <h3>📅 Timeline View</h3>
+                                <p>Coming soon: Interactive timeline visualization</p>
+                            </div>
+                        </div>
+
+                        <!-- Gantt View -->
+                        <div id="gantt-view" class="output-tab-content">
+                            <div class="placeholder-view">
+                                <h3>📊 Gantt Chart View</h3>
+                                <p>Coming soon: Interactive Gantt chart with drag-and-drop</p>
+                            </div>
+                        </div>
+
+                        <!-- Resources View -->
+                        <div id="resources-view" class="output-tab-content">
+                            <div class="resources-placeholder">
+                                <h3>Resources</h3>
+                                <p>Render your plan to see resource allocation here.</p>
+                            </div>
+                            <div class="resources-content" style="display: none;">
+                                <h2 class="resources-title">Resource Allocation</h2>
+                                <div class="resources-table-wrapper">
+                                    <table class="resources-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Resource Name</th>
+                                                <th>Tasks Assigned</th>
+                                                <th>Total Days</th>
+                                                <th>Total Hours</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="resourcesTableBody">
+                                            <!-- Resource rows will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
 
 
 
