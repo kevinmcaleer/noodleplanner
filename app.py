@@ -173,7 +173,8 @@ async def parse_plan(data: RenderRequest):
             if 'finish' in t and t['finish']:
                 t['finish'] = t['finish'].strftime('%Y-%m-%d')
             if 'duration' in t and hasattr(t['duration'], 'days'):
-                t['duration_days'] = t['duration'].days
+                # Add 1 to include both start and end days (inclusive counting)
+                t['duration_days'] = t['duration'].days + 1
                 del t['duration']
 
             enhanced_tasks.append(t)

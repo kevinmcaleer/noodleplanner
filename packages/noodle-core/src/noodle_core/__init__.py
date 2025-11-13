@@ -15,6 +15,7 @@ from .scheduling_engine import (
     render_custom_timeline,
     calculate_rag_status,
     parse_resource_mappings,
+    natural_language_to_yaml,
 )
 
 from .format_converter import (
@@ -40,6 +41,7 @@ __all__ = [
     "render_custom_timeline",
     "calculate_rag_status",
     "parse_resource_mappings",
+    "natural_language_to_yaml",
     # Format converter
     "convert_plan_format_to_standard",
     "extract_title_from_frontmatter",

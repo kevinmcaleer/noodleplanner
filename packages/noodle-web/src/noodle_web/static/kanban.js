@@ -12,6 +12,8 @@ class KanbanBoard {
         this.phases = [];
         this.resourceMap = {}; // Maps shortname to full name from front matter
         this.labelsFromFrontMatter = []; // Labels defined in front matter
+        this.currentParentTask = null; // Track current hierarchy level for drill-down
+        this.hierarchyBreadcrumb = []; // Breadcrumb trail for navigation
     }
 
     /**
@@ -219,9 +221,161 @@ class KanbanBoard {
     }
 
     /**
+     * Check if a task has subtasks (is a summary task)
+     */
+    hasSubtasks(task) {
+        const taskIndent = task.indent;
+        const taskLineNumber = task.lineNumber;
+
+        // Look for direct child tasks (exactly one level deeper)
+        const childIndent = taskIndent + 2; // 2-space indentation
+        const childIndentAlt = taskIndent + 4; // 4-space indentation
+
+        // Use all tasks (not filtered) to check for children
+        const allTasks = this.getAllTasks();
+
+        // Find tasks that come after this one
+        const tasksAfter = allTasks.filter(t => t.lineNumber > taskLineNumber);
+
+        for (const t of tasksAfter) {
+            // If we hit a task at same or lower indent level, we've left this task's scope
+            if (t.indent <= taskIndent) {
+                return false;
+            }
+
+            // If we find a direct child (one level deeper), this is a summary task
+            if (t.indent === childIndent || t.indent === childIndentAlt) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Drill down into a summary task
+     * This shows the task and its siblings as columns, with their children as cards
+     */
+    drillDown(task) {
+        // Only add to breadcrumb if we have a current parent (don't add "All Tasks" since it's always shown)
+        if (this.currentParentTask) {
+            this.hierarchyBreadcrumb.push({
+                name: this.currentParentTask.name,
+                task: this.currentParentTask
+            });
+        }
+        // When drilling down, we want to show this task and its siblings as columns
+        // So we set the currentParentTask to this task's parent (to get the right level)
+        // But we also need to remember which task we clicked on
+        this.currentViewTask = task; // The task we're viewing
+        this.currentParentTask = task; // This will be used to find the right level
+        this.groupTasksByViewMode();
+        this.render();
+        this.renderBreadcrumb();
+    }
+
+    /**
+     * Navigate back in hierarchy
+     */
+    navigateUp(index = null) {
+        if (index !== null) {
+            // Navigate to specific breadcrumb level
+            const target = this.hierarchyBreadcrumb[index];
+            this.currentParentTask = target.task;
+            this.hierarchyBreadcrumb = this.hierarchyBreadcrumb.slice(0, index);
+        } else {
+            // Navigate up one level
+            if (this.hierarchyBreadcrumb.length > 0) {
+                const parent = this.hierarchyBreadcrumb.pop();
+                this.currentParentTask = parent.task;
+            }
+        }
+        this.groupTasksByViewMode();
+        this.render();
+        this.renderBreadcrumb();
+    }
+
+    /**
+     * Filter tasks to show only the current hierarchy level
+     * When drilling down, show the task we clicked on and its siblings (same indent level)
+     */
+    filterTasksByHierarchyLevel() {
+        const allTasks = this.allTasksCache || this.tasks;
+
+        if (!this.currentParentTask) {
+            // Root level: show only tasks with indent 0 or minimal indent (top-level tasks)
+            return allTasks.filter(task => task.indent === 0 || task.indent <= 2);
+        }
+
+        // When drilling down, we want to show tasks at the same level as currentParentTask
+        // (the task we clicked on and its siblings)
+        const targetIndent = this.currentParentTask.indent;
+        const targetLine = this.currentParentTask.lineNumber;
+
+
+        // Find the parent of the current task (task with lower indent that comes before it)
+        let parentOfCurrent = null;
+        for (let i = targetLine - 2; i >= 0; i--) {
+            const task = allTasks.find(t => t.lineNumber === i + 1);
+            if (task && task.indent < targetIndent) {
+                parentOfCurrent = task;
+                break;
+            }
+        }
+
+        if (!parentOfCurrent) {
+        }
+
+        // Filter to show only tasks at the same indent level as currentParentTask
+        // that are children of the same parent
+        const filtered = allTasks.filter(task => {
+            // Must be at same indent level
+            if (task.indent !== targetIndent) return false;
+
+            // Must be after the parent (or at start if no parent)
+            if (parentOfCurrent && task.lineNumber <= parentOfCurrent.lineNumber) return false;
+
+            // Check if this task is within the same parent's scope
+            if (parentOfCurrent) {
+                // Find tasks between parent and this task
+                const tasksBetween = allTasks.filter(t =>
+                    t.lineNumber > parentOfCurrent.lineNumber &&
+                    t.lineNumber < task.lineNumber
+                );
+
+                // If we hit a task at same or lower level than parent, this task is out of scope
+                for (const t of tasksBetween) {
+                    if (t.indent <= parentOfCurrent.indent) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        });
+
+        return filtered;
+    }
+
+    /**
+     * Get all tasks (used when we need the full list while this.tasks is filtered)
+     */
+    getAllTasks() {
+        return this.allTasksCache || this.tasks;
+    }
+
+    /**
      * Group tasks based on current view mode
      */
     groupTasksByViewMode() {
+        // Filter tasks by hierarchy level first
+        const filteredTasks = this.filterTasksByHierarchyLevel();
+
+        // Temporarily replace this.tasks with filtered tasks for grouping
+        const allTasks = this.tasks;
+        this.allTasksCache = allTasks; // Cache for getAllTasks()
+        this.tasks = filteredTasks;
+
         switch (this.viewMode) {
             case 'phase':
                 this.columns = this.groupTasksByPhase();
@@ -238,6 +392,9 @@ class KanbanBoard {
             default:
                 this.columns = this.groupTasksByPhase();
         }
+
+        // Restore all tasks
+        this.tasks = allTasks;
     }
 
     /**
@@ -247,26 +404,75 @@ class KanbanBoard {
         const columns = [];
         const phaseSet = new Set();
 
-        // First, add all phases found during parsing (includes empty phases)
-        this.phases.forEach(phase => {
-            phaseSet.add(phase);
-        });
+        // When drilling down, the filtered tasks are siblings at the same level
+        // We want to show each summary task as a column with its children as cards
+        if (this.currentParentTask) {
+            // The filtered tasks are at the same level (siblings)
+            // For each summary task at this level, create a column with its children
 
-        // Also add phases from tasks (in case a task has a phase not explicitly defined)
-        this.tasks.forEach(task => {
-            phaseSet.add(task.phase);
-        });
+            const summaryTasks = this.tasks.filter(task => this.hasSubtasks(task));
 
-        // Create a column for each phase (including empty ones)
-        phaseSet.forEach(phase => {
-            const phaseTasks = this.tasks.filter(task => task.phase === phase);
-            columns.push({
-                id: this.sanitizeId(phase),
-                title: phase,
-                tasks: phaseTasks,
-                count: phaseTasks.length
+            summaryTasks.forEach(summaryTask => {
+
+                // Find all children of this summary task from the full task list
+                const children = this.getAllTasks().filter(t => {
+                    // Must be after the summary task
+                    if (t.lineNumber <= summaryTask.lineNumber) return false;
+
+                    // Must be more indented (child)
+                    if (t.indent <= summaryTask.indent) return false;
+
+                    // Check if it's a direct child (one level deeper)
+                    const childIndent = summaryTask.indent + 2;
+                    const childIndentAlt = summaryTask.indent + 4;
+                    if (t.indent !== childIndent && t.indent !== childIndentAlt) return false;
+
+                    // Check if there's a sibling or higher-level task between them
+                    const tasksBetween = this.getAllTasks().filter(between =>
+                        between.lineNumber > summaryTask.lineNumber &&
+                        between.lineNumber < t.lineNumber
+                    );
+
+                    for (const between of tasksBetween) {
+                        if (between.indent <= summaryTask.indent) {
+                            return false; // Hit a sibling, this child is out of scope
+                        }
+                    }
+
+                    return true;
+                });
+
+
+                columns.push({
+                    id: this.sanitizeId(summaryTask.name),
+                    title: summaryTask.name,
+                    tasks: children,
+                    count: children.length
+                });
             });
-        });
+
+        } else {
+            // Root level: add all phases found during parsing (includes empty phases)
+            this.phases.forEach(phase => {
+                phaseSet.add(phase);
+            });
+
+            // Also add phases from tasks (in case a task has a phase not explicitly defined)
+            this.tasks.forEach(task => {
+                phaseSet.add(task.phase);
+            });
+
+            // Create a column for each phase
+            phaseSet.forEach(phase => {
+                const phaseTasks = this.tasks.filter(task => task.phase === phase);
+                columns.push({
+                    id: this.sanitizeId(phase),
+                    title: phase,
+                    tasks: phaseTasks,
+                    count: phaseTasks.length
+                });
+            });
+        }
 
         return columns;
     }
@@ -278,17 +484,37 @@ class KanbanBoard {
         const columns = [];
         const resourceMap = new Map(); // Maps normalized shortname to display name
 
-        // Collect all unique resources (normalize by shortname to prevent duplicates)
-        this.tasks.forEach(task => {
-            task.resourceShortnames.forEach((shortname, index) => {
-                // Use lowercase shortname as key to prevent "Kev" and "kev" duplicates
-                if (!resourceMap.has(shortname)) {
-                    // Store the display name for this shortname
-                    const displayName = task.resourcesArray[index];
-                    resourceMap.set(shortname, displayName);
-                }
+        // When drilling down, only show resources from current filtered tasks
+        // Otherwise, show all resources from front matter
+        if (this.currentParentTask) {
+            // Only collect resources from current filtered tasks
+            this.tasks.forEach(task => {
+                task.resourceShortnames.forEach((shortname, index) => {
+                    if (!resourceMap.has(shortname)) {
+                        const displayName = task.resourcesArray[index];
+                        resourceMap.set(shortname, displayName);
+                    }
+                });
             });
-        });
+        } else {
+            // Root level: add all resources from front matter (so they appear even if no tasks assigned)
+            Object.keys(this.resourceMap).forEach(shortname => {
+                const displayName = this.resourceMap[shortname];
+                resourceMap.set(shortname, displayName);
+            });
+
+            // Then collect all unique resources from tasks (in case tasks reference resources not in front matter)
+            this.tasks.forEach(task => {
+                task.resourceShortnames.forEach((shortname, index) => {
+                    // Use lowercase shortname as key to prevent "Kev" and "kev" duplicates
+                    if (!resourceMap.has(shortname)) {
+                        // Store the display name for this shortname
+                        const displayName = task.resourcesArray[index];
+                        resourceMap.set(shortname, displayName);
+                    }
+                });
+            });
+        }
 
         // Add unassigned column
         resourceMap.set(null, 'Unassigned');
@@ -302,6 +528,11 @@ class KanbanBoard {
                 // Check if task has this resource (by normalized shortname)
                 return task.resourceShortnames.includes(shortname);
             });
+
+            // Skip empty columns when drilling down
+            if (this.currentParentTask && resourceTasks.length === 0) {
+                return;
+            }
 
             columns.push({
                 id: this.sanitizeId(displayName),
@@ -325,12 +556,18 @@ class KanbanBoard {
             { id: 'complete', title: 'Complete', status: 'complete' }
         ];
 
-        return statusConfig.map(config => ({
-            id: config.id,
-            title: config.title,
-            tasks: this.tasks.filter(task => task.progressStatus === config.status),
-            count: this.tasks.filter(task => task.progressStatus === config.status).length
-        }));
+        return statusConfig.map(config => {
+            const tasks = this.tasks.filter(task => task.progressStatus === config.status);
+            return {
+                id: config.id,
+                title: config.title,
+                tasks: tasks,
+                count: tasks.length
+            };
+        }).filter(column => {
+            // Skip empty columns when drilling down
+            return !this.currentParentTask || column.tasks.length > 0;
+        });
     }
 
     /**
@@ -340,17 +577,28 @@ class KanbanBoard {
         const columns = [];
         const labelSet = new Set();
 
-        // Add labels from front matter first (so they appear even if no tasks have them)
-        this.labelsFromFrontMatter.forEach(label => {
-            labelSet.add(label);
-        });
-
-        // Collect all unique labels from tasks
-        this.tasks.forEach(task => {
-            task.labelsArray.forEach(label => {
+        // When drilling down, only show labels from current filtered tasks
+        // Otherwise, show all labels from front matter
+        if (this.currentParentTask) {
+            // Only collect labels from current filtered tasks
+            this.tasks.forEach(task => {
+                task.labelsArray.forEach(label => {
+                    labelSet.add(label);
+                });
+            });
+        } else {
+            // Root level: add labels from front matter first (so they appear even if no tasks have them)
+            this.labelsFromFrontMatter.forEach(label => {
                 labelSet.add(label);
             });
-        });
+
+            // Collect all unique labels from tasks
+            this.tasks.forEach(task => {
+                task.labelsArray.forEach(label => {
+                    labelSet.add(label);
+                });
+            });
+        }
 
         // Add unlabeled column
         labelSet.add('Unlabeled');
@@ -362,6 +610,12 @@ class KanbanBoard {
                     task.labelsArray.length === 0 :
                     task.labelsArray.includes(label)
             );
+
+            // Skip empty columns when drilling down
+            if (this.currentParentTask && labelTasks.length === 0) {
+                return;
+            }
+
             columns.push({
                 id: this.sanitizeId(label),
                 title: label,
@@ -383,6 +637,68 @@ class KanbanBoard {
     /**
      * Render the Kanban board to DOM
      */
+    /**
+     * Render breadcrumb navigation
+     */
+    renderBreadcrumb() {
+        const breadcrumbContainer = document.getElementById('kanbanBreadcrumb');
+        if (!breadcrumbContainer) {
+            console.warn('Breadcrumb container not found');
+            return;
+        }
+
+        breadcrumbContainer.innerHTML = '';
+
+        // Always show "All Tasks" as root
+        const rootCrumb = document.createElement('span');
+        rootCrumb.className = 'breadcrumb-item';
+        if (this.hierarchyBreadcrumb.length === 0 && !this.currentParentTask) {
+            rootCrumb.classList.add('active');
+            rootCrumb.textContent = 'All Tasks';
+        } else {
+            rootCrumb.innerHTML = '<a href="#">All Tasks</a>';
+            rootCrumb.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                this.currentParentTask = null;
+                this.hierarchyBreadcrumb = [];
+                this.groupTasksByViewMode();
+                this.render();
+                this.renderBreadcrumb();
+            });
+        }
+        breadcrumbContainer.appendChild(rootCrumb);
+
+        // Render breadcrumb trail
+        this.hierarchyBreadcrumb.forEach((crumb, index) => {
+            const separator = document.createElement('span');
+            separator.className = 'breadcrumb-separator';
+            separator.textContent = ' / ';
+            breadcrumbContainer.appendChild(separator);
+
+            const crumbEl = document.createElement('span');
+            crumbEl.className = 'breadcrumb-item';
+            crumbEl.innerHTML = `<a href="#">${crumb.name}</a>`;
+            crumbEl.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                this.navigateUp(index);
+            });
+            breadcrumbContainer.appendChild(crumbEl);
+        });
+
+        // Add current level if viewing a specific parent
+        if (this.currentParentTask) {
+            const separator = document.createElement('span');
+            separator.className = 'breadcrumb-separator';
+            separator.textContent = ' / ';
+            breadcrumbContainer.appendChild(separator);
+
+            const currentCrumb = document.createElement('span');
+            currentCrumb.className = 'breadcrumb-item active';
+            currentCrumb.textContent = this.currentParentTask.name;
+            breadcrumbContainer.appendChild(currentCrumb);
+        }
+    }
+
     render() {
         const boardContainer = document.getElementById('kanbanBoard');
         if (!boardContainer) {
@@ -397,32 +713,167 @@ class KanbanBoard {
         // Clear existing content
         boardContainer.innerHTML = '';
 
-        // Show empty state if no tasks
-        if (this.tasks.length === 0) {
-            boardContainer.innerHTML = `
-                <div class="kanban-empty-state" role="status" aria-live="polite">
-                    <h3>No tasks found</h3>
-                    <p>Add some tasks to your plan in the Editor tab to see them here.</p>
-                </div>
-            `;
+        // Show empty state if no tasks AND no columns (phases/labels/resources)
+        // This allows empty phases to be shown even without tasks
+        if (this.tasks.length === 0 && this.columns.length === 0) {
+            this.renderEmptyState(boardContainer);
             return;
         }
 
-        // Render each column
+        // Render each column (even if empty)
         this.columns.forEach(column => {
             const columnEl = this.renderColumn(column);
             boardContainer.appendChild(columnEl);
         });
 
-        // Add "Add Column" button for phase and label views
-        if (this.viewMode === 'phase' || this.viewMode === 'label') {
+        // Add "Add Column" button for phase, resource, and label views
+        if (this.viewMode === 'phase' || this.viewMode === 'label' || this.viewMode === 'resource') {
             const addColumnEl = this.renderAddColumnButton();
             boardContainer.appendChild(addColumnEl);
         }
     }
 
     /**
-     * Render "Add Column" button for phase and label views
+     * Render empty state with helpful actions
+     */
+    renderEmptyState(container) {
+        const emptyStateEl = document.createElement('div');
+        emptyStateEl.className = 'kanban-empty-state';
+        emptyStateEl.setAttribute('role', 'status');
+        emptyStateEl.setAttribute('aria-live', 'polite');
+
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = 'Start Your Project';
+        emptyStateEl.appendChild(titleEl);
+
+        const descEl = document.createElement('p');
+
+        if (this.viewMode === 'phase') {
+            descEl.textContent = 'Your plan is empty. Get started by adding phases and tasks.';
+        } else if (this.viewMode === 'resource') {
+            descEl.textContent = 'Your plan is empty. Get started by adding resources and tasks.';
+        } else if (this.viewMode === 'progress') {
+            descEl.textContent = 'Your plan is empty. Get started by adding tasks.';
+        } else if (this.viewMode === 'label') {
+            descEl.textContent = 'Your plan is empty. Get started by adding labels and tasks.';
+        }
+
+        emptyStateEl.appendChild(descEl);
+
+        const actionsEl = document.createElement('div');
+        actionsEl.className = 'kanban-empty-actions';
+
+        // Add buttons based on view mode
+        if (this.viewMode === 'phase') {
+            const addPhaseBtn = document.createElement('button');
+            addPhaseBtn.className = 'btn-primary';
+            addPhaseBtn.textContent = '+ Add Phase';
+            addPhaseBtn.setAttribute('aria-label', 'Add first phase');
+            addPhaseBtn.addEventListener('click', () => this.addNewPhase());
+            actionsEl.appendChild(addPhaseBtn);
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.className = 'btn-secondary';
+            addTaskBtn.textContent = '+ Add Task';
+            addTaskBtn.setAttribute('aria-label', 'Add first task');
+            addTaskBtn.addEventListener('click', () => this.addFirstTask());
+            actionsEl.appendChild(addTaskBtn);
+        } else if (this.viewMode === 'resource') {
+            const addResourceBtn = document.createElement('button');
+            addResourceBtn.className = 'btn-primary';
+            addResourceBtn.textContent = '+ Add Resource';
+            addResourceBtn.setAttribute('aria-label', 'Add first resource');
+            addResourceBtn.addEventListener('click', () => this.addNewResource());
+            actionsEl.appendChild(addResourceBtn);
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.className = 'btn-secondary';
+            addTaskBtn.textContent = '+ Add Task';
+            addTaskBtn.setAttribute('aria-label', 'Add first task');
+            addTaskBtn.addEventListener('click', () => this.addFirstTask());
+            actionsEl.appendChild(addTaskBtn);
+        } else if (this.viewMode === 'label') {
+            const addLabelBtn = document.createElement('button');
+            addLabelBtn.className = 'btn-primary';
+            addLabelBtn.textContent = '+ Add Label';
+            addLabelBtn.setAttribute('aria-label', 'Add first label');
+            addLabelBtn.addEventListener('click', () => this.addNewLabel());
+            actionsEl.appendChild(addLabelBtn);
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.className = 'btn-secondary';
+            addTaskBtn.textContent = '+ Add Task';
+            addTaskBtn.setAttribute('aria-label', 'Add first task');
+            addTaskBtn.addEventListener('click', () => this.addFirstTask());
+            actionsEl.appendChild(addTaskBtn);
+        } else if (this.viewMode === 'progress') {
+            // For progress view, show the 3 columns even when empty
+            this.renderProgressColumnsEmpty(container);
+            return;
+        }
+
+        emptyStateEl.appendChild(actionsEl);
+        container.appendChild(emptyStateEl);
+    }
+
+    /**
+     * Render empty progress columns (special case)
+     */
+    renderProgressColumnsEmpty(container) {
+        const progressStates = [
+            { id: 'not_started', name: 'Not Started', color: '#e74c3c' },
+            { id: 'in_progress', name: 'In Progress', color: '#f39c12' },
+            { id: 'complete', name: 'Complete', color: '#27ae60' }
+        ];
+
+        progressStates.forEach(state => {
+            const columnEl = document.createElement('div');
+            columnEl.className = 'kanban-column';
+            columnEl.setAttribute('data-column-id', state.id);
+
+            const headerEl = document.createElement('div');
+            headerEl.className = 'kanban-column-header';
+
+            const titleEl = document.createElement('h3');
+            titleEl.className = 'kanban-column-title';
+            titleEl.textContent = state.name;
+            headerEl.appendChild(titleEl);
+
+            const countEl = document.createElement('span');
+            countEl.className = 'kanban-column-count';
+            countEl.textContent = '0 tasks';
+            headerEl.appendChild(countEl);
+
+            columnEl.appendChild(headerEl);
+
+            // Add empty message and Add Task button
+            const cardsEl = document.createElement('div');
+            cardsEl.className = 'kanban-cards';
+
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'kanban-column-empty';
+            emptyMsg.textContent = 'No tasks yet';
+            cardsEl.appendChild(emptyMsg);
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.className = 'kanban-add-task-btn';
+            addTaskBtn.textContent = '+ Add Task';
+            addTaskBtn.addEventListener('click', () => {
+                // Determine percent based on column
+                let percent = '';
+                if (state.id === 'in_progress') percent = '50%';
+                else if (state.id === 'complete') percent = '100%';
+                this.addFirstTask(null, percent);
+            });
+            cardsEl.appendChild(addTaskBtn);
+
+            columnEl.appendChild(cardsEl);
+            container.appendChild(columnEl);
+        });
+    }
+
+    /**
+     * Render "Add Column" button for phase, resource, and label views
      */
     renderAddColumnButton() {
         const addColumnEl = document.createElement('div');
@@ -432,10 +883,20 @@ class KanbanBoard {
         button.className = 'kanban-add-column-btn';
 
         if (this.viewMode === 'phase') {
-            button.innerHTML = '+ Add Phase';
-            button.setAttribute('aria-label', 'Add new phase column');
+            // When drilling down, we're adding a summary task (which becomes a column)
+            // At root level, we're adding a phase
+            const buttonText = this.currentParentTask ? '+ Add Column' : '+ Add Phase';
+            const ariaLabel = this.currentParentTask ? 'Add new summary task column' : 'Add new phase column';
+            button.innerHTML = buttonText;
+            button.setAttribute('aria-label', ariaLabel);
             button.addEventListener('click', () => {
                 this.addNewPhase();
+            });
+        } else if (this.viewMode === 'resource') {
+            button.innerHTML = '+ Add Resource';
+            button.setAttribute('aria-label', 'Add new resource column');
+            button.addEventListener('click', () => {
+                this.addNewResource();
             });
         } else if (this.viewMode === 'label') {
             button.innerHTML = '+ Add Label';
@@ -466,6 +927,16 @@ class KanbanBoard {
         const titleEl = document.createElement('h3');
         titleEl.className = 'kanban-column-title';
         titleEl.textContent = column.title;
+
+        // Make title editable in phase view
+        if (this.viewMode === 'phase') {
+            titleEl.style.cursor = 'pointer';
+            titleEl.title = 'Click to rename phase';
+            titleEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.renamePhase(column.title);
+            });
+        }
 
         // Make title editable in label view (except Unlabeled)
         if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
@@ -632,11 +1103,20 @@ class KanbanBoard {
         cardEl.setAttribute('tabindex', '0');
         cardEl.setAttribute('aria-label', `Task: ${task.name}. Press Enter to edit, or drag to move.`);
 
+        // Check if this is a summary task
+        const isSummaryTask = this.hasSubtasks(task);
+
         // Make card clickable (but prevent click during drag)
         cardEl.style.cursor = 'grab';
         cardEl.addEventListener('click', (e) => {
             if (!cardEl.classList.contains('dragging')) {
-                this.openTaskModal(task);
+                // If summary task and user clicks the drill-down button, handle it
+                if (e.target.classList.contains('drill-down-btn')) {
+                    e.stopPropagation();
+                    this.drillDown(task);
+                } else {
+                    this.openTaskModal(task);
+                }
             }
         });
 
@@ -644,7 +1124,12 @@ class KanbanBoard {
         cardEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                this.openTaskModal(task);
+                if (isSummaryTask && e.shiftKey) {
+                    // Shift+Enter to drill down into summary task
+                    this.drillDown(task);
+                } else {
+                    this.openTaskModal(task);
+                }
             }
         });
 
@@ -777,8 +1262,8 @@ class KanbanBoard {
 
         cardEl.appendChild(bodyEl);
 
-        // Card footer with labels/dependencies
-        if (task.dependenciesArray.length > 0 || task.labelsArray.length > 0) {
+        // Card footer with labels/dependencies/drill-down
+        if (task.dependenciesArray.length > 0 || task.labelsArray.length > 0 || isSummaryTask) {
             const footerEl = document.createElement('div');
             footerEl.className = 'kanban-card-footer';
 
@@ -803,6 +1288,17 @@ class KanbanBoard {
             });
 
             footerEl.appendChild(labelsEl);
+
+            // Add drill-down button for summary tasks
+            if (isSummaryTask) {
+                const drillDownBtn = document.createElement('button');
+                drillDownBtn.className = 'drill-down-btn';
+                drillDownBtn.innerHTML = '&#x1F4C1; View Subtasks'; // Folder icon
+                drillDownBtn.title = 'View subtasks of this task';
+                drillDownBtn.setAttribute('aria-label', `View subtasks of ${task.name}`);
+                footerEl.appendChild(drillDownBtn);
+            }
+
             cardEl.appendChild(footerEl);
         }
 
@@ -1296,10 +1792,12 @@ class KanbanBoard {
 
         // Find where to insert in the target phase
         let insertIndex = lines.length;
+        let needsIndentation = false;
 
         if (targetColumn.title === 'Unassigned') {
-            // For unassigned, add at the end
+            // For unassigned, add at the end with no indentation
             insertIndex = lines.length;
+            needsIndentation = false;
         } else {
             // Find the phase header and last line of that phase
             let foundPhase = false;
@@ -1311,6 +1809,7 @@ class KanbanBoard {
                 if (trimmed === targetColumn.title) {
                     foundPhase = true;
                     insertIndex = i + 1;
+                    needsIndentation = true; // Tasks under a phase need indentation
                     continue;
                 }
 
@@ -1332,8 +1831,19 @@ class KanbanBoard {
             }
         }
 
+        // Prepare the task line with proper indentation
+        let lineToInsert = taskLine;
+        if (needsIndentation) {
+            // Remove existing indentation and add 2 spaces
+            const trimmedTask = taskLine.trim();
+            lineToInsert = '  ' + trimmedTask;
+        } else {
+            // For unassigned, remove indentation
+            lineToInsert = taskLine.trim();
+        }
+
         // Insert the task at the new location
-        lines.splice(insertIndex, 0, taskLine);
+        lines.splice(insertIndex, 0, lineToInsert);
 
         return true;
     }
@@ -1361,38 +1871,82 @@ class KanbanBoard {
         const editor = document.getElementById('planEditor');
         if (!editor) return;
 
+        // Determine indentation based on hierarchy level
+        let indentStr;
+        if (this.currentParentTask) {
+            // When drilling down, new tasks should be children of the current parent
+            const parentIndent = this.currentParentTask.indent;
+            indentStr = ' '.repeat(parentIndent + 2);
+        } else {
+            // Root level: standard indentation
+            indentStr = '  ';
+        }
+
         // Determine what to add based on view mode and column
         let newTaskLine = '';
-        const indent = '  '; // Standard indentation for tasks
 
         switch (this.viewMode) {
             case 'phase':
                 // Add task under this phase
-                newTaskLine = `${indent}New Task`;
+                newTaskLine = `${indentStr}New Task`;
                 break;
 
             case 'resource':
                 // Add task with this resource
                 if (column.shortname && column.shortname !== null) {
-                    newTaskLine = `${indent}New Task @${column.shortname}`;
+                    newTaskLine = `${indentStr}New Task @${column.shortname}`;
                 } else {
-                    newTaskLine = `${indent}New Task`;
+                    newTaskLine = `${indentStr}New Task`;
                 }
                 break;
 
             case 'progress':
                 // Add task with appropriate progress
                 const percent = this.getPercentFromProgressColumn(column.id);
-                newTaskLine = `${indent}New Task ${percent}%`;
+                newTaskLine = `${indentStr}New Task ${percent}%`;
+                break;
+
+            case 'label':
+                // Add task with this label
+                if (column.id && column.id !== 'no_label') {
+                    newTaskLine = `${indentStr}New Task #${column.id}`;
+                } else {
+                    newTaskLine = `${indentStr}New Task`;
+                }
                 break;
         }
 
-        // Find appropriate place to insert (end of phase for phase view, or end of file)
+        // Find appropriate place to insert
         const lines = editor.value.split('\n');
         let insertIndex = lines.length;
 
-        if (this.viewMode === 'phase' && column.title !== 'Unassigned') {
-            // Find the last line of this phase
+        if (this.currentParentTask) {
+            // When drilling down, insert at end of parent task's children
+            const parentIndent = this.currentParentTask.indent;
+            const parentLineNumber = this.currentParentTask.lineNumber;
+
+            insertIndex = parentLineNumber; // Start after parent
+
+            for (let i = parentLineNumber; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmed = line.trim();
+
+                // Skip empty lines
+                if (!trimmed) continue;
+
+                const indent = line.search(/\S/);
+
+                // If we hit a line at same or lower indentation than parent, we've found the end
+                if (indent <= parentIndent) {
+                    insertIndex = i;
+                    break;
+                }
+
+                // Keep moving forward through children
+                insertIndex = i + 1;
+            }
+        } else if (this.viewMode === 'phase' && column.title !== 'Unassigned') {
+            // Root level phase view: find the last line of this phase
             let foundPhase = false;
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
@@ -1444,6 +1998,7 @@ class KanbanBoard {
         setTimeout(() => {
             this.parse();
             this.render();
+            this.renderBreadcrumb();
 
             // Open the task form for the new task
             setTimeout(() => {
@@ -1465,7 +2020,7 @@ class KanbanBoard {
      * Add a new phase to the plan
      */
     addNewPhase() {
-        const phaseName = prompt('Enter new phase name:');
+        const phaseName = prompt('Enter new column name:');
         if (!phaseName || phaseName.trim() === '') {
             return;
         }
@@ -1474,15 +2029,75 @@ class KanbanBoard {
         if (!editor) return;
 
         const lines = editor.value.split('\n');
+        let insertIndex;
+        let indentStr = '';
+        let linesToAdd = [];
 
-        // Add the new phase at the end of the file
-        // Add blank line if last line is not blank
-        if (lines[lines.length - 1].trim() !== '') {
-            lines.push('');
+        // If we're drilling down, add a sibling to the current task at the same level
+        if (this.currentParentTask) {
+            // When drilling down, we're viewing siblings at the same level
+            // So the new column should be at the SAME indent as currentParentTask (a sibling)
+            const siblingIndent = this.currentParentTask.indent;
+            const siblingLineNumber = this.currentParentTask.lineNumber;
+
+            // New summary task should be at the same indent level (sibling)
+            indentStr = ' '.repeat(siblingIndent);
+            const childIndentStr = ' '.repeat(siblingIndent + 2);
+
+            // Create summary task with a child task to make it appear as a column
+            linesToAdd = [
+                indentStr + phaseName.trim(),
+                childIndentStr + 'New Task'
+            ];
+
+            // Find the end of all siblings at this level
+            // We need to find the parent of the current task first
+            let actualParentIndent = -1;
+            for (let i = siblingLineNumber - 2; i >= 0; i--) {
+                const line = lines[i];
+                if (!line.trim()) continue;
+                const indent = line.search(/\S/);
+                if (indent < siblingIndent) {
+                    actualParentIndent = indent;
+                    break;
+                }
+            }
+
+            // Now find the end of the siblings (where we hit a task at same or lower level than parent)
+            insertIndex = siblingLineNumber;
+            for (let i = siblingLineNumber; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmed = line.trim();
+
+                // Skip empty lines
+                if (!trimmed) continue;
+
+                const indent = line.search(/\S/);
+
+                // If we hit a line at same or lower indentation than actual parent, we've found the end
+                if (actualParentIndent >= 0 && indent <= actualParentIndent) {
+                    insertIndex = i;
+                    break;
+                }
+
+                // Keep moving forward
+                insertIndex = i + 1;
+            }
+        } else {
+            // Root level: add a phase header
+            insertIndex = lines.length;
+
+            // Add blank line if last line is not blank
+            if (lines[lines.length - 1].trim() !== '') {
+                lines.push('');
+                insertIndex++;
+            }
+
+            linesToAdd = [phaseName.trim()];
         }
 
-        // Add phase header
-        lines.push(phaseName.trim());
+        // Insert the new lines at the calculated position
+        lines.splice(insertIndex, 0, ...linesToAdd);
 
         // Prevent circular updates
         if (window.kanbanIsUpdating) {
@@ -1498,7 +2113,9 @@ class KanbanBoard {
         // Refresh Kanban
         setTimeout(() => {
             this.parse();
+            this.groupTasksByViewMode();
             this.render();
+            this.renderBreadcrumb();
 
             // Re-enable editor listener
             setTimeout(() => {
@@ -1576,6 +2193,188 @@ class KanbanBoard {
         editor.value = lines.join('\n');
 
         // Dispatch input event to trigger editor listeners (e.g., line numbers, render)
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Refresh Kanban
+        setTimeout(() => {
+            this.parse();
+            this.render();
+
+            // Re-enable editor listener
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
+     * Add first task to an empty plan
+     */
+    addFirstTask(phaseName = null, percent = null) {
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        let insertIndex = lines.length;
+
+        // Find end of front matter if it exists
+        let inFrontMatter = false;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    // Found closing ---, insert after this
+                    insertIndex = i + 1;
+                    break;
+                }
+            }
+        }
+
+        // Add blank line if needed
+        if (insertIndex < lines.length && lines[insertIndex].trim() !== '') {
+            lines.splice(insertIndex, 0, '');
+            insertIndex++;
+        }
+
+        // Add phase header if provided
+        if (phaseName && phaseName.trim()) {
+            lines.splice(insertIndex, 0, '', phaseName.trim());
+            insertIndex += 2;
+        }
+
+        // Add task line with appropriate indent
+        const indent = phaseName ? '  ' : '';
+        let taskLine = `${indent}New Task`;
+
+        if (percent) {
+            taskLine += ` ${percent}`;
+        }
+
+        lines.splice(insertIndex, 0, taskLine);
+        const newTaskLineNumber = insertIndex + 1; // Line numbers are 1-based
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        // Update editor
+        editor.value = lines.join('\n');
+
+        // Dispatch input event to trigger editor listeners
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Refresh Kanban and open task form
+        setTimeout(() => {
+            this.parse();
+            this.render();
+
+            // Open the task form for the new task
+            setTimeout(() => {
+                if (typeof openTaskForm === 'function') {
+                    openTaskForm(newTaskLineNumber);
+                }
+            }, 200);
+
+            // Re-enable editor listener
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
+     * Add a new resource to the front matter
+     */
+    addNewResource() {
+        // Open the resource form
+        if (typeof openResourceForm === 'function') {
+            openResourceForm();
+        }
+    }
+
+    /**
+     * Rename a phase (summary task) in the plan
+     */
+    renamePhase(oldPhaseName) {
+        const newPhaseName = prompt(`Rename phase "${oldPhaseName}" to:`, oldPhaseName);
+        if (!newPhaseName || newPhaseName.trim() === '' || newPhaseName === oldPhaseName) {
+            return;
+        }
+
+        const trimmedNewName = newPhaseName.trim();
+
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        let inFrontMatter = false;
+        let phaseHeaderFound = false;
+        let firstTaskIndex = -1;
+
+        // Find and rename the phase header
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Track front matter to skip it
+            if (line.trim() === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    inFrontMatter = false;
+                }
+                continue;
+            }
+            if (inFrontMatter) continue;
+
+            // Check if this line is the phase header (no indentation, matches old name)
+            const trimmedLine = line.trim();
+            if (line.indexOf('  ') !== 0 && trimmedLine === oldPhaseName && !line.includes('[') && !line.includes('#')) {
+                // This is a phase header line (no indentation, no resources, no labels)
+                lines[i] = trimmedNewName;
+                phaseHeaderFound = true;
+            }
+
+            // Track first task line (for Unassigned phase case)
+            if (firstTaskIndex === -1 && !inFrontMatter && line.trim() && !line.trim().startsWith('#')) {
+                // Check if it's a task line (has indentation or is first non-front-matter content)
+                if (line.indexOf('  ') === 0 || line.trim().match(/^\*?[\w\s]+/)) {
+                    firstTaskIndex = i;
+                }
+            }
+        }
+
+        // Special case: If renaming "Unassigned" phase and no phase header was found,
+        // we need to CREATE a phase header before the first task
+        if (oldPhaseName === 'Unassigned' && !phaseHeaderFound && firstTaskIndex !== -1) {
+            // Insert phase header before first task
+            lines.splice(firstTaskIndex, 0, trimmedNewName);
+
+            // Indent all subsequent tasks that should be under this phase
+            for (let i = firstTaskIndex + 1; i < lines.length; i++) {
+                const line = lines[i];
+                // Only indent non-empty lines that aren't already indented and aren't phase headers
+                if (line.trim() && line.indexOf('  ') !== 0 && !line.includes('---')) {
+                    lines[i] = '  ' + line;
+                }
+            }
+        }
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        // Update editor
+        editor.value = lines.join('\n');
+
+        // Dispatch input event to trigger editor listeners
         editor.dispatchEvent(new Event('input', { bubbles: true }));
 
         // Refresh Kanban
@@ -1822,6 +2621,7 @@ function syncKanbanFromEditor() {
 
     kanbanBoard.parse();
     kanbanBoard.render();
+    kanbanBoard.renderBreadcrumb();
 }
 
 /**

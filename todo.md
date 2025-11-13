@@ -309,6 +309,41 @@
 
 **Status:** Complete! Double-clicking anywhere in the front matter (including on the --- delimiters or any property line) now opens the Project Details form for easy editing of project metadata.
 
+### White Space Above Kanban View (GitHub Issue #71) - ✅ CLOSED
+- [x] Identified unwanted white space at top of Kanban view causing horizontal split
+- [x] Root cause: `.content { flex: 1; }` was causing layout issues
+- [x] Fixed by commenting out `flex: 1` in `.content` style (style.css line 47)
+- [x] Added `#kanban-tab.active { flex: 1; }` to ensure Kanban fills available space
+- [x] Added `display: flex` only when `#kanban-tab` is active to prevent showing when inactive
+- [x] Set Kanban editor panel to `collapsed` by default in HTML
+- [x] Tested fix - Kanban now fills full screen with no white space
+
+**Status:** Complete! Fixed CSS layout issues causing white space and horizontal split. Kanban view now properly fills the entire screen below the navigation tabs.
+
+### Kanban Empty Plan State (GitHub Issue #35) - ✅ CLOSED
+- [x] Implemented renderEmptyState() method with view-specific actions
+- [x] Phase View: Shows "+ Add Phase" and "+ Add Task" buttons
+- [x] Resource View: Shows "+ Add Resource" and "+ Add Task" buttons
+- [x] Label View: Shows "+ Add Label" and "+ Add Task" buttons
+- [x] Progress View: Shows 3 empty columns (Not Started, In Progress, Complete) with "+ Add Task" in each
+- [x] Implemented addFirstTask(phaseName, percent) method
+  - Finds end of front matter and inserts task
+  - Adds phase header if provided
+  - Opens task form automatically for new task
+  - Handles progress percentage for progress view
+- [x] Implemented addNewResource() method
+  - Prompts for shortname and full name
+  - Creates front matter if needed
+  - Adds to Resources section or creates it
+  - Updates editor and refreshes Kanban
+- [x] Added CSS styling for empty state actions
+  - .kanban-empty-actions with button layout
+  - .kanban-column-empty for empty column message
+  - .kanban-add-task-btn with dashed border style
+- [x] Tested all view modes with empty plans
+
+**Status:** Complete! Empty plans now show helpful actions to get started. Users can add phases, tasks, resources, or labels directly from the Kanban view without switching to the editor.
+
 ## In Progress 🔄
 
 ### Dependency Loop Detection (GitHub Issue #22)
@@ -319,14 +354,18 @@
 - [ ] Add user-friendly error messages
 
 ### Rename Summary Tasks via Column Headers (GitHub Issue #68) - ✅ COMPLETED
-- [x] Parse ASCII output to identify phase/summary task rows
-- [x] Make phase/summary names clickable in rendered output
-- [x] Implement rename dialog with prompt or inline editing
-- [x] Update plan editor text when summary task name is changed
-- [x] Maintain sync between rendered output and editor
-- [x] Add visual indicator for clickable headers (cursor pointer)
+- [x] Made phase column headers clickable in Kanban Phase view
+- [x] Added cursor pointer and tooltip ("Click to rename phase")
+- [x] Implemented renamePhase() method in kanban.js
+  - Prompts user for new phase name
+  - Finds phase header line in editor (no indentation, exact match)
+  - Skips front matter when searching
+  - Updates editor and triggers re-render
+- [x] Maintains sync between Kanban and editor
+- [x] Prevents circular updates with kanbanIsUpdating flag
+- [x] Auto-refreshes Kanban after rename
 
-**Status:** Complete! Phase/summary task names are now clickable with blue underline styling. Clicking opens a prompt dialog to rename, and the editor updates automatically with re-rendering.
+**Status:** Complete! Phase column headers in Kanban Phase view are now clickable. Clicking opens a prompt dialog to rename the phase, and the editor updates automatically with the Kanban board re-rendering to show the new name.
 
 ### Enhanced Interface with Tabs (GitHub Issue #54) - EPIC - 🔄 IN PROGRESS
 
@@ -406,24 +445,106 @@
 - [ ] Add selectable rows and columns (future enhancement)
 - [ ] Sync edits with plan editor in real-time (future enhancement)
 
-**Timeline Tab:**
-- [x] Add placeholder view for timeline
-- [ ] Display timeline visualization (future enhancement)
+**Phase 5: Timeline Tab - ✅ COMPLETED**
+- [x] Created HTML structure for timeline visualization
+  - Added timeline-content div with header and body
+  - Timeline legend showing phases and tasks
+  - Header with week intervals
+  - Body with task bars
+- [x] Implemented updateTimeline() JavaScript function
+  - Calculates date range from all tasks
+  - Generates week intervals for timeline grid
+  - Creates horizontal bars for each task positioned by dates
+  - Differentiates phase bars (gradient) vs task bars (green)
+  - Calculates bar position and width based on dates
+  - Adds tooltips with task details
+- [x] Added comprehensive CSS styling
+  - Timeline wrapper with shadow and scrolling
+  - Week headers with date labels
+  - Task rows with hover effects
+  - Phase bars (larger, gradient) vs task bars (green)
+  - Monospace font for task names with indentation
+  - Responsive layout with horizontal scroll
 - [ ] Add export options (save as image, PDF, text file) (future enhancement)
-- [ ] Show phases and milestones on timeline (future enhancement)
 - [ ] Interactive zoom/scale controls (future enhancement)
 
-**Gantt Chart Tab:**
-- [x] Add placeholder view for Gantt chart
-- [ ] Display Gantt chart with spreadsheet look and feel (future enhancement)
-- [ ] Show progress bars for tasks (future enhancement)
-- [ ] Implement inline editing for non-calculated fields synced with editor (future enhancement)
-- [ ] Add draggable progress bar ends (expand/collapse start/end dates) (future enhancement)
-- [ ] Make progress bar middle draggable (shift task in time) (future enhancement)
-- [ ] Implement task reordering (up/down) with editor sync (future enhancement)
-- [ ] Add scale selector (days, weeks, months, quarters, years) (future enhancement)
-- [ ] Highlight weekends and non-working days (future enhancement)
-- [ ] Auto-update task duration when dragging (future enhancement)
+**Phase 6: Gantt Chart Tab - Basic Implementation - ✅ COMPLETED**
+- [x] Created HTML structure for Gantt chart
+  - Split layout: info table on left, chart on right
+  - Info table with 5 columns: ID, Task Name, Duration, Start, Finish
+  - Chart side with month headers and task bars
+- [x] Implemented updateGantt() JavaScript function
+  - Generates month headers with appropriate widths
+  - Creates synchronized info rows and bar rows
+  - Calculates bar positions from start dates
+  - Shows progress indicator on task bars (percent complete as overlay)
+  - Differentiates phase bars vs task bars
+  - Adds tooltips with full task details
+- [x] Added comprehensive CSS styling
+  - Split-pane layout with sticky headers
+  - Info table with gradient header
+  - Month headers in chart section
+  - Gantt bars with progress overlays
+  - Phase row highlighting (light purple)
+  - Hover effects and smooth transitions
+  - Synchronized scrolling between table and chart
+
+**Phase 7: Advanced Gantt Features - ✅ COMPLETED (Per Issue #54 Requirements)**
+- [x] Added scale selector dropdown (days, weeks, months, quarters, years)
+  - Toolbar with scale selector dropdown
+  - Dynamic header rendering based on selected scale
+  - Pixels per day adjustment for each scale
+  - Day headers, week headers, month headers, quarter headers, year headers
+- [x] Implemented inline editing for non-calculated fields (Task Name, Comment, Resources)
+  - Double-click on editable cells to edit (yellow highlight on hover)
+  - Enter to save, Escape to cancel
+  - Task Name, Resources, and Comment fields are editable
+  - Duration, Start, Finish are calculated and read-only
+- [x] Sync inline edits with plan editor in real-time
+  - syncGanttEditToEditor() function updates editor text
+  - Regex-based line matching and field replacement
+  - Handles name changes, resource updates, comment updates
+  - Auto-triggers re-render via input event
+- [x] Add draggable progress bar ends to adjust start/end dates
+  - Left handle: adjust start date (shrink/expand from left)
+  - Right handle: adjust finish date (shrink/expand from right)
+  - Visual feedback with semi-transparent handles
+  - Yellow highlight on hover
+- [x] Make progress bar middle draggable to shift task in time
+  - Drag bar middle to move entire task left/right
+  - Maintains task duration while shifting dates
+  - Mouse cursor changes to 'move'
+- [x] Highlight weekends and non-working days based on selected scale
+  - Weekend highlighting when scale is 'days'
+  - Gray overlay on Saturdays and Sundays
+  - Automatically calculated based on date range
+- [x] Auto-update task duration when dragging bar ends
+  - Duration recalculated on end handle drag
+  - updateTaskDates() recalculates duration_days
+  - Updated in both task object and ganttTasks array
+- [x] Auto-update start/end dates when dragging bar middle
+  - Both dates shifted by same delta when dragging middle
+  - Duration remains constant
+  - syncGanttDateChangeToEditor() updates editor text
+- [x] Bi-directional sync: Gantt edits → Plan Editor → Re-render
+  - All edits trigger editor.dispatchEvent(new Event('input'))
+  - Input event triggers automatic re-render
+  - Gantt chart updates immediately after editor sync
+  - Full round-trip: Gantt edit → Editor text → Parse → Re-render
+
+**Implementation Details:**
+- Global gantt state: ganttTasks, ganttScale, ganttMinDate, ganttMaxDate, ganttPixelsPerDay
+- renderGanttChart() function re-renders on scale change
+- renderGanttHeaders() with scale-specific header functions
+- renderGanttRows() creates info table and bar chart
+- makeEditable() handles inline editing with input field
+- setupBarDragListeners() manages bar dragging with mouse events
+- updateTaskDates() calculates new dates based on drag delta
+- syncGanttEditToEditor() syncs text edits back to editor
+- syncGanttDateChangeToEditor() syncs date changes back to editor
+- renderWeekendHighlights() adds weekend overlays in day view
+
+**Note:** Task reordering (up/down drag-and-drop) and row selection features are deferred as they require more complex implementation and are not critical for Phase 7 MVP.
 
 **Phase 4: Resources Tab - ✅ COMPLETED**
 - [x] Created HTML table structure for resource allocation
@@ -452,7 +573,27 @@
 - [ ] Create timesheet-style layout with hours per day/week (future enhancement)
 - [ ] Spreadsheet look and feel with selectable cells (future enhancement)
 
-**Status:** Core functionality complete! The tabbed interface is working with Report, Project Summary, Milestones, and Resources tabs fully functional. Timeline and Gantt views have placeholders for future enhancement. Advanced features like inline editing, drag-and-drop, and interactive visualizations are marked for future development.
+**Status:** ✅ ALL 6 TABS FULLY IMPLEMENTED INCLUDING PHASE 7! The tabbed interface has all 6 tabs with comprehensive functionality:
+- **Report**: ASCII timeline output
+- **Project Summary**: Front matter details with RAG status
+- **Milestones**: Full task table with all fields
+- **Resources**: Aggregated resource allocation
+- **Timeline**: Milestone-focused diamond timeline
+- **Gantt Chart**: Interactive spreadsheet-style Gantt with:
+  - Scale selector (days/weeks/months/quarters/years)
+  - Inline editing (Task Name, Resources, Comment)
+  - Drag-and-drop bar ends to adjust dates
+  - Drag-and-drop bar middle to shift tasks
+  - Weekend highlighting
+  - Bi-directional sync with Plan Editor
+  - Real-time updates and auto-render
+
+**Phase 7 Complete!** All major Issue #54 requirements implemented including Issue #77 (duration update fix). Remaining enhancements (task reordering, row selection, export options) are nice-to-have features for future iterations.
+
+**Issue #77 - Duration Update Fix:**
+- Fixed regex bug in syncGanttDateChangeToEditor() preventing reliable duration updates
+- Changed from `/\s+\d+[dwmy]\s+/` to `/\b\d+[dwmy]\b/` for proper word boundary matching
+- Duration now updates correctly when dragging Gantt bar ends to adjust start/finish dates
 
 ## Pending 📋
 
@@ -508,7 +649,7 @@
 - #26: Testing suite (completed - 119 tests, all passing) - ✅ CLOSED
 - #32: Missing logo (fixed - moved to correct package location) - ✅ CLOSED
 - #34: Label/tag feature (complete - `#` for labels, `[depends ...]` for dependencies) - ✅ CLOSED
-- #35: Kanban empty plan state (add card/column options) - OPEN
+- #35: Kanban empty plan state (add card/column options) - ✅ CLOSED
 - #36: Indent/outdent editor shortcuts (Cmd+[ / Cmd+] + toolbar buttons) - ✅ CLOSED
 - #37: Auto-render after Kanban changes (fixed - dispatch input events) - ✅ CLOSED
 - #38: Remove banner from top of screen (compact header implemented) - ✅ CLOSED
@@ -538,11 +679,196 @@
 - #65: Export button navigation (moved to top right of navigation bar) - ✅ CLOSED
 - #66: Project title text color (fixed to be white in modal header) - ✅ CLOSED
 - #67: Progress view task display (tasks with no progress now show in Not Started column) - ✅ CLOSED
-- #68: Click on column header to rename summary task (clickable headers with rename dialog) - ✅ COMPLETED
+- #68: Click on column header to rename summary task (clickable headers with rename dialog) - ✅ CLOSED
 - #69: Double-click front matter to open Project Details form - ✅ CLOSED
 - #70: Kanban view width issues (columns now expand to fill available space) - ✅ CLOSED
-- #54: Update Interface - Epic with tabs for Summary, Milestones, Timeline, Gantt, Resources (core functionality complete) - 🔄 IN PROGRESS
+- #71: White space above Kanban view (removed padding/margin from #kanban-tab and .kanban-layout) - ✅ CLOSED
+- #72: Add resource in resource view (comprehensive resource form with role, email, allocation%) - ✅ CLOSED
+- #73: Adding phase doesn't show column on Kanban view (fixed render condition) - ✅ CLOSED
+- #74: Double-clicking resource line should open resource form (regex detection in front matter) - ✅ CLOSED
+- #75: Resources with no assignments should show in resource view (added front matter resources first) - ✅ CLOSED
+- #76: Clicking add resource button in project form should open resource form (changed onclick handler) - ✅ CLOSED
+- #77: Changing duration on Gantt chart should update plan (fixed duration regex pattern) - ✅ CLOSED
+- #54: Update Interface - Epic with tabs for Summary, Milestones, Timeline, Gantt, Resources (all core requirements complete) - ✅ CLOSED
+- #83: Gantt chart day headers alignment and buffer (fixed all alignment issues + added 1-week buffer) - ✅ CLOSED
 
 ---
 
-Last Updated: 2025-11-12
+Last Updated: 2025-11-13
+
+
+### Add Resource in Resource View (GitHub Issue #72) - ✅ CLOSED
+- [x] Created resource form modal with comprehensive fields
+  - Shortname (e.g., @alice)
+  - Full Name
+  - Role
+  - Email
+  - Work Allocation % (0-100%)
+- [x] Implemented openResourceForm() function in script.js
+  - Opens modal overlay
+  - Can populate form for editing existing resources
+  - Focuses on first field
+- [x] Implemented saveResource() function
+  - Validates required fields (shortname, full name)
+  - Builds resource line in extended format: `@shortname: Name, Role, email, allocation%`
+  - Creates/updates front matter Resources section
+  - Handles both new and existing resources
+  - Updates editor and triggers Kanban refresh
+- [x] Updated addNewResource() in kanban.js to use form instead of prompts
+- [x] Added "+ Add Resource" button to Resource view when resources exist
+- [x] Resource form accessible from:
+  - Empty Resource view
+  - Add Resource button in Resource view with existing columns
+- [x] Added ESC key handler for resource form
+- [x] Bi-directional sync with editor
+
+**Status:** Complete! Users can now add/edit resources with comprehensive details including role, email, and work allocation percentage. The form provides a much better UX than simple prompts and supports the extended resource format for effort calculations.
+
+### Adding Phase Column Visibility (GitHub Issue #73) - ✅ CLOSED
+- [x] Fixed bug where adding phase didn't show column in Kanban view
+- [x] Root cause: render() checked only tasks.length === 0
+- [x] Solution: Changed condition to check both tasks.length === 0 AND columns.length === 0
+- [x] Empty phase columns now render with "+ Add Task" button
+- [x] Location: kanban.js:400-405
+
+**Status:** Complete! Adding phases via "+ Add Phase" button now correctly displays the new phase column in Kanban view, even before tasks are added.
+
+### Double-Click Resource Editing (GitHub Issue #74) - ✅ CLOSED
+- [x] Modified editor double-click handler to detect resource lines
+- [x] Regex pattern `/^-\s*@(\w+):\s*(.+)/` detects resource lines in front matter
+- [x] Double-clicking resource line opens resource form pre-populated
+- [x] Double-clicking other front matter opens project details form
+- [x] Location: script.js:3101-3111
+
+**Status:** Complete! Double-clicking resource lines in front matter now opens the resource form for editing.
+
+### Resources Without Assignments (GitHub Issue #75) - ✅ CLOSED
+- [x] Fixed bug where resources with no task assignments didn't show in Resource view
+- [x] Root cause: groupTasksByResource() only collected resources from tasks
+- [x] Solution: First add all resources from front matter (this.resourceMap), then add from tasks
+- [x] Similar pattern to how labels are handled
+- [x] Location: kanban.js:277-322
+
+**Status:** Complete! Resources defined in front matter now appear as columns in Resource view even without assigned tasks.
+
+### Project Form Resource Button (GitHub Issue #76) - ✅ CLOSED
+- [x] Changed "+ Add Resource" button onclick from addResourceRow() to openResourceForm()
+- [x] Opens comprehensive resource form modal instead of inline row
+- [x] Location: index.html:640
+
+**Status:** Complete! Clicking "+ Add Resource" in Project Details form now opens the dedicated resource form modal.
+
+### Gantt Duration and Date Update (GitHub Issue #77) - ✅ CLOSED
+- [x] Verified duration update implementation from Phase 7
+- [x] Fixed multiple bugs and implemented complete solution:
+
+**Token-Based Parsing Approach:**
+- [x] Replaced fragile regex with token-based parsing
+- [x] Implemented updateDurationInLine() function (script.js:1630-1685)
+  - Tokenizes line while preserving quoted strings and bracketed dependencies
+  - Strips indent before tokenizing, preserves on rebuild
+  - Finds duration token with pattern `/^\d+[dwmy]$/`
+  - Replaces duration token or inserts if missing
+- [x] Implemented updateStartDateInLine() function (script.js:1690-1761)
+  - Tokenizes line preserving structure
+  - Finds date token with pattern `/^\d{4}-\d{2}-\d{2}$/`
+  - Inserts date after percent/resources/duration if not found
+
+**Drag Behavior:**
+- [x] Left/Right handles: Updates duration in editor via syncGanttDurationToEditor()
+- [x] Middle drag: Updates start date in editor via syncGanttStartDateToEditor()
+  - Enables manual scheduling - explicit start date overrides dependency calculation
+- [x] Fixed indent calculation: (level - 1) * 2 spaces instead of level * 2
+- [x] Fixed dependency prefix handling: Pattern `\\*?` matches optional `*` before task name
+
+**Architecture:**
+- [x] updateTaskDates() recalculates duration when bar ends dragged (script.js:1426-1473)
+- [x] Separate functions for duration vs start date sync
+- [x] Full bi-directional sync with auto-render
+- [x] Handles all edge cases: indentation, dependencies (*), quotes, brackets
+
+**Status:** Complete! Gantt chart drag operations now correctly sync to editor:
+- Dragging bar ends updates duration
+- Dragging middle updates start date (manual scheduling)
+- Token-based parsing is robust and maintainable
+- Supports tasks with dependency markers (`*taskname`)
+
+### Pin Indicator for Manually Scheduled Tasks (GitHub Issue #79) - ✅ CLOSED
+- [x] Added visual indicator (pin icon) for tasks with explicit start dates
+- [x] Implemented isLineManuallyScheduled() helper function (script.js:164-177)
+  - Detects YYYY-MM-DD date pattern in task line
+  - Skips front matter and comments
+- [x] CSS-based pin icon using ::before and ::after pseudo-elements (style.css:1077-1115)
+  - Gray pin (#858585) at 50% opacity normally
+  - White pin at 100% opacity on hover
+  - Clean, minimal black and white design
+- [x] Pin appears in line numbers next to manually scheduled tasks
+- [x] Tooltip shows "Manually scheduled (has explicit start date)"
+
+**Status:** Complete! Tasks with explicit start dates now show a pin icon indicator, making it clear which tasks are manually scheduled vs automatically scheduled based on dependencies.
+
+### Lag and Lead Time Support (GitHub Issue #80) - ✅ CLOSED
+- [x] Added syntax support for lag and lead time in dependencies
+- [x] Lag time (wait after): `+2d`, `+1w`, `+3m` - task waits X time after dependency completes
+- [x] Lead time (start before): `-1d`, `-2w` - task starts X time before dependency completes
+- [x] Syntax: `[depends TaskName +2d]` or `[depends Task1 +1w, Task2 -2d]`
+
+**Frontend Changes:**
+- [x] Added syntax highlighting for lag/lead time (script.js:99-105)
+  - Pattern `/([+\-]\d+[dwmy])/g` detects lag/lead syntax
+  - Highlighted in cyan color (#4ec9b0) with bold font
+- [x] CSS styling for .syntax-lag-lead (style.css:1022-1025)
+
+**Backend Changes:**
+- [x] Updated dependency parsing to extract lag/lead time (scheduling_engine.py:111-141)
+  - Parses lag/lead from dependency specs
+  - Stores in lag_lead_map dictionary
+- [x] Implemented parse_duration_to_days() function (scheduling_engine.py:97-120)
+  - Converts +2d, -1w, +3m to days
+  - Supports d (days), w (weeks), m (30 days), y (365 days)
+  - Returns positive for lag, negative for lead
+- [x] Updated scheduling logic to apply lag/lead offsets (scheduling_engine.py:341-371)
+  - Applies offset to dependency finish dates
+  - Uses add_working_days() for business day calculation
+
+**Example Usage:**
+```
+Task A 5d
+Task B 3d [depends Task A +2d]  # Starts 2 days after A completes (lag)
+Task C 4d [depends Task A -1d]  # Starts 1 day before A completes (lead)
+```
+
+**Status:** Complete! Full lag/lead time support implemented with syntax highlighting, parsing, and scheduling logic. Tasks can now have flexible timing relationships with their dependencies.
+
+### Gantt Chart Alignment Fixes (GitHub Issue #83) - ✅ CLOSED
+- [x] Added 1-week buffer before and after plan dates (script.js:1385-1386)
+  - Added 7 days before ganttMinDate
+  - Added 7 days after ganttMaxDate
+  - Provides room for extending task bars when dragging
+  - Automatically applies to all view modes
+- [x] Fixed drag handles positioning (style.css:1046-1058)
+  - Added border-radius to handles to match bar edges
+  - Left handle: border-top-left-radius and border-bottom-left-radius (4px)
+  - Right handle: border-top-right-radius and border-bottom-right-radius (4px)
+  - Handles now properly contained within bar boundaries
+- [x] Fixed day headers alignment with task bars (script.js:1488-1509)
+  - Changed from calculated totalDays to iterative approach
+  - Iterates from ganttMinDate to ganttMaxDate day-by-day
+  - Resets times to midnight for accurate day counting
+  - Ensures exactly one header per day
+  - Perfect 1:1 alignment between day columns and task bar positions
+- [x] Fixed task bar positioning calculations (script.js:1662-1676)
+  - Normalized dates to midnight for accurate calculations
+  - Changed from Math.floor to Math.round for precise positioning
+  - Task bars now align perfectly with day boundaries
+- [x] Fixed weekend highlights alignment (script.js:1714-1738)
+  - Updated to use same iterative approach as day headers
+  - Weekend overlays now align perfectly with day columns
+
+**Implementation Details:**
+- All date calculations normalized to midnight for consistency
+- Iterative day-by-day approach ensures accurate counting
+- Buffer applies to all time scales (days, weeks, months, quarters, years)
+- Maintains backward compatibility with existing plans
+
+**Status:** Complete! All alignment issues resolved. Gantt chart now has proper drag handle positioning, day header alignment, and sufficient buffer space for extending tasks.

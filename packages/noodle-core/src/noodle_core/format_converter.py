@@ -23,14 +23,20 @@ def extract_title_from_frontmatter(text: str) -> str:
                 # End of front matter
                 break
         if in_frontmatter:
+            # Simple text parsing for title line
+            if line.strip().lower().startswith('title:'):
+                title = line.split(':', 1)[1].strip()
+                return title
             frontmatter_lines.append(line)
 
+    # Fallback to YAML parsing if simple parsing didn't work
     if frontmatter_lines:
         try:
-            frontmatter = yaml.safe_load('\n'.join(frontmatter_lines))
+            yaml_text = '\n'.join(frontmatter_lines)
+            frontmatter = yaml.safe_load(yaml_text)
             if isinstance(frontmatter, dict) and 'title' in frontmatter:
                 return frontmatter['title']
-        except:
+        except Exception as e:
             pass
 
     return None
@@ -66,10 +72,19 @@ def convert_plan_format_to_standard(text: str) -> str:
         line = re.sub(r'(\d+)months?', r'\1m', line)
 
         # Convert dependency format: [depends taskname] or [depends task1, task2] -> #taskname or #task1 #task2
+        # BUT: Keep [depends] syntax if any dependency has lag/lead time (e.g., +2d, -1w)
         # Support multiple comma-separated dependencies
         def convert_depends(match):
             depends_str = match.group(1).strip()
-            # Split by comma to handle multiple dependencies
+
+            # Check if any dependency has lag/lead time
+            has_lag_lead = bool(re.search(r'[+\-]\d+[dwmy]', depends_str))
+
+            if has_lag_lead:
+                # Keep [depends ...] syntax for lag/lead support
+                return f'[depends {depends_str}]'
+
+            # Split by comma to handle multiple dependencies (no lag/lead)
             task_names = [name.strip() for name in depends_str.split(',')]
             # Convert each task name to #taskname format (preserve spaces, don't convert to snake_case)
             result = ' '.join(f'#{name}' for name in task_names)

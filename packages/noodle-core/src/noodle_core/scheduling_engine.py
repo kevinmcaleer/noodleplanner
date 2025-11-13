@@ -51,7 +51,7 @@ def add_working_days(start_date, num_days, holidays=None):
 
     Args:
         start_date: The starting date
-        num_days: Number of working days to add
+        num_days: Number of working days to add (can be negative)
         holidays: Set of holiday dates to skip (optional)
 
     Returns:
@@ -64,6 +64,26 @@ def add_working_days(start_date, num_days, holidays=None):
         # Zero-duration tasks (milestones) finish on the same day
         return start_date
 
+    # Handle negative days (going backwards)
+    if num_days < 0:
+        current_date = start_date
+        days_subtracted = 0
+        direction = -1
+        target_days = abs(num_days)
+
+        while days_subtracted < target_days:
+            current_date += timedelta(days=direction)
+
+            # Check if current date is a working day
+            is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
+            is_holiday = current_date in holidays
+
+            if not is_weekend and not is_holiday:
+                days_subtracted += 1
+
+        return current_date
+
+    # Handle positive days (going forward)
     # Ensure we start from a working day
     current_date = get_next_working_day(start_date, holidays)
     days_added = 0
@@ -93,6 +113,31 @@ def parse_duration(s):
     except Exception:
         pass
     return None
+
+def parse_duration_to_days(duration_str):
+    """
+    Parse duration string like '+2d', '-1w', '+3m' to number of days.
+    Supports: d (days), w (weeks), m (months - 30 days), y (years - 365 days)
+    Returns positive for lag (wait after), negative for lead (start before).
+    """
+    if not duration_str:
+        return 0
+
+    # Extract sign, number, and unit
+    match = re.match(r'([+\-])(\d+)([dwmy])', duration_str)
+    if not match:
+        return 0
+
+    sign = match.group(1)
+    number = int(match.group(2))
+    unit = match.group(3)
+
+    # Convert to days
+    multipliers = {'d': 1, 'w': 7, 'm': 30, 'y': 365}
+    days = number * multipliers.get(unit, 1)
+
+    # Apply sign
+    return days if sign == '+' else -days
 def extract_metadata(task_str, task_name=None):
     meta = {}
     tokens = re.split(r'(?<!\\)\s+', task_str)
@@ -109,11 +154,31 @@ def extract_metadata(task_str, task_name=None):
         meta['depends'] = [d.strip() for d in dep_matches]
 
     # Also support [depends task1, task2, ...] syntax for multiple dependencies
+    # Now also supports lag/lead time: [depends task1 +2d, task2 -1w]
     bracket_dep_pattern = r'\[depends\s+([^\]]+)\]'
     bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
     if bracket_dep_match:
-        # Split by comma and strip whitespace
-        dep_list = [d.strip() for d in bracket_dep_match.group(1).split(',')]
+        # Split by comma and parse each dependency with optional lag/lead
+        dep_specs = bracket_dep_match.group(1).split(',')
+        dep_list = []
+        lag_lead_map = {}  # Maps dependency name to lag/lead offset
+
+        for dep_spec in dep_specs:
+            dep_spec = dep_spec.strip()
+            # Check for lag/lead time: "TaskName +2d" or "TaskName -1w"
+            lag_lead_match = re.search(r'^(.+?)\s+([+\-]\d+[dwmy])$', dep_spec)
+            if lag_lead_match:
+                dep_task_name = lag_lead_match.group(1).strip()
+                lag_lead_str = lag_lead_match.group(2)
+                dep_list.append(dep_task_name)
+                lag_lead_map[dep_task_name] = lag_lead_str
+            else:
+                dep_list.append(dep_spec)
+
+        # Store lag/lead map if any were found
+        if lag_lead_map:
+            meta['lag_lead'] = lag_lead_map
+
         # Merge with any existing dependencies from # syntax
         if 'depends' in meta:
             meta['depends'].extend(dep_list)
@@ -320,12 +385,29 @@ def schedule_tasks(phases):
 
         elif 'depends' in t and t['depends']:
             # Has dependencies (case-insensitive lookup)
-            dep_finishes = [name_lookup[n.lower()]['finish'] for n in t['depends']
-                          if n.lower() in name_lookup and 'finish' in name_lookup[n.lower()]]
-            if dep_finishes:
-                t['start'] = max(dep_finishes)
+            # Apply lag/lead time if specified
+            lag_lead_map = t.get('lag_lead', {})
+
+            dep_finishes_with_offset = []
+            for dep_name in t['depends']:
+                dep_name_lower = dep_name.lower()
+                if dep_name_lower in name_lookup and 'finish' in name_lookup[dep_name_lower]:
+                    dep_finish = name_lookup[dep_name_lower]['finish']
+
+                    # Apply lag/lead time if specified for this dependency
+                    if dep_name in lag_lead_map:
+                        offset_str = lag_lead_map[dep_name]
+                        offset_days = parse_duration_to_days(offset_str)
+                        # Positive offset = lag (wait after), negative = lead (start before)
+                        dep_finish = add_working_days(dep_finish, offset_days)
+
+                    dep_finishes_with_offset.append(dep_finish)
+
+            if dep_finishes_with_offset:
+                t['start'] = max(dep_finishes_with_offset)
             else:
                 t['start'] = get_next_working_day(datetime.now())
+
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
@@ -456,19 +538,51 @@ def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
     if max_name_width > available_for_name and available_for_name > 10:
         max_name_width = available_for_name
 
-    # Week heading row
-    week_row = [' '] * chart_width
-    week_dates = []
-    current = start_date
-    while current <= finish_date:
-        pos = int((current - start_date).days / total_days * (chart_width-1))
-        date_str = current.strftime('%d %b')
-        for i, c in enumerate(date_str):
-            if pos + i < chart_width:
-                week_row[pos + i] = c
-        week_dates.append(current)
-        current += timedelta(days=7)
-    chart += f"{'ID':<{max_id_width}}  {'Task Name':<{max_name_width}} |" + ''.join(week_row) + '|\n'
+    # Date heading row with smart spacing
+    # Try to show all dates, then every other date, then week starts
+    def try_place_dates(chart_width, start_date, finish_date, total_days, interval_days):
+        """Try to place dates at given interval without overlapping"""
+        date_row = [' '] * chart_width
+        current = start_date
+        placed_dates = []
+
+        while current <= finish_date:
+            pos = int((current - start_date).days / total_days * (chart_width-1))
+            # Use format "DD mmm " (e.g., "13 nov ") for display
+            date_str = current.strftime('%d %b ').lower()
+
+            # Check if we have enough space (7 chars for "DD mmm ")
+            if pos + len(date_str) <= chart_width:
+                # Check if this overlaps with previously placed dates
+                overlaps = False
+                for prev_pos, prev_len in placed_dates:
+                    if pos < prev_pos + prev_len and pos + len(date_str) > prev_pos:
+                        overlaps = True
+                        break
+
+                if not overlaps:
+                    # Place the date
+                    for i, c in enumerate(date_str):
+                        if pos + i < chart_width:
+                            date_row[pos + i] = c
+                    placed_dates.append((pos, len(date_str)))
+
+            current += timedelta(days=interval_days)
+
+        # Return True if we placed at least some dates
+        return date_row, len(placed_dates) > 0
+
+    # Try daily, then every other day, then weekly
+    date_row = None
+    for interval in [1, 2, 7]:
+        date_row, success = try_place_dates(chart_width, start_date, finish_date, total_days, interval)
+        if success:
+            break
+
+    if date_row is None:
+        date_row = [' '] * chart_width
+
+    chart += f"{'ID':<{max_id_width}}  {'Task Name':<{max_name_width}} |" + ''.join(date_row) + '|\n'
     chart += '-' * (max_id_width + 2 + max_name_width + 1 + chart_width + 2) + '\n'  # Adjust horizontal line
     for idx, t in enumerate(tasks, start=1):
         # Skip tasks without start or finish dates
@@ -631,10 +745,10 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
                 date_positions.append(i)
 
         # Place dates with minimum spacing to avoid overlap
-        last_end = -3  # Track where last date ended
+        last_end = -7  # Track where last date ended (7 chars for "DD mmm ")
         for pos in date_positions:
             day = start_date + timedelta(days=pos)
-            date_str = day.strftime('%d')
+            date_str = day.strftime('%d %b ').lower()  # e.g., "13 nov "
             # Only place if it doesn't overlap with previous date (need at least 1 space)
             if pos > last_end:
                 for j, c in enumerate(date_str):
@@ -645,7 +759,7 @@ def render_resource_sheet(tasks, start_date, finish_date, holidays=None, termina
         # For week/month/quarter scale
         for i in range(chart_width):
             if scale == 'week':
-                date_str = current.strftime('%d')
+                date_str = current.strftime('%d %b ').lower()  # e.g., "13 nov "
                 period_days = 7
             elif scale == 'month':
                 date_str = current.strftime('%b')
@@ -1856,56 +1970,136 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             max_length = max(max_length, len(cell_value))
         ws_milestones.column_dimensions[column_letter].width = min(max_length + 2, 50)
 
-    # Create Resources sheet
+    # Create Resources Timesheet sheet
     if tasks:
-        start_date = min([t.get('start', datetime.now()) for t in tasks])
-        finish_date = max([t.get('finish', datetime.now()) for t in tasks])
+        # Filter tasks with dates and resources
+        tasks_with_dates = [t for t in tasks if t.get('start') and t.get('finish') and t.get('resources') and not t.get('summary')]
 
-        ws_resources = wb.create_sheet("Resources")
-        resource_headers = ['Resource', 'Total Hours', 'Tasks Assigned']
-        ws_resources.append(resource_headers)
+        if tasks_with_dates:
+            start_date = min([t.get('start') for t in tasks_with_dates])
+            finish_date = max([t.get('finish') for t in tasks_with_dates])
 
-        # Style header row
-        for col_num, header in enumerate(resource_headers, 1):
-            cell = ws_resources.cell(row=1, column=col_num)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
+            ws_resources = wb.create_sheet("Resources")
 
-        # Calculate resource allocation
-        resource_hours = {}
-        resource_tasks = {}
-        resource_display_names = {}
+            # Generate date range
+            date_range = []
+            current = start_date
+            while current <= finish_date:
+                date_range.append(current)
+                current += timedelta(days=1)
 
-        for task in tasks:
-            resources_str = task.get('resources', '')
-            if resources_str:
-                task_resources = [r.strip() for r in resources_str.split(',')]
-                duration = task.get('duration', timedelta(days=0))
-                if isinstance(duration, timedelta):
-                    hours = duration.days * 8.0 / len(task_resources)
-                    task_name = task.get('description', task.get('name', ''))
+            # Build header row with day of week and date
+            resource_headers = ['Resource']
+            for date in date_range:
+                day_of_week = date.strftime('%a')  # Mon, Tue, etc
+                day = date.strftime('%d')
+                month = date.strftime('%b').lower()
+                resource_headers.append(f"{day_of_week} {day} {month}")
 
-                    for resource in task_resources:
-                        # Normalize to lowercase for case-insensitive comparison
-                        resource_key = resource.lower()
-                        # Keep first occurrence's case for display
-                        if resource_key not in resource_display_names:
-                            resource_display_names[resource_key] = resource
-                        resource_hours[resource_key] = resource_hours.get(resource_key, 0) + hours
-                        if resource_key not in resource_tasks:
-                            resource_tasks[resource_key] = []
-                        resource_tasks[resource_key].append(task_name)
+            ws_resources.append(resource_headers)
 
-        # Add resource data
-        for resource_key in sorted(resource_hours.keys()):
-            display_name = resource_display_names.get(resource_key, resource_key)
-            row = [
-                display_name,
-                round(resource_hours[resource_key], 1),
-                ', '.join(resource_tasks[resource_key])
-            ]
-            ws_resources.append(row)
+            # Style header row
+            for col_num, header in enumerate(resource_headers, 1):
+                cell = ws_resources.cell(row=1, column=col_num)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+
+                # Make weekend headers black text on gray background
+                if col_num > 1:
+                    date = date_range[col_num - 2]
+                    if date.weekday() in [5, 6]:  # Saturday or Sunday
+                        cell.fill = PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+                        cell.font = Font(color="000000", bold=True)
+
+            # Calculate resource allocation per day
+            resource_daily_hours = {}
+
+            for task in tasks_with_dates:
+                resources_str = task.get('resources', '')
+                if resources_str:
+                    task_resources = [r.strip() for r in resources_str.split(',')]
+                    task_start = task.get('start')
+                    task_finish = task.get('finish')
+
+                    # Calculate days task spans
+                    task_duration_days = (task_finish - task_start).days + 1
+
+                    # Get total duration in days from task (this is effort days)
+                    duration = task.get('duration', timedelta(days=0))
+                    if isinstance(duration, timedelta):
+                        effort_days = duration.days
+                    else:
+                        effort_days = 0
+
+                    # Hours per day = (effort_days * 8) / task_duration_days / num_resources
+                    if task_duration_days > 0 and len(task_resources) > 0:
+                        hours_per_day = (effort_days * 8.0) / task_duration_days / len(task_resources)
+
+                        # Add hours for each day
+                        current = task_start
+                        while current <= task_finish:
+                            date_key = current.strftime('%Y-%m-%d')
+
+                            for resource in task_resources:
+                                resource_key = resource.lower()
+                                if resource_key not in resource_daily_hours:
+                                    resource_daily_hours[resource_key] = {'display_name': resource, 'hours': {}}
+
+                                if date_key not in resource_daily_hours[resource_key]['hours']:
+                                    resource_daily_hours[resource_key]['hours'][date_key] = 0
+
+                                resource_daily_hours[resource_key]['hours'][date_key] += hours_per_day
+
+                            current += timedelta(days=1)
+
+            # Add resource data rows
+            for resource_key in sorted(resource_daily_hours.keys()):
+                display_name = resource_daily_hours[resource_key]['display_name']
+                hours_dict = resource_daily_hours[resource_key]['hours']
+
+                row = [display_name]
+                for date in date_range:
+                    date_key = date.strftime('%Y-%m-%d')
+                    hours = hours_dict.get(date_key, 0)
+                    if hours > 0:
+                        row.append(round(hours, 1))
+                    else:
+                        row.append('-')
+
+                ws_resources.append(row)
+
+                # Color code cells based on hours
+                row_num = ws_resources.max_row
+                for col_num in range(2, len(resource_headers) + 1):
+                    cell = ws_resources.cell(row=row_num, column=col_num)
+                    cell.alignment = Alignment(horizontal="center")
+
+                    date = date_range[col_num - 2]
+                    is_weekend = date.weekday() in [5, 6]
+
+                    if cell.value == '-':
+                        if is_weekend:
+                            cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+                    else:
+                        hours = float(cell.value)
+                        if hours <= 4:
+                            # Low hours - green
+                            cell.fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
+                            cell.font = Font(color="2E7D32")
+                        elif hours <= 8:
+                            # Normal hours - orange
+                            cell.fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
+                            cell.font = Font(color="E65100")
+                        else:
+                            # High hours - red
+                            cell.fill = PatternFill(start_color="FFEBEE", end_color="FFEBEE", fill_type="solid")
+                            cell.font = Font(color="C62828", bold=True)
+
+                        if is_weekend:
+                            # Override with weekend background but keep text color
+                            current_color = cell.font.color
+                            cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
 
         # Auto-adjust column widths
         for col_num, header in enumerate(resource_headers, 1):
