@@ -691,10 +691,12 @@
 - #77: Changing duration on Gantt chart should update plan (fixed duration regex pattern) - ✅ CLOSED
 - #54: Update Interface - Epic with tabs for Summary, Milestones, Timeline, Gantt, Resources (all core requirements complete) - ✅ CLOSED
 - #83: Gantt chart day headers alignment and buffer (fixed all alignment issues + added 1-week buffer) - ✅ CLOSED
+- #28: Project analysis output (health check, actionable insights, Fix It buttons) - ✅ CLOSED
+- #97: Milestone page enhancements (fixed font, removed resources column) - ✅ CLOSED
 
 ---
 
-Last Updated: 2025-11-13
+Last Updated: 2025-11-17
 
 
 ### Add Resource in Resource View (GitHub Issue #72) - ✅ CLOSED
@@ -872,3 +874,399 @@ Task C 4d [depends Task A -1d]  # Starts 1 day before A completes (lead)
 - Maintains backward compatibility with existing plans
 
 **Status:** Complete! All alignment issues resolved. Gantt chart now has proper drag handle positioning, day header alignment, and sufficient buffer space for extending tasks.
+
+### Project Analysis Tab (GitHub Issue #28) - ✅ CLOSED
+- [x] Created Analysis tab in interface (index.html:107, 327-339)
+  - Added to output tabs navigation
+  - Automatic analysis on plan render
+  - Placeholder and content areas
+- [x] Implemented health check analysis (script.js:5230-5520)
+  - Project health score calculation (0-100)
+  - Color-coded status: Excellent (90+), Good (70-89), Fair (50-69), Needs Attention (<50)
+  - Visual health score card at top of analysis
+- [x] Actionable insight: Resource shortname capitalization (script.js:5405-5420)
+  - Detects lowercase shortnames (@alice → @Alice)
+  - "Fix It" button capitalizes all occurrences
+  - Updates editor and re-renders automatically
+- [x] Actionable insight: Missing resource definitions (script.js:5422-5442)
+  - Identifies resources used but not defined in front matter
+  - "Fix It" button adds to Resources section
+  - Placeholder details added (Name, Role)
+- [x] Actionable insight: Missing stakeholders (script.js:5277-5287)
+  - Suggests adding Stakeholders section if absent
+  - Helps improve project documentation
+- [x] Actionable insight: Missing front matter fields (script.js:5289-5299)
+  - Checks for: description, status, budget, sponsor, stakeholders
+  - Suggests which optional fields to add
+- [x] Actionable insight: Tasks without duration (script.js:5301-5311)
+  - Lists tasks with missing/zero duration
+  - Shows up to 5 examples with total count
+  - Helps identify incomplete task definitions
+- [x] Fix It buttons for automated corrections (script.js:5461-5520)
+  - Resource capitalization fix
+  - Missing resources addition
+  - Button changes to "✓ Fixed" after applying
+- [x] Professional styling (style.css:3020-3155)
+  - Health score card with large display
+  - Color-coded insight cards (warning=orange, info=blue, suggestion=green)
+  - Icons for each type (⚠️ warning, ℹ️ info, 💡 suggestion)
+  - Success message when no issues found
+  - Hover effects and responsive design
+- [x] Bug fix: TypeError with frontMatter (script.js:678, 5278, 5450)
+  - Fixed frontMatter.toLowerCase error
+  - Added type safety checks
+  - Pass planText instead of result.front_matter
+
+**Implementation Details:**
+- Analysis runs automatically on every render
+- updateAnalysis() called from updateProjectSummary()
+- Insights calculated based on plan text and parsed tasks
+- Health score weighted: warning (-10), info (-5), suggestion (-2)
+- Fix It buttons update editor and trigger re-render
+- All checks handle edge cases (missing data, empty fields)
+
+**Status:** Complete! Analysis tab provides comprehensive health checks with actionable insights and automated fixes to help maintain high-quality project plans.
+
+### Milestone Page Enhancements (GitHub Issue #97) - ✅ CLOSED
+- [x] Fixed font to match main page (style.css:426)
+  - Changed from Courier New to system font stack
+  - Now uses: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif
+  - Consistent with main application styling
+- [x] Verified filtering to show only summary tasks and milestones (script.js:706-709)
+  - Already correctly filtering: task.is_summary || task.duration_days === 0
+  - Shows summary tasks (phase headers)
+  - Shows milestones (0d duration tasks)
+- [x] Removed Resources column (index.html:192, script.js:747-750)
+  - Removed "Resources" from table header
+  - Removed resources cell creation from JavaScript
+  - Duration column was already not present
+- [x] Final table columns: ID, Task Name, Start, Finish, %, RAG, Comment
+
+**Implementation Details:**
+- Font change applies to entire table via .milestones-table class
+- Filtering logic unchanged (was already correct)
+- Cleaner layout focuses on milestone dates and status
+- Maintains task hierarchy indentation with level classes
+
+**Status:** Complete! Milestones page now has consistent styling and shows only relevant information for tracking project milestones.
+
+### Clicking Milestones Opens Task Form (GitHub Issue #99) - ✅ CLOSED
+- [x] Added click event listeners to milestone table rows (script.js:766-769)
+  - All milestone rows now clickable with cursor pointer
+  - Existing hover effect provides visual feedback
+- [x] Created `openMilestoneTaskForm(taskName)` function (script.js:2667-2694)
+  - Switches to plan editor tab using switchTab('plan')
+  - Searches editor for task by matching task name
+  - Opens task form using openTaskForm(lineNumber)
+  - Handles error if task not found
+- [x] Integration with existing task form functionality
+  - Reuses parseTaskLine() to extract task data
+  - Opens full task form with all fields populated
+  - Allows complete editing of milestone/summary task
+
+**Implementation Details:**
+- Task lookup by name matching (exact match)
+- Automatically switches from Milestones page to Plan Editor
+- Opens task form overlay with all task details
+- No changes needed to task form itself (reuses existing code)
+
+**Status:** Complete! Clicking any milestone row opens that task in the task form for editing.
+
+### Gantt Chart Full Editing (GitHub Issue #111) - ✅ CLOSED
+- [x] Made all Gantt fields editable via double-click (script.js:1634-1672)
+  - Duration cell: added .editable class, double-click listener
+  - Start date cell: added .editable class, double-click listener
+  - Finish date cell: added .editable class, double-click listener
+  - Percent cell: added .editable class, double-click listener
+  - Resources and comment already editable
+  - Task name already editable
+- [x] Enhanced `makeEditable()` function (script.js:1775-1873)
+  - Added field-specific value extraction (lines 1781-1793)
+  - Duration: extracts from duration_days, removes 'd' suffix
+  - Start/Finish: uses date string directly
+  - Percent: removes '%' suffix for editing
+  - Added validation for each field type (lines 1800-1855)
+  - Duration: validates positive integer, auto-adds 'd' suffix
+  - Start/Finish: validates YYYY-MM-DD format
+  - Percent: validates 0-100 range, auto-adds '%' suffix
+  - Calls appropriate sync function per field type
+- [x] Created `syncGanttFinishDateToEditor()` function (script.js:2168-2211)
+  - Mirrors syncGanttStartDateToEditor pattern
+  - Finds task by name/indent matching
+  - Calls updateFinishDateInLine() helper
+  - Updates editor and triggers re-render
+- [x] Created `syncGanttPercentToEditor()` function (script.js:2213-2256)
+  - Finds task by name/indent matching
+  - Calls updatePercentInLine() helper
+  - Updates editor and triggers re-render
+- [x] Created `updateFinishDateInLine()` helper (script.js:2395-2461)
+  - Tokenizes line preserving quotes/brackets
+  - Finds second date in line (finish date)
+  - Replaces or inserts finish date after start date
+  - Rebuilds line with indent preserved
+- [x] Created `updatePercentInLine()` helper (script.js:2463-2526)
+  - Tokenizes line preserving quotes/brackets
+  - Finds/replaces percent token (XX% format)
+  - Inserts percent after duration if not found
+  - Rebuilds line with indent preserved
+
+**Editable Fields (all via double-click):**
+1. Task Name
+2. Duration (validates positive integers, formats as Xd)
+3. Start Date (validates YYYY-MM-DD format)
+4. Finish Date (validates YYYY-MM-DD format)
+5. Resources
+6. % Complete (validates 0-100, formats as X%)
+7. Comments
+
+**Sync Functions:**
+- syncGanttEditToEditor() - handles name, resources, comment
+- syncGanttDurationToEditor() - handles duration (existing)
+- syncGanttStartDateToEditor() - handles start date (existing)
+- syncGanttFinishDateToEditor() - handles finish date (NEW)
+- syncGanttPercentToEditor() - handles percent (NEW)
+
+**Implementation Details:**
+- All edits validated before applying
+- Invalid edits revert to original value
+- Editor updated immediately on successful edit
+- Re-render triggered via input event
+- Tokenization handles complex lines (quotes, brackets, dependencies)
+- Helper functions follow consistent pattern for maintainability
+
+**Status:** Complete! All Gantt chart fields are now editable with real-time sync to the plan editor.
+
+### Timeline Milestone Click to Edit (GitHub Issue #115) - ✅ CLOSED
+- [x] Made timeline milestones clickable (script.js:1323-1328)
+  - Added cursor pointer style to milestone container
+  - Added click event listener to each milestone element
+  - Reuses `openMilestoneTaskForm(taskName)` from Issue #99
+  - Switches to Plan Editor tab and opens task form
+- [x] Added visual hover effects (style.css:740-751)
+  - Milestone scales up to 1.1x on hover
+  - Diamond marker scales up to 1.5x on hover
+  - Milestone name becomes bold and changes to blue (#108bb9)
+  - Smooth transitions for all effects (0.2s ease)
+- [x] Integration with existing functionality
+  - Leverages same task lookup mechanism as milestones table
+  - Opens full task form with all fields populated
+  - Maintains consistency across all views
+
+**Implementation Details:**
+- Click handler attached during milestone rendering (updateTimeline function)
+- Both diamond marker and label are clickable (entire milestone container)
+- Hover effects provide clear visual feedback that element is interactive
+- Consistent behavior with milestones table click functionality
+
+**Status:** Complete! Timeline milestones are now fully interactive with clear visual feedback.
+
+**Bug Fix (Post-Implementation):**
+- [x] Fixed white screen error when clicking timeline milestones
+  - Problem: `switchTab()` function relied on `event.target` which didn't exist when called programmatically
+  - Fixed switchTab() to work both with click events and programmatic calls (script.js:4-23)
+  - Changed incorrect tab name from 'plan' to 'editor' (script.js:2982)
+  - Now finds correct tab by matching onclick attribute instead of using event.target
+
+### Timesheet Calculations Bug Fix (GitHub Issue #104) - ✅ CLOSED
+- [x] Added working day calculation helper functions (script.js:913-965)
+  - `isWeekend(date)` - Checks if date is Saturday or Sunday
+  - `isWorkingDay(date, holidays)` - Checks if date is not weekend/holiday
+  - `countWorkingDays(startDate, endDate, holidays)` - Counts working days
+  - `getWorkingDays(startDate, endDate, holidays)` - Returns array of working days
+- [x] Fixed hour distribution to use working days only (script.js:1057-1098)
+  - OLD: Divided hours across ALL calendar days (including weekends)
+  - NEW: Distributes hours ONLY across working days
+  - Calculates: totalHours = task.duration_days * 8 hours
+  - Divides by number of actual working days in date range
+  - Hours assigned only to working days, not weekends/holidays
+- [x] Added holiday support (script.js:978-988, 1048-1052, 1144-1146)
+  - Parses holidays from front matter YAML
+  - Supports date format: YYYY-MM-DD (e.g., "2025-01-01, 2025-12-25")
+  - Holidays excluded from working day calculations
+  - Visual styling: orange tint background with left border
+  - Both header and data cells styled for holidays
+- [x] Added resource allocation percentage support (script.js:1064-1087)
+  - Parses percentage from resource name (e.g., "JD[50%]" = 50% allocation)
+  - Multiplies hours by allocation percentage
+  - 50% allocation = 4 hours/day, 25% allocation = 2 hours/day
+  - Default 100% if no percentage specified
+  - Strips percentage from resource name for display
+- [x] Added visual styling (style.css:661-669)
+  - Weekends: gray background (#f5f5f5)
+  - Holidays: orange background (#fff3e0) with #ff9800 left border
+  - Header cells also styled appropriately
+- [x] Updated function signature (script.js:967, 682)
+  - Changed from `updateTimesheet(tasks)` to `updateTimesheet(tasks, frontMatter)`
+  - Passes front matter from API response to extract holidays
+
+**Problem Summary:**
+The original timesheet divided task hours across ALL calendar days, including weekends. For a 5-day task (Mon-Fri), it calculated `hoursPerDay = 40 hours / 7 days = 5.7 hours/day` and assigned those hours to Saturday and Sunday too.
+
+**Solution:**
+Now calculates working days first, then distributes hours only across those days. Same 5-day task: `hoursPerDay = 40 hours / 5 working days = 8 hours/day`, assigned only to Mon-Fri.
+
+**Example Scenarios:**
+
+1. **5-day task, Mon-Fri, 1 resource:**
+   - Duration: 5 working days * 8 hours = 40 total hours
+   - Working days: Mon, Tue, Wed, Thu, Fri (5 days)
+   - Hours per day: 40 / 5 = 8 hours/day
+   - Result: 8 hours Mon-Fri, 0 hours Sat-Sun
+
+2. **Same task with 50% allocation:**
+   - Total hours: still 40 hours
+   - Per resource: 40 hours (single resource)
+   - Allocation: 50% = 4 hours/day
+   - Result: 4 hours Mon-Fri, 0 hours Sat-Sun
+
+3. **Same task with holiday on Wednesday:**
+   - Working days: Mon, Tue, Thu, Fri (4 days - Wed excluded)
+   - Hours per day: 40 / 4 = 10 hours/day
+   - Result: 10 hours Mon/Tue/Thu/Fri, 0 hours Wed/Sat/Sun
+
+**Status:** Complete! Timesheet now accurately reflects working hours, excluding weekends and holidays, and supports resource allocation percentages.
+
+### Auto-add Labels to Front Matter (GitHub Issue #114) - ✅ CLOSED
+- [x] Created `collect_labels_from_plan()` function in backend (app.py:112-143)
+  - Extracts labels from task lines using hashtag syntax (#labelname)
+  - Regex pattern `#(\w+)` matches hashtag labels like #High #test #Risk
+  - Skips front matter and empty lines
+  - Converts labels to lowercase for consistency (prevents duplicates from case typos)
+  - Returns set of unique labels
+- [x] Created `update_front_matter_with_labels()` function in backend (app.py:146-205)
+  - Updates front matter with collected labels
+  - Merges with existing labels if present
+  - Creates front matter if missing
+  - Formats as: `labels: [LABEL1, LABEL2]`
+- [x] Updated `/api/parse` endpoint to call label functions (app.py:304-308)
+  - Collects labels from plan text
+  - Updates front matter with labels
+  - Returns `updated_plan_text` in response if labels found
+  - Logs collected labels for debugging
+- [x] Updated frontend to handle `updated_plan_text` (static/script.js:382-394)
+  - Checks for `updated_plan_text` in parse response
+  - Updates editor value silently (no re-parse)
+  - Updates line numbers
+  - Prevents recursive parsing loop
+- [x] Updated Kanban label functions to use lowercase (kanban.js)
+  - addNewLabel() normalizes new labels to lowercase (line 2139)
+  - renameLabel() normalizes renamed labels to lowercase (line 2407)
+  - Ensures consistency with backend label processing
+- [x] Fixed import errors in root app.py
+  - Changed from `noodle_core.format_converter` to `noodle_core` imports
+  - Manually parse front matter instead of using non-existent extract_frontmatter
+- [x] Tested with real project plan - labels correctly parsed and added to front matter
+
+**Implementation Details:**
+- Uses correct hashtag syntax (#) matching frontend parser (script.js:3918-3920)
+- Simple regex pattern `#(\w+)` for robust label detection
+- Frontend update is non-intrusive (doesn't trigger re-render)
+- Labels automatically collected on every parse/render
+- Supports both new and existing front matter
+- Merges with existing labels in front matter
+
+**Example:**
+```yaml
+# Input:
+---
+labels: [exhausted]
+---
+User requirements gathering 2d @jen #High #test #Risk
+MVP Build 10d @jen @kev 3% #High #test
+
+# Output (front matter updated):
+---
+labels: [exhausted, high, risk, test]
+---
+User requirements gathering 2d @jen #High #test #Risk
+MVP Build 10d @jen @kev 3% #High #test
+```
+
+**Status:** Complete! Labels using hashtag syntax (#labelname) are now automatically collected from all task lines and merged with existing front matter labels. All labels are normalized to lowercase to prevent duplicates from case typos (e.g., #High and #high both become 'high'). When users paste a project plan or type labels in tasks, the front matter updates automatically on the next render.
+
+### Gantt Chart Date Picker (GitHub Issue #118) - ✅ CLOSED
+- [x] Updated `makeEditable()` function to use date picker for date fields (script.js:1938-1957)
+  - Detects when field is 'start' or 'finish'
+  - Creates input with `type='date'` instead of `type='text'`
+  - Provides native browser date picker UI
+  - Automatically formats dates as YYYY-MM-DD
+  - Prevents invalid date entry
+- [x] Updated focus handling to skip text selection for date inputs
+  - Date inputs don't support select() method
+  - Only calls select() for text inputs
+
+**Implementation Details:**
+- Uses HTML5 date input type for native browser support
+- Works on all modern browsers (Chrome, Firefox, Safari, Edge)
+- Maintains existing validation (YYYY-MM-DD format check)
+- Date picker opens automatically when double-clicking Start or Finish date cells
+
+**User Experience:**
+- Double-click Start or Finish date in Gantt table
+- Calendar picker appears
+- Select date from calendar (or type manually)
+- Press Enter or click outside to save
+- Date is validated and synced back to editor
+
+**Status:** Complete! Users can now use a date picker when editing Start and Finish dates in the Gantt chart view, making date selection faster and more intuitive.
+
+### Fix Resource Edit Form Population (GitHub Issue #119) - ✅ COMPLETED
+- [x] Added global resource map storage (script.js:3, 384, 692)
+  - Store `globalResourceMap` from backend's `resource_map` (shortname → full name)
+  - Available after every parse for reverse lookups
+- [x] Fixed Resources table aggregation (script.js:831-870)
+  - Build reverse lookup map (full name → shortname) from globalResourceMap
+  - Store both `name` (display name) and `shortname` in resourceData
+  - Use shortname for form population
+- [x] Fixed Resources table double-click handler (script.js:886-891)
+  - Pass `resource.shortname` instead of `resource.name` to openResourceForm()
+  - Falls back to stripping @ if shortname not available
+  - Added debug logging to verify correct shortname passed
+- [x] Fixed Timesheet table double-click handler
+  - Strip @ symbol from resource name before passing to openResourceForm
+
+**Root Cause:**
+- Resources table aggregates data from `task.resources` which contains **display names** (e.g., "Jenni Mcaleer")
+- Front matter defines resources as `@Jen: Jenni Mcaleer, Developer` where "Jen" is the **shortname**
+- `populateResourceForm()` compares the parameter with shortnames in front matter
+- When user double-clicked "Jenni Mcaleer", the function searched for "Jenni Mcaleer" but found "Jen" - no match!
+- Form opened blank because comparison failed
+
+**Fix:**
+- Use backend's `resource_map` to build reverse lookup (full name → shortname)
+- Store both display name and shortname when aggregating resource data
+- Pass shortname to `openResourceForm()` instead of display name
+- Now correctly matches front matter: "Jen" === "Jen" ✅
+
+**Files Modified:**
+- `/Users/kev/Python/noodleplanner/packages/noodle-web/src/noodle_web/static/script.js`
+- `/Users/kev/Python/noodleplanner/static/script.js`
+
+**Status:** Complete! Double-clicking resources in the Resources table now correctly opens the resource edit form with pre-populated data using proper shortname lookup.
+
+### Gantt Chart Day View Enhancements (GitHub Issue #120) - ✅ COMPLETED
+- [x] Set default scale to 'days' view (script.js:1543, index.html:234)
+  - Changed `ganttScale` initial value from 'months' to 'days'
+  - Updated HTML select element to have 'days' option selected by default
+- [x] Add light green background to current date column (script.js:1697-1699, style.css:1041-1044)
+  - Added date comparison logic in `renderDayHeaders()` to detect today
+  - Apply 'gantt-today' CSS class to current date column
+  - Added CSS styling with light green background (#d4edda) and dark green text (#155724)
+- [x] Auto-scroll to current date (script.js:1621-1648)
+  - Added `scrollGanttToToday()` function to calculate scroll position
+  - Scrolls to align current date column with task name column
+  - Shows 2 days of context before current date
+  - Only applies in 'days' view for better UX
+
+**Implementation Details:**
+- Current date detection uses normalized timestamps (midnight) for accurate comparison
+- Scroll position calculated as: `todayOffset - taskColumnWidth - (2 * pixelsPerDay)`
+- CSS uses Bootstrap-style green colors for consistency with existing theme
+- Auto-scroll only triggers in days view to avoid disorientation in other scales
+
+**Files Modified:**
+- `/Users/kev/Python/noodleplanner/packages/noodle-web/src/noodle_web/static/script.js` (lines 1543, 1621-1648, 1697-1699)
+- `/Users/kev/Python/noodleplanner/packages/noodle-web/src/noodle_web/templates/index.html` (line 234)
+- `/Users/kev/Python/noodleplanner/packages/noodle-web/src/noodle_web/static/style.css` (lines 1041-1044)
+
+**Status:** Complete! Gantt chart now defaults to day view with current date highlighted in light green and automatically scrolled into view.

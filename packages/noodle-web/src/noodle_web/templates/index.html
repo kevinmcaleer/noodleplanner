@@ -189,7 +189,6 @@ Press Enter to render..."></textarea>
                                                 <th>Task Name</th>
                                                 <th>Start</th>
                                                 <th>Finish</th>
-                                                <th>Resources</th>
                                                 <th>%</th>
                                                 <th>RAG</th>
                                                 <th>Comment</th>
@@ -232,9 +231,9 @@ Press Enter to render..."></textarea>
                                     <div class="gantt-scale-selector">
                                         <label for="ganttScale">Scale:</label>
                                         <select id="ganttScale">
-                                            <option value="days">Days</option>
+                                            <option value="days" selected>Days</option>
                                             <option value="weeks">Weeks</option>
-                                            <option value="months" selected>Months</option>
+                                            <option value="months">Months</option>
                                             <option value="quarters">Quarters</option>
                                             <option value="years">Years</option>
                                         </select>
@@ -681,6 +680,13 @@ Build
                             </select>
                         </div>
 
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectSponsor">Sponsor</label>
+                            <input type="text" id="projectSponsor" placeholder="e.g., Jane Doe" oninput="autoSaveProjectDetails()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
                         <div class="form-group" style="flex: 1;">
                             <label for="projectBudget">Budget</label>
                             <input type="text" id="projectBudget" placeholder="e.g., $100,000" oninput="autoSaveProjectDetails()">

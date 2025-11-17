@@ -1,12 +1,43 @@
 let selectedFile = null;
 let renderTimeout = null;
+let globalResourceMap = {}; // Maps shortnames to full names from backend
 
 function switchTab(tabName) {
+    // Remove active class from all tabs and content
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    event.target.classList.add('active');
-    document.getElementById(tabName + '-tab').classList.add('active');
+    // Find and activate the correct tab button
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+        const onclick = tab.getAttribute('onclick');
+        if (onclick && onclick.includes(`'${tabName}'`)) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Activate the corresponding content
+    const tabContent = document.getElementById(tabName + '-tab');
+    if (tabContent) {
+        tabContent.classList.add('active');
+    }
+
+    // If switching to Gantt tab, re-render to measure column widths correctly
+    if (tabName === 'gantt') {
+        console.log('Switched to Gantt tab, checking if chart needs re-render...');
+        setTimeout(() => {
+            // Check if we have tasks to display
+            if (ganttTasks && ganttTasks.length > 0) {
+                console.log('Re-rendering Gantt chart with', ganttTasks.length, 'tasks');
+                renderGanttChart();
+            } else if (window.parsedPlanData && window.parsedPlanData.tasks) {
+                console.log('Initializing Gantt chart with', window.parsedPlanData.tasks.length, 'tasks');
+                updateGantt(window.parsedPlanData.tasks);
+            } else {
+                console.log('No task data available for Gantt chart');
+            }
+        }, 50);
+    }
 }
 
 // Initialize editor functionality when DOM is ready
@@ -659,14 +690,25 @@ async function updateProjectSummary(planText, projectName) {
             ragGreenElement.textContent = ragCounts.green;
         }
 
+        // Store resource map globally BEFORE updating tables that need it
+        globalResourceMap = result.resource_map || {};
+        console.log('Received resource_map from backend:', result.resource_map);
+        console.log('Set globalResourceMap to:', globalResourceMap);
+        console.log('globalResourceMap keys:', Object.keys(globalResourceMap));
+        console.log('globalResourceMap entries:', JSON.stringify(Object.entries(globalResourceMap)));
+        // Log each entry individually
+        for (const [key, value] of Object.entries(globalResourceMap)) {
+            console.log(`  Resource mapping: "${key}" -> "${value}"`);
+        }
+
         // Update Milestones Table
         updateMilestonesTable(result.tasks || []);
 
-        // Update Resources Table
+        // Update Resources Table (needs globalResourceMap to be set first)
         updateResourcesTable(result.tasks || []);
 
         // Update Timesheet
-        updateTimesheet(result.tasks || []);
+        updateTimesheet(result.tasks || [], result.front_matter || {});
 
         // Update Timeline
         updateTimeline(result.tasks || [], result.project_name);
@@ -676,6 +718,20 @@ async function updateProjectSummary(planText, projectName) {
 
         // Update Analysis (pass planText directly since front_matter might be an object)
         updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
+
+        // Update editor with labels if backend found and added them
+        if (result.updated_plan_text && result.updated_plan_text !== planText) {
+            console.log('Backend returned updated plan text with labels');
+            console.log('Original length:', planText.length);
+            console.log('Updated length:', result.updated_plan_text.length);
+            const editor = document.getElementById('planEditor');
+            if (editor) {
+                // Update editor value without triggering another parse
+                // The current parse already has the updated data
+                editor.value = result.updated_plan_text;
+                updateLineNumbers();
+            }
+        }
 
     } catch (error) {
         console.error('Error updating project summary:', error);
@@ -744,11 +800,6 @@ function updateMilestonesTable(tasks) {
             finishCell.textContent = task.finish || '-';
             row.appendChild(finishCell);
 
-            // Resources cell (no duration column)
-            const resourcesCell = document.createElement('td');
-            resourcesCell.textContent = task.resources || '-';
-            row.appendChild(resourcesCell);
-
             // Percent cell
             const percentCell = document.createElement('td');
             percentCell.textContent = task.percent || '-';
@@ -766,6 +817,12 @@ function updateMilestonesTable(tasks) {
             const commentCell = document.createElement('td');
             commentCell.textContent = task.comment || '-';
             row.appendChild(commentCell);
+
+            // Make row clickable to open task form
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', () => {
+                openMilestoneTaskForm(task.name);
+            });
 
             tbody.appendChild(row);
         });
@@ -796,6 +853,18 @@ function updateResourcesTable(tasks) {
         // Clear existing rows
         tbody.innerHTML = '';
 
+        // Build reverse lookup map: full name -> shortname
+        const fullNameToShortname = {};
+        console.log('Building reverse lookup from globalResourceMap:', globalResourceMap);
+        Object.keys(globalResourceMap).forEach(shortname => {
+            const fullName = globalResourceMap[shortname];
+            if (fullName) {
+                fullNameToShortname[fullName.toLowerCase()] = shortname;
+                console.log('Mapped:', fullName.toLowerCase(), '->', shortname);
+            }
+        });
+        console.log('Final fullNameToShortname map:', fullNameToShortname);
+
         // Aggregate resource data from tasks
         const resourceData = {};
 
@@ -810,8 +879,13 @@ function updateResourcesTable(tasks) {
 
             resources.forEach(resource => {
                 if (!resourceData[resource]) {
+                    // Look up shortname from full name
+                    const shortname = fullNameToShortname[resource.toLowerCase()] || resource;
+                    console.log('Resource:', resource, '-> shortname:', shortname, '(from lookup:', resource.toLowerCase(), ')');
+
                     resourceData[resource] = {
                         name: resource,
+                        shortname: shortname, // Store shortname for form population
                         taskCount: 0,
                         totalDays: 0,
                         totalHours: 0
@@ -837,6 +911,13 @@ function updateResourcesTable(tasks) {
             const nameCell = document.createElement('td');
             nameCell.textContent = resource.name;
             nameCell.classList.add('resource-name');
+            nameCell.style.cursor = 'pointer';
+            nameCell.addEventListener('dblclick', () => {
+                // Use the stored shortname for form population
+                const shortname = resource.shortname || resource.name.replace(/^@/, '');
+                console.log('Opening resource form for:', shortname, 'from resource.name:', resource.name, 'shortname:', resource.shortname);
+                openResourceForm(shortname);
+            });
             row.appendChild(nameCell);
 
             // Tasks Assigned cell
@@ -896,7 +977,61 @@ function updateResourcesTable(tasks) {
     }
 }
 
-function updateTimesheet(tasks) {
+/**
+ * Check if a date is a weekend (Saturday or Sunday)
+ */
+function isWeekend(date) {
+    const day = date.getDay();
+    return day === 0 || day === 6; // Sunday = 0, Saturday = 6
+}
+
+/**
+ * Check if a date is a working day (not weekend and not holiday)
+ */
+function isWorkingDay(date, holidays = []) {
+    if (isWeekend(date)) {
+        return false;
+    }
+
+    const dateStr = date.toISOString().split('T')[0];
+    return !holidays.includes(dateStr);
+}
+
+/**
+ * Count working days between two dates (inclusive)
+ */
+function countWorkingDays(startDate, endDate, holidays = []) {
+    let count = 0;
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+        if (isWorkingDay(current, holidays)) {
+            count++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+
+    return count;
+}
+
+/**
+ * Get list of all working days between two dates
+ */
+function getWorkingDays(startDate, endDate, holidays = []) {
+    const workingDays = [];
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+        if (isWorkingDay(current, holidays)) {
+            workingDays.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
+    }
+
+    return workingDays;
+}
+
+function updateTimesheet(tasks, frontMatter = {}) {
     try {
         // Show timesheet content, hide placeholder
         const placeholder = document.querySelector('#timesheet-view .timesheet-placeholder');
@@ -905,6 +1040,18 @@ function updateTimesheet(tasks) {
         if (placeholder && content) {
             placeholder.style.display = 'none';
             content.style.display = 'block';
+        }
+
+        // Parse holidays from front matter
+        const holidays = [];
+        if (frontMatter.holidays) {
+            // Holidays can be a string or array in front matter
+            const holidayStr = typeof frontMatter.holidays === 'string' ? frontMatter.holidays : '';
+            // Parse dates in format like "2025-01-01, 2025-12-25" or YAML list format
+            const holidayMatches = holidayStr.match(/\d{4}-\d{2}-\d{2}/g);
+            if (holidayMatches) {
+                holidays.push(...holidayMatches);
+            }
         }
 
         // Get table elements
@@ -965,6 +1112,12 @@ function updateTimesheet(tasks) {
                 th.classList.add('timesheet-weekend');
             }
 
+            // Add holiday class if applicable
+            const dateKey = date.toISOString().split('T')[0];
+            if (holidays.includes(dateKey)) {
+                th.classList.add('timesheet-holiday');
+            }
+
             headerRow.appendChild(th);
         });
 
@@ -975,24 +1128,46 @@ function updateTimesheet(tasks) {
             const resources = task.resources.split(',').map(r => r.trim()).filter(r => r && r !== '-');
             const taskStart = new Date(task.start);
             const taskFinish = new Date(task.finish);
-            const taskDuration = Math.ceil((taskFinish - taskStart) / (1000 * 60 * 60 * 24)) + 1;
-            const hoursPerDay = taskDuration > 0 ? (task.duration_days * 8) / taskDuration : 0;
+
+            // Get only working days for this task
+            const workingDays = getWorkingDays(taskStart, taskFinish, holidays);
+            const numWorkingDays = workingDays.length;
+
+            if (numWorkingDays === 0) {
+                return; // Skip task if no working days
+            }
+
+            // Calculate hours per working day
+            // task.duration_days is already in working days, so we use 8 hours per day
+            const totalHours = task.duration_days * 8;
+            const hoursPerResource = totalHours / resources.length;
+            const hoursPerDay = hoursPerResource / numWorkingDays;
 
             resources.forEach(resource => {
-                if (!resourceData[resource]) {
-                    resourceData[resource] = {};
+                // Parse resource allocation percentage (e.g., "JD[50%]" means 50% allocation)
+                let resourceName = resource;
+                let allocationPercent = 100; // Default to 100%
+
+                const allocationMatch = resource.match(/^(.+?)\[(\d+)%\]$/);
+                if (allocationMatch) {
+                    resourceName = allocationMatch[1].trim();
+                    allocationPercent = parseInt(allocationMatch[2]);
                 }
 
-                // For each day the task spans, add hours
-                const currentDate = new Date(taskStart);
-                while (currentDate <= taskFinish) {
-                    const dateKey = currentDate.toISOString().split('T')[0];
-                    if (!resourceData[resource][dateKey]) {
-                        resourceData[resource][dateKey] = 0;
-                    }
-                    resourceData[resource][dateKey] += hoursPerDay;
-                    currentDate.setDate(currentDate.getDate() + 1);
+                if (!resourceData[resourceName]) {
+                    resourceData[resourceName] = {};
                 }
+
+                // Distribute hours only across working days
+                workingDays.forEach(date => {
+                    const dateKey = date.toISOString().split('T')[0];
+                    if (!resourceData[resourceName][dateKey]) {
+                        resourceData[resourceName][dateKey] = 0;
+                    }
+                    // Apply allocation percentage
+                    const adjustedHours = hoursPerDay * (allocationPercent / 100);
+                    resourceData[resourceName][dateKey] += adjustedHours;
+                });
             });
         });
 
@@ -1007,6 +1182,12 @@ function updateTimesheet(tasks) {
             const nameCell = document.createElement('td');
             nameCell.textContent = resource;
             nameCell.className = 'timesheet-resource-name';
+            nameCell.style.cursor = 'pointer';
+            nameCell.addEventListener('dblclick', () => {
+                // Strip @ symbol if present before passing to form
+                const shortname = resource.replace(/^@/, '');
+                openResourceForm(shortname);
+            });
             row.appendChild(nameCell);
 
             // Add cell for each date
@@ -1032,10 +1213,15 @@ function updateTimesheet(tasks) {
                     cell.classList.add('timesheet-hours-none');
                 }
 
-                // Add weekend class
+                // Add weekend and holiday classes
                 const dayOfWeek = date.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) {
                     cell.classList.add('timesheet-weekend');
+                }
+
+                // Check if it's a holiday
+                if (holidays.includes(dateKey)) {
+                    cell.classList.add('timesheet-holiday');
                 }
 
                 row.appendChild(cell);
@@ -1319,6 +1505,12 @@ function updateTimeline(tasks, projectName) {
             const milestoneDiv = document.createElement('div');
             milestoneDiv.className = 'timeline-milestone';
             milestoneDiv.style.left = position + 'px';
+            milestoneDiv.style.cursor = 'pointer';
+
+            // Make milestone clickable to open task form
+            milestoneDiv.addEventListener('click', () => {
+                openMilestoneTaskForm(task.name);
+            });
 
             // Create connecting line if label is offset
             if (labelOffset !== 0) {
@@ -1365,12 +1557,31 @@ function updateTimeline(tasks, projectName) {
 
 // Gantt chart state
 let ganttTasks = [];
-let ganttScale = 'months';
+let ganttScale = 'days';
 let ganttMinDate = null;
 let ganttMaxDate = null;
 let ganttPixelsPerDay = 30;
 
+// Helper function to parse date strings consistently as local dates
+// This avoids timezone issues where YYYY-MM-DD is parsed as UTC
+function parseLocalDate(dateString) {
+    if (!dateString) return null;
+
+    // Split the date string (YYYY-MM-DD)
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return new Date(dateString);
+
+    // Create date using local timezone (month is 0-indexed)
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+
+    return new Date(year, month, day);
+}
+
 function updateGantt(tasks) {
+    console.log('updateGantt() called with', tasks ? tasks.length : 0, 'tasks');
+
     try {
         // Show gantt content, hide placeholder
         const placeholder = document.querySelector('#gantt-view .placeholder-view');
@@ -1383,15 +1594,23 @@ function updateGantt(tasks) {
 
         // Store tasks globally for editing
         ganttTasks = tasks;
+        console.log('Stored', ganttTasks.length, 'tasks in ganttTasks global variable');
 
         // Filter tasks with dates
         const tasksWithDates = tasks.filter(t => t.start && t.finish);
+        console.log('Filtered to', tasksWithDates.length, 'tasks with dates');
         if (tasksWithDates.length === 0) {
+            console.log('No tasks with dates, skipping Gantt rendering');
             return;
         }
 
         // Find date range and add 1 week buffer before/after
-        const allDates = tasksWithDates.flatMap(t => [new Date(t.start), new Date(t.finish)]);
+        // Parse dates explicitly to avoid timezone issues
+        const allDates = tasksWithDates.flatMap(t => {
+            const start = parseLocalDate(t.start);
+            const finish = parseLocalDate(t.finish);
+            return [start, finish];
+        });
         ganttMinDate = new Date(Math.min(...allDates));
         ganttMaxDate = new Date(Math.max(...allDates));
 
@@ -1418,6 +1637,8 @@ function updateGantt(tasks) {
 }
 
 function renderGanttChart() {
+    console.log('renderGanttChart() called with scale:', ganttScale, 'and', ganttTasks ? ganttTasks.length : 0, 'tasks');
+
     // Adjust pixels per day based on scale
     switch (ganttScale) {
         case 'days':
@@ -1437,11 +1658,89 @@ function renderGanttChart() {
             break;
     }
 
+    console.log('Set ganttPixelsPerDay to:', ganttPixelsPerDay);
+
     // Render headers based on scale
     renderGanttHeaders();
 
-    // Render task rows
-    renderGanttRows();
+    // Calculate actual column width after headers are rendered (includes padding + borders)
+    // This is used for positioning weekend highlights and task bars
+    // Check if Gantt tab is visible before measuring
+    const ganttTab = document.getElementById('gantt-view');
+    const isVisible = ganttTab && ganttTab.classList.contains('active');
+
+    if (!isVisible) {
+        // Gantt tab not visible yet, use a fallback width and render
+        // Will re-measure when tab is switched to
+        console.log('Gantt tab not visible, using fallback column width (will re-measure on tab switch)');
+        window.ganttActualColumnWidth = ganttPixelsPerDay + 17; // 40px + 16px padding + 1px border
+        renderGanttRows();
+        return;
+    }
+
+    // Use requestAnimationFrame to ensure DOM has fully laid out before measuring
+    requestAnimationFrame(() => {
+        const firstHeader = document.querySelector('.gantt-month');
+        if (firstHeader) {
+            const measuredWidth = firstHeader.offsetWidth;
+
+            // If offsetWidth is 0, retry with a longer delay
+            if (measuredWidth === 0) {
+                console.warn('Column width measured as 0, retrying with longer delay...');
+                setTimeout(() => {
+                    const retryHeader = document.querySelector('.gantt-month');
+                    if (retryHeader) {
+                        const retryWidth = retryHeader.offsetWidth;
+                        // Fallback to base width if still 0
+                        window.ganttActualColumnWidth = retryWidth > 0 ? retryWidth : (ganttPixelsPerDay + 17); // 40 + padding/border
+                        console.log('Actual column width (retry):', window.ganttActualColumnWidth, 'px (base:', ganttPixelsPerDay, 'px)');
+
+                        // Re-render task rows with correct column width
+                        renderGanttRows();
+
+                        // Auto-scroll to current date (only in days view)
+                        if (ganttScale === 'days') {
+                            scrollGanttToToday();
+                        }
+                    }
+                }, 150);
+            } else {
+                window.ganttActualColumnWidth = measuredWidth;
+                console.log('Actual column width:', window.ganttActualColumnWidth, 'px (base:', ganttPixelsPerDay, 'px)');
+
+                // Re-render task rows with correct column width
+                renderGanttRows();
+
+                // Auto-scroll to current date (only in days view)
+                if (ganttScale === 'days') {
+                    scrollGanttToToday();
+                }
+            }
+        }
+    });
+}
+
+function scrollGanttToToday() {
+    // Find the gantt wrapper and the today column
+    const ganttWrapper = document.querySelector('.gantt-wrapper');
+    const todayColumn = document.querySelector('.gantt-today');
+
+    if (!ganttWrapper || !todayColumn) {
+        return;
+    }
+
+    // Calculate the scroll position to align today's date with the left side of task columns
+    // Get the offset of the today column relative to its parent
+    const todayOffset = todayColumn.offsetLeft;
+
+    // Get the width of the task name column (gantt-table-side)
+    const taskColumnWidth = document.querySelector('.gantt-table-side')?.offsetWidth || 0;
+
+    // Scroll so that today's column appears right after the task column
+    // Subtract a bit to give some context (show a day or two before)
+    const scrollPosition = todayOffset - taskColumnWidth - (ganttPixelsPerDay * 2);
+
+    ganttWrapper.scrollLeft = Math.max(0, scrollPosition);
 }
 
 function renderGanttHeaders() {
@@ -1504,21 +1803,37 @@ function renderDayHeaders(container) {
     // This ensures we have exactly one header per day in the range
     let currentDate = new Date(ganttMinDate);
     const endDate = new Date(ganttMaxDate);
+    const today = new Date();
 
     // Reset times to midnight for accurate day counting
     currentDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    console.log('Day headers - ganttMinDate:', ganttMinDate.toISOString(), 'first 5 headers:');
+    let headerIndex = 0;
 
     while (currentDate <= endDate) {
+        if (headerIndex < 15) {
+            console.log(`Header ${headerIndex}: ${currentDate.toDateString()}, showing day: ${currentDate.getDate()}`);
+        }
+
         const dayDiv = document.createElement('div');
         dayDiv.className = 'gantt-month';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
         dayDiv.textContent = currentDate.getDate();
         dayDiv.title = currentDate.toLocaleDateString();
+
+        // Highlight current date with light green background
+        if (currentDate.getTime() === today.getTime()) {
+            dayDiv.classList.add('gantt-today');
+        }
+
         container.appendChild(dayDiv);
 
         // Move to next day
         currentDate.setDate(currentDate.getDate() + 1);
+        headerIndex++;
     }
 }
 
@@ -1593,13 +1908,25 @@ function renderYearHeaders(container) {
 }
 
 function renderGanttRows() {
+    console.log('renderGanttRows() called with', ganttTasks ? ganttTasks.length : 0, 'tasks');
+
     const ganttInfoBody = document.getElementById('ganttInfoBody');
     const ganttBody = document.getElementById('ganttBody');
 
-    if (!ganttInfoBody || !ganttBody) return;
+    if (!ganttInfoBody || !ganttBody) {
+        console.log('Missing gantt DOM elements:', { ganttInfoBody, ganttBody });
+        return;
+    }
 
     ganttInfoBody.innerHTML = '';
     ganttBody.innerHTML = '';
+
+    if (!ganttTasks || ganttTasks.length === 0) {
+        console.log('No gantt tasks to render');
+        return;
+    }
+
+    console.log('Rendering', ganttTasks.length, 'gantt tasks with column width:', window.ganttActualColumnWidth || ganttPixelsPerDay);
 
     // Render weekend/day grid if scale is days
     if (ganttScale === 'days') {
@@ -1630,19 +1957,28 @@ function renderGanttRows() {
         nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
         infoRow.appendChild(nameCell);
 
-        // Duration cell (calculated, not editable)
+        // Duration cell (editable)
         const durationCell = document.createElement('td');
+        durationCell.classList.add('editable');
+        durationCell.dataset.field = 'duration';
         durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+        durationCell.addEventListener('dblclick', () => makeEditable(durationCell, task, index));
         infoRow.appendChild(durationCell);
 
-        // Start cell (calculated, not editable)
+        // Start cell (editable)
         const startCell = document.createElement('td');
+        startCell.classList.add('editable');
+        startCell.dataset.field = 'start';
         startCell.textContent = task.start || '-';
+        startCell.addEventListener('dblclick', () => makeEditable(startCell, task, index));
         infoRow.appendChild(startCell);
 
-        // Finish cell (calculated, not editable)
+        // Finish cell (editable)
         const finishCell = document.createElement('td');
+        finishCell.classList.add('editable');
+        finishCell.dataset.field = 'finish';
         finishCell.textContent = task.finish || '-';
+        finishCell.addEventListener('dblclick', () => makeEditable(finishCell, task, index));
         infoRow.appendChild(finishCell);
 
         // Resources cell (editable)
@@ -1653,9 +1989,12 @@ function renderGanttRows() {
         resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
         infoRow.appendChild(resourcesCell);
 
-        // Percent cell (not directly editable, but shown)
+        // Percent cell (editable)
         const percentCell = document.createElement('td');
+        percentCell.classList.add('editable');
+        percentCell.dataset.field = 'percent';
         percentCell.textContent = task.percent || '-';
+        percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
         infoRow.appendChild(percentCell);
 
         // Comment cell (editable)
@@ -1674,8 +2013,17 @@ function renderGanttRows() {
         barRow.dataset.taskIndex = index;
 
         if (task.start && task.finish) {
-            const taskStart = new Date(task.start);
-            const taskFinish = new Date(task.finish);
+            // Parse dates consistently as local dates to avoid timezone issues
+            const taskStart = parseLocalDate(task.start);
+            const taskFinish = parseLocalDate(task.finish);
+
+            if (task.name.toLowerCase().includes('play') || task.name.toLowerCase().includes('give') || task.name.toLowerCase().includes('card')) {
+                console.log('DEBUG - Rendering task:', task.name);
+                console.log('  Start:', task.start, '→', taskStart.toDateString());
+                console.log('  Finish:', task.finish, '→', taskFinish.toDateString());
+                console.log('  Duration from backend:', task.duration_days, 'days');
+                console.log('  Is summary:', task.is_summary);
+            }
 
             // Reset times to midnight for accurate day counting
             const minDate = new Date(ganttMinDate);
@@ -1683,18 +2031,39 @@ function renderGanttRows() {
             taskStart.setHours(0, 0, 0, 0);
             taskFinish.setHours(0, 0, 0, 0);
 
-            // Calculate days from start (how many days between minDate and taskStart)
-            const daysFromStart = Math.round((taskStart - minDate) / (1000 * 60 * 60 * 24));
+            // Calculate days from start by counting days (same method as header rendering)
+            // This ensures pixel-perfect alignment with day headers
+            let daysFromStart = 0;
+            let tempDate = new Date(minDate);
+            while (tempDate < taskStart) {
+                tempDate.setDate(tempDate.getDate() + 1);
+                daysFromStart++;
+            }
 
-            // Calculate task duration in days (inclusive of both start and end day)
-            const taskDuration = Math.round((taskFinish - taskStart) / (1000 * 60 * 60 * 24)) + 1;
+            // Calculate task duration in days by counting (inclusive of both start and end day)
+            let taskDuration = 1; // Start day counts as 1
+            tempDate = new Date(taskStart);
+            while (tempDate < taskFinish) {
+                tempDate.setDate(tempDate.getDate() + 1);
+                taskDuration++;
+            }
 
             const bar = document.createElement('div');
             bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
-            bar.style.left = (daysFromStart * ganttPixelsPerDay) + 'px';
-            bar.style.width = (taskDuration * ganttPixelsPerDay) + 'px';
+            const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+            const leftPos = daysFromStart * columnWidth;
+            const barWidth = taskDuration * columnWidth;
+            bar.style.left = leftPos + 'px';
+            bar.style.width = barWidth + 'px';
             bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
             bar.dataset.taskIndex = index;
+
+            // Debug logging for positioning
+            if (task.name.toLowerCase().includes('play') || task.name.toLowerCase().includes('give')) {
+                console.log('  Bar positioning: daysFromStart =', daysFromStart, ', taskDuration =', taskDuration);
+                console.log('  Bar CSS: left =', leftPos, 'px, width =', barWidth, 'px');
+                console.log('  Column width used:', columnWidth, 'px');
+            }
 
             // Add drag handles
             const leftHandle = document.createElement('div');
@@ -1721,8 +2090,13 @@ function renderGanttRows() {
             barRow.appendChild(bar);
         }
 
+        ganttInfoBody.appendChild(infoRow);
         ganttBody.appendChild(barRow);
     });
+
+    console.log('Finished rendering', ganttTasks.length, 'tasks to Gantt chart');
+    console.log('ganttInfoBody has', ganttInfoBody.children.length, 'rows');
+    console.log('ganttBody has', ganttBody.children.length, 'elements (includes weekend highlights)');
 }
 
 function renderWeekendHighlights(container) {
@@ -1734,14 +2108,22 @@ function renderWeekendHighlights(container) {
     currentDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
 
+    console.log('Weekend highlights - ganttMinDate:', ganttMinDate.toISOString(), 'first 5 days:');
+
     let dayIndex = 0;
     while (currentDate <= endDate) {
         const dayOfWeek = currentDate.getDay();
+
+        if (dayIndex < 15) {
+            console.log(`Day ${dayIndex}: ${currentDate.toDateString()}, day of week: ${dayOfWeek} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek]}), isWeekend: ${dayOfWeek === 0 || dayOfWeek === 6}`);
+        }
+
         if (dayOfWeek === 0 || dayOfWeek === 6) {
             const weekend = document.createElement('div');
             weekend.className = 'gantt-weekend';
-            weekend.style.left = (dayIndex * ganttPixelsPerDay) + 'px';
-            weekend.style.width = ganttPixelsPerDay + 'px';
+            const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+            weekend.style.left = (dayIndex * columnWidth) + 'px';
+            weekend.style.width = columnWidth + 'px';
             container.appendChild(weekend);
         }
 
@@ -1764,39 +2146,113 @@ function makeEditable(cell, task, taskIndex) {
     if (task.is_summary && cell.dataset.field === 'resources') return;  // Don't edit resources for summary tasks
 
     const field = cell.dataset.field;
-    const currentValue = field === 'name' ? task[field] : (task[field] || '');
+
+    // Get current value based on field type
+    let currentValue;
+    if (field === 'duration') {
+        currentValue = task.duration_days ? `${task.duration_days}` : '';
+    } else if (field === 'start') {
+        currentValue = task.start || '';
+    } else if (field === 'finish') {
+        currentValue = task.finish || '';
+    } else if (field === 'percent') {
+        currentValue = task.percent ? task.percent.replace('%', '') : '';
+    } else {
+        currentValue = task[field] || '';
+    }
 
     cell.classList.add('editing');
     const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentValue;
+
+    // Use date picker for date fields
+    if (field === 'start' || field === 'finish') {
+        input.type = 'date';
+        input.value = currentValue;
+    } else {
+        input.type = 'text';
+        input.value = currentValue;
+    }
+
     input.style.width = '100%';
 
     const originalContent = cell.textContent;
     cell.textContent = '';
     cell.appendChild(input);
     input.focus();
-    input.select();
+
+    // Select text only for text inputs (date inputs don't support select())
+    if (input.type === 'text') {
+        input.select();
+    }
 
     const saveEdit = () => {
-        const newValue = input.value;
+        const newValue = input.value.trim();
         cell.classList.remove('editing');
 
         if (newValue !== currentValue) {
-            // Update task data
-            task[field] = newValue;
-            ganttTasks[taskIndex][field] = newValue;
+            // Handle different field types
+            if (field === 'duration') {
+                // Parse duration (remove 'd' suffix if present)
+                const durationValue = parseInt(newValue.replace(/d$/i, ''));
+                if (!isNaN(durationValue) && durationValue > 0) {
+                    task.duration_days = durationValue;
+                    ganttTasks[taskIndex].duration_days = durationValue;
+                    syncGanttDurationToEditor(task, taskIndex);
+                    cell.textContent = `${durationValue}d`;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else if (field === 'start') {
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(newValue)) {
+                    task.start = newValue;
+                    ganttTasks[taskIndex].start = newValue;
+                    syncGanttStartDateToEditor(task, taskIndex);
+                    cell.textContent = newValue;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else if (field === 'finish') {
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(newValue)) {
+                    task.finish = newValue;
+                    ganttTasks[taskIndex].finish = newValue;
+                    syncGanttFinishDateToEditor(task, taskIndex);
+                    cell.textContent = newValue;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else if (field === 'percent') {
+                // Parse percent (remove '%' suffix if present)
+                const percentValue = parseInt(newValue.replace(/%$/i, ''));
+                if (!isNaN(percentValue) && percentValue >= 0 && percentValue <= 100) {
+                    task.percent = `${percentValue}%`;
+                    ganttTasks[taskIndex].percent = `${percentValue}%`;
+                    syncGanttPercentToEditor(task, taskIndex);
+                    cell.textContent = `${percentValue}%`;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else {
+                // Original fields: name, resources, comment
+                // For name field, save the old name before updating
+                const oldName = field === 'name' ? task.name : null;
 
-            // Sync to editor
-            syncGanttEditToEditor(task, taskIndex, field, newValue);
-        }
+                task[field] = newValue;
+                ganttTasks[taskIndex][field] = newValue;
+                syncGanttEditToEditor(task, taskIndex, field, newValue, oldName);
 
-        // Update cell display
-        if (field === 'name') {
-            const indent = '  '.repeat(task.level);
-            cell.textContent = indent + newValue;
+                // Update cell display
+                if (field === 'name') {
+                    const indent = '  '.repeat(task.level);
+                    cell.textContent = indent + newValue;
+                } else {
+                    cell.textContent = newValue || '-';
+                }
+            }
         } else {
-            cell.textContent = newValue || '-';
+            // No change - restore original content
+            cell.textContent = originalContent;
         }
     };
 
@@ -1838,34 +2294,36 @@ function setupBarDragListeners(bar, task, taskIndex) {
     const onMouseMove = (e) => {
         if (!dragState) return;
 
+        const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
         const deltaX = e.clientX - dragState.startX;
-        const deltaDays = Math.round(deltaX / ganttPixelsPerDay);
+        const deltaDays = Math.round(deltaX / columnWidth);
 
         if (dragState.handleType === 'left') {
             // Adjust start date
-            const newLeft = dragState.startLeft + (deltaDays * ganttPixelsPerDay);
-            const newWidth = dragState.startWidth - (deltaDays * ganttPixelsPerDay);
-            if (newWidth > ganttPixelsPerDay) {
+            const newLeft = dragState.startLeft + (deltaDays * columnWidth);
+            const newWidth = dragState.startWidth - (deltaDays * columnWidth);
+            if (newWidth > columnWidth) {
                 bar.style.left = newLeft + 'px';
                 bar.style.width = newWidth + 'px';
             }
         } else if (dragState.handleType === 'right') {
             // Adjust finish date
-            const newWidth = dragState.startWidth + (deltaDays * ganttPixelsPerDay);
-            if (newWidth > ganttPixelsPerDay) {
+            const newWidth = dragState.startWidth + (deltaDays * columnWidth);
+            if (newWidth > columnWidth) {
                 bar.style.width = newWidth + 'px';
             }
         } else {
             // Move entire bar
-            bar.style.left = (dragState.startLeft + (deltaDays * ganttPixelsPerDay)) + 'px';
+            bar.style.left = (dragState.startLeft + (deltaDays * columnWidth)) + 'px';
         }
     };
 
     const onMouseUp = (e) => {
         if (!dragState) return;
 
+        const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
         const deltaX = e.clientX - dragState.startX;
-        const deltaDays = Math.round(deltaX / ganttPixelsPerDay);
+        const deltaDays = Math.round(deltaX / columnWidth);
 
         if (deltaDays !== 0) {
             updateTaskDates(dragState.task, dragState.taskIndex, dragState.handleType, deltaDays);
@@ -1882,13 +2340,13 @@ function setupBarDragListeners(bar, task, taskIndex) {
 
 function updateTaskDates(task, taskIndex, handleType, deltaDays) {
     console.log('updateTaskDates called:', { task: task.name, handleType, deltaDays });
+    console.log('  Original dates:', { start: task.start, finish: task.finish, duration_days: task.duration_days });
 
-    const startDate = new Date(task.start);
-    const finishDate = new Date(task.finish);
+    // Use parseLocalDate to avoid timezone issues
+    const startDate = parseLocalDate(task.start);
+    const finishDate = parseLocalDate(task.finish);
 
-    // Normalize to midnight to avoid timezone issues
-    startDate.setHours(0, 0, 0, 0);
-    finishDate.setHours(0, 0, 0, 0);
+    console.log('  Parsed dates:', { start: startDate.toDateString(), finish: finishDate.toDateString() });
 
     if (handleType === 'left') {
         startDate.setDate(startDate.getDate() + deltaDays);
@@ -1908,23 +2366,29 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
         ganttTasks[taskIndex].finish = task.finish;
     }
 
-    // Recalculate duration (use same formula as rendering for consistency)
-    const newStartDate = new Date(task.start);
-    const newFinishDate = new Date(task.finish);
-    newStartDate.setHours(0, 0, 0, 0);
-    newFinishDate.setHours(0, 0, 0, 0);
-    const daysDiff = (newFinishDate - newStartDate) / (1000 * 60 * 60 * 24);
-    task.duration_days = Math.round(daysDiff) + 1;
+    console.log('  Updated dates:', { start: task.start, finish: task.finish });
+
+    // Recalculate duration by counting days (same method as rendering)
+    const newStartDate = parseLocalDate(task.start);
+    const newFinishDate = parseLocalDate(task.finish);
+
+    // Count days from start to finish (inclusive)
+    let taskDuration = 1; // Start day counts as 1
+    let tempDate = new Date(newStartDate);
+    while (tempDate < newFinishDate) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        taskDuration++;
+    }
+
+    task.duration_days = taskDuration;
     ganttTasks[taskIndex].duration_days = task.duration_days;
 
-    console.log('Duration calculation:', {
+    console.log('  Duration calculation:', {
         task: task.name,
         handleType,
         deltaDays,
         start: task.start,
         finish: task.finish,
-        daysDiff,
-        rounded: Math.round(daysDiff),
         duration_days: task.duration_days
     });
 
@@ -1945,29 +2409,36 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
         syncGanttStartDateToEditor(task, taskIndex);
     }
 
-    // Re-render to show updated dates in table
-    renderGanttChart();
+    // Trigger a full re-parse to recalculate dependencies
+    // This ensures successor tasks are recalculated if they depend on this task
+    // and ensures non-working days are respected
+    console.log('Triggering full plan re-parse to recalculate dependencies');
+    renderText();
 }
 
-function syncGanttEditToEditor(task, taskIndex, field, newValue) {
+function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null) {
     // Get the editor content
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
     const lines = editor.value.split('\n');
 
+    // For name field, search using oldName; otherwise use task.name
+    const searchName = (field === 'name' && oldName) ? oldName : task.name;
+
     // Find the task line (need to match by task name and level)
     // This is a simplified version - may need more robust matching
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const indent = '  '.repeat(task.level);
-        const taskNamePattern = new RegExp(`^${indent}${task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+        const taskNamePattern = new RegExp(`^${indent}${searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
 
         if (taskNamePattern.test(line)) {
             // Update the field in the line
             if (field === 'name') {
                 // Replace task name (preserve rest of line)
-                const rest = line.substring(indent.length + task.name.length);
+                // Use searchName length (the old name) to correctly extract the rest of the line
+                const rest = line.substring(indent.length + searchName.length);
                 lines[i] = indent + newValue + rest;
             } else if (field === 'resources') {
                 // Update resources - need to find and replace resource pattern
@@ -2094,6 +2565,96 @@ function syncGanttStartDateToEditor(task, taskIndex) {
             lines[i] = updatedLine;
 
             // Update editor
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
+    }
+}
+
+function syncGanttFinishDateToEditor(task, taskIndex) {
+    console.log('syncGanttFinishDateToEditor called:', { task: task.name, finish: task.finish, level: task.level });
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    // Calculate indent
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    // Task name pattern
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    console.log('Looking for task to update finish date:', task.name, 'new finish:', task.finish);
+
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            const updatedLine = updateFinishDateInLine(line, task.finish, indent, task.name);
+            console.log('Updated line:', updatedLine);
+
+            lines[i] = updatedLine;
+
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
+    }
+}
+
+function syncGanttPercentToEditor(task, taskIndex) {
+    console.log('syncGanttPercentToEditor called:', { task: task.name, percent: task.percent, level: task.level });
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    // Calculate indent
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    // Task name pattern
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    console.log('Looking for task to update percent:', task.name, 'new percent:', task.percent);
+
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            const updatedLine = updatePercentInLine(line, task.percent, indent, task.name);
+            console.log('Updated line:', updatedLine);
+
+            lines[i] = updatedLine;
+
             editor.value = lines.join('\n');
             editor.dispatchEvent(new Event('input'));
             found = true;
@@ -2237,6 +2798,139 @@ function updateStartDateInLine(line, newStartDate, indent, taskName) {
         }
 
         tokens.splice(insertIndex, 0, newStartDate);
+    }
+
+    // Rebuild line with indent preserved
+    return indent + tokens.join(' ');
+}
+
+function updateFinishDateInLine(line, newFinishDate, indent, taskName) {
+    // Strip the indent from the line first, then tokenize
+    const lineWithoutIndent = line.substring(indent.length);
+
+    // Tokenize the line
+    const tokens = [];
+    let currentToken = '';
+    let inQuotes = false;
+    let inBrackets = false;
+
+    for (let i = 0; i < lineWithoutIndent.length; i++) {
+        const char = lineWithoutIndent[i];
+
+        if (char === '"' && !inBrackets) {
+            inQuotes = !inQuotes;
+            currentToken += char;
+        } else if (char === '[' && !inQuotes) {
+            inBrackets = true;
+            currentToken += char;
+        } else if (char === ']' && !inQuotes) {
+            inBrackets = false;
+            currentToken += char;
+        } else if (char === ' ' && !inQuotes && !inBrackets) {
+            if (currentToken) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+        } else {
+            currentToken += char;
+        }
+    }
+
+    if (currentToken) {
+        tokens.push(currentToken);
+    }
+
+    // Find and replace finish date token (second date in line, after start date)
+    let dateCount = 0;
+    let foundFinishDate = false;
+    for (let i = 0; i < tokens.length; i++) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+            dateCount++;
+            if (dateCount === 2) {
+                // This is the finish date (second date)
+                tokens[i] = newFinishDate;
+                foundFinishDate = true;
+                break;
+            }
+        }
+    }
+
+    // If no finish date found, add it after start date
+    if (!foundFinishDate) {
+        // Find the start date position
+        for (let i = 0; i < tokens.length; i++) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+                // Insert finish date after start date
+                tokens.splice(i + 1, 0, newFinishDate);
+                foundFinishDate = true;
+                break;
+            }
+        }
+    }
+
+    // Rebuild line with indent preserved
+    return indent + tokens.join(' ');
+}
+
+function updatePercentInLine(line, newPercent, indent, taskName) {
+    // Strip the indent from the line first, then tokenize
+    const lineWithoutIndent = line.substring(indent.length);
+
+    // Tokenize the line
+    const tokens = [];
+    let currentToken = '';
+    let inQuotes = false;
+    let inBrackets = false;
+
+    for (let i = 0; i < lineWithoutIndent.length; i++) {
+        const char = lineWithoutIndent[i];
+
+        if (char === '"' && !inBrackets) {
+            inQuotes = !inQuotes;
+            currentToken += char;
+        } else if (char === '[' && !inQuotes) {
+            inBrackets = true;
+            currentToken += char;
+        } else if (char === ']' && !inQuotes) {
+            inBrackets = false;
+            currentToken += char;
+        } else if (char === ' ' && !inQuotes && !inBrackets) {
+            if (currentToken) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+        } else {
+            currentToken += char;
+        }
+    }
+
+    if (currentToken) {
+        tokens.push(currentToken);
+    }
+
+    // Find and replace percent token (format: XX%)
+    let foundPercent = false;
+    for (let i = 0; i < tokens.length; i++) {
+        if (/^\d+%$/.test(tokens[i])) {
+            tokens[i] = newPercent;
+            foundPercent = true;
+            break;
+        }
+    }
+
+    // If no percent found, add it after duration (or after task name if no duration)
+    if (!foundPercent) {
+        let insertIndex = 1; // Default: after task name
+
+        // Find duration to insert after it
+        for (let i = 1; i < tokens.length; i++) {
+            if (/^\d+[dwmy]$/.test(tokens[i])) {
+                insertIndex = i + 1; // After duration
+                break;
+            }
+        }
+
+        tokens.splice(insertIndex, 0, newPercent);
     }
 
     // Rebuild line with indent preserved
@@ -2661,6 +3355,35 @@ function openTaskForm(lineNumber) {
     populateSubtasks(lineNumber, lines);
 
     document.getElementById('taskFormOverlay').classList.add('active');
+}
+
+function openMilestoneTaskForm(taskName) {
+    // Switch to plan editor tab
+    switchTab('editor');
+
+    // Find the task in the editor by name
+    const editor = document.getElementById('planEditor');
+    const lines = editor.value.split('\n');
+
+    // Search for the task by matching the name
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Skip empty lines and front matter
+        if (!line || line.startsWith('---') || line.startsWith('#')) continue;
+
+        // Parse the task name from the line
+        const task = parseTaskLine(lines[i], i + 1);
+
+        // Match task name (exact match)
+        if (task.name && task.name === taskName) {
+            // Found the task - open the form
+            openTaskForm(i + 1);
+            return;
+        }
+    }
+
+    console.error('Task not found in editor:', taskName);
 }
 
 function populateSubtasks(parentLineNumber, lines) {
@@ -4466,27 +5189,38 @@ function closeResourceForm() {
 }
 
 function populateResourceForm(shortname) {
+    console.log('populateResourceForm called with shortname:', shortname);
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
     const content = editor.value;
     const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-    if (!frontMatterMatch) return;
+    if (!frontMatterMatch) {
+        console.log('No front matter found');
+        return;
+    }
 
     const frontMatter = frontMatterMatch[1];
     const lines = frontMatter.split('\n');
+
+    // Normalize shortname to lowercase for case-insensitive comparison
+    const shortnameLC = shortname.toLowerCase();
+    console.log('Looking for shortname (lowercase):', shortnameLC);
 
     let inResources = false;
     for (let line of lines) {
         if (line.trim() === 'Resources:') {
             inResources = true;
+            console.log('Found Resources section');
             continue;
         }
 
         if (inResources && line.trim().startsWith('-')) {
             // Parse resource line: - @shortname: Full Name, Role, email, allocation%
             const match = line.match(/^-\s*@([^:]+):\s*(.+)$/);
-            if (match && match[1].trim() === shortname) {
+            console.log('Checking resource line:', line, 'match:', match);
+            if (match && match[1].trim().toLowerCase() === shortnameLC) {
+                console.log('Found matching resource!', match[1].trim(), '(case-insensitive match with)', shortname);
                 const parts = match[2].split(',').map(p => p.trim());
                 document.getElementById('resourceShortname').value = shortname;
                 document.getElementById('resourceFullName').value = parts[0] || '';
@@ -4497,12 +5231,17 @@ function populateResourceForm(shortname) {
                 if (parts[3] && parts[3].includes('%')) {
                     document.getElementById('resourceAllocation').value = parts[3].replace('%', '').trim();
                 }
-                break;
+                console.log('Successfully populated form fields');
+                return; // Found and populated, exit early
             }
-        } else if (inResources && !line.trim().startsWith('-')) {
+        } else if (inResources && line.trim() && !line.trim().startsWith('-')) {
+            // Non-empty line that's not a resource entry means we've left the Resources section
+            console.log('Exiting Resources section at line:', line);
             inResources = false;
         }
     }
+
+    console.log('ERROR: No matching resource found for shortname:', shortname);
 }
 
 // Auto-save resource with debounce
@@ -4660,6 +5399,7 @@ function populateProjectDetailsFromFrontMatter() {
     document.getElementById('projectOwner').value = '';
     document.getElementById('projectStartDate').value = '';
     document.getElementById('projectStatus').value = 'Open';
+    document.getElementById('projectSponsor').value = '';
     document.getElementById('projectDescription').value = '';
     document.getElementById('projectBudget').value = '';
     document.getElementById('projectLabels').value = '';
@@ -4718,6 +5458,9 @@ function populateProjectDetailsFromFrontMatter() {
                 case 'status':
                     document.getElementById('projectStatus').value = value;
                     break;
+                case 'sponsor':
+                    document.getElementById('projectSponsor').value = value;
+                    break;
                 case 'description':
                     document.getElementById('projectDescription').value = value;
                     break;
@@ -4743,6 +5486,7 @@ function clearProjectDetailsForm() {
     document.getElementById('projectOwner').value = '';
     document.getElementById('projectStartDate').value = '';
     document.getElementById('projectStatus').value = 'Open';
+    document.getElementById('projectSponsor').value = '';
     document.getElementById('projectDescription').value = '';
     document.getElementById('projectBudget').value = '';
     document.getElementById('projectLabels').value = '';
@@ -4837,6 +5581,7 @@ function saveProjectDetailsInternal(closeModal = true) {
     const owner = document.getElementById('projectOwner').value.trim();
     const startDate = document.getElementById('projectStartDate').value.trim();
     const status = document.getElementById('projectStatus').value;
+    const sponsor = document.getElementById('projectSponsor').value.trim();
     const description = document.getElementById('projectDescription').value.trim();
     const budget = document.getElementById('projectBudget').value.trim();
     const labelsInput = document.getElementById('projectLabels').value.trim();
@@ -4847,6 +5592,7 @@ function saveProjectDetailsInternal(closeModal = true) {
     if (owner) frontMatter += `project manager: ${owner}\n`;
     if (startDate) frontMatter += `start date: ${startDate}\n`;
     if (status && status !== 'Open') frontMatter += `status: ${status}\n`;
+    if (sponsor) frontMatter += `sponsor: ${sponsor}\n`;
     if (description) frontMatter += `description: ${description}\n`;
     if (budget) frontMatter += `budget: ${budget}\n`;
     if (labelsInput) frontMatter += `labels: [${labelsInput}]\n`;
@@ -5227,6 +5973,51 @@ window.addEventListener('timeline-resize', function() {
 });
 
 /**
+ * Check for tasks that don't have an explicitly set duration
+ * Returns tasks that are missing duration, excluding:
+ * - Summary tasks
+ * - Tasks with explicitly set 0d duration (milestones)
+ */
+function checkTasksWithoutExplicitDuration(planText, tasks) {
+    const tasksWithoutDuration = [];
+
+    // Parse the plan text to find which tasks have explicit durations
+    const lines = planText.split('\n');
+    const taskLinesWithDuration = new Set();
+
+    for (let line of lines) {
+        const trimmed = line.trim();
+
+        // Skip empty lines, front matter, comments, headers
+        if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('#')) continue;
+
+        // Check if line has a duration pattern: Xd, Xw, Xm, Xy
+        const durationMatch = trimmed.match(/\b(\d+[dwmy])\b/);
+        if (durationMatch) {
+            // Extract task name (before duration, resources, dates, etc.)
+            // Task format: [indent]TaskName duration [resources] [dates] {comment}
+            const taskNameMatch = trimmed.match(/^(\*?)(.+?)\s+\d+[dwmy]/);
+            if (taskNameMatch) {
+                const taskName = taskNameMatch[2].trim();
+                taskLinesWithDuration.add(taskName);
+            }
+        }
+    }
+
+    // Filter tasks that don't have explicit duration in the plan text
+    for (let task of tasks) {
+        if (task.is_summary) continue; // Skip summary tasks
+
+        // Check if this task name appears in our set of tasks with explicit durations
+        if (!taskLinesWithDuration.has(task.name)) {
+            tasksWithoutDuration.push(task);
+        }
+    }
+
+    return tasksWithoutDuration;
+}
+
+/**
  * Update Analysis tab with project health checks and actionable insights
  */
 function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
@@ -5299,14 +6090,14 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 5. Check for tasks with default/missing durations
-        const tasksWithoutDuration = tasks.filter(t => !t.is_summary && (!t.duration_days || t.duration_days === 0));
-        if (tasksWithoutDuration.length > 0) {
+        // 5. Check for tasks with missing durations (not explicitly set)
+        const tasksWithoutExplicitDuration = checkTasksWithoutExplicitDuration(planText, tasks);
+        if (tasksWithoutExplicitDuration.length > 0) {
             insights.push({
                 type: 'warning',
                 title: 'Tasks Without Duration',
-                description: tasksWithoutDuration.length + ' task(s) have no duration specified',
-                items: tasksWithoutDuration.slice(0, 5).map(t => 'Task "' + t.name + '" has no duration'),
+                description: tasksWithoutExplicitDuration.length + ' task(s) have no duration specified',
+                items: tasksWithoutExplicitDuration.slice(0, 5).map(t => 'Task "' + t.name + '" has no duration'),
                 fixable: false
             });
         }

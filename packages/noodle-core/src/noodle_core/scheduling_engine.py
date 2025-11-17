@@ -46,8 +46,9 @@ def get_next_working_day(date, holidays=None):
 def add_working_days(start_date, num_days, holidays=None):
     """Add working days to a start date, skipping weekends and holidays.
 
-    The finish date is the end of the last working day.
-    For example, a 1-day task starting Monday will finish on Tuesday (end of Monday's work).
+    The finish date is the last working day (inclusive).
+    For example, a 1-day task starting Monday will finish on Monday.
+    A 5-day task starting Monday will finish on Friday (Mon-Fri = 5 working days).
 
     Args:
         start_date: The starting date
@@ -55,7 +56,7 @@ def add_working_days(start_date, num_days, holidays=None):
         holidays: Set of holiday dates to skip (optional)
 
     Returns:
-        The finish date after adding working days
+        The finish date after adding working days (inclusive)
     """
     if holidays is None:
         holidays = set()
@@ -86,18 +87,22 @@ def add_working_days(start_date, num_days, holidays=None):
     # Handle positive days (going forward)
     # Ensure we start from a working day
     current_date = get_next_working_day(start_date, holidays)
-    days_added = 0
+    days_added = 1  # Start day counts as day 1
 
+    # If duration is 1, return the start date
+    if num_days == 1:
+        return current_date
+
+    # Otherwise, add remaining days
     while days_added < num_days:
+        current_date += timedelta(days=1)
+
         # Check if current date is a working day
         is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
         is_holiday = current_date in holidays
 
         if not is_weekend and not is_holiday:
             days_added += 1
-
-        # Always increment to next day
-        current_date += timedelta(days=1)
 
     return current_date
 

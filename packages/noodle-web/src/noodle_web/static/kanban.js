@@ -1417,13 +1417,18 @@ class KanbanBoard {
             // Update editor
             editor.value = lines.join('\n');
 
-            // Dispatch input event to trigger editor listeners (e.g., line numbers, render)
+            // Dispatch input event to trigger editor listeners (e.g., line numbers)
             editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-            // Trigger immediate re-parse and render
+            // Trigger immediate re-parse and render of Kanban and all views
             setTimeout(() => {
                 this.parse();
                 this.render();
+
+                // Trigger main render to update all views (Report, Summary, Timeline, etc.)
+                if (typeof renderText === 'function') {
+                    renderText();
+                }
 
                 // Re-enable editor listener after update
                 setTimeout(() => {
@@ -1519,10 +1524,15 @@ class KanbanBoard {
         // Dispatch input event
         editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Refresh Kanban
+        // Refresh Kanban and all views
         setTimeout(() => {
             this.parse();
             this.render();
+
+            // Trigger main render to update all views (Report, Summary, Timeline, etc.)
+            if (typeof renderText === 'function') {
+                renderText();
+            }
 
             // Re-enable editor listener
             setTimeout(() => {
@@ -1576,10 +1586,15 @@ class KanbanBoard {
         // Dispatch input event
         editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Refresh Kanban
+        // Refresh Kanban and all views
         setTimeout(() => {
             this.parse();
             this.render();
+
+            // Trigger main render to update all views (Report, Summary, Timeline, etc.)
+            if (typeof renderText === 'function') {
+                renderText();
+            }
 
             // Re-enable editor listener
             setTimeout(() => {
@@ -2135,6 +2150,9 @@ class KanbanBoard {
             return;
         }
 
+        // Normalize label to lowercase for consistency
+        const normalizedLabel = labelName.trim().toLowerCase();
+
         const editor = document.getElementById('planEditor');
         if (!editor) return;
 
@@ -2169,18 +2187,18 @@ class KanbanBoard {
             if (match) {
                 const existingLabels = match[2].trim();
                 const newLabels = existingLabels ?
-                    existingLabels + ', ' + labelName.trim() :
-                    labelName.trim();
+                    existingLabels + ', ' + normalizedLabel :
+                    normalizedLabel;
                 lines[labelsLineIndex] = match[1] + newLabels + match[3];
             }
         } else if (frontMatterEnd >= 0) {
             // Front matter exists but no labels line - add it before the closing ---
-            lines.splice(frontMatterEnd, 0, `labels: [${labelName.trim()}]`);
+            lines.splice(frontMatterEnd, 0, `labels: [${normalizedLabel}]`);
         } else {
             // No front matter - create it at the beginning
             lines.unshift('');  // Blank line after front matter
             lines.unshift('---');  // Closing ---
-            lines.unshift(`labels: [${labelName.trim()}]`);  // Labels line
+            lines.unshift(`labels: [${normalizedLabel}]`);  // Labels line
             lines.unshift('---');  // Opening ---
         }
 
@@ -2400,7 +2418,8 @@ class KanbanBoard {
             return;
         }
 
-        const trimmedNewName = newLabelName.trim();
+        // Normalize new label to lowercase for consistency
+        const normalizedNewName = newLabelName.trim().toLowerCase();
 
         const editor = document.getElementById('planEditor');
         if (!editor) return;
@@ -2434,7 +2453,7 @@ class KanbanBoard {
             if (match) {
                 const existingLabels = match[2].trim();
                 const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
-                const updatedLabels = labelArray.map(l => l === oldLabelName ? trimmedNewName : l);
+                const updatedLabels = labelArray.map(l => l === oldLabelName ? normalizedNewName : l);
                 lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
             }
         }

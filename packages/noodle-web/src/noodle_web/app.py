@@ -329,6 +329,94 @@ def generate_exports(
     return zip_buffer.read()
 
 
+def collect_labels_from_plan(plan_text: str) -> set:
+    """
+    Extract all unique labels from task lines in the plan.
+    Labels use hashtag syntax like #High #test #Risk
+    """
+    import re
+    labels = set()
+    lines = plan_text.split('\n')
+    in_front_matter = False
+
+    for line in lines:
+        # Skip front matter
+        if line.strip() == '---':
+            in_front_matter = not in_front_matter
+            continue
+        if in_front_matter:
+            continue
+
+        # Skip empty lines
+        if not line.strip():
+            continue
+
+        # Look for labels with hashtag syntax: #labelname
+        # Pattern: # followed by word characters (letters, numbers, underscore)
+        label_pattern = r'#(\w+)'
+        matches = re.findall(label_pattern, line)
+
+        for label in matches:
+            # Convert to lowercase for consistency
+            labels.add(label.lower())
+
+    return labels
+
+
+def update_front_matter_with_labels(plan_text: str, labels: set) -> str:
+    """
+    Update the front matter to include all labels found in the plan.
+    If labels: line exists, merge with existing labels.
+    If no labels: line, add it.
+    If no front matter, create it.
+    """
+    if not labels:
+        return plan_text
+
+    lines = plan_text.split('\n')
+    has_front_matter = False
+    front_matter_end_index = -1
+    labels_line_index = -1
+
+    # Check for existing front matter
+    if lines and lines[0].strip() == '---':
+        has_front_matter = True
+        for i, line in enumerate(lines[1:], start=1):
+            if line.strip() == '---':
+                front_matter_end_index = i
+                break
+            if line.strip().lower().startswith('labels:'):
+                labels_line_index = i
+
+    # Format labels as comma-separated list
+    sorted_labels = sorted(labels)
+    labels_str = ', '.join(sorted_labels)
+    labels_line = f"labels: [{labels_str}]"
+
+    if not has_front_matter:
+        # No front matter - create one with just labels
+        new_front_matter = f"---\n{labels_line}\n---\n"
+        return new_front_matter + plan_text
+
+    if labels_line_index >= 0:
+        # Update existing labels line
+        # Parse existing labels and merge
+        existing_line = lines[labels_line_index]
+        existing_labels = set()
+        if '[' in existing_line and ']' in existing_line:
+            content = existing_line[existing_line.index('[')+1:existing_line.rindex(']')]
+            existing_labels = set(l.strip().lower() for l in content.split(',') if l.strip())
+
+        # Merge labels
+        all_labels = sorted(existing_labels.union(labels))
+        lines[labels_line_index] = f"labels: [{', '.join(all_labels)}]"
+    else:
+        # Add labels line before the closing ---
+        lines.insert(front_matter_end_index, labels_line)
+
+    return '\n'.join(lines)
+
+
 @app.post("/api/parse")
 async def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
@@ -427,6 +515,12 @@ async def parse_plan(data: RenderRequest):
             }
             tasks_data.append(task_data)
 
+        # Collect labels from tasks and update front matter
+        labels = collect_labels_from_plan(data.plan_text)
+        logger.info(f"Collected labels: {labels}")
+        updated_plan_text = update_front_matter_with_labels(data.plan_text, labels)
+        logger.info(f"Updated plan text differs from original: {updated_plan_text != data.plan_text}")
+
         # Return structured JSON
         return {
             "success": True,
@@ -435,6 +529,7 @@ async def parse_plan(data: RenderRequest):
             "front_matter": front_matter,
             "resource_map": resource_map,
             "tasks": tasks_data,
+            "updated_plan_text": updated_plan_text if labels else None,
         }
 
     except Exception as e:

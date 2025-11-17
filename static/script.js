@@ -1,17 +1,49 @@
 let selectedFile = null;
 let renderTimeout = null;
+let globalResourceMap = {}; // Maps shortnames to full names from backend
 
 function switchTab(tabName) {
+    // Remove active class from all tabs and content
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    event.target.classList.add('active');
-    document.getElementById(tabName + '-tab').classList.add('active');
+    // Find and activate the correct tab button
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+        const onclick = tab.getAttribute('onclick');
+        if (onclick && onclick.includes(`'${tabName}'`)) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Activate the corresponding content
+    const tabContent = document.getElementById(tabName + '-tab');
+    if (tabContent) {
+        tabContent.classList.add('active');
+    }
+
+    // If switching to Gantt tab, re-render to measure column widths correctly
+    if (tabName === 'gantt') {
+        console.log('Switched to Gantt tab, checking if chart needs re-render...');
+        setTimeout(() => {
+            // Check if we have tasks to display
+            if (ganttTasks && ganttTasks.length > 0) {
+                console.log('Re-rendering Gantt chart with', ganttTasks.length, 'tasks');
+                renderGanttChart();
+            } else if (window.parsedPlanData && window.parsedPlanData.tasks) {
+                console.log('Initializing Gantt chart with', window.parsedPlanData.tasks.length, 'tasks');
+                updateGantt(window.parsedPlanData.tasks);
+            } else {
+                console.log('No task data available for Gantt chart');
+            }
+        }, 50);
+    }
 }
 
 // Initialize editor functionality when DOM is ready
 window.addEventListener('load', function() {
     initializeEditor();
+    initializeKanbanEditor();
     initializeUploadTab();
 });
 
@@ -24,6 +56,24 @@ function initializeEditor() {
         console.error('Editor or line numbers not found');
         return;
     }
+
+    setupEditor(editor, lineNumbers, highlightLayer, true);
+}
+
+function initializeKanbanEditor() {
+    const editor = document.getElementById('kanbanPlanEditor');
+    const lineNumbers = document.getElementById('kanbanLineNumbers');
+    const highlightLayer = document.getElementById('kanbanHighlightLayer');
+
+    if (!editor || !lineNumbers) {
+        console.error('Kanban editor or line numbers not found');
+        return;
+    }
+
+    setupEditor(editor, lineNumbers, highlightLayer, false);
+}
+
+function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Syntax highlighting function
     function highlightSyntax(text) {
@@ -52,6 +102,14 @@ function initializeEditor() {
                 return savePlaceholder('<span class="syntax-comment">"' + content + '"</span>');
             });
 
+            // Highlight dependencies EARLY to protect lag/lead from duration highlighter
+            // (e.g., [depends Task1, Task2 +2d])
+            highlighted = highlighted.replace(/\[depends\s+([^\]]+)\]/gi, (match, deps) => {
+                // Highlight lag/lead time within dependencies
+                let highlightedDeps = deps.replace(/([+\-]\d+[dwmy])/g, '<span class="syntax-lag-lead">$1</span>');
+                return savePlaceholder('<span class="syntax-dependency">[depends ' + highlightedDeps + ']</span>');
+            });
+
             // Highlight star prefix (depends on previous task) - match * at line start
             highlighted = highlighted.replace(/^(\s*)(\*)/, (match, space, star) => {
                 return space + savePlaceholder('<span class="syntax-star">' + star + '</span>');
@@ -77,9 +135,9 @@ function initializeEditor() {
                 return savePlaceholder('<span class="syntax-date">' + date + '</span>');
             });
 
-            // Highlight dependencies (e.g., #Design, #Task1)
+            // Highlight labels/tags (e.g., #DEV, #HIGH)
             highlighted = highlighted.replace(/#(\w+)/g, (match, name) => {
-                return savePlaceholder('<span class="syntax-dependency">#' + name + '</span>');
+                return savePlaceholder('<span class="syntax-label">#' + name + '</span>');
             });
 
             // Replace all placeholders with actual HTML
@@ -97,17 +155,74 @@ function initializeEditor() {
         const lines = content.split('\n');
         const lineCount = lines.length;
 
-        let numbersText = '';
+        // Create line number elements instead of plain text
+        lineNumbers.innerHTML = '';
         for (let i = 1; i <= lineCount; i++) {
-            numbersText += i + '\n';
-        }
+            const lineNumSpan = document.createElement('div');
+            lineNumSpan.className = 'line-number';
 
-        lineNumbers.textContent = numbersText.trim();
+            // Check if this line has a manually scheduled task (has explicit start date)
+            const line = lines[i - 1]; // 0-indexed
+            const isManuallyScheduled = isLineManuallyScheduled(line);
+
+            if (isManuallyScheduled) {
+                lineNumSpan.classList.add('manually-scheduled');
+                lineNumSpan.title = 'Manually scheduled (has explicit start date)';
+
+                // Add pin icon before line number
+                const pinIcon = document.createElement('span');
+                pinIcon.className = 'pin-icon';
+                lineNumSpan.appendChild(pinIcon);
+            }
+
+            const lineNumText = document.createElement('span');
+            lineNumText.textContent = i;
+            lineNumSpan.appendChild(lineNumText);
+
+            lineNumSpan.dataset.lineNumber = i;
+            lineNumbers.appendChild(lineNumSpan);
+        }
 
         // Update syntax highlighting
         if (highlightLayer) {
             const highlighted = highlightSyntax(content);
             highlightLayer.innerHTML = highlighted;
+        }
+
+        // Update active line indicator
+        updateActiveLine();
+    }
+
+    // Helper function to detect if a task line is manually scheduled (has explicit start date)
+    function isLineManuallyScheduled(line) {
+        if (!line || !line.trim()) return false;
+
+        // Skip front matter
+        if (line.trim() === '---') return false;
+
+        // Skip comments and empty lines
+        if (line.trim().startsWith('#') || !line.trim()) return false;
+
+        // Check if line contains a date in YYYY-MM-DD format
+        // This indicates an explicit start date, making it manually scheduled
+        const datePattern = /\d{4}-\d{2}-\d{2}/;
+        return datePattern.test(line);
+    }
+
+    // Update the active line indicator
+    function updateActiveLine() {
+        const cursorPosition = editor.selectionStart;
+        const textBeforeCursor = editor.value.substring(0, cursorPosition);
+        const currentLine = textBeforeCursor.split('\n').length;
+
+        // Remove active class from all line numbers
+        const allLineNumbers = lineNumbers.querySelectorAll('.line-number');
+        allLineNumbers.forEach(ln => ln.classList.remove('active'));
+
+        // Add active class to current line
+        const activeLineElement = lineNumbers.querySelector(`[data-line-number="${currentLine}"]`);
+        if (activeLineElement) {
+            activeLineElement.classList.add('active');
         }
     }
 
@@ -123,18 +238,185 @@ function initializeEditor() {
     // Initialize
     updateLineNumbers();
 
-    // Update on input
-    editor.addEventListener('input', updateLineNumbers);
+    // Debounce timer for render requests
+    let renderDebounceTimer = null;
+
+    // Update on input and auto-render with debounce (only for main editor)
+    editor.addEventListener('input', function() {
+        updateLineNumbers();
+
+        // Only trigger auto-render for the main editor
+        if (shouldRender) {
+            // Clear previous timer if it exists
+            if (renderDebounceTimer) {
+                clearTimeout(renderDebounceTimer);
+            }
+
+            // Auto-render after 1 second of inactivity
+            renderDebounceTimer = setTimeout(() => {
+                renderText();
+                renderDebounceTimer = null;
+            }, 1000);
+        }
+    });
 
     // Sync scroll
     editor.addEventListener('scroll', syncScroll);
 
-    // Render on Enter - use input event after Enter to catch the newline
+    // Track cursor position for active line indicator
+    editor.addEventListener('click', updateActiveLine);
+    editor.addEventListener('keyup', updateActiveLine);
+    editor.addEventListener('focus', updateActiveLine);
+
+    // Keyboard shortcuts
     editor.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            setTimeout(renderText, 10);
+
+        // Indent with Cmd+] (macOS) or Ctrl+] (Windows/Linux)
+        if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+            e.preventDefault();
+            indentSelectedLines();
+        }
+
+        // Outdent with Cmd+[ (macOS) or Ctrl+[ (Windows/Linux)
+        if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+            e.preventDefault();
+            outdentSelectedLines();
         }
     });
+
+    // Long-press on line numbers to open task form (mobile support)
+    let longPressTimer = null;
+    let longPressLineNumber = null;
+
+    lineNumbers.addEventListener('touchstart', function(e) {
+        const target = e.target.closest('.line-number');
+        if (!target) return;
+
+        longPressLineNumber = parseInt(target.dataset.lineNumber);
+        longPressTimer = setTimeout(() => {
+            if (typeof openTaskForm === 'function') {
+                openTaskForm(longPressLineNumber);
+            }
+        }, 500); // 500ms long press
+    });
+
+    lineNumbers.addEventListener('touchend', function(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+
+    lineNumbers.addEventListener('touchmove', function(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+}
+
+/**
+ * Indent selected lines in the editor by 2 spaces
+ */
+function indentSelectedLines() {
+    // Get the currently focused editor (main or kanban)
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
+    if (!editor) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+
+    // Find the start of the first selected line
+    let lineStart = start;
+    while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+        lineStart--;
+    }
+
+    // Find the end of the last selected line
+    let lineEnd = end;
+    while (lineEnd < text.length && text[lineEnd] !== '\n') {
+        lineEnd++;
+    }
+
+    // Extract the selected lines
+    const selectedText = text.substring(lineStart, lineEnd);
+    const lines = selectedText.split('\n');
+
+    // Indent each line by 2 spaces
+    const indentedLines = lines.map(line => '  ' + line);
+    const indentedText = indentedLines.join('\n');
+
+    // Replace the selected text with indented version
+    editor.value = text.substring(0, lineStart) + indentedText + text.substring(lineEnd);
+
+    // Restore selection, adjusting for added spaces
+    const newStart = start + 2; // First line gets 2 spaces
+    const newEnd = end + (indentedLines.length * 2); // Each line gets 2 spaces
+    editor.setSelectionRange(newStart, newEnd);
+
+    // Trigger render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Outdent selected lines in the editor by up to 2 spaces
+ */
+function outdentSelectedLines() {
+    // Get the currently focused editor (main or kanban)
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
+    if (!editor) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+
+    // Find the start of the first selected line
+    let lineStart = start;
+    while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+        lineStart--;
+    }
+
+    // Find the end of the last selected line
+    let lineEnd = end;
+    while (lineEnd < text.length && text[lineEnd] !== '\n') {
+        lineEnd++;
+    }
+
+    // Extract the selected lines
+    const selectedText = text.substring(lineStart, lineEnd);
+    const lines = selectedText.split('\n');
+
+    // Outdent each line by up to 2 spaces
+    const outdentedLines = lines.map(line => {
+        // Remove up to 2 leading spaces
+        if (line.startsWith('  ')) {
+            return line.substring(2);
+        } else if (line.startsWith(' ')) {
+            return line.substring(1);
+        }
+        return line;
+    });
+    const outdentedText = outdentedLines.join('\n');
+
+    // Calculate how many characters were removed
+    const removedChars = selectedText.length - outdentedText.length;
+
+    // Replace the selected text with outdented version
+    editor.value = text.substring(0, lineStart) + outdentedText + text.substring(lineEnd);
+
+    // Restore selection, adjusting for removed spaces
+    const charsRemovedBeforeStart = Math.min(2, selectedText.substring(0, start - lineStart).match(/^ */)[0].length);
+    const newStart = Math.max(lineStart, start - charsRemovedBeforeStart);
+    const newEnd = Math.max(newStart, end - removedChars);
+    editor.setSelectionRange(newStart, newEnd);
+
+    // Trigger render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function initializeUploadTab() {
@@ -189,9 +471,10 @@ function handleFile(file) {
     uploadBtn.disabled = false;
     dropZone.innerHTML = '<div class="upload-icon">✓</div><h3>' + file.name + '</h3><p>Ready to render</p>';
 
-    if (!document.getElementById('uploadProjectName').value) {
+    const uploadProjectNameField = document.getElementById('uploadProjectName');
+    if (uploadProjectNameField && !uploadProjectNameField.value) {
         const name = file.name.replace(/\.(md|txt)$/i, '').replace(/_/g, ' ');
-        document.getElementById('uploadProjectName').value = name;
+        uploadProjectNameField.value = name;
     }
 }
 
@@ -219,340 +502,6 @@ async function renderFile() {
     await renderText();
 }
 
-function renderOutputWithClickableHeaders(outputElement, asciiOutput) {
-    /**
-     * Parse ASCII table output and make phase/summary task names clickable for renaming.
-     * Phase/summary tasks are identified by having no indentation in the Task Name column.
-     */
-    const lines = asciiOutput.split('\n');
-    const contentDiv = document.createElement('div');
-    contentDiv.style.fontFamily = 'monospace';
-    contentDiv.style.whiteSpace = 'pre';
-    contentDiv.style.fontSize = '0.9em';
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lineDiv = document.createElement('div');
-
-        // Check if this is a data row in the task table (not header, separator, or title)
-        // Data rows have pattern: ID | Task Name | ...
-        if (i > 2 && line.includes('|') && !line.includes('---')) {
-            const columns = line.split('|');
-            if (columns.length >= 2) {
-                const idCol = columns[0].trim();
-                const taskNameCol = columns[1];
-
-                // Check if this is likely a summary/phase task
-                // Summary tasks typically have no leading spaces in the task name
-                // (They're not indented, unlike child tasks)
-                const trimmedTaskName = taskNameCol.trim();
-                const hasIndentation = taskNameCol.startsWith('  ') || taskNameCol.startsWith('\t');
-
-                // If task name has no indentation and ID is a number, it might be a phase/summary
-                if (!hasIndentation && trimmedTaskName && idCol.match(/^\d+$/)) {
-                    // Create clickable version
-                    const idPart = columns[0];
-                    const otherCols = columns.slice(2).join('|');
-
-                    lineDiv.innerHTML = idPart + '| <span class="clickable-header" style="cursor: pointer; text-decoration: underline; color: #108BB9;" data-line-id="' + idCol + '" title="Click to rename">' +
-                        escapeHtml(trimmedTaskName) + '</span>' +
-                        taskNameCol.substring(taskNameCol.indexOf(trimmedTaskName) + trimmedTaskName.length) +
-                        '|' + otherCols;
-
-                    lineDiv.addEventListener('click', function(e) {
-                        if (e.target.classList.contains('clickable-header')) {
-                            const taskName = e.target.textContent.trim();
-                            const lineId = e.target.dataset.lineId;
-                            renameSummaryTask(taskName, lineId);
-                        }
-                    });
-                } else {
-                    lineDiv.textContent = line;
-                }
-            } else {
-                lineDiv.textContent = line;
-            }
-        } else {
-            lineDiv.textContent = line;
-        }
-
-        contentDiv.appendChild(lineDiv);
-    }
-
-    outputElement.innerHTML = '';
-    outputElement.appendChild(contentDiv);
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function renameSummaryTask(oldName, lineId) {
-    /**
-     * Prompt user to rename a summary task and update the editor
-     */
-    const newName = prompt('Rename summary task:', oldName);
-
-    if (!newName || newName === oldName) {
-        return; // User cancelled or didn't change the name
-    }
-
-    // Update the plan editor
-    const editor = document.getElementById('planEditor');
-    const lines = editor.value.split('\n');
-
-    // Find the line with this task name (looking for phase headers or non-indented tasks)
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-
-        // Check if this line starts with the old task name (phase header or task without indentation)
-        // Match phase headers (no indentation) or task lines that start with the task name
-        if (!line.startsWith('  ') && !line.startsWith('\t') && !line.startsWith('*')) {
-            // Check if this is the task line
-            if (trimmed.startsWith(oldName)) {
-                // Replace the task name
-                const afterName = trimmed.substring(oldName.length);
-                lines[i] = newName + afterName;
-                break;
-            }
-        }
-    }
-
-    // Update editor and re-render
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input')); // Trigger line numbers update
-    renderText();
-}
-
-let parsedPlanData = null; // Store parsed plan data globally
-
-function switchOutputTab(tabName) {
-    // Update tab active states
-    document.querySelectorAll('.output-tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
-
-    // Hide all views
-    document.getElementById('editorOutput').style.display = 'none';
-    document.querySelectorAll('.output-view').forEach(view => view.style.display = 'none');
-
-    // Show selected view
-    if (tabName === 'ascii') {
-        document.getElementById('editorOutput').style.display = 'block';
-    } else {
-        document.getElementById('enhancedViews').style.display = 'block';
-        const viewMap = {
-            'summary': 'summaryView',
-            'milestones': 'milestonesView',
-            'timeline': 'timelineView',
-            'gantt': 'ganttView',
-            'resources': 'resourcesView'
-        };
-        const viewId = viewMap[tabName];
-        if (viewId) {
-            document.getElementById(viewId).style.display = 'block';
-            // Render the view content if not already rendered
-            if (parsedPlanData) {
-                renderEnhancedView(tabName, parsedPlanData);
-            }
-        }
-    }
-}
-
-async function fetchParsedData(planText) {
-    /**
-     * Fetch structured plan data from the /api/parse endpoint
-     */
-    try {
-        const response = await fetch('/api/parse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ plan_text: planText })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to parse plan data');
-        }
-
-        const data = await response.json();
-        parsedPlanData = data;
-        return data;
-    } catch (error) {
-        console.error('Error fetching parsed data:', error);
-        return null;
-    }
-}
-
-function renderEnhancedView(viewName, data) {
-    /**
-     * Render content for each enhanced view tab
-     */
-    switch(viewName) {
-        case 'summary':
-            renderProjectSummary(data);
-            break;
-        case 'milestones':
-            renderMilestonesTable(data);
-            break;
-        case 'timeline':
-            renderTimelineView(data);
-            break;
-        case 'gantt':
-            renderGanttChart(data);
-            break;
-        case 'resources':
-            renderResourcesTable(data);
-            break;
-    }
-}
-
-function renderProjectSummary(data) {
-    const container = document.querySelector('#summaryView .summary-content');
-    const project = data.project;
-
-    const statusColor = {
-        'GREEN': '#28a745',
-        'AMBER': '#ffc107',
-        'RED': '#dc3545'
-    }[project.status] || '#6c757d';
-
-    container.innerHTML = `
-        <div style="max-width: 800px; margin: 0 auto;">
-            <h2 style="color: #333; margin-bottom: 30px;">${project.title || project.name}</h2>
-
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px;">
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Project Manager</h4>
-                    <p style="margin: 0; font-size: 1.2em; color: #333;">${project.manager || 'Not specified'}</p>
-                </div>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Sponsor</h4>
-                    <p style="margin: 0; font-size: 1.2em; color: #333;">${project.sponsor || 'Not specified'}</p>
-                </div>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Budget</h4>
-                    <p style="margin: 0; font-size: 1.2em; color: #333;">${project.budget || 'Not specified'}</p>
-                </div>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                    <h4 style="margin: 0 0 10px 0; color: #666; font-size: 0.9em; text-transform: uppercase;">Overall Status</h4>
-                    <p style="margin: 0; font-size: 1.5em; font-weight: bold; color: ${statusColor};">${project.status}</p>
-                </div>
-            </div>
-
-            <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
-                <h3 style="margin: 0 0 15px 0; color: #333;">RAG Summary</h3>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
-                    <div>
-                        <div style="font-size: 2em; font-weight: bold; color: #dc3545;">${project.rag_summary.red}</div>
-                        <div style="color: #666;">Red Tasks</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 2em; font-weight: bold; color: #ffc107;">${project.rag_summary.amber}</div>
-                        <div style="color: #666;">Amber Tasks</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 2em; font-weight: bold; color: #28a745;">${project.rag_summary.green}</div>
-                        <div style="color: #666;">Green Tasks</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function renderMilestonesTable(data) {
-    const container = document.querySelector('#milestonesView .milestones-content');
-
-    let html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; background: white;">';
-    html += '<thead><tr style="background: #667eea; color: white;">';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">ID</th>';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Task Name</th>';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Start</th>';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Finish</th>';
-    html += '<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Duration</th>';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Resources</th>';
-    html += '<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">%</th>';
-    html += '<th style="padding: 12px; text-align: center; border: 1px solid #ddd;">RAG</th>';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Comment</th>';
-    html += '</tr></thead><tbody>';
-
-    data.tasks.forEach((task, idx) => {
-        const level = task.level || 0;
-        const indent = '&nbsp;'.repeat(level * 4);
-        const ragColor = {
-            'RED': '#dc3545',
-            'AMBER': '#ffc107',
-            'GREEN': '#28a745'
-        }[task.rag] || '';
-
-        html += '<tr style="border-bottom: 1px solid #eee;">';
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${idx + 1}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${indent}${task.description || task.name || ''}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.start || ''}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.finish || ''}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${task.duration_days || 0}d</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.resources || ''}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${task.percent || ''}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: ${ragColor};">${task.rag || ''}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${task.comment || ''}</td>`;
-        html += '</tr>';
-    });
-
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-}
-
-function renderTimelineView(data) {
-    const container = document.querySelector('#timelineView .timeline-content');
-    container.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #666;">
-            <h3>Timeline View</h3>
-            <p>Timeline visualization will be implemented here.</p>
-            <p>This will show phases and milestones on a visual timeline.</p>
-        </div>
-    `;
-}
-
-function renderGanttChart(data) {
-    const container = document.querySelector('#ganttView .gantt-content');
-    container.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #666;">
-            <h3>Gantt Chart</h3>
-            <p>Interactive Gantt chart will be implemented here.</p>
-            <p>This will show tasks with draggable progress bars and date controls.</p>
-        </div>
-    `;
-}
-
-function renderResourcesTable(data) {
-    const container = document.querySelector('#resourcesView .resources-content');
-
-    let html = '<div style="max-width: 800px; margin: 0 auto;">';
-    html += '<h3 style="margin-bottom: 20px; color: #333;">Resource Allocation</h3>';
-    html += '<table style="width: 100%; border-collapse: collapse; background: white;">';
-    html += '<thead><tr style="background: #667eea; color: white;">';
-    html += '<th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Resource Name</th>';
-    html += '<th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Total Hours</th>';
-    html += '<th style="padding: 12px; text-align: right; border: 1px solid #ddd;">Days</th>';
-    html += '</tr></thead><tbody>';
-
-    data.resources.forEach(resource => {
-        html += '<tr style="border-bottom: 1px solid #eee;">';
-        html += `<td style="padding: 10px; border: 1px solid #ddd;">${resource.name}</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${resource.hours} hrs</td>`;
-        html += `<td style="padding: 10px; border: 1px solid #ddd; text-align: right;">${resource.days} days</td>`;
-        html += '</tr>';
-    });
-
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-}
-
 async function renderText() {
     const text = document.getElementById('planEditor').value.trim();
 
@@ -560,16 +509,8 @@ async function renderText() {
         const output = document.getElementById('editorOutput');
         output.textContent = 'Press Enter in the editor to render your plan...';
         output.classList.add('empty');
-        // Hide tabs when no content
-        document.getElementById('outputTabs').style.display = 'none';
         return;
     }
-
-    // Fetch parsed data for enhanced views
-    await fetchParsedData(text);
-
-    // Show tabs after rendering
-    document.getElementById('outputTabs').style.display = 'flex';
 
     await render(text, null, false, false, false, 'editor');
 }
@@ -629,16 +570,11 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
         if (contentType.includes('application/json')) {
             // ASCII output
             const result = await response.json();
-            // Render with clickable phase/summary headers
-            renderOutputWithClickableHeaders(output, result.ascii_output);
-            if (prefix === 'editor') {
-                showMessage(prefix, 'success', 'Rendered!');
-                setTimeout(() => {
-                    message.style.display = 'none';
-                }, 2000);
-            } else {
-                showMessage(prefix, 'success', 'Plan rendered successfully!');
-            }
+            output.textContent = result.ascii_output;
+            // No success message needed - silent render
+
+            // Also update the Project Summary tab
+            await updateProjectSummary(planText, projectName);
         } else {
             // Download file (ZIP, Excel, PowerPoint, or PDF)
             const blob = await response.blob();
@@ -674,6 +610,2344 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
         if (btn) btn.disabled = false;
         spinner.style.display = 'none';
     }
+}
+
+async function updateProjectSummary(planText, projectName) {
+    try {
+        const data = {
+            plan_text: planText,
+            project_name: projectName || null
+        };
+
+        const response = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            console.error('Failed to parse plan for summary');
+            return;
+        }
+
+        const result = await response.json();
+
+        // Show summary content, hide placeholder
+        const placeholder = document.querySelector('#summary-view .summary-placeholder');
+        const content = document.querySelector('#summary-view .summary-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Update project title
+        const titleElement = document.getElementById('summaryTitle');
+        if (titleElement) {
+            titleElement.textContent = result.project_name || 'Untitled Project';
+        }
+
+        // Update front matter fields
+        const frontMatter = result.front_matter || {};
+
+        const managerElement = document.getElementById('summaryManager');
+        if (managerElement) {
+            managerElement.textContent = frontMatter['project manager'] || frontMatter.manager || frontMatter.owner || '-';
+        }
+
+        const sponsorElement = document.getElementById('summarySponsor');
+        if (sponsorElement) {
+            sponsorElement.textContent = frontMatter.sponsor || '-';
+        }
+
+        const budgetElement = document.getElementById('summaryBudget');
+        if (budgetElement) {
+            budgetElement.textContent = frontMatter.budget || '-';
+        }
+
+        const statusElement = document.getElementById('summaryStatus');
+        if (statusElement) {
+            statusElement.textContent = frontMatter.status || '-';
+        }
+
+        // Calculate RAG counts from the ASCII output
+        // Parse the output to count Red, Amber, Green tasks
+        const asciiOutput = result.ascii_output || '';
+        const ragCounts = calculateRAGCounts(asciiOutput);
+
+        const ragRedElement = document.getElementById('ragRedCount');
+        if (ragRedElement) {
+            ragRedElement.textContent = ragCounts.red;
+        }
+
+        const ragAmberElement = document.getElementById('ragAmberCount');
+        if (ragAmberElement) {
+            ragAmberElement.textContent = ragCounts.amber;
+        }
+
+        const ragGreenElement = document.getElementById('ragGreenCount');
+        if (ragGreenElement) {
+            ragGreenElement.textContent = ragCounts.green;
+        }
+
+        // Store resource map globally BEFORE updating tables that need it
+        globalResourceMap = result.resource_map || {};
+        console.log('Received resource_map from backend:', result.resource_map);
+        console.log('Set globalResourceMap to:', globalResourceMap);
+        console.log('globalResourceMap keys:', Object.keys(globalResourceMap));
+        console.log('globalResourceMap entries:', JSON.stringify(Object.entries(globalResourceMap)));
+        // Log each entry individually
+        for (const [key, value] of Object.entries(globalResourceMap)) {
+            console.log(`  Resource mapping: "${key}" -> "${value}"`);
+        }
+
+        // Update Milestones Table
+        updateMilestonesTable(result.tasks || []);
+
+        // Update Resources Table (needs globalResourceMap to be set first)
+        updateResourcesTable(result.tasks || []);
+
+        // Update Timesheet
+        updateTimesheet(result.tasks || [], result.front_matter || {});
+
+        // Update Timeline
+        updateTimeline(result.tasks || [], result.project_name);
+
+        // Update Gantt Chart
+        updateGantt(result.tasks || []);
+
+        // Update Analysis (pass planText directly since front_matter might be an object)
+        updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
+
+        // Update editor with labels if backend found and added them
+        if (result.updated_plan_text && result.updated_plan_text !== planText) {
+            console.log('Backend returned updated plan text with labels');
+            console.log('Original length:', planText.length);
+            console.log('Updated length:', result.updated_plan_text.length);
+            const editor = document.getElementById('planEditor');
+            if (editor) {
+                // Update editor value without triggering another parse
+                // The current parse already has the updated data
+                editor.value = result.updated_plan_text;
+                updateLineNumbers();
+            }
+        }
+
+    } catch (error) {
+        console.error('Error updating project summary:', error);
+    }
+}
+
+function updateMilestonesTable(tasks) {
+    try {
+        // Show milestones content, hide placeholder
+        const placeholder = document.querySelector('#milestones-view .milestones-placeholder');
+        const content = document.querySelector('#milestones-view .milestones-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Get table body
+        const tbody = document.getElementById('milestonesTableBody');
+        if (!tbody) {
+            console.error('Milestones table body not found');
+            return;
+        }
+
+        // Clear existing rows
+        tbody.innerHTML = '';
+
+        // Filter to only show summary tasks and milestones (0d duration)
+        const filteredTasks = tasks.filter(task => {
+            return task.is_summary || task.duration_days === 0;
+        });
+
+        // Populate with task data
+        filteredTasks.forEach(task => {
+            const row = document.createElement('tr');
+
+            // Apply class based on task level for indentation
+            if (task.level > 0) {
+                row.classList.add(`level-${task.level}`);
+            }
+
+            // Apply class for summary tasks (phase headers)
+            if (task.is_summary) {
+                row.classList.add('summary-task');
+            }
+
+            // ID cell
+            const idCell = document.createElement('td');
+            idCell.textContent = task.id;
+            row.appendChild(idCell);
+
+            // Task Name cell (with indentation)
+            const nameCell = document.createElement('td');
+            const indent = '  '.repeat(task.level); // 2 spaces per level
+            nameCell.textContent = indent + task.name;
+            nameCell.classList.add('task-name');
+            row.appendChild(nameCell);
+
+            // Start cell
+            const startCell = document.createElement('td');
+            startCell.textContent = task.start || '-';
+            row.appendChild(startCell);
+
+            // Finish cell
+            const finishCell = document.createElement('td');
+            finishCell.textContent = task.finish || '-';
+            row.appendChild(finishCell);
+
+            // Percent cell
+            const percentCell = document.createElement('td');
+            percentCell.textContent = task.percent || '-';
+            row.appendChild(percentCell);
+
+            // RAG cell
+            const ragCell = document.createElement('td');
+            ragCell.textContent = task.rag || '-';
+            if (task.rag) {
+                ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
+            }
+            row.appendChild(ragCell);
+
+            // Comment cell
+            const commentCell = document.createElement('td');
+            commentCell.textContent = task.comment || '-';
+            row.appendChild(commentCell);
+
+            // Make row clickable to open task form
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', () => {
+                openMilestoneTaskForm(task.name);
+            });
+
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Error updating milestones table:', error);
+    }
+}
+
+function updateResourcesTable(tasks) {
+    try {
+        // Show resources content, hide placeholder
+        const placeholder = document.querySelector('#resources-view .resources-placeholder');
+        const content = document.querySelector('#resources-view .resources-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Get table body
+        const tbody = document.getElementById('resourcesTableBody');
+        if (!tbody) {
+            console.error('Resources table body not found');
+            return;
+        }
+
+        // Clear existing rows
+        tbody.innerHTML = '';
+
+        // Build reverse lookup map: full name -> shortname
+        const fullNameToShortname = {};
+        console.log('Building reverse lookup from globalResourceMap:', globalResourceMap);
+        Object.keys(globalResourceMap).forEach(shortname => {
+            const fullName = globalResourceMap[shortname];
+            if (fullName) {
+                fullNameToShortname[fullName.toLowerCase()] = shortname;
+                console.log('Mapped:', fullName.toLowerCase(), '->', shortname);
+            }
+        });
+        console.log('Final fullNameToShortname map:', fullNameToShortname);
+
+        // Aggregate resource data from tasks
+        const resourceData = {};
+
+        tasks.forEach(task => {
+            // Skip summary tasks and tasks without resources
+            if (task.is_summary || !task.resources) {
+                return;
+            }
+
+            // Parse resources (may be comma-separated)
+            const resources = task.resources.split(',').map(r => r.trim()).filter(r => r && r !== '-');
+
+            resources.forEach(resource => {
+                if (!resourceData[resource]) {
+                    // Look up shortname from full name
+                    const shortname = fullNameToShortname[resource.toLowerCase()] || resource;
+                    console.log('Resource:', resource, '-> shortname:', shortname, '(from lookup:', resource.toLowerCase(), ')');
+
+                    resourceData[resource] = {
+                        name: resource,
+                        shortname: shortname, // Store shortname for form population
+                        taskCount: 0,
+                        totalDays: 0,
+                        totalHours: 0
+                    };
+                }
+
+                resourceData[resource].taskCount++;
+                resourceData[resource].totalDays += task.duration_days || 0;
+                resourceData[resource].totalHours += (task.duration_days || 0) * 8; // Assuming 8 hour work days
+            });
+        });
+
+        // Convert to array and sort by name
+        const sortedResources = Object.values(resourceData).sort((a, b) =>
+            a.name.localeCompare(b.name)
+        );
+
+        // Populate table rows
+        sortedResources.forEach(resource => {
+            const row = document.createElement('tr');
+
+            // Resource Name cell
+            const nameCell = document.createElement('td');
+            nameCell.textContent = resource.name;
+            nameCell.classList.add('resource-name');
+            nameCell.style.cursor = 'pointer';
+            nameCell.addEventListener('dblclick', () => {
+                // Use the stored shortname for form population
+                const shortname = resource.shortname || resource.name.replace(/^@/, '');
+                console.log('Opening resource form for:', shortname, 'from resource.name:', resource.name, 'shortname:', resource.shortname);
+                openResourceForm(shortname);
+            });
+            row.appendChild(nameCell);
+
+            // Tasks Assigned cell
+            const tasksCell = document.createElement('td');
+            tasksCell.textContent = resource.taskCount;
+            tasksCell.classList.add('text-center');
+            row.appendChild(tasksCell);
+
+            // Total Days cell
+            const daysCell = document.createElement('td');
+            daysCell.textContent = resource.totalDays;
+            daysCell.classList.add('text-center');
+            row.appendChild(daysCell);
+
+            // Total Hours cell
+            const hoursCell = document.createElement('td');
+            hoursCell.textContent = resource.totalHours;
+            hoursCell.classList.add('text-center');
+            row.appendChild(hoursCell);
+
+            tbody.appendChild(row);
+        });
+
+        // Add totals row if there are resources
+        if (sortedResources.length > 0) {
+            const totalRow = document.createElement('tr');
+            totalRow.classList.add('totals-row');
+
+            const totalLabelCell = document.createElement('td');
+            totalLabelCell.textContent = 'Total';
+            totalLabelCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalLabelCell);
+
+            const totalTasksCell = document.createElement('td');
+            totalTasksCell.textContent = sortedResources.reduce((sum, r) => sum + r.taskCount, 0);
+            totalTasksCell.classList.add('text-center');
+            totalTasksCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalTasksCell);
+
+            const totalDaysCell = document.createElement('td');
+            totalDaysCell.textContent = sortedResources.reduce((sum, r) => sum + r.totalDays, 0);
+            totalDaysCell.classList.add('text-center');
+            totalDaysCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalDaysCell);
+
+            const totalHoursCell = document.createElement('td');
+            totalHoursCell.textContent = sortedResources.reduce((sum, r) => sum + r.totalHours, 0);
+            totalHoursCell.classList.add('text-center');
+            totalHoursCell.style.fontWeight = 'bold';
+            totalRow.appendChild(totalHoursCell);
+
+            tbody.appendChild(totalRow);
+        }
+
+    } catch (error) {
+        console.error('Error updating resources table:', error);
+    }
+}
+
+/**
+ * Check if a date is a weekend (Saturday or Sunday)
+ */
+function isWeekend(date) {
+    const day = date.getDay();
+    return day === 0 || day === 6; // Sunday = 0, Saturday = 6
+}
+
+/**
+ * Check if a date is a working day (not weekend and not holiday)
+ */
+function isWorkingDay(date, holidays = []) {
+    if (isWeekend(date)) {
+        return false;
+    }
+
+    const dateStr = date.toISOString().split('T')[0];
+    return !holidays.includes(dateStr);
+}
+
+/**
+ * Count working days between two dates (inclusive)
+ */
+function countWorkingDays(startDate, endDate, holidays = []) {
+    let count = 0;
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+        if (isWorkingDay(current, holidays)) {
+            count++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+
+    return count;
+}
+
+/**
+ * Get list of all working days between two dates
+ */
+function getWorkingDays(startDate, endDate, holidays = []) {
+    const workingDays = [];
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+        if (isWorkingDay(current, holidays)) {
+            workingDays.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
+    }
+
+    return workingDays;
+}
+
+function updateTimesheet(tasks, frontMatter = {}) {
+    try {
+        // Show timesheet content, hide placeholder
+        const placeholder = document.querySelector('#timesheet-view .timesheet-placeholder');
+        const content = document.querySelector('#timesheet-view .timesheet-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Parse holidays from front matter
+        const holidays = [];
+        if (frontMatter.holidays) {
+            // Holidays can be a string or array in front matter
+            const holidayStr = typeof frontMatter.holidays === 'string' ? frontMatter.holidays : '';
+            // Parse dates in format like "2025-01-01, 2025-12-25" or YAML list format
+            const holidayMatches = holidayStr.match(/\d{4}-\d{2}-\d{2}/g);
+            if (holidayMatches) {
+                holidays.push(...holidayMatches);
+            }
+        }
+
+        // Get table elements
+        const headerRow = document.getElementById('timesheetHeaderRow');
+        const tbody = document.getElementById('timesheetBody');
+        if (!headerRow || !tbody) {
+            console.error('Timesheet table elements not found');
+            return;
+        }
+
+        // Clear existing content
+        // Keep the first header cell (Resource), remove date columns
+        while (headerRow.children.length > 1) {
+            headerRow.removeChild(headerRow.lastChild);
+        }
+        tbody.innerHTML = '';
+
+        // Filter out tasks without dates or resources
+        const tasksWithDates = tasks.filter(t =>
+            !t.is_summary && t.start && t.finish && t.resources && t.resources !== '-'
+        );
+
+        if (tasksWithDates.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="100%" style="text-align: center; padding: 20px;">No tasks with resources and dates found</td></tr>';
+            return;
+        }
+
+        // Find date range
+        let minDate = null;
+        let maxDate = null;
+        tasksWithDates.forEach(task => {
+            const start = new Date(task.start);
+            const finish = new Date(task.finish);
+            if (!minDate || start < minDate) minDate = start;
+            if (!maxDate || finish > maxDate) maxDate = finish;
+        });
+
+        // Generate array of all dates in range
+        const dates = [];
+        const currentDate = new Date(minDate);
+        while (currentDate <= maxDate) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Add date header columns with format "Mon 03 may"
+        dates.forEach(date => {
+            const th = document.createElement('th');
+            th.className = 'timesheet-date-col';
+            const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            th.textContent = `${dayOfWeek} ${day} ${month}`;
+
+            // Add weekend class for Saturdays and Sundays
+            const dayOfWeekNum = date.getDay();
+            if (dayOfWeekNum === 0 || dayOfWeekNum === 6) {
+                th.classList.add('timesheet-weekend');
+            }
+
+            // Add holiday class if applicable
+            const dateKey = date.toISOString().split('T')[0];
+            if (holidays.includes(dateKey)) {
+                th.classList.add('timesheet-holiday');
+            }
+
+            headerRow.appendChild(th);
+        });
+
+        // Aggregate resource data
+        const resourceData = {};
+
+        tasksWithDates.forEach(task => {
+            const resources = task.resources.split(',').map(r => r.trim()).filter(r => r && r !== '-');
+            const taskStart = new Date(task.start);
+            const taskFinish = new Date(task.finish);
+
+            // Get only working days for this task
+            const workingDays = getWorkingDays(taskStart, taskFinish, holidays);
+            const numWorkingDays = workingDays.length;
+
+            if (numWorkingDays === 0) {
+                return; // Skip task if no working days
+            }
+
+            // Calculate hours per working day
+            // task.duration_days is already in working days, so we use 8 hours per day
+            const totalHours = task.duration_days * 8;
+            const hoursPerResource = totalHours / resources.length;
+            const hoursPerDay = hoursPerResource / numWorkingDays;
+
+            resources.forEach(resource => {
+                // Parse resource allocation percentage (e.g., "JD[50%]" means 50% allocation)
+                let resourceName = resource;
+                let allocationPercent = 100; // Default to 100%
+
+                const allocationMatch = resource.match(/^(.+?)\[(\d+)%\]$/);
+                if (allocationMatch) {
+                    resourceName = allocationMatch[1].trim();
+                    allocationPercent = parseInt(allocationMatch[2]);
+                }
+
+                if (!resourceData[resourceName]) {
+                    resourceData[resourceName] = {};
+                }
+
+                // Distribute hours only across working days
+                workingDays.forEach(date => {
+                    const dateKey = date.toISOString().split('T')[0];
+                    if (!resourceData[resourceName][dateKey]) {
+                        resourceData[resourceName][dateKey] = 0;
+                    }
+                    // Apply allocation percentage
+                    const adjustedHours = hoursPerDay * (allocationPercent / 100);
+                    resourceData[resourceName][dateKey] += adjustedHours;
+                });
+            });
+        });
+
+        // Sort resources by name
+        const sortedResources = Object.keys(resourceData).sort();
+
+        // Populate table rows
+        sortedResources.forEach(resource => {
+            const row = document.createElement('tr');
+
+            // Resource name cell
+            const nameCell = document.createElement('td');
+            nameCell.textContent = resource;
+            nameCell.className = 'timesheet-resource-name';
+            nameCell.style.cursor = 'pointer';
+            nameCell.addEventListener('dblclick', () => {
+                // Strip @ symbol if present before passing to form
+                const shortname = resource.replace(/^@/, '');
+                openResourceForm(shortname);
+            });
+            row.appendChild(nameCell);
+
+            // Add cell for each date
+            dates.forEach(date => {
+                const dateKey = date.toISOString().split('T')[0];
+                const cell = document.createElement('td');
+                cell.className = 'timesheet-hours-cell';
+
+                const hours = resourceData[resource][dateKey] || 0;
+                if (hours > 0) {
+                    cell.textContent = hours.toFixed(1);
+
+                    // Color code by hours
+                    if (hours <= 4) {
+                        cell.classList.add('timesheet-hours-low');
+                    } else if (hours <= 8) {
+                        cell.classList.add('timesheet-hours-normal');
+                    } else {
+                        cell.classList.add('timesheet-hours-high');
+                    }
+                } else {
+                    cell.textContent = '-';
+                    cell.classList.add('timesheet-hours-none');
+                }
+
+                // Add weekend and holiday classes
+                const dayOfWeek = date.getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    cell.classList.add('timesheet-weekend');
+                }
+
+                // Check if it's a holiday
+                if (holidays.includes(dateKey)) {
+                    cell.classList.add('timesheet-holiday');
+                }
+
+                row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Error updating timesheet:', error);
+    }
+}
+
+// Store tasks and project name for timeline re-rendering
+let timelineTasks = [];
+let timelineProjectName = '';
+
+function addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth) {
+    // Determine appropriate scale based on timeline duration
+    let scale, interval, formatFunc;
+
+    if (totalDays <= 60) {
+        // Show days for short projects (up to 2 months)
+        scale = 'days';
+        // Calculate interval to ensure minimum spacing (aim for 5-8 markers max)
+        interval = Math.max(2, Math.ceil(totalDays / 7)); // Show ~5-7 markers
+        formatFunc = (date) => {
+            const day = date.getDate();
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            return `${day} ${month}`;
+        };
+    } else if (totalDays <= 365) {
+        // Show weeks for medium projects (2 months to 1 year)
+        scale = 'weeks';
+        interval = Math.max(1, Math.floor(totalDays / 70)); // Show ~10-12 markers
+        formatFunc = (date) => {
+            const day = date.getDate();
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            return `${day} ${month}`;
+        };
+    } else if (totalDays <= 730) {
+        // Show months for longer projects (1-2 years)
+        scale = 'months';
+        interval = 1;
+        formatFunc = (date) => {
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            const year = date.getFullYear().toString().slice(-2);
+            return `${month} '${year}`;
+        };
+    } else {
+        // Show years for very long projects (>2 years)
+        scale = 'years';
+        interval = 1;
+        formatFunc = (date) => {
+            return date.getFullYear().toString();
+        };
+    }
+
+    // Create scale container
+    const scaleContainer = document.createElement('div');
+    scaleContainer.className = 'timeline-scale';
+
+    // Generate markers
+    const currentDate = new Date(minDate);
+    const markers = [];
+
+    if (scale === 'days') {
+        while (currentDate <= maxDate) {
+            const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+            if (daysSinceStart % interval === 0) {
+                const position = (daysSinceStart / totalDays) * timelineWidth;
+                markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    } else if (scale === 'weeks') {
+        // Start from first Monday after minDate
+        while (currentDate.getDay() !== 1) {
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        let weekCount = 0;
+        while (currentDate <= maxDate) {
+            if (weekCount % interval === 0) {
+                const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+                const position = (daysSinceStart / totalDays) * timelineWidth;
+                markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            }
+            currentDate.setDate(currentDate.getDate() + 7);
+            weekCount++;
+        }
+    } else if (scale === 'months') {
+        // Start from first day of next month
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        currentDate.setDate(1);
+        while (currentDate <= maxDate) {
+            const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+            const position = (daysSinceStart / totalDays) * timelineWidth;
+            markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            currentDate.setMonth(currentDate.getMonth() + interval);
+        }
+    } else if (scale === 'years') {
+        // Start from January 1st of next year
+        currentDate.setFullYear(currentDate.getFullYear() + 1);
+        currentDate.setMonth(0);
+        currentDate.setDate(1);
+        while (currentDate <= maxDate) {
+            const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+            const position = (daysSinceStart / totalDays) * timelineWidth;
+            markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            currentDate.setFullYear(currentDate.getFullYear() + interval);
+        }
+    }
+
+    // Create marker elements
+    markers.forEach(marker => {
+        const markerDiv = document.createElement('div');
+        markerDiv.className = 'timeline-scale-marker';
+        markerDiv.style.left = marker.position + 'px';
+
+        const tick = document.createElement('div');
+        tick.className = 'timeline-scale-tick';
+        markerDiv.appendChild(tick);
+
+        const label = document.createElement('div');
+        label.className = 'timeline-scale-label';
+        label.textContent = marker.label;
+        markerDiv.appendChild(label);
+
+        scaleContainer.appendChild(markerDiv);
+    });
+
+    timelineLine.appendChild(scaleContainer);
+}
+
+function updateTimeline(tasks, projectName) {
+    try {
+        // Store tasks and project name for re-rendering on resize
+        timelineTasks = tasks;
+        timelineProjectName = projectName || '';
+
+        // Show timeline content, hide placeholder
+        const placeholder = document.querySelector('#timeline-view .placeholder-view');
+        const content = document.querySelector('#timeline-view .timeline-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Update timeline title with project name
+        const titleElement = document.getElementById('timelineTitle');
+        if (titleElement) {
+            const displayName = projectName || 'Project';
+            titleElement.textContent = `${displayName} Timeline`;
+        }
+
+        // Get only milestones (tasks with 0d duration) and summary tasks
+        const milestones = tasks.filter(t => t.finish && (t.duration_days === 0 || t.is_summary));
+        if (milestones.length === 0) {
+            return;
+        }
+
+        // Find min and max dates
+        const allDates = milestones.map(t => new Date(t.finish));
+        const minDate = new Date(Math.min(...allDates));
+        const maxDate = new Date(Math.max(...allDates));
+
+        // Add padding
+        minDate.setDate(minDate.getDate() - 7);
+        maxDate.setDate(maxDate.getDate() + 7);
+
+        // Calculate total timeline width - scale to available screen width
+        const timelineWrapper = document.querySelector('.timeline-line-wrapper');
+        const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200; // Subtract padding
+        const timelineWidth = Math.max(800, availableWidth); // Minimum 800px
+
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Get timeline elements
+        const timelineLine = document.getElementById('timelineLine');
+        const timelineMilestones = document.getElementById('timelineMilestones');
+
+        if (!timelineLine || !timelineMilestones) return;
+
+        // Clear existing milestones and progress bar
+        timelineMilestones.innerHTML = '';
+
+        // Remove any existing timeline elements to prevent overlap
+        const existingProgress = timelineLine.querySelector('.timeline-progress');
+        if (existingProgress) {
+            existingProgress.remove();
+        }
+
+        // Remove old date labels (start/end)
+        const oldDateLabels = timelineLine.querySelectorAll('.timeline-date-label');
+        oldDateLabels.forEach(label => label.remove());
+
+        // Remove old date scale
+        const oldScale = timelineLine.querySelector('.timeline-scale');
+        if (oldScale) {
+            oldScale.remove();
+        }
+
+        // Set timeline line width
+        timelineLine.style.width = timelineWidth + 'px';
+
+        // Calculate overall project completion percentage
+        let totalTasks = 0;
+        let completedWeight = 0;
+
+        tasks.forEach(task => {
+            if (!task.is_summary && task.duration_days > 0) {
+                totalTasks++;
+                const percent = parseFloat(task.percent) || 0;
+                completedWeight += percent;
+            }
+        });
+
+        const overallCompletion = totalTasks > 0 ? (completedWeight / totalTasks) : 0;
+
+        // Add progress bar to timeline
+        if (overallCompletion > 0) {
+            const progressBar = document.createElement('div');
+            progressBar.className = 'timeline-progress';
+            progressBar.style.width = overallCompletion + '%';
+            timelineLine.appendChild(progressBar);
+        }
+
+        // Add start and end date labels
+        const startDateLabel = document.createElement('div');
+        startDateLabel.className = 'timeline-date-label timeline-start-date';
+        startDateLabel.textContent = minDate.toISOString().split('T')[0];
+        timelineLine.appendChild(startDateLabel);
+
+        const endDateLabel = document.createElement('div');
+        endDateLabel.className = 'timeline-date-label timeline-end-date';
+        endDateLabel.textContent = maxDate.toISOString().split('T')[0];
+        timelineLine.appendChild(endDateLabel);
+
+        // Add date scale markers below the timeline
+        addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth);
+
+        // Track milestone positions for overlap prevention
+        const positions = [];
+
+        // Create milestones
+        milestones.forEach((task, index) => {
+            const milestoneDate = new Date(task.finish);
+            const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
+            const position = (daysFromStart / totalDays) * timelineWidth;
+
+            // Check for overlap and adjust label position
+            let labelOffset = 0;
+            const minSpacing = 170; // Slightly more than label width (150px min-width + 20px buffer)
+            let foundLevel = false;
+            const maxLevels = 5; // Support up to 5 vertical levels
+
+            // Try to find a vertical level without overlap
+            for (let level = 0; level < maxLevels && !foundLevel; level++) {
+                labelOffset = level * -50; // 0, -50, -100, -150, -200
+                foundLevel = true;
+
+                // Check if this level has overlap with any previous milestone at same level
+                for (let i = 0; i < positions.length; i++) {
+                    const prevPos = positions[i];
+                    if (prevPos.offset === labelOffset && Math.abs(position - prevPos.pos) < minSpacing) {
+                        foundLevel = false;
+                        break;
+                    }
+                }
+            }
+
+            // If no level found (too cluttered), skip this milestone to avoid clutter
+            if (!foundLevel) {
+                return; // Skip this milestone in forEach
+            }
+
+            positions.push({ pos: position, offset: labelOffset });
+
+            // Create milestone container
+            const milestoneDiv = document.createElement('div');
+            milestoneDiv.className = 'timeline-milestone';
+            milestoneDiv.style.left = position + 'px';
+            milestoneDiv.style.cursor = 'pointer';
+
+            // Make milestone clickable to open task form
+            milestoneDiv.addEventListener('click', () => {
+                openMilestoneTaskForm(task.name);
+            });
+
+            // Create connecting line if label is offset
+            if (labelOffset !== 0) {
+                const connector = document.createElement('div');
+                connector.className = 'timeline-connector';
+                const lineHeight = Math.abs(labelOffset);
+                connector.style.height = lineHeight + 'px';
+                connector.style.bottom = '10px'; // Start from diamond center
+                milestoneDiv.appendChild(connector);
+            }
+
+            // Create diamond marker on the line (always at same position)
+            const diamond = document.createElement('div');
+            diamond.className = task.is_summary ? 'timeline-diamond phase-diamond' : 'timeline-diamond task-diamond';
+            milestoneDiv.appendChild(diamond);
+
+            // Create label above the line
+            const label = document.createElement('div');
+            label.className = 'timeline-milestone-label';
+            // Apply vertical offset only to the label if overlap detected
+            if (labelOffset !== 0) {
+                label.style.bottom = (20 - labelOffset) + 'px'; // Adjust from default 20px
+            }
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'milestone-name';
+            nameDiv.textContent = task.name;
+            label.appendChild(nameDiv);
+
+            const dateDiv = document.createElement('div');
+            dateDiv.className = 'milestone-date';
+            dateDiv.textContent = task.finish;
+            label.appendChild(dateDiv);
+
+            milestoneDiv.appendChild(label);
+
+            timelineMilestones.appendChild(milestoneDiv);
+        });
+
+    } catch (error) {
+        console.error('Error updating timeline:', error);
+    }
+}
+
+// Gantt chart state
+let ganttTasks = [];
+let ganttScale = 'days';
+let ganttMinDate = null;
+let ganttMaxDate = null;
+let ganttPixelsPerDay = 30;
+
+// Helper function to parse date strings consistently as local dates
+// This avoids timezone issues where YYYY-MM-DD is parsed as UTC
+function parseLocalDate(dateString) {
+    if (!dateString) return null;
+
+    // Split the date string (YYYY-MM-DD)
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return new Date(dateString);
+
+    // Create date using local timezone (month is 0-indexed)
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+
+    return new Date(year, month, day);
+}
+
+function updateGantt(tasks) {
+    console.log('updateGantt() called with', tasks ? tasks.length : 0, 'tasks');
+
+    try {
+        // Show gantt content, hide placeholder
+        const placeholder = document.querySelector('#gantt-view .placeholder-view');
+        const content = document.querySelector('#gantt-view .gantt-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Store tasks globally for editing
+        ganttTasks = tasks;
+        console.log('Stored', ganttTasks.length, 'tasks in ganttTasks global variable');
+
+        // Filter tasks with dates
+        const tasksWithDates = tasks.filter(t => t.start && t.finish);
+        console.log('Filtered to', tasksWithDates.length, 'tasks with dates');
+        if (tasksWithDates.length === 0) {
+            console.log('No tasks with dates, skipping Gantt rendering');
+            return;
+        }
+
+        // Find date range and add 1 week buffer before/after
+        // Parse dates explicitly to avoid timezone issues
+        const allDates = tasksWithDates.flatMap(t => {
+            const start = parseLocalDate(t.start);
+            const finish = parseLocalDate(t.finish);
+            return [start, finish];
+        });
+        ganttMinDate = new Date(Math.min(...allDates));
+        ganttMaxDate = new Date(Math.max(...allDates));
+
+        // Add 1 week (7 days) buffer before and after
+        ganttMinDate.setDate(ganttMinDate.getDate() - 7);
+        ganttMaxDate.setDate(ganttMaxDate.getDate() + 7);
+
+        // Set up scale selector if not already done
+        const scaleSelector = document.getElementById('ganttScale');
+        if (scaleSelector && !scaleSelector.dataset.initialized) {
+            scaleSelector.addEventListener('change', function() {
+                ganttScale = this.value;
+                renderGanttChart();
+            });
+            scaleSelector.dataset.initialized = 'true';
+        }
+
+        // Initial render
+        renderGanttChart();
+
+    } catch (error) {
+        console.error('Error updating gantt chart:', error);
+    }
+}
+
+function renderGanttChart() {
+    console.log('renderGanttChart() called with scale:', ganttScale, 'and', ganttTasks ? ganttTasks.length : 0, 'tasks');
+
+    // Adjust pixels per day based on scale
+    switch (ganttScale) {
+        case 'days':
+            ganttPixelsPerDay = 40;
+            break;
+        case 'weeks':
+            ganttPixelsPerDay = 20;
+            break;
+        case 'months':
+            ganttPixelsPerDay = 10;
+            break;
+        case 'quarters':
+            ganttPixelsPerDay = 5;
+            break;
+        case 'years':
+            ganttPixelsPerDay = 2;
+            break;
+    }
+
+    console.log('Set ganttPixelsPerDay to:', ganttPixelsPerDay);
+
+    // Render headers based on scale
+    renderGanttHeaders();
+
+    // Calculate actual column width after headers are rendered (includes padding + borders)
+    // This is used for positioning weekend highlights and task bars
+    // Check if Gantt tab is visible before measuring
+    const ganttTab = document.getElementById('gantt-view');
+    const isVisible = ganttTab && ganttTab.classList.contains('active');
+
+    if (!isVisible) {
+        // Gantt tab not visible yet, use a fallback width and render
+        // Will re-measure when tab is switched to
+        console.log('Gantt tab not visible, using fallback column width (will re-measure on tab switch)');
+        window.ganttActualColumnWidth = ganttPixelsPerDay + 17; // 40px + 16px padding + 1px border
+        renderGanttRows();
+        return;
+    }
+
+    // Use requestAnimationFrame to ensure DOM has fully laid out before measuring
+    requestAnimationFrame(() => {
+        const firstHeader = document.querySelector('.gantt-month');
+        if (firstHeader) {
+            const measuredWidth = firstHeader.offsetWidth;
+
+            // If offsetWidth is 0, retry with a longer delay
+            if (measuredWidth === 0) {
+                console.warn('Column width measured as 0, retrying with longer delay...');
+                setTimeout(() => {
+                    const retryHeader = document.querySelector('.gantt-month');
+                    if (retryHeader) {
+                        const retryWidth = retryHeader.offsetWidth;
+                        // Fallback to base width if still 0
+                        window.ganttActualColumnWidth = retryWidth > 0 ? retryWidth : (ganttPixelsPerDay + 17); // 40 + padding/border
+                        console.log('Actual column width (retry):', window.ganttActualColumnWidth, 'px (base:', ganttPixelsPerDay, 'px)');
+
+                        // Re-render task rows with correct column width
+                        renderGanttRows();
+
+                        // Auto-scroll to current date (only in days view)
+                        if (ganttScale === 'days') {
+                            scrollGanttToToday();
+                        }
+                    }
+                }, 150);
+            } else {
+                window.ganttActualColumnWidth = measuredWidth;
+                console.log('Actual column width:', window.ganttActualColumnWidth, 'px (base:', ganttPixelsPerDay, 'px)');
+
+                // Re-render task rows with correct column width
+                renderGanttRows();
+
+                // Auto-scroll to current date (only in days view)
+                if (ganttScale === 'days') {
+                    scrollGanttToToday();
+                }
+            }
+        }
+    });
+}
+
+function scrollGanttToToday() {
+    // Find the gantt wrapper and the today column
+    const ganttWrapper = document.querySelector('.gantt-wrapper');
+    const todayColumn = document.querySelector('.gantt-today');
+
+    if (!ganttWrapper || !todayColumn) {
+        return;
+    }
+
+    // Calculate the scroll position to align today's date with the left side of task columns
+    // Get the offset of the today column relative to its parent
+    const todayOffset = todayColumn.offsetLeft;
+
+    // Get the width of the task name column (gantt-table-side)
+    const taskColumnWidth = document.querySelector('.gantt-table-side')?.offsetWidth || 0;
+
+    // Scroll so that today's column appears right after the task column
+    // Subtract a bit to give some context (show a day or two before)
+    const scrollPosition = todayOffset - taskColumnWidth - (ganttPixelsPerDay * 2);
+
+    ganttWrapper.scrollLeft = Math.max(0, scrollPosition);
+}
+
+function renderGanttHeaders() {
+    const ganttHeader = document.getElementById('ganttHeader');
+    if (!ganttHeader) return;
+
+    ganttHeader.innerHTML = '';
+
+    switch (ganttScale) {
+        case 'days':
+            renderDayHeaders(ganttHeader);
+            break;
+        case 'weeks':
+            renderWeekHeaders(ganttHeader);
+            break;
+        case 'months':
+            renderMonthHeaders(ganttHeader);
+            break;
+        case 'quarters':
+            renderQuarterHeaders(ganttHeader);
+            break;
+        case 'years':
+            renderYearHeaders(ganttHeader);
+            break;
+    }
+}
+
+function renderMonthHeaders(container) {
+    const months = [];
+    let currentMonth = new Date(ganttMinDate);
+    currentMonth.setDate(1);
+
+    while (currentMonth <= ganttMaxDate) {
+        const nextMonth = new Date(currentMonth);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const monthStart = new Date(Math.max(currentMonth, ganttMinDate));
+        const monthEnd = new Date(Math.min(nextMonth, ganttMaxDate));
+        const daysInView = Math.ceil((monthEnd - monthStart) / (1000 * 60 * 60 * 24));
+
+        months.push({
+            name: currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+            days: daysInView
+        });
+
+        currentMonth = nextMonth;
+    }
+
+    months.forEach(month => {
+        const monthDiv = document.createElement('div');
+        monthDiv.className = 'gantt-month';
+        monthDiv.style.width = (month.days * ganttPixelsPerDay) + 'px';
+        monthDiv.textContent = month.name;
+        container.appendChild(monthDiv);
+    });
+}
+
+function renderDayHeaders(container) {
+    // Calculate total days by iterating from min to max date
+    // This ensures we have exactly one header per day in the range
+    let currentDate = new Date(ganttMinDate);
+    const endDate = new Date(ganttMaxDate);
+    const today = new Date();
+
+    // Reset times to midnight for accurate day counting
+    currentDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    console.log('Day headers - ganttMinDate:', ganttMinDate.toISOString(), 'first 5 headers:');
+    let headerIndex = 0;
+
+    while (currentDate <= endDate) {
+        if (headerIndex < 15) {
+            console.log(`Header ${headerIndex}: ${currentDate.toDateString()}, showing day: ${currentDate.getDate()}`);
+        }
+
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'gantt-month';
+        dayDiv.style.width = ganttPixelsPerDay + 'px';
+        dayDiv.textContent = currentDate.getDate();
+        dayDiv.title = currentDate.toLocaleDateString();
+
+        // Highlight current date with light green background
+        if (currentDate.getTime() === today.getTime()) {
+            dayDiv.classList.add('gantt-today');
+        }
+
+        container.appendChild(dayDiv);
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+        headerIndex++;
+    }
+}
+
+function renderWeekHeaders(container) {
+    let currentDate = new Date(ganttMinDate);
+
+    while (currentDate <= ganttMaxDate) {
+        const weekStart = new Date(currentDate);
+        const weekEnd = new Date(currentDate);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+
+        const actualEnd = weekEnd > ganttMaxDate ? ganttMaxDate : weekEnd;
+        const daysInWeek = Math.ceil((actualEnd - weekStart) / (1000 * 60 * 60 * 24)) + 1;
+
+        const weekDiv = document.createElement('div');
+        weekDiv.className = 'gantt-month';
+        weekDiv.style.width = (daysInWeek * ganttPixelsPerDay) + 'px';
+        weekDiv.textContent = `Week ${getWeekNumber(weekStart)}`;
+        container.appendChild(weekDiv);
+
+        currentDate.setDate(currentDate.getDate() + 7);
+    }
+}
+
+function renderQuarterHeaders(container) {
+    let currentDate = new Date(ganttMinDate);
+    currentDate.setMonth(Math.floor(currentDate.getMonth() / 3) * 3, 1);
+
+    while (currentDate <= ganttMaxDate) {
+        const quarterStart = new Date(currentDate);
+        const quarterEnd = new Date(currentDate);
+        quarterEnd.setMonth(quarterEnd.getMonth() + 3);
+
+        const actualStart = quarterStart < ganttMinDate ? ganttMinDate : quarterStart;
+        const actualEnd = quarterEnd > ganttMaxDate ? ganttMaxDate : quarterEnd;
+        const daysInQuarter = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24));
+
+        const quarter = Math.floor(currentDate.getMonth() / 3) + 1;
+        const year = currentDate.getFullYear();
+
+        const quarterDiv = document.createElement('div');
+        quarterDiv.className = 'gantt-month';
+        quarterDiv.style.width = (daysInQuarter * ganttPixelsPerDay) + 'px';
+        quarterDiv.textContent = `Q${quarter} ${year}`;
+        container.appendChild(quarterDiv);
+
+        currentDate.setMonth(currentDate.getMonth() + 3);
+    }
+}
+
+function renderYearHeaders(container) {
+    let currentDate = new Date(ganttMinDate);
+    currentDate.setMonth(0, 1);
+
+    while (currentDate <= ganttMaxDate) {
+        const yearStart = new Date(currentDate);
+        const yearEnd = new Date(currentDate);
+        yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+
+        const actualStart = yearStart < ganttMinDate ? ganttMinDate : yearStart;
+        const actualEnd = yearEnd > ganttMaxDate ? ganttMaxDate : yearEnd;
+        const daysInYear = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24));
+
+        const yearDiv = document.createElement('div');
+        yearDiv.className = 'gantt-month';
+        yearDiv.style.width = (daysInYear * ganttPixelsPerDay) + 'px';
+        yearDiv.textContent = currentDate.getFullYear();
+        container.appendChild(yearDiv);
+
+        currentDate.setFullYear(currentDate.getFullYear() + 1);
+    }
+}
+
+function renderGanttRows() {
+    console.log('renderGanttRows() called with', ganttTasks ? ganttTasks.length : 0, 'tasks');
+
+    const ganttInfoBody = document.getElementById('ganttInfoBody');
+    const ganttBody = document.getElementById('ganttBody');
+
+    if (!ganttInfoBody || !ganttBody) {
+        console.log('Missing gantt DOM elements:', { ganttInfoBody, ganttBody });
+        return;
+    }
+
+    ganttInfoBody.innerHTML = '';
+    ganttBody.innerHTML = '';
+
+    if (!ganttTasks || ganttTasks.length === 0) {
+        console.log('No gantt tasks to render');
+        return;
+    }
+
+    console.log('Rendering', ganttTasks.length, 'gantt tasks with column width:', window.ganttActualColumnWidth || ganttPixelsPerDay);
+
+    // Render weekend/day grid if scale is days
+    if (ganttScale === 'days') {
+        renderWeekendHighlights(ganttBody);
+    }
+
+    ganttTasks.forEach((task, index) => {
+        // Info row
+        const infoRow = document.createElement('tr');
+        infoRow.dataset.taskIndex = index;
+        if (task.is_summary) {
+            infoRow.classList.add('gantt-phase-row');
+        }
+
+        // ID cell (not editable)
+        const idCell = document.createElement('td');
+        idCell.textContent = task.id;
+        infoRow.appendChild(idCell);
+
+        // Task Name cell (editable)
+        const nameCell = document.createElement('td');
+        nameCell.classList.add('editable');
+        nameCell.dataset.field = 'name';
+        const indent = '  '.repeat(task.level);
+        nameCell.textContent = indent + task.name;
+        nameCell.style.fontFamily = "'Courier New', monospace";
+        nameCell.style.whiteSpace = 'pre';
+        nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
+        infoRow.appendChild(nameCell);
+
+        // Duration cell (editable)
+        const durationCell = document.createElement('td');
+        durationCell.classList.add('editable');
+        durationCell.dataset.field = 'duration';
+        durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+        durationCell.addEventListener('dblclick', () => makeEditable(durationCell, task, index));
+        infoRow.appendChild(durationCell);
+
+        // Start cell (editable)
+        const startCell = document.createElement('td');
+        startCell.classList.add('editable');
+        startCell.dataset.field = 'start';
+        startCell.textContent = task.start || '-';
+        startCell.addEventListener('dblclick', () => makeEditable(startCell, task, index));
+        infoRow.appendChild(startCell);
+
+        // Finish cell (editable)
+        const finishCell = document.createElement('td');
+        finishCell.classList.add('editable');
+        finishCell.dataset.field = 'finish';
+        finishCell.textContent = task.finish || '-';
+        finishCell.addEventListener('dblclick', () => makeEditable(finishCell, task, index));
+        infoRow.appendChild(finishCell);
+
+        // Resources cell (editable)
+        const resourcesCell = document.createElement('td');
+        resourcesCell.classList.add('editable');
+        resourcesCell.dataset.field = 'resources';
+        resourcesCell.textContent = task.resources || '-';
+        resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
+        infoRow.appendChild(resourcesCell);
+
+        // Percent cell (editable)
+        const percentCell = document.createElement('td');
+        percentCell.classList.add('editable');
+        percentCell.dataset.field = 'percent';
+        percentCell.textContent = task.percent || '-';
+        percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
+        infoRow.appendChild(percentCell);
+
+        // Comment cell (editable)
+        const commentCell = document.createElement('td');
+        commentCell.classList.add('editable');
+        commentCell.dataset.field = 'comment';
+        commentCell.textContent = task.comment || '-';
+        commentCell.addEventListener('dblclick', () => makeEditable(commentCell, task, index));
+        infoRow.appendChild(commentCell);
+
+        ganttInfoBody.appendChild(infoRow);
+
+        // Gantt bar row
+        const barRow = document.createElement('div');
+        barRow.className = 'gantt-bar-row';
+        barRow.dataset.taskIndex = index;
+
+        if (task.start && task.finish) {
+            // Parse dates consistently as local dates to avoid timezone issues
+            const taskStart = parseLocalDate(task.start);
+            const taskFinish = parseLocalDate(task.finish);
+
+            if (task.name.toLowerCase().includes('play') || task.name.toLowerCase().includes('give') || task.name.toLowerCase().includes('card')) {
+                console.log('DEBUG - Rendering task:', task.name);
+                console.log('  Start:', task.start, '→', taskStart.toDateString());
+                console.log('  Finish:', task.finish, '→', taskFinish.toDateString());
+                console.log('  Duration from backend:', task.duration_days, 'days');
+                console.log('  Is summary:', task.is_summary);
+            }
+
+            // Reset times to midnight for accurate day counting
+            const minDate = new Date(ganttMinDate);
+            minDate.setHours(0, 0, 0, 0);
+            taskStart.setHours(0, 0, 0, 0);
+            taskFinish.setHours(0, 0, 0, 0);
+
+            // Calculate days from start by counting days (same method as header rendering)
+            // This ensures pixel-perfect alignment with day headers
+            let daysFromStart = 0;
+            let tempDate = new Date(minDate);
+            while (tempDate < taskStart) {
+                tempDate.setDate(tempDate.getDate() + 1);
+                daysFromStart++;
+            }
+
+            // Calculate task duration in days by counting (inclusive of both start and end day)
+            let taskDuration = 1; // Start day counts as 1
+            tempDate = new Date(taskStart);
+            while (tempDate < taskFinish) {
+                tempDate.setDate(tempDate.getDate() + 1);
+                taskDuration++;
+            }
+
+            const bar = document.createElement('div');
+            bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
+            const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+            const leftPos = daysFromStart * columnWidth;
+            const barWidth = taskDuration * columnWidth;
+            bar.style.left = leftPos + 'px';
+            bar.style.width = barWidth + 'px';
+            bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
+            bar.dataset.taskIndex = index;
+
+            // Debug logging for positioning
+            if (task.name.toLowerCase().includes('play') || task.name.toLowerCase().includes('give')) {
+                console.log('  Bar positioning: daysFromStart =', daysFromStart, ', taskDuration =', taskDuration);
+                console.log('  Bar CSS: left =', leftPos, 'px, width =', barWidth, 'px');
+                console.log('  Column width used:', columnWidth, 'px');
+            }
+
+            // Add drag handles
+            const leftHandle = document.createElement('div');
+            leftHandle.className = 'gantt-bar-handle left';
+            leftHandle.dataset.handle = 'left';
+            bar.appendChild(leftHandle);
+
+            const rightHandle = document.createElement('div');
+            rightHandle.className = 'gantt-bar-handle right';
+            rightHandle.dataset.handle = 'right';
+            bar.appendChild(rightHandle);
+
+            // Add progress indicator if available
+            if (task.percent && !task.is_summary) {
+                const progress = document.createElement('div');
+                progress.className = 'gantt-progress';
+                progress.style.width = task.percent;
+                bar.appendChild(progress);
+            }
+
+            // Add drag event listeners
+            setupBarDragListeners(bar, task, index);
+
+            barRow.appendChild(bar);
+        }
+
+        ganttInfoBody.appendChild(infoRow);
+        ganttBody.appendChild(barRow);
+    });
+
+    console.log('Finished rendering', ganttTasks.length, 'tasks to Gantt chart');
+    console.log('ganttInfoBody has', ganttInfoBody.children.length, 'rows');
+    console.log('ganttBody has', ganttBody.children.length, 'elements (includes weekend highlights)');
+}
+
+function renderWeekendHighlights(container) {
+    // Iterate through each day from min to max date
+    let currentDate = new Date(ganttMinDate);
+    const endDate = new Date(ganttMaxDate);
+
+    // Reset times to midnight
+    currentDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    console.log('Weekend highlights - ganttMinDate:', ganttMinDate.toISOString(), 'first 5 days:');
+
+    let dayIndex = 0;
+    while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay();
+
+        if (dayIndex < 15) {
+            console.log(`Day ${dayIndex}: ${currentDate.toDateString()}, day of week: ${dayOfWeek} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek]}), isWeekend: ${dayOfWeek === 0 || dayOfWeek === 6}`);
+        }
+
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            const weekend = document.createElement('div');
+            weekend.className = 'gantt-weekend';
+            const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+            weekend.style.left = (dayIndex * columnWidth) + 'px';
+            weekend.style.width = columnWidth + 'px';
+            container.appendChild(weekend);
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+        dayIndex++;
+    }
+}
+
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function makeEditable(cell, task, taskIndex) {
+    if (cell.classList.contains('editing')) return;
+    if (task.is_summary && cell.dataset.field === 'resources') return;  // Don't edit resources for summary tasks
+
+    const field = cell.dataset.field;
+
+    // Get current value based on field type
+    let currentValue;
+    if (field === 'duration') {
+        currentValue = task.duration_days ? `${task.duration_days}` : '';
+    } else if (field === 'start') {
+        currentValue = task.start || '';
+    } else if (field === 'finish') {
+        currentValue = task.finish || '';
+    } else if (field === 'percent') {
+        currentValue = task.percent ? task.percent.replace('%', '') : '';
+    } else {
+        currentValue = task[field] || '';
+    }
+
+    cell.classList.add('editing');
+    const input = document.createElement('input');
+
+    // Use date picker for date fields
+    if (field === 'start' || field === 'finish') {
+        input.type = 'date';
+        input.value = currentValue;
+    } else {
+        input.type = 'text';
+        input.value = currentValue;
+    }
+
+    input.style.width = '100%';
+
+    const originalContent = cell.textContent;
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+
+    // Select text only for text inputs (date inputs don't support select())
+    if (input.type === 'text') {
+        input.select();
+    }
+
+    const saveEdit = () => {
+        const newValue = input.value.trim();
+        cell.classList.remove('editing');
+
+        if (newValue !== currentValue) {
+            // Handle different field types
+            if (field === 'duration') {
+                // Parse duration (remove 'd' suffix if present)
+                const durationValue = parseInt(newValue.replace(/d$/i, ''));
+                if (!isNaN(durationValue) && durationValue > 0) {
+                    task.duration_days = durationValue;
+                    ganttTasks[taskIndex].duration_days = durationValue;
+                    syncGanttDurationToEditor(task, taskIndex);
+                    cell.textContent = `${durationValue}d`;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else if (field === 'start') {
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(newValue)) {
+                    task.start = newValue;
+                    ganttTasks[taskIndex].start = newValue;
+                    syncGanttStartDateToEditor(task, taskIndex);
+                    cell.textContent = newValue;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else if (field === 'finish') {
+                // Validate date format (YYYY-MM-DD)
+                if (/^\d{4}-\d{2}-\d{2}$/.test(newValue)) {
+                    task.finish = newValue;
+                    ganttTasks[taskIndex].finish = newValue;
+                    syncGanttFinishDateToEditor(task, taskIndex);
+                    cell.textContent = newValue;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else if (field === 'percent') {
+                // Parse percent (remove '%' suffix if present)
+                const percentValue = parseInt(newValue.replace(/%$/i, ''));
+                if (!isNaN(percentValue) && percentValue >= 0 && percentValue <= 100) {
+                    task.percent = `${percentValue}%`;
+                    ganttTasks[taskIndex].percent = `${percentValue}%`;
+                    syncGanttPercentToEditor(task, taskIndex);
+                    cell.textContent = `${percentValue}%`;
+                } else {
+                    cell.textContent = originalContent;
+                }
+            } else {
+                // Original fields: name, resources, comment
+                // For name field, save the old name before updating
+                const oldName = field === 'name' ? task.name : null;
+
+                task[field] = newValue;
+                ganttTasks[taskIndex][field] = newValue;
+                syncGanttEditToEditor(task, taskIndex, field, newValue, oldName);
+
+                // Update cell display
+                if (field === 'name') {
+                    const indent = '  '.repeat(task.level);
+                    cell.textContent = indent + newValue;
+                } else {
+                    cell.textContent = newValue || '-';
+                }
+            }
+        } else {
+            // No change - restore original content
+            cell.textContent = originalContent;
+        }
+    };
+
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            cell.classList.remove('editing');
+            cell.textContent = originalContent;
+        }
+    });
+}
+
+function setupBarDragListeners(bar, task, taskIndex) {
+    let dragState = null;
+
+    const onMouseDown = (e) => {
+        if (task.is_summary) return;  // Don't drag summary tasks
+
+        const target = e.target;
+        const isHandle = target.classList.contains('gantt-bar-handle');
+        const handleType = isHandle ? target.dataset.handle : 'middle';
+
+        dragState = {
+            startX: e.clientX,
+            startLeft: parseInt(bar.style.left),
+            startWidth: parseInt(bar.style.width),
+            handleType: handleType,
+            task: task,
+            taskIndex: taskIndex
+        };
+
+        bar.classList.add('dragging');
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const onMouseMove = (e) => {
+        if (!dragState) return;
+
+        const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+        const deltaX = e.clientX - dragState.startX;
+        const deltaDays = Math.round(deltaX / columnWidth);
+
+        if (dragState.handleType === 'left') {
+            // Adjust start date
+            const newLeft = dragState.startLeft + (deltaDays * columnWidth);
+            const newWidth = dragState.startWidth - (deltaDays * columnWidth);
+            if (newWidth > columnWidth) {
+                bar.style.left = newLeft + 'px';
+                bar.style.width = newWidth + 'px';
+            }
+        } else if (dragState.handleType === 'right') {
+            // Adjust finish date
+            const newWidth = dragState.startWidth + (deltaDays * columnWidth);
+            if (newWidth > columnWidth) {
+                bar.style.width = newWidth + 'px';
+            }
+        } else {
+            // Move entire bar
+            bar.style.left = (dragState.startLeft + (deltaDays * columnWidth)) + 'px';
+        }
+    };
+
+    const onMouseUp = (e) => {
+        if (!dragState) return;
+
+        const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+        const deltaX = e.clientX - dragState.startX;
+        const deltaDays = Math.round(deltaX / columnWidth);
+
+        if (deltaDays !== 0) {
+            updateTaskDates(dragState.task, dragState.taskIndex, dragState.handleType, deltaDays);
+        }
+
+        bar.classList.remove('dragging');
+        dragState = null;
+    };
+
+    bar.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+}
+
+function updateTaskDates(task, taskIndex, handleType, deltaDays) {
+    console.log('updateTaskDates called:', { task: task.name, handleType, deltaDays });
+    console.log('  Original dates:', { start: task.start, finish: task.finish, duration_days: task.duration_days });
+
+    // Use parseLocalDate to avoid timezone issues
+    const startDate = parseLocalDate(task.start);
+    const finishDate = parseLocalDate(task.finish);
+
+    console.log('  Parsed dates:', { start: startDate.toDateString(), finish: finishDate.toDateString() });
+
+    if (handleType === 'left') {
+        startDate.setDate(startDate.getDate() + deltaDays);
+        task.start = startDate.toISOString().split('T')[0];
+        ganttTasks[taskIndex].start = task.start;
+    } else if (handleType === 'right') {
+        finishDate.setDate(finishDate.getDate() + deltaDays);
+        task.finish = finishDate.toISOString().split('T')[0];
+        ganttTasks[taskIndex].finish = task.finish;
+    } else {
+        // Move both dates
+        startDate.setDate(startDate.getDate() + deltaDays);
+        finishDate.setDate(finishDate.getDate() + deltaDays);
+        task.start = startDate.toISOString().split('T')[0];
+        task.finish = finishDate.toISOString().split('T')[0];
+        ganttTasks[taskIndex].start = task.start;
+        ganttTasks[taskIndex].finish = task.finish;
+    }
+
+    console.log('  Updated dates:', { start: task.start, finish: task.finish });
+
+    // Recalculate duration by counting days (same method as rendering)
+    const newStartDate = parseLocalDate(task.start);
+    const newFinishDate = parseLocalDate(task.finish);
+
+    // Count days from start to finish (inclusive)
+    let taskDuration = 1; // Start day counts as 1
+    let tempDate = new Date(newStartDate);
+    while (tempDate < newFinishDate) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        taskDuration++;
+    }
+
+    task.duration_days = taskDuration;
+    ganttTasks[taskIndex].duration_days = task.duration_days;
+
+    console.log('  Duration calculation:', {
+        task: task.name,
+        handleType,
+        deltaDays,
+        start: task.start,
+        finish: task.finish,
+        duration_days: task.duration_days
+    });
+
+    // Sync changes to editor based on what was dragged:
+    // - Left handle: Start date changed → update start date (manual scheduling)
+    // - Right handle: Duration changed → update duration in editor
+    // - Middle: Task shifted in time → update start date in editor (manual scheduling)
+    //   Note: Setting explicit start date makes task "manually scheduled" -
+    //   backend will use this date instead of calculating from dependencies
+    if (handleType === 'left') {
+        console.log('Left handle - syncing start date to editor (manual scheduling)');
+        syncGanttStartDateToEditor(task, taskIndex);
+    } else if (handleType === 'right') {
+        console.log('Right handle - syncing duration change to editor');
+        syncGanttDurationToEditor(task, taskIndex);
+    } else {
+        console.log('Middle drag - syncing start date to editor (manual scheduling)');
+        syncGanttStartDateToEditor(task, taskIndex);
+    }
+
+    // Trigger a full re-parse to recalculate dependencies
+    // This ensures successor tasks are recalculated if they depend on this task
+    // and ensures non-working days are respected
+    console.log('Triggering full plan re-parse to recalculate dependencies');
+    renderText();
+}
+
+function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null) {
+    // Get the editor content
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+
+    // For name field, search using oldName; otherwise use task.name
+    const searchName = (field === 'name' && oldName) ? oldName : task.name;
+
+    // Find the task line (need to match by task name and level)
+    // This is a simplified version - may need more robust matching
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const indent = '  '.repeat(task.level);
+        const taskNamePattern = new RegExp(`^${indent}${searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+
+        if (taskNamePattern.test(line)) {
+            // Update the field in the line
+            if (field === 'name') {
+                // Replace task name (preserve rest of line)
+                // Use searchName length (the old name) to correctly extract the rest of the line
+                const rest = line.substring(indent.length + searchName.length);
+                lines[i] = indent + newValue + rest;
+            } else if (field === 'resources') {
+                // Update resources - need to find and replace resource pattern
+                const resourcePattern = /\[([^\]]+)\]/;
+                if (newValue) {
+                    if (resourcePattern.test(line)) {
+                        lines[i] = line.replace(resourcePattern, `[${newValue}]`);
+                    } else {
+                        // Add resources if not present
+                        lines[i] = line.trim() + ` [${newValue}]`;
+                    }
+                } else {
+                    // Remove resources
+                    lines[i] = line.replace(resourcePattern, '').trim();
+                }
+            } else if (field === 'comment') {
+                // Update comment - need to find and replace comment pattern
+                const commentPattern = /\{([^}]*)\}/;
+                if (newValue) {
+                    if (commentPattern.test(line)) {
+                        lines[i] = line.replace(commentPattern, `{${newValue}}`);
+                    } else {
+                        // Add comment if not present
+                        lines[i] = line.trim() + ` {${newValue}}`;
+                    }
+                } else {
+                    // Remove comment
+                    lines[i] = line.replace(commentPattern, '').trim();
+                }
+            }
+
+            // Update editor
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            break;
+        }
+    }
+}
+
+function syncGanttDurationToEditor(task, taskIndex) {
+    console.log('syncGanttDurationToEditor called:', { task: task.name, duration_days: task.duration_days, level: task.level });
+
+    // Get the editor content
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    // Calculate indent: level represents hierarchy depth (root=0, first level=1, etc.)
+    // Editor uses 2 spaces per indent level, and indent = (level - 1) since level 1 = no indent
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    // Task name pattern: match indent + optional * (dependency marker) + task name
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    console.log('Looking for task with indent:', JSON.stringify(indent), 'spaces:', indentSpaces, 'name:', task.name, 'pattern allows *');
+
+    // Find the task line by matching indent and task name
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            // Parse line into tokens, update duration token, rebuild line
+            const updatedLine = updateDurationInLine(line, task.duration_days, indent, task.name);
+            console.log('Updated line:', updatedLine);
+
+            lines[i] = updatedLine;
+
+            // Update editor
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level, indent: JSON.stringify(indent), indentSpaces });
+    }
+}
+
+function syncGanttStartDateToEditor(task, taskIndex) {
+    console.log('syncGanttStartDateToEditor called:', { task: task.name, start: task.start, level: task.level });
+
+    // Get the editor content
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    // Calculate indent
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    // Task name pattern: match indent + optional * (dependency marker) + task name
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    console.log('Looking for task to update start date:', task.name, 'new start:', task.start, 'pattern allows *');
+
+    // Find the task line by matching indent and task name
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            // Parse line into tokens, update start date, rebuild line
+            const updatedLine = updateStartDateInLine(line, task.start, indent, task.name);
+            console.log('Updated line:', updatedLine);
+
+            lines[i] = updatedLine;
+
+            // Update editor
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
+    }
+}
+
+function syncGanttFinishDateToEditor(task, taskIndex) {
+    console.log('syncGanttFinishDateToEditor called:', { task: task.name, finish: task.finish, level: task.level });
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    // Calculate indent
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    // Task name pattern
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    console.log('Looking for task to update finish date:', task.name, 'new finish:', task.finish);
+
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            const updatedLine = updateFinishDateInLine(line, task.finish, indent, task.name);
+            console.log('Updated line:', updatedLine);
+
+            lines[i] = updatedLine;
+
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
+    }
+}
+
+function syncGanttPercentToEditor(task, taskIndex) {
+    console.log('syncGanttPercentToEditor called:', { task: task.name, percent: task.percent, level: task.level });
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    // Calculate indent
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    // Task name pattern
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    console.log('Looking for task to update percent:', task.name, 'new percent:', task.percent);
+
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            const updatedLine = updatePercentInLine(line, task.percent, indent, task.name);
+            console.log('Updated line:', updatedLine);
+
+            lines[i] = updatedLine;
+
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
+    }
+}
+
+/**
+ * Update duration in a task line by tokenizing, replacing duration token, and rebuilding
+ * This avoids fragile regex replacements and handles all edge cases
+ */
+function updateDurationInLine(line, newDurationDays, indent, taskName) {
+    // Strip the indent from the line first, then tokenize
+    const lineWithoutIndent = line.substring(indent.length);
+
+    // Tokenize the line (split by spaces but preserve quoted strings and brackets)
+    const tokens = [];
+    let currentToken = '';
+    let inQuotes = false;
+    let inBrackets = false;
+
+    for (let i = 0; i < lineWithoutIndent.length; i++) {
+        const char = lineWithoutIndent[i];
+
+        if (char === '"' && !inBrackets) {
+            inQuotes = !inQuotes;
+            currentToken += char;
+        } else if (char === '[' && !inQuotes) {
+            inBrackets = true;
+            currentToken += char;
+        } else if (char === ']' && !inQuotes) {
+            inBrackets = false;
+            currentToken += char;
+        } else if (char === ' ' && !inQuotes && !inBrackets) {
+            if (currentToken) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+        } else {
+            currentToken += char;
+        }
+    }
+
+    // Push last token
+    if (currentToken) {
+        tokens.push(currentToken);
+    }
+
+    // Find and replace duration token
+    let foundDuration = false;
+    for (let i = 0; i < tokens.length; i++) {
+        // Duration token format: digits followed by d/w/m/y
+        if (/^\d+[dwmy]$/.test(tokens[i])) {
+            tokens[i] = `${newDurationDays}d`;
+            foundDuration = true;
+            break;
+        }
+    }
+
+    // If no duration found, add it after task name (first token)
+    if (!foundDuration) {
+        tokens.splice(1, 0, `${newDurationDays}d`);
+    }
+
+    // Rebuild line with indent preserved
+    return indent + tokens.join(' ');
+}
+
+/**
+ * Update start date in a task line by tokenizing, replacing/adding date token, and rebuilding
+ */
+function updateStartDateInLine(line, newStartDate, indent, taskName) {
+    // Strip the indent from the line first, then tokenize
+    const lineWithoutIndent = line.substring(indent.length);
+
+    // Tokenize the line (split by spaces but preserve quoted strings and brackets)
+    const tokens = [];
+    let currentToken = '';
+    let inQuotes = false;
+    let inBrackets = false;
+
+    for (let i = 0; i < lineWithoutIndent.length; i++) {
+        const char = lineWithoutIndent[i];
+
+        if (char === '"' && !inBrackets) {
+            inQuotes = !inQuotes;
+            currentToken += char;
+        } else if (char === '[' && !inQuotes) {
+            inBrackets = true;
+            currentToken += char;
+        } else if (char === ']' && !inQuotes) {
+            inBrackets = false;
+            currentToken += char;
+        } else if (char === ' ' && !inQuotes && !inBrackets) {
+            if (currentToken) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+        } else {
+            currentToken += char;
+        }
+    }
+
+    // Push last token
+    if (currentToken) {
+        tokens.push(currentToken);
+    }
+
+    // Find and replace start date token (format: YYYY-MM-DD)
+    // Date should come after duration, resources, percent
+    let foundDate = false;
+    for (let i = 0; i < tokens.length; i++) {
+        // Date token format: YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+            tokens[i] = newStartDate;
+            foundDate = true;
+            break;
+        }
+    }
+
+    // If no date found, add it after percent (or after resources if no percent, or after duration)
+    if (!foundDate) {
+        // Find the right position: after task name, duration, resources, percent
+        let insertIndex = 1; // Default: after task name
+
+        // Look for duration, resources, percent to find the right insertion point
+        for (let i = 1; i < tokens.length; i++) {
+            if (/^\d+[dwmy]$/.test(tokens[i])) {
+                insertIndex = i + 1; // After duration
+            } else if (tokens[i].startsWith('@')) {
+                insertIndex = i + 1; // After resources
+            } else if (/^\d+%$/.test(tokens[i])) {
+                insertIndex = i + 1; // After percent
+                break; // Percent is usually last before dates
+            }
+        }
+
+        tokens.splice(insertIndex, 0, newStartDate);
+    }
+
+    // Rebuild line with indent preserved
+    return indent + tokens.join(' ');
+}
+
+function updateFinishDateInLine(line, newFinishDate, indent, taskName) {
+    // Strip the indent from the line first, then tokenize
+    const lineWithoutIndent = line.substring(indent.length);
+
+    // Tokenize the line
+    const tokens = [];
+    let currentToken = '';
+    let inQuotes = false;
+    let inBrackets = false;
+
+    for (let i = 0; i < lineWithoutIndent.length; i++) {
+        const char = lineWithoutIndent[i];
+
+        if (char === '"' && !inBrackets) {
+            inQuotes = !inQuotes;
+            currentToken += char;
+        } else if (char === '[' && !inQuotes) {
+            inBrackets = true;
+            currentToken += char;
+        } else if (char === ']' && !inQuotes) {
+            inBrackets = false;
+            currentToken += char;
+        } else if (char === ' ' && !inQuotes && !inBrackets) {
+            if (currentToken) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+        } else {
+            currentToken += char;
+        }
+    }
+
+    if (currentToken) {
+        tokens.push(currentToken);
+    }
+
+    // Find and replace finish date token (second date in line, after start date)
+    let dateCount = 0;
+    let foundFinishDate = false;
+    for (let i = 0; i < tokens.length; i++) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+            dateCount++;
+            if (dateCount === 2) {
+                // This is the finish date (second date)
+                tokens[i] = newFinishDate;
+                foundFinishDate = true;
+                break;
+            }
+        }
+    }
+
+    // If no finish date found, add it after start date
+    if (!foundFinishDate) {
+        // Find the start date position
+        for (let i = 0; i < tokens.length; i++) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+                // Insert finish date after start date
+                tokens.splice(i + 1, 0, newFinishDate);
+                foundFinishDate = true;
+                break;
+            }
+        }
+    }
+
+    // Rebuild line with indent preserved
+    return indent + tokens.join(' ');
+}
+
+function updatePercentInLine(line, newPercent, indent, taskName) {
+    // Strip the indent from the line first, then tokenize
+    const lineWithoutIndent = line.substring(indent.length);
+
+    // Tokenize the line
+    const tokens = [];
+    let currentToken = '';
+    let inQuotes = false;
+    let inBrackets = false;
+
+    for (let i = 0; i < lineWithoutIndent.length; i++) {
+        const char = lineWithoutIndent[i];
+
+        if (char === '"' && !inBrackets) {
+            inQuotes = !inQuotes;
+            currentToken += char;
+        } else if (char === '[' && !inQuotes) {
+            inBrackets = true;
+            currentToken += char;
+        } else if (char === ']' && !inQuotes) {
+            inBrackets = false;
+            currentToken += char;
+        } else if (char === ' ' && !inQuotes && !inBrackets) {
+            if (currentToken) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+        } else {
+            currentToken += char;
+        }
+    }
+
+    if (currentToken) {
+        tokens.push(currentToken);
+    }
+
+    // Find and replace percent token (format: XX%)
+    let foundPercent = false;
+    for (let i = 0; i < tokens.length; i++) {
+        if (/^\d+%$/.test(tokens[i])) {
+            tokens[i] = newPercent;
+            foundPercent = true;
+            break;
+        }
+    }
+
+    // If no percent found, add it after duration (or after task name if no duration)
+    if (!foundPercent) {
+        let insertIndex = 1; // Default: after task name
+
+        // Find duration to insert after it
+        for (let i = 1; i < tokens.length; i++) {
+            if (/^\d+[dwmy]$/.test(tokens[i])) {
+                insertIndex = i + 1; // After duration
+                break;
+            }
+        }
+
+        tokens.splice(insertIndex, 0, newPercent);
+    }
+
+    // Rebuild line with indent preserved
+    return indent + tokens.join(' ');
+}
+
+function calculateRAGCounts(asciiOutput) {
+    // Count occurrences of Red, Amber, Green in the ASCII output
+    const redMatches = asciiOutput.match(/Red/g) || [];
+    const amberMatches = asciiOutput.match(/Amber/g) || [];
+    const greenMatches = asciiOutput.match(/Green/g) || [];
+
+    return {
+        red: redMatches.length,
+        amber: amberMatches.length,
+        green: greenMatches.length
+    };
 }
 
 function showMessage(prefix, type, text) {
@@ -1065,12 +3339,322 @@ function openTaskForm(lineNumber) {
     document.getElementById('taskPercent').value = task.percent || '';
     document.getElementById('taskResources').value = task.resources || '';
     document.getElementById('taskComment').value = task.comment || '';
-    document.getElementById('taskDependencies').value = task.dependencies || '';
+    populateDependenciesTable(task.dependencies || '');
+
+    // Populate labels field if it exists
+    const labelsInput = document.getElementById('taskLabels');
+    if (labelsInput) {
+        labelsInput.value = task.labels || '';
+    }
 
     currentTaskLineNumber = lineNumber;
     updateRagDisplay();
     updateProgressBar();
+
+    // Populate subtasks
+    populateSubtasks(lineNumber, lines);
+
     document.getElementById('taskFormOverlay').classList.add('active');
+}
+
+function openMilestoneTaskForm(taskName) {
+    // Switch to plan editor tab
+    switchTab('editor');
+
+    // Find the task in the editor by name
+    const editor = document.getElementById('planEditor');
+    const lines = editor.value.split('\n');
+
+    // Search for the task by matching the name
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Skip empty lines and front matter
+        if (!line || line.startsWith('---') || line.startsWith('#')) continue;
+
+        // Parse the task name from the line
+        const task = parseTaskLine(lines[i], i + 1);
+
+        // Match task name (exact match)
+        if (task.name && task.name === taskName) {
+            // Found the task - open the form
+            openTaskForm(i + 1);
+            return;
+        }
+    }
+
+    console.error('Task not found in editor:', taskName);
+}
+
+function populateSubtasks(parentLineNumber, lines) {
+    const subtasksList = document.getElementById('subtasksList');
+    if (!subtasksList) return;
+
+    subtasksList.innerHTML = '';
+
+    // Get parent task indentation level
+    const parentLine = lines[parentLineNumber - 1];
+    const parentIndent = parentLine.search(/\S/); // Find first non-whitespace character
+
+    // Find all child tasks (tasks with greater indentation on subsequent lines)
+    const subtasks = [];
+    for (let i = parentLineNumber; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Skip empty lines
+        if (!trimmed) continue;
+
+        // Skip front matter, phase headers, summary lines
+        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+
+        const indent = line.search(/\S/);
+
+        // If we hit a line at same or lower indentation, we're done
+        if (indent <= parentIndent && i > parentLineNumber) {
+            break;
+        }
+
+        // Check if this is a direct child (one level more indented)
+        if (i > parentLineNumber - 1 && indent > parentIndent) {
+            // Check if it's a direct child (immediate next level)
+            const indentDiff = indent - parentIndent;
+            if (indentDiff === 2 || indentDiff === 4) { // 2 spaces or 4 spaces = one level
+                const task = parseTaskLine(line, i + 1);
+                if (task.name) {
+                    subtasks.push({
+                        ...task,
+                        lineNumber: i + 1
+                    });
+                }
+            }
+        }
+    }
+
+    // Display subtasks
+    if (subtasks.length === 0) {
+        subtasksList.innerHTML = '<div style="padding: 10px; color: #999; text-align: center;">No sub tasks</div>';
+        // Enable percent input for non-summary tasks
+        const percentInput = document.getElementById('taskPercent');
+        const helperText = document.getElementById('percentHelperText');
+        if (percentInput) {
+            percentInput.readOnly = false;
+            percentInput.style.backgroundColor = '';
+            percentInput.style.cursor = '';
+        }
+        if (helperText) {
+            helperText.style.display = 'none';
+        }
+        return subtasks;
+    }
+
+    subtasks.forEach(subtask => {
+        const item = document.createElement('div');
+        item.className = 'subtask-item';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'subtask-checkbox';
+        checkbox.checked = parseInt(subtask.percent) === 100;
+        checkbox.addEventListener('change', () => toggleSubtaskCompletion(subtask.lineNumber, checkbox.checked));
+
+        const label = document.createElement('span');
+        label.className = 'subtask-label';
+        label.textContent = subtask.name;
+        label.addEventListener('click', () => {
+            // Close current form and open subtask form
+            closeTaskForm();
+            setTimeout(() => openTaskForm(subtask.lineNumber), 100);
+        });
+
+        // Show completion percentage if not 0 or 100
+        const percent = parseInt(subtask.percent) || 0;
+        if (percent > 0 && percent < 100) {
+            const percentBadge = document.createElement('span');
+            percentBadge.className = 'subtask-percent';
+            percentBadge.textContent = `${percent}%`;
+            label.appendChild(percentBadge);
+        }
+
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        subtasksList.appendChild(item);
+    });
+
+    // Calculate average completion for summary tasks
+    const totalPercent = subtasks.reduce((sum, task) => sum + (parseInt(task.percent) || 0), 0);
+    const avgPercent = Math.round(totalPercent / subtasks.length);
+
+    // Update percent field and make it read-only
+    const percentInput = document.getElementById('taskPercent');
+    const helperText = document.getElementById('percentHelperText');
+    if (percentInput) {
+        percentInput.value = avgPercent;
+        percentInput.readOnly = true;
+        percentInput.style.backgroundColor = '#f0f0f0';
+        percentInput.style.cursor = 'not-allowed';
+
+        // Update progress bar and RAG status to reflect calculated percent
+        updateProgressBar();
+        updateRagDisplay();
+    }
+
+    // Show helper text
+    if (helperText) {
+        helperText.style.display = 'block';
+    }
+
+    return subtasks;
+}
+
+function toggleSubtaskCompletion(lineNumber, isComplete) {
+    const editor = document.getElementById('planEditor');
+    const lines = editor.value.split('\n');
+    const line = lines[lineNumber - 1];
+
+    // Parse the task
+    const task = parseTaskLine(line, lineNumber);
+
+    // Update or add percent
+    let updatedLine = line;
+
+    if (isComplete) {
+        // Set to 100%
+        if (task.percent) {
+            // Replace existing percent
+            updatedLine = updatedLine.replace(/\d+%/, '100%');
+        } else {
+            // Add 100% to the end
+            updatedLine = updatedLine.trimEnd() + ' 100%';
+        }
+    } else {
+        // Set to 0%
+        if (task.percent) {
+            updatedLine = updatedLine.replace(/\d+%/, '0%');
+        } else {
+            // Add 0% to the end
+            updatedLine = updatedLine.trimEnd() + ' 0%';
+        }
+    }
+
+    // Update the line
+    lines[lineNumber - 1] = updatedLine;
+    editor.value = lines.join('\n');
+
+    // Trigger input event to update line numbers and syntax highlighting
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Re-populate subtasks to reflect changes
+    populateSubtasks(currentTaskLineNumber, lines);
+}
+
+function addNewSubtask() {
+    const subtasksList = document.getElementById('subtasksList');
+    if (!subtasksList) return;
+
+    // Create new editable subtask item
+    const item = document.createElement('div');
+    item.className = 'subtask-item subtask-item-editing';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'subtask-checkbox';
+    checkbox.disabled = true;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'subtask-input';
+    input.placeholder = 'Enter subtask name...';
+    input.style.flex = '1';
+    input.style.border = '1px solid #108bb9';
+    input.style.borderRadius = '3px';
+    input.style.padding = '4px 8px';
+    input.style.outline = 'none';
+
+    // Handle save on Enter or blur
+    let saved = false;
+    const saveSubtask = () => {
+        if (saved) return;
+
+        const taskName = input.value.trim();
+        if (!taskName) {
+            item.remove();
+            return;
+        }
+
+        saved = true;
+
+        const editor = document.getElementById('planEditor');
+        const lines = editor.value.split('\n');
+
+        // Get parent task line
+        const parentLine = lines[currentTaskLineNumber - 1];
+        const parentIndent = parentLine.search(/\S/);
+
+        // Create new subtask with one more level of indentation
+        const childIndent = ' '.repeat(parentIndent + 2);
+        const newTaskLine = `${childIndent}${taskName}`;
+
+        // Find where to insert - after all existing child tasks
+        let insertIndex = currentTaskLineNumber;
+
+        // Look for existing child tasks and find the last one
+        for (let i = currentTaskLineNumber; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+
+            // Skip empty lines
+            if (!trimmed) continue;
+
+            // Skip front matter, phase headers, summary lines
+            if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
+
+            const indent = line.search(/\S/);
+
+            // If we hit a line at same or lower indentation than parent, we're done
+            if (indent <= parentIndent) {
+                break;
+            }
+
+            // This is a child task, update insert position to after it
+            insertIndex = i + 1;
+        }
+
+        // Insert the new line
+        lines.splice(insertIndex, 0, newTaskLine);
+        editor.value = lines.join('\n');
+
+        // Trigger input event to update line numbers and syntax highlighting
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Re-populate subtasks to show the new task properly
+        populateSubtasks(currentTaskLineNumber, editor.value.split('\n'));
+    };
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveSubtask();
+        } else if (e.key === 'Escape') {
+            item.remove();
+        }
+    });
+
+    input.addEventListener('blur', () => {
+        saveSubtask();
+    });
+
+    item.appendChild(checkbox);
+    item.appendChild(input);
+
+    // Remove "No sub tasks" message if present
+    const noTasksMsg = subtasksList.querySelector('div[style*="text-align: center"]');
+    if (noTasksMsg) {
+        noTasksMsg.remove();
+    }
+
+    subtasksList.appendChild(item);
+    input.focus();
 }
 
 // Called when date fields change - recalculate duration
@@ -1260,6 +3844,105 @@ function closeTaskForm() {
     currentTaskLineNumber = null;
 }
 
+/**
+ * Add a new row to the dependencies table
+ */
+function addDependencyRow(taskName = '', lagLead = '') {
+    const tbody = document.getElementById('dependenciesTableBody');
+    const row = document.createElement('tr');
+
+    // Create unique ID for this dropdown
+    const dropdownId = 'depAutocomplete_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+    row.innerHTML = `
+        <td>
+            <div class="autocomplete-container" style="position: relative;">
+                <input type="text" class="dependency-task-name" placeholder="Task name" value="${taskName}"
+                       oninput="handleDependencyInput(this)"
+                       onkeydown="handleDependencyKeydown(event, this)"
+                       autocomplete="off"
+                       data-dropdown="${dropdownId}">
+                <div id="${dropdownId}" class="autocomplete-dropdown"></div>
+            </div>
+        </td>
+        <td>
+            <input type="text" class="dependency-lag-lead" placeholder="e.g., +2d, -1w" value="${lagLead}" oninput="saveTask()">
+        </td>
+        <td>
+            <button type="button" class="remove-dependency-btn" onclick="removeDependencyRow(this)">×</button>
+        </td>
+    `;
+
+    tbody.appendChild(row);
+}
+
+/**
+ * Remove a dependency row from the table
+ */
+function removeDependencyRow(button) {
+    const row = button.closest('tr');
+    row.remove();
+    saveTask(); // Update the editor after removing a dependency
+}
+
+/**
+ * Populate dependencies table from task data
+ */
+function populateDependenciesTable(dependenciesStr) {
+    const tbody = document.getElementById('dependenciesTableBody');
+    tbody.innerHTML = ''; // Clear existing rows
+
+    if (!dependenciesStr || !dependenciesStr.trim()) {
+        return;
+    }
+
+    // Parse dependencies string like "Task1, Task2 +2d, Task3 -1w"
+    // This comes from [depends Task1, Task2 +2d] syntax
+    const deps = dependenciesStr.split(',').map(d => d.trim()).filter(d => d);
+
+    deps.forEach(dep => {
+        // Check if this dependency has lag/lead time
+        const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
+
+        if (lagLeadMatch) {
+            // Has lag/lead: "Task Name +2d"
+            addDependencyRow(lagLeadMatch[1].trim(), lagLeadMatch[2]);
+        } else {
+            // No lag/lead: just "Task Name"
+            addDependencyRow(dep, '');
+        }
+    });
+
+    // If no dependencies, show empty state
+    if (deps.length === 0) {
+        tbody.innerHTML = '';
+    }
+}
+
+/**
+ * Collect dependencies from table into a string format
+ * Returns format like "Task1, Task2 +2d, Task3 -1w"
+ */
+function collectDependenciesFromTable() {
+    const rows = document.querySelectorAll('#dependenciesTableBody tr');
+    const deps = [];
+
+    rows.forEach(row => {
+        const taskName = row.querySelector('.dependency-task-name').value.trim();
+        const lagLead = row.querySelector('.dependency-lag-lead').value.trim();
+
+        if (taskName) {
+            if (lagLead) {
+                deps.push(`${taskName} ${lagLead}`);
+            } else {
+                deps.push(taskName);
+            }
+        }
+    });
+
+    return deps.join(', ');
+}
+
 function saveTask() {
     if (currentTaskLineNumber === null) return;
 
@@ -1281,7 +3964,7 @@ function saveTask() {
     const percent = document.getElementById('taskPercent').value.trim();
     const resources = document.getElementById('taskResources').value.trim();
     const comment = document.getElementById('taskComment').value.trim();
-    const dependencies = document.getElementById('taskDependencies').value.trim();
+    const dependencies = collectDependenciesFromTable();
 
     // Get previous task name for dependency check
     const previousTaskName = getPreviousTaskName(lines, currentTaskLineNumber);
@@ -1289,11 +3972,43 @@ function saveTask() {
     // Parse dependencies - split by comma if multiple
     const depList = dependencies ? dependencies.split(',').map(d => d.trim()).filter(d => d) : [];
 
-    // Filter out the previous task from explicit dependencies (will use * instead)
-    const nonPreviousDeps = depList.filter(dep => dep !== previousTaskName);
+    // Check for previous task dependency (without lag/lead only)
+    // If there's lag/lead, we use [depends] syntax instead of *
+    let dependsOnPreviousSimple = false; // Only true if previous task with NO lag/lead
+    const allDependenciesForBrackets = []; // All dependencies that need [depends] syntax
 
-    // Check if task depends on previous task
-    const dependsOnPrevious = depList.includes(previousTaskName);
+    depList.forEach(dep => {
+        // Check if this dependency has lag/lead time (complete or incomplete)
+        // Complete: +2d, -1w   Incomplete: +, +2, -1
+        const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d*[dwmy]?)$/);
+
+        if (lagLeadMatch) {
+            const taskName = lagLeadMatch[1].trim();
+            const lagLeadPart = lagLeadMatch[2];
+
+            // Check if lag/lead is complete (has number AND unit)
+            const isCompleteLagLead = /^[+\-]\d+[dwmy]$/.test(lagLeadPart);
+
+            if (isCompleteLagLead) {
+                // Complete lag/lead: "Task Name +2d"
+                // Always use [depends] syntax for lag/lead, even if it's the previous task
+                allDependenciesForBrackets.push(dep);
+            } else {
+                // Incomplete lag/lead (e.g., "+", "+2", "2d" without sign)
+                // Treat as if no lag/lead, but preserve the string in [depends]
+                allDependenciesForBrackets.push(dep);
+            }
+        } else {
+            // No lag/lead: just "Task Name"
+            if (dep === previousTaskName) {
+                // Simple dependency on previous task - use * notation
+                dependsOnPreviousSimple = true;
+            } else {
+                // Other task without lag/lead - use [depends] syntax
+                allDependenciesForBrackets.push(dep);
+            }
+        }
+    });
 
     // Reconstruct task line
     let indent = '';
@@ -1308,7 +4023,7 @@ function saveTask() {
         console.error('Error matching indent:', e, 'originalLine:', originalLine, 'type:', typeof originalLine);
     }
 
-    let taskNamePart = dependsOnPrevious ? '*' + name : name;
+    let taskNamePart = dependsOnPreviousSimple ? '*' + name : name;
     let newLine = indent + taskNamePart;
 
     // Add duration
@@ -1322,8 +4037,11 @@ function saveTask() {
         });
     }
 
-    // Add percent
-    if (percent) newLine += ' ' + percent + '%';
+    // Add percent - but only if this is not a summary task
+    // Summary tasks have their percent auto-calculated from subtasks
+    const percentInput = document.getElementById('taskPercent');
+    const isSummaryTask = percentInput && percentInput.readOnly;
+    if (percent && !isSummaryTask) newLine += ' ' + percent + '%';
 
     // Add dates (ISO format) - only if user explicitly set them
     if (startDate && userSetStartDate) newLine += ' ' + startDate;
@@ -1332,8 +4050,23 @@ function saveTask() {
     // Add comment
     if (comment) newLine += ' "' + comment + '"';
 
-    // Add dependencies (only non-previous ones, as * handles previous)
-    if (nonPreviousDeps.length > 0) newLine += ' #' + nonPreviousDeps.join(',');
+    // Add dependencies - use [depends] syntax for all non-simple dependencies
+    // (includes lag/lead dependencies, even if it's the previous task)
+    if (allDependenciesForBrackets.length > 0) {
+        newLine += ' [depends ' + allDependenciesForBrackets.join(', ') + ']';
+    }
+
+    // Add labels (if labels field exists in form)
+    const labelsInput = document.getElementById('taskLabels');
+    if (labelsInput) {
+        const labels = labelsInput.value.trim();
+        if (labels) {
+            const labelList = labels.split(',').map(l => l.trim()).filter(l => l);
+            labelList.forEach(label => {
+                newLine += ' #' + label;
+            });
+        }
+    }
 
     // Update the line
     lines[currentTaskLineNumber - 1] = newLine;
@@ -1370,7 +4103,8 @@ function parseTaskLine(line, lineNum) {
         percent: '',
         resources: '',
         comment: '',
-        dependencies: ''
+        dependencies: '',
+        labels: ''
     };
 
     // Remove leading whitespace
@@ -1379,10 +4113,19 @@ function parseTaskLine(line, lineNum) {
 
     // Check for * prefix (depends on previous task)
     let hasStar = false;
+    let starLagLead = ''; // Capture lag/lead after *
     let text = trimmed;
     if (text.startsWith('*')) {
         hasStar = true;
         text = text.substring(1).trim();
+
+        // Check if there's a lag/lead time immediately after the *
+        // Pattern: * +2d TaskName or * -1w TaskName
+        const starLagMatch = text.match(/^([+\-]\d+[dwmy])\s+/);
+        if (starLagMatch) {
+            starLagLead = starLagMatch[1];
+            text = text.substring(starLagMatch[0].length).trim();
+        }
     }
 
     // Handle comment first (everything in quotes)
@@ -1394,12 +4137,23 @@ function parseTaskLine(line, lineNum) {
         text = text.replace(/"[^"]*"/, '').trim();
     }
 
+    // Handle dependencies (everything in square brackets [depends ...])
+    const dependencies = [];
+    const dependsMatch = text.match(/\[depends\s+([^\]]+)\]/i);
+    if (dependsMatch) {
+        // Parse dependencies - can be comma-separated
+        const depText = dependsMatch[1];
+        dependencies.push(...depText.split(',').map(d => d.trim()).filter(d => d));
+        // Remove the dependency from the text
+        text = text.replace(/\[depends\s+[^\]]+\]/i, '').trim();
+    }
+
     // Split by spaces to get tokens
     const tokens = text.split(/\s+/);
 
     const nameTokens = [];
     const resources = [];
-    const dependencies = [];
+    const labels = [];
     const dates = [];
 
     for (let i = 0; i < tokens.length; i++) {
@@ -1414,8 +4168,8 @@ function parseTaskLine(line, lineNum) {
             resources.push(token.substring(1));
         }
         else if (token.startsWith('#')) {
-            // Dependency: #Design
-            dependencies.push(token.substring(1));
+            // Label/Tag: #DEV, #HIGH
+            labels.push(token.substring(1));
         }
         else if (token.match(/^\d+[dmw]$/)) {
             // Duration: 5d, 2w, 3m
@@ -1452,20 +4206,62 @@ function parseTaskLine(line, lineNum) {
 
     // Handle dependencies
     if (hasStar) {
-        // Add previous task as dependency
+        // Add previous task as dependency (with lag/lead if present)
         const editor = document.getElementById('planEditor');
         if (editor) {
             const lines = editor.value.split('\n');
             const previousTaskName = getPreviousTaskName(lines, lineNum);
             if (previousTaskName) {
-                dependencies.unshift(previousTaskName);
+                const prevDep = starLagLead ? `${previousTaskName} ${starLagLead}` : previousTaskName;
+                dependencies.unshift(prevDep);
             }
         }
     }
 
     task.dependencies = dependencies.join(', ');
+    task.labels = labels.join(', ');
 
     return task;
+}
+
+/**
+ * Parse front matter from plan text to extract resource mappings
+ * Returns an object mapping lowercase shortnames to full names
+ * Example: { "kev": "Kevin McAleer", "jen": "Jennifer" }
+ */
+function parseResourceMappings(planText) {
+    const resourceMap = {};
+    const lines = planText.split('\n');
+    let inFrontMatter = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Detect front matter boundaries
+        if (line.trim() === '---') {
+            if (!inFrontMatter) {
+                inFrontMatter = true;
+            } else {
+                // End of front matter
+                break;
+            }
+            continue;
+        }
+
+        // Parse resources in front matter: - @kev: Kevin McAleer, role
+        if (inFrontMatter && line.trim().match(/^-\s*@(\w+):\s*(.+)/)) {
+            const match = line.trim().match(/^-\s*@(\w+):\s*(.+)/);
+            if (match) {
+                const shortname = match[1].toLowerCase(); // Normalize to lowercase
+                const fullInfo = match[2].trim();
+                // Extract just the name (before comma if present)
+                const fullName = fullInfo.split(',')[0].trim();
+                resourceMap[shortname] = fullName;
+            }
+        }
+    }
+
+    return resourceMap;
 }
 
 // Autocomplete functionality for dependencies and resources
@@ -1603,14 +4399,23 @@ function getAllResourceNames() {
     const editor = document.getElementById('planEditor');
     if (!editor) return [];
 
+    // Get resource mappings from front matter
+    const resourceMap = parseResourceMappings(editor.value);
+
+    // If front matter defines resources, use those (lowercase shortnames)
+    if (Object.keys(resourceMap).length > 0) {
+        return Object.keys(resourceMap).sort();
+    }
+
+    // Fallback: collect resources from existing tasks
     const lines = editor.value.split('\n');
     const resourceSet = new Set();
 
     for (let i = 0; i < lines.length; i++) {
         const task = parseTaskLine(lines[i], i + 1);
         if (task.resources) {
-            // Split resources by comma and add each one
-            const resources = task.resources.split(',').map(r => r.trim()).filter(r => r);
+            // Split resources by comma and normalize to lowercase
+            const resources = task.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
             resources.forEach(r => resourceSet.add(r));
         }
     }
@@ -1723,6 +4528,330 @@ function selectResource(name) {
     saveTask();
 }
 
+// Dependency autocomplete functionality
+let dependencyAutocompleteSelectedIndex = -1;
+let currentDependencyInput = null;
+
+function handleDependencyInput(input) {
+    currentDependencyInput = input;
+    const dropdownId = input.getAttribute('data-dropdown');
+    const dropdown = document.getElementById(dropdownId);
+    const value = input.value.trim();
+
+    if (value.length === 0) {
+        dropdown.style.display = 'none';
+        dependencyAutocompleteSelectedIndex = -1;
+        saveTask();
+        return;
+    }
+
+    // Get all task names
+    const allTasks = getAllTaskNames();
+    const matches = allTasks.filter(task =>
+        task.toLowerCase().includes(value.toLowerCase())
+    );
+
+    if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        dependencyAutocompleteSelectedIndex = -1;
+        saveTask();
+        return;
+    }
+
+    // Build dropdown
+    dropdown.innerHTML = '';
+    matches.forEach(task => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = task;
+        item.onclick = () => selectDependency(task, input, dropdownId);
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+    dependencyAutocompleteSelectedIndex = -1;
+    saveTask();
+}
+
+function handleDependencyKeydown(event, input) {
+    const dropdownId = input.getAttribute('data-dropdown');
+    const dropdown = document.getElementById(dropdownId);
+    if (dropdown.style.display !== 'block') return;
+
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        dependencyAutocompleteSelectedIndex = Math.min(dependencyAutocompleteSelectedIndex + 1, items.length - 1);
+        updateDependencyAutocompleteSelection(items);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        dependencyAutocompleteSelectedIndex = Math.max(dependencyAutocompleteSelectedIndex - 1, -1);
+        updateDependencyAutocompleteSelection(items);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (dependencyAutocompleteSelectedIndex >= 0) {
+            const selectedItem = items[dependencyAutocompleteSelectedIndex];
+            selectDependency(selectedItem.textContent, input, dropdownId);
+        }
+    } else if (event.key === 'Escape') {
+        dropdown.style.display = 'none';
+        dependencyAutocompleteSelectedIndex = -1;
+    }
+}
+
+function updateDependencyAutocompleteSelection(items) {
+    items.forEach((item, index) => {
+        if (index === dependencyAutocompleteSelectedIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+function selectDependency(taskName, input, dropdownId) {
+    input.value = taskName;
+    const dropdown = document.getElementById(dropdownId);
+    dropdown.style.display = 'none';
+    dependencyAutocompleteSelectedIndex = -1;
+    input.focus();
+    saveTask();
+}
+
+// Label autocomplete functionality
+let labelAutocompleteSelectedIndex = -1;
+
+function getAllLabelNames() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return [];
+
+    const lines = editor.value.split('\n');
+    const labelSet = new Set();
+
+    for (let i = 0; i < lines.length; i++) {
+        const task = parseTaskLine(lines[i], i + 1);
+        if (task.labels) {
+            // Split labels by comma and collect unique ones
+            const labels = task.labels.split(',').map(l => l.trim()).filter(l => l);
+            labels.forEach(l => labelSet.add(l));
+        }
+    }
+
+    return Array.from(labelSet).sort();
+}
+
+function handleLabelInput() {
+    const input = document.getElementById('taskLabels');
+    const dropdown = document.getElementById('labelAutocomplete');
+    const value = input.value;
+
+    // Get the current word being typed (after the last comma)
+    const lastCommaIndex = value.lastIndexOf(',');
+    const currentWord = value.substring(lastCommaIndex + 1).trim();
+
+    if (currentWord.length === 0) {
+        dropdown.style.display = 'none';
+        labelAutocompleteSelectedIndex = -1;
+        saveTask();
+        return;
+    }
+
+    // Get all label names and filter by current word
+    const allLabels = getAllLabelNames();
+    const matches = allLabels.filter(name =>
+        name.toLowerCase().includes(currentWord.toLowerCase())
+    );
+
+    if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        labelAutocompleteSelectedIndex = -1;
+        saveTask();
+        return;
+    }
+
+    // Build dropdown HTML
+    dropdown.innerHTML = '';
+    matches.forEach((name, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = name;
+        item.onclick = function() {
+            selectLabel(name);
+        };
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+    labelAutocompleteSelectedIndex = -1;
+    saveTask();
+}
+
+function handleLabelKeydown(event) {
+    const dropdown = document.getElementById('labelAutocomplete');
+    if (dropdown.style.display !== 'block') return;
+
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        labelAutocompleteSelectedIndex = Math.min(labelAutocompleteSelectedIndex + 1, items.length - 1);
+        updateLabelAutocompleteSelection(items);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        labelAutocompleteSelectedIndex = Math.max(labelAutocompleteSelectedIndex - 1, -1);
+        updateLabelAutocompleteSelection(items);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (labelAutocompleteSelectedIndex >= 0) {
+            const selectedItem = items[labelAutocompleteSelectedIndex];
+            selectLabel(selectedItem.textContent);
+        }
+    } else if (event.key === 'Escape') {
+        dropdown.style.display = 'none';
+        labelAutocompleteSelectedIndex = -1;
+    }
+}
+
+function updateLabelAutocompleteSelection(items) {
+    items.forEach((item, index) => {
+        if (index === labelAutocompleteSelectedIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+function selectLabel(name) {
+    const input = document.getElementById('taskLabels');
+    const value = input.value;
+
+    // Replace the current word being typed with the selected name
+    const lastCommaIndex = value.lastIndexOf(',');
+    let newValue;
+    if (lastCommaIndex >= 0) {
+        newValue = value.substring(0, lastCommaIndex + 1) + ' ' + name;
+    } else {
+        newValue = name;
+    }
+
+    input.value = newValue;
+    const dropdown = document.getElementById('labelAutocomplete');
+    dropdown.style.display = 'none';
+    labelAutocompleteSelectedIndex = -1;
+    input.focus();
+    saveTask();
+}
+
+// Project label autocomplete functionality
+let projectLabelAutocompleteSelectedIndex = -1;
+
+function handleProjectLabelInput() {
+    const input = document.getElementById('projectLabels');
+    const dropdown = document.getElementById('projectLabelAutocomplete');
+    const value = input.value;
+
+    // Get the current word being typed (after the last comma)
+    const lastCommaIndex = value.lastIndexOf(',');
+    const currentWord = value.substring(lastCommaIndex + 1).trim();
+
+    if (currentWord.length === 0) {
+        dropdown.style.display = 'none';
+        projectLabelAutocompleteSelectedIndex = -1;
+        return;
+    }
+
+    // Get all label names and filter by current word
+    const allLabels = getAllLabelNames();
+    const matches = allLabels.filter(name =>
+        name.toLowerCase().includes(currentWord.toLowerCase())
+    );
+
+    if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        projectLabelAutocompleteSelectedIndex = -1;
+        return;
+    }
+
+    // Build dropdown HTML
+    dropdown.innerHTML = '';
+    matches.forEach((name, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = name;
+        item.onclick = function() {
+            selectProjectLabel(name);
+        };
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+    projectLabelAutocompleteSelectedIndex = -1;
+}
+
+function handleProjectLabelKeydown(event) {
+    const dropdown = document.getElementById('projectLabelAutocomplete');
+    if (dropdown.style.display !== 'block') return;
+
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        projectLabelAutocompleteSelectedIndex = Math.min(projectLabelAutocompleteSelectedIndex + 1, items.length - 1);
+        updateProjectLabelAutocompleteSelection(items);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        projectLabelAutocompleteSelectedIndex = Math.max(projectLabelAutocompleteSelectedIndex - 1, -1);
+        updateProjectLabelAutocompleteSelection(items);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        if (projectLabelAutocompleteSelectedIndex >= 0) {
+            const selectedItem = items[projectLabelAutocompleteSelectedIndex];
+            selectProjectLabel(selectedItem.textContent);
+        }
+    } else if (event.key === 'Escape') {
+        dropdown.style.display = 'none';
+        projectLabelAutocompleteSelectedIndex = -1;
+    }
+}
+
+function updateProjectLabelAutocompleteSelection(items) {
+    items.forEach((item, index) => {
+        if (index === projectLabelAutocompleteSelectedIndex) {
+            item.classList.add('selected');
+            item.scrollIntoView({ block: 'nearest' });
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+function selectProjectLabel(name) {
+    const input = document.getElementById('projectLabels');
+    const value = input.value;
+
+    // Replace the current word being typed with the selected name
+    const lastCommaIndex = value.lastIndexOf(',');
+    let newValue;
+    if (lastCommaIndex >= 0) {
+        newValue = value.substring(0, lastCommaIndex + 1) + ' ' + name;
+    } else {
+        newValue = name;
+    }
+
+    input.value = newValue;
+    const dropdown = document.getElementById('projectLabelAutocomplete');
+    dropdown.style.display = 'none';
+    projectLabelAutocompleteSelectedIndex = -1;
+    input.focus();
+}
+
 // Initialize event listeners after DOM is loaded
 // Toggle export dropdown menu
 function toggleExportMenu(event) {
@@ -1739,6 +4868,31 @@ document.addEventListener('click', function(e) {
         menu.classList.remove('show');
     }
 });
+
+// Switch between output tabs (ASCII, Summary, Milestones, etc.)
+function switchOutputTab(tabName) {
+    // Hide all tab content
+    document.querySelectorAll('.output-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Remove active from all tab buttons
+    document.querySelectorAll('.output-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Show selected tab content
+    const tabView = document.getElementById(`${tabName}-view`);
+    if (tabView) {
+        tabView.classList.add('active');
+    }
+
+    // Mark selected tab button as active
+    const activeTab = document.querySelector(`.output-tab[data-tab="${tabName}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+}
 
 // Resizer functionality
 let isResizing = false;
@@ -1823,13 +4977,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Close autocomplete dropdowns when clicking outside
     document.addEventListener('click', function(e) {
-        // Handle dependency autocomplete
+        // Handle dependency autocomplete (old single input - may still exist in code)
         const depDropdown = document.getElementById('dependencyAutocomplete');
         const depInput = document.getElementById('taskDependencies');
         if (depDropdown && depInput && !depInput.contains(e.target) && !depDropdown.contains(e.target)) {
             depDropdown.style.display = 'none';
             autocompleteSelectedIndex = -1;
         }
+
+        // Handle dependency table autocomplete dropdowns
+        const depInputs = document.querySelectorAll('.dependency-task-name');
+        depInputs.forEach(input => {
+            const dropdownId = input.getAttribute('data-dropdown');
+            if (dropdownId) {
+                const dropdown = document.getElementById(dropdownId);
+                if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                    dependencyAutocompleteSelectedIndex = -1;
+                }
+            }
+        });
 
         // Handle resource autocomplete
         const resDropdown = document.getElementById('resourceAutocomplete');
@@ -1840,10 +5007,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Add double-click handler to editor for opening task form
-    const editor = document.getElementById('planEditor');
-    if (editor) {
-        // Double-click support
+    // Function to attach double-click handler to any editor
+    function attachDoubleClickHandler(editor) {
+        if (!editor) return;
+
         editor.addEventListener('dblclick', function(e) {
             const textarea = e.target;
             const cursorPosition = textarea.selectionStart;
@@ -1854,20 +5021,60 @@ document.addEventListener('DOMContentLoaded', function() {
             const lines = textarea.value.split('\n');
             const line = lines[lineNumber - 1];
 
-            // Only open form for task lines (not empty lines, phase headers, or summary lines)
-            if (line && line.trim() && !line.includes('===') && !line.includes('---')) {
-                // Check if it looks like a task (has indentation or task markers)
+            // Check if we're in the front matter
+            let inFrontMatter = false;
+
+            if (lines[0] && lines[0].trim() === '---') {
+                // Front matter starts on line 1
+                let endLineNumber = -1;
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim() === '---') {
+                        // Found end of front matter
+                        endLineNumber = i + 1; // Line numbers are 1-based
+                        break;
+                    }
+                }
+                // Check if current line is within front matter (including the --- delimiters)
+                if (endLineNumber > 0 && lineNumber >= 1 && lineNumber <= endLineNumber) {
+                    inFrontMatter = true;
+                }
+            }
+
+            if (inFrontMatter) {
+                // Check if this is a resource line: - @shortname: ...
+                const resourceMatch = line.trim().match(/^-\s*@(\w+):\s*(.+)/);
+                if (resourceMatch) {
+                    // Open resource form for this resource
+                    const shortname = resourceMatch[1];
+                    openResourceForm(shortname);
+                } else {
+                    // Open project details form for other front matter
+                    openProjectDetailsForm();
+                }
+            } else if (line && line.trim() && !line.includes('===') && !line.includes('---')) {
+                // Only open form for task lines (not empty lines, phase headers, or summary lines)
                 const trimmed = line.trim();
                 if (trimmed && !trimmed.startsWith('#')) {
                     openTaskForm(lineNumber);
                 }
             }
         });
+    }
+
+    // Add double-click handler to both editors for opening task form
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+
+    attachDoubleClickHandler(mainEditor);
+    attachDoubleClickHandler(kanbanEditor);
+
+    // Mobile support - only for main editor for now
+    if (mainEditor) {
 
         // Double-tap support for mobile
         let lastTapTime = 0;
         let lastTapY = 0;
-        editor.addEventListener('touchend', function(e) {
+        mainEditor.addEventListener('touchend', function(e) {
             const currentTime = new Date().getTime();
             const tapInterval = currentTime - lastTapTime;
             const touch = e.changedTouches[0];
@@ -1906,3 +5113,1198 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+/**
+ * Project Details Form Functions
+ */
+
+function openProjectDetailsForm() {
+    const modal = document.getElementById('projectDetailsModal');
+    modal.classList.add('active');
+
+    // Parse and populate form from front matter
+    populateProjectDetailsFromFrontMatter();
+
+    // Focus on the first input
+    setTimeout(() => {
+        const firstInput = document.getElementById('projectOwner');
+        if (firstInput) firstInput.focus();
+    }, 100);
+}
+
+function closeProjectDetailsForm() {
+    const modal = document.getElementById('projectDetailsModal');
+    modal.classList.remove('active');
+}
+
+// Add ESC key handler for project details modal
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('projectDetailsModal');
+        if (modal && modal.classList.contains('active')) {
+            closeProjectDetailsForm();
+        }
+    }
+});
+
+// Add click outside handler for project details modal
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('projectDetailsModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            // Close if clicking on the overlay (not on the modal content)
+            if (e.target === modal) {
+                closeProjectDetailsForm();
+            }
+        });
+    }
+});
+
+// Resource Form Functions
+function openResourceForm(existingShortname = null) {
+    const overlay = document.getElementById('resourceFormOverlay');
+    overlay.style.display = 'flex';
+
+    // Clear form
+    document.getElementById('resourceShortname').value = '';
+    document.getElementById('resourceFullName').value = '';
+    document.getElementById('resourceRole').value = '';
+    document.getElementById('resourceEmail').value = '';
+    document.getElementById('resourceAllocation').value = '';
+
+    // If editing existing resource, populate form
+    if (existingShortname) {
+        populateResourceForm(existingShortname);
+    }
+
+    // Focus on first field
+    setTimeout(() => {
+        document.getElementById('resourceShortname').focus();
+    }, 100);
+}
+
+function closeResourceForm() {
+    const overlay = document.getElementById('resourceFormOverlay');
+    overlay.style.display = 'none';
+}
+
+function populateResourceForm(shortname) {
+    console.log('populateResourceForm called with shortname:', shortname);
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const content = editor.value;
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) {
+        console.log('No front matter found');
+        return;
+    }
+
+    const frontMatter = frontMatterMatch[1];
+    const lines = frontMatter.split('\n');
+
+    // Normalize shortname to lowercase for case-insensitive comparison
+    const shortnameLC = shortname.toLowerCase();
+    console.log('Looking for shortname (lowercase):', shortnameLC);
+
+    let inResources = false;
+    for (let line of lines) {
+        if (line.trim() === 'Resources:') {
+            inResources = true;
+            console.log('Found Resources section');
+            continue;
+        }
+
+        if (inResources && line.trim().startsWith('-')) {
+            // Parse resource line: - @shortname: Full Name, Role, email, allocation%
+            const match = line.match(/^-\s*@([^:]+):\s*(.+)$/);
+            console.log('Checking resource line:', line, 'match:', match);
+            if (match && match[1].trim().toLowerCase() === shortnameLC) {
+                console.log('Found matching resource!', match[1].trim(), '(case-insensitive match with)', shortname);
+                const parts = match[2].split(',').map(p => p.trim());
+                document.getElementById('resourceShortname').value = shortname;
+                document.getElementById('resourceFullName').value = parts[0] || '';
+                document.getElementById('resourceRole').value = parts[1] || '';
+                document.getElementById('resourceEmail').value = parts[2] || '';
+
+                // Parse allocation percentage
+                if (parts[3] && parts[3].includes('%')) {
+                    document.getElementById('resourceAllocation').value = parts[3].replace('%', '').trim();
+                }
+                console.log('Successfully populated form fields');
+                return; // Found and populated, exit early
+            }
+        } else if (inResources && line.trim() && !line.trim().startsWith('-')) {
+            // Non-empty line that's not a resource entry means we've left the Resources section
+            console.log('Exiting Resources section at line:', line);
+            inResources = false;
+        }
+    }
+
+    console.log('ERROR: No matching resource found for shortname:', shortname);
+}
+
+// Auto-save resource with debounce
+let resourceDebounceTimer = null;
+
+function autoSaveResource() {
+    // Clear existing timer
+    if (resourceDebounceTimer) {
+        clearTimeout(resourceDebounceTimer);
+    }
+
+    // Set new timer for 1 second debounce
+    resourceDebounceTimer = setTimeout(() => {
+        saveResourceInternal(false); // Don't close modal on auto-save
+    }, 1000);
+}
+
+function saveResource() {
+    // Clear any pending auto-save
+    if (resourceDebounceTimer) {
+        clearTimeout(resourceDebounceTimer);
+        resourceDebounceTimer = null;
+    }
+
+    saveResourceInternal(true); // Close modal when explicitly saving
+}
+
+function saveResourceInternal(closeModal = true) {
+    const shortname = document.getElementById('resourceShortname').value.trim();
+    const fullName = document.getElementById('resourceFullName').value.trim();
+    const role = document.getElementById('resourceRole').value.trim();
+    const email = document.getElementById('resourceEmail').value.trim();
+    const allocation = document.getElementById('resourceAllocation').value.trim();
+
+    if (!shortname || !fullName) {
+        // Don't show alert on auto-save, only on explicit save
+        if (closeModal) {
+            alert('Shortname and Full Name are required');
+        }
+        return;
+    }
+
+    // Build resource line
+    let resourceParts = [fullName];
+    if (role) resourceParts.push(role);
+    if (email) resourceParts.push(email);
+    if (allocation) resourceParts.push(`${allocation}%`);
+
+    const resourceLine = `- @${shortname}: ${resourceParts.join(', ')}`;
+
+    // Update editor
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    let inFrontMatter = false;
+    let frontMatterEnd = -1;
+    let resourcesLineIndex = -1;
+    let existingResourceIndex = -1;
+
+    // Find front matter and Resources section
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (line.trim() === '---') {
+            if (!inFrontMatter) {
+                inFrontMatter = true;
+            } else {
+                frontMatterEnd = i;
+                break;
+            }
+            continue;
+        }
+
+        if (inFrontMatter && line.trim() === 'Resources:') {
+            resourcesLineIndex = i;
+        }
+
+        // Check if editing existing resource
+        if (inFrontMatter && line.includes(`@${shortname}:`)) {
+            existingResourceIndex = i;
+        }
+    }
+
+    // If editing existing, replace line
+    if (existingResourceIndex >= 0) {
+        lines[existingResourceIndex] = resourceLine;
+    } else {
+        // Adding new resource
+        if (!inFrontMatter || frontMatterEnd === -1) {
+            // No front matter, create it
+            lines.unshift('---');
+            lines.splice(1, 0, 'Resources:');
+            lines.splice(2, 0, resourceLine);
+            lines.splice(3, 0, '---');
+        } else if (resourcesLineIndex === -1) {
+            // Front matter exists but no Resources section
+            lines.splice(frontMatterEnd, 0, 'Resources:');
+            lines.splice(frontMatterEnd + 1, 0, resourceLine);
+        } else {
+            // Resources section exists, add new resource
+            let insertIndex = resourcesLineIndex + 1;
+            while (insertIndex < frontMatterEnd && lines[insertIndex].trim().startsWith('-')) {
+                insertIndex++;
+            }
+            lines.splice(insertIndex, 0, resourceLine);
+        }
+    }
+
+    // Update editor
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Close form only if explicitly requested
+    if (closeModal) {
+        closeResourceForm();
+    }
+
+    // Refresh Kanban if active
+    if (window.kanbanBoard) {
+        setTimeout(() => {
+            window.kanbanBoard.parse();
+            window.kanbanBoard.render();
+        }, 100);
+    }
+}
+
+// Add ESC key handler for resource form
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('resourceFormOverlay');
+        if (overlay && overlay.style.display === 'flex') {
+            saveResource(); // Save and close
+        }
+    }
+});
+
+function populateProjectDetailsFromFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    const content = editor.value;
+
+    // Parse front matter
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) {
+        // No front matter, initialize empty form
+        clearProjectDetailsForm();
+        return;
+    }
+
+    const frontMatter = frontMatterMatch[1];
+    const lines = frontMatter.split('\n');
+
+    // Clear existing form
+    document.getElementById('projectTitle').value = '';
+    document.getElementById('projectOwner').value = '';
+    document.getElementById('projectStartDate').value = '';
+    document.getElementById('projectStatus').value = 'Open';
+    document.getElementById('projectSponsor').value = '';
+    document.getElementById('projectDescription').value = '';
+    document.getElementById('projectBudget').value = '';
+    document.getElementById('projectLabels').value = '';
+    document.getElementById('resourcesList').innerHTML = '';
+    document.getElementById('stakeholdersList').innerHTML = '';
+
+    let inResources = false;
+    let inStakeholders = false;
+
+    for (let line of lines) {
+        line = line.trim();
+
+        // Check for section headers
+        if (line.toLowerCase() === 'resources:') {
+            inResources = true;
+            inStakeholders = false;
+            continue;
+        } else if (line.toLowerCase() === 'key stakeholders:' || line.toLowerCase() === 'stakeholders:') {
+            inStakeholders = true;
+            inResources = false;
+            continue;
+        } else if (line.match(/^[a-z\s]+:/i) && !line.startsWith('-')) {
+            // New section, stop parsing resources/stakeholders
+            inResources = false;
+            inStakeholders = false;
+        }
+
+        // Parse resources and stakeholders
+        if (inResources && line.startsWith('- @')) {
+            const resourceData = line.substring(2).trim(); // Remove "- "
+            addResourceRow(resourceData);
+        } else if (inStakeholders && line.startsWith('- @')) {
+            const stakeholderData = line.substring(2).trim(); // Remove "- "
+            addStakeholderRow(stakeholderData);
+        }
+
+        // Parse other fields
+        const match = line.match(/^([^:]+):\s*(.*)$/);
+        if (match && !inResources && !inStakeholders) {
+            const key = match[1].trim().toLowerCase();
+            const value = match[2].trim();
+
+            switch (key) {
+                case 'title':
+                    document.getElementById('projectTitle').value = value;
+                    break;
+                case 'project manager':
+                case 'project owner':
+                case 'owner':
+                    document.getElementById('projectOwner').value = value;
+                    break;
+                case 'start date':
+                case 'project start date':
+                    document.getElementById('projectStartDate').value = value;
+                    break;
+                case 'status':
+                    document.getElementById('projectStatus').value = value;
+                    break;
+                case 'sponsor':
+                    document.getElementById('projectSponsor').value = value;
+                    break;
+                case 'description':
+                    document.getElementById('projectDescription').value = value;
+                    break;
+                case 'budget':
+                    document.getElementById('projectBudget').value = value;
+                    break;
+                case 'labels':
+                    // Parse labels: [red, green, blue] format
+                    const labelsMatch = value.match(/\[([^\]]+)\]/);
+                    if (labelsMatch) {
+                        document.getElementById('projectLabels').value = labelsMatch[1].trim();
+                    } else {
+                        document.getElementById('projectLabels').value = value;
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+function clearProjectDetailsForm() {
+    document.getElementById('projectTitle').value = '';
+    document.getElementById('projectOwner').value = '';
+    document.getElementById('projectStartDate').value = '';
+    document.getElementById('projectStatus').value = 'Open';
+    document.getElementById('projectSponsor').value = '';
+    document.getElementById('projectDescription').value = '';
+    document.getElementById('projectBudget').value = '';
+    document.getElementById('projectLabels').value = '';
+    document.getElementById('resourcesList').innerHTML = '';
+    document.getElementById('stakeholdersList').innerHTML = '';
+}
+
+function addResourceRow(data = '') {
+    const container = document.getElementById('resourcesList');
+    const row = document.createElement('div');
+    row.className = 'resource-row';
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '@shortname, firstname lastname, role, email';
+    input.value = data;
+    input.style.cssText = 'flex: 1;';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = '✕';
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.onclick = function() { row.remove(); };
+    deleteBtn.style.cssText = 'background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;';
+
+    row.appendChild(input);
+    row.appendChild(deleteBtn);
+    container.appendChild(row);
+}
+
+function addStakeholderRow(data = '') {
+    const container = document.getElementById('stakeholdersList');
+    const row = document.createElement('div');
+    row.className = 'stakeholder-row';
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '@shortname, firstname lastname, role, email';
+    input.value = data;
+    input.style.cssText = 'flex: 1;';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.textContent = '✕';
+    deleteBtn.className = 'btn-delete';
+    deleteBtn.onclick = function() { row.remove(); };
+    deleteBtn.style.cssText = 'background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;';
+
+    row.appendChild(input);
+    row.appendChild(deleteBtn);
+    container.appendChild(row);
+}
+
+// Auto-save project details with debounce
+let projectDetailsDebounceTimer = null;
+
+function autoSaveProjectDetails() {
+    // Clear existing timer
+    if (projectDetailsDebounceTimer) {
+        clearTimeout(projectDetailsDebounceTimer);
+    }
+
+    // Set new timer for 1 second debounce
+    projectDetailsDebounceTimer = setTimeout(() => {
+        saveProjectDetailsInternal(false); // Don't close modal on auto-save
+    }, 1000);
+}
+
+function saveProjectDetails() {
+    // Clear any pending auto-save
+    if (projectDetailsDebounceTimer) {
+        clearTimeout(projectDetailsDebounceTimer);
+        projectDetailsDebounceTimer = null;
+    }
+
+    saveProjectDetailsInternal(true); // Close modal when explicitly saving
+}
+
+function saveProjectDetailsInternal(closeModal = true) {
+    const editor = document.getElementById('planEditor');
+    let content = editor.value;
+
+    // Extract existing Resources and Key Stakeholders sections from current editor
+    // to preserve any changes made via resource form
+    const existingResourcesSection = extractFrontMatterSection(content, 'Resources');
+    const existingStakeholdersSection = extractFrontMatterSection(content, 'Key Stakeholders');
+
+    // Collect form data
+    const title = document.getElementById('projectTitle').value.trim();
+    const owner = document.getElementById('projectOwner').value.trim();
+    const startDate = document.getElementById('projectStartDate').value.trim();
+    const status = document.getElementById('projectStatus').value;
+    const sponsor = document.getElementById('projectSponsor').value.trim();
+    const description = document.getElementById('projectDescription').value.trim();
+    const budget = document.getElementById('projectBudget').value.trim();
+    const labelsInput = document.getElementById('projectLabels').value.trim();
+
+    // Build front matter
+    let frontMatter = '---\n';
+    if (title) frontMatter += `title: ${title}\n`;
+    if (owner) frontMatter += `project manager: ${owner}\n`;
+    if (startDate) frontMatter += `start date: ${startDate}\n`;
+    if (status && status !== 'Open') frontMatter += `status: ${status}\n`;
+    if (sponsor) frontMatter += `sponsor: ${sponsor}\n`;
+    if (description) frontMatter += `description: ${description}\n`;
+    if (budget) frontMatter += `budget: ${budget}\n`;
+    if (labelsInput) frontMatter += `labels: [${labelsInput}]\n`;
+
+    // Preserve existing Resources section from editor (don't overwrite)
+    if (existingResourcesSection) {
+        frontMatter += existingResourcesSection;
+    }
+
+    // Preserve existing Key Stakeholders section from editor (don't overwrite)
+    if (existingStakeholdersSection) {
+        frontMatter += existingStakeholdersSection;
+    }
+
+    frontMatter += '---\n';
+
+    // Remove existing front matter if present
+    content = content.replace(/^---\s*\n[\s\S]*?\n---\n*/, '');
+
+    // Add new front matter at the beginning
+    editor.value = frontMatter + '\n' + content;
+
+    // Trigger input event to update line numbers and render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Close modal only if explicitly requested
+    if (closeModal) {
+        closeProjectDetailsForm();
+    }
+}
+
+/**
+ * Extract a specific section from front matter (e.g., Resources, Key Stakeholders)
+ * Returns the section with its header and items, or null if not found
+ */
+function extractFrontMatterSection(content, sectionName) {
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) return null;
+
+    const frontMatterContent = frontMatterMatch[1];
+    const lines = frontMatterContent.split('\n');
+
+    let inSection = false;
+    let sectionLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check if this line starts a new section
+        if (line.trim().endsWith(':') && !line.includes('- ')) {
+            const currentSectionName = line.trim().replace(':', '');
+
+            if (currentSectionName === sectionName) {
+                inSection = true;
+                sectionLines.push(line);
+            } else {
+                // Different section - stop collecting if we were in our section
+                if (inSection) {
+                    break;
+                }
+            }
+        } else if (inSection) {
+            // Collect lines that are part of this section (list items or continuation)
+            if (line.startsWith('- ') || line.trim() === '') {
+                sectionLines.push(line);
+            } else {
+                // Hit a non-list item, non-empty line - section ended
+                break;
+            }
+        }
+    }
+
+    return sectionLines.length > 0 ? sectionLines.join('\n') + '\n' : null;
+}
+
+/**
+ * Kanban Editor Panel Functions
+ */
+
+// Toggle main editor panel
+function toggleMainEditor() {
+    const panel = document.querySelector('.editor-panel');
+    const splitter = document.getElementById('editorSplitter');
+    const arrow = document.getElementById('editorSplitterArrow');
+
+    if (panel && splitter && arrow) {
+        const isCollapsed = panel.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            panel.classList.remove('collapsed');
+            splitter.classList.remove('collapsed');
+            arrow.textContent = '◀';
+        } else {
+            // Collapse
+            panel.classList.add('collapsed');
+            splitter.classList.add('collapsed');
+            arrow.textContent = '▶';
+        }
+
+        // Re-render timeline after width change
+        setTimeout(() => {
+            // Get current tasks from the last render
+            const timelineMilestones = document.getElementById('timelineMilestones');
+            if (timelineMilestones && timelineMilestones.children.length > 0) {
+                // Trigger a re-render by dispatching a custom event
+                window.dispatchEvent(new Event('timeline-resize'));
+            }
+        }, 350); // Wait for collapse animation to complete
+    }
+}
+
+// Toggle Kanban editor panel
+function toggleKanbanEditor() {
+    const panel = document.getElementById('kanbanEditorPanel');
+    const splitter = document.getElementById('kanbanSplitter');
+    const arrow = document.getElementById('kanbanSplitterArrow');
+
+    if (panel && splitter && arrow) {
+        const isCollapsed = panel.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            panel.classList.remove('collapsed');
+            splitter.classList.remove('collapsed');
+            arrow.textContent = '◀';
+        } else {
+            // Collapse
+            panel.classList.add('collapsed');
+            splitter.classList.add('collapsed');
+            arrow.textContent = '▶';
+        }
+    }
+}
+
+// Initialize Kanban editor sync
+document.addEventListener('DOMContentLoaded', function() {
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+
+    if (mainEditor && kanbanEditor) {
+        // Sync from main editor to kanban editor
+        mainEditor.addEventListener('input', function() {
+            if (kanbanEditor.value !== mainEditor.value) {
+                kanbanEditor.value = mainEditor.value;
+                // Trigger input event on Kanban editor to update line numbers
+                kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        // Sync from kanban editor to main editor
+        kanbanEditor.addEventListener('input', function() {
+            if (mainEditor.value !== kanbanEditor.value) {
+                mainEditor.value = kanbanEditor.value;
+                mainEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
+
+        // Initial sync
+        kanbanEditor.value = mainEditor.value;
+        // Trigger input event to initialize line numbers
+        kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+});
+
+/**
+ * Interface Tour System
+ */
+
+const tourSteps = [
+    {
+        title: "Welcome to Noodle Planner! 🎉",
+        message: "Let's take a quick tour to show you around. This will only take a minute!",
+        target: null,
+        position: "center"
+    },
+    {
+        title: "Plan Editor",
+        message: "This is where you write your project plan. Use a simple text format to create tasks, assign resources, set dates, and more.",
+        target: ".editor-panel",
+        position: "right"
+    },
+    {
+        title: "Toolbar Actions",
+        message: "Use these buttons to manage your project. Open Project Details, indent/outdent tasks, upload files, or download your plan.",
+        target: ".editor-toolbar",
+        position: "bottom"
+    },
+    {
+        title: "Kanban Board",
+        message: "Switch to the Kanban tab to see your tasks as cards. Drag and drop to organize by Phase, Resource, Progress, or Label.",
+        target: ".tab:nth-child(2)",
+        position: "bottom",
+        action: () => switchTab('kanban')
+    },
+    {
+        title: "Collapsible Editor",
+        message: "In Kanban view, you can collapse the editor for more space, or keep it open to edit while viewing your board.",
+        target: "#kanbanEditorPanel",
+        position: "right"
+    },
+    {
+        title: "Syntax Guide",
+        message: "Need help with the syntax? Check out the Syntax Guide tab for examples and detailed instructions.",
+        target: ".tab:nth-child(3)",
+        position: "bottom"
+    },
+    {
+        title: "You're Ready! 🚀",
+        message: "That's it! Start by creating your first task in the editor, or visit the Syntax Guide to learn more about all the features.",
+        target: null,
+        position: "center"
+    }
+];
+
+let currentTourStep = 0;
+
+function startTour() {
+    // Check if tour has been completed
+    if (getCookie('tourCompleted') === 'true') {
+        return;
+    }
+
+    currentTourStep = 0;
+    showTourStep(0);
+}
+
+function showTourStep(stepIndex) {
+    if (stepIndex >= tourSteps.length) {
+        endTour();
+        return;
+    }
+
+    const step = tourSteps[stepIndex];
+    const overlay = document.getElementById('tourOverlay');
+    const popup = document.getElementById('tourPopup');
+    const spotlight = document.getElementById('tourSpotlight');
+    const title = document.getElementById('tourTitle');
+    const message = document.getElementById('tourMessage');
+    const progress = document.getElementById('tourProgress');
+    const nextBtn = document.getElementById('tourNext');
+
+    // Execute step action if any
+    if (step.action) {
+        step.action();
+    }
+
+    // Show overlay
+    overlay.classList.add('active');
+
+    // Update content
+    title.textContent = step.title;
+    message.textContent = step.message;
+    progress.textContent = `${stepIndex + 1} / ${tourSteps.length}`;
+
+    // Update button text for last step
+    if (stepIndex === tourSteps.length - 1) {
+        nextBtn.textContent = 'Finish';
+    } else {
+        nextBtn.textContent = 'Next';
+    }
+
+    // Position spotlight and popup
+    if (step.target) {
+        const targetElement = document.querySelector(step.target);
+        if (targetElement) {
+            const rect = targetElement.getBoundingClientRect();
+
+            // Position spotlight
+            spotlight.style.left = rect.left - 10 + 'px';
+            spotlight.style.top = rect.top - 10 + 'px';
+            spotlight.style.width = rect.width + 20 + 'px';
+            spotlight.style.height = rect.height + 20 + 'px';
+            spotlight.style.display = 'block';
+
+            // Position popup based on position hint
+            positionPopup(popup, rect, step.position);
+        }
+    } else {
+        // Center popup for non-targeted steps
+        spotlight.style.display = 'none';
+        popup.style.left = '50%';
+        popup.style.top = '50%';
+        popup.style.transform = 'translate(-50%, -50%)';
+    }
+}
+
+function positionPopup(popup, targetRect, position) {
+    const padding = 20;
+
+    switch (position) {
+        case 'right':
+            popup.style.left = targetRect.right + padding + 'px';
+            popup.style.top = targetRect.top + 'px';
+            popup.style.transform = 'none';
+            break;
+        case 'left':
+            popup.style.left = targetRect.left - popup.offsetWidth - padding + 'px';
+            popup.style.top = targetRect.top + 'px';
+            popup.style.transform = 'none';
+            break;
+        case 'bottom':
+            popup.style.left = targetRect.left + 'px';
+            popup.style.top = targetRect.bottom + padding + 'px';
+            popup.style.transform = 'none';
+            break;
+        case 'top':
+            popup.style.left = targetRect.left + 'px';
+            popup.style.top = targetRect.top - popup.offsetHeight - padding + 'px';
+            popup.style.transform = 'none';
+            break;
+        default:
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+    }
+}
+
+function nextTourStep() {
+    currentTourStep++;
+    showTourStep(currentTourStep);
+}
+
+function skipTour() {
+    endTour();
+}
+
+function endTour() {
+    const overlay = document.getElementById('tourOverlay');
+    overlay.classList.remove('active');
+
+    // Set cookie to remember tour completion (expires in 1 year)
+    setCookie('tourCompleted', 'true', 365);
+}
+
+// Cookie helper functions
+function setCookie(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = name + '=' + value + ';expires=' + expires.toUTCString() + ';path=/';
+}
+
+function getCookie(name) {
+    const nameEQ = name + '=';
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+// Initialize tour event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const nextBtn = document.getElementById('tourNext');
+    const skipBtn = document.getElementById('tourSkip');
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextTourStep);
+    }
+
+    if (skipBtn) {
+        skipBtn.addEventListener('click', skipTour);
+    }
+
+    // Start tour after a short delay to ensure everything is loaded
+    setTimeout(() => {
+        startTour();
+    }, 1000);
+});
+
+// Listen for timeline resize events (triggered by editor collapse/expand)
+window.addEventListener('timeline-resize', function() {
+    if (timelineTasks.length > 0) {
+        updateTimeline(timelineTasks, timelineProjectName);
+    }
+});
+
+/**
+ * Check for tasks that don't have an explicitly set duration
+ * Returns tasks that are missing duration, excluding:
+ * - Summary tasks
+ * - Tasks with explicitly set 0d duration (milestones)
+ */
+function checkTasksWithoutExplicitDuration(planText, tasks) {
+    const tasksWithoutDuration = [];
+
+    // Parse the plan text to find which tasks have explicit durations
+    const lines = planText.split('\n');
+    const taskLinesWithDuration = new Set();
+
+    for (let line of lines) {
+        const trimmed = line.trim();
+
+        // Skip empty lines, front matter, comments, headers
+        if (!trimmed || trimmed.startsWith('---') || trimmed.startsWith('#')) continue;
+
+        // Check if line has a duration pattern: Xd, Xw, Xm, Xy
+        const durationMatch = trimmed.match(/\b(\d+[dwmy])\b/);
+        if (durationMatch) {
+            // Extract task name (before duration, resources, dates, etc.)
+            // Task format: [indent]TaskName duration [resources] [dates] {comment}
+            const taskNameMatch = trimmed.match(/^(\*?)(.+?)\s+\d+[dwmy]/);
+            if (taskNameMatch) {
+                const taskName = taskNameMatch[2].trim();
+                taskLinesWithDuration.add(taskName);
+            }
+        }
+    }
+
+    // Filter tasks that don't have explicit duration in the plan text
+    for (let task of tasks) {
+        if (task.is_summary) continue; // Skip summary tasks
+
+        // Check if this task name appears in our set of tasks with explicit durations
+        if (!taskLinesWithDuration.has(task.name)) {
+            tasksWithoutDuration.push(task);
+        }
+    }
+
+    return tasksWithoutDuration;
+}
+
+/**
+ * Update Analysis tab with project health checks and actionable insights
+ */
+function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
+    try {
+        // Show analysis content, hide placeholder
+        const placeholder = document.querySelector('#analysis-view .analysis-placeholder');
+        const content = document.querySelector('#analysis-view .analysis-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        const insightsContainer = document.getElementById('analysisInsights');
+        if (!insightsContainer) return;
+
+        // Clear existing insights
+        insightsContainer.innerHTML = '';
+
+        const insights = [];
+
+        // 1. Check for resource shortname capitalization issues
+        const resourceIssues = checkResourceCapitalization(planText, resourceMap);
+        if (resourceIssues.length > 0) {
+            insights.push({
+                type: 'warning',
+                title: 'Resource Shortname Capitalization',
+                description: 'Some resource shortnames are not capitalized consistently',
+                items: resourceIssues,
+                fixable: true,
+                fixAction: () => fixResourceCapitalization(resourceIssues)
+            });
+        }
+
+        // 2. Check for missing resource names in front matter
+        const missingResources = checkMissingResourceNames(tasks, resourceMap);
+        if (missingResources.length > 0) {
+            insights.push({
+                type: 'info',
+                title: 'Missing Resource Definitions',
+                description: 'Some resources used in tasks are not defined in the front matter',
+                items: missingResources.map(r => 'Resource @' + r + ' is used but not defined'),
+                fixable: true,
+                fixAction: () => addMissingResources(missingResources)
+            });
+        }
+
+        // 3. Check for missing stakeholders
+        const frontMatterStr = typeof frontMatter === 'string' ? frontMatter : '';
+        const hasStakeholders = frontMatterStr && frontMatterStr.toLowerCase().includes('stakeholders:');
+        if (!hasStakeholders) {
+            insights.push({
+                type: 'suggestion',
+                title: 'Missing Stakeholders',
+                description: 'Consider adding key stakeholders to the project front matter',
+                items: ['Add "Stakeholders:" section to track project stakeholders'],
+                fixable: false
+            });
+        }
+
+        // 4. Check for missing front matter fields
+        const missingFields = checkMissingFrontMatterFields(frontMatter);
+        if (missingFields.length > 0) {
+            insights.push({
+                type: 'suggestion',
+                title: 'Missing Front Matter Fields',
+                description: 'Some optional fields could improve project documentation',
+                items: missingFields.map(f => 'Consider adding "' + f + '" to front matter'),
+                fixable: false
+            });
+        }
+
+        // 5. Check for tasks with missing durations (not explicitly set)
+        const tasksWithoutExplicitDuration = checkTasksWithoutExplicitDuration(planText, tasks);
+        if (tasksWithoutExplicitDuration.length > 0) {
+            insights.push({
+                type: 'warning',
+                title: 'Tasks Without Duration',
+                description: tasksWithoutExplicitDuration.length + ' task(s) have no duration specified',
+                items: tasksWithoutExplicitDuration.slice(0, 5).map(t => 'Task "' + t.name + '" has no duration'),
+                fixable: false
+            });
+        }
+
+        // 6. Project health summary
+        const healthScore = calculateHealthScore(insights);
+        renderHealthScore(insightsContainer, healthScore);
+
+        // Render all insights
+        insights.forEach(insight => renderInsight(insightsContainer, insight));
+
+        // Show success message if no issues
+        if (insights.length === 0) {
+            insightsContainer.innerHTML += '<div class="analysis-success"><h3>✓ Project Looks Good!</h3><p>No issues found. Your project plan is well-structured.</p></div>';
+        }
+
+    } catch (error) {
+        console.error('Error updating analysis:', error);
+    }
+}
+
+function calculateHealthScore(insights) {
+    const weights = {
+        warning: -10,
+        info: -5,
+        suggestion: -2
+    };
+
+    let score = 100;
+    insights.forEach(insight => {
+        score += weights[insight.type] || 0;
+    });
+
+    return Math.max(0, Math.min(100, score));
+}
+
+function renderHealthScore(container, score) {
+    let status, color;
+    if (score >= 90) {
+        status = 'Excellent';
+        color = '#4caf50';
+    } else if (score >= 70) {
+        status = 'Good';
+        color = '#8bc34a';
+    } else if (score >= 50) {
+        status = 'Fair';
+        color = '#ff9800';
+    } else {
+        status = 'Needs Attention';
+        color = '#f44336';
+    }
+
+    const healthDiv = document.createElement('div');
+    healthDiv.className = 'analysis-health-score';
+    healthDiv.innerHTML = '<h3>Project Health Score</h3><div class="health-score-value" style="color: ' + color + ';">' + score + '/100</div><div class="health-score-status" style="color: ' + color + ';">' + status + '</div>';
+    container.appendChild(healthDiv);
+}
+
+function renderInsight(container, insight) {
+    const insightDiv = document.createElement('div');
+    insightDiv.className = 'analysis-insight analysis-' + insight.type;
+
+    const icon = insight.type === 'warning' ? '⚠️' : insight.type === 'info' ? 'ℹ️' : '💡';
+
+    let itemsHTML = '';
+    if (insight.items && insight.items.length > 0) {
+        itemsHTML = '<ul class="insight-items">';
+        insight.items.forEach((item, idx) => {
+            if (idx < 5) {
+                itemsHTML += '<li>' + item + '</li>';
+            }
+        });
+        if (insight.items.length > 5) {
+            itemsHTML += '<li><em>...and ' + (insight.items.length - 5) + ' more</em></li>';
+        }
+        itemsHTML += '</ul>';
+    }
+
+    const fixButton = insight.fixable ? '<button class="fix-it-btn">Fix It</button>' : '';
+
+    insightDiv.innerHTML = '<div class="insight-header"><span class="insight-icon">' + icon + '</span><h4>' + insight.title + '</h4></div><p class="insight-description">' + insight.description + '</p>' + itemsHTML + fixButton;
+
+    if (insight.fixable && insight.fixAction) {
+        const btn = insightDiv.querySelector('.fix-it-btn');
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                insight.fixAction();
+                btn.textContent = '✓ Fixed';
+                btn.disabled = true;
+            });
+        }
+    }
+
+    container.appendChild(insightDiv);
+}
+
+function checkResourceCapitalization(planText, resourceMap) {
+    const issues = [];
+    const lines = planText.split('\n');
+
+    lines.forEach((line, idx) => {
+        const matches = line.match(/@(\w+)/g);
+        if (matches) {
+            matches.forEach(match => {
+                const shortname = match.substring(1);
+                if (shortname[0] === shortname[0].toLowerCase()) {
+                    issues.push('Line ' + (idx + 1) + ': "' + match + '" should be capitalized (e.g., "@' + (shortname.charAt(0).toUpperCase() + shortname.slice(1)) + '")');
+                }
+            });
+        }
+    });
+
+    return issues;
+}
+
+function checkMissingResourceNames(tasks, resourceMap) {
+    const missing = new Set();
+
+    tasks.forEach(task => {
+        if (task.resources) {
+            const resources = task.resources.split(',').map(r => r.trim().toLowerCase());
+            resources.forEach(r => {
+                if (r && r.startsWith('@')) {
+                    const shortname = r.substring(1);
+                    if (!resourceMap[shortname] && !resourceMap[shortname.toLowerCase()]) {
+                        missing.add(shortname);
+                    }
+                }
+            });
+        }
+    });
+
+    return Array.from(missing);
+}
+
+function checkMissingFrontMatterFields(frontMatter) {
+    const missing = [];
+    const optionalFields = ['description', 'status', 'budget', 'sponsor', 'stakeholders'];
+
+    // Convert to string if needed
+    const frontMatterStr = typeof frontMatter === 'string' ? frontMatter : '';
+
+    optionalFields.forEach(field => {
+        if (!frontMatterStr || !frontMatterStr.toLowerCase().includes(field + ':')) {
+            missing.push(field);
+        }
+    });
+
+    return missing;
+}
+
+function fixResourceCapitalization(issues) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    let text = editor.value;
+
+    issues.forEach(issue => {
+        const match = issue.match(/@(\w+)/);
+        if (match) {
+            const lowercase = match[1];
+            const capitalized = lowercase.charAt(0).toUpperCase() + lowercase.slice(1);
+            const regex = new RegExp('@' + lowercase + '\\b', 'g');
+            text = text.replace(regex, '@' + capitalized);
+        }
+    });
+
+    editor.value = text;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function addMissingResources(missingResources) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    let resourceSectionEnd = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === 'Resources:') {
+            for (let j = i + 1; j < lines.length; j++) {
+                if (lines[j].startsWith('-') && lines[j].includes(':')) {
+                    resourceSectionEnd = j;
+                } else if (lines[j].trim() === '---' || (!lines[j].startsWith('-') && lines[j].trim() !== '')) {
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    if (resourceSectionEnd === -1) {
+        const frontMatterEnd = lines.findIndex((line, idx) => idx > 0 && line.trim() === '---');
+        if (frontMatterEnd > 0) {
+            lines.splice(frontMatterEnd, 0, 'Resources:');
+            resourceSectionEnd = frontMatterEnd;
+        }
+    }
+
+    missingResources.forEach(shortname => {
+        const capitalized = shortname.charAt(0).toUpperCase() + shortname.slice(1);
+        const newLine = '- @' + capitalized + ': ' + capitalized + ', Role';
+        lines.splice(resourceSectionEnd + 1, 0, newLine);
+        resourceSectionEnd++;
+    });
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
