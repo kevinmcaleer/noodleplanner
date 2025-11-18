@@ -16,24 +16,50 @@
 </head>
 <body>
     <div class="container-fluid m-0 p-0">
-        <header>
-            <img src="/logo.png" alt="Noodle Planner" style="height: 120px; display: block; margin: 0 auto;">
-        </header>
-
         <div class="content">
             <div class="tabs">
+                <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
                 <button class="tab active" onclick="switchTab('editor')">Editor</button>
-                <button class="tab" onclick="switchTab('upload')">Upload File</button>
+                <button class="tab" onclick="switchTab('kanban')">Kanban</button>
                 <button class="tab" onclick="switchTab('guide')">Syntax Guide</button>
+                <div class="nav-export-dropdown">
+                    <button class="export-btn" onclick="toggleExportMenu(event)">
+                        Export ▾
+                    </button>
+                    <div class="export-menu" id="exportMenu">
+                        <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
+                            📊 Export to Excel
+                        </div>
+                        <div class="export-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
+                            📽️ Export to PowerPoint
+                        </div>
+                        <div class="export-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
+                            📄 Export to PDF
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="editor-tab" class="tab-content active">
                 <div class="editor-layout">
                     <div class="editor-panel">
-                        <div class="panel-header">
-                            <span>📝 Plan Editor</span>
-                            <button class="save-btn" onclick="downloadMarkdown()" title="Download as Markdown">
-                                💾 Save
+                        <div class="editor-toolbar">
+                            <button class="toolbar-btn" onclick="openProjectDetailsForm()" title="Project Details">
+                                📋
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="outdentSelectedLines()" title="Outdent selected lines (Cmd+[)">
+                                ⇤
+                            </button>
+                            <button class="toolbar-btn" onclick="indentSelectedLines()" title="Indent selected lines (Cmd+])">
+                                ⇥
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="switchTab('upload')" title="Upload a plan file">
+                                📁
+                            </button>
+                            <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
+                                💾
                             </button>
                         </div>
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
@@ -61,44 +87,261 @@ Press Enter to render..."></textarea>
                         <div class="message" id="editorMessage"></div>
                     </div>
 
-                    <div class="resizer" id="resizer"></div>
+                    <!-- Splitter with collapse arrow -->
+                    <div class="editor-splitter" id="editorSplitter">
+                        <button class="splitter-arrow" id="editorSplitterArrow" onclick="toggleMainEditor()" title="Toggle editor panel">
+                            ◀
+                        </button>
+                    </div>
 
                     <div class="output-panel">
-                        <div class="panel-header">
-                            <span>📊 Rendered Output</span>
-                            <div class="export-dropdown">
-                                <button class="export-btn" onclick="toggleExportMenu(event)">
-                                    Export ▾
-                                </button>
-                                <div class="export-menu" id="exportMenu">
-                                    <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
-                                        📊 Export to Excel
+                        <!-- Output Tabs Navigation -->
+                        <div class="output-tabs">
+                            <button class="output-tab active" data-tab="report" onclick="switchOutputTab('report')">Report</button>
+                            <button class="output-tab" data-tab="summary" onclick="switchOutputTab('summary')">Project Summary</button>
+                            <button class="output-tab" data-tab="milestones" onclick="switchOutputTab('milestones')">Milestones</button>
+                            <button class="output-tab" data-tab="timeline" onclick="switchOutputTab('timeline')">Timeline</button>
+                            <button class="output-tab" data-tab="gantt" onclick="switchOutputTab('gantt')">Gantt</button>
+                            <button class="output-tab" data-tab="resources" onclick="switchOutputTab('resources')">Resources</button>
+                            <button class="output-tab" data-tab="timesheet" onclick="switchOutputTab('timesheet')">Timesheet</button>
+                            <button class="output-tab" data-tab="analysis" onclick="switchOutputTab('analysis')">Analysis</button>
+                        </div>
+
+                        <!-- Report View (default) -->
+                        <div id="report-view" class="output-tab-content active">
+                            <div class="output-container empty" id="editorOutput">
+                                <div class="welcome-screen">
+                                    <img src="/logo.png" alt="Noodle Planner" class="welcome-logo">
+                                    <h2>Welcome to Noodle Planner</h2>
+                                    <p>Get started by:</p>
+                                    <ul>
+                                        <li>📝 Type your plan in the editor on the left</li>
+                                        <li>📁 Upload a plan file from the Upload tab</li>
+                                        <li>❓ Check the Syntax Guide tab for help</li>
+                                    </ul>
+                                    <p class="welcome-hint">Press <kbd>Enter</kbd> in the editor to render your plan</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Project Summary View -->
+                        <div id="summary-view" class="output-tab-content">
+                            <div class="summary-placeholder">
+                                <h3>Project Summary</h3>
+                                <p>Render your plan to see project summary information here.</p>
+                            </div>
+                            <div class="summary-content" style="display: none;">
+                                <h2 class="summary-title" id="summaryTitle">Project Title</h2>
+
+                                <div class="summary-layout">
+                                    <!-- Project Details Box -->
+                                    <div class="project-details-box">
+                                        <h3>Project Details</h3>
+                                        <div class="detail-row">
+                                            <span class="detail-label">Project Manager:</span>
+                                            <span class="detail-value" id="summaryManager">-</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span class="detail-label">Sponsor:</span>
+                                            <span class="detail-value" id="summarySponsor">-</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span class="detail-label">Budget:</span>
+                                            <span class="detail-value" id="summaryBudget">-</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span class="detail-label">Status:</span>
+                                            <span class="detail-value" id="summaryStatus">-</span>
+                                        </div>
                                     </div>
-                                    <div class="export-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
-                                        📽️ Export to PowerPoint
-                                    </div>
-                                    <div class="export-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
-                                        📄 Export to PDF
+
+                                    <!-- RAG Status Cards -->
+                                    <div class="rag-cards-container">
+                                        <div class="rag-item rag-red">
+                                            <div class="rag-count" id="ragRedCount">0</div>
+                                            <div class="rag-label">Red Tasks</div>
+                                        </div>
+                                        <div class="rag-item rag-amber">
+                                            <div class="rag-count" id="ragAmberCount">0</div>
+                                            <div class="rag-label">Amber Tasks</div>
+                                        </div>
+                                        <div class="rag-item rag-green">
+                                            <div class="rag-count" id="ragGreenCount">0</div>
+                                            <div class="rag-label">Green Tasks</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Output View Tabs -->
-                        <div class="output-tabs" id="outputTabs" style="display: none;">
-                            <button class="output-tab active" onclick="switchOutputTab('ascii')">ASCII</button>
-                            <button class="output-tab" onclick="switchOutputTab('summary')">Project Summary</button>
-                            <button class="output-tab" onclick="switchOutputTab('milestones')">Milestones</button>
-                            <button class="output-tab" onclick="switchOutputTab('timeline')">Timeline</button>
-                            <button class="output-tab" onclick="switchOutputTab('gantt')">Gantt Chart</button>
-                            <button class="output-tab" onclick="switchOutputTab('resources')">Resources</button>
+                        <!-- Milestones View -->
+                        <div id="milestones-view" class="output-tab-content">
+                            <div class="milestones-placeholder">
+                                <h3>Milestones Table</h3>
+                                <p>Render your plan to see the milestones table here.</p>
+                            </div>
+                            <div class="milestones-content" style="display: none;">
+                                <div class="milestones-table-wrapper">
+                                    <table class="milestones-table">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Task Name</th>
+                                                <th>Start</th>
+                                                <th>Finish</th>
+                                                <th>%</th>
+                                                <th>RAG</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="milestonesTableBody">
+                                            <!-- Task rows will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- ASCII Output (default) -->
-                        <div class="output-container empty" id="editorOutput">Press Enter in the editor to render your plan...
+                        <!-- Timeline View -->
+                        <div id="timeline-view" class="output-tab-content">
+                            <div class="placeholder-view">
+                                <h3>📅 Timeline View</h3>
+                                <p>Coming soon: Interactive timeline visualization</p>
+                            </div>
+                            <div class="timeline-content" style="display: none;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <h2 class="timeline-title" id="timelineTitle" style="margin: 0;">Project Timeline</h2>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="showPhasesToggle" onchange="toggleTimelinePhases()">
+                                        <span>Show Phases</span>
+                                    </label>
+                                </div>
+                                <div class="timeline-line-wrapper">
+                                    <div class="timeline-line" id="timelineLine"></div>
+                                    <div class="timeline-milestones" id="timelineMilestones">
+                                        <!-- Milestone diamonds will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
+                        <!-- Gantt View -->
+                        <div id="gantt-view" class="output-tab-content">
+                            <div class="placeholder-view">
+                                <h3>📊 Gantt Chart View</h3>
+                                <p>Render your plan to see the interactive Gantt chart</p>
+                            </div>
+                            <div class="gantt-content" style="display: none;">
+                                <div class="gantt-toolbar">
+                                    <h2 class="gantt-title">Gantt Chart</h2>
+                                    <div class="gantt-scale-selector">
+                                        <label for="ganttScale">Scale:</label>
+                                        <select id="ganttScale">
+                                            <option value="days" selected>Days</option>
+                                            <option value="weeks">Weeks</option>
+                                            <option value="months">Months</option>
+                                            <option value="quarters">Quarters</option>
+                                            <option value="years">Years</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="gantt-wrapper">
+                                    <div class="gantt-table-side">
+                                        <table class="gantt-info-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Task Name</th>
+                                                    <th>Duration</th>
+                                                    <th>Start</th>
+                                                    <th>Finish</th>
+                                                    <th>Resources</th>
+                                                    <th>%</th>
+                                                    <th>Comment</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ganttInfoBody">
+                                                <!-- Task info rows will be populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="gantt-chart-side">
+                                        <div class="gantt-header" id="ganttHeader">
+                                            <!-- Date headers will be populated by JavaScript -->
+                                        </div>
+                                        <div class="gantt-body" id="ganttBody">
+                                            <!-- Gantt bars will be populated by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
+                        <!-- Resources View -->
+                        <div id="resources-view" class="output-tab-content">
+                            <div class="resources-placeholder">
+                                <h3>Resources</h3>
+                                <p>Render your plan to see resource allocation here.</p>
+                            </div>
+                            <div class="resources-content" style="display: none;">
+                                <h2 class="resources-title">Resource Allocation</h2>
+                                <div class="resources-table-wrapper">
+                                    <table class="resources-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Resource Name</th>
+                                                <th>Tasks Assigned</th>
+                                                <th>Total Days</th>
+                                                <th>Total Hours</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="resourcesTableBody">
+                                            <!-- Resource rows will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
 
+                        <!-- Timesheet View -->
+                        <div id="timesheet-view" class="output-tab-content">
+                            <div class="timesheet-placeholder">
+                                <h3>Resource Timesheet</h3>
+                                <p>Render your plan to see the resource timesheet here.</p>
+                            </div>
+                            <div class="timesheet-content" style="display: none;">
+                                <h2 class="timesheet-title">Resource Timesheet</h2>
+                                <div class="timesheet-wrapper">
+                                    <div class="timesheet-scroll-container">
+                                        <table class="timesheet-table">
+                                            <thead>
+                                                <tr id="timesheetHeaderRow">
+                                                    <th class="timesheet-resource-col">Resource</th>
+                                                    <!-- Date columns will be added dynamically -->
+                                                </tr>
+                                            </thead>
+                                            <tbody id="timesheetBody">
+                                                <!-- Resource rows will be populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analysis View -->
+                        <div id="analysis-view" class="output-tab-content">
+                            <div class="analysis-placeholder placeholder-view">
+                                <h3>Project Analysis</h3>
+                                <p>Render your plan to see actionable insights and health checks here.</p>
+                            </div>
+                            <div class="analysis-content" style="display: none;">
+                                <h2 class="analysis-title">Project Health Check & Analysis</h2>
+                                <div id="analysisInsights" class="analysis-insights">
+                                    <!-- Insights will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
 
 
 
@@ -118,35 +361,6 @@ Press Enter to render..."></textarea>
 
 
 </div>
-
-                        <!-- Enhanced Views Container -->
-                        <div class="enhanced-views" id="enhancedViews" style="display: none;">
-                            <!-- Project Summary Tab -->
-                            <div id="summaryView" class="output-view" style="display: none;">
-                                <div class="summary-content"></div>
-                            </div>
-
-                            <!-- Milestones Tab -->
-                            <div id="milestonesView" class="output-view" style="display: none;">
-                                <div class="milestones-content"></div>
-                            </div>
-
-                            <!-- Timeline Tab -->
-                            <div id="timelineView" class="output-view" style="display: none;">
-                                <div class="timeline-content"></div>
-                            </div>
-
-                            <!-- Gantt Chart Tab -->
-                            <div id="ganttView" class="output-view" style="display: none;">
-                                <div class="gantt-content"></div>
-                            </div>
-
-                            <!-- Resources Tab -->
-                            <div id="resourcesView" class="output-view" style="display: none;">
-                                <div class="resources-content"></div>
-                            </div>
-                        </div>
-
                         <div class="spinner" id="editorSpinner"></div>
                     </div>
                 </div>
@@ -176,6 +390,74 @@ Press Enter to render..."></textarea>
 
                     <div class="message" id="uploadMessage"></div>
                     <div class="output-container" id="uploadOutput" style="margin-top: 20px;"></div>
+                </div>
+            </div>
+
+            <div id="kanban-tab" class="tab-content">
+                <div class="kanban-layout">
+                    <!-- Collapsible Editor Panel -->
+                    <div class="kanban-editor-panel collapsed" id="kanbanEditorPanel">
+                        <div class="editor-toolbar">
+                            <button class="toolbar-btn" onclick="openProjectDetailsForm()" title="Project Details">
+                                📋
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="outdentSelectedLines()" title="Outdent selected lines (Cmd+[)">
+                                ⇤
+                            </button>
+                            <button class="toolbar-btn" onclick="indentSelectedLines()" title="Indent selected lines (Cmd+])">
+                                ⇥
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="switchTab('upload')" title="Upload a plan file">
+                                📁
+                            </button>
+                            <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
+                                💾
+                            </button>
+                        </div>
+                        <div class="editor-wrapper">
+                            <div class="line-numbers" id="kanbanLineNumbers">1</div>
+                            <div class="editor-highlight-layer" id="kanbanHighlightLayer"></div>
+                            <textarea id="kanbanPlanEditor" class="editor-textarea" placeholder="Same editor as Plan Editor tab...
+Changes here are synced automatically."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Splitter with collapse arrow -->
+                    <div class="kanban-splitter collapsed" id="kanbanSplitter">
+                        <button class="splitter-arrow" id="kanbanSplitterArrow" onclick="toggleKanbanEditor()" title="Toggle editor panel">
+                            ▶
+                        </button>
+                    </div>
+
+                    <!-- Kanban Board Panel -->
+                    <div class="kanban-panel">
+                        <div class="kanban-container">
+                            <div class="kanban-header" role="toolbar" aria-label="Kanban view controls">
+                                <div class="kanban-view-switcher">
+                                    <label for="kanbanViewMode">View by:</label>
+                                    <select id="kanbanViewMode" class="form-select" onchange="switchKanbanView(this.value)" aria-label="Select Kanban view mode">
+                                        <option value="phase" selected>Phase</option>
+                                        <option value="resource">Resource</option>
+                                        <option value="progress">Progress</option>
+                                        <option value="label">Label</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="kanbanBreadcrumb" class="kanban-breadcrumb" style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-size: 14px;">
+                                <!-- Breadcrumb will be rendered here -->
+                            </div>
+
+                            <div class="kanban-board" id="kanbanBoard">
+                                <div class="kanban-empty-state">
+                                    <h3>Welcome to Kanban View</h3>
+                                    <p>Add tasks in the Editor tab and they will appear here automatically.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -297,6 +579,7 @@ Build
                                 </div>
                             </div>
                         </div>
+                        <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -313,16 +596,49 @@ Build
                         </div>
 
                         <div class="form-group">
-                            <label for="taskDependencies">Dependencies</label>
+                            <label for="taskLabels">Labels</label>
                             <div class="autocomplete-container">
-                                <input type="text" id="taskDependencies" placeholder="e.g., Task1, Task2"
-                                       oninput="handleDependencyInput()"
-                                       onkeydown="handleDependencyKeydown(event)"
+                                <input type="text" id="taskLabels" placeholder="e.g., DEV, HIGH, URGENT"
+                                       oninput="handleLabelInput()"
+                                       onkeydown="handleLabelKeydown(event)"
                                        autocomplete="off">
-                                <div id="dependencyAutocomplete" class="autocomplete-dropdown"></div>
+                                <div id="labelAutocomplete" class="autocomplete-dropdown"></div>
                             </div>
-                            <small>Task names this task depends on</small>
+                            <small>Tags/labels for categorization</small>
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Dependencies</label>
+                        <div id="dependenciesTable" class="dependencies-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Task Name</th>
+                                        <th>Lag/Lead</th>
+                                        <th style="width: 40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dependenciesTableBody">
+                                    <!-- Dependency rows will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="javascript:void(0)" class="add-item-link" onclick="addDependencyRow()" style="margin-top: 10px; display: inline-block;">
+                            <span class="add-icon">+</span> Add Dependency
+                        </a>
+                        <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Sub Tasks</label>
+                        <div id="subtasksList" class="subtasks-list">
+                            <!-- Subtasks will be populated here -->
+                        </div>
+                        <a href="javascript:void(0)" class="add-item-link" onclick="addNewSubtask()" style="margin-top: 10px; display: inline-block;">
+                            <span class="add-icon">+</span> Add Sub Task
+                        </a>
+                        <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
                     </div>
 
                     <div class="form-group">
@@ -339,7 +655,153 @@ Build
         </div>
     </div>
 
+    <!-- Project Details Modal -->
+    <div id="projectDetailsModal" class="modal-overlay">
+        <div class="task-form-modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; color: white; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
+                <button class="close-btn" onclick="closeProjectDetailsForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="projectDetailsForm">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectOwner">Project Owner</label>
+                            <input type="text" id="projectOwner" placeholder="e.g., John Smith" oninput="autoSaveProjectDetails()">
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectStartDate">Project Start Date</label>
+                            <input type="date" id="projectStartDate" oninput="autoSaveProjectDetails()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectStatus">Status</label>
+                            <select id="projectStatus" onchange="autoSaveProjectDetails()">
+                                <option value="Open">Open</option>
+                                <option value="Closed">Closed</option>
+                                <option value="On Hold">On Hold</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectSponsor">Sponsor</label>
+                            <input type="text" id="projectSponsor" placeholder="e.g., Jane Doe" oninput="autoSaveProjectDetails()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="projectBudget">Budget</label>
+                            <input type="text" id="projectBudget" placeholder="e.g., $100,000" oninput="autoSaveProjectDetails()">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="projectDescription">Description</label>
+                        <textarea id="projectDescription" placeholder="Brief description of the project" rows="3" oninput="autoSaveProjectDetails()"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="projectLabels">Labels</label>
+                        <div class="autocomplete-container">
+                            <input type="text" id="projectLabels" placeholder="e.g., DEV, HIGH, URGENT"
+                                   oninput="handleProjectLabelInput()"
+                                   onkeydown="handleProjectLabelKeydown(event)"
+                                   autocomplete="off">
+                            <div id="projectLabelAutocomplete" class="autocomplete-dropdown"></div>
+                        </div>
+                        <small>Comma-separated labels for categorization</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Resources</label>
+                            <div id="resourcesList"></div>
+                            <button type="button" class="btn-secondary" onclick="openResourceForm()">+ Add Resource</button>
+                            <small>Format: @shortname, firstname lastname, role, email</small>
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label>Key Stakeholders</label>
+                            <div id="stakeholdersList"></div>
+                            <button type="button" class="btn-secondary" onclick="addStakeholderRow()">+ Add Stakeholder</button>
+                            <small>Format: @shortname, firstname lastname, role, email</small>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resource Form Modal -->
+    <div id="resourceFormOverlay" class="modal-overlay" style="display: none;" onclick="if(event.target === this) closeResourceForm()">
+        <div class="task-form-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 style="color: white; margin: 0;">Add/Edit Resource</h2>
+                <button class="close-btn" onclick="closeResourceForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="resourceForm">
+                    <div class="form-group">
+                        <label for="resourceShortname">Shortname *</label>
+                        <input type="text" id="resourceShortname" placeholder="e.g., alice" required oninput="autoSaveResource()">
+                        <small>Used in tasks with @ prefix (e.g., @alice)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resourceFullName">Full Name *</label>
+                        <input type="text" id="resourceFullName" placeholder="e.g., Alice Smith" required oninput="autoSaveResource()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resourceRole">Role</label>
+                        <input type="text" id="resourceRole" placeholder="e.g., Project Manager" oninput="autoSaveResource()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resourceEmail">Email</label>
+                        <input type="email" id="resourceEmail" placeholder="e.g., alice@example.com" oninput="autoSaveResource()">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resourceAllocation">Work Allocation %</label>
+                        <input type="number" id="resourceAllocation" min="0" max="100" placeholder="e.g., 50" oninput="autoSaveResource()">
+                        <small>Percentage of time allocated to this project (0-100%)</small>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-primary" onclick="saveResource()">Done</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface Tour -->
+    <div id="tourOverlay" class="tour-overlay">
+        <div id="tourSpotlight" class="tour-spotlight"></div>
+        <div id="tourPopup" class="tour-popup">
+            <div class="tour-popup-content">
+                <h3 id="tourTitle"></h3>
+                <p id="tourMessage"></p>
+                <div class="tour-actions">
+                    <button id="tourSkip" class="btn-secondary">Skip Tour</button>
+                    <div class="tour-progress" id="tourProgress"></div>
+                    <button id="tourNext" class="btn-primary">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom JavaScript -->
     <script src="/static/script.js"></script>
+    <script src="/static/kanban.js"></script>
 </body>
 </html>

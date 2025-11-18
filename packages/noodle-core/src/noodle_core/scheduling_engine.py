@@ -632,7 +632,7 @@ def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
         is_milestone = isinstance(duration, timedelta) and duration.days == 0
 
         if is_milestone:
-            # Milestone: display diamond marker
+            # Milestone: display diamond marker (ASCII output)
             if bar_start < chart_width:
                 line[bar_start] = '◆'
         elif t.get('summary'):
@@ -874,7 +874,12 @@ def render_custom_timeline(phases, milestones, start_date, finish_date, timeline
         all_items.append({'type': 'phase', 'name': phase['name'], 'date': phase['start']})
     # Add milestones
     for milestone in milestones:
-        all_items.append({'type': 'milestone', 'name': milestone['name'], 'date': milestone['date']})
+        all_items.append({
+            'type': 'milestone',
+            'name': milestone['name'],
+            'date': milestone['date'],
+            'percent': milestone.get('percent', 0)  # Include percent for rendering
+        })
     # Add finish milestone
     all_items.append({'type': 'milestone', 'name': 'Finish', 'date': finish_date})
     # Sort by date
@@ -889,6 +894,7 @@ def render_custom_timeline(phases, milestones, start_date, finish_date, timeline
     for item in all_items:
         pos = int((item['date'] - start_date).days / duration_days * (timeline_width - 1))
         if item['type'] == 'milestone':
+            # Use diamond for milestones in ASCII timeline
             symbol = '◆'
             timeline[pos] = symbol
             milestone_positions.append(pos)
@@ -1106,7 +1112,12 @@ def render_timeline(phases, milestones, start_date, finish_date, timeline_width=
         all_items.append({'type': 'phase', 'name': phase['name'], 'date': phase['start']})
     # Add milestones
     for milestone in milestones:
-        all_items.append({'type': 'milestone', 'name': milestone['name'], 'date': milestone['date']})
+        all_items.append({
+            'type': 'milestone',
+            'name': milestone['name'],
+            'date': milestone['date'],
+            'percent': milestone.get('percent', 0)  # Include percent for rendering
+        })
     # Add finish milestone
     all_items.append({'type': 'milestone', 'name': 'Finish', 'date': finish_date})
     # Sort by date
@@ -1115,7 +1126,11 @@ def render_timeline(phases, milestones, start_date, finish_date, timeline_width=
     # Place symbols, labels, and dates
     for item in all_items:
         pos = int((item['date'] - start_date).days / (finish_date - start_date).days * (timeline_width - 1))
-        symbol = '●' if item['type'] == 'milestone' else '■'
+        if item['type'] == 'milestone':
+            # Use diamond for milestones in ASCII timeline
+            symbol = '◆'
+        else:
+            symbol = '■'
         timeline[pos] = symbol
         # Place label
         label = item['name']
@@ -2336,7 +2351,11 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
                     'end': t.get('start'),  # Same as start for milestones
                     'type': 'milestone'
                 })
-                milestones.append({'name': display_name, 'date': t.get('start')})
+                milestones.append({
+                    'name': display_name,
+                    'date': t.get('start'),
+                    'percent': t.get('percent', 0)  # Include percent for milestone rendering
+                })
 
         # If no phases, add all tasks as milestones for the timeline
         if not phase_dates:
@@ -2708,7 +2727,11 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
                     'end': t.get('start'),  # Same as start for milestones
                     'type': 'milestone'
                 })
-                milestones.append({'name': display_name, 'date': t.get('start')})
+                milestones.append({
+                    'name': display_name,
+                    'date': t.get('start'),
+                    'percent': t.get('percent', 0)  # Include percent for milestone rendering
+                })
 
         # If no phases, add all tasks as milestones for the timeline
         if not phase_dates:

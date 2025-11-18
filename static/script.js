@@ -1378,8 +1378,16 @@ function updateTimeline(tasks, projectName) {
             titleElement.textContent = `${displayName} Timeline`;
         }
 
-        // Get only milestones (tasks with 0d duration) and summary tasks
-        const milestones = tasks.filter(t => t.finish && (t.duration_days === 0 || t.is_summary));
+        // Get milestones based on toggle setting
+        const showPhases = document.getElementById('showPhasesToggle')?.checked ?? false;
+        const milestones = tasks.filter(t => {
+            if (!t.finish) return false;
+            // Always include 0-duration milestones
+            if (t.duration_days === 0 && !t.is_summary) return true;
+            // Include summary tasks (phases) only if toggle is on
+            if (t.is_summary && showPhases) return true;
+            return false;
+        });
         if (milestones.length === 0) {
             return;
         }
@@ -1442,13 +1450,18 @@ function updateTimeline(tasks, projectName) {
 
         const overallCompletion = totalTasks > 0 ? (completedWeight / totalTasks) : 0;
 
-        // Add progress bar to timeline
-        if (overallCompletion > 0) {
-            const progressBar = document.createElement('div');
-            progressBar.className = 'timeline-progress';
-            progressBar.style.width = overallCompletion + '%';
-            timelineLine.appendChild(progressBar);
-        }
+        console.log('Timeline progress calculation:', {
+            totalTasks,
+            completedWeight,
+            overallCompletion
+        });
+
+        // Add progress bar to timeline (always show, even at 0% for debugging)
+        const progressBar = document.createElement('div');
+        progressBar.className = 'timeline-progress';
+        progressBar.style.width = overallCompletion + '%';
+        timelineLine.appendChild(progressBar);
+        console.log('Progress bar added with width:', overallCompletion + '%');
 
         // Add start and end date labels
         const startDateLabel = document.createElement('div');
@@ -1522,10 +1535,28 @@ function updateTimeline(tasks, projectName) {
                 milestoneDiv.appendChild(connector);
             }
 
-            // Create diamond marker on the line (always at same position)
-            const diamond = document.createElement('div');
-            diamond.className = task.is_summary ? 'timeline-diamond phase-diamond' : 'timeline-diamond task-diamond';
-            milestoneDiv.appendChild(diamond);
+            // Create milestone marker on the line (always at same position)
+            // Use circle for milestones, green with checkmark if 100% complete
+            const marker = document.createElement('div');
+            const percent = parseFloat(task.percent) || 0;
+            const isComplete = percent >= 100;
+
+            if (task.is_summary) {
+                // Summary tasks still use diamond shape
+                marker.className = 'timeline-diamond phase-diamond';
+            } else {
+                // Regular milestones use circle with SVG
+                marker.className = 'timeline-circle';
+                marker.innerHTML = isComplete
+                    ? `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="10" cy="10" r="9" fill="#28a745" stroke="#fff" stroke-width="1"/>
+                        <path d="M6 10 L9 13 L14 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                       </svg>`
+                    : `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="10" cy="10" r="9" fill="#333" stroke="#fff" stroke-width="1"/>
+                       </svg>`;
+            }
+            milestoneDiv.appendChild(marker);
 
             // Create label above the line
             const label = document.createElement('div');
@@ -6307,4 +6338,12 @@ function addMissingResources(missingResources) {
 
     editor.value = lines.join('\n');
     editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// Toggle phases on timeline view
+function toggleTimelinePhases() {
+    // Re-render the timeline with current tasks
+    if (timelineTasks && timelineTasks.length > 0) {
+        updateTimeline(timelineTasks, timelineProjectName);
+    }
 }
