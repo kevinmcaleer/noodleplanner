@@ -14,6 +14,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
 
@@ -89,11 +90,7 @@ def add_working_days(start_date, num_days, holidays=None):
     current_date = get_next_working_day(start_date, holidays)
     days_added = 1  # Start day counts as day 1
 
-    # If duration is 1, return the start date
-    if num_days == 1:
-        return current_date
-
-    # Otherwise, add remaining days
+    # Add remaining days
     while days_added < num_days:
         current_date += timedelta(days=1)
 
@@ -104,7 +101,9 @@ def add_working_days(start_date, num_days, holidays=None):
         if not is_weekend and not is_holiday:
             days_added += 1
 
-    return current_date
+    # Return the day AFTER the last working day (finish date is exclusive for rendering)
+    # This allows Gantt charts to render bars with proper width
+    return current_date + timedelta(days=1)
 
 def parse_duration(s):
     if not s:
@@ -193,6 +192,13 @@ def extract_metadata(task_str, task_name=None):
         meta['name'] = task_name
     if str(task_str).startswith('*'):
         meta['sequential'] = True
+        import sys
+        sys.stderr.write(f"[SEQUENTIAL] Task '{task_name}' marked as sequential (task_str: '{task_str}')\n")
+        sys.stderr.flush()
+    else:
+        import sys
+        sys.stderr.write(f"[NOT SEQUENTIAL] Task '{task_name}' not sequential (task_str: '{task_str}')\n")
+        sys.stderr.flush()
     # Support both !"comment" and "comment" formats
     comment_match = re.search(r'!(?:"([^"]+)"|\'([^\']+)\')', task_str)
     if comment_match:
@@ -359,7 +365,10 @@ def schedule_tasks(phases):
         if t.get('summary'):
             continue
 
+        print(f"[SCHEDULE] Task {idx}: {t.get('name')} (sequential: {t.get('sequential')}, depends: {t.get('depends')}, start: {t.get('start')})", flush=True)
+
         # Apply scheduling logic
+        # Priority order: sequential > dependencies > explicit start > default parallel
         if t.get('sequential'):
             # Find previous non-summary task (skip summary tasks, work across parents)
             prev = None
@@ -368,19 +377,21 @@ def schedule_tasks(phases):
                     prev = all_tasks[j]
                     break
 
+            import sys
+            sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' looking for previous task. Found: {prev.get('name') if prev else 'None'}, has finish: {'finish' in prev if prev else 'N/A'}\n")
+            sys.stderr.flush()
+
             if prev and 'finish' in prev:
-                t['start'] = prev['finish']
+                # Sequential tasks start the next working day after predecessor finishes
+                # Predecessor's finish date is exclusive (day after last working day)
+                # So we can use it directly as the start of the next working day
+                t['start'] = get_next_working_day(prev['finish'])
+                sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' scheduled after '{prev.get('name')}' finish={prev['finish']}, new start={t['start']}\n")
+                sys.stderr.flush()
             else:
                 t['start'] = get_next_working_day(datetime.now())
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            # Calculate finish date using working days
-            if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days)
-            else:
-                t['finish'] = t['start'] + timedelta(days=1)
-
-        elif 'start' in t:
-            # Has explicit start date
+                sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' no predecessor, starting from today: {t['start']}\n")
+                sys.stderr.flush()
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
@@ -409,10 +420,24 @@ def schedule_tasks(phases):
                     dep_finishes_with_offset.append(dep_finish)
 
             if dep_finishes_with_offset:
-                t['start'] = max(dep_finishes_with_offset)
+                # Start the next working day after the latest dependency finishes
+                # Dependency finish dates are exclusive (day after last working day)
+                # So we can use it directly as the start of the next working day
+                latest_dep_finish = max(dep_finishes_with_offset)
+                t['start'] = get_next_working_day(latest_dep_finish)
             else:
                 t['start'] = get_next_working_day(datetime.now())
 
+            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
+            # Calculate finish date using working days
+            if isinstance(duration, timedelta):
+                t['finish'] = add_working_days(t['start'], duration.days)
+            else:
+                t['finish'] = t['start'] + timedelta(days=1)
+
+        elif 'start' in t:
+            # Has explicit start date (manual scheduling)
+            # Use the explicit start date provided
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
@@ -1174,13 +1199,15 @@ def natural_language_to_yaml(text, project_name="Project"):
         # Create node
         node = {
             'indent': indent_level,
-            'text': stripped,
-            'name': task_name,
+            'text': stripped,  # Keep original text with * marker
+            'name': task_name,  # Task name without *
             'full_name': full_name,
             'has_details': has_details,
             'children': [],
             'level': 0
         }
+
+        logger.debug(f"Parsed line: '{line}' -> name: '{task_name}', text: '{stripped}', has *: {stripped.startswith('*')}")
 
         # Find parent (pop stack until we find item with lower indent)
         while len(stack) > 1 and stack[-1]['indent'] >= indent_level:
