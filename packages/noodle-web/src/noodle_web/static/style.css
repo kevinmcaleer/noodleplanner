@@ -2381,7 +2381,7 @@ input[type="checkbox"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
+    padding: 10px 20px;
     background: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
     flex-shrink: 0;
@@ -3230,4 +3230,14 @@ input[type="checkbox"] {
 .analysis-success p {
     margin: 0;
     font-size: 1.1em;
+}
+
+/* Issue #66: Make project title placeholder white */
+#projectTitle::placeholder {
+    color: white;
+    opacity: 1;
+}
+
+#projectTitle {
+    color: white;
 }

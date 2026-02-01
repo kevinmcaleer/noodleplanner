@@ -1,5 +1,6 @@
 import yaml
 import re
+import csv
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parse_date
 import sys
@@ -2993,6 +2994,96 @@ def export_to_pdf(text, output_path, is_yaml=True, project_name="Project", origi
 
     # Build PDF
     doc.build(story)
+
+
+def export_to_csv(text, output_path, is_yaml=True, project_name="Project", original_text=None):
+    """Export project data to CSV format.
+
+    Args:
+        text: Input text (YAML or natural language)
+        output_path: Path to save the CSV file
+        is_yaml: If True, parse as YAML; if False, parse as natural language
+        project_name: Project name to use
+        original_text: Original text before conversion (for extracting resource mappings)
+    """
+    # Parse resource mappings from original text if provided
+    resource_map = {}
+    if original_text:
+        resource_map = parse_resource_mappings(original_text)
+
+    # Parse the text to get tasks and project info
+    if is_yaml:
+        data = yaml.safe_load(text)
+        project_name = list(data.keys())[0]
+        phases_raw = data[project_name]
+    else:
+        # Parse natural language
+        data = natural_language_to_yaml(text, project_name)
+        phases_raw = data[project_name]
+
+    # If phases_raw is a list, pass as-is; if dict, wrap in a list
+    if isinstance(phases_raw, list):
+        phases = phases_raw
+    elif isinstance(phases_raw, dict):
+        phases = [phases_raw]
+    else:
+        phases = []
+
+    # Schedule tasks
+    tasks = schedule_tasks(phases)
+
+    # Open CSV file for writing
+    with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
+        # Define CSV headers
+        fieldnames = ['ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
+                      'Resources', '% Complete', 'RAG', 'Comment']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        # Write header row
+        writer.writeheader()
+
+        # Write task data
+        for idx, task in enumerate(tasks, start=1):
+            # Calculate duration
+            duration = task.get('duration')
+            if isinstance(duration, timedelta):
+                duration_days = duration.days
+            else:
+                duration_days = 0
+
+            # Get start and finish dates
+            start_date = task.get('start')
+            finish_date = task.get('finish')
+            
+            # Format dates
+            start_str = start_date.strftime('%Y-%m-%d') if start_date else ''
+            finish_str = finish_date.strftime('%Y-%m-%d') if finish_date else ''
+
+            # Get resources
+            resources = task.get('resources', [])
+            resource_str = ', '.join(resources) if resources else ''
+
+            # Get percentage complete
+            percentage = task.get('percentage', 0)
+
+            # Get RAG status
+            rag_status = task.get('rag_status', 'N/A')
+
+            # Get comment
+            comment = task.get('comment', '')
+
+            # Write row
+            writer.writerow({
+                'ID': idx,
+                'Task Name': task.get('name', ''),
+                'Start': start_str,
+                'Finish': finish_str,
+                'Duration (days)': duration_days,
+                'Resources': resource_str,
+                '% Complete': percentage,
+                'RAG': rag_status,
+                'Comment': comment
+            })
 
 
 if __name__ == "__main__":

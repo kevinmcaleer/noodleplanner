@@ -23,20 +23,20 @@ def extract_title_from_frontmatter(text: str) -> str:
                 # End of front matter
                 break
         if in_frontmatter:
-            # Simple text parsing for title line
-            if line.strip().lower().startswith('title:'):
-                title = line.split(':', 1)[1].strip()
-                return title
             frontmatter_lines.append(line)
 
-    # Fallback to YAML parsing if simple parsing didn't work
+    # Use YAML parsing to properly handle quoted strings and invalid YAML
     if frontmatter_lines:
         try:
             yaml_text = '\n'.join(frontmatter_lines)
             frontmatter = yaml.safe_load(yaml_text)
             if isinstance(frontmatter, dict) and 'title' in frontmatter:
-                return frontmatter['title']
+                title = frontmatter['title']
+                # Ensure we return a string, not None or other types
+                if title is not None:
+                    return str(title)
         except Exception as e:
+            # Invalid YAML should return None
             pass
 
     return None

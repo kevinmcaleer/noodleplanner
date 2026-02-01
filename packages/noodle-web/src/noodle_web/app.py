@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from noodle_core import (
     text_to_markdown_table,
     export_to_excel,
+    export_to_csv,
     export_timeline_to_powerpoint,
     export_to_pdf,
     convert_plan_format_to_standard,
@@ -81,6 +82,7 @@ class RenderRequest(BaseModel):
     plan_text: str = Field(..., max_length=MAX_FILE_SIZE)
     project_name: Optional[str] = Field(None, max_length=200)
     export_excel: bool = Field(False)
+    export_csv: bool = Field(False)
     export_ppt: bool = Field(False)
     export_pdf: bool = Field(False)
 
@@ -129,11 +131,11 @@ async def render_plan(data: RenderRequest):
         converted_content = convert_plan_format_to_standard(data.plan_text)
 
         # Check if we need exports
-        has_exports = data.export_excel or data.export_ppt or data.export_pdf
+        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf
 
         if has_exports:
             # Count how many exports are requested
-            export_count = sum([data.export_excel, data.export_ppt, data.export_pdf])
+            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf])
 
             # If only one export is requested, return it directly
             if export_count == 1:
@@ -155,6 +157,30 @@ async def render_plan(data: RenderRequest):
                             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             headers={
                                 "Content-Disposition": f'attachment; filename="{project_name}.xlsx"'
+                            }
+                        )
+                    finally:
+                        if os.path.exists(tmp_path):
+                            os.unlink(tmp_path)
+
+                elif data.export_csv:
+                    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+                        tmp_path = tmp.name
+                    try:
+                        export_to_csv(
+                            converted_content,
+                            tmp_path,
+                            is_yaml=False,
+                            project_name=project_name,
+                            original_text=data.plan_text
+                        )
+                        with open(tmp_path, 'r', encoding='utf-8') as f:
+                            file_content = f.read()
+                        return Response(
+                            content=file_content,
+                            media_type="text/csv",
+                            headers={
+                                "Content-Disposition": f'attachment; filename="{project_name}.csv"'
                             }
                         )
                     finally:
@@ -216,6 +242,7 @@ async def render_plan(data: RenderRequest):
                     converted_content,
                     project_name,
                     data.export_excel,
+                    data.export_csv,
                     data.export_ppt,
                     data.export_pdf
                 )
@@ -251,6 +278,7 @@ def generate_exports(
     converted_text: str,
     project_name: str,
     export_excel: bool,
+    export_csv: bool,
     export_ppt: bool,
     export_pdf: bool = False
 ) -> bytes:
@@ -284,6 +312,24 @@ def generate_exports(
                 )
                 with open(tmp_path, 'rb') as f:
                     zip_file.writestr(f"{project_name}.xlsx", f.read())
+            finally:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+        # CSV export
+        if export_csv:
+            with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                export_to_csv(
+                    converted_text,
+                    tmp_path,
+                    is_yaml=False,
+                    project_name=project_name,
+                    original_text=original_text
+                )
+                with open(tmp_path, 'r', encoding='utf-8') as f:
+                    zip_file.writestr(f"{project_name}.csv", f.read())
             finally:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)

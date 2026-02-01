@@ -512,7 +512,7 @@ async function renderText() {
         return;
     }
 
-    await render(text, null, false, false, false, 'editor');
+    await render(text, null, false, false, false, false, 'editor');
 }
 
 async function exportFile(format, prefix) {
@@ -528,13 +528,14 @@ async function exportFile(format, prefix) {
 
     // Set export flags based on format
     const exportExcel = format === 'excel';
+    const exportCSV = format === 'csv';
     const exportPPT = format === 'ppt';
     const exportPDF = format === 'pdf';
 
-    await render(text, null, exportExcel, exportPPT, exportPDF, prefix);
+    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix);
 }
 
-async function render(planText, projectName, exportExcel, exportPPT, exportPDF, prefix) {
+async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix) {
     const btn = document.getElementById(prefix + 'Btn');
     const spinner = document.getElementById(prefix + 'Spinner');
     const message = document.getElementById(prefix + 'Message');
@@ -550,6 +551,7 @@ async function render(planText, projectName, exportExcel, exportPPT, exportPDF, 
             plan_text: planText,
             project_name: projectName || null,
             export_excel: exportExcel,
+            export_csv: exportCSV,
             export_ppt: exportPPT,
             export_pdf: exportPDF
         };
