@@ -114,7 +114,7 @@ def convert_plan_format_to_standard(text: str) -> str:
             if date_match and date_match.start() > 0:
                 metadata_start = min(metadata_start, date_match.start())
 
-            duration_match = re.search(r'\d+[dwm]', stripped)
+            duration_match = re.search(r'\d+[dwmy]', stripped)
             if duration_match and duration_match.start() > 0:
                 metadata_start = min(metadata_start, duration_match.start())
 

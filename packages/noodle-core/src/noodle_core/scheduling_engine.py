@@ -229,8 +229,8 @@ def extract_metadata(task_str, task_name=None):
         meta['due'] = date_match.group(1)
         meta['start'] = parse_date(date_match.group(1))
 
-    # Support new simple format: 10d, 2w, 3m
-    duration_match = re.search(r'\b(\d+)([dwm])\b', task_str)
+    # Support new simple format: 10d, 2w, 3m, 1y
+    duration_match = re.search(r'\b(\d+)([dwmy])\b', task_str)
     if duration_match:
         value = int(duration_match.group(1))
         unit = duration_match.group(2)
@@ -240,13 +240,15 @@ def extract_metadata(task_str, task_name=None):
             meta['duration'] = timedelta(weeks=value)
         elif unit == 'm':
             meta['duration'] = timedelta(days=value * 30)  # Approximate month as 30 days
+        elif unit == 'y':
+            meta['duration'] = timedelta(days=value * 365)  # Approximate year as 365 days
     else:
         # Fall back to old format :p10d
         duration_match = re.search(r':p(\d+)d', task_str)
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwm]|\d+%|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|$)", task_str)
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
@@ -1183,7 +1185,7 @@ def natural_language_to_yaml(text, project_name="Project"):
         stripped = line.strip()
 
         # Check if has task details
-        has_duration = re.search(r'\b\d+[dwm]\b', stripped) is not None
+        has_duration = re.search(r'\b\d+[dwmy]\b', stripped) is not None
         has_quotes = '"' in stripped or "'" in stripped
         has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes
 
@@ -1201,7 +1203,7 @@ def natural_language_to_yaml(text, project_name="Project"):
             if date_match and date_match.start() > 0:
                 metadata_start = min(metadata_start, date_match.start())
 
-            duration_match = re.search(r'\d+[dwm]', stripped)
+            duration_match = re.search(r'\d+[dwmy]', stripped)
             if duration_match and duration_match.start() > 0:
                 metadata_start = min(metadata_start, duration_match.start())
 

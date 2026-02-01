@@ -178,6 +178,13 @@ class TestExtractMetadata:
         # Note: months are approximated in the code
         assert result['duration'].days >= 28  # At least 28 days for a month
 
+    def test_extract_duration_years(self):
+        """Test extracting year duration (approximated as 365 days)."""
+        task = "Task 1 @john 1y"
+        result = extract_metadata(task, "Task 1")
+        # Note: years are approximated as 365 days
+        assert result['duration'].days == 365
+
     def test_extract_percentage(self):
         """Test extracting completion percentage."""
         task = "Task 1 @john 3d 50%"

@@ -2223,13 +2223,23 @@ function makeEditable(cell, task, taskIndex) {
         if (newValue !== currentValue) {
             // Handle different field types
             if (field === 'duration') {
-                // Parse duration (remove 'd' suffix if present)
-                const durationValue = parseInt(newValue.replace(/d$/i, ''));
-                if (!isNaN(durationValue) && durationValue > 0) {
-                    task.duration_days = durationValue;
-                    ganttTasks[taskIndex].duration_days = durationValue;
-                    syncGanttDurationToEditor(task, taskIndex);
-                    cell.textContent = `${durationValue}d`;
+                // Parse duration - supports d (days), w (weeks), m (months), y (years)
+                // Convert all to days for internal storage
+                const match = newValue.match(/^(\d+)([dwmy]?)$/i);
+                if (match) {
+                    const value = parseInt(match[1]);
+                    const unit = (match[2] || 'd').toLowerCase();
+                    const multipliers = { 'd': 1, 'w': 7, 'm': 30, 'y': 365 };
+                    const durationValue = value * (multipliers[unit] || 1);
+                    
+                    if (durationValue > 0) {
+                        task.duration_days = durationValue;
+                        ganttTasks[taskIndex].duration_days = durationValue;
+                        syncGanttDurationToEditor(task, taskIndex);
+                        cell.textContent = `${value}${unit}`;
+                    } else {
+                        cell.textContent = originalContent;
+                    }
                 } else {
                     cell.textContent = originalContent;
                 }
@@ -2486,14 +2496,14 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
                     lines[i] = line.replace(resourcePattern, '').trim();
                 }
             } else if (field === 'comment') {
-                // Update comment - need to find and replace comment pattern
-                const commentPattern = /\{([^}]*)\}/;
+                // Update comment - use !"comment" format (backend standard)
+                const commentPattern = /!?"[^"]*"/;
                 if (newValue) {
                     if (commentPattern.test(line)) {
-                        lines[i] = line.replace(commentPattern, `{${newValue}}`);
+                        lines[i] = line.replace(commentPattern, `!"${newValue}"`);
                     } else {
                         // Add comment if not present
-                        lines[i] = line.trim() + ` {${newValue}}`;
+                        lines[i] = line.trim() + ` !"${newValue}"`;
                     }
                 } else {
                     // Remove comment
