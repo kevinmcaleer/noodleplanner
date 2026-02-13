@@ -3087,46 +3087,61 @@ function renderGanttRows() {
                 daysFromStart++;
             }
 
-            // Calculate task duration in days by counting (inclusive of both start and end day)
-            let taskDuration = 1; // Start day counts as 1
-            tempDate = new Date(taskStart);
-            while (tempDate < taskFinish) {
-                tempDate.setDate(tempDate.getDate() + 1);
-                taskDuration++;
+            // Milestones: render as diamond shape
+            if (task.duration_days === 0 && !task.is_summary) {
+                const diamond = document.createElement('div');
+                diamond.className = 'gantt-bar gantt-milestone';
+                const leftPos = daysFromStart * ganttPixelsPerDay + (ganttPixelsPerDay / 2) - 9;
+                diamond.style.left = leftPos + 'px';
+                diamond.title = `${task.name}\nMilestone: ${task.finish}`;
+                diamond.dataset.taskIndex = index;
+
+                setupBarDragListeners(diamond, task, index);
+
+                barRow.appendChild(diamond);
+            } else {
+                // Regular task or summary bar
+                // Calculate task duration in days by counting (inclusive of both start and end day)
+                let taskDuration = 1; // Start day counts as 1
+                tempDate = new Date(taskStart);
+                while (tempDate < taskFinish) {
+                    tempDate.setDate(tempDate.getDate() + 1);
+                    taskDuration++;
+                }
+
+                const bar = document.createElement('div');
+                bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
+                const leftPos = daysFromStart * ganttPixelsPerDay;
+                const barWidth = taskDuration * ganttPixelsPerDay;
+                bar.style.left = leftPos + 'px';
+                bar.style.width = barWidth + 'px';
+                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
+                bar.dataset.taskIndex = index;
+
+                // Add drag handles
+                const leftHandle = document.createElement('div');
+                leftHandle.className = 'gantt-bar-handle left';
+                leftHandle.dataset.handle = 'left';
+                bar.appendChild(leftHandle);
+
+                const rightHandle = document.createElement('div');
+                rightHandle.className = 'gantt-bar-handle right';
+                rightHandle.dataset.handle = 'right';
+                bar.appendChild(rightHandle);
+
+                // Add progress indicator if available
+                if (task.percent && !task.is_summary) {
+                    const progress = document.createElement('div');
+                    progress.className = 'gantt-progress';
+                    progress.style.width = task.percent;
+                    bar.appendChild(progress);
+                }
+
+                // Add drag event listeners
+                setupBarDragListeners(bar, task, index);
+
+                barRow.appendChild(bar);
             }
-
-            const bar = document.createElement('div');
-            bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
-            const leftPos = daysFromStart * ganttPixelsPerDay;
-            const barWidth = taskDuration * ganttPixelsPerDay;
-            bar.style.left = leftPos + 'px';
-            bar.style.width = barWidth + 'px';
-            bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
-            bar.dataset.taskIndex = index;
-
-            // Add drag handles
-            const leftHandle = document.createElement('div');
-            leftHandle.className = 'gantt-bar-handle left';
-            leftHandle.dataset.handle = 'left';
-            bar.appendChild(leftHandle);
-
-            const rightHandle = document.createElement('div');
-            rightHandle.className = 'gantt-bar-handle right';
-            rightHandle.dataset.handle = 'right';
-            bar.appendChild(rightHandle);
-
-            // Add progress indicator if available
-            if (task.percent && !task.is_summary) {
-                const progress = document.createElement('div');
-                progress.className = 'gantt-progress';
-                progress.style.width = task.percent;
-                bar.appendChild(progress);
-            }
-
-            // Add drag event listeners
-            setupBarDragListeners(bar, task, index);
-
-            barRow.appendChild(bar);
         }
 
         ganttInfoBody.appendChild(infoRow);
@@ -3394,16 +3409,22 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
     const newStartDate = parseLocalDate(task.start);
     const newFinishDate = parseLocalDate(task.finish);
 
-    // Count days from start to finish (inclusive)
-    let taskDuration = 1; // Start day counts as 1
-    let tempDate = new Date(newStartDate);
-    while (tempDate < newFinishDate) {
-        tempDate.setDate(tempDate.getDate() + 1);
-        taskDuration++;
-    }
+    // Milestones (0-duration) stay as 0 when moved
+    if (newStartDate.getTime() === newFinishDate.getTime() && task.duration_days === 0) {
+        task.duration_days = 0;
+        ganttTasks[taskIndex].duration_days = 0;
+    } else {
+        // Count days from start to finish (inclusive)
+        let taskDuration = 1; // Start day counts as 1
+        let tempDate = new Date(newStartDate);
+        while (tempDate < newFinishDate) {
+            tempDate.setDate(tempDate.getDate() + 1);
+            taskDuration++;
+        }
 
-    task.duration_days = taskDuration;
-    ganttTasks[taskIndex].duration_days = task.duration_days;
+        task.duration_days = taskDuration;
+        ganttTasks[taskIndex].duration_days = task.duration_days;
+    }
 
     // Sync changes to editor based on what was dragged:
     // - Left handle: Start date changed (manual scheduling)
