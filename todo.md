@@ -344,6 +344,16 @@
 
 **Status:** Complete! Empty plans now show helpful actions to get started. Users can add phases, tasks, resources, or labels directly from the Kanban view without switching to the editor.
 
+### Root Directory Tidy-Up - ✅ COMPLETED
+- [x] Moved documentation to docs/: DATABASE_README.md → docs/database.md, CLI_README.md → docs/cli.md, DEPLOYMENT.md → docs/deployment.md
+- [x] Moved analysis files to design/: ISSUE_122_FIXES.md → design/issue-122-fixes.md, SUBAGENT_WORK_SUMMARY.md → design/subagent-work-summary.md
+- [x] Removed stale root duplicates superseded by packages/noodle-web/: app.py, app.py.bak, database.py, middleware.py, static/, templates/, favicon.png, logo.png
+- [x] Removed test/debug artifacts: test_project.txt, test_simple.txt, test_timeline.md, test_timeline2.md, plan_converted.txt, plan_debug.txt
+- [x] Archived generated outputs to archive/: plan.xlsx, plan_timeline.pptx, gantt.md, timeline.md, output/, plan_output/
+- [x] All 120 tests passing after cleanup
+
+**Status:** Complete! Root directory cleaned up with only essential files remaining.
+
 ## In Progress 🔄
 
 ### Dependency Loop Detection (GitHub Issue #22) - ✅ RESTORED
@@ -709,7 +719,7 @@
 
 ---
 
-Last Updated: 2025-11-17
+Last Updated: 2026-02-13
 
 
 ### Add Resource in Resource View (GitHub Issue #72) - ✅ CLOSED
@@ -1253,7 +1263,6 @@ MVP Build 10d @jen @kev 3% #High #test
 
 **Files Modified:**
 - `/Users/kev/Python/noodleplanner/packages/noodle-web/src/noodle_web/static/script.js`
-- `/Users/kev/Python/noodleplanner/static/script.js`
 
 **Status:** Complete! Double-clicking resources in the Resources table now correctly opens the resource edit form with pre-populated data using proper shortname lookup.
 
