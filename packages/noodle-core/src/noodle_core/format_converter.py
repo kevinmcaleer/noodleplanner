@@ -5,6 +5,7 @@ import yaml
 
 HIGHLIGHTS_START = '---highlights---'
 HIGHLIGHTS_END = '---end-highlights---'
+RAID_LOG_START = '---raid log---'
 
 
 def extract_title_from_frontmatter(text: str) -> str:
@@ -58,8 +59,9 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights section before processing
+    # Strip highlights and RAID log sections before processing
     text = strip_highlights(text)
+    text = strip_raid_log(text)
     lines = text.split('\n')
     output_lines = []
     in_frontmatter = False
@@ -145,7 +147,7 @@ def extract_highlights(text: str) -> list:
 
     Parses the ---highlights--- section and returns a list of highlight
     dictionaries with date, author, and content fields.  The section ends
-    at ---end-highlights---, ---raid---, or end of file.
+    at ---end-highlights---, ---raid log---, or end of file.
 
     Returns:
         List of dicts: [{'date': '2026-02-13', 'author': 'Alice', 'content': '...'}]
@@ -156,9 +158,9 @@ def extract_highlights(text: str) -> list:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, raid section, or EOF
+    # Find the end: explicit end marker, raid log section, or EOF
     end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, '---raid---'):
+    for marker in (HIGHLIGHTS_END, RAID_LOG_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -212,7 +214,7 @@ def strip_highlights(text: str) -> str:
     Returns the plan text without the highlights block, suitable for
     passing to the task parser.  Also removes the --- separator line
     that precedes the highlights section.  The section ends at
-    ---end-highlights---, ---raid---, or end of file.
+    ---end-highlights---, ---raid log---, or end of file.
     """
     start_idx = text.find(HIGHLIGHTS_START)
     if start_idx == -1:
@@ -220,10 +222,10 @@ def strip_highlights(text: str) -> str:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, raid section, or EOF
+    # Find the end: explicit end marker, raid log section, or EOF
     end_idx = len(text)
     end_len = 0
-    for marker in (HIGHLIGHTS_END, '---raid---'):
+    for marker in (HIGHLIGHTS_END, RAID_LOG_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -277,10 +279,121 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    base = strip_highlights(plan_text).rstrip('\n')
+    # Preserve any existing RAID log that follows highlights
+    raid_log_text = extract_raid_log(plan_text)
+    base = strip_raid_log(strip_highlights(plan_text)).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
+        result = base
+    else:
+        result = base + '\n\n---\n\n' + section
+
+    # Re-append the RAID log if it was present
+    if raid_log_text:
+        result = result.rstrip('\n') + '\n\n' + RAID_LOG_START + '\n' + raid_log_text
+    return result
+
+
+def extract_raid_log(text: str) -> str:
+    """Extract the RAID log section text from plan text.
+
+    Returns the raw text between ``---raid log---`` and EOF,
+    or an empty string if no RAID log section is present.
+    """
+    start_idx = text.find(RAID_LOG_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(RAID_LOG_START)
+    return text[after_start:].strip()
+
+
+def strip_raid_log(text: str) -> str:
+    """Remove the RAID log section from plan text.
+
+    Returns the plan text without the ``---raid log---`` block,
+    suitable for passing to the task parser.
+    """
+    start_idx = text.find(RAID_LOG_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+    return before
+
+
+def generate_raid_log_text(raid_items: list) -> str:
+    """Generate a formatted markdown table from RAID items.
+
+    Each column is padded to the width of its widest entry for
+    clean, readable markdown output.
+
+    Args:
+        raid_items: List of dicts with keys: type, title, status,
+            score, owner, date.  Missing keys default to empty strings.
+
+    Returns:
+        The formatted markdown table string, or empty string if
+        there are no items.
+    """
+    if not raid_items:
+        return ''
+
+    headers = ['Type', 'Description', 'Status', 'Score', 'Owner', 'Date']
+
+    def escape_pipe(value):
+        return str(value).replace('|', '\\|').replace('\n', ' ')
+
+    rows = []
+    for item in raid_items:
+        rows.append([
+            escape_pipe(item.get('type', '')),
+            escape_pipe(item.get('title', '')),
+            escape_pipe(item.get('status', '')),
+            escape_pipe(str(item.get('score', ''))),
+            escape_pipe(item.get('owner', '')),
+            escape_pipe(item.get('date', '')),
+        ])
+
+    # Calculate column widths (minimum of header width)
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def format_row(cells):
+        padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
+        return '| ' + ' | '.join(padded) + ' |'
+
+    separator_cells = ['-' * widths[i] for i in range(len(headers))]
+    separator = '| ' + ' | '.join(separator_cells) + ' |'
+
+    lines = [format_row(headers), separator]
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)
+
+
+def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
+    """Update plan text with the given RAID log table.
+
+    Replaces the existing ``---raid log---`` section or appends a new
+    one after the highlights section.  If *raid_items* is empty, any
+    existing RAID log section is removed.
+
+    Args:
+        plan_text: The full plan text.
+        raid_items: List of RAID item dicts.
+
+    Returns:
+        Updated plan text.
+    """
+    base = strip_raid_log(plan_text).rstrip('\n')
+    table = generate_raid_log_text(raid_items)
+
+    if not table:
         return base
 
-    return base + '\n\n---\n\n' + section
+    return base + '\n\n' + RAID_LOG_START + '\n' + table

@@ -27,6 +27,10 @@ from .format_converter import (
     strip_highlights,
     generate_highlights_text,
     update_plan_highlights,
+    extract_raid_log,
+    strip_raid_log,
+    generate_raid_log_text,
+    update_plan_raid_log,
 )
 
 from .excel_importer import (
@@ -62,6 +66,10 @@ __all__ = [
     "strip_highlights",
     "generate_highlights_text",
     "update_plan_highlights",
+    "extract_raid_log",
+    "strip_raid_log",
+    "generate_raid_log_text",
+    "update_plan_raid_log",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",

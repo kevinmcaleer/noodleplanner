@@ -402,9 +402,10 @@ def collect_labels_from_plan(plan_text: str) -> set:
     Labels use hashtag syntax like #High #test #Risk
     """
     import re
-    from noodle_core import strip_highlights
-    # Strip highlights section so its content is not treated as labels
+    from noodle_core import strip_highlights, strip_raid_log
+    # Strip highlights and RAID log sections so their content is not treated as labels
     plan_text = strip_highlights(plan_text)
+    plan_text = strip_raid_log(plan_text)
 
     labels = set()
     lines = plan_text.split('\n')
