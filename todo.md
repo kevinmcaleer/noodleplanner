@@ -346,12 +346,25 @@
 
 ## In Progress 🔄
 
-### Dependency Loop Detection (GitHub Issue #22)
-- [x] Write test cases for loop detection (4 tests documenting expected behavior)
-- [ ] Implement actual loop detection algorithm
-- [ ] Flag circular dependencies to user
-- [ ] Highlight which tasks have problematic dependencies
-- [ ] Add user-friendly error messages
+### Dependency Loop Detection (GitHub Issue #22) - ✅ RESTORED
+**STATUS:** Regression fixed - loop detection restored from git history
+
+**Timeline:**
+- [x] Implemented `detect_dependency_loops()` function (commit 011758a, Feb 1 2026)
+- [x] Accidentally deleted during refactoring (commit aaa9ecb)
+- [x] Regression discovered and analyzed (Feb 13 2026)
+- [x] Restored function from git history (90-line DFS cycle detection)
+- [x] Updated `schedule_tasks()` to call loop detection
+- [x] Updated 4 tests with proper assertions (removed TODO comments)
+- [x] All 120 tests passing
+- [x] Added comment to GitHub Issue #22
+
+**Features:**
+- DFS-based cycle detection in dependency graph
+- Case-insensitive task name matching
+- Detects simple loops, 3-way loops, and self-dependencies
+- Adds `loop_warning` field to affected tasks
+- Descriptive warning messages with cycle path
 
 ### Rename Summary Tasks via Column Headers (GitHub Issue #68) - ✅ COMPLETED
 - [x] Made phase column headers clickable in Kanban Phase view

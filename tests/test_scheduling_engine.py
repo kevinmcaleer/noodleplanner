@@ -532,13 +532,11 @@ class TestDependencyLoopDetection:
                 }
             }
         ]
-        # Current implementation doesn't detect loops, so this should schedule
-        # but may produce incorrect dates. This test documents the expected behavior
-        # once loop detection is implemented.
         tasks = schedule_tasks(phases)
-        # TODO: Once loop detection is implemented, this should raise an error
-        # or return tasks with a 'loop_detected' flag
         assert len(tasks) == 2
+        # Verify loop was detected and warnings added
+        loop_warnings = [t for t in tasks if 'loop_warning' in t]
+        assert len(loop_warnings) > 0, "Loop warning should be added to affected tasks"
 
     def test_three_way_circular_dependency(self):
         """Test detection of A -> B -> C -> A loop."""
@@ -563,8 +561,10 @@ class TestDependencyLoopDetection:
             }
         ]
         tasks = schedule_tasks(phases)
-        # TODO: Should detect the loop Task 1 -> Task 3 -> Task 2 -> Task 1
         assert len(tasks) == 3
+        # All tasks in the cycle should have loop warnings
+        loop_warnings = [t for t in tasks if 'loop_warning' in t]
+        assert len(loop_warnings) == 3, "All tasks in the cycle should have warnings"
 
     def test_self_dependency(self):
         """Test detection of task depending on itself."""
@@ -577,8 +577,8 @@ class TestDependencyLoopDetection:
             }
         ]
         tasks = schedule_tasks(phases)
-        # TODO: Should detect self-dependency
         assert len(tasks) == 1
+        assert 'loop_warning' in tasks[0], "Self-dependency should be flagged"
 
     def test_no_circular_dependency(self):
         """Test that valid dependency chain is not flagged."""
@@ -607,6 +607,9 @@ class TestDependencyLoopDetection:
         assert len(tasks) == 3
         assert tasks[1]['start'] == tasks[0]['finish']
         assert tasks[2]['start'] == tasks[1]['finish']
+        # Valid chain should not trigger warnings
+        loop_warnings = [t for t in tasks if 'loop_warning' in t]
+        assert len(loop_warnings) == 0, "Valid dependency chain should not be flagged"
 
 
 class TestEdgeCases:

@@ -261,6 +261,97 @@ def extract_metadata(task_str, task_name=None):
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
+
+
+def detect_dependency_loops(tasks):
+    """Detect circular dependencies in tasks.
+
+    Uses depth-first search (DFS) to find cycles in the dependency graph.
+    Returns a list of loop detection results with warnings for affected tasks.
+
+    Args:
+        tasks: List of tasks with 'name' and 'depends' fields
+
+    Returns:
+        dict with 'has_loops' (bool), 'loops' (list of cycle descriptions),
+        and 'affected_tasks' (list of task names involved in loops)
+    """
+    result = {
+        'has_loops': False,
+        'loops': [],
+        'affected_tasks': set(),
+        'task_warnings': {}  # Maps task name to warning message
+    }
+
+    # Build a lookup map for tasks by name (case-insensitive)
+    task_map = {}
+    for task in tasks:
+        if 'name' in task:
+            task_map[task['name'].lower()] = task
+
+    # Build adjacency list from dependencies
+    # deps_graph[A] = [B, C] means A depends on B and C
+    deps_graph = {}
+    for task in tasks:
+        task_name = task.get('name', '').lower()
+        if task_name:
+            deps_graph[task_name] = set()
+            if 'depends' in task and task['depends']:
+                for dep in task['depends']:
+                    dep_name = dep.strip().lower()
+                    # Only add if the dependency task exists
+                    if dep_name in task_map:
+                        deps_graph[task_name].add(dep_name)
+
+    # DFS to detect cycles
+    visited = set()
+    rec_stack = set()  # Recursion stack to detect back edges
+
+    def dfs(node, path):
+        """Perform DFS to find cycles."""
+        visited.add(node)
+        rec_stack.add(node)
+        path.append(node)
+
+        if node in deps_graph:
+            for neighbor in deps_graph[node]:
+                if neighbor not in visited:
+                    dfs(neighbor, path[:])  # Continue search
+                elif neighbor in rec_stack:
+                    # Found a cycle
+                    cycle_start_idx = path.index(neighbor)
+                    cycle = path[cycle_start_idx:] + [neighbor]
+                    cycle_str = ' -> '.join(cycle)
+                    result['loops'].append(cycle_str)
+                    result['has_loops'] = True
+
+                    # Mark all tasks in the cycle as affected
+                    for task_in_cycle in cycle[:-1]:  # Exclude the repeated node
+                        result['affected_tasks'].add(task_in_cycle)
+
+        rec_stack.remove(node)
+
+    # Run DFS from each unvisited node
+    for task_name in deps_graph:
+        if task_name not in visited:
+            dfs(task_name, [])
+
+    # Convert affected_tasks set to list and create warning messages
+    result['affected_tasks'] = list(result['affected_tasks'])
+
+    for task in tasks:
+        task_name = task.get('name', '').lower()
+        if task_name in result['affected_tasks']:
+            # Find the task in the loops
+            involved_in = [loop for loop in result['loops'] if task_name in loop.lower()]
+            result['task_warnings'][task.get('name', task_name)] = (
+                f"Circular dependency detected. Part of cycle: {involved_in[0]}"
+                if involved_in else "Circular dependency detected"
+            )
+
+    return result
+
+
 def schedule_tasks(phases):
     """Schedule tasks from arbitrarily nested structure.
 
@@ -548,7 +639,21 @@ def schedule_tasks(phases):
 
         return ordered
 
-    return build_ordered_list()
+    ordered_tasks = build_ordered_list()
+
+    # Check for dependency loops and add warnings to affected tasks
+    loop_analysis = detect_dependency_loops(ordered_tasks)
+    if loop_analysis['has_loops']:
+        logger.warning(f"Circular dependencies detected: {', '.join(loop_analysis['loops'])}")
+        for task in ordered_tasks:
+            task_name = task.get('name', '').lower()
+            if task_name in loop_analysis['affected_tasks']:
+                task['loop_warning'] = loop_analysis['task_warnings'].get(
+                    task.get('name', task_name),
+                    "Circular dependency detected"
+                )
+
+    return ordered_tasks
 
 # --- Gantt chart rendering ---
 def render_gantt_chart(tasks, start_date, finish_date, terminal_width=80):
