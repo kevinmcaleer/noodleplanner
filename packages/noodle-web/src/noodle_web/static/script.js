@@ -1427,7 +1427,7 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         text.setAttribute('fill', '#ffffff');
         text.setAttribute('font-weight', '600');
         text.setAttribute('clip-path', 'url(#' + clipId + ')');
-        text.textContent = phase.name;
+        text.textContent = isComplete ? '✓ ' + phase.name : phase.name;
         svg.appendChild(text);
 
         // Add tooltip
