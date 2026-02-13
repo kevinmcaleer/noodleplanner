@@ -1956,6 +1956,16 @@ function updateTimeline(tasks, projectName) {
         timelineTasks = tasks;
         timelineProjectName = projectName || '';
 
+        // If there is exactly one task at the highest level, filter it out
+        // as it represents the project container and clutters the timeline.
+        if (tasks.length > 0) {
+            const minLevel = Math.min(...tasks.map(t => t.level));
+            const topLevelTasks = tasks.filter(t => t.level === minLevel);
+            if (topLevelTasks.length === 1) {
+                tasks = tasks.filter(t => t.level !== minLevel);
+            }
+        }
+
         // Show timeline content, hide placeholder
         const placeholder = document.querySelector('#timeline-view .placeholder-view');
         const content = document.querySelector('#timeline-view .timeline-content');
