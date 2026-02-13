@@ -24,3 +24,10 @@
 - keep the interface tour (script.js lines 2384-2589) updated with any significant interface changes over neglecting it
 - Tidy up any markdown files created for analysing features or design decisions and move them to the design/ directory over leaving them in the root directory
 - use consistent naming conventions for functions, variables, and files over inconsistent naming
+- when a new subagent task is requested, also create a new worktree for it to work on over just creating the task
+- when a new subagent task is requested, also create a new branch for it to work on over just creating the task
+- when a subagent has completed it task and all the tests pass, merge the branch and delete the worktree over leaving it in place
+- when a subagent has completed it task and all the tests pass, also update the interface tour if there are any significant interface changes over neglecting to do so
+- always update an issue with progress when a subagent is working on it over leaving the issue without updates
+- when an issue is completed, update the issue with a comment summarizing the changes made and close the issue over leaving it open without a summary
+- when an issue is completed, also update the todo.md with progress and next steps over leaving the todo.md outdated
