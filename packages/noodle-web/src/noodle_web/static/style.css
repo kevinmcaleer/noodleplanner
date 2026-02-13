@@ -1093,6 +1093,62 @@ h1 {
     display: block;
 }
 
+/* Minimal Timeline View */
+.minimal-timeline-mode {
+    padding: 10px 0 30px 0 !important;
+}
+
+.minimal-timeline-container {
+    position: relative;
+    margin: 0 auto;
+}
+
+.minimal-timeline-svg {
+    display: block;
+}
+
+.minimal-milestone {
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+}
+
+.minimal-milestone-marker {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid #fff;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    cursor: default;
+}
+
+.minimal-date-scale {
+    position: relative;
+    height: 18px;
+    margin: 4px auto 0 auto;
+}
+
+.minimal-date-label {
+    position: absolute;
+    font-size: 0.65em;
+    color: #888;
+    white-space: nowrap;
+    top: 0;
+    transform: translateX(-50%);
+}
+
+.minimal-date-label:first-child {
+    transform: none;
+}
+
+.minimal-date-label:last-child {
+    transform: none;
+}
+
+/* Report page minimal timeline compact padding */
+.report-timeline-wrapper.minimal-timeline-mode {
+    padding: 10px 0 30px 0 !important;
+}
+
 /* Gantt Chart Styling */
 .gantt-content {
     padding: 20px;

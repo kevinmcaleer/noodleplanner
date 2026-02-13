@@ -1060,16 +1060,16 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
 function updateReportTimeline(tasks, projectName) {
     try {
-        // Filter milestones: only 0-duration, non-summary tasks with a finish date
-        const milestones = tasks.filter(t => {
-            if (!t.finish) return false;
-            return t.duration_days === 0 && !t.is_summary;
+        // Filter to tasks with valid dates for computing the date range
+        const allTasks = tasks.filter(t => (t.start && t.finish) || (t.finish && t.duration_days === 0));
+        if (allTasks.length === 0) return;
+
+        // Find min and max dates across all tasks (phases + milestones)
+        const allDates = [];
+        allTasks.forEach(t => {
+            if (t.start) allDates.push(parseLocalDate(t.start));
+            if (t.finish) allDates.push(parseLocalDate(t.finish));
         });
-
-        if (milestones.length === 0) return;
-
-        // Find min and max dates
-        const allDates = milestones.map(t => parseLocalDate(t.finish));
         const minDate = new Date(Math.min(...allDates));
         const maxDate = new Date(Math.max(...allDates));
 
@@ -1087,137 +1087,8 @@ function updateReportTimeline(tasks, projectName) {
         const timelineWidth = Math.max(800, availableWidth);
         const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
 
-        // Get timeline elements
-        const timelineLine = document.getElementById('reportTimelineLine');
-        const timelineMilestones = document.getElementById('reportTimelineMilestones');
-
-        if (!timelineLine || !timelineMilestones) return;
-
-        // Clear existing content
-        timelineMilestones.innerHTML = '';
-        timelineLine.querySelectorAll('.timeline-progress, .timeline-date-label, .timeline-scale').forEach(el => el.remove());
-
-        // Set widths
-        timelineLine.style.width = timelineWidth + 'px';
-        timelineMilestones.style.width = timelineWidth + 'px';
-
-        // Calculate overall project completion
-        let totalTasks = 0;
-        let completedWeight = 0;
-        tasks.forEach(task => {
-            if (!task.is_summary && task.duration_days > 0) {
-                totalTasks++;
-                completedWeight += parseFloat(task.percent) || 0;
-            }
-        });
-        const overallCompletion = totalTasks > 0 ? (completedWeight / totalTasks) : 0;
-
-        // Add progress bar
-        const progressBar = document.createElement('div');
-        progressBar.className = 'timeline-progress';
-        progressBar.style.width = overallCompletion + '%';
-        timelineLine.appendChild(progressBar);
-
-        // Add start and end date labels
-        const startLabel = document.createElement('div');
-        startLabel.className = 'timeline-date-label timeline-start-date';
-        startLabel.textContent = minDate.toISOString().split('T')[0];
-        timelineLine.appendChild(startLabel);
-
-        const endLabel = document.createElement('div');
-        endLabel.className = 'timeline-date-label timeline-end-date';
-        endLabel.textContent = maxDate.toISOString().split('T')[0];
-        timelineLine.appendChild(endLabel);
-
-        // Add date scale
-        addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth);
-
-        // Track positions for overlap prevention
-        const positions = [];
-
-        // Create milestone markers
-        milestones.forEach((task) => {
-            const milestoneDate = parseLocalDate(task.finish);
-            const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
-            const position = (daysFromStart / totalDays) * timelineWidth;
-
-            // Check for overlap and adjust label position
-            let labelOffset = 0;
-            const minSpacing = 170;
-            let foundLevel = false;
-            const maxLevels = 5;
-
-            for (let level = 0; level < maxLevels && !foundLevel; level++) {
-                labelOffset = level * -50;
-                foundLevel = true;
-                for (let i = 0; i < positions.length; i++) {
-                    if (positions[i].offset === labelOffset && Math.abs(position - positions[i].pos) < minSpacing) {
-                        foundLevel = false;
-                        break;
-                    }
-                }
-            }
-
-            if (!foundLevel) return;
-
-            positions.push({ pos: position, offset: labelOffset });
-
-            // Create milestone container
-            const milestoneDiv = document.createElement('div');
-            milestoneDiv.className = 'timeline-milestone';
-            milestoneDiv.style.left = position + 'px';
-            milestoneDiv.style.cursor = 'pointer';
-
-            milestoneDiv.addEventListener('click', () => {
-                openMilestoneTaskForm(task.name);
-            });
-
-            // Create connecting line if label is offset
-            if (labelOffset !== 0) {
-                const connector = document.createElement('div');
-                connector.className = 'timeline-connector';
-                connector.style.height = Math.abs(labelOffset) + 'px';
-                connector.style.bottom = '10px';
-                milestoneDiv.appendChild(connector);
-            }
-
-            // Create milestone marker (circle)
-            const marker = document.createElement('div');
-            const percent = parseFloat(task.percent) || 0;
-            const isComplete = percent >= 100;
-
-            marker.className = 'timeline-circle';
-            marker.innerHTML = isComplete
-                ? `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="10" cy="10" r="9" fill="#28a745" stroke="#fff" stroke-width="1"/>
-                    <path d="M6 10 L9 13 L14 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                   </svg>`
-                : `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="10" cy="10" r="9" fill="#333" stroke="#fff" stroke-width="1"/>
-                   </svg>`;
-            milestoneDiv.appendChild(marker);
-
-            // Create label
-            const label = document.createElement('div');
-            label.className = 'timeline-milestone-label';
-
-            if (labelOffset !== 0) {
-                label.style.bottom = (20 - labelOffset) + 'px';
-            }
-
-            const nameDiv = document.createElement('div');
-            nameDiv.className = 'milestone-name';
-            nameDiv.textContent = task.name;
-            label.appendChild(nameDiv);
-
-            const dateDiv = document.createElement('div');
-            dateDiv.className = 'milestone-date';
-            dateDiv.textContent = task.finish;
-            label.appendChild(dateDiv);
-
-            milestoneDiv.appendChild(label);
-            timelineMilestones.appendChild(milestoneDiv);
-        });
+        // Always render the minimal view on the report page
+        renderMinimalTimeline(timelineWrapper, tasks, minDate, maxDate, totalDays, timelineWidth, { isReport: true });
 
     } catch (error) {
         console.error('Error updating report timeline:', error);
@@ -1808,6 +1679,7 @@ function updateTimesheet(tasks, frontMatter = {}) {
 let timelineTasks = [];
 let timelineProjectName = '';
 let detailedTimelineEnabled = false;
+let minimalTimelineEnabled = false;
 
 function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays, timelineWidth) {
     // Remove existing detailed timeline if present
@@ -2000,6 +1872,299 @@ function toggleDetailedTimeline() {
     }
 }
 
+function toggleMinimalTimeline() {
+    minimalTimelineEnabled = document.getElementById('minimalTimelineToggle')?.checked ?? false;
+
+    // When minimal is enabled, disable Show Phases and Detailed checkboxes
+    const showPhasesToggle = document.getElementById('showPhasesToggle');
+    const detailedToggle = document.getElementById('detailedTimelineToggle');
+
+    if (showPhasesToggle) {
+        showPhasesToggle.disabled = minimalTimelineEnabled;
+        if (minimalTimelineEnabled) showPhasesToggle.checked = false;
+    }
+    if (detailedToggle) {
+        detailedToggle.disabled = minimalTimelineEnabled;
+        if (minimalTimelineEnabled) {
+            detailedToggle.checked = false;
+            detailedTimelineEnabled = false;
+        }
+    }
+
+    if (timelineTasks && timelineTasks.length > 0) {
+        updateTimeline(timelineTasks, timelineProjectName);
+    }
+}
+
+function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, timelineWidth, options) {
+    const isReport = options?.isReport ?? false;
+    const timelineLineId = isReport ? 'reportTimelineLine' : 'timelineLine';
+    const milestonesId = isReport ? 'reportTimelineMilestones' : 'timelineMilestones';
+
+    const timelineLine = document.getElementById(timelineLineId);
+    const timelineMilestones = document.getElementById(milestonesId);
+
+    if (!timelineLine || !timelineMilestones) return;
+
+    // Clear existing content
+    timelineMilestones.innerHTML = '';
+    timelineLine.querySelectorAll('.timeline-progress, .timeline-date-label, .timeline-scale').forEach(el => el.remove());
+
+    // Remove any existing detailed timeline container
+    const existingDetailed = container.querySelector('.detailed-timeline-container');
+    if (existingDetailed) existingDetailed.remove();
+
+    // Remove any existing minimal timeline container
+    const existingMinimal = container.querySelector('.minimal-timeline-container');
+    if (existingMinimal) existingMinimal.remove();
+
+    // Set widths
+    timelineLine.style.width = timelineWidth + 'px';
+    timelineMilestones.style.width = timelineWidth + 'px';
+
+    // Add the minimal class to the wrapper for compact styling
+    container.classList.add('minimal-timeline-mode');
+
+    // Get phase (summary) tasks with valid start and finish dates
+    const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
+
+    // Get milestones (0-duration, non-summary)
+    const milestones = tasks.filter(t => {
+        if (!t.finish) return false;
+        return t.duration_days === 0 && !t.is_summary;
+    });
+
+    // Calculate bar height as ~5% of timeline width
+    const barHeight = Math.max(4, Math.round(timelineWidth * 0.05));
+
+    // Assign rows using overlap detection for phases
+    const rows = phases.length > 0 ? assignPhaseRows(phases, minDate, totalDays, timelineWidth) : [];
+    const numRows = rows.length > 0 ? Math.max(...rows.map(r => r.row)) + 1 : 0;
+    const rowHeight = barHeight + 2; // Thin bars with minimal spacing
+    const phaseAreaHeight = rowHeight * numRows;
+
+    // Colours
+    const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6', '#90caf9'];
+    const greenComplete = '#4caf50';
+
+    if (phases.length > 0) {
+        // Create SVG container for thin phase bars
+        const svgContainer = document.createElement('div');
+        svgContainer.className = 'minimal-timeline-container';
+        svgContainer.style.width = timelineWidth + 'px';
+        svgContainer.style.height = phaseAreaHeight + 'px';
+        svgContainer.style.margin = '0 auto 4px auto';
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('width', timelineWidth);
+        svg.setAttribute('height', phaseAreaHeight);
+        svg.setAttribute('class', 'minimal-timeline-svg');
+
+        rows.forEach((phaseInfo, index) => {
+            const phase = phaseInfo.phase;
+            const row = phaseInfo.row;
+            const percent = parseFloat(phase.percent) || 0;
+            const isComplete = percent >= 100;
+
+            const phaseStart = parseLocalDate(phase.start);
+            const phaseEnd = parseLocalDate(phase.finish);
+            const startDays = Math.floor((phaseStart - minDate) / (1000 * 60 * 60 * 24));
+            const endDays = Math.floor((phaseEnd - minDate) / (1000 * 60 * 60 * 24));
+
+            const x = Math.max(0, (startDays / totalDays) * timelineWidth);
+            const xEnd = Math.min(timelineWidth, (endDays / totalDays) * timelineWidth);
+            const width = Math.max(2, xEnd - x);
+            const y = row * rowHeight;
+
+            // Colour: green if complete, blue otherwise
+            const bgColor = isComplete ? greenComplete : blueShades[index % blueShades.length];
+
+            const rect = document.createElementNS(svgNS, 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', y);
+            rect.setAttribute('width', width);
+            rect.setAttribute('height', barHeight);
+            rect.setAttribute('rx', 2);
+            rect.setAttribute('ry', 2);
+            rect.setAttribute('fill', bgColor);
+            rect.setAttribute('opacity', isComplete ? '0.9' : '0.7');
+
+            // Add tooltip
+            const title = document.createElementNS(svgNS, 'title');
+            title.textContent = phase.name + ' (' + percent + '% complete)';
+            rect.appendChild(title);
+
+            svg.appendChild(rect);
+
+            // Draw progress overlay for partially complete phases
+            if (percent > 0 && percent < 100) {
+                const progressWidth = (percent / 100) * width;
+                const darkerColor = darkenColor(bgColor, 0.35);
+                const progressRect = document.createElementNS(svgNS, 'rect');
+                progressRect.setAttribute('x', x);
+                progressRect.setAttribute('y', y);
+                progressRect.setAttribute('width', progressWidth);
+                progressRect.setAttribute('height', barHeight);
+                progressRect.setAttribute('rx', 2);
+                progressRect.setAttribute('ry', 2);
+                progressRect.setAttribute('fill', darkerColor);
+                progressRect.setAttribute('opacity', '0.9');
+                svg.appendChild(progressRect);
+            }
+        });
+
+        svgContainer.appendChild(svg);
+
+        // Insert before the timeline line
+        if (timelineLine) {
+            container.insertBefore(svgContainer, timelineLine);
+        } else {
+            container.appendChild(svgContainer);
+        }
+    }
+
+    // Hide the main timeline line in minimal mode (we use the phase bars instead)
+    timelineLine.style.display = 'none';
+
+    // Add minimal milestone markers (small dots, no labels)
+    milestones.forEach((task) => {
+        const milestoneDate = parseLocalDate(task.finish);
+        const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
+        const position = (daysFromStart / totalDays) * timelineWidth;
+
+        const percent = parseFloat(task.percent) || 0;
+        const isComplete = percent >= 100;
+
+        const milestoneDiv = document.createElement('div');
+        milestoneDiv.className = 'timeline-milestone minimal-milestone';
+        milestoneDiv.style.left = position + 'px';
+
+        const marker = document.createElement('div');
+        marker.className = 'minimal-milestone-marker';
+        marker.style.background = isComplete ? '#28a745' : '#1976d2';
+
+        // Add tooltip
+        marker.title = task.name + ' (' + task.finish + ')';
+
+        milestoneDiv.appendChild(marker);
+        timelineMilestones.appendChild(milestoneDiv);
+    });
+
+    // Add date scale in small font
+    addMinimalDateScale(container, minDate, maxDate, totalDays, timelineWidth);
+}
+
+function addMinimalDateScale(container, minDate, maxDate, totalDays, timelineWidth) {
+    // Remove existing minimal date scale
+    const existing = container.querySelector('.minimal-date-scale');
+    if (existing) existing.remove();
+
+    const scaleDiv = document.createElement('div');
+    scaleDiv.className = 'minimal-date-scale';
+    scaleDiv.style.width = timelineWidth + 'px';
+
+    // Determine scale intervals (same logic as addTimelineDateScale but simplified)
+    let formatFunc;
+    let markers = [];
+
+    if (totalDays <= 60) {
+        const interval = Math.max(2, Math.ceil(totalDays / 7));
+        formatFunc = (date) => {
+            const day = date.getDate();
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            return `${day} ${month}`;
+        };
+        const currentDate = new Date(minDate);
+        while (currentDate <= maxDate) {
+            const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+            if (daysSinceStart % interval === 0) {
+                const position = (daysSinceStart / totalDays) * timelineWidth;
+                markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    } else if (totalDays <= 365) {
+        const interval = Math.max(1, Math.floor(totalDays / 70));
+        formatFunc = (date) => {
+            const day = date.getDate();
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            return `${day} ${month}`;
+        };
+        const currentDate = new Date(minDate);
+        while (currentDate.getDay() !== 1) {
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        let weekCount = 0;
+        while (currentDate <= maxDate) {
+            if (weekCount % interval === 0) {
+                const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+                const position = (daysSinceStart / totalDays) * timelineWidth;
+                markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            }
+            currentDate.setDate(currentDate.getDate() + 7);
+            weekCount++;
+        }
+    } else if (totalDays <= 730) {
+        formatFunc = (date) => {
+            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+            const year = date.getFullYear().toString().slice(-2);
+            return `${month} '${year}`;
+        };
+        const currentDate = new Date(minDate);
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        currentDate.setDate(1);
+        while (currentDate <= maxDate) {
+            const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+            const position = (daysSinceStart / totalDays) * timelineWidth;
+            markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+    } else {
+        formatFunc = (date) => date.getFullYear().toString();
+        const currentDate = new Date(minDate);
+        currentDate.setFullYear(currentDate.getFullYear() + 1);
+        currentDate.setMonth(0);
+        currentDate.setDate(1);
+        while (currentDate <= maxDate) {
+            const daysSinceStart = Math.floor((currentDate - minDate) / (1000 * 60 * 60 * 24));
+            const position = (daysSinceStart / totalDays) * timelineWidth;
+            markers.push({ position, label: formatFunc(new Date(currentDate)) });
+            currentDate.setFullYear(currentDate.getFullYear() + 1);
+        }
+    }
+
+    // Add start and end date labels
+    const startLabel = document.createElement('span');
+    startLabel.className = 'minimal-date-label';
+    startLabel.style.left = '0';
+    startLabel.textContent = minDate.toISOString().split('T')[0];
+    scaleDiv.appendChild(startLabel);
+
+    markers.forEach(marker => {
+        const markerSpan = document.createElement('span');
+        markerSpan.className = 'minimal-date-label minimal-date-tick';
+        markerSpan.style.left = marker.position + 'px';
+        markerSpan.textContent = marker.label;
+        scaleDiv.appendChild(markerSpan);
+    });
+
+    const endLabel = document.createElement('span');
+    endLabel.className = 'minimal-date-label';
+    endLabel.style.right = '0';
+    endLabel.style.left = 'auto';
+    endLabel.textContent = maxDate.toISOString().split('T')[0];
+    scaleDiv.appendChild(endLabel);
+
+    // Insert after the milestones container
+    const milestonesEl = container.querySelector('.timeline-milestones');
+    if (milestonesEl && milestonesEl.nextSibling) {
+        container.insertBefore(scaleDiv, milestonesEl.nextSibling);
+    } else {
+        container.appendChild(scaleDiv);
+    }
+}
+
 function addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth) {
     // Determine appropriate scale based on timeline duration
     let scale, interval, formatFunc;
@@ -2149,6 +2314,52 @@ function updateTimeline(tasks, projectName) {
             titleElement.textContent = `${displayName} Timeline`;
         }
 
+        // Calculate total timeline width - scale to available screen width
+        const timelineWrapper = document.querySelector('#timeline-view .timeline-line-wrapper');
+
+        // Skip rendering if the container is hidden (e.g. tab not visible).
+        // The timeline will be re-rendered when the tab becomes visible
+        // via switchOutputTab().
+        if (timelineWrapper && timelineWrapper.offsetWidth === 0) {
+            return;
+        }
+
+        const isMinimal = document.getElementById('minimalTimelineToggle')?.checked ?? false;
+
+        // Restore normal mode styling when switching away from minimal
+        if (!isMinimal && timelineWrapper) {
+            timelineWrapper.classList.remove('minimal-timeline-mode');
+            const timelineLineEl = document.getElementById('timelineLine');
+            if (timelineLineEl) timelineLineEl.style.display = '';
+            const existingMinimal = timelineWrapper.querySelector('.minimal-timeline-container');
+            if (existingMinimal) existingMinimal.remove();
+            const existingMinimalScale = timelineWrapper.querySelector('.minimal-date-scale');
+            if (existingMinimalScale) existingMinimalScale.remove();
+        }
+
+        // For minimal mode, compute dates from all phases and milestones
+        if (isMinimal) {
+            const allTasks = tasks.filter(t => (t.start && t.finish) || (t.finish && t.duration_days === 0));
+            if (allTasks.length === 0) return;
+
+            const allDates = [];
+            allTasks.forEach(t => {
+                if (t.start) allDates.push(parseLocalDate(t.start));
+                if (t.finish) allDates.push(parseLocalDate(t.finish));
+            });
+            const minDate = new Date(Math.min(...allDates));
+            const maxDate = new Date(Math.max(...allDates));
+            minDate.setDate(minDate.getDate() - 7);
+            maxDate.setDate(maxDate.getDate() + 7);
+
+            const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200;
+            const timelineWidth = Math.max(800, availableWidth);
+            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+
+            renderMinimalTimeline(timelineWrapper, tasks, minDate, maxDate, totalDays, timelineWidth, { isReport: false });
+            return;
+        }
+
         // Get milestones based on toggle setting
         const showPhases = document.getElementById('showPhasesToggle')?.checked ?? false;
         const isDetailed = document.getElementById('detailedTimelineToggle')?.checked ?? false;
@@ -2180,16 +2391,6 @@ function updateTimeline(tasks, projectName) {
         // Add padding
         minDate.setDate(minDate.getDate() - 7);
         maxDate.setDate(maxDate.getDate() + 7);
-
-        // Calculate total timeline width - scale to available screen width
-        const timelineWrapper = document.querySelector('#timeline-view .timeline-line-wrapper');
-
-        // Skip rendering if the container is hidden (e.g. tab not visible).
-        // The timeline will be re-rendered when the tab becomes visible
-        // via switchOutputTab().
-        if (timelineWrapper && timelineWrapper.offsetWidth === 0) {
-            return;
-        }
 
         const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200; // Subtract padding
         const timelineWidth = Math.max(800, availableWidth); // Minimum 800px
