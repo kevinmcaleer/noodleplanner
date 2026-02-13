@@ -8337,6 +8337,9 @@ function syncHighlightsToPlanText() {
         if (kanbanEditor) {
             kanbanEditor.value = updatedText;
         }
+        // Trigger a re-render so the backend parses the updated plan text
+        // and all views (including highlights) stay in sync.
+        renderText();
     }
 }
 
