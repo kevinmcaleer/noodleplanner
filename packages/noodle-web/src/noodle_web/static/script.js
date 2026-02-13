@@ -855,6 +855,10 @@ async function updateProjectSummary(planText, projectName) {
         // Update Milestones Table
         updateMilestonesTable(result.tasks || []);
 
+        // Update Highlights (must be before updateReportPage so highlightsData
+        // is populated when the report renders its highlights quad)
+        updateHighlightsView(result.highlights || []);
+
         // Update Project Report page
         updateReportPage(result.tasks || [], result.project_name, result.front_matter || {});
 
@@ -872,9 +876,6 @@ async function updateProjectSummary(planText, projectName) {
 
         // Update Analysis (pass planText directly since front_matter might be an object)
         updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
-
-        // Update Highlights
-        updateHighlightsView(result.highlights || []);
 
         // Update editor with labels if backend found and added them
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
