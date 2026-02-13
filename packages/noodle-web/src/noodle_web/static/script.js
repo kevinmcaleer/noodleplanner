@@ -140,7 +140,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 continue;
             }
             if (trimmed === '---highlights---') { inHighlights = true; continue; }
-            if (trimmed === '---end-highlights---') { inHighlights = false; continue; }
+            if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid---')) { inHighlights = false; continue; }
             if (inFrontMatter || inHighlights || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
@@ -178,7 +178,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 inHighlightsSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            if (line.trim() === '---end-highlights---') {
+            if (line.trim() === '---end-highlights---' || (inHighlightsSection && line.trim() === '---raid---')) {
                 inHighlightsSection = false;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
@@ -1934,8 +1934,8 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
         return t.duration_days === 0 && !t.is_summary;
     });
 
-    // Calculate bar height as ~5% of timeline width
-    const barHeight = Math.max(4, Math.round(timelineWidth * 0.05));
+    // Calculate bar height as ~1.7% of timeline width
+    const barHeight = Math.max(3, Math.round(timelineWidth * 0.017));
 
     // Assign rows using overlap detection for phases
     const rows = phases.length > 0 ? assignPhaseRows(phases, minDate, totalDays, timelineWidth) : [];
@@ -8550,18 +8550,28 @@ function syncHighlightsToPlanText() {
  */
 function updatePlanHighlightsText(planText, highlights) {
     const HIGHLIGHTS_START = '---highlights---';
-    const HIGHLIGHTS_END = '---end-highlights---';
+    const END_MARKERS = ['---end-highlights---', '---raid---'];
 
     // Strip existing highlights section
     let base = planText;
     const startIdx = base.indexOf(HIGHLIGHTS_START);
     if (startIdx !== -1) {
-        const endIdx = base.indexOf(HIGHLIGHTS_END, startIdx);
-        if (endIdx !== -1) {
-            const before = base.substring(0, startIdx).replace(/\n+$/, '');
-            const after = base.substring(endIdx + HIGHLIGHTS_END.length).replace(/^\n+/, '');
-            base = after ? before + '\n' + after : before;
+        const afterStart = startIdx + HIGHLIGHTS_START.length;
+
+        // Find the end: explicit end marker, raid section, or EOF
+        let endIdx = base.length;
+        let endLen = 0;
+        for (const marker of END_MARKERS) {
+            const idx = base.indexOf(marker, afterStart);
+            if (idx !== -1 && idx < endIdx) {
+                endIdx = idx;
+                endLen = marker.length;
+            }
         }
+
+        const before = base.substring(0, startIdx).replace(/\n+$/, '');
+        const after = base.substring(endIdx + endLen).replace(/^\n+/, '');
+        base = after ? before + '\n' + after : before;
     }
     base = base.replace(/\n+$/, '');
 
@@ -8582,7 +8592,7 @@ function updatePlanHighlightsText(planText, highlights) {
         section += `## ${h.date} @${h.author}\n`;
         section += (h.content || '').replace(/\n+$/, '') + '\n\n';
     });
-    section += HIGHLIGHTS_END;
+    section = section.replace(/\n+$/, '');
 
     return base + '\n\n---\n\n' + section;
 }

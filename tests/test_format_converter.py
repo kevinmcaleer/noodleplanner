@@ -273,12 +273,15 @@ class TestExtractHighlights:
         assert result == []
 
     def test_extract_highlights_missing_end_marker(self):
-        """Test with missing end marker."""
+        """Test with missing end marker - should parse to EOF."""
         text = """---highlights---
 ## 2026-02-13 @Alice
 - Some content"""
         result = extract_highlights(text)
-        assert result == []
+        assert len(result) == 1
+        assert result[0]['date'] == '2026-02-13'
+        assert result[0]['author'] == 'Alice'
+        assert '- Some content' in result[0]['content']
 
     def test_extract_highlights_multiline_content(self):
         """Test highlight with multiline content."""
@@ -372,7 +375,7 @@ class TestGenerateHighlightsText:
         ]
         result = generate_highlights_text(highlights)
         assert '---highlights---' in result
-        assert '---end-highlights---' in result
+        assert '---end-highlights---' not in result
         assert '## 2026-02-13 @Alice' in result
         assert '## 2026-02-06 @Bob' in result
         assert '- Phase 1 complete' in result

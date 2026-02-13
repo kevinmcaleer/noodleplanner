@@ -143,8 +143,9 @@ def convert_plan_format_to_standard(text: str) -> str:
 def extract_highlights(text: str) -> list:
     """Extract highlights from plan text.
 
-    Parses the ---highlights--- / ---end-highlights--- section and returns
-    a list of highlight dictionaries with date, author, and content fields.
+    Parses the ---highlights--- section and returns a list of highlight
+    dictionaries with date, author, and content fields.  The section ends
+    at ---end-highlights---, ---raid---, or end of file.
 
     Returns:
         List of dicts: [{'date': '2026-02-13', 'author': 'Alice', 'content': '...'}]
@@ -153,11 +154,16 @@ def extract_highlights(text: str) -> list:
     if start_idx == -1:
         return []
 
-    end_idx = text.find(HIGHLIGHTS_END, start_idx)
-    if end_idx == -1:
-        return []
+    after_start = start_idx + len(HIGHLIGHTS_START)
 
-    section = text[start_idx + len(HIGHLIGHTS_START):end_idx]
+    # Find the end: explicit end marker, raid section, or EOF
+    end_idx = len(text)
+    for marker in (HIGHLIGHTS_END, '---raid---'):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+
+    section = text[after_start:end_idx]
     return _parse_highlights_section(section)
 
 
@@ -205,18 +211,26 @@ def strip_highlights(text: str) -> str:
 
     Returns the plan text without the highlights block, suitable for
     passing to the task parser.  Also removes the --- separator line
-    that precedes the highlights section.
+    that precedes the highlights section.  The section ends at
+    ---end-highlights---, ---raid---, or end of file.
     """
     start_idx = text.find(HIGHLIGHTS_START)
     if start_idx == -1:
         return text
 
-    end_idx = text.find(HIGHLIGHTS_END, start_idx)
-    if end_idx == -1:
-        return text
+    after_start = start_idx + len(HIGHLIGHTS_START)
+
+    # Find the end: explicit end marker, raid section, or EOF
+    end_idx = len(text)
+    end_len = 0
+    for marker in (HIGHLIGHTS_END, '---raid---'):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+            end_len = len(marker)
 
     before = text[:start_idx].rstrip('\n')
-    after = text[end_idx + len(HIGHLIGHTS_END):].lstrip('\n')
+    after = text[end_idx + end_len:].lstrip('\n')
 
     # Remove trailing --- separator that precedes the highlights section
     lines = before.split('\n')
@@ -247,8 +261,7 @@ def generate_highlights_text(highlights: list) -> str:
         lines.append(f"## {h['date']} @{h['author']}")
         lines.append(h.get('content', '').rstrip())
         lines.append('')
-    lines.append(HIGHLIGHTS_END)
-    return '\n'.join(lines)
+    return '\n'.join(lines).rstrip()
 
 
 def update_plan_highlights(plan_text: str, highlights: list) -> str:
