@@ -335,6 +335,107 @@ class TestScheduleTasks:
         assert summary['finish'] == max(task1['finish'], task2['finish'])
 
 
+class TestMilestoneAlignment:
+    """Test suite for milestone alignment with predecessor tasks (GitHub issue #156)."""
+
+    def test_sequential_milestone_aligns_with_predecessor_end(self):
+        """A sequential 0d milestone should have the same date as its predecessor's finish."""
+        phases = [
+            {
+                'Task_1': {
+                    '_text': 'Task_1 @john 5d',
+                    '_level': 0
+                }
+            },
+            {
+                'Milestone_1': {
+                    '_text': '* Milestone_1 0d',
+                    '_level': 0
+                }
+            }
+        ]
+        tasks = schedule_tasks(phases)
+        task1 = next(t for t in tasks if t['name'] == 'Task_1')
+        milestone = next(t for t in tasks if t['name'] == 'Milestone_1')
+        # Milestone should align with the predecessor's finish (exclusive end date)
+        assert milestone['start'] == task1['finish']
+        assert milestone['finish'] == task1['finish']
+
+    def test_dependent_milestone_aligns_with_dependency_end(self):
+        """A dependent 0d milestone should have the same date as its dependency's finish."""
+        phases = [
+            {
+                'Task_1': {
+                    '_text': 'Task_1 @john 5d',
+                    '_level': 0
+                }
+            },
+            {
+                'Milestone_1': {
+                    '_text': 'Milestone_1 0d #Task_1',
+                    '_level': 0
+                }
+            }
+        ]
+        tasks = schedule_tasks(phases)
+        task1 = next(t for t in tasks if t['name'] == 'Task_1')
+        milestone = next(t for t in tasks if t['name'] == 'Milestone_1')
+        # Milestone should align with the dependency's finish (exclusive end date)
+        assert milestone['start'] == task1['finish']
+        assert milestone['finish'] == task1['finish']
+
+    def test_project_end_milestone_aligns_with_last_task(self):
+        """A project end milestone (0d, depends on last task) should align with timeline end."""
+        phases = [
+            {
+                'Task_1': {
+                    '_text': 'Task_1 @john 3d',
+                    '_level': 0
+                }
+            },
+            {
+                'Task_2': {
+                    '_text': '* Task_2 @jane 5d',
+                    '_level': 0
+                }
+            },
+            {
+                'Project_End': {
+                    '_text': '* Project_End 0d',
+                    '_level': 0
+                }
+            }
+        ]
+        tasks = schedule_tasks(phases)
+        task2 = next(t for t in tasks if t['name'] == 'Task_2')
+        end_milestone = next(t for t in tasks if t['name'] == 'Project_End')
+        # End milestone should align with the last task's finish
+        assert end_milestone['start'] == task2['finish']
+        assert end_milestone['finish'] == task2['finish']
+
+    def test_non_milestone_sequential_task_still_starts_next_day(self):
+        """A non-zero duration sequential task should still start the next working day."""
+        phases = [
+            {
+                'Task_1': {
+                    '_text': 'Task_1 @john 5d',
+                    '_level': 0
+                }
+            },
+            {
+                'Task_2': {
+                    '_text': '* Task_2 @jane 3d',
+                    '_level': 0
+                }
+            }
+        ]
+        tasks = schedule_tasks(phases)
+        task1 = next(t for t in tasks if t['name'] == 'Task_1')
+        task2 = next(t for t in tasks if t['name'] == 'Task_2')
+        # Non-milestone sequential task starts at predecessor's finish (already the next working day)
+        assert task2['start'] == task1['finish']
+
+
 class TestRenderCustomTimeline:
     """Test suite for render_custom_timeline function."""
 

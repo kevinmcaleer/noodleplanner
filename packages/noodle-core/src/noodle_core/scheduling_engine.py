@@ -475,23 +475,34 @@ def schedule_tasks(phases):
             sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' looking for previous task. Found: {prev.get('name') if prev else 'None'}, has finish: {'finish' in prev if prev else 'N/A'}\n")
             sys.stderr.flush()
 
+            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
+            is_milestone = isinstance(duration, timedelta) and duration.days == 0
+
             if prev and 'finish' in prev:
-                # Sequential tasks start the next working day after predecessor finishes
-                # Predecessor's finish date is exclusive (day after last working day)
-                # So we can use it directly as the start of the next working day
-                t['start'] = get_next_working_day(prev['finish'])
+                if is_milestone:
+                    # Milestones (0-duration) align with the end of the predecessor.
+                    # Predecessor finish is exclusive (day after last working day),
+                    # so use it directly so the milestone lines up with the task end.
+                    t['start'] = prev['finish']
+                    t['finish'] = prev['finish']
+                else:
+                    # Sequential tasks start the next working day after predecessor finishes
+                    # Predecessor's finish date is exclusive (day after last working day)
+                    # So we can use it directly as the start of the next working day
+                    t['start'] = get_next_working_day(prev['finish'])
                 sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' scheduled after '{prev.get('name')}' finish={prev['finish']}, new start={t['start']}\n")
                 sys.stderr.flush()
             else:
                 t['start'] = get_next_working_day(datetime.now())
                 sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' no predecessor, starting from today: {t['start']}\n")
                 sys.stderr.flush()
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            # Calculate finish date using working days
-            if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days)
-            else:
-                t['finish'] = t['start'] + timedelta(days=1)
+
+            # Calculate finish date using working days (skip for milestones already set above)
+            if not is_milestone or 'finish' not in t:
+                if isinstance(duration, timedelta):
+                    t['finish'] = add_working_days(t['start'], duration.days)
+                else:
+                    t['finish'] = t['start'] + timedelta(days=1)
 
         elif 'depends' in t and t['depends']:
             # Has dependencies (case-insensitive lookup)
@@ -513,21 +524,30 @@ def schedule_tasks(phases):
 
                     dep_finishes_with_offset.append(dep_finish)
 
+            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
+            is_milestone = isinstance(duration, timedelta) and duration.days == 0
+
             if dep_finishes_with_offset:
-                # Start the next working day after the latest dependency finishes
-                # Dependency finish dates are exclusive (day after last working day)
-                # So we can use it directly as the start of the next working day
                 latest_dep_finish = max(dep_finishes_with_offset)
-                t['start'] = get_next_working_day(latest_dep_finish)
+                if is_milestone:
+                    # Milestones (0-duration) align with the end of the dependency.
+                    # Dependency finish is exclusive (day after last working day),
+                    # so use it directly so the milestone lines up with the task end.
+                    t['start'] = latest_dep_finish
+                    t['finish'] = latest_dep_finish
+                else:
+                    # Regular tasks start the next working day after dependency finishes
+                    # Dependency finish dates are exclusive (day after last working day)
+                    t['start'] = get_next_working_day(latest_dep_finish)
             else:
                 t['start'] = get_next_working_day(datetime.now())
 
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            # Calculate finish date using working days
-            if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days)
-            else:
-                t['finish'] = t['start'] + timedelta(days=1)
+            # Calculate finish date using working days (skip for milestones already set above)
+            if not is_milestone or 'finish' not in t:
+                if isinstance(duration, timedelta):
+                    t['finish'] = add_working_days(t['start'], duration.days)
+                else:
+                    t['finish'] = t['start'] + timedelta(days=1)
 
         elif 'start' in t:
             # Has explicit start date (manual scheduling)
