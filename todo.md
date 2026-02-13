@@ -388,6 +388,32 @@
 
 ## In Progress 🔄
 
+### Mobile Layout Optimisation (GitHub Issue #124) - ✅ COMPLETED
+- [x] Fixed editor cursor misalignment bug
+  - Root cause: textarea and highlight overlay had inconsistent text properties
+  - Added shared CSS rule ensuring both have identical font-family, font-size, line-height, letter-spacing, word-spacing, tab-size, padding, border, and box-sizing
+- [x] Mobile-optimised all pages, forms, and tabs (768px and 480px breakpoints)
+  - Editor layout stacks vertically on mobile (editor on top, output below)
+  - Tab bar and output tabs scroll horizontally instead of wrapping
+  - Kanban layout stacks vertically on mobile
+  - RAID table has horizontal scroll with min-width for readability
+  - Gantt chart, timeline, milestones, resources, and timesheet tables scroll horizontally
+  - Summary layout stacks vertically, RAG cards go horizontal
+  - Form rows stack vertically, form actions stack vertically
+  - Upload/drop zone has reduced padding
+  - Splitters adapt to horizontal orientation on mobile
+  - Detail pane already takes full width (enhanced with form layout fixes)
+  - Tour popup constrains to viewport width
+  - Wizard mapping rows stack vertically
+- [x] Fixed unclosed CSS brace in RAID table responsive media query
+  - Missing closing `}` caused all styles after line 3600 to be scoped inside a 768px media query
+- [x] Smaller editor font (12px) and reduced line numbers on very small screens (480px)
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/static/style.css`
+
+**Status:** Complete! All pages are mobile-optimised and the cursor alignment bug is fixed.
+
 ### Excel Import Wizard (GitHub Issue #144) - ✅ COMPLETED
 - [x] Created `excel_importer.py` in noodle-core with core import logic
   - `analyze_workbook()` - reads Excel, returns sheets/columns/sample data
@@ -862,6 +888,7 @@
 - #151: RAID markdown editor (collapsible editor with bidirectional sync, Import/Export menu) - ✅ MERGED
 - #126: Slide-out detail panes (converted modals to right-side slide-out pane, mobile responsive) - ✅ MERGED
 - #152: Detailed timeline view (phase blocks with overlap detection, colour coding, % complete) - ✅ MERGED
+- #124: Mobile layout optimisation (responsive CSS, cursor alignment fix, RAID brace fix) - 🔄 IN PROGRESS
 
 ---
 
