@@ -863,6 +863,26 @@
 
 **Status:** Complete! Summary tasks no longer appear as dependencies in the task detail form, and the `*` sequential marker correctly skips summary tasks and blank lines.
 
+### Highlights Not Rendering (GitHub Issue #204) - ✅ COMPLETED
+- [x] Root cause: `updateReportHighlight()` called before `highlightsData` populated
+  - `updateReportPage()` (which calls `updateReportHighlight()`) was called at line 859
+  - `updateHighlightsView()` (which populates `highlightsData`) was called later at line 877
+  - Report page always showed stale/empty highlights on every render
+- [x] Fix: Moved `updateHighlightsView()` call before `updateReportPage()` in `updateProjectSummary()`
+  - `highlightsData` is now populated before the report tries to render its highlights quad
+- [x] Added 3 regression tests:
+  - `test_extract_highlights_issue_204_exact_format` - exact plan format from bug report
+  - `test_extract_highlights_with_frontmatter_dash_separator_no_end_marker` - frontmatter + separator + no end marker
+  - `test_parse_highlights_issue_204_no_end_marker` - API-level test with no end marker
+- [x] All 320 tests passing
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/static/script.js` - Reordered `updateHighlightsView()` before `updateReportPage()`
+- `tests/test_format_converter.py` - Added 2 regression tests
+- `tests/test_app.py` - Added 1 API regression test
+
+**Status:** Complete! Highlights now render correctly in both the Highlights tab and the Report page's highlights quad.
+
 ## Pending 📋
 
 ### Test Execution

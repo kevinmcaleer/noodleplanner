@@ -311,6 +311,59 @@ class TestExtractHighlights:
         assert result[0]['date'] == '2026-01-15'
         assert result[0]['author'] == 'Dave'
 
+    def test_extract_highlights_issue_204_exact_format(self):
+        """Regression test for issue #204: highlights from plan not rendering.
+
+        Uses the exact format reported in the bug with front matter,
+        plan tasks, separator, and highlights section without end marker.
+        """
+        text = """---
+title: My Project
+project manager: Kevin
+---
+Phase 1
+  pdd @kevin 3d
+  tdd @kevin 2d
+  site visit @kevin 1d
+
+---
+
+---highlights---
+## 2026-02-13 @kevin
+- pdd completed
+- tdd drafted
+- bradford site visited
+- quote expected shortly
+- cool
+"""
+        result = extract_highlights(text)
+        assert len(result) == 1
+        assert result[0]['date'] == '2026-02-13'
+        assert result[0]['author'] == 'kevin'
+        assert 'pdd completed' in result[0]['content']
+        assert 'tdd drafted' in result[0]['content']
+        assert 'bradford site visited' in result[0]['content']
+        assert 'quote expected shortly' in result[0]['content']
+        assert 'cool' in result[0]['content']
+
+    def test_extract_highlights_with_frontmatter_dash_separator_no_end_marker(self):
+        """Test highlights after front matter and --- separator with no end marker."""
+        text = """---
+title: Test
+---
+Task @alice 3d
+
+---
+
+---highlights---
+## 2026-02-13 @alice
+- status update
+"""
+        result = extract_highlights(text)
+        assert len(result) == 1
+        assert result[0]['author'] == 'alice'
+        assert 'status update' in result[0]['content']
+
 
 class TestStripHighlights:
     """Test suite for strip_highlights function."""

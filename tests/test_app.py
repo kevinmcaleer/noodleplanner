@@ -1039,6 +1039,44 @@ class TestParseEndpointHighlights:
         for name in task_names:
             assert "highlights" not in name.lower()
 
+    def test_parse_highlights_issue_204_no_end_marker(self, client):
+        """Regression test for #204: highlights without end marker must be returned.
+
+        Reproduces the exact format from the bug report: front matter,
+        plan tasks, --- separator, then highlights with no end marker.
+        """
+        plan = """---
+title: My Project
+project manager: Kevin
+---
+Phase 1
+  pdd @kevin 3d
+  tdd @kevin 2d
+  site visit @kevin 1d
+
+---
+
+---highlights---
+## 2026-02-13 @kevin
+- pdd completed
+- tdd drafted
+- bradford site visited
+- quote expected shortly
+- cool
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "highlights" in data
+        assert len(data["highlights"]) == 1
+        assert data["highlights"][0]["date"] == "2026-02-13"
+        assert data["highlights"][0]["author"] == "kevin"
+        assert "pdd completed" in data["highlights"][0]["content"]
+        assert "cool" in data["highlights"][0]["content"]
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
