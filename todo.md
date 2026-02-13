@@ -388,6 +388,41 @@
 
 ## In Progress 🔄
 
+### Excel Import Wizard (GitHub Issue #144) - ✅ COMPLETED
+- [x] Created `excel_importer.py` in noodle-core with core import logic
+  - `analyze_workbook()` - reads Excel, returns sheets/columns/sample data
+  - `convert_excel_to_markdown()` - converts worksheet to NoodlePlanner markdown
+  - `normalize_date()` - handles datetime, ISO, DD/MM/YYYY, Excel serial numbers
+  - `detect_hierarchy()` - detects task levels from 2-space indentation
+  - `calculate_duration_from_dates()` - working days between dates (excludes weekends)
+- [x] Added 2 API endpoints in app.py
+  - `POST /api/excel/analyze` - upload and analyze Excel file
+  - `POST /api/excel/convert` - convert worksheet to markdown with column mapping
+- [x] Added 3-step wizard modal to frontend
+  - Step 1: Select worksheet (with preview table)
+  - Step 2: Map columns (with auto-detection for common header names)
+  - Step 3: Preview generated markdown and import to editor
+- [x] Updated file upload to accept .xlsx/.xls files
+- [x] 57 new tests (50 unit + 7 integration), all 177 tests pass
+- [x] Supports re-importing NoodlePlanner exports and plans from MS Project
+
+**PR:** #149 - ✅ MERGED
+
+**Status:** Complete! Users can import Excel workbooks via a wizard-style modal with column mapping and preview.
+
+### Timeline Layout Bug (GitHub Issue #147) - ✅ COMPLETED
+- [x] Fixed timeline rendering incorrectly on first open (container hidden during render)
+  - Root cause: `updateTimeline()` called while tab was `display:none`, so `offsetWidth` returned 0
+  - Skip rendering when container is hidden; re-render when timeline tab becomes visible
+- [x] Fixed timeline not refreshing when editor pane is collapsed/expanded
+  - Added `updateTimeline()` and `renderGanttChart()` calls after editor pane toggle animation
+- [x] Removed orphaned `timeline-resize` event listener
+- [x] All 120 existing tests pass
+
+**PR:** #150 - ✅ MERGED
+
+**Status:** Complete! Timeline now renders correctly on first view and re-layouts when available width changes.
+
 ### Dependency Loop Detection (GitHub Issue #22) - ✅ RESTORED
 **STATUS:** Regression fixed - loop detection restored from git history
 
@@ -748,7 +783,9 @@
 - #83: Gantt chart day headers alignment and buffer (fixed all alignment issues + added 1-week buffer) - ✅ CLOSED
 - #28: Project analysis output (health check, actionable insights, Fix It buttons) - ✅ CLOSED
 - #97: Milestone page enhancements (fixed font, removed resources column) - ✅ CLOSED
-- #146: RAID Log (Risks, Actions, Issues, Decisions, Dependencies tracking with markdown/Excel I/O) - ✅ COMPLETED
+- #144: Excel import wizard (3-step modal with column mapping and preview) - ✅ MERGED
+- #146: RAID Log (Risks, Actions, Issues, Decisions, Dependencies tracking with markdown/Excel I/O) - ✅ MERGED
+- #147: Timeline layout bug (refresh on tab switch and editor pane toggle) - ✅ MERGED
 
 ---
 
