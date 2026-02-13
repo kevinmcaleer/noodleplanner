@@ -22,3 +22,5 @@
 - document how new features work in design/epic.md over no documentation (and update this for existing features too)
 - ensure deployment_tasks is updated with any new deployment steps over neglecting it
 - keep the interface tour (script.js lines 2384-2589) updated with any significant interface changes over neglecting it
+- Tidy up any markdown files created for analysing features or design decisions and move them to the design/ directory over leaving them in the root directory
+- use consistent naming conventions for functions, variables, and files over inconsistent naming
