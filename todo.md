@@ -784,6 +784,29 @@
 
 **Status:** Complete! Tasks with dependencies can now be opened from both editor and kanban, and invalid dependencies show red underlines.
 
+### Gantt Chart Non-Working Days and Scale Fixes (GitHub Issue #121) - ✅ COMPLETED
+- [x] Bug 1: Weekend highlighting misaligned with day headers
+  - Root cause: `.gantt-month` used `content-box` sizing so CSS padding and border made actual rendered width larger than the inline width
+  - Headers rendered wider than `ganttPixelsPerDay` but weekend highlights used `ganttPixelsPerDay` for positioning
+  - Fix: Added `box-sizing: border-box` to `.gantt-month` so inline width equals total rendered width
+  - Removed `ganttActualColumnWidth` measurement complexity (requestAnimationFrame, retries, fallbacks)
+- [x] Bug 2: Scale views (weeks, months, quarters, years) don't correctly scale task bar lengths
+  - Root cause: Task bars used `ganttActualColumnWidth` which measured a multi-day header element instead of single-day width
+  - In weeks view, measured width was for 7-day header, not 1-day; bars were 7x too wide
+  - Fix: Use `ganttPixelsPerDay` directly for all bar positioning (left offset and width)
+- [x] Bug 3: Date headers don't appear correctly at different scales
+  - Root cause: Body had no explicit width, so it didn't extend to match header width
+  - Fix: Calculate total width from date range and set `min-width` on gantt body and bar rows
+- [x] Cleaned up verbose debug console.log statements in Gantt functions
+- [x] Reduced horizontal padding on `.gantt-month` from 8px to 4px for better fit at smaller scales
+- [x] All 233 tests passing
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/static/script.js` - Simplified renderGanttChart(), removed ganttActualColumnWidth, consistent ganttPixelsPerDay usage
+- `packages/noodle-web/src/noodle_web/static/style.css` - Added box-sizing: border-box to .gantt-month
+
+**Status:** Complete! Gantt chart weekends now correctly highlight Saturday and Sunday only, task bars scale proportionally at all zoom levels, and headers/bars render correctly at weeks/months/quarters/years scales.
+
 ## Pending 📋
 
 ### Test Execution
