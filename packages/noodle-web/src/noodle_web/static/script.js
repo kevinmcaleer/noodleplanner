@@ -312,6 +312,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             highlightLayer.innerHTML = highlighted;
         }
 
+        // Re-sync scroll positions after innerHTML replacement resets them
+        syncScroll();
+
         // Update active line indicator
         updateActiveLine();
     }
