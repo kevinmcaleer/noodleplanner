@@ -807,6 +807,24 @@
 
 **Status:** Complete! Gantt chart weekends now correctly highlight Saturday and Sunday only, task bars scale proportionally at all zoom levels, and headers/bars render correctly at weeks/months/quarters/years scales.
 
+### Quad Report Layout (GitHub Issue #145) - ✅ COMPLETED
+- [x] Redesigned Project Report header with project manager, RAG status badge, and current date
+- [x] Full-width timeline section under header (reuses existing updateReportTimeline)
+- [x] 2x2 quad grid layout using CSS grid
+  - Top-left: Milestone table (next 10 incomplete, sorted by date, columns: Milestone, Date, RAG)
+  - Top-right: RAID log (open risks and issues only, sorted by score descending, limit 10)
+  - Bottom-left: Most recent highlight entry (date, author, rendered markdown content)
+  - Bottom-right: Placeholder for future use
+- [x] Responsive layout (stacks to single column on mobile)
+- [x] All 284 existing tests pass
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/templates/index.html` - Quad layout HTML structure
+- `packages/noodle-web/src/noodle_web/static/script.js` - Updated updateReportPage(), updateReportMilestones(), added updateReportRaid(), updateReportHighlight()
+- `packages/noodle-web/src/noodle_web/static/style.css` - Quad grid CSS, RAG badge, highlight card styles
+
+**Status:** Complete! Project Report tab now uses a quad dashboard layout showing project header, timeline, milestones, RAID items, and highlights at a glance.
+
 ## Pending 📋
 
 ### Test Execution
@@ -912,6 +930,7 @@
 - #126: Slide-out detail panes (converted modals to right-side slide-out pane, mobile responsive) - ✅ MERGED
 - #152: Detailed timeline view (phase blocks with overlap detection, colour coding, % complete) - ✅ MERGED
 - #124: Mobile layout optimisation (responsive CSS, cursor alignment fix, RAID brace fix) - 🔄 IN PROGRESS
+- #145: Quad report layout (project header, timeline, milestones, RAID, highlights in 2x2 grid) - ✅ COMPLETED
 
 ---
 
