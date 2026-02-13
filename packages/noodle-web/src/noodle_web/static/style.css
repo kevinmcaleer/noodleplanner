@@ -1422,6 +1422,39 @@ h1 {
     background: #51cf66;
 }
 
+.gantt-task-bar.gantt-bar-red {
+    background: #ff6b6b;
+}
+
+.gantt-task-bar.gantt-bar-amber {
+    background: #ffd93d;
+}
+
+.gantt-rag-cell {
+    text-align: center;
+    width: 40px;
+}
+
+.gantt-rag-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.gantt-rag-dot.rag-red {
+    background: #ff6b6b;
+}
+
+.gantt-rag-dot.rag-amber {
+    background: #ffd93d;
+}
+
+.gantt-rag-dot.rag-green {
+    background: #51cf66;
+}
+
 .gantt-milestone {
     width: 18px;
     height: 18px;
