@@ -1995,10 +1995,10 @@ function renderGanttChart() {
     // Adjust pixels per day based on scale
     switch (ganttScale) {
         case 'days':
-            ganttPixelsPerDay = 40;
+            ganttPixelsPerDay = 60;
             break;
         case 'weeks':
-            ganttPixelsPerDay = 20;
+            ganttPixelsPerDay = 25;
             break;
         case 'months':
             ganttPixelsPerDay = 10;
@@ -2123,7 +2123,8 @@ function renderDayHeaders(container) {
         const dayDiv = document.createElement('div');
         dayDiv.className = 'gantt-month';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
-        dayDiv.textContent = currentDate.getDate();
+        const dayAbbr = currentDate.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
+        dayDiv.textContent = dayAbbr + ' ' + currentDate.getDate();
         dayDiv.title = currentDate.toLocaleDateString();
 
         // Highlight current date with light green background
