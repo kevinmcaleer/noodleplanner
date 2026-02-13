@@ -8,6 +8,10 @@ from noodle_core import (
     strip_highlights,
     generate_highlights_text,
     update_plan_highlights,
+    extract_raid_log,
+    strip_raid_log,
+    generate_raid_log_text,
+    update_plan_raid_log,
 )
 
 
@@ -697,6 +701,365 @@ Phase 1
             assert py_h['date'] == js_h['date']
             assert py_h['author'] == js_h['author']
             assert py_h['content'] == js_h['content']
+
+
+class TestExtractRaidLog:
+    """Test suite for extract_raid_log function."""
+
+    def test_extract_raid_log_basic(self):
+        """Test extracting RAID log from plan text."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description | Status |
+|------|-------------|--------|
+| Risk | Server fail | Open   |"""
+        result = extract_raid_log(text)
+        assert '| Type' in result
+        assert '| Risk' in result
+
+    def test_extract_raid_log_not_present(self):
+        """Test when no RAID log section exists."""
+        text = """Phase 1
+  Task 1 @john 3d"""
+        result = extract_raid_log(text)
+        assert result == ''
+
+    def test_extract_raid_log_empty_section(self):
+        """Test with empty RAID log section."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---raid log---"""
+        result = extract_raid_log(text)
+        assert result == ''
+
+    def test_extract_raid_log_after_highlights(self):
+        """Test RAID log extraction when it follows highlights."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Status update
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |"""
+        result = extract_raid_log(text)
+        assert '| Type' in result
+        assert '| Risk' in result
+
+
+class TestStripRaidLog:
+    """Test suite for strip_raid_log function."""
+
+    def test_strip_raid_log_basic(self):
+        """Test removing RAID log section from plan text."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |"""
+        result = strip_raid_log(text)
+        assert '---raid log---' not in result
+        assert '| Type' not in result
+        assert 'Task 1 @john 3d' in result
+
+    def test_strip_raid_log_not_present(self):
+        """Test stripping when no RAID log section exists."""
+        text = """Phase 1
+  Task 1 @john 3d"""
+        result = strip_raid_log(text)
+        assert result == text
+
+    def test_strip_raid_log_preserves_highlights(self):
+        """Test that stripping RAID log preserves highlights section."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Status update
+
+---raid log---
+| Type | Description |
+|------|-------------|"""
+        result = strip_raid_log(text)
+        assert '---highlights---' in result
+        assert '## 2026-02-13 @Alice' in result
+        assert '---raid log---' not in result
+
+
+class TestGenerateRaidLogText:
+    """Test suite for generate_raid_log_text function."""
+
+    def test_generate_raid_log_basic(self):
+        """Test generating a RAID log markdown table."""
+        items = [
+            {'type': 'Risk', 'title': 'Server may fail', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+        ]
+        result = generate_raid_log_text(items)
+        assert '| Type' in result
+        assert '| Risk' in result
+        assert 'Server may fail' in result
+        assert 'Alice' in result
+        assert '2026-02-13' in result
+
+    def test_generate_raid_log_empty(self):
+        """Test generating text with empty list."""
+        result = generate_raid_log_text([])
+        assert result == ''
+
+    def test_generate_raid_log_columns_aligned(self):
+        """Test that columns are padded to the widest entry."""
+        items = [
+            {'type': 'Risk', 'title': 'Short', 'status': 'Open',
+             'score': 8, 'owner': 'A', 'date': '2026-02-13'},
+            {'type': 'Decision', 'title': 'A much longer description here',
+             'status': 'Closed', 'score': 12, 'owner': 'Bob', 'date': '2026-01-01'},
+        ]
+        result = generate_raid_log_text(items)
+        lines = result.split('\n')
+        # All lines should have the same length (aligned columns)
+        assert len(set(len(line) for line in lines)) == 1
+
+    def test_generate_raid_log_pipe_escaped(self):
+        """Test that pipe characters in content are escaped."""
+        items = [
+            {'type': 'Issue', 'title': 'A | B problem', 'status': 'Open',
+             'score': 6, 'owner': 'Eve', 'date': '2026-02-13'},
+        ]
+        result = generate_raid_log_text(items)
+        assert 'A \\| B problem' in result
+
+    def test_generate_raid_log_multiple_items(self):
+        """Test generating table with multiple items."""
+        items = [
+            {'type': 'Risk', 'title': 'Risk one', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+            {'type': 'Issue', 'title': 'Issue two', 'status': 'Open',
+             'score': 6, 'owner': 'Bob', 'date': '2026-02-10'},
+            {'type': 'Decision', 'title': 'Decision three', 'status': 'Closed',
+             'score': 4, 'owner': 'Charlie', 'date': '2026-02-01'},
+        ]
+        result = generate_raid_log_text(items)
+        lines = result.split('\n')
+        # Header + separator + 3 data rows
+        assert len(lines) == 5
+        assert 'Risk one' in result
+        assert 'Issue two' in result
+        assert 'Decision three' in result
+
+    def test_generate_raid_log_missing_fields(self):
+        """Test that missing fields default to empty strings."""
+        items = [
+            {'type': 'Risk', 'title': 'No owner'},
+        ]
+        result = generate_raid_log_text(items)
+        assert '| Risk' in result
+        assert 'No owner' in result
+
+
+class TestUpdatePlanRaidLog:
+    """Test suite for update_plan_raid_log function."""
+
+    def test_add_raid_log_to_plan(self):
+        """Test adding a RAID log to a plan that has none."""
+        plan = """Phase 1
+  Task 1 @john 3d"""
+        items = [
+            {'type': 'Risk', 'title': 'Server fail', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+        ]
+        result = update_plan_raid_log(plan, items)
+        assert 'Phase 1' in result
+        assert '---raid log---' in result
+        assert 'Server fail' in result
+
+    def test_replace_existing_raid_log(self):
+        """Test replacing an existing RAID log."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date |
+|------|-------------|--------|-------|-------|------|
+| Risk | Old item    | Open   | 4     | Eve   | 2026-01-01 |"""
+        items = [
+            {'type': 'Issue', 'title': 'New item', 'status': 'Closed',
+             'score': 12, 'owner': 'Bob', 'date': '2026-02-13'},
+        ]
+        result = update_plan_raid_log(plan, items)
+        assert 'Old item' not in result
+        assert 'New item' in result
+        assert '---raid log---' in result
+
+    def test_remove_raid_log_with_empty_list(self):
+        """Test removing RAID log by passing empty list."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date |
+|------|-------------|--------|-------|-------|------|
+| Risk | Something   | Open   | 4     | Eve   | 2026-01-01 |"""
+        result = update_plan_raid_log(plan, [])
+        assert '---raid log---' not in result
+        assert 'Phase 1' in result
+
+    def test_raid_log_after_highlights(self):
+        """Test RAID log is appended after highlights."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Status update"""
+        items = [
+            {'type': 'Risk', 'title': 'Server fail', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+        ]
+        result = update_plan_raid_log(plan, items)
+        # Highlights should be before RAID log
+        highlights_pos = result.find('---highlights---')
+        raid_pos = result.find('---raid log---')
+        assert highlights_pos < raid_pos
+
+    def test_roundtrip_generate_and_extract(self):
+        """Test that generating and extracting RAID log preserves data."""
+        plan = """Phase 1
+  Task 1 @john 3d"""
+        items = [
+            {'type': 'Risk', 'title': 'Risk one', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+            {'type': 'Issue', 'title': 'Issue two', 'status': 'Closed',
+             'score': 6, 'owner': 'Bob', 'date': '2026-02-10'},
+        ]
+        result = update_plan_raid_log(plan, items)
+        extracted = extract_raid_log(result)
+        assert 'Risk one' in extracted
+        assert 'Issue two' in extracted
+
+
+class TestRaidLogNotParsedAsTasks:
+    """Test that RAID log content is not parsed as tasks."""
+
+    def test_raid_log_stripped_before_task_parsing(self):
+        """RAID log section should be stripped before task parsing."""
+        text = """Phase 1
+  Task 1 @john 3days
+
+---raid log---
+| Type        | Description    | Status | Score | Owner | Date       |
+|-------------|----------------|--------|-------|-------|------------|
+| Risk        | Server failure | Open   | 8     | Alice | 2026-02-13 |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---raid log---' not in result
+        assert 'Server failure' not in result
+        assert 'Task 1' in result
+
+    def test_raid_log_with_highlights_stripped(self):
+        """Both highlights and RAID log should be stripped."""
+        text = """Phase 1
+  Task 1 @john 3days
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+---end-highlights---
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date |
+|------|-------------|--------|-------|-------|------|
+| Risk | Something   | Open   | 4     | Eve   | 2026-01-01 |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---highlights---' not in result
+        assert '---raid log---' not in result
+        assert 'Something' not in result
+        assert 'Task 1' in result
+
+
+class TestHighlightsPreserveRaidLog:
+    """Test that highlights operations preserve the RAID log."""
+
+    def test_update_highlights_preserves_raid_log(self):
+        """Updating highlights should not remove the RAID log."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Old content
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date       |
+|------|-------------|--------|-------|-------|------------|
+| Risk | Server fail | Open   | 8     | Alice | 2026-02-13 |"""
+        new_highlights = [
+            {'date': '2026-02-13', 'author': 'Bob', 'content': '- New content'},
+        ]
+        result = update_plan_highlights(plan, new_highlights)
+        assert '---highlights---' in result
+        assert '## 2026-02-13 @Bob' in result
+        assert '- New content' in result
+        assert '---raid log---' in result
+        assert 'Server fail' in result
+        # Highlights should be before RAID log
+        highlights_pos = result.find('---highlights---')
+        raid_pos = result.find('---raid log---')
+        assert highlights_pos < raid_pos
+
+    def test_remove_highlights_preserves_raid_log(self):
+        """Removing highlights should not remove the RAID log."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date       |
+|------|-------------|--------|-------|-------|------------|
+| Risk | Server fail | Open   | 8     | Alice | 2026-02-13 |"""
+        result = update_plan_highlights(plan, [])
+        assert '---highlights---' not in result
+        assert '---raid log---' in result
+        assert 'Server fail' in result
+
+    def test_extract_highlights_ends_at_raid_log(self):
+        """Highlights extraction should stop at the RAID log marker."""
+        text = """---highlights---
+## 2026-02-13 @Alice
+- Status update
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |"""
+        result = extract_highlights(text)
+        assert len(result) == 1
+        assert result[0]['author'] == 'Alice'
+        assert 'Status update' in result[0]['content']
+        assert '| Type' not in result[0]['content']
 
 
 if __name__ == "__main__":

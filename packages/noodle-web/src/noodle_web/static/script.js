@@ -133,6 +133,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         const allLines = text.split('\n');
         let inFrontMatter = false;
         let inHighlights = false;
+        let inRaidLog = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
             if (trimmed === '---') {
@@ -140,8 +141,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 continue;
             }
             if (trimmed === '---highlights---') { inHighlights = true; continue; }
-            if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid---')) { inHighlights = false; continue; }
-            if (inFrontMatter || inHighlights || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+            if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
+            if (trimmed === '---raid log---') { inRaidLog = true; continue; }
+            if (inFrontMatter || inHighlights || inRaidLog || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
             let taskText = trimmed;
@@ -172,18 +174,33 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         }
 
         let inHighlightsSection = false;
+        let inRaidLogSection = false;
         return allLines.map(line => {
             // Track highlights section boundaries
             if (line.trim() === '---highlights---') {
                 inHighlightsSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            if (line.trim() === '---end-highlights---' || (inHighlightsSection && line.trim() === '---raid---')) {
+            if (line.trim() === '---end-highlights---' || (inHighlightsSection && line.trim() === '---raid log---')) {
                 inHighlightsSection = false;
+                // If it was the raid log marker, also enter raid log section
+                if (line.trim() === '---raid log---') {
+                    inRaidLogSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
             // Dim lines inside highlights section
             if (inHighlightsSection) {
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Track RAID log section
+            if (line.trim() === '---raid log---') {
+                inRaidLogSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside RAID log section
+            if (inRaidLogSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
 
@@ -7104,6 +7121,7 @@ function renderRaidTable() {
 
     updateRaidSortIndicators();
     updateRaidMarkdownEditor();
+    syncRaidLogToPlanText();
 }
 
 function escapeHtml(text) {
@@ -8293,6 +8311,94 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+/*
+ * RAID Log Plan Sync
+ * Persists RAID items as a markdown table at the bottom of the plan text.
+ */
+
+const RAID_LOG_START = '---raid log---';
+
+/**
+ * Generate a markdown table for the RAID log with auto-sized columns.
+ * Each column is padded to the width of its widest entry.
+ */
+function generateRaidLogTable() {
+    if (raidItems.length === 0) return '';
+
+    const headers = ['Type', 'Description', 'Status', 'Score', 'Owner', 'Date'];
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = raidItems.map(item => [
+        escPipe(item.type),
+        escPipe(item.title),
+        escPipe(item.status),
+        escPipe(String(item.score)),
+        escPipe(item.owner),
+        escPipe(item.date || today)
+    ]);
+
+    // Calculate column widths
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => {
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Sync RAID log data into the plan editor text.
+ * Generates the RAID log markdown table and updates the plan text,
+ * placing it after the highlights section.
+ */
+function syncRaidLogToPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const planText = editor.value;
+    const updatedText = updatePlanRaidLogText(planText, raidItems);
+
+    if (updatedText !== planText) {
+        editor.value = updatedText;
+        updateLineNumbers();
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedText;
+        }
+        renderText();
+    }
+}
+
+/**
+ * Update plan text with RAID log section.
+ * JavaScript equivalent of the Python update_plan_raid_log function.
+ */
+function updatePlanRaidLogText(planText, items) {
+    // Strip existing RAID log section
+    let base = planText;
+    const startIdx = base.indexOf(RAID_LOG_START);
+    if (startIdx !== -1) {
+        base = base.substring(0, startIdx).replace(/\n+$/, '');
+    }
+    base = base.replace(/\n+$/, '');
+
+    const table = generateRaidLogTable();
+    if (!table) return base;
+
+    return base + '\n\n' + RAID_LOG_START + '\n' + table;
+}
+
+
 /**
  * Highlights System
  * Project highlights / reporting entries stored in the plan text.
@@ -8599,7 +8705,14 @@ function syncHighlightsToPlanText() {
  */
 function updatePlanHighlightsText(planText, highlights) {
     const HIGHLIGHTS_START = '---highlights---';
-    const END_MARKERS = ['---end-highlights---', '---raid---'];
+    const END_MARKERS = ['---end-highlights---', '---raid log---'];
+
+    // Separate RAID log section if present (preserve it)
+    let raidLogSuffix = '';
+    const raidLogIdx = planText.indexOf(RAID_LOG_START);
+    if (raidLogIdx !== -1) {
+        raidLogSuffix = '\n\n' + planText.substring(raidLogIdx);
+    }
 
     // Strip existing highlights section
     let base = planText;
@@ -8607,7 +8720,7 @@ function updatePlanHighlightsText(planText, highlights) {
     if (startIdx !== -1) {
         const afterStart = startIdx + HIGHLIGHTS_START.length;
 
-        // Find the end: explicit end marker, raid section, or EOF
+        // Find the end: explicit end marker, raid log section, or EOF
         let endIdx = base.length;
         let endLen = 0;
         for (const marker of END_MARKERS) {
@@ -8631,17 +8744,30 @@ function updatePlanHighlightsText(planText, highlights) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Generate new highlights section
-    if (!highlights || highlights.length === 0) {
-        return base;
+    // Also strip any RAID log content that leaked into base
+    const baseRaidIdx = base.indexOf(RAID_LOG_START);
+    if (baseRaidIdx !== -1) {
+        base = base.substring(0, baseRaidIdx).replace(/\n+$/, '');
     }
 
-    let section = HIGHLIGHTS_START + '\n';
-    highlights.forEach(h => {
-        section += `## ${h.date} @${h.author}\n`;
-        section += (h.content || '').replace(/\n+$/, '') + '\n\n';
-    });
-    section = section.replace(/\n+$/, '');
+    // Generate new highlights section
+    let result;
+    if (!highlights || highlights.length === 0) {
+        result = base;
+    } else {
+        let section = HIGHLIGHTS_START + '\n';
+        highlights.forEach(h => {
+            section += `## ${h.date} @${h.author}\n`;
+            section += (h.content || '').replace(/\n+$/, '') + '\n\n';
+        });
+        section = section.replace(/\n+$/, '');
+        result = base + '\n\n---\n\n' + section;
+    }
 
-    return base + '\n\n---\n\n' + section;
+    // Re-append RAID log if it was present
+    if (raidLogSuffix) {
+        result = result.replace(/\n+$/, '') + raidLogSuffix;
+    }
+
+    return result;
 }
