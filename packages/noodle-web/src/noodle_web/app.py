@@ -28,7 +28,10 @@ from noodle_core import (
     schedule_tasks,
     calculate_rag_status,
     parse_resource_mappings,
+    analyze_workbook,
+    convert_excel_to_markdown,
 )
+import json
 from .middleware import ActivityLoggingMiddleware
 from .database import init_db, test_connection
 
@@ -754,6 +757,66 @@ async def import_raid_excel(file: UploadFile = File(...)):
             status_code=400,
             detail=f"Failed to parse Excel file: {str(e)}"
         )
+
+
+@app.post("/api/excel/analyze")
+async def excel_analyze(file: UploadFile = File(...)):
+    """Analyze an uploaded Excel file and return sheet/column metadata."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    extension = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
+    if extension not in ("xlsx", "xls"):
+        raise HTTPException(status_code=400, detail="File must be .xlsx or .xls")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
+
+    try:
+        result = analyze_workbook(file_bytes, file.filename)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error analyzing Excel file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze file: {e}")
+
+
+@app.post("/api/excel/convert")
+async def excel_convert(
+    file: UploadFile = File(...),
+    sheet_name: str = Form(...),
+    column_mapping: str = Form(...),
+):
+    """Convert an Excel worksheet to NoodlePlanner markdown format."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    extension = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
+    if extension not in ("xlsx", "xls"):
+        raise HTTPException(status_code=400, detail="File must be .xlsx or .xls")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
+
+    try:
+        mapping = json.loads(column_mapping)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid column_mapping JSON")
+
+    if "task_name" not in mapping or not mapping["task_name"]:
+        raise HTTPException(status_code=400, detail="task_name mapping is required")
+
+    try:
+        result = convert_excel_to_markdown(file_bytes, file.filename, sheet_name, mapping)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error converting Excel file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to convert file: {e}")
 
 
 if __name__ == "__main__":

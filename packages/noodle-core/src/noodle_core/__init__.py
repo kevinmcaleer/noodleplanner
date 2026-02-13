@@ -25,6 +25,11 @@ from .format_converter import (
     extract_title_from_frontmatter,
 )
 
+from .excel_importer import (
+    analyze_workbook,
+    convert_excel_to_markdown,
+)
+
 __version__ = "1.0.0"
 
 __all__ = [
@@ -49,4 +54,7 @@ __all__ = [
     # Format converter
     "convert_plan_format_to_standard",
     "extract_title_from_frontmatter",
+    # Excel importer
+    "analyze_workbook",
+    "convert_excel_to_markdown",
 ]

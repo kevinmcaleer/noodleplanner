@@ -375,8 +375,8 @@ Press Enter to render..."></textarea>
                     <div class="upload-area" id="dropZone">
                         <div class="upload-icon">📋</div>
                         <h3>Drag & Drop your plan file here</h3>
-                        <p>or click to browse</p>
-                        <input type="file" id="fileInput" accept=".md,.txt" style="display: none;">
+                        <p>Supports .md, .txt, and .xlsx (Excel) files</p>
+                        <input type="file" id="fileInput" accept=".md,.txt,.xlsx,.xls" style="display: none;">
                     </div>
 
                     <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
@@ -975,6 +975,77 @@ Build
                     <div class="tour-progress" id="tourProgress"></div>
                     <button id="tourNext" class="btn-primary">Next</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel Import Wizard Modal -->
+    <div id="excelWizardOverlay" class="modal-overlay" onclick="if(event.target===this) closeExcelWizard()">
+        <div class="task-form-modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Import Excel File</h2>
+                <button class="close-btn" onclick="closeExcelWizard()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Step indicator -->
+                <div class="wizard-steps">
+                    <div class="wizard-step active" id="wizardStep1Indicator">
+                        <div class="wizard-step-number">1</div>
+                        <span>Select Sheet</span>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" id="wizardStep2Indicator">
+                        <div class="wizard-step-number">2</div>
+                        <span>Map Columns</span>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" id="wizardStep3Indicator">
+                        <div class="wizard-step-number">3</div>
+                        <span>Preview</span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Select Worksheet -->
+                <div id="wizardStep1" class="wizard-panel">
+                    <div class="form-group">
+                        <label for="wizardSheetSelect">Worksheet</label>
+                        <select id="wizardSheetSelect" class="form-control" onchange="onWorksheetSelected()">
+                            <option value="">-- Select a worksheet --</option>
+                        </select>
+                    </div>
+                    <div id="wizardSheetPreview" style="display:none;">
+                        <label>Preview (first 5 rows)</label>
+                        <div class="table-responsive">
+                            <table class="table table-sm" id="wizardPreviewTable"></table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Map Columns -->
+                <div id="wizardStep2" class="wizard-panel" style="display:none;">
+                    <p style="color:#666; margin-bottom:15px;">Map your Excel columns to NoodlePlanner fields. Only Task Name is required.</p>
+                    <div class="wizard-mapping-grid" id="wizardMappingGrid"></div>
+                </div>
+
+                <!-- Step 3: Preview -->
+                <div id="wizardStep3" class="wizard-panel" style="display:none;">
+                    <div id="wizardConvertWarnings" style="display:none;" class="alert alert-warning"></div>
+                    <div id="wizardConvertStats" style="margin-bottom:10px; color:#666;"></div>
+                    <label>Generated Plan</label>
+                    <textarea id="wizardMarkdownPreview" class="form-control" rows="15" readonly style="font-family:monospace; font-size:0.85em;"></textarea>
+                </div>
+
+                <!-- Navigation buttons -->
+                <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                    <button class="btn btn-secondary" id="wizardBackBtn" onclick="wizardBack()" style="display:none;">Back</button>
+                    <div style="margin-left:auto; display:flex; gap:10px;">
+                        <button class="btn btn-primary" id="wizardNextBtn" onclick="wizardNext()" disabled>Next</button>
+                        <button class="btn btn-primary" id="wizardImportBtn" onclick="wizardImport()" style="display:none;">Import</button>
+                    </div>
+                </div>
+
+                <!-- Loading spinner -->
+                <div id="wizardSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
             </div>
         </div>
     </div>
