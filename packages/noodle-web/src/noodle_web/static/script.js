@@ -2,6 +2,57 @@ let selectedFile = null;
 let renderTimeout = null;
 let globalResourceMap = {}; // Maps shortnames to full names from backend
 
+// Track which section the resource form was opened from (for returning to it)
+let resourceFormReturnSection = null;
+
+/**
+ * Open the detail pane and show the specified section.
+ * Hides all other sections within the pane.
+ */
+function openDetailPane(sectionId) {
+    const overlay = document.getElementById('detailPaneOverlay');
+    const pane = document.getElementById('detailPane');
+
+    // Hide all sections
+    pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
+
+    // Show the requested section
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.classList.add('active');
+    }
+
+    // Show overlay and slide pane in
+    overlay.classList.add('active');
+    pane.classList.add('open');
+    document.body.classList.add('detail-pane-open');
+}
+
+/**
+ * Close the detail pane and hide all sections.
+ */
+function closeDetailPane() {
+    const overlay = document.getElementById('detailPaneOverlay');
+    const pane = document.getElementById('detailPane');
+
+    overlay.classList.remove('active');
+    pane.classList.remove('open');
+    document.body.classList.remove('detail-pane-open');
+
+    // Hide all sections after transition
+    setTimeout(() => {
+        pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
+    }, 300);
+}
+
+/**
+ * Check if the detail pane is currently open.
+ */
+function isDetailPaneOpen() {
+    const pane = document.getElementById('detailPane');
+    return pane && pane.classList.contains('open');
+}
+
 function switchTab(tabName) {
     // Remove active class from all tabs and content
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -3401,7 +3452,7 @@ function openTaskForm(lineNumber) {
     // Populate subtasks
     populateSubtasks(lineNumber, lines);
 
-    document.getElementById('taskFormOverlay').classList.add('active');
+    openDetailPane('taskFormSection');
 }
 
 function openMilestoneTaskForm(taskName) {
@@ -3887,7 +3938,7 @@ function updateProgressBar() {
 }
 
 function closeTaskForm() {
-    document.getElementById('taskFormOverlay').classList.remove('active');
+    closeDetailPane();
     currentTaskLineNumber = null;
 }
 
@@ -4995,17 +5046,31 @@ function initResizer() {
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize resizer
     initResizer();
-    // Close modal when clicking overlay
-    const overlay = document.getElementById('taskFormOverlay');
-    if (overlay) {
-        overlay.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeTaskForm();
+
+    // Close detail pane when clicking the overlay backdrop
+    const detailOverlay = document.getElementById('detailPaneOverlay');
+    if (detailOverlay) {
+        detailOverlay.addEventListener('click', function() {
+            if (isDetailPaneOpen()) {
+                // Determine which section is active and call its close function
+                const pane = document.getElementById('detailPane');
+                const activeSection = pane.querySelector('.detail-pane-section.active');
+                if (activeSection) {
+                    switch (activeSection.id) {
+                        case 'taskFormSection': closeTaskForm(); break;
+                        case 'raidFormSection': closeRaidForm(); break;
+                        case 'projectDetailsSection': closeProjectDetailsForm(); break;
+                        case 'resourceFormSection': saveResource(); break;
+                        default: closeDetailPane();
+                    }
+                } else {
+                    closeDetailPane();
+                }
             }
         });
     }
 
-    // Close modal when pressing Escape key
+    // Close detail pane when pressing Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             // First check if any autocomplete dropdown is open - close it instead
@@ -5023,10 +5088,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // If no dropdown open, close the modal
-            const overlay = document.getElementById('taskFormOverlay');
-            if (overlay && overlay.classList.contains('active')) {
-                closeTaskForm();
+            // If detail pane is open, close the active section
+            if (isDetailPaneOpen()) {
+                const pane = document.getElementById('detailPane');
+                const activeSection = pane.querySelector('.detail-pane-section.active');
+                if (activeSection) {
+                    switch (activeSection.id) {
+                        case 'taskFormSection': closeTaskForm(); break;
+                        case 'raidFormSection': closeRaidForm(); break;
+                        case 'projectDetailsSection': closeProjectDetailsForm(); break;
+                        case 'resourceFormSection': saveResource(); break;
+                        default: closeDetailPane();
+                    }
+                } else {
+                    closeDetailPane();
+                }
             }
         }
     });
@@ -5175,11 +5251,10 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 
 function openProjectDetailsForm() {
-    const modal = document.getElementById('projectDetailsModal');
-    modal.classList.add('active');
-
     // Parse and populate form from front matter
     populateProjectDetailsFromFrontMatter();
+
+    openDetailPane('projectDetailsSection');
 
     // Focus on the first input
     setTimeout(() => {
@@ -5189,37 +5264,21 @@ function openProjectDetailsForm() {
 }
 
 function closeProjectDetailsForm() {
-    const modal = document.getElementById('projectDetailsModal');
-    modal.classList.remove('active');
+    closeDetailPane();
 }
 
-// Add ESC key handler for project details modal
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('projectDetailsModal');
-        if (modal && modal.classList.contains('active')) {
-            closeProjectDetailsForm();
-        }
-    }
-});
-
-// Add click outside handler for project details modal
-document.addEventListener('DOMContentLoaded', function() {
-    const modal = document.getElementById('projectDetailsModal');
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            // Close if clicking on the overlay (not on the modal content)
-            if (e.target === modal) {
-                closeProjectDetailsForm();
-            }
-        });
-    }
-});
+// ESC and click-outside for project details are handled by the unified detail pane handlers
 
 // Resource Form Functions
 function openResourceForm(existingShortname = null) {
-    const overlay = document.getElementById('resourceFormOverlay');
-    overlay.style.display = 'flex';
+    // Track where we came from so we can return there
+    const pane = document.getElementById('detailPane');
+    const activeSection = pane.querySelector('.detail-pane-section.active');
+    if (activeSection && activeSection.id === 'projectDetailsSection') {
+        resourceFormReturnSection = 'projectDetailsSection';
+    } else {
+        resourceFormReturnSection = null;
+    }
 
     // Clear form
     document.getElementById('resourceShortname').value = '';
@@ -5233,6 +5292,8 @@ function openResourceForm(existingShortname = null) {
         populateResourceForm(existingShortname);
     }
 
+    openDetailPane('resourceFormSection');
+
     // Focus on first field
     setTimeout(() => {
         document.getElementById('resourceShortname').focus();
@@ -5240,8 +5301,13 @@ function openResourceForm(existingShortname = null) {
 }
 
 function closeResourceForm() {
-    const overlay = document.getElementById('resourceFormOverlay');
-    overlay.style.display = 'none';
+    if (resourceFormReturnSection) {
+        // Return to the section that opened the resource form
+        openDetailPane(resourceFormReturnSection);
+        resourceFormReturnSection = null;
+    } else {
+        closeDetailPane();
+    }
 }
 
 function populateResourceForm(shortname) {
@@ -5425,15 +5491,7 @@ function saveResourceInternal(closeModal = true) {
     }
 }
 
-// Add ESC key handler for resource form
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const overlay = document.getElementById('resourceFormOverlay');
-        if (overlay && overlay.style.display === 'flex') {
-            saveResource(); // Save and close
-        }
-    }
-});
+// ESC for resource form is handled by the unified detail pane handler
 
 function populateProjectDetailsFromFrontMatter() {
     const editor = document.getElementById('planEditor');
@@ -5829,7 +5887,6 @@ function addRaidItem() {
 }
 
 function openRaidForm(itemId) {
-    const overlay = document.getElementById('raidFormOverlay');
     const title = document.getElementById('raidFormTitle');
     const idField = document.getElementById('raidItemId');
 
@@ -5863,11 +5920,11 @@ function openRaidForm(itemId) {
     }
 
     updateRaidFormScore();
-    overlay.classList.add('active');
+    openDetailPane('raidFormSection');
 }
 
 function closeRaidForm() {
-    document.getElementById('raidFormOverlay').classList.remove('active');
+    closeDetailPane();
 }
 
 function updateRaidFormScore() {

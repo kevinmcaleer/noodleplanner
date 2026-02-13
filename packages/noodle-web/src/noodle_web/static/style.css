@@ -1855,6 +1855,77 @@ input[type="checkbox"] {
     }
 }
 
+/* ========================================
+   Detail Pane (slide-out right panel)
+   ======================================== */
+
+.detail-pane-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+}
+
+.detail-pane-overlay.active {
+    display: block;
+}
+
+.detail-pane {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 600px;
+    height: 100%;
+    background: white;
+    z-index: 1000;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.detail-pane.open {
+    transform: translateX(0);
+}
+
+.detail-pane-section {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.detail-pane-section.active {
+    display: flex;
+}
+
+.detail-pane-section .modal-header {
+    border-radius: 0;
+    flex-shrink: 0;
+}
+
+.detail-pane-section .modal-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+body.detail-pane-open {
+    overflow: hidden;
+}
+
+/* Mobile: detail pane takes full width */
+@media (max-width: 768px) {
+    .detail-pane {
+        width: 100%;
+    }
+}
+
 .modal-header {
     background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
     color: white;

@@ -80,6 +80,37 @@ The RAID log is stored as a standard markdown table in a `raid.md` file:
 - `exportRaidExcel()` / `uploadRaidExcel()` — Excel via backend endpoints
 - `openRaidForm()` / `saveRaidItemFromForm()` — Modal form for CRUD
 
+### Detail Pane (Slide-Out Panel)
+
+Form dialogs for editing tasks, RAID items, project details, and resources use a slide-out detail pane that appears from the right side of the screen, replacing the previous centered modal dialogs. The Excel Import Wizard remains as a centered modal.
+
+**Design Decisions:**
+- Single `<div id="detailPane">` container holds all form sections; only one section is visible at a time
+- The pane slides in from the right using CSS `transform: translateX()` animation
+- A semi-transparent backdrop overlay (`detailPaneOverlay`) sits behind the pane
+- On mobile (< 768px), the pane takes full viewport width
+- The resource form tracks its origin section so closing it returns to the project details form when opened from there
+
+**Sections:**
+
+| Section ID | Purpose | Open Function | Close Function |
+|------------|---------|---------------|----------------|
+| `taskFormSection` | Edit task details | `openTaskForm(lineNumber)` | `closeTaskForm()` |
+| `raidFormSection` | Edit RAID items | `openRaidForm(itemId)` | `closeRaidForm()` |
+| `projectDetailsSection` | Project metadata | `openProjectDetailsForm()` | `closeProjectDetailsForm()` |
+| `resourceFormSection` | Add/edit resources | `openResourceForm(shortname)` | `closeResourceForm()` |
+
+**Key JavaScript Functions:**
+- `openDetailPane(sectionId)` -- Shows overlay, activates section, slides pane in
+- `closeDetailPane()` -- Hides overlay, slides pane out, deactivates sections
+- `isDetailPaneOpen()` -- Returns true if the pane is currently visible
+
+**Z-Index Stack:**
+- Autocomplete dropdowns: 10001 (above pane)
+- Detail pane: 1000
+- Detail pane overlay: 999
+- Tour overlay: 10000-10002
+
 ### CLI Tool
 
 The CLI (`packages/noodle-cli/`) provides command-line access to the planning engine.

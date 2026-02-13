@@ -609,105 +609,12 @@ Build
     </div>
 
 
-    <!-- RAID Item Form Modal -->
-    <div id="raidFormOverlay" class="modal-overlay">
-        <div class="task-form-modal" style="max-width: 700px;">
-            <div class="modal-header">
-                <h2 id="raidFormTitle">New RAID Item</h2>
-                <button class="close-btn" onclick="closeRaidForm()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form onsubmit="event.preventDefault();">
-                    <input type="hidden" id="raidItemId">
+    <!-- Detail Pane (slide-out right panel) -->
+    <div id="detailPaneOverlay" class="detail-pane-overlay"></div>
+    <div id="detailPane" class="detail-pane">
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="form-group">
-                            <label for="raidItemType">Type</label>
-                            <select id="raidItemType" class="form-control">
-                                <option value="risk">Risk</option>
-                                <option value="action">Action</option>
-                                <option value="issue">Issue</option>
-                                <option value="decision">Decision</option>
-                                <option value="dependency">Dependency</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="raidItemStatus">Status</label>
-                            <select id="raidItemStatus" class="form-control">
-                                <option value="open">Open</option>
-                                <option value="closed">Closed</option>
-                                <option value="transferred">Transferred to Issue</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="raidItemTitle">Title</label>
-                        <input type="text" id="raidItemTitle" class="form-control" placeholder="Brief title for this item">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="raidItemDescription">Description</label>
-                        <textarea id="raidItemDescription" class="form-control" placeholder="Detailed description" rows="3"></textarea>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="form-group">
-                            <label for="raidItemRaisedBy">Raised By</label>
-                            <input type="text" id="raidItemRaisedBy" class="form-control" placeholder="Person who raised this">
-                        </div>
-                        <div class="form-group">
-                            <label for="raidItemOwner">Owner</label>
-                            <input type="text" id="raidItemOwner" class="form-control" placeholder="Person responsible">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="raidItemMitigation">Mitigation Actions</label>
-                        <textarea id="raidItemMitigation" class="form-control" placeholder="Steps to mitigate or resolve" rows="2"></textarea>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                        <div class="form-group">
-                            <label for="raidItemImpact">Impact (1-5)</label>
-                            <select id="raidItemImpact" class="form-control" onchange="updateRaidFormScore()">
-                                <option value="1">1 - Very Low</option>
-                                <option value="2">2 - Low</option>
-                                <option value="3" selected>3 - Medium</option>
-                                <option value="4">4 - High</option>
-                                <option value="5">5 - Very High</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="raidItemLikelihood">Likelihood (1-5)</label>
-                            <select id="raidItemLikelihood" class="form-control" onchange="updateRaidFormScore()">
-                                <option value="1">1 - Very Low</option>
-                                <option value="2">2 - Low</option>
-                                <option value="3" selected>3 - Medium</option>
-                                <option value="4">4 - High</option>
-                                <option value="5">5 - Very High</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Score</label>
-                            <div id="raidScoreDisplay" class="raid-score-display score-medium">
-                                9
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
-                        <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
-                        <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Task Form Modal -->
-    <div id="taskFormOverlay" class="modal-overlay">
-        <div class="task-form-modal">
+        <!-- Task Form Section -->
+        <div id="taskFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 id="taskFormTitle" contenteditable="true" style="flex: 1; outline: none; cursor: text;" oninput="updateTaskNameFromTitle()">Task Name</h2>
                 <button class="close-btn" onclick="closeTaskForm()">&times;</button>
@@ -832,11 +739,103 @@ Build
                 </form>
             </div>
         </div>
-    </div>
 
-    <!-- Project Details Modal -->
-    <div id="projectDetailsModal" class="modal-overlay">
-        <div class="task-form-modal" style="max-width: 700px;">
+        <!-- RAID Item Form Section -->
+        <div id="raidFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="raidFormTitle">New RAID Item</h2>
+                <button class="close-btn" onclick="closeRaidForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="raidItemId">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="raidItemType">Type</label>
+                            <select id="raidItemType" class="form-control">
+                                <option value="risk">Risk</option>
+                                <option value="action">Action</option>
+                                <option value="issue">Issue</option>
+                                <option value="decision">Decision</option>
+                                <option value="dependency">Dependency</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemStatus">Status</label>
+                            <select id="raidItemStatus" class="form-control">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                                <option value="transferred">Transferred to Issue</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemTitle">Title</label>
+                        <input type="text" id="raidItemTitle" class="form-control" placeholder="Brief title for this item">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemDescription">Description</label>
+                        <textarea id="raidItemDescription" class="form-control" placeholder="Detailed description" rows="3"></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="raidItemRaisedBy">Raised By</label>
+                            <input type="text" id="raidItemRaisedBy" class="form-control" placeholder="Person who raised this">
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemOwner">Owner</label>
+                            <input type="text" id="raidItemOwner" class="form-control" placeholder="Person responsible">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemMitigation">Mitigation Actions</label>
+                        <textarea id="raidItemMitigation" class="form-control" placeholder="Steps to mitigate or resolve" rows="2"></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="raidItemImpact">Impact (1-5)</label>
+                            <select id="raidItemImpact" class="form-control" onchange="updateRaidFormScore()">
+                                <option value="1">1 - Very Low</option>
+                                <option value="2">2 - Low</option>
+                                <option value="3" selected>3 - Medium</option>
+                                <option value="4">4 - High</option>
+                                <option value="5">5 - Very High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemLikelihood">Likelihood (1-5)</label>
+                            <select id="raidItemLikelihood" class="form-control" onchange="updateRaidFormScore()">
+                                <option value="1">1 - Very Low</option>
+                                <option value="2">2 - Low</option>
+                                <option value="3" selected>3 - Medium</option>
+                                <option value="4">4 - High</option>
+                                <option value="5">5 - Very High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Score</label>
+                            <div id="raidScoreDisplay" class="raid-score-display score-medium">
+                                9
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                        <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Project Details Section -->
+        <div id="projectDetailsSection" class="detail-pane-section">
             <div class="modal-header">
                 <input type="text" id="projectTitle" class="modal-header-title" placeholder="Project Title" style="flex: 1; background: transparent; border: none; color: white; font-size: 20px; font-weight: 600; outline: none; padding: 0;" oninput="autoSaveProjectDetails()">
                 <button class="close-btn" onclick="closeProjectDetailsForm()">&times;</button>
@@ -917,11 +916,9 @@ Build
                 </form>
             </div>
         </div>
-    </div>
 
-    <!-- Resource Form Modal -->
-    <div id="resourceFormOverlay" class="modal-overlay" style="display: none;" onclick="if(event.target === this) closeResourceForm()">
-        <div class="task-form-modal" style="max-width: 600px;">
+        <!-- Resource Form Section -->
+        <div id="resourceFormSection" class="detail-pane-section">
             <div class="modal-header">
                 <h2 style="color: white; margin: 0;">Add/Edit Resource</h2>
                 <button class="close-btn" onclick="closeResourceForm()">&times;</button>
@@ -961,6 +958,7 @@ Build
                 </form>
             </div>
         </div>
+
     </div>
 
     <!-- Interface Tour -->
