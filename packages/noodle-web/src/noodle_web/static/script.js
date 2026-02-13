@@ -22,6 +22,12 @@ function switchTab(tabName) {
         tabContent.classList.add('active');
     }
 
+    // Show/hide RAID-specific export menu items based on active tab
+    const raidExportItems = document.querySelectorAll('.raid-export-item');
+    raidExportItems.forEach(item => {
+        item.style.display = tabName === 'raid' ? '' : 'none';
+    });
+
     // If switching to Gantt tab, re-render to measure column widths correctly
     if (tabName === 'gantt') {
         console.log('Switched to Gantt tab, checking if chart needs re-render...');
@@ -5995,6 +6001,7 @@ function renderRaidTable() {
     });
 
     updateRaidSortIndicators();
+    updateRaidMarkdownEditor();
 }
 
 function escapeHtml(text) {
@@ -7092,3 +7099,80 @@ function wizardImport() {
     // Render the imported plan
     renderText();
 }
+
+/*
+ * RAID Markdown Editor
+ */
+let raidEditorIsUpdating = false;
+let raidEditorDebounceTimer = null;
+
+function toggleRaidEditor() {
+    const body = document.getElementById('raidEditorBody');
+    const toggle = document.getElementById('raidEditorToggle');
+    const actions = document.getElementById('raidEditorActions');
+
+    if (body && toggle && actions) {
+        const isCollapsed = body.classList.contains('collapsed');
+        if (isCollapsed) {
+            body.classList.remove('collapsed');
+            toggle.textContent = '▼';
+            actions.style.display = '';
+            updateRaidMarkdownEditor();
+        } else {
+            body.classList.add('collapsed');
+            toggle.textContent = '▶';
+            actions.style.display = 'none';
+        }
+    }
+}
+
+function updateRaidMarkdownEditor() {
+    if (raidEditorIsUpdating) return;
+
+    const editor = document.getElementById('raidMarkdownEditor');
+    const body = document.getElementById('raidEditorBody');
+    if (!editor || !body || body.classList.contains('collapsed')) return;
+
+    raidEditorIsUpdating = true;
+    editor.value = generateRaidMarkdown();
+    raidEditorIsUpdating = false;
+}
+
+function onRaidMarkdownEdit() {
+    if (raidEditorIsUpdating) return;
+
+    clearTimeout(raidEditorDebounceTimer);
+    raidEditorDebounceTimer = setTimeout(function() {
+        const editor = document.getElementById('raidMarkdownEditor');
+        if (!editor) return;
+
+        raidEditorIsUpdating = true;
+        const items = parseRaidMarkdown(editor.value);
+        if (items.length > 0) {
+            raidItems = items;
+            raidNextId = Math.max(...items.map(i => i.id)) + 1;
+            renderRaidTable();
+        }
+        // Re-format the markdown to keep alignment correct
+        editor.value = generateRaidMarkdown();
+        raidEditorIsUpdating = false;
+    }, 500);
+}
+
+function uploadRaidMarkdownFromEditor() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,.txt';
+    input.onchange = function(event) {
+        uploadRaidMarkdown(event);
+    };
+    input.click();
+}
+
+// Wire up RAID markdown editor input event
+document.addEventListener('DOMContentLoaded', function() {
+    const raidEditor = document.getElementById('raidMarkdownEditor');
+    if (raidEditor) {
+        raidEditor.addEventListener('input', onRaidMarkdownEdit);
+    }
+});
