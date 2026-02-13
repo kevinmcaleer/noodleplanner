@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta
 
 import openpyxl
+from dateutil import parser as dateutil_parser
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,12 @@ def normalize_date(value):
             except ValueError:
                 continue
 
+        # Fallback to dateutil for unusual formats
         if parsed is None:
-            return None
+            try:
+                parsed = dateutil_parser.parse(value, dayfirst=True)
+            except (ValueError, OverflowError):
+                return None
     else:
         return None
 
@@ -122,20 +127,69 @@ def calculate_duration_from_dates(start_str, end_str):
 
 
 def _read_workbook(file_bytes, filename):
-    """Load an openpyxl workbook from bytes."""
+    """Load a workbook from bytes.
+
+    Supports .xlsx (via openpyxl) and .xls (via xlrd + openpyxl adapter).
+    """
     extension = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
-    if extension == "xls":
-        raise ValueError(
-            "The legacy .xls format is not supported. "
-            "Please save the file as .xlsx in Excel and try again."
-        )
-    if extension not in ("xlsx",):
+    if extension not in ("xlsx", "xls"):
         raise ValueError(f"Unsupported file extension: .{extension}")
+
+    if extension == "xls":
+        return _read_xls_workbook(file_bytes)
 
     try:
         wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
     except Exception as e:
         raise ValueError(f"Failed to read Excel file: {e}")
+    return wb
+
+
+def _read_xls_workbook(file_bytes):
+    """Convert a legacy .xls file to an openpyxl Workbook in memory.
+
+    Uses xlrd to read the .xls, then writes it into an openpyxl Workbook
+    so the rest of the pipeline can treat both formats identically.
+    """
+    try:
+        import xlrd
+    except ImportError:
+        raise ValueError(
+            "Reading .xls files requires the 'xlrd' package. "
+            "Install it with: pip install xlrd"
+        )
+
+    try:
+        xls_book = xlrd.open_workbook(file_contents=file_bytes)
+    except Exception as e:
+        raise ValueError(f"Failed to read .xls file: {e}")
+
+    wb = openpyxl.Workbook()
+    # Remove default sheet that openpyxl creates
+    default_sheet = wb.active
+
+    for idx, sheet_name in enumerate(xls_book.sheet_names()):
+        xls_sheet = xls_book.sheet_by_index(idx)
+        if idx == 0:
+            ws = default_sheet
+            ws.title = sheet_name
+        else:
+            ws = wb.create_sheet(sheet_name)
+
+        for row_idx in range(xls_sheet.nrows):
+            for col_idx in range(xls_sheet.ncols):
+                cell = xls_sheet.cell(row_idx, col_idx)
+                value = cell.value
+                # xlrd returns dates as floats with cell type XL_CELL_DATE
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    try:
+                        date_tuple = xlrd.xldate_as_tuple(value, xls_book.datemode)
+                        value = datetime(*date_tuple)
+                    except (ValueError, TypeError):
+                        pass
+                ws.cell(row=row_idx + 1, column=col_idx + 1, value=value)
+
+    xls_book.release_resources()
     return wb
 
 
@@ -346,8 +400,15 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 if raw_dur is not None and str(raw_dur).strip():
                     try:
                         duration = int(float(str(raw_dur)))
+                        if duration < 0:
+                            warnings.append(
+                                f"Row {row_num}: Negative duration ({duration}) treated as 0"
+                            )
+                            duration = 0
                     except (ValueError, TypeError):
-                        pass
+                        warnings.append(
+                            f"Row {row_num}: Could not parse duration '{raw_dur}'"
+                        )
 
             # Calculate duration from dates if not explicit
             if duration is None and start_date and end_date:
@@ -372,9 +433,20 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 if raw_pct is not None and str(raw_pct).strip():
                     try:
                         pct_val = float(str(raw_pct).rstrip("%"))
+                        # Excel sometimes stores 0.75 for 75%
+                        if 0 < pct_val < 1:
+                            pct_val = pct_val * 100
                         percent = int(pct_val)
+                        if percent < 0 or percent > 100:
+                            warnings.append(
+                                f"Row {row_num}: Percent complete ({percent}%) "
+                                f"outside 0-100 range, clamped"
+                            )
+                            percent = max(0, min(100, percent))
                     except (ValueError, TypeError):
-                        pass
+                        warnings.append(
+                            f"Row {row_num}: Could not parse percent '{raw_pct}'"
+                        )
 
             # Parse comment
             comment = ""
