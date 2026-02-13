@@ -1367,6 +1367,12 @@ h1 {
     font-weight: 600;
 }
 
+.syntax-error {
+    text-decoration: wavy underline #f44336;
+    text-underline-offset: 3px;
+    color: #f44336;
+}
+
 .syntax-label {
     color: #c586c0;
     font-weight: 600;
