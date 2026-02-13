@@ -1066,11 +1066,15 @@ h1 {
 
 .gantt-month {
     border-right: 1px solid #dee2e6;
-    padding: 10px 8px;
+    padding: 10px 4px;
     text-align: center;
     font-weight: 600;
     color: #667eea;
     font-size: 0.9em;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .gantt-month.gantt-today {

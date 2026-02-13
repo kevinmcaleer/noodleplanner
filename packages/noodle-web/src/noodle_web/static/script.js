@@ -79,19 +79,13 @@ function switchTab(tabName) {
         item.style.display = tabName === 'raid' ? '' : 'none';
     });
 
-    // If switching to Gantt tab, re-render to measure column widths correctly
+    // If switching to Gantt tab, re-render the chart
     if (tabName === 'gantt') {
-        console.log('Switched to Gantt tab, checking if chart needs re-render...');
         setTimeout(() => {
-            // Check if we have tasks to display
             if (ganttTasks && ganttTasks.length > 0) {
-                console.log('Re-rendering Gantt chart with', ganttTasks.length, 'tasks');
                 renderGanttChart();
             } else if (window.parsedPlanData && window.parsedPlanData.tasks) {
-                console.log('Initializing Gantt chart with', window.parsedPlanData.tasks.length, 'tasks');
                 updateGantt(window.parsedPlanData.tasks);
-            } else {
-                console.log('No task data available for Gantt chart');
             }
         }, 50);
     }
@@ -1959,8 +1953,6 @@ function parseLocalDate(dateString) {
 }
 
 function updateGantt(tasks) {
-    console.log('updateGantt() called with', tasks ? tasks.length : 0, 'tasks');
-
     try {
         // Show gantt content, hide placeholder
         const placeholder = document.querySelector('#gantt-view .placeholder-view');
@@ -1973,15 +1965,10 @@ function updateGantt(tasks) {
 
         // Store tasks globally for editing
         ganttTasks = tasks;
-        console.log('Stored', ganttTasks.length, 'tasks in ganttTasks global variable');
 
         // Filter tasks with dates
         const tasksWithDates = tasks.filter(t => t.start && t.finish);
-        console.log('Filtered to', tasksWithDates.length, 'tasks with dates');
-        if (tasksWithDates.length === 0) {
-            console.log('No tasks with dates, skipping Gantt rendering');
-            return;
-        }
+        if (tasksWithDates.length === 0) return;
 
         // Find date range and add 1 week buffer before/after
         // Parse dates explicitly to avoid timezone issues
@@ -2016,8 +2003,6 @@ function updateGantt(tasks) {
 }
 
 function renderGanttChart() {
-    console.log('renderGanttChart() called with scale:', ganttScale, 'and', ganttTasks ? ganttTasks.length : 0, 'tasks');
-
     // Adjust pixels per day based on scale
     switch (ganttScale) {
         case 'days':
@@ -2037,66 +2022,16 @@ function renderGanttChart() {
             break;
     }
 
-    console.log('Set ganttPixelsPerDay to:', ganttPixelsPerDay);
-
     // Render headers based on scale
     renderGanttHeaders();
 
-    // Calculate actual column width after headers are rendered (includes padding + borders)
-    // This is used for positioning weekend highlights and task bars
-    // Check if Gantt tab is visible before measuring
-    const ganttTab = document.getElementById('gantt-view');
-    const isVisible = ganttTab && ganttTab.classList.contains('active');
+    // Render task rows
+    renderGanttRows();
 
-    if (!isVisible) {
-        // Gantt tab not visible yet, use a fallback width and render
-        // Will re-measure when tab is switched to
-        console.log('Gantt tab not visible, using fallback column width (will re-measure on tab switch)');
-        window.ganttActualColumnWidth = ganttPixelsPerDay + 17; // 40px + 16px padding + 1px border
-        renderGanttRows();
-        return;
+    // Auto-scroll to current date (only in days view)
+    if (ganttScale === 'days') {
+        scrollGanttToToday();
     }
-
-    // Use requestAnimationFrame to ensure DOM has fully laid out before measuring
-    requestAnimationFrame(() => {
-        const firstHeader = document.querySelector('.gantt-month');
-        if (firstHeader) {
-            const measuredWidth = firstHeader.offsetWidth;
-
-            // If offsetWidth is 0, retry with a longer delay
-            if (measuredWidth === 0) {
-                console.warn('Column width measured as 0, retrying with longer delay...');
-                setTimeout(() => {
-                    const retryHeader = document.querySelector('.gantt-month');
-                    if (retryHeader) {
-                        const retryWidth = retryHeader.offsetWidth;
-                        // Fallback to base width if still 0
-                        window.ganttActualColumnWidth = retryWidth > 0 ? retryWidth : (ganttPixelsPerDay + 17); // 40 + padding/border
-                        console.log('Actual column width (retry):', window.ganttActualColumnWidth, 'px (base:', ganttPixelsPerDay, 'px)');
-
-                        // Re-render task rows with correct column width
-                        renderGanttRows();
-
-                        // Auto-scroll to current date (only in days view)
-                        if (ganttScale === 'days') {
-                            scrollGanttToToday();
-                        }
-                    }
-                }, 150);
-            } else {
-                window.ganttActualColumnWidth = measuredWidth;
-                console.log('Actual column width:', window.ganttActualColumnWidth, 'px (base:', ganttPixelsPerDay, 'px)');
-
-                // Re-render task rows with correct column width
-                renderGanttRows();
-
-                // Auto-scroll to current date (only in days view)
-                if (ganttScale === 'days') {
-                    scrollGanttToToday();
-                }
-            }
-        }
-    });
 }
 
 function scrollGanttToToday() {
@@ -2189,14 +2124,7 @@ function renderDayHeaders(container) {
     endDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
 
-    console.log('Day headers - ganttMinDate:', ganttMinDate.toISOString(), 'first 5 headers:');
-    let headerIndex = 0;
-
     while (currentDate <= endDate) {
-        if (headerIndex < 15) {
-            console.log(`Header ${headerIndex}: ${currentDate.toDateString()}, showing day: ${currentDate.getDate()}`);
-        }
-
         const dayDiv = document.createElement('div');
         dayDiv.className = 'gantt-month';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
@@ -2212,7 +2140,6 @@ function renderDayHeaders(container) {
 
         // Move to next day
         currentDate.setDate(currentDate.getDate() + 1);
-        headerIndex++;
     }
 }
 
@@ -2287,25 +2214,24 @@ function renderYearHeaders(container) {
 }
 
 function renderGanttRows() {
-    console.log('renderGanttRows() called with', ganttTasks ? ganttTasks.length : 0, 'tasks');
-
     const ganttInfoBody = document.getElementById('ganttInfoBody');
     const ganttBody = document.getElementById('ganttBody');
 
-    if (!ganttInfoBody || !ganttBody) {
-        console.log('Missing gantt DOM elements:', { ganttInfoBody, ganttBody });
-        return;
-    }
+    if (!ganttInfoBody || !ganttBody) return;
 
     ganttInfoBody.innerHTML = '';
     ganttBody.innerHTML = '';
 
-    if (!ganttTasks || ganttTasks.length === 0) {
-        console.log('No gantt tasks to render');
-        return;
-    }
+    if (!ganttTasks || ganttTasks.length === 0) return;
 
-    console.log('Rendering', ganttTasks.length, 'gantt tasks with column width:', window.ganttActualColumnWidth || ganttPixelsPerDay);
+    // Calculate total days in range and set body width to match header
+    const minDate = new Date(ganttMinDate);
+    const maxDate = new Date(ganttMaxDate);
+    minDate.setHours(0, 0, 0, 0);
+    maxDate.setHours(0, 0, 0, 0);
+    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+    const totalWidth = totalDays * ganttPixelsPerDay;
+    ganttBody.style.minWidth = totalWidth + 'px';
 
     // Render weekend/day grid if scale is days
     if (ganttScale === 'days') {
@@ -2389,20 +2315,13 @@ function renderGanttRows() {
         // Gantt bar row
         const barRow = document.createElement('div');
         barRow.className = 'gantt-bar-row';
+        barRow.style.minWidth = totalWidth + 'px';
         barRow.dataset.taskIndex = index;
 
         if (task.start && task.finish) {
             // Parse dates consistently as local dates to avoid timezone issues
             const taskStart = parseLocalDate(task.start);
             const taskFinish = parseLocalDate(task.finish);
-
-            if (task.name.toLowerCase().includes('play') || task.name.toLowerCase().includes('give') || task.name.toLowerCase().includes('card')) {
-                console.log('DEBUG - Rendering task:', task.name);
-                console.log('  Start:', task.start, '→', taskStart.toDateString());
-                console.log('  Finish:', task.finish, '→', taskFinish.toDateString());
-                console.log('  Duration from backend:', task.duration_days, 'days');
-                console.log('  Is summary:', task.is_summary);
-            }
 
             // Reset times to midnight for accurate day counting
             const minDate = new Date(ganttMinDate);
@@ -2429,20 +2348,12 @@ function renderGanttRows() {
 
             const bar = document.createElement('div');
             bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
-            const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
-            const leftPos = daysFromStart * columnWidth;
-            const barWidth = taskDuration * columnWidth;
+            const leftPos = daysFromStart * ganttPixelsPerDay;
+            const barWidth = taskDuration * ganttPixelsPerDay;
             bar.style.left = leftPos + 'px';
             bar.style.width = barWidth + 'px';
             bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
             bar.dataset.taskIndex = index;
-
-            // Debug logging for positioning
-            if (task.name.toLowerCase().includes('play') || task.name.toLowerCase().includes('give')) {
-                console.log('  Bar positioning: daysFromStart =', daysFromStart, ', taskDuration =', taskDuration);
-                console.log('  Bar CSS: left =', leftPos, 'px, width =', barWidth, 'px');
-                console.log('  Column width used:', columnWidth, 'px');
-            }
 
             // Add drag handles
             const leftHandle = document.createElement('div');
@@ -2473,9 +2384,6 @@ function renderGanttRows() {
         ganttBody.appendChild(barRow);
     });
 
-    console.log('Finished rendering', ganttTasks.length, 'tasks to Gantt chart');
-    console.log('ganttInfoBody has', ganttInfoBody.children.length, 'rows');
-    console.log('ganttBody has', ganttBody.children.length, 'elements (includes weekend highlights)');
 }
 
 function renderWeekendHighlights(container) {
@@ -2487,22 +2395,15 @@ function renderWeekendHighlights(container) {
     currentDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
 
-    console.log('Weekend highlights - ganttMinDate:', ganttMinDate.toISOString(), 'first 5 days:');
-
     let dayIndex = 0;
     while (currentDate <= endDate) {
         const dayOfWeek = currentDate.getDay();
 
-        if (dayIndex < 15) {
-            console.log(`Day ${dayIndex}: ${currentDate.toDateString()}, day of week: ${dayOfWeek} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek]}), isWeekend: ${dayOfWeek === 0 || dayOfWeek === 6}`);
-        }
-
         if (dayOfWeek === 0 || dayOfWeek === 6) {
             const weekend = document.createElement('div');
             weekend.className = 'gantt-weekend';
-            const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
-            weekend.style.left = (dayIndex * columnWidth) + 'px';
-            weekend.style.width = columnWidth + 'px';
+            weekend.style.left = (dayIndex * ganttPixelsPerDay) + 'px';
+            weekend.style.width = ganttPixelsPerDay + 'px';
             container.appendChild(weekend);
         }
 
@@ -2673,7 +2574,7 @@ function setupBarDragListeners(bar, task, taskIndex) {
     const onMouseMove = (e) => {
         if (!dragState) return;
 
-        const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+        const columnWidth = ganttPixelsPerDay;
         const deltaX = e.clientX - dragState.startX;
         const deltaDays = Math.round(deltaX / columnWidth);
 
@@ -2700,7 +2601,7 @@ function setupBarDragListeners(bar, task, taskIndex) {
     const onMouseUp = (e) => {
         if (!dragState) return;
 
-        const columnWidth = window.ganttActualColumnWidth || ganttPixelsPerDay;
+        const columnWidth = ganttPixelsPerDay;
         const deltaX = e.clientX - dragState.startX;
         const deltaDays = Math.round(deltaX / columnWidth);
 
@@ -2718,14 +2619,9 @@ function setupBarDragListeners(bar, task, taskIndex) {
 }
 
 function updateTaskDates(task, taskIndex, handleType, deltaDays) {
-    console.log('updateTaskDates called:', { task: task.name, handleType, deltaDays });
-    console.log('  Original dates:', { start: task.start, finish: task.finish, duration_days: task.duration_days });
-
     // Use parseLocalDate to avoid timezone issues
     const startDate = parseLocalDate(task.start);
     const finishDate = parseLocalDate(task.finish);
-
-    console.log('  Parsed dates:', { start: startDate.toDateString(), finish: finishDate.toDateString() });
 
     if (handleType === 'left') {
         startDate.setDate(startDate.getDate() + deltaDays);
@@ -2745,8 +2641,6 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
         ganttTasks[taskIndex].finish = task.finish;
     }
 
-    console.log('  Updated dates:', { start: task.start, finish: task.finish });
-
     // Recalculate duration by counting days (same method as rendering)
     const newStartDate = parseLocalDate(task.start);
     const newFinishDate = parseLocalDate(task.finish);
@@ -2762,36 +2656,19 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
     task.duration_days = taskDuration;
     ganttTasks[taskIndex].duration_days = task.duration_days;
 
-    console.log('  Duration calculation:', {
-        task: task.name,
-        handleType,
-        deltaDays,
-        start: task.start,
-        finish: task.finish,
-        duration_days: task.duration_days
-    });
-
     // Sync changes to editor based on what was dragged:
-    // - Left handle: Start date changed → update start date (manual scheduling)
-    // - Right handle: Duration changed → update duration in editor
-    // - Middle: Task shifted in time → update start date in editor (manual scheduling)
-    //   Note: Setting explicit start date makes task "manually scheduled" -
-    //   backend will use this date instead of calculating from dependencies
+    // - Left handle: Start date changed (manual scheduling)
+    // - Right handle: Duration changed
+    // - Middle: Task shifted in time (manual scheduling)
     if (handleType === 'left') {
-        console.log('Left handle - syncing start date to editor (manual scheduling)');
         syncGanttStartDateToEditor(task, taskIndex);
     } else if (handleType === 'right') {
-        console.log('Right handle - syncing duration change to editor');
         syncGanttDurationToEditor(task, taskIndex);
     } else {
-        console.log('Middle drag - syncing start date to editor (manual scheduling)');
         syncGanttStartDateToEditor(task, taskIndex);
     }
 
     // Trigger a full re-parse to recalculate dependencies
-    // This ensures successor tasks are recalculated if they depend on this task
-    // and ensures non-working days are respected
-    console.log('Triggering full plan re-parse to recalculate dependencies');
     renderText();
 }
 
