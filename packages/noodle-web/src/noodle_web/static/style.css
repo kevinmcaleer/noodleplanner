@@ -1163,6 +1163,7 @@ h1 {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    min-width: 40px;
 }
 
 .gantt-month.gantt-today {
