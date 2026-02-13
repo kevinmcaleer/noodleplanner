@@ -1,5 +1,6 @@
 import os
 import io
+import hashlib
 import tempfile
 import logging
 import zipfile
@@ -57,6 +58,19 @@ package_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(package_dir / "static")), name="static")
 templates = Jinja2Templates(directory=str(package_dir / "templates"))
 
+
+def _static_version():
+    """Generate a cache-busting version string from static file contents."""
+    static_dir = package_dir / "static"
+    h = hashlib.md5()
+    for f in sorted(static_dir.glob("*")):
+        if f.is_file():
+            h.update(str(f.stat().st_mtime_ns).encode())
+    return h.hexdigest()[:8]
+
+
+STATIC_VERSION = _static_version()
+
 # Add activity logging middleware
 app.add_middleware(ActivityLoggingMiddleware)
 
@@ -94,7 +108,10 @@ class RenderRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Serve the main HTML page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "v": STATIC_VERSION,
+    })
 
 
 @app.get("/favicon.png")
