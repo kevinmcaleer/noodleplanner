@@ -817,6 +817,9 @@ async function updateProjectSummary(planText, projectName) {
         // Update Milestones Table
         updateMilestonesTable(result.tasks || []);
 
+        // Update Project Report page
+        updateReportPage(result.tasks || [], result.project_name, result.front_matter || {});
+
         // Update Resources Table (needs globalResourceMap to be set first)
         updateResourcesTable(result.tasks || []);
 
@@ -931,6 +934,282 @@ function updateMilestonesTable(tasks) {
 
     } catch (error) {
         console.error('Error updating milestones table:', error);
+    }
+}
+
+function updateReportPage(tasks, projectName, frontMatter) {
+    try {
+        // Show report content, hide placeholder
+        const placeholder = document.querySelector('#project-report-view .project-report-placeholder');
+        const content = document.querySelector('#project-report-view .project-report-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Populate project info header
+        const titleEl = document.getElementById('reportProjectTitle');
+        if (titleEl) {
+            titleEl.textContent = projectName || 'Untitled Project';
+        }
+
+        const sponsor = frontMatter.sponsor || '';
+        const sponsorDetail = document.getElementById('reportSponsorDetail');
+        const sponsorEl = document.getElementById('reportSponsor');
+        if (sponsorDetail && sponsorEl) {
+            if (sponsor) {
+                sponsorEl.textContent = sponsor;
+                sponsorDetail.style.display = '';
+            } else {
+                sponsorDetail.style.display = 'none';
+            }
+        }
+
+        const budget = frontMatter.budget || '';
+        const budgetDetail = document.getElementById('reportBudgetDetail');
+        const budgetEl = document.getElementById('reportBudget');
+        if (budgetDetail && budgetEl) {
+            if (budget) {
+                budgetEl.textContent = budget;
+                budgetDetail.style.display = '';
+            } else {
+                budgetDetail.style.display = 'none';
+            }
+        }
+
+        // Render simple timeline (no phases, no detailed view)
+        updateReportTimeline(tasks, projectName);
+
+        // Populate milestones table
+        updateReportMilestones(tasks);
+
+    } catch (error) {
+        console.error('Error updating report page:', error);
+    }
+}
+
+function updateReportTimeline(tasks, projectName) {
+    try {
+        // Filter milestones: only 0-duration, non-summary tasks with a finish date
+        const milestones = tasks.filter(t => {
+            if (!t.finish) return false;
+            return t.duration_days === 0 && !t.is_summary;
+        });
+
+        if (milestones.length === 0) return;
+
+        // Find min and max dates
+        const allDates = milestones.map(t => parseLocalDate(t.finish));
+        const minDate = new Date(Math.min(...allDates));
+        const maxDate = new Date(Math.max(...allDates));
+
+        // Add padding
+        minDate.setDate(minDate.getDate() - 7);
+        maxDate.setDate(maxDate.getDate() + 7);
+
+        // Calculate timeline width from available container
+        const timelineWrapper = document.querySelector('.report-timeline-wrapper');
+
+        // Skip if container is hidden
+        if (timelineWrapper && timelineWrapper.offsetWidth === 0) return;
+
+        const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200;
+        const timelineWidth = Math.max(800, availableWidth);
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Get timeline elements
+        const timelineLine = document.getElementById('reportTimelineLine');
+        const timelineMilestones = document.getElementById('reportTimelineMilestones');
+
+        if (!timelineLine || !timelineMilestones) return;
+
+        // Clear existing content
+        timelineMilestones.innerHTML = '';
+        timelineLine.querySelectorAll('.timeline-progress, .timeline-date-label, .timeline-scale').forEach(el => el.remove());
+
+        // Set widths
+        timelineLine.style.width = timelineWidth + 'px';
+        timelineMilestones.style.width = timelineWidth + 'px';
+
+        // Calculate overall project completion
+        let totalTasks = 0;
+        let completedWeight = 0;
+        tasks.forEach(task => {
+            if (!task.is_summary && task.duration_days > 0) {
+                totalTasks++;
+                completedWeight += parseFloat(task.percent) || 0;
+            }
+        });
+        const overallCompletion = totalTasks > 0 ? (completedWeight / totalTasks) : 0;
+
+        // Add progress bar
+        const progressBar = document.createElement('div');
+        progressBar.className = 'timeline-progress';
+        progressBar.style.width = overallCompletion + '%';
+        timelineLine.appendChild(progressBar);
+
+        // Add start and end date labels
+        const startLabel = document.createElement('div');
+        startLabel.className = 'timeline-date-label timeline-start-date';
+        startLabel.textContent = minDate.toISOString().split('T')[0];
+        timelineLine.appendChild(startLabel);
+
+        const endLabel = document.createElement('div');
+        endLabel.className = 'timeline-date-label timeline-end-date';
+        endLabel.textContent = maxDate.toISOString().split('T')[0];
+        timelineLine.appendChild(endLabel);
+
+        // Add date scale
+        addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth);
+
+        // Track positions for overlap prevention
+        const positions = [];
+
+        // Create milestone markers
+        milestones.forEach((task) => {
+            const milestoneDate = parseLocalDate(task.finish);
+            const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
+            const position = (daysFromStart / totalDays) * timelineWidth;
+
+            // Check for overlap and adjust label position
+            let labelOffset = 0;
+            const minSpacing = 170;
+            let foundLevel = false;
+            const maxLevels = 5;
+
+            for (let level = 0; level < maxLevels && !foundLevel; level++) {
+                labelOffset = level * -50;
+                foundLevel = true;
+                for (let i = 0; i < positions.length; i++) {
+                    if (positions[i].offset === labelOffset && Math.abs(position - positions[i].pos) < minSpacing) {
+                        foundLevel = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundLevel) return;
+
+            positions.push({ pos: position, offset: labelOffset });
+
+            // Create milestone container
+            const milestoneDiv = document.createElement('div');
+            milestoneDiv.className = 'timeline-milestone';
+            milestoneDiv.style.left = position + 'px';
+            milestoneDiv.style.cursor = 'pointer';
+
+            milestoneDiv.addEventListener('click', () => {
+                openMilestoneTaskForm(task.name);
+            });
+
+            // Create connecting line if label is offset
+            if (labelOffset !== 0) {
+                const connector = document.createElement('div');
+                connector.className = 'timeline-connector';
+                connector.style.height = Math.abs(labelOffset) + 'px';
+                connector.style.bottom = '10px';
+                milestoneDiv.appendChild(connector);
+            }
+
+            // Create milestone marker (circle)
+            const marker = document.createElement('div');
+            const percent = parseFloat(task.percent) || 0;
+            const isComplete = percent >= 100;
+
+            marker.className = 'timeline-circle';
+            marker.innerHTML = isComplete
+                ? `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="9" fill="#28a745" stroke="#fff" stroke-width="1"/>
+                    <path d="M6 10 L9 13 L14 7" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                   </svg>`
+                : `<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="9" fill="#333" stroke="#fff" stroke-width="1"/>
+                   </svg>`;
+            milestoneDiv.appendChild(marker);
+
+            // Create label
+            const label = document.createElement('div');
+            label.className = 'timeline-milestone-label';
+
+            if (labelOffset !== 0) {
+                label.style.bottom = (20 - labelOffset) + 'px';
+            }
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'milestone-name';
+            nameDiv.textContent = task.name;
+            label.appendChild(nameDiv);
+
+            const dateDiv = document.createElement('div');
+            dateDiv.className = 'milestone-date';
+            dateDiv.textContent = task.finish;
+            label.appendChild(dateDiv);
+
+            milestoneDiv.appendChild(label);
+            timelineMilestones.appendChild(milestoneDiv);
+        });
+
+    } catch (error) {
+        console.error('Error updating report timeline:', error);
+    }
+}
+
+function updateReportMilestones(tasks) {
+    try {
+        const tbody = document.getElementById('reportMilestonesTableBody');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        // Filter to only show actual milestones (0-duration, non-summary tasks)
+        const milestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
+
+        milestones.forEach(task => {
+            const row = document.createElement('tr');
+
+            const idCell = document.createElement('td');
+            idCell.textContent = task.id;
+            row.appendChild(idCell);
+
+            const nameCell = document.createElement('td');
+            nameCell.textContent = task.name;
+            nameCell.classList.add('task-name');
+            row.appendChild(nameCell);
+
+            const startCell = document.createElement('td');
+            startCell.textContent = task.start || '-';
+            row.appendChild(startCell);
+
+            const finishCell = document.createElement('td');
+            finishCell.textContent = task.finish || '-';
+            row.appendChild(finishCell);
+
+            const percentCell = document.createElement('td');
+            percentCell.textContent = task.percent || '-';
+            row.appendChild(percentCell);
+
+            const ragCell = document.createElement('td');
+            ragCell.textContent = task.rag || '-';
+            if (task.rag) {
+                ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
+            }
+            row.appendChild(ragCell);
+
+            const commentCell = document.createElement('td');
+            commentCell.textContent = task.comment || '-';
+            row.appendChild(commentCell);
+
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', () => {
+                openMilestoneTaskForm(task.name);
+            });
+
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Error updating report milestones:', error);
     }
 }
 
@@ -5170,6 +5449,13 @@ function switchOutputTab(tabName) {
         // newly-visible container before we measure its width
         setTimeout(() => {
             updateTimeline(timelineTasks, timelineProjectName);
+        }, 50);
+    }
+
+    // If switching to project report view, re-render the report timeline
+    if (tabName === 'project-report' && timelineTasks.length > 0) {
+        setTimeout(() => {
+            updateReportTimeline(timelineTasks, timelineProjectName);
         }, 50);
     }
 }

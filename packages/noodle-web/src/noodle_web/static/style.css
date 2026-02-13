@@ -687,6 +687,73 @@ h1 {
     margin-bottom: 20px;
 }
 
+/* Project Report Styling */
+.project-report-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    color: #888;
+    text-align: center;
+}
+
+.project-report-content {
+    padding: 30px;
+}
+
+.project-report-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.project-report-title {
+    font-size: 2em;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 12px 0;
+}
+
+.project-report-details {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.project-report-detail {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.project-report-detail-label {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.project-report-detail-value {
+    color: #333;
+    font-size: 0.95em;
+}
+
+.project-report-section {
+    margin-bottom: 30px;
+}
+
+.project-report-section h3 {
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.report-timeline-wrapper {
+    overflow-x: auto;
+}
+
 /* Timeline Styling - Milestone View */
 .timeline-content {
     padding: 40px;
