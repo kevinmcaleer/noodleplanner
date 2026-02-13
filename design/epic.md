@@ -29,8 +29,41 @@ The web application (`packages/noodle-web/`) provides:
 - **Gantt View**: Timeline chart with 5 zoom scales (days/weeks/months/quarters/years)
 - **Kanban View**: Board with 4 grouping modes (phase/resource/progress/label)
 - **Timeline View**: Milestone timeline with optional detailed phase blocks
-- **Report View**: Formatted markdown output
+- **Report View**: Quad dashboard with project header, timeline, milestones, RAID, and highlights
 - **Export**: Excel, PowerPoint, PDF
+
+### Project Report (Quad Layout)
+
+The Project Report tab displays a dashboard-style overview of the project status in a quad layout (GitHub Issue #145).
+
+**Header Section (full width):**
+- Project name (large title)
+- Project manager name (from front matter `project manager` / `manager` / `owner`)
+- Overall project RAG status (colored badge from front matter `status` field)
+- Sponsor and budget (if available in front matter)
+- Current date
+
+**Timeline Section (full width):**
+- Reuses the existing `updateReportTimeline()` function
+- Shows milestone markers on a progress bar with date labels
+
+**Quad Grid (2x2 CSS grid):**
+
+| Position | Section | Content |
+|----------|---------|---------|
+| Top-left | Milestones | Next 10 incomplete milestones sorted by date. Columns: Milestone, Date, RAG. Skips completed (100%) milestones. Clickable rows open task form. |
+| Top-right | Risks & Issues | Open risks and issues from RAID log, sorted by score (highest to lowest), limited to 10. Columns: Type, Title, Score. Uses existing `raidItems` global state. |
+| Bottom-left | Latest Highlight | Most recent highlight entry showing date, author, and markdown-rendered content. Uses existing `highlightsData` global state. |
+| Bottom-right | Notes | Placeholder reserved for future use. |
+
+**Key Functions:**
+- `updateReportPage(tasks, projectName, frontMatter)` - orchestrates all quad sections
+- `updateReportMilestones(tasks)` - filters and renders milestone table
+- `updateReportRaid()` - filters RAID items and renders risk/issue table
+- `updateReportHighlight()` - renders the most recent highlight entry
+
+**Responsive Design:**
+- On screens narrower than 768px, the quad grid stacks to a single column
 
 ### RAID Log
 
