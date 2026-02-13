@@ -118,7 +118,8 @@ Press Enter to render..."></textarea>
                     <div class="output-panel">
                         <!-- Output Tabs Navigation -->
                         <div class="output-tabs">
-                            <button class="output-tab active" data-tab="report" onclick="switchOutputTab('report')">Report</button>
+                            <button class="output-tab active" data-tab="project-report" onclick="switchOutputTab('project-report')">Project Report</button>
+                            <button class="output-tab" data-tab="text-report" onclick="switchOutputTab('text-report')">Text Report</button>
                             <button class="output-tab" data-tab="summary" onclick="switchOutputTab('summary')">Project Summary</button>
                             <button class="output-tab" data-tab="milestones" onclick="switchOutputTab('milestones')">Milestones</button>
                             <button class="output-tab" data-tab="timeline" onclick="switchOutputTab('timeline')">Timeline</button>
@@ -128,8 +129,75 @@ Press Enter to render..."></textarea>
                             <button class="output-tab" data-tab="analysis" onclick="switchOutputTab('analysis')">Analysis</button>
                         </div>
 
-                        <!-- Report View (default) -->
-                        <div id="report-view" class="output-tab-content active">
+                        <!-- Project Report View (default) -->
+                        <div id="project-report-view" class="output-tab-content active">
+                            <div class="project-report-placeholder">
+                                <div class="welcome-screen">
+                                    <img src="/logo.png" alt="Noodle Planner" class="welcome-logo">
+                                    <h2>Welcome to Noodle Planner</h2>
+                                    <p>Get started by:</p>
+                                    <ul>
+                                        <li>📝 Type your plan in the editor on the left</li>
+                                        <li>📁 Upload a plan file from the Upload tab</li>
+                                        <li>❓ Check the Syntax Guide tab for help</li>
+                                    </ul>
+                                    <p class="welcome-hint">Press <kbd>Enter</kbd> in the editor to render your plan</p>
+                                </div>
+                            </div>
+                            <div class="project-report-content" style="display: none;">
+                                <!-- Project Info Header -->
+                                <div class="project-report-header">
+                                    <h2 class="project-report-title" id="reportProjectTitle">Project Title</h2>
+                                    <div class="project-report-details">
+                                        <div class="project-report-detail" id="reportSponsorDetail" style="display: none;">
+                                            <span class="project-report-detail-label">Sponsor:</span>
+                                            <span class="project-report-detail-value" id="reportSponsor"></span>
+                                        </div>
+                                        <div class="project-report-detail" id="reportBudgetDetail" style="display: none;">
+                                            <span class="project-report-detail-label">Budget:</span>
+                                            <span class="project-report-detail-value" id="reportBudget"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Timeline Section -->
+                                <div class="project-report-section">
+                                    <h3>Timeline</h3>
+                                    <div class="timeline-line-wrapper report-timeline-wrapper">
+                                        <div class="timeline-line" id="reportTimelineLine"></div>
+                                        <div class="timeline-milestones" id="reportTimelineMilestones">
+                                            <!-- Milestone markers will be populated by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Milestones Table Section -->
+                                <div class="project-report-section">
+                                    <h3>Milestones</h3>
+                                    <div class="milestones-table-wrapper">
+                                        <table class="milestones-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Task Name</th>
+                                                    <th>Start</th>
+                                                    <th>Finish</th>
+                                                    <th>%</th>
+                                                    <th>RAG</th>
+                                                    <th>Comment</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="reportMilestonesTableBody">
+                                                <!-- Milestone rows will be populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Text Report View -->
+                        <div id="text-report-view" class="output-tab-content">
                             <div class="output-container empty" id="editorOutput">
                                 <div class="welcome-screen">
                                     <img src="/logo.png" alt="Noodle Planner" class="welcome-logo">
