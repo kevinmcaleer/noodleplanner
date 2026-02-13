@@ -979,9 +979,28 @@ h1 {
 }
 
 .gantt-table-side {
-    border-right: 2px solid #dee2e6;
+    width: 400px;
+    flex-shrink: 0;
+    overflow-x: auto;
     overflow-y: auto;
     max-height: 600px;
+}
+
+.gantt-splitter {
+    width: 6px;
+    background: #dee2e6;
+    cursor: col-resize;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+}
+
+.gantt-splitter:hover {
+    background: #667eea;
+}
+
+.gantt-splitter:active {
+    background: #764ba2;
 }
 
 .gantt-info-table {
@@ -1009,6 +1028,8 @@ h1 {
     border-bottom: 1px solid #f0f0f0;
     white-space: nowrap;
     cursor: default;
+    height: 40px;
+    box-sizing: border-box;
 }
 
 .gantt-info-table td.editable {
@@ -1090,6 +1111,7 @@ h1 {
     height: 40px;
     position: relative;
     border-bottom: 1px solid #f0f0f0;
+    box-sizing: border-box;
 }
 
 .gantt-bar-row:hover {
@@ -1974,7 +1996,12 @@ input[type="checkbox"] {
     }
 
     .gantt-table-side {
-        min-width: 300px;
+        width: 200px;
+        min-width: 150px;
+    }
+
+    .gantt-splitter {
+        width: 4px;
     }
 
     .gantt-toolbar {
