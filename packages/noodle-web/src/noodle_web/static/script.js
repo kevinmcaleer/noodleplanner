@@ -3052,6 +3052,19 @@ function renderGanttRows() {
         percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
         infoRow.appendChild(percentCell);
 
+        // RAG cell (not editable)
+        const ragCell = document.createElement('td');
+        ragCell.classList.add('gantt-rag-cell');
+        if (task.rag) {
+            const ragDot = document.createElement('span');
+            ragDot.className = 'gantt-rag-dot rag-' + task.rag.toLowerCase();
+            ragDot.title = task.rag;
+            ragCell.appendChild(ragDot);
+        } else {
+            ragCell.textContent = '-';
+        }
+        infoRow.appendChild(ragCell);
+
         // Comment cell (editable)
         const commentCell = document.createElement('td');
         commentCell.classList.add('editable');
@@ -3112,6 +3125,10 @@ function renderGanttRows() {
 
                 const bar = document.createElement('div');
                 bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
+                // Apply RAG colouring to non-summary task bars
+                if (!task.is_summary && task.rag && task.rag.toLowerCase() !== 'green') {
+                    bar.classList.add('gantt-bar-' + task.rag.toLowerCase());
+                }
                 const leftPos = daysFromStart * ganttPixelsPerDay;
                 const barWidth = taskDuration * ganttPixelsPerDay;
                 bar.style.left = leftPos + 'px';
