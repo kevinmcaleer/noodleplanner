@@ -825,6 +825,25 @@
 
 **Status:** Complete! Project Report tab now uses a quad dashboard layout showing project header, timeline, milestones, RAID items, and highlights at a glance.
 
+### Summary Tasks Showing as Dependencies (GitHub Issue #187) - ✅ COMPLETED
+- [x] Fixed `getPreviousTaskName()` in script.js to skip summary tasks when resolving `*` sequential dependency
+- [x] Fixed `TaskLine.getPreviousTaskName()` method to also skip summary tasks
+- [x] Fixed `getAllTaskNames()` to exclude summary tasks from dependency autocomplete suggestions
+- [x] Added `isSummaryLine()` helper function to detect summary tasks in the plan editor
+  - Checks if a line has a subsequent non-empty line with greater indentation
+- [x] Added 4 backend tests confirming `schedule_tasks()` correctly skips summary tasks for sequential dependencies
+  - Sequential task skips summary in same phase
+  - Sequential task skips summary across phases
+  - Summary tasks don't interfere with explicit dependency resolution
+  - Sequential task skips multiple consecutive summaries
+- [x] All 288 tests passing
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/static/script.js` - Added `isSummaryLine()`, fixed `getPreviousTaskName()`, `TaskLine.getPreviousTaskName()`, `getAllTaskNames()`
+- `tests/test_scheduling_engine.py` - Added `TestSummaryTaskExcludedFromDependencies` test class
+
+**Status:** Complete! Summary tasks no longer appear as dependencies in the task detail form, and the `*` sequential marker correctly skips summary tasks and blank lines.
+
 ## Pending 📋
 
 ### Test Execution
@@ -931,6 +950,7 @@
 - #152: Detailed timeline view (phase blocks with overlap detection, colour coding, % complete) - ✅ MERGED
 - #124: Mobile layout optimisation (responsive CSS, cursor alignment fix, RAID brace fix) - 🔄 IN PROGRESS
 - #145: Quad report layout (project header, timeline, milestones, RAID, highlights in 2x2 grid) - ✅ COMPLETED
+- #187: Summary tasks showing as dependencies (excluded from `*` resolution and autocomplete) - ✅ COMPLETED
 
 ---
 

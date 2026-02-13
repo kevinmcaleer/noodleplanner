@@ -3881,10 +3881,13 @@ class Task {
     }
 
     getPreviousTaskName(lines) {
-        // Find the previous non-empty task line
+        // Find the previous non-empty, non-summary task line
         for (let i = this.lineNumber - 2; i >= 0; i--) {
             const line = lines[i].trim();
             if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
+                // Skip summary tasks (phases that have children)
+                if (typeof isSummaryLine === 'function' && isSummaryLine(lines, i)) continue;
+
                 // Extract task name
                 let taskLine = line;
                 if (taskLine.startsWith('*')) {
@@ -4826,12 +4829,42 @@ function saveTask() {
     setTimeout(() => renderText(), 10);
 }
 
+/**
+ * Check if a line in the plan is a summary task (phase/parent).
+ * A summary task is a non-empty line that has a subsequent non-empty line
+ * with greater indentation (i.e., it has children).
+ */
+function isSummaryLine(lines, lineIndex) {
+    const line = lines[lineIndex];
+    if (!line || !line.trim()) return false;
+
+    const indent = line.search(/\S/);
+    if (indent < 0) return false;
+
+    // Look ahead for the next non-empty line
+    for (let j = lineIndex + 1; j < lines.length; j++) {
+        const nextLine = lines[j];
+        const nextTrimmed = nextLine.trim();
+        if (!nextTrimmed) continue; // Skip blank lines
+
+        const nextIndent = nextLine.search(/\S/);
+        // If the next non-empty line is more indented, this is a summary task
+        return nextIndent > indent;
+    }
+
+    // No subsequent non-empty line found - not a summary
+    return false;
+}
+
 function getPreviousTaskName(lines, currentLineNum) {
-    // Look backwards from current line to find the previous task
+    // Look backwards from current line to find the previous non-summary task
     for (let i = currentLineNum - 2; i >= 0; i--) {
         const line = lines[i].trim();
         // Skip empty lines, phase headers, and summary lines
         if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
+            // Skip summary tasks (phases that have children)
+            if (isSummaryLine(lines, i)) continue;
+
             // Parse this line to get just the task name
             const task = parseTaskLine(line, i + 1);
             if (task.name) {
@@ -5029,6 +5062,10 @@ function getAllTaskNames() {
         if (task.name && task.name.trim()) {
             // Don't include the current task
             if (currentTask && task.lineNumber === currentTask.lineNumber) {
+                continue;
+            }
+            // Don't include summary tasks (phases) as valid dependency targets
+            if (isSummaryLine(lines, i)) {
                 continue;
             }
             taskNames.push(task.name.trim());

@@ -335,6 +335,118 @@ class TestScheduleTasks:
         assert summary['finish'] == max(task1['finish'], task2['finish'])
 
 
+class TestSummaryTaskExcludedFromDependencies:
+    """Test suite for GitHub issue #187: summary tasks should not be dependencies."""
+
+    def test_sequential_task_skips_summary_in_same_phase(self):
+        """A sequential task should skip its parent summary and depend on the previous sibling."""
+        phases = {
+            'Phase 1': {
+                '_level': 0,
+                '_is_summary': True,
+                'Task A': {
+                    '_text': 'Task A @john 3d',
+                    '_level': 1
+                },
+                'Task B': {
+                    '_text': '* Task B @jane 2d',
+                    '_level': 1
+                }
+            }
+        }
+        tasks = schedule_tasks(phases)
+        task_a = next(t for t in tasks if t['name'] == 'Task A')
+        task_b = next(t for t in tasks if t['name'] == 'Task B')
+        # Task B should depend on Task A (not Phase 1)
+        assert task_b['start'] == task_a['finish']
+
+    def test_sequential_task_skips_summary_across_phases(self):
+        """A sequential task in a new phase should skip the phase summary and depend on the last task of the previous phase."""
+        phases = {
+            'Phase 1': {
+                '_level': 0,
+                '_is_summary': True,
+                'Task A': {
+                    '_text': 'Task A @john 3d',
+                    '_level': 1
+                },
+                'Task B': {
+                    '_text': '* Task B @jane 2d',
+                    '_level': 1
+                }
+            },
+            'Phase 2': {
+                '_level': 0,
+                '_is_summary': True,
+                'Task C': {
+                    '_text': '* Task C @bob 4d',
+                    '_level': 1
+                }
+            }
+        }
+        tasks = schedule_tasks(phases)
+        task_b = next(t for t in tasks if t['name'] == 'Task B')
+        task_c = next(t for t in tasks if t['name'] == 'Task C')
+        # Task C should depend on Task B (not Phase 2 summary)
+        assert task_c['start'] == task_b['finish']
+
+    def test_summary_tasks_not_in_dependency_lookup(self):
+        """Summary tasks should not interfere with explicit dependency resolution."""
+        phases = {
+            'Phase 1': {
+                '_level': 0,
+                '_is_summary': True,
+                'Task A': {
+                    '_text': 'Task A @john 3d',
+                    '_level': 1
+                }
+            },
+            'Phase 2': {
+                '_level': 0,
+                '_is_summary': True,
+                'Task B': {
+                    '_text': 'Task B #Task A @jane 2d',
+                    '_level': 1
+                }
+            }
+        }
+        tasks = schedule_tasks(phases)
+        task_a = next(t for t in tasks if t['name'] == 'Task A')
+        task_b = next(t for t in tasks if t['name'] == 'Task B')
+        # Task B explicitly depends on Task A
+        assert task_b['start'] == task_a['finish']
+
+    def test_sequential_skips_multiple_summaries(self):
+        """A sequential task should skip multiple consecutive summary tasks."""
+        phases = [
+            {
+                'Task A': {
+                    '_text': 'Task A @john 3d',
+                    '_level': 0
+                }
+            },
+            {
+                'Phase 1': {
+                    '_level': 0,
+                    '_is_summary': True,
+                    'SubPhase': {
+                        '_level': 1,
+                        '_is_summary': True,
+                        'Task B': {
+                            '_text': '* Task B @jane 2d',
+                            '_level': 2
+                        }
+                    }
+                }
+            }
+        ]
+        tasks = schedule_tasks(phases)
+        task_a = next(t for t in tasks if t['name'] == 'Task A')
+        task_b = next(t for t in tasks if t['name'] == 'Task B')
+        # Task B should skip both Phase 1 and SubPhase summaries, depend on Task A
+        assert task_b['start'] == task_a['finish']
+
+
 class TestMilestoneAlignment:
     """Test suite for milestone alignment with predecessor tasks (GitHub issue #156)."""
 
