@@ -134,7 +134,47 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Syntax highlighting function
     function highlightSyntax(text) {
-        return text.split('\n').map(line => {
+        // Build a set of all task names for dependency validation
+        const allTaskNames = new Set();
+        const allLines = text.split('\n');
+        let inFrontMatter = false;
+        for (let i = 0; i < allLines.length; i++) {
+            const trimmed = allLines[i].trim();
+            if (trimmed === '---') {
+                inFrontMatter = !inFrontMatter;
+                continue;
+            }
+            if (inFrontMatter || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+
+            // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
+            let taskText = trimmed;
+            // Strip * prefix
+            if (taskText.startsWith('*')) {
+                taskText = taskText.substring(1).trim();
+                // Strip optional lag/lead after *
+                taskText = taskText.replace(/^[+\-]\d+[dwmy]\s+/, '');
+            }
+            // Remove comments in quotes
+            taskText = taskText.replace(/"[^"]*"/, '').trim();
+            // Remove [depends ...] blocks
+            taskText = taskText.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
+            // Extract name tokens (everything that's not a duration, resource, date, percent, or label)
+            const tokens = taskText.split(/\s+/);
+            const nameTokens = [];
+            for (const token of tokens) {
+                if (!token) continue;
+                if (token.startsWith('@')) continue;       // resource
+                if (token.startsWith('#')) continue;       // label
+                if (/^\d+[dmw]$/.test(token)) continue;   // duration
+                if (/^\d+%$/.test(token)) continue;        // percent
+                if (/^\d{4}-\d{2}-\d{2}$/.test(token)) continue; // date
+                nameTokens.push(token);
+            }
+            const name = nameTokens.join(' ');
+            if (name) allTaskNames.add(name);
+        }
+
+        return allLines.map(line => {
             // Skip empty lines and headers
             if (!line.trim() || line.includes('===') || line.includes('---')) {
                 return line;
@@ -162,9 +202,23 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             // Highlight dependencies EARLY to protect lag/lead from duration highlighter
             // (e.g., [depends Task1, Task2 +2d])
             highlighted = highlighted.replace(/\[depends\s+([^\]]+)\]/gi, (match, deps) => {
-                // Highlight lag/lead time within dependencies
-                let highlightedDeps = deps.replace(/([+\-]\d+[dwmy])/g, '<span class="syntax-lag-lead">$1</span>');
-                return savePlaceholder('<span class="syntax-dependency">[depends ' + highlightedDeps + ']</span>');
+                // Split dependencies and validate each one
+                const depParts = deps.split(',').map(d => d.trim()).filter(d => d);
+                const highlightedParts = depParts.map(dep => {
+                    // Strip lag/lead to get the task name for validation
+                    const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
+                    const depTaskName = lagLeadMatch ? lagLeadMatch[1].trim() : dep.trim();
+                    const lagLeadPart = lagLeadMatch ? ' <span class="syntax-lag-lead">' + lagLeadMatch[2] + '</span>' : '';
+
+                    // Check if the dependency task name exists
+                    const isValid = allTaskNames.has(depTaskName);
+                    if (isValid) {
+                        return depTaskName + lagLeadPart;
+                    } else {
+                        return '<span class="syntax-error">' + depTaskName + '</span>' + lagLeadPart;
+                    }
+                });
+                return savePlaceholder('<span class="syntax-dependency">[depends ' + highlightedParts.join(', ') + ']</span>');
             });
 
             // Highlight star prefix (depends on previous task) - match * at line start
@@ -3549,7 +3603,12 @@ function addWorkingDays(startDate, numDays) {
 }
 
 // Calculate dates for a task, looking up dependency dates from a task map
-function calculateTaskDates(task, taskMap, lines) {
+function calculateTaskDates(task, taskMap, lines, visited) {
+    // Track visited tasks to prevent circular dependency infinite loops
+    if (!visited) visited = new Set();
+    if (visited.has(task.name)) return task;
+    visited.add(task.name);
+
     // If task already has both dates, return it
     if (task.startDate && task.finishDate) {
         return task;
@@ -3557,16 +3616,20 @@ function calculateTaskDates(task, taskMap, lines) {
 
     // Try to calculate from dependencies
     if (task.dependencies && !task.startDate) {
-        const depNames = task.dependencies.split(',').map(d => d.trim());
+        const depEntries = task.dependencies.split(',').map(d => d.trim());
         let latestFinishDate = null;
 
-        for (const depName of depNames) {
+        for (const depEntry of depEntries) {
+            // Strip lag/lead time (e.g., "+2d", "-1w") from dependency name
+            const lagLeadMatch = depEntry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
+            const depName = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+
             // Look up dependency in the map
             const depTask = taskMap.get(depName);
             if (depTask) {
                 // Recursively calculate dependency dates if not set
                 if (!depTask.finishDate) {
-                    calculateTaskDates(depTask, taskMap, lines);
+                    calculateTaskDates(depTask, taskMap, lines, visited);
                 }
                 if (depTask.finishDate) {
                     if (!latestFinishDate || depTask.finishDate > latestFinishDate) {
@@ -3614,72 +3677,83 @@ function calculateTaskDates(task, taskMap, lines) {
 }
 
 function openTaskForm(lineNumber) {
-    const editor = document.getElementById('planEditor');
-    const lines = editor.value.split('\n');
-    const taskLine = lines[lineNumber - 1];
+    try {
+        const editor = document.getElementById('planEditor');
+        const lines = editor.value.split('\n');
+        const taskLine = lines[lineNumber - 1];
 
-    // Parse task details from line
-    const task = parseTaskLine(taskLine, lineNumber);
-
-    // Track which fields were in the original task (user set)
-    const originalStartDate = task.startDate;
-    const originalFinishDate = task.finishDate;
-    const originalDuration = task.duration;
-
-    // Build a map of all tasks by name for dependency lookup
-    const taskMap = new Map();
-    for (let i = 0; i < lines.length; i++) {
-        const t = parseTaskLine(lines[i], i + 1);
-        if (t.name) {
-            taskMap.set(t.name, t);
+        if (!taskLine && taskLine !== '') {
+            console.error('No task line found at line number:', lineNumber);
+            return;
         }
+
+        // Parse task details from line
+        const task = parseTaskLine(taskLine, lineNumber);
+
+        // Track which fields were in the original task (user set)
+        const originalStartDate = task.startDate;
+        const originalFinishDate = task.finishDate;
+        const originalDuration = task.duration;
+
+        // Build a map of all tasks by name for dependency lookup
+        const taskMap = new Map();
+        for (let i = 0; i < lines.length; i++) {
+            const t = parseTaskLine(lines[i], i + 1);
+            if (t.name) {
+                taskMap.set(t.name, t);
+            }
+        }
+
+        // Calculate dates for this task (will recursively calculate dependencies)
+        calculateTaskDates(task, taskMap, lines);
+
+        // Mark which fields are user-set vs auto-calculated
+        userSetStartDate = !!originalStartDate;
+        userSetFinishDate = !!originalFinishDate;
+        userSetDuration = !!originalDuration;
+
+        // Populate form
+        document.getElementById('taskName').value = task.name || '';
+        document.getElementById('taskFormTitle').textContent = task.name || 'Task Name';
+
+        const durationField = document.getElementById('taskDuration');
+        durationField.value = task.duration || '1';
+
+        const startDateField = document.getElementById('taskStartDate');
+        const finishDateField = document.getElementById('taskFinishDate');
+
+        startDateField.value = task.startDate || '';
+        finishDateField.value = task.finishDate || '';
+
+        // Style auto-calculated fields as italic
+        startDateField.style.fontStyle = userSetStartDate ? 'normal' : 'italic';
+        finishDateField.style.fontStyle = userSetFinishDate ? 'normal' : 'italic';
+        durationField.style.fontStyle = userSetDuration ? 'normal' : 'italic';
+
+        document.getElementById('taskPercent').value = task.percent || '';
+        document.getElementById('taskResources').value = task.resources || '';
+        document.getElementById('taskComment').value = task.comment || '';
+        populateDependenciesTable(task.dependencies || '');
+
+        // Populate labels field if it exists
+        const labelsInput = document.getElementById('taskLabels');
+        if (labelsInput) {
+            labelsInput.value = task.labels || '';
+        }
+
+        currentTaskLineNumber = lineNumber;
+        updateRagDisplay();
+        updateProgressBar();
+
+        // Populate subtasks
+        populateSubtasks(lineNumber, lines);
+
+        openDetailPane('taskFormSection');
+    } catch (error) {
+        console.error('Error opening task form for line', lineNumber, ':', error);
+        // Still try to open the pane even if there was an error populating some fields
+        openDetailPane('taskFormSection');
     }
-
-    // Calculate dates for this task (will recursively calculate dependencies)
-    calculateTaskDates(task, taskMap, lines);
-
-    // Mark which fields are user-set vs auto-calculated
-    userSetStartDate = !!originalStartDate;
-    userSetFinishDate = !!originalFinishDate;
-    userSetDuration = !!originalDuration;
-
-    // Populate form
-    document.getElementById('taskName').value = task.name || '';
-    document.getElementById('taskFormTitle').textContent = task.name || 'Task Name';
-
-    const durationField = document.getElementById('taskDuration');
-    durationField.value = task.duration || '1';
-
-    const startDateField = document.getElementById('taskStartDate');
-    const finishDateField = document.getElementById('taskFinishDate');
-
-    startDateField.value = task.startDate || '';
-    finishDateField.value = task.finishDate || '';
-
-    // Style auto-calculated fields as italic
-    startDateField.style.fontStyle = userSetStartDate ? 'normal' : 'italic';
-    finishDateField.style.fontStyle = userSetFinishDate ? 'normal' : 'italic';
-    durationField.style.fontStyle = userSetDuration ? 'normal' : 'italic';
-
-    document.getElementById('taskPercent').value = task.percent || '';
-    document.getElementById('taskResources').value = task.resources || '';
-    document.getElementById('taskComment').value = task.comment || '';
-    populateDependenciesTable(task.dependencies || '');
-
-    // Populate labels field if it exists
-    const labelsInput = document.getElementById('taskLabels');
-    if (labelsInput) {
-        labelsInput.value = task.labels || '';
-    }
-
-    currentTaskLineNumber = lineNumber;
-    updateRagDisplay();
-    updateProgressBar();
-
-    // Populate subtasks
-    populateSubtasks(lineNumber, lines);
-
-    openDetailPane('taskFormSection');
 }
 
 function openMilestoneTaskForm(taskName) {

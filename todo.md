@@ -737,6 +737,27 @@
 - Changed from `/\s+\d+[dwmy]\s+/` to `/\b\d+[dwmy]\b/` for proper word boundary matching
 - Duration now updates correctly when dragging Gantt bar ends to adjust start/finish dates
 
+### Dependency Bug Fixes (GitHub Issue #160) - ✅ COMPLETED
+- [x] Bug 1: Cannot double-click a task with [depends taskname] to open the task details form
+  - Added try-catch error handling to openTaskForm() to prevent silent failures
+  - Added early return for invalid line numbers
+- [x] Bug 2: Cannot open task details from kanban view for tasks with dependencies
+  - Same fix as Bug 1 (kanban delegates to openTaskForm)
+- [x] Bug 3: Invalid dependency should show red underline in the code editor
+  - Added dependency validation in syntax highlighting (highlightSyntax function)
+  - Lightweight task name extraction builds set of valid names
+  - Invalid dependency names highlighted with red wavy underline (syntax-error class)
+- [x] Fixed calculateTaskDates to strip lag/lead from dependency names before lookup
+  - Dependencies like "TaskA +2d" now correctly resolve to "TaskA" in the task map
+- [x] Fixed circular dependency protection in calculateTaskDates
+  - Added visited set to prevent infinite recursion
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/static/script.js`
+- `packages/noodle-web/src/noodle_web/static/style.css`
+
+**Status:** Complete! Tasks with dependencies can now be opened from both editor and kanban, and invalid dependencies show red underlines.
+
 ## Pending 📋
 
 ### Test Execution
