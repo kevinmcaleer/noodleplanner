@@ -2600,8 +2600,7 @@ function renderDayHeaders(container) {
         const dayDiv = document.createElement('div');
         dayDiv.className = 'gantt-month';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
-        const dayAbbr = currentDate.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
-        dayDiv.textContent = dayAbbr + ' ' + currentDate.getDate();
+        dayDiv.textContent = currentDate.getDate();
         dayDiv.title = currentDate.toLocaleDateString();
 
         // Highlight current date with light green background
