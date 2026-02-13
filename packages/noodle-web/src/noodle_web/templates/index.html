@@ -25,7 +25,7 @@
                 <button class="tab" onclick="switchTab('raid')">RAID Log</button>
                 <div class="nav-export-dropdown">
                     <button class="export-btn" onclick="toggleExportMenu(event)">
-                        Export ▾
+                        Import/Export ▾
                     </button>
                     <div class="export-menu" id="exportMenu">
                         <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
@@ -39,6 +39,19 @@
                         </div>
                         <div class="export-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
                             📄 Export to PDF
+                        </div>
+                        <div class="export-menu-divider raid-export-item" style="display:none;"></div>
+                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
+                            ⬇ Download RAID Markdown
+                        </div>
+                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
+                            ⬆ Upload RAID Markdown
+                        </div>
+                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
+                            📊 Export RAID to Excel
+                        </div>
+                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
+                            📊 Upload RAID Excel
                         </div>
                     </div>
                 </div>
@@ -535,21 +548,7 @@ Build
                         <button class="btn-primary" onclick="addRaidItem()">
                             + Add Item
                         </button>
-                        <div class="raid-toolbar-separator"></div>
-                        <button class="btn-secondary" onclick="downloadRaidMarkdown()">
-                            ⬇ Download Markdown
-                        </button>
-                        <button class="btn-secondary" onclick="document.getElementById('raidMdUpload').click()">
-                            ⬆ Upload Markdown
-                        </button>
                         <input type="file" id="raidMdUpload" accept=".md" style="display:none;" onchange="uploadRaidMarkdown(event)">
-                        <div class="raid-toolbar-separator"></div>
-                        <button class="btn-secondary" onclick="exportRaidExcel()">
-                            📊 Export Excel
-                        </button>
-                        <button class="btn-secondary" onclick="document.getElementById('raidXlUpload').click()">
-                            📊 Upload Excel
-                        </button>
                         <input type="file" id="raidXlUpload" accept=".xlsx" style="display:none;" onchange="uploadRaidExcel(event)">
                         <div class="raid-toolbar-separator"></div>
                         <div class="raid-filter-group">
@@ -600,6 +599,25 @@ Build
                             <h3>RAID Log</h3>
                             <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
                             <p>Click <strong>"+ Add Item"</strong> to get started, or upload an existing RAID log.</p>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible RAID Markdown Editor -->
+                    <div class="raid-editor-section" id="raidEditorSection">
+                        <div class="raid-editor-header" onclick="toggleRaidEditor()">
+                            <span class="raid-editor-toggle" id="raidEditorToggle">▶</span>
+                            <span class="raid-editor-title">RAID Markdown</span>
+                            <div class="raid-editor-actions" id="raidEditorActions" style="display:none;">
+                                <button class="toolbar-btn" onclick="event.stopPropagation(); uploadRaidMarkdownFromEditor()" title="Upload Markdown">
+                                    📁
+                                </button>
+                                <button class="toolbar-btn" onclick="event.stopPropagation(); downloadRaidMarkdown()" title="Download as Markdown">
+                                    💾
+                                </button>
+                            </div>
+                        </div>
+                        <div class="raid-editor-body collapsed" id="raidEditorBody">
+                            <textarea id="raidMarkdownEditor" class="raid-markdown-textarea" placeholder="RAID markdown will appear here..."></textarea>
                         </div>
                     </div>
                 </div>

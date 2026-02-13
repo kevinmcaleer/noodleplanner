@@ -3509,6 +3509,89 @@ input[type="checkbox"] {
         max-width: 150px;
     }
 
+/* RAID Markdown Editor */
+.raid-editor-section {
+    margin-top: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.raid-editor-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+    user-select: none;
+}
+
+.raid-editor-toggle {
+    font-size: 0.75em;
+    margin-right: 8px;
+    color: #6c757d;
+}
+
+.raid-editor-title {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #495057;
+    flex: 1;
+}
+
+.raid-editor-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.raid-editor-actions .toolbar-btn {
+    padding: 2px 6px;
+    font-size: 0.9em;
+    background: transparent;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.raid-editor-actions .toolbar-btn:hover {
+    background: #e9ecef;
+}
+
+.raid-editor-body {
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    max-height: 400px;
+    opacity: 1;
+    overflow: hidden;
+}
+
+.raid-editor-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    border-bottom: none;
+}
+
+.raid-markdown-textarea {
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+    padding: 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.85em;
+    border: none;
+    outline: none;
+    resize: vertical;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    box-sizing: border-box;
+}
+
+.export-menu-divider {
+    height: 1px;
+    background: #dee2e6;
+    margin: 4px 0;
+}
+
 /* Excel Import Wizard */
 .wizard-steps {
     display: flex;
