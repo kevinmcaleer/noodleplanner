@@ -2785,6 +2785,16 @@ function renderGanttHeaders() {
 
     ganttHeader.innerHTML = '';
 
+    // Set header min-width to match the total date range width
+    // This prevents flex children from shrinking and misaligning with the body
+    const minDate = new Date(ganttMinDate);
+    const maxDate = new Date(ganttMaxDate);
+    minDate.setHours(0, 0, 0, 0);
+    maxDate.setHours(0, 0, 0, 0);
+    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+    const totalWidth = totalDays * ganttPixelsPerDay;
+    ganttHeader.style.minWidth = totalWidth + 'px';
+
     switch (ganttScale) {
         case 'days':
             renderDayHeaders(ganttHeader);
