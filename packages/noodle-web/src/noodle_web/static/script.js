@@ -2668,6 +2668,7 @@ let ganttScale = 'days';
 let ganttMinDate = null;
 let ganttMaxDate = null;
 let ganttPixelsPerDay = 30;
+let collapsedSummaryTasks = new Set();
 
 // Helper function to parse date strings consistently as local dates
 // This avoids timezone issues where YYYY-MM-DD is parsed as UTC
@@ -2988,12 +2989,32 @@ function renderGanttRows() {
         renderWeekendHighlights(ganttBody);
     }
 
+    // Build a set of task indices that should be hidden due to collapsed parents
+    const hiddenIndices = new Set();
+    for (let i = 0; i < ganttTasks.length; i++) {
+        const task = ganttTasks[i];
+        if (task.is_summary && collapsedSummaryTasks.has(task.id)) {
+            // Hide all descendants: tasks after this one with a higher level,
+            // until we hit a task at the same or lower level
+            for (let j = i + 1; j < ganttTasks.length; j++) {
+                if (ganttTasks[j].level <= task.level) break;
+                hiddenIndices.add(j);
+            }
+        }
+    }
+
     ganttTasks.forEach((task, index) => {
+        // Skip hidden tasks (children of collapsed summary tasks)
+        const isHidden = hiddenIndices.has(index);
+
         // Info row
         const infoRow = document.createElement('tr');
         infoRow.dataset.taskIndex = index;
         if (task.is_summary) {
             infoRow.classList.add('gantt-phase-row');
+        }
+        if (isHidden) {
+            infoRow.style.display = 'none';
         }
 
         // ID cell (not editable)
@@ -3006,9 +3027,36 @@ function renderGanttRows() {
         nameCell.classList.add('editable');
         nameCell.dataset.field = 'name';
         const indent = '  '.repeat(task.level);
-        nameCell.textContent = indent + task.name;
-        nameCell.style.fontFamily = "'Courier New', monospace";
-        nameCell.style.whiteSpace = 'pre';
+
+        // Add disclosure triangle for summary tasks
+        if (task.is_summary) {
+            const triangle = document.createElement('span');
+            triangle.className = 'gantt-disclosure-triangle';
+            const isCollapsed = collapsedSummaryTasks.has(task.id);
+            triangle.textContent = isCollapsed ? '\u25B6' : '\u25BC';
+            if (isCollapsed) {
+                triangle.classList.add('collapsed');
+            }
+            triangle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (collapsedSummaryTasks.has(task.id)) {
+                    collapsedSummaryTasks.delete(task.id);
+                } else {
+                    collapsedSummaryTasks.add(task.id);
+                }
+                renderGanttRows();
+            });
+            nameCell.style.fontFamily = "'Courier New', monospace";
+            nameCell.style.whiteSpace = 'pre';
+            nameCell.appendChild(document.createTextNode(indent));
+            nameCell.appendChild(triangle);
+            nameCell.appendChild(document.createTextNode(' ' + task.name));
+        } else {
+            nameCell.textContent = indent + task.name;
+            nameCell.style.fontFamily = "'Courier New', monospace";
+            nameCell.style.whiteSpace = 'pre';
+        }
+
         nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
         infoRow.appendChild(nameCell);
 
@@ -3080,6 +3128,9 @@ function renderGanttRows() {
         barRow.className = 'gantt-bar-row';
         barRow.style.minWidth = totalWidth + 'px';
         barRow.dataset.taskIndex = index;
+        if (isHidden) {
+            barRow.style.display = 'none';
+        }
 
         if (task.start && task.finish) {
             // Parse dates consistently as local dates to avoid timezone issues
@@ -3306,14 +3357,18 @@ function makeEditable(cell, task, taskIndex) {
 
                 // Update cell display
                 if (field === 'name') {
-                    const indent = '  '.repeat(task.level);
-                    cell.textContent = indent + newValue;
+                    renderGanttRows();
+                    return;
                 } else {
                     cell.textContent = newValue || '-';
                 }
             }
         } else {
             // No change - restore original content
+            if (task.is_summary && field === 'name') {
+                renderGanttRows();
+                return;
+            }
             cell.textContent = originalContent;
         }
     };
@@ -3324,6 +3379,10 @@ function makeEditable(cell, task, taskIndex) {
             saveEdit();
         } else if (e.key === 'Escape') {
             cell.classList.remove('editing');
+            if (task.is_summary && field === 'name') {
+                renderGanttRows();
+                return;
+            }
             cell.textContent = originalContent;
         }
     });
