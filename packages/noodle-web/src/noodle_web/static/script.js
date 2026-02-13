@@ -2011,6 +2011,15 @@ function renderGanttChart() {
             break;
     }
 
+    // Restore saved splitter position
+    const savedWidth = localStorage.getItem('ganttTableWidth');
+    if (savedWidth) {
+        const tableSide = document.querySelector('.gantt-table-side');
+        if (tableSide) {
+            tableSide.style.width = savedWidth + 'px';
+        }
+    }
+
     // Render headers based on scale
     renderGanttHeaders();
 
@@ -2024,26 +2033,23 @@ function renderGanttChart() {
 }
 
 function scrollGanttToToday() {
-    // Find the gantt wrapper and the today column
-    const ganttWrapper = document.querySelector('.gantt-wrapper');
+    // Scroll the chart side to show today's date
+    const chartSide = document.querySelector('.gantt-chart-side');
     const todayColumn = document.querySelector('.gantt-today');
 
-    if (!ganttWrapper || !todayColumn) {
+    if (!chartSide || !todayColumn) {
         return;
     }
 
-    // Calculate the scroll position to align today's date with the left side of task columns
+    // Calculate the scroll position to show today's date
     // Get the offset of the today column relative to its parent
     const todayOffset = todayColumn.offsetLeft;
 
-    // Get the width of the task name column (gantt-table-side)
-    const taskColumnWidth = document.querySelector('.gantt-table-side')?.offsetWidth || 0;
-
-    // Scroll so that today's column appears right after the task column
+    // Scroll so that today's column appears near the left edge
     // Subtract a bit to give some context (show a day or two before)
-    const scrollPosition = todayOffset - taskColumnWidth - (ganttPixelsPerDay * 2);
+    const scrollPosition = todayOffset - (ganttPixelsPerDay * 2);
 
-    ganttWrapper.scrollLeft = Math.max(0, scrollPosition);
+    chartSide.scrollLeft = Math.max(0, scrollPosition);
 }
 
 function renderGanttHeaders() {
@@ -5210,9 +5216,114 @@ function initResizer() {
     });
 }
 
+// Gantt splitter functionality
+let isGanttResizing = false;
+let ganttStartX = 0;
+let ganttStartWidth = 0;
+
+function initGanttSplitter() {
+    const splitter = document.getElementById('ganttSplitter');
+    const tableSide = document.querySelector('.gantt-table-side');
+    const chartSide = document.querySelector('.gantt-chart-side');
+
+    if (!splitter || !tableSide || !chartSide) return;
+
+    // Restore saved width
+    const savedWidth = localStorage.getItem('ganttTableWidth');
+    if (savedWidth) {
+        tableSide.style.width = savedWidth + 'px';
+    }
+
+    // Mouse events
+    splitter.addEventListener('mousedown', function(e) {
+        isGanttResizing = true;
+        ganttStartX = e.clientX;
+        ganttStartWidth = tableSide.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!isGanttResizing) return;
+
+        const delta = e.clientX - ganttStartX;
+        const newWidth = ganttStartWidth + delta;
+        const wrapper = document.querySelector('.gantt-wrapper');
+        const minWidth = 150;
+        const maxWidth = wrapper.offsetWidth - 150 - 6;
+
+        if (newWidth >= minWidth && newWidth <= maxWidth) {
+            tableSide.style.width = newWidth + 'px';
+        }
+    });
+
+    document.addEventListener('mouseup', function() {
+        if (isGanttResizing) {
+            isGanttResizing = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            localStorage.setItem('ganttTableWidth', tableSide.offsetWidth);
+        }
+    });
+
+    // Touch events for mobile
+    splitter.addEventListener('touchstart', function(e) {
+        isGanttResizing = true;
+        ganttStartX = e.touches[0].clientX;
+        ganttStartWidth = tableSide.offsetWidth;
+        e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function(e) {
+        if (!isGanttResizing) return;
+
+        const delta = e.touches[0].clientX - ganttStartX;
+        const newWidth = ganttStartWidth + delta;
+        const wrapper = document.querySelector('.gantt-wrapper');
+        const minWidth = 150;
+        const maxWidth = wrapper.offsetWidth - 150 - 6;
+
+        if (newWidth >= minWidth && newWidth <= maxWidth) {
+            tableSide.style.width = newWidth + 'px';
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchend', function() {
+        if (isGanttResizing) {
+            isGanttResizing = false;
+            localStorage.setItem('ganttTableWidth', tableSide.offsetWidth);
+        }
+    });
+
+    // Synchronized vertical scrolling
+    setupGanttSyncScroll(tableSide, chartSide);
+}
+
+function setupGanttSyncScroll(tableSide, chartSide) {
+    let isSyncing = false;
+
+    tableSide.addEventListener('scroll', function() {
+        if (isSyncing) return;
+        isSyncing = true;
+        chartSide.scrollTop = tableSide.scrollTop;
+        isSyncing = false;
+    });
+
+    chartSide.addEventListener('scroll', function() {
+        if (isSyncing) return;
+        isSyncing = true;
+        tableSide.scrollTop = chartSide.scrollTop;
+        isSyncing = false;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize resizer
     initResizer();
+
+    // Initialize gantt splitter
+    initGanttSplitter();
 
     // Close detail pane when clicking the overlay backdrop
     const detailOverlay = document.getElementById('detailPaneOverlay');
