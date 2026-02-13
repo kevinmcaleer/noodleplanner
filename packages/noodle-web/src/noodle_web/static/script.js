@@ -1334,7 +1334,7 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
     svgContainer.className = 'detailed-timeline-container';
     svgContainer.style.width = timelineWidth + 'px';
     svgContainer.style.height = phaseAreaHeight + 'px';
-    svgContainer.style.marginBottom = '12px';
+    svgContainer.style.margin = '0 auto 12px auto';
 
     const svgNS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(svgNS, 'svg');
@@ -1707,8 +1707,9 @@ function updateTimeline(tasks, projectName) {
             oldScale.remove();
         }
 
-        // Set timeline line width
+        // Set timeline line and milestones container width (both must match for alignment)
         timelineLine.style.width = timelineWidth + 'px';
+        timelineMilestones.style.width = timelineWidth + 'px';
 
         // Calculate overall project completion percentage
         let totalTasks = 0;
@@ -1853,7 +1854,7 @@ function updateTimeline(tasks, projectName) {
             if (placeBelow) {
                 // Position label below the timeline line
                 label.style.bottom = 'auto';
-                label.style.top = (55 + labelOffset) + 'px';
+                label.style.top = (75 + labelOffset) + 'px';
             } else if (labelOffset !== 0) {
                 // Apply vertical offset for labels above the line
                 label.style.bottom = (20 - labelOffset) + 'px';
