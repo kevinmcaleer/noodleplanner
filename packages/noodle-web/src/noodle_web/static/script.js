@@ -1303,6 +1303,198 @@ function updateTimesheet(tasks, frontMatter = {}) {
 // Store tasks and project name for timeline re-rendering
 let timelineTasks = [];
 let timelineProjectName = '';
+let detailedTimelineEnabled = false;
+
+function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays, timelineWidth) {
+    // Remove existing detailed timeline if present
+    const existing = container.querySelector('.detailed-timeline-container');
+    if (existing) {
+        existing.remove();
+    }
+
+    const isDetailedOn = document.getElementById('detailedTimelineToggle')?.checked ?? false;
+    if (!isDetailedOn) return;
+
+    // Get phase (summary) tasks with valid start and finish dates
+    const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
+    if (phases.length === 0) return;
+
+    // Assign rows using overlap detection
+    const rows = assignPhaseRows(phases, minDate, totalDays, timelineWidth);
+    const numRows = Math.max(...rows.map(r => r.row)) + 1;
+
+    // Calculate row height: total phase area height <= 20% of timeline width
+    const maxPhaseAreaHeight = timelineWidth * 0.20;
+    const rowHeight = Math.min(40, Math.max(16, Math.floor(maxPhaseAreaHeight / numRows)));
+    const phaseAreaHeight = rowHeight * numRows;
+    const padding = 4;
+
+    // Create SVG container for phase blocks
+    const svgContainer = document.createElement('div');
+    svgContainer.className = 'detailed-timeline-container';
+    svgContainer.style.width = timelineWidth + 'px';
+    svgContainer.style.height = phaseAreaHeight + 'px';
+    svgContainer.style.marginBottom = '12px';
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', timelineWidth);
+    svg.setAttribute('height', phaseAreaHeight);
+    svg.setAttribute('class', 'detailed-timeline-svg');
+
+    // Define blue shades from darker to lighter (for incomplete phases)
+    const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6', '#90caf9'];
+    const greenComplete = '#4caf50';
+
+    rows.forEach((phaseInfo, index) => {
+        const phase = phaseInfo.phase;
+        const row = phaseInfo.row;
+        const percent = parseFloat(phase.percent) || 0;
+        const isComplete = percent >= 100;
+
+        const phaseStart = new Date(phase.start);
+        const phaseEnd = new Date(phase.finish);
+        const startDays = Math.floor((phaseStart - minDate) / (1000 * 60 * 60 * 24));
+        const endDays = Math.floor((phaseEnd - minDate) / (1000 * 60 * 60 * 24));
+
+        const x = Math.max(0, (startDays / totalDays) * timelineWidth);
+        const xEnd = Math.min(timelineWidth, (endDays / totalDays) * timelineWidth);
+        const width = Math.max(2, xEnd - x);
+        const y = row * rowHeight;
+        const blockHeight = rowHeight - padding;
+
+        // Background colour for the phase block
+        let bgColor;
+        if (isComplete) {
+            bgColor = greenComplete;
+        } else {
+            // Assign blue shade based on index (cycling through shades)
+            bgColor = blueShades[index % blueShades.length];
+        }
+
+        // Draw the full phase block (background)
+        const bgRect = document.createElementNS(svgNS, 'rect');
+        bgRect.setAttribute('x', x);
+        bgRect.setAttribute('y', y);
+        bgRect.setAttribute('width', width);
+        bgRect.setAttribute('height', blockHeight);
+        bgRect.setAttribute('rx', 3);
+        bgRect.setAttribute('ry', 3);
+        bgRect.setAttribute('fill', bgColor);
+        bgRect.setAttribute('opacity', '0.7');
+        svg.appendChild(bgRect);
+
+        // Draw the percent complete overlay (darker shade on the left portion)
+        if (percent > 0 && percent < 100) {
+            const progressWidth = (percent / 100) * width;
+            const darkerColor = darkenColor(bgColor, 0.35);
+            const progressRect = document.createElementNS(svgNS, 'rect');
+            progressRect.setAttribute('x', x);
+            progressRect.setAttribute('y', y);
+            progressRect.setAttribute('width', progressWidth);
+            progressRect.setAttribute('height', blockHeight);
+            progressRect.setAttribute('rx', 3);
+            progressRect.setAttribute('ry', 3);
+            progressRect.setAttribute('fill', darkerColor);
+            progressRect.setAttribute('opacity', '0.9');
+            svg.appendChild(progressRect);
+        }
+
+        // For completed phases, use a darker green for the full block
+        if (isComplete) {
+            bgRect.setAttribute('fill', greenComplete);
+            bgRect.setAttribute('opacity', '0.9');
+        }
+
+        // Add phase title text (clipped to block width)
+        const fontSize = Math.min(12, Math.max(9, blockHeight - 6));
+        const clipId = 'phase-clip-' + index;
+        const clipPath = document.createElementNS(svgNS, 'clipPath');
+        clipPath.setAttribute('id', clipId);
+        const clipRect = document.createElementNS(svgNS, 'rect');
+        clipRect.setAttribute('x', x + 4);
+        clipRect.setAttribute('y', y);
+        clipRect.setAttribute('width', Math.max(0, width - 8));
+        clipRect.setAttribute('height', blockHeight);
+        clipPath.appendChild(clipRect);
+        svg.appendChild(clipPath);
+
+        const text = document.createElementNS(svgNS, 'text');
+        text.setAttribute('x', x + 6);
+        text.setAttribute('y', y + blockHeight / 2);
+        text.setAttribute('dominant-baseline', 'central');
+        text.setAttribute('font-size', fontSize + 'px');
+        text.setAttribute('fill', '#ffffff');
+        text.setAttribute('font-weight', '600');
+        text.setAttribute('clip-path', 'url(#' + clipId + ')');
+        text.textContent = phase.name;
+        svg.appendChild(text);
+
+        // Add tooltip
+        const title = document.createElementNS(svgNS, 'title');
+        title.textContent = phase.name + ' (' + percent + '% complete)';
+        bgRect.appendChild(title);
+    });
+
+    svgContainer.appendChild(svg);
+
+    // Insert the SVG container before the timeline line
+    const timelineLine = container.querySelector('#timelineLine');
+    if (timelineLine) {
+        container.insertBefore(svgContainer, timelineLine);
+    } else {
+        container.appendChild(svgContainer);
+    }
+}
+
+function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
+    // Sort phases by start date
+    const sorted = phases.map(phase => {
+        const start = new Date(phase.start);
+        const end = new Date(phase.finish);
+        const startPos = (Math.floor((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays) * timelineWidth;
+        const endPos = (Math.floor((end - minDate) / (1000 * 60 * 60 * 24)) / totalDays) * timelineWidth;
+        return { phase, startPos, endPos };
+    }).sort((a, b) => a.startPos - b.startPos);
+
+    // Greedy row assignment: place each phase in the first row where it does not overlap
+    const rowEnds = []; // Tracks the rightmost end position in each row
+    const result = [];
+
+    sorted.forEach(item => {
+        let assignedRow = -1;
+        for (let r = 0; r < rowEnds.length; r++) {
+            if (item.startPos >= rowEnds[r]) {
+                assignedRow = r;
+                break;
+            }
+        }
+        if (assignedRow === -1) {
+            assignedRow = rowEnds.length;
+            rowEnds.push(0);
+        }
+        rowEnds[assignedRow] = item.endPos;
+        result.push({ phase: item.phase, row: assignedRow });
+    });
+
+    return result;
+}
+
+function darkenColor(hex, amount) {
+    // Darken a hex colour by the given amount (0 to 1)
+    hex = hex.replace('#', '');
+    const r = Math.max(0, Math.floor(parseInt(hex.substring(0, 2), 16) * (1 - amount)));
+    const g = Math.max(0, Math.floor(parseInt(hex.substring(2, 4), 16) * (1 - amount)));
+    const b = Math.max(0, Math.floor(parseInt(hex.substring(4, 6), 16) * (1 - amount)));
+    return '#' + r.toString(16).padStart(2, '0') + g.toString(16).padStart(2, '0') + b.toString(16).padStart(2, '0');
+}
+
+function toggleDetailedTimeline() {
+    detailedTimelineEnabled = document.getElementById('detailedTimelineToggle')?.checked ?? false;
+    if (timelineTasks && timelineTasks.length > 0) {
+        updateTimeline(timelineTasks, timelineProjectName);
+    }
+}
 
 function addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth) {
     // Determine appropriate scale based on timeline duration
@@ -1445,6 +1637,7 @@ function updateTimeline(tasks, projectName) {
 
         // Get milestones based on toggle setting
         const showPhases = document.getElementById('showPhasesToggle')?.checked ?? false;
+        const isDetailed = document.getElementById('detailedTimelineToggle')?.checked ?? false;
         const milestones = tasks.filter(t => {
             if (!t.finish) return false;
             // Always include 0-duration milestones
@@ -1453,12 +1646,20 @@ function updateTimeline(tasks, projectName) {
             if (t.is_summary && showPhases) return true;
             return false;
         });
-        if (milestones.length === 0) {
+
+        // When detailed mode is on, also collect phases for date range calculation
+        const detailedPhases = isDetailed ? tasks.filter(t => t.is_summary && t.start && t.finish) : [];
+
+        if (milestones.length === 0 && detailedPhases.length === 0) {
             return;
         }
 
-        // Find min and max dates
+        // Find min and max dates (include phase start/finish when detailed view is on)
         const allDates = milestones.map(t => new Date(t.finish));
+        detailedPhases.forEach(p => {
+            allDates.push(new Date(p.start));
+            allDates.push(new Date(p.finish));
+        });
         const minDate = new Date(Math.min(...allDates));
         const maxDate = new Date(Math.max(...allDates));
 
@@ -1549,6 +1750,11 @@ function updateTimeline(tasks, projectName) {
 
         // Add date scale markers below the timeline
         addTimelineDateScale(timelineLine, minDate, maxDate, totalDays, timelineWidth);
+
+        // Render detailed phase blocks above the timeline line (if enabled)
+        if (timelineWrapper) {
+            renderDetailedPhaseBlocks(timelineWrapper, tasks, minDate, maxDate, totalDays, timelineWidth);
+        }
 
         // Track milestone positions for overlap prevention
         const positions = [];

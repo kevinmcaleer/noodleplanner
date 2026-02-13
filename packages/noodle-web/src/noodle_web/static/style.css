@@ -906,6 +906,16 @@ h1 {
     color: #666;
 }
 
+/* Detailed Timeline Phase Blocks */
+.detailed-timeline-container {
+    position: relative;
+    margin: 0 auto;
+}
+
+.detailed-timeline-svg {
+    display: block;
+}
+
 /* Gantt Chart Styling */
 .gantt-content {
     padding: 20px;
