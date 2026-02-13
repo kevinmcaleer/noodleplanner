@@ -1121,6 +1121,19 @@ h1 {
     cursor: default;
 }
 
+.minimal-timeline-mode .timeline-line {
+    height: 2px;
+    background: #ccc;
+}
+
+.minimal-timeline-mode .timeline-line::before,
+.minimal-timeline-mode .timeline-line::after {
+    width: 6px;
+    height: 6px;
+    background: #ccc;
+    top: -2px;
+}
+
 .minimal-date-scale {
     position: relative;
     height: 18px;

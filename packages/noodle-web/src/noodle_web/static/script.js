@@ -2024,8 +2024,10 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
         }
     }
 
-    // Hide the main timeline line in minimal mode (we use the phase bars instead)
-    timelineLine.style.display = 'none';
+    // Show the main timeline line as a thin backbone in minimal mode
+    timelineLine.style.display = '';
+    timelineLine.style.height = '2px';
+    timelineLine.style.background = '#ccc';
 
     // Add minimal milestone markers (small dots, no labels)
     milestones.forEach((task) => {
@@ -2134,14 +2136,56 @@ function addMinimalDateScale(container, minDate, maxDate, totalDays, timelineWid
         }
     }
 
-    // Add start and end date labels
+    // Estimate label width in pixels (~6px per character at 0.65em font)
+    const charWidth = 6;
+    const labelPadding = 8; // minimum gap between labels
+
+    const startText = minDate.toISOString().split('T')[0];
+    const endText = maxDate.toISOString().split('T')[0];
+
+    // Start label occupies [0, startLabelWidth + padding] (left-aligned)
+    const startLabelWidth = startText.length * charWidth;
+    const startLabelEnd = startLabelWidth + labelPadding;
+
+    // End label occupies [timelineWidth - endLabelWidth - padding, timelineWidth] (right-aligned)
+    const endLabelWidth = endText.length * charWidth;
+    const endLabelStart = timelineWidth - endLabelWidth - labelPadding;
+
+    // Filter intermediate markers that would overlap with start/end labels or each other
+    // Intermediate labels are center-aligned (transform: translateX(-50%))
+    const placedIntervals = [];
+
+    const filteredMarkers = markers.filter(marker => {
+        const halfWidth = (marker.label.length * charWidth) / 2;
+        const markerLeft = marker.position - halfWidth;
+        const markerRight = marker.position + halfWidth;
+
+        // Check overlap with start label
+        if (markerLeft < startLabelEnd) return false;
+
+        // Check overlap with end label
+        if (markerRight > endLabelStart) return false;
+
+        // Check overlap with previously placed intermediate markers
+        for (const interval of placedIntervals) {
+            if (markerLeft < interval.right + labelPadding && markerRight > interval.left - labelPadding) {
+                return false;
+            }
+        }
+
+        placedIntervals.push({ left: markerLeft, right: markerRight });
+        return true;
+    });
+
+    // Add start date label (left-aligned)
     const startLabel = document.createElement('span');
     startLabel.className = 'minimal-date-label';
     startLabel.style.left = '0';
-    startLabel.textContent = minDate.toISOString().split('T')[0];
+    startLabel.textContent = startText;
     scaleDiv.appendChild(startLabel);
 
-    markers.forEach(marker => {
+    // Add filtered intermediate markers
+    filteredMarkers.forEach(marker => {
         const markerSpan = document.createElement('span');
         markerSpan.className = 'minimal-date-label minimal-date-tick';
         markerSpan.style.left = marker.position + 'px';
@@ -2149,11 +2193,12 @@ function addMinimalDateScale(container, minDate, maxDate, totalDays, timelineWid
         scaleDiv.appendChild(markerSpan);
     });
 
+    // Add end date label (right-aligned)
     const endLabel = document.createElement('span');
     endLabel.className = 'minimal-date-label';
     endLabel.style.right = '0';
     endLabel.style.left = 'auto';
-    endLabel.textContent = maxDate.toISOString().split('T')[0];
+    endLabel.textContent = endText;
     scaleDiv.appendChild(endLabel);
 
     // Insert after the milestones container
@@ -2330,7 +2375,11 @@ function updateTimeline(tasks, projectName) {
         if (!isMinimal && timelineWrapper) {
             timelineWrapper.classList.remove('minimal-timeline-mode');
             const timelineLineEl = document.getElementById('timelineLine');
-            if (timelineLineEl) timelineLineEl.style.display = '';
+            if (timelineLineEl) {
+                timelineLineEl.style.display = '';
+                timelineLineEl.style.height = '';
+                timelineLineEl.style.background = '';
+            }
             const existingMinimal = timelineWrapper.querySelector('.minimal-timeline-container');
             if (existingMinimal) existingMinimal.remove();
             const existingMinimalScale = timelineWrapper.querySelector('.minimal-date-scale');
