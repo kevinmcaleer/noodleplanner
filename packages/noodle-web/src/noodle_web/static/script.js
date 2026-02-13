@@ -1405,6 +1405,14 @@ function updateTimeline(tasks, projectName) {
 
         // Calculate total timeline width - scale to available screen width
         const timelineWrapper = document.querySelector('.timeline-line-wrapper');
+
+        // Skip rendering if the container is hidden (e.g. tab not visible).
+        // The timeline will be re-rendered when the tab becomes visible
+        // via switchOutputTab().
+        if (timelineWrapper && timelineWrapper.offsetWidth === 0) {
+            return;
+        }
+
         const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200; // Subtract padding
         const timelineWidth = Math.max(800, availableWidth); // Minimum 800px
 
@@ -4925,6 +4933,15 @@ function switchOutputTab(tabName) {
     if (activeTab) {
         activeTab.classList.add('active');
     }
+
+    // If switching to timeline view, trigger a re-render after layout is ready
+    if (tabName === 'timeline' && timelineTasks.length > 0) {
+        // Use setTimeout to ensure the browser has fully laid out the
+        // newly-visible container before we measure its width
+        setTimeout(() => {
+            updateTimeline(timelineTasks, timelineProjectName);
+        }, 50);
+    }
 }
 
 // Resizer functionality
@@ -5726,13 +5743,13 @@ function toggleMainEditor() {
             arrow.textContent = '▶';
         }
 
-        // Re-render timeline after width change
+        // Re-render timeline and gantt after width change
         setTimeout(() => {
-            // Get current tasks from the last render
-            const timelineMilestones = document.getElementById('timelineMilestones');
-            if (timelineMilestones && timelineMilestones.children.length > 0) {
-                // Trigger a re-render by dispatching a custom event
-                window.dispatchEvent(new Event('timeline-resize'));
+            if (timelineTasks.length > 0) {
+                updateTimeline(timelineTasks, timelineProjectName);
+            }
+            if (ganttTasks && ganttTasks.length > 0) {
+                renderGanttChart();
             }
         }, 350); // Wait for collapse animation to complete
     }
@@ -6450,13 +6467,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         startTour();
     }, 1000);
-});
-
-// Listen for timeline resize events (triggered by editor collapse/expand)
-window.addEventListener('timeline-resize', function() {
-    if (timelineTasks.length > 0) {
-        updateTimeline(timelineTasks, timelineProjectName);
-    }
 });
 
 /**
