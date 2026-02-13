@@ -1314,6 +1314,20 @@ h1 {
     font-weight: 600;
 }
 
+.gantt-disclosure-triangle {
+    cursor: pointer;
+    display: inline-block;
+    font-size: 0.7em;
+    transition: transform 0.15s ease;
+    user-select: none;
+    width: 1em;
+    text-align: center;
+}
+
+.gantt-disclosure-triangle:hover {
+    color: #667eea;
+}
+
 .gantt-chart-side {
     flex: 1;
     overflow-x: auto;
