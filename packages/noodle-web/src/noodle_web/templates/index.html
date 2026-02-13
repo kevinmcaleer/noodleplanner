@@ -127,6 +127,7 @@ Press Enter to render..."></textarea>
                             <button class="output-tab" data-tab="resources" onclick="switchOutputTab('resources')">Resources</button>
                             <button class="output-tab" data-tab="timesheet" onclick="switchOutputTab('timesheet')">Timesheet</button>
                             <button class="output-tab" data-tab="analysis" onclick="switchOutputTab('analysis')">Analysis</button>
+                            <button class="output-tab" data-tab="highlights" onclick="switchOutputTab('highlights')">Highlights</button>
                         </div>
 
                         <!-- Project Report View (default) -->
@@ -435,6 +436,26 @@ Press Enter to render..."></textarea>
                                 <h2 class="analysis-title">Project Health Check & Analysis</h2>
                                 <div id="analysisInsights" class="analysis-insights">
                                     <!-- Insights will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Highlights View -->
+                        <div id="highlights-view" class="output-tab-content">
+                            <div class="highlights-placeholder placeholder-view">
+                                <h3>Project Highlights</h3>
+                                <p>Render your plan to add and view project highlights here.</p>
+                            </div>
+                            <div class="highlights-content" style="display: none;">
+                                <div class="highlights-toolbar">
+                                    <h2 class="highlights-title">Project Highlights</h2>
+                                    <button class="btn-primary" onclick="addHighlight()">+ Add Highlight</button>
+                                </div>
+                                <div class="highlights-list" id="highlightsList">
+                                    <!-- Highlights will be populated by JavaScript -->
+                                </div>
+                                <div class="highlights-empty-state" id="highlightsEmptyState">
+                                    <p>No highlights yet. Click <strong>"+ Add Highlight"</strong> to record project updates and commentary.</p>
                                 </div>
                             </div>
                         </div>
@@ -926,6 +947,43 @@ Build
                     <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
                         <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Highlight Form Section -->
+        <div id="highlightFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="highlightFormTitle">New Highlight</h2>
+                <button class="close-btn" onclick="closeHighlightForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="highlightItemIndex" value="">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="highlightDate">Date</label>
+                            <input type="date" id="highlightDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="highlightAuthor">Author</label>
+                            <select id="highlightAuthor" class="form-control">
+                                <option value="">-- Select --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="highlightContent">Content (Markdown)</label>
+                        <textarea id="highlightContent" class="form-control" placeholder="- Completed phase 1 ahead of schedule&#10;- **Key risk** mitigated with workaround" rows="8"></textarea>
+                        <small>Supports bullet lists, bold, italic, strikethrough, headings (h1-h3), horizontal rules, and numbered lists.</small>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                        <button type="button" class="btn-secondary" onclick="closeHighlightForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveHighlightFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
                 </form>
             </div>

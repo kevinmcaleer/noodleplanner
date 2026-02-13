@@ -132,13 +132,16 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         const allTaskNames = new Set();
         const allLines = text.split('\n');
         let inFrontMatter = false;
+        let inHighlights = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
             if (trimmed === '---') {
                 inFrontMatter = !inFrontMatter;
                 continue;
             }
-            if (inFrontMatter || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+            if (trimmed === '---highlights---') { inHighlights = true; continue; }
+            if (trimmed === '---end-highlights---') { inHighlights = false; continue; }
+            if (inFrontMatter || inHighlights || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
             let taskText = trimmed;
@@ -168,7 +171,22 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (name) allTaskNames.add(name);
         }
 
+        let inHighlightsSection = false;
         return allLines.map(line => {
+            // Track highlights section boundaries
+            if (line.trim() === '---highlights---') {
+                inHighlightsSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            if (line.trim() === '---end-highlights---') {
+                inHighlightsSection = false;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside highlights section
+            if (inHighlightsSection) {
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+
             // Skip empty lines and headers
             if (!line.trim() || line.includes('===') || line.includes('---')) {
                 return line;
@@ -834,6 +852,9 @@ async function updateProjectSummary(planText, projectName) {
 
         // Update Analysis (pass planText directly since front_matter might be an object)
         updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
+
+        // Update Highlights
+        updateHighlightsView(result.highlights || []);
 
         // Update editor with labels if backend found and added them
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
@@ -5624,6 +5645,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     switch (activeSection.id) {
                         case 'taskFormSection': closeTaskForm(); break;
                         case 'raidFormSection': closeRaidForm(); break;
+                        case 'highlightFormSection': closeHighlightForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
                         default: closeDetailPane();
@@ -5661,6 +5683,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     switch (activeSection.id) {
                         case 'taskFormSection': closeTaskForm(); break;
                         case 'raidFormSection': closeRaidForm(); break;
+                        case 'highlightFormSection': closeHighlightForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
                         default: closeDetailPane();
@@ -7805,3 +7828,337 @@ document.addEventListener('DOMContentLoaded', function() {
         raidEditor.addEventListener('input', onRaidMarkdownEdit);
     }
 });
+
+
+/**
+ * Highlights System
+ * Project highlights / reporting entries stored in the plan text.
+ */
+
+let highlightsData = [];
+
+/**
+ * Update the highlights view with data from the backend parse response.
+ */
+function updateHighlightsView(highlights) {
+    highlightsData = highlights || [];
+
+    // Show content, hide placeholder
+    const placeholder = document.querySelector('#highlights-view .highlights-placeholder');
+    const content = document.querySelector('#highlights-view .highlights-content');
+    if (placeholder && content) {
+        placeholder.style.display = 'none';
+        content.style.display = 'block';
+    }
+
+    renderHighlightsList();
+}
+
+/**
+ * Render the list of highlights (newest first).
+ */
+function renderHighlightsList() {
+    const list = document.getElementById('highlightsList');
+    const emptyState = document.getElementById('highlightsEmptyState');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    if (highlightsData.length === 0) {
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Show newest first
+    const sorted = [...highlightsData].reverse();
+    sorted.forEach((h, reverseIdx) => {
+        const originalIdx = highlightsData.length - 1 - reverseIdx;
+        const card = document.createElement('div');
+        card.className = 'highlight-card';
+        card.innerHTML = `
+            <div class="highlight-card-header">
+                <div class="highlight-meta">
+                    <span class="highlight-date">${escapeHtml(h.date)}</span>
+                    <span class="highlight-author">@${escapeHtml(h.author)}</span>
+                </div>
+                <div class="highlight-actions">
+                    <button class="highlight-action-btn" onclick="editHighlight(${originalIdx})" title="Edit">&#9998;</button>
+                    <button class="highlight-action-btn delete" onclick="deleteHighlight(${originalIdx})" title="Delete">&#128465;</button>
+                </div>
+            </div>
+            <div class="highlight-body">${renderSimpleMarkdown(h.content)}</div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+/**
+ * Simple markdown-to-HTML converter for highlight content.
+ * Supports: bold, italic, strikethrough, bullet lists, numbered lists,
+ * h1-h3 headings, and horizontal rules.
+ */
+function renderSimpleMarkdown(text) {
+    if (!text) return '';
+
+    const lines = text.split('\n');
+    let html = '';
+    let inUl = false;
+    let inOl = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        const trimmed = line.trim();
+
+        // Horizontal rule
+        if (/^---+$/.test(trimmed) || /^\*\*\*+$/.test(trimmed)) {
+            if (inUl) { html += '</ul>'; inUl = false; }
+            if (inOl) { html += '</ol>'; inOl = false; }
+            html += '<hr>';
+            continue;
+        }
+
+        // Headings
+        const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (headingMatch) {
+            if (inUl) { html += '</ul>'; inUl = false; }
+            if (inOl) { html += '</ol>'; inOl = false; }
+            const level = headingMatch[1].length;
+            html += `<h${level}>${inlineMarkdown(escapeHtml(headingMatch[2]))}</h${level}>`;
+            continue;
+        }
+
+        // Unordered list item
+        const ulMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+        if (ulMatch) {
+            if (inOl) { html += '</ol>'; inOl = false; }
+            if (!inUl) { html += '<ul>'; inUl = true; }
+            html += `<li>${inlineMarkdown(escapeHtml(ulMatch[1]))}</li>`;
+            continue;
+        }
+
+        // Ordered list item
+        const olMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
+        if (olMatch) {
+            if (inUl) { html += '</ul>'; inUl = false; }
+            if (!inOl) { html += '<ol>'; inOl = true; }
+            html += `<li>${inlineMarkdown(escapeHtml(olMatch[1]))}</li>`;
+            continue;
+        }
+
+        // Close open lists
+        if (inUl) { html += '</ul>'; inUl = false; }
+        if (inOl) { html += '</ol>'; inOl = false; }
+
+        // Blank line
+        if (!trimmed) {
+            continue;
+        }
+
+        // Paragraph
+        html += `<p>${inlineMarkdown(escapeHtml(trimmed))}</p>`;
+    }
+
+    if (inUl) html += '</ul>';
+    if (inOl) html += '</ol>';
+
+    return html;
+}
+
+/**
+ * Apply inline markdown formatting: bold, italic, strikethrough.
+ */
+function inlineMarkdown(text) {
+    // Bold: **text** or __text__
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    // Italic: *text* or _text_
+    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    text = text.replace(/_(.+?)_/g, '<em>$1</em>');
+    // Strikethrough: ~~text~~
+    text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+    return text;
+}
+
+/**
+ * Open the highlight form for a new entry.
+ */
+function addHighlight() {
+    openHighlightForm(null);
+}
+
+/**
+ * Open the highlight form for editing an existing entry.
+ */
+function editHighlight(index) {
+    openHighlightForm(index);
+}
+
+/**
+ * Delete a highlight by index.
+ */
+function deleteHighlight(index) {
+    if (!confirm('Are you sure you want to delete this highlight?')) return;
+    highlightsData.splice(index, 1);
+    renderHighlightsList();
+    syncHighlightsToPlanText();
+}
+
+/**
+ * Open the highlight form in the detail pane.
+ */
+function openHighlightForm(index) {
+    const title = document.getElementById('highlightFormTitle');
+    const indexField = document.getElementById('highlightItemIndex');
+    const dateField = document.getElementById('highlightDate');
+    const authorField = document.getElementById('highlightAuthor');
+    const contentField = document.getElementById('highlightContent');
+
+    // Populate author dropdown from plan resources
+    populateHighlightAuthorDropdown();
+
+    if (index !== null && index >= 0 && index < highlightsData.length) {
+        const item = highlightsData[index];
+        title.textContent = 'Edit Highlight';
+        indexField.value = String(index);
+        dateField.value = item.date;
+        contentField.value = item.content;
+        // Set author after populating dropdown
+        setTimeout(() => { authorField.value = item.author; }, 0);
+    } else {
+        title.textContent = 'New Highlight';
+        indexField.value = '';
+        dateField.value = new Date().toISOString().slice(0, 10);
+        contentField.value = '';
+        // Default to first resource if available
+        setTimeout(() => {
+            if (authorField.options.length > 1) {
+                authorField.selectedIndex = 1;
+            }
+        }, 0);
+    }
+
+    openDetailPane('highlightFormSection');
+}
+
+/**
+ * Close the highlight form.
+ */
+function closeHighlightForm() {
+    closeDetailPane();
+}
+
+/**
+ * Populate the author dropdown in the highlight form from plan resources.
+ */
+function populateHighlightAuthorDropdown() {
+    const authorField = document.getElementById('highlightAuthor');
+    if (!authorField) return;
+
+    const resources = getAllResourceNames();
+    authorField.innerHTML = '<option value="">-- Select --</option>';
+    resources.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        authorField.appendChild(option);
+    });
+}
+
+/**
+ * Save highlight from the form.
+ */
+function saveHighlightFromForm() {
+    const indexField = document.getElementById('highlightItemIndex').value;
+    const date = document.getElementById('highlightDate').value;
+    const author = document.getElementById('highlightAuthor').value;
+    const content = document.getElementById('highlightContent').value.trim();
+
+    if (!date) {
+        alert('Please select a date.');
+        return;
+    }
+    if (!author) {
+        alert('Please select an author.');
+        return;
+    }
+    if (!content) {
+        alert('Please enter highlight content.');
+        return;
+    }
+
+    const item = { date: date, author: author, content: content };
+
+    if (indexField !== '') {
+        const idx = parseInt(indexField);
+        if (idx >= 0 && idx < highlightsData.length) {
+            highlightsData[idx] = item;
+        }
+    } else {
+        highlightsData.push(item);
+    }
+
+    closeHighlightForm();
+    renderHighlightsList();
+    syncHighlightsToPlanText();
+}
+
+/**
+ * Sync highlights data back into the plan editor text.
+ *
+ * Generates the highlights section and updates the plan text
+ * in the editor, preserving existing content.
+ */
+function syncHighlightsToPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const planText = editor.value;
+    const updatedText = updatePlanHighlightsText(planText, highlightsData);
+
+    if (updatedText !== planText) {
+        editor.value = updatedText;
+        updateLineNumbers();
+        // Sync to kanban editor if it exists
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedText;
+        }
+    }
+}
+
+/**
+ * Update plan text with highlights section.
+ * JavaScript equivalent of the Python update_plan_highlights function.
+ */
+function updatePlanHighlightsText(planText, highlights) {
+    const HIGHLIGHTS_START = '---highlights---';
+    const HIGHLIGHTS_END = '---end-highlights---';
+
+    // Strip existing highlights section
+    let base = planText;
+    const startIdx = base.indexOf(HIGHLIGHTS_START);
+    if (startIdx !== -1) {
+        const endIdx = base.indexOf(HIGHLIGHTS_END, startIdx);
+        if (endIdx !== -1) {
+            const before = base.substring(0, startIdx).replace(/\n+$/, '');
+            const after = base.substring(endIdx + HIGHLIGHTS_END.length).replace(/^\n+/, '');
+            base = after ? before + '\n' + after : before;
+        }
+    }
+    base = base.replace(/\n+$/, '');
+
+    // Generate new highlights section
+    if (!highlights || highlights.length === 0) {
+        return base;
+    }
+
+    let section = HIGHLIGHTS_START + '\n';
+    highlights.forEach(h => {
+        section += `## ${h.date} @${h.author}\n`;
+        section += (h.content || '').replace(/\n+$/, '') + '\n\n';
+    });
+    section += HIGHLIGHTS_END;
+
+    return base + '\n\n' + section;
+}

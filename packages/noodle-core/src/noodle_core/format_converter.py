@@ -3,6 +3,9 @@
 import re
 import yaml
 
+HIGHLIGHTS_START = '---highlights---'
+HIGHLIGHTS_END = '---end-highlights---'
+
 
 def extract_title_from_frontmatter(text: str) -> str:
     """Extract title from YAML front matter.
@@ -47,6 +50,7 @@ def convert_plan_format_to_standard(text: str) -> str:
 
     Conversions:
     - Strip YAML front matter (between --- markers)
+    - Strip highlights section (---highlights--- / ---end-highlights---)
     - Convert "3days" to "3d", "2weeks" to "2w", etc.
     - Convert [depends taskname] to #taskname
     - Convert multi-word task names to snake_case
@@ -54,6 +58,8 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
+    # Strip highlights section before processing
+    text = strip_highlights(text)
     lines = text.split('\n')
     output_lines = []
     in_frontmatter = False
@@ -132,3 +138,127 @@ def convert_plan_format_to_standard(text: str) -> str:
         output_lines.append(line)
 
     return '\n'.join(output_lines)
+
+
+def extract_highlights(text: str) -> list:
+    """Extract highlights from plan text.
+
+    Parses the ---highlights--- / ---end-highlights--- section and returns
+    a list of highlight dictionaries with date, author, and content fields.
+
+    Returns:
+        List of dicts: [{'date': '2026-02-13', 'author': 'Alice', 'content': '...'}]
+    """
+    start_idx = text.find(HIGHLIGHTS_START)
+    if start_idx == -1:
+        return []
+
+    end_idx = text.find(HIGHLIGHTS_END, start_idx)
+    if end_idx == -1:
+        return []
+
+    section = text[start_idx + len(HIGHLIGHTS_START):end_idx]
+    return _parse_highlights_section(section)
+
+
+def _parse_highlights_section(section: str) -> list:
+    """Parse the content between highlights delimiters into structured data."""
+    highlights = []
+    current = None
+
+    for line in section.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Match heading line: ## 2026-02-13 @Alice
+        heading_match = re.match(
+            r'^##\s+(\d{4}-\d{2}-\d{2})\s+@(\S+)\s*$', stripped
+        )
+        if heading_match:
+            if current is not None:
+                current['content'] = current['content'].strip()
+                highlights.append(current)
+            current = {
+                'date': heading_match.group(1),
+                'author': heading_match.group(2),
+                'content': '',
+            }
+            continue
+
+        # Content line (belongs to current highlight)
+        if current is not None:
+            current['content'] += line.rstrip() + '\n'
+
+    # Don't forget the last highlight
+    if current is not None:
+        current['content'] = current['content'].strip()
+        highlights.append(current)
+
+    return highlights
+
+
+def strip_highlights(text: str) -> str:
+    """Remove the highlights section from plan text.
+
+    Returns the plan text without the highlights block, suitable for
+    passing to the task parser.
+    """
+    start_idx = text.find(HIGHLIGHTS_START)
+    if start_idx == -1:
+        return text
+
+    end_idx = text.find(HIGHLIGHTS_END, start_idx)
+    if end_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+    after = text[end_idx + len(HIGHLIGHTS_END):].lstrip('\n')
+
+    if after:
+        return before + '\n' + after
+    return before
+
+
+def generate_highlights_text(highlights: list) -> str:
+    """Generate the highlights section text from structured data.
+
+    Args:
+        highlights: List of dicts with date, author, and content fields.
+
+    Returns:
+        The formatted highlights block including delimiters, or empty
+        string if there are no highlights.
+    """
+    if not highlights:
+        return ''
+
+    lines = [HIGHLIGHTS_START]
+    for h in highlights:
+        lines.append(f"## {h['date']} @{h['author']}")
+        lines.append(h.get('content', '').rstrip())
+        lines.append('')
+    lines.append(HIGHLIGHTS_END)
+    return '\n'.join(lines)
+
+
+def update_plan_highlights(plan_text: str, highlights: list) -> str:
+    """Update plan text with the given highlights.
+
+    Replaces existing highlights section or appends a new one.
+    If highlights list is empty, removes any existing section.
+
+    Args:
+        plan_text: The full plan text (may or may not contain highlights).
+        highlights: List of highlight dicts.
+
+    Returns:
+        Updated plan text.
+    """
+    base = strip_highlights(plan_text).rstrip('\n')
+    section = generate_highlights_text(highlights)
+
+    if not section:
+        return base
+
+    return base + '\n\n' + section
