@@ -1756,14 +1756,19 @@ function updateTimeline(tasks, projectName) {
             renderDetailedPhaseBlocks(timelineWrapper, tasks, minDate, maxDate, totalDays, timelineWidth);
         }
 
-        // Track milestone positions for overlap prevention
-        const positions = [];
+        // Track milestone positions for overlap prevention (separate above and below)
+        const positionsAbove = [];
+        const positionsBelow = [];
 
         // Create milestones
         milestones.forEach((task, index) => {
             const milestoneDate = new Date(task.finish);
             const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
             const position = (daysFromStart / totalDays) * timelineWidth;
+
+            // When detailed view is on, phase labels go below to avoid overlapping SVG blocks
+            const placeBelow = isDetailed && task.is_summary;
+            const trackingArray = placeBelow ? positionsBelow : positionsAbove;
 
             // Check for overlap and adjust label position
             let labelOffset = 0;
@@ -1773,12 +1778,12 @@ function updateTimeline(tasks, projectName) {
 
             // Try to find a vertical level without overlap
             for (let level = 0; level < maxLevels && !foundLevel; level++) {
-                labelOffset = level * -50; // 0, -50, -100, -150, -200
+                labelOffset = placeBelow ? level * 50 : level * -50;
                 foundLevel = true;
 
                 // Check if this level has overlap with any previous milestone at same level
-                for (let i = 0; i < positions.length; i++) {
-                    const prevPos = positions[i];
+                for (let i = 0; i < trackingArray.length; i++) {
+                    const prevPos = trackingArray[i];
                     if (prevPos.offset === labelOffset && Math.abs(position - prevPos.pos) < minSpacing) {
                         foundLevel = false;
                         break;
@@ -1791,7 +1796,7 @@ function updateTimeline(tasks, projectName) {
                 return; // Skip this milestone in forEach
             }
 
-            positions.push({ pos: position, offset: labelOffset });
+            trackingArray.push({ pos: position, offset: labelOffset });
 
             // Create milestone container
             const milestoneDiv = document.createElement('div');
@@ -1810,7 +1815,11 @@ function updateTimeline(tasks, projectName) {
                 connector.className = 'timeline-connector';
                 const lineHeight = Math.abs(labelOffset);
                 connector.style.height = lineHeight + 'px';
-                connector.style.bottom = '10px'; // Start from diamond center
+                if (placeBelow) {
+                    connector.style.top = '10px'; // Start from marker center, extend downward
+                } else {
+                    connector.style.bottom = '10px'; // Start from diamond center, extend upward
+                }
                 milestoneDiv.appendChild(connector);
             }
 
@@ -1837,12 +1846,17 @@ function updateTimeline(tasks, projectName) {
             }
             milestoneDiv.appendChild(marker);
 
-            // Create label above the line
+            // Create label (above or below the line depending on placeBelow)
             const label = document.createElement('div');
             label.className = 'timeline-milestone-label';
-            // Apply vertical offset only to the label if overlap detected
-            if (labelOffset !== 0) {
-                label.style.bottom = (20 - labelOffset) + 'px'; // Adjust from default 20px
+
+            if (placeBelow) {
+                // Position label below the timeline line
+                label.style.bottom = 'auto';
+                label.style.top = (20 + labelOffset) + 'px';
+            } else if (labelOffset !== 0) {
+                // Apply vertical offset for labels above the line
+                label.style.bottom = (20 - labelOffset) + 'px';
             }
 
             const nameDiv = document.createElement('div');
