@@ -2182,7 +2182,7 @@ function updateTimeline(tasks, projectName) {
         maxDate.setDate(maxDate.getDate() + 7);
 
         // Calculate total timeline width - scale to available screen width
-        const timelineWrapper = document.querySelector('.timeline-line-wrapper');
+        const timelineWrapper = document.querySelector('#timeline-view .timeline-line-wrapper');
 
         // Skip rendering if the container is hidden (e.g. tab not visible).
         // The timeline will be re-rendered when the tab becomes visible
