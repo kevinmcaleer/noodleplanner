@@ -878,34 +878,23 @@ function updateMilestonesTable(tasks) {
         // Clear existing rows
         tbody.innerHTML = '';
 
-        // Filter to only show summary tasks and milestones (0d duration)
+        // Filter to only show actual milestones (0-duration, non-summary tasks)
         const filteredTasks = tasks.filter(task => {
-            return task.is_summary || task.duration_days === 0;
+            return task.duration_days === 0 && !task.is_summary;
         });
 
-        // Populate with task data
+        // Populate with milestone data
         filteredTasks.forEach(task => {
             const row = document.createElement('tr');
-
-            // Apply class based on task level for indentation
-            if (task.level > 0) {
-                row.classList.add(`level-${task.level}`);
-            }
-
-            // Apply class for summary tasks (phase headers)
-            if (task.is_summary) {
-                row.classList.add('summary-task');
-            }
 
             // ID cell
             const idCell = document.createElement('td');
             idCell.textContent = task.id;
             row.appendChild(idCell);
 
-            // Task Name cell (with indentation)
+            // Task Name cell
             const nameCell = document.createElement('td');
-            const indent = '  '.repeat(task.level); // 2 spaces per level
-            nameCell.textContent = indent + task.name;
+            nameCell.textContent = task.name;
             nameCell.classList.add('task-name');
             row.appendChild(nameCell);
 
