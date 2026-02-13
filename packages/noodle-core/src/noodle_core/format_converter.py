@@ -202,7 +202,8 @@ def strip_highlights(text: str) -> str:
     """Remove the highlights section from plan text.
 
     Returns the plan text without the highlights block, suitable for
-    passing to the task parser.
+    passing to the task parser.  Also removes the --- separator line
+    that precedes the highlights section.
     """
     start_idx = text.find(HIGHLIGHTS_START)
     if start_idx == -1:
@@ -214,6 +215,12 @@ def strip_highlights(text: str) -> str:
 
     before = text[:start_idx].rstrip('\n')
     after = text[end_idx + len(HIGHLIGHTS_END):].lstrip('\n')
+
+    # Remove trailing --- separator that precedes the highlights section
+    lines = before.split('\n')
+    while lines and lines[-1].strip() == '---':
+        lines.pop()
+    before = '\n'.join(lines).rstrip('\n')
 
     if after:
         return before + '\n' + after
@@ -261,4 +268,4 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     if not section:
         return base
 
-    return base + '\n\n' + section
+    return base + '\n\n---\n\n' + section

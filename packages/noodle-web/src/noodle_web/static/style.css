@@ -4306,9 +4306,14 @@ body.detail-pane-open {
 
 .highlights-toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 16px;
     margin-bottom: 20px;
+}
+
+.highlights-toolbar .btn-primary {
+    white-space: nowrap;
+    width: auto;
 }
 
 .highlights-title {

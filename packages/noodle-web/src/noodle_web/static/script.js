@@ -8161,6 +8161,13 @@ function updatePlanHighlightsText(planText, highlights) {
     }
     base = base.replace(/\n+$/, '');
 
+    // Remove trailing --- separator that preceded the highlights section
+    let lines = base.split('\n');
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '---') {
+        lines.pop();
+    }
+    base = lines.join('\n').replace(/\n+$/, '');
+
     // Generate new highlights section
     if (!highlights || highlights.length === 0) {
         return base;
@@ -8173,5 +8180,5 @@ function updatePlanHighlightsText(planText, highlights) {
     });
     section += HIGHLIGHTS_END;
 
-    return base + '\n\n' + section;
+    return base + '\n\n---\n\n' + section;
 }
