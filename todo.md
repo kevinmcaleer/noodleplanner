@@ -423,6 +423,58 @@
 
 **Status:** Complete! Timeline now renders correctly on first view and re-layouts when available width changes.
 
+### RAID Markdown Editor (GitHub Issue #151) - ✅ COMPLETED
+- [x] Added collapsible markdown editor panel below the RAID table
+  - Collapsed by default with toggle arrow (▶/▼)
+  - Download (💾) and Upload (📁) buttons in header when expanded
+- [x] Bidirectional sync between RAID table and markdown textarea
+  - Table changes update markdown editor automatically
+  - Markdown edits parse back into table (500ms debounce)
+  - Loop prevention with `raidEditorIsUpdating` flag
+  - Auto-reformatting maintains table alignment
+- [x] Moved RAID import/export buttons to Export dropdown
+  - Renamed "Export" dropdown to "Import/Export"
+  - RAID-specific items shown only when RAID tab is active
+  - Download/Upload Markdown and Export/Upload Excel as menu items
+- [x] All 192 existing tests pass
+
+**PR:** #153 - ✅ MERGED
+
+**Status:** Complete! RAID tab now has a collapsible markdown editor with bidirectional sync and streamlined Import/Export menu.
+
+### Slide-Out Detail Panes (GitHub Issue #126) - ✅ COMPLETED
+- [x] Converted 4 modal dialogs to right-side slide-out detail pane
+  - Task form, RAID form, Project Details, Resource form
+  - Single `detailPane` container with sections, one active at a time
+  - 600px width, slides in via CSS `transform: translateX()` animation
+- [x] Kept Excel Import Wizard as centered modal
+- [x] Mobile responsive: full width on < 768px
+- [x] Unified ESC/click-outside close handlers
+- [x] Resource form tracks origin section (returns to project details when opened from there)
+- [x] Updated design/epic.md with documentation
+- [x] All 192 existing tests pass
+
+**PR:** #154 - ✅ MERGED
+
+**Status:** Complete! All form dialogs now use a modern slide-out detail pane pattern instead of centered modals.
+
+### Detailed Timeline View (GitHub Issue #152) - ✅ COMPLETED
+- [x] Added "Detailed" checkbox to timeline controls
+- [x] Renders rectangular SVG phase blocks above existing timeline
+  - Green (#4caf50) for completed phases (100%)
+  - Cycling blue shades (#1565c0 → #90caf9) for incomplete phases
+  - Darker overlay shows % complete within each block
+  - Phase title text inside blocks (clipped to width)
+- [x] Overlap detection assigns overlapping phases to different rows
+- [x] Row heights scaled so phase area ≤ 20% of timeline width
+- [x] Tooltips show phase name and completion percentage
+- [x] Updated design/epic.md with documentation
+- [x] 3 new tests added, all 195 tests pass
+
+**PR:** #155 - ✅ MERGED
+
+**Status:** Complete! Timeline view now supports a detailed mode showing phase blocks with colour coding and overlap handling.
+
 ### Dependency Loop Detection (GitHub Issue #22) - ✅ RESTORED
 **STATUS:** Regression fixed - loop detection restored from git history
 
@@ -786,6 +838,9 @@
 - #144: Excel import wizard (3-step modal with column mapping and preview) - ✅ MERGED
 - #146: RAID Log (Risks, Actions, Issues, Decisions, Dependencies tracking with markdown/Excel I/O) - ✅ MERGED
 - #147: Timeline layout bug (refresh on tab switch and editor pane toggle) - ✅ MERGED
+- #151: RAID markdown editor (collapsible editor with bidirectional sync, Import/Export menu) - ✅ MERGED
+- #126: Slide-out detail panes (converted modals to right-side slide-out pane, mobile responsive) - ✅ MERGED
+- #152: Detailed timeline view (phase blocks with overlap detection, colour coding, % complete) - ✅ MERGED
 
 ---
 
