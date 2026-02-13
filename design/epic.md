@@ -28,7 +28,7 @@ The web application (`packages/noodle-web/`) provides:
 - **Milestone View**: Table of summary tasks and zero-duration milestones
 - **Gantt View**: Timeline chart with 5 zoom scales (days/weeks/months/quarters/years)
 - **Kanban View**: Board with 4 grouping modes (phase/resource/progress/label)
-- **Timeline View**: Compact ASCII timeline
+- **Timeline View**: Milestone timeline with optional detailed phase blocks
 - **Report View**: Formatted markdown output
 - **Export**: Excel, PowerPoint, PDF
 
@@ -110,6 +110,31 @@ Form dialogs for editing tasks, RAID items, project details, and resources use a
 - Detail pane: 1000
 - Detail pane overlay: 999
 - Tour overlay: 10000-10002
+
+### Detailed Timeline (Issue #152)
+
+The Timeline view supports a "Detailed" mode that renders phase blocks as rectangular bars above the standard milestone timeline.
+
+**Controls:**
+- **Show Phases**: Toggles phase diamond markers on the milestone timeline
+- **Detailed**: Toggles detailed phase blocks above the timeline
+
+**Detailed View Features:**
+- Rectangular SVG blocks for each phase, positioned by start/finish dates
+- Phase title text displayed inside each block (clipped to block width)
+- Overlap detection: phases that overlap in time are placed on separate rows
+- Colour coding:
+  - Completed phases (100%): green (#4caf50)
+  - Incomplete phases: blue shades from darker to lighter (#1565c0 to #90caf9)
+  - Percent complete shown as a darker overlay on the left portion of the block
+- Row height scales so total phase area height does not exceed 20% of timeline width
+- Tooltips show phase name and completion percentage
+
+**Key JavaScript Functions:**
+- `renderDetailedPhaseBlocks()` — Renders SVG phase blocks above the timeline
+- `assignPhaseRows()` — Greedy algorithm to assign phases to rows without overlap
+- `darkenColor()` — Utility to darken a hex colour for progress overlays
+- `toggleDetailedTimeline()` — Checkbox event handler
 
 ### CLI Tool
 

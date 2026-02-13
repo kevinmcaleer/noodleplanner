@@ -55,6 +55,15 @@ class TestRootEndpoint:
         assert "Noodle Planner" in html_content or "Plan Editor" in html_content
         assert "planEditor" in html_content  # Textarea ID
 
+    def test_root_contains_timeline_controls(self, client):
+        """Test that HTML contains timeline view with Show Phases and Detailed checkboxes."""
+        response = client.get("/")
+        html_content = response.text
+        assert "showPhasesToggle" in html_content
+        assert "detailedTimelineToggle" in html_content
+        assert "toggleDetailedTimeline()" in html_content
+        assert "Detailed" in html_content
+
 
 class TestHealthCheckEndpoint:
     """Test suite for health check endpoint."""
@@ -428,6 +437,25 @@ class TestStaticFiles:
         response = client.get("/logo.png")
         # Should either return the file (200) or 404 if not found
         assert response.status_code in [200, 404]
+
+    def test_script_js_contains_detailed_timeline_functions(self, client):
+        """Test that script.js contains the detailed timeline rendering functions."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        assert "renderDetailedPhaseBlocks" in js_content
+        assert "assignPhaseRows" in js_content
+        assert "darkenColor" in js_content
+        assert "toggleDetailedTimeline" in js_content
+        assert "detailedTimelineEnabled" in js_content
+
+    def test_style_css_contains_detailed_timeline_styles(self, client):
+        """Test that style.css contains the detailed timeline CSS classes."""
+        response = client.get("/static/style.css")
+        assert response.status_code == 200
+        css_content = response.text
+        assert "detailed-timeline-container" in css_content
+        assert "detailed-timeline-svg" in css_content
 
 
 class TestEdgeCases:

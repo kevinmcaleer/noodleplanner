@@ -228,10 +228,16 @@ Press Enter to render..."></textarea>
                             <div class="timeline-content" style="display: none;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                                     <h2 class="timeline-title" id="timelineTitle" style="margin: 0;">Project Timeline</h2>
-                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                        <input type="checkbox" id="showPhasesToggle" onchange="toggleTimelinePhases()">
-                                        <span>Show Phases</span>
-                                    </label>
+                                    <div style="display: flex; align-items: center; gap: 16px;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" id="showPhasesToggle" onchange="toggleTimelinePhases()">
+                                            <span>Show Phases</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" id="detailedTimelineToggle" onchange="toggleDetailedTimeline()">
+                                            <span>Detailed</span>
+                                        </label>
+                                    </div>
                                 </div>
                                 <div class="timeline-line-wrapper">
                                     <div class="timeline-line" id="timelineLine"></div>
