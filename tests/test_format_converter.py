@@ -343,6 +343,23 @@ class TestStripHighlights:
         assert 'Phase 1' in result
         assert 'Task 1 @john 3d' in result
 
+    def test_strip_highlights_removes_dash_separator(self):
+        """Test that the --- separator before highlights is also removed."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+---end-highlights---"""
+        result = strip_highlights(text)
+        assert 'Phase 1' in result
+        assert 'Task 1 @john 3d' in result
+        # The --- separator should be removed along with highlights
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+
 
 class TestGenerateHighlightsText:
     """Test suite for generate_highlights_text function."""
@@ -386,6 +403,17 @@ class TestUpdatePlanHighlights:
         assert 'Phase 1' in result
         assert '---highlights---' in result
         assert '## 2026-02-13 @Alice' in result
+
+    def test_highlights_separated_by_three_dashes(self):
+        """Test that highlights are separated from plan content with ---."""
+        plan = """Phase 1
+  Task 1 @john 3d"""
+        highlights = [
+            {'date': '2026-02-13', 'author': 'Alice', 'content': '- Good progress'},
+        ]
+        result = update_plan_highlights(plan, highlights)
+        # The --- separator should appear between the plan and highlights
+        assert '\n\n---\n\n---highlights---' in result
 
     def test_replace_existing_highlights(self):
         """Test replacing existing highlights section."""
@@ -477,6 +505,45 @@ Phase 1
         result = convert_plan_format_to_standard(text)
         assert 'title:' not in result
         assert '---highlights---' not in result
+        assert 'Task 1' in result
+
+    def test_highlights_with_dash_separator_not_parsed_as_tasks(self):
+        """Highlights with --- separator should be fully stripped."""
+        text = """Phase 1
+  Task 1 @john 3days
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Completed phase 1
+---end-highlights---"""
+        result = convert_plan_format_to_standard(text)
+        assert '---highlights---' not in result
+        assert '---end-highlights---' not in result
+        assert 'Completed phase 1' not in result
+        assert 'Task 1' in result
+        # The --- separator should not remain either
+        assert '---' not in result
+
+    def test_highlights_with_frontmatter_and_dash_separator(self):
+        """Frontmatter, --- separator, and highlights should all be handled."""
+        text = """---
+title: My Project
+---
+Phase 1
+  Task 1 @john 3days
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+---end-highlights---"""
+        result = convert_plan_format_to_standard(text)
+        assert 'title:' not in result
+        assert '---highlights---' not in result
+        assert 'Content' not in result
         assert 'Task 1' in result
 
 
