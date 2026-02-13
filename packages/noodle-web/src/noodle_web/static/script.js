@@ -1352,8 +1352,8 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         const percent = parseFloat(phase.percent) || 0;
         const isComplete = percent >= 100;
 
-        const phaseStart = new Date(phase.start);
-        const phaseEnd = new Date(phase.finish);
+        const phaseStart = parseLocalDate(phase.start);
+        const phaseEnd = parseLocalDate(phase.finish);
         const startDays = Math.floor((phaseStart - minDate) / (1000 * 60 * 60 * 24));
         const endDays = Math.floor((phaseEnd - minDate) / (1000 * 60 * 60 * 24));
 
@@ -1450,8 +1450,8 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
 function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
     // Sort phases by start date
     const sorted = phases.map(phase => {
-        const start = new Date(phase.start);
-        const end = new Date(phase.finish);
+        const start = parseLocalDate(phase.start);
+        const end = parseLocalDate(phase.finish);
         const startPos = (Math.floor((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays) * timelineWidth;
         const endPos = (Math.floor((end - minDate) / (1000 * 60 * 60 * 24)) / totalDays) * timelineWidth;
         return { phase, startPos, endPos };
@@ -1655,10 +1655,10 @@ function updateTimeline(tasks, projectName) {
         }
 
         // Find min and max dates (include phase start/finish when detailed view is on)
-        const allDates = milestones.map(t => new Date(t.finish));
+        const allDates = milestones.map(t => parseLocalDate(t.finish));
         detailedPhases.forEach(p => {
-            allDates.push(new Date(p.start));
-            allDates.push(new Date(p.finish));
+            allDates.push(parseLocalDate(p.start));
+            allDates.push(parseLocalDate(p.finish));
         });
         const minDate = new Date(Math.min(...allDates));
         const maxDate = new Date(Math.max(...allDates));
@@ -1762,12 +1762,12 @@ function updateTimeline(tasks, projectName) {
 
         // Create milestones
         milestones.forEach((task, index) => {
-            const milestoneDate = new Date(task.finish);
+            const milestoneDate = parseLocalDate(task.finish);
             const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
             const position = (daysFromStart / totalDays) * timelineWidth;
 
             // When detailed view is on, phase labels go below to avoid overlapping SVG blocks
-            const placeBelow = isDetailed && task.is_summary;
+            const placeBelow = isDetailed;
             const trackingArray = placeBelow ? positionsBelow : positionsAbove;
 
             // Check for overlap and adjust label position
@@ -1853,7 +1853,7 @@ function updateTimeline(tasks, projectName) {
             if (placeBelow) {
                 // Position label below the timeline line
                 label.style.bottom = 'auto';
-                label.style.top = (20 + labelOffset) + 'px';
+                label.style.top = (55 + labelOffset) + 'px';
             } else if (labelOffset !== 0) {
                 // Apply vertical offset for labels above the line
                 label.style.bottom = (20 - labelOffset) + 'px';
