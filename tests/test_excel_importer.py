@@ -4,6 +4,7 @@ import io
 import pytest
 from datetime import datetime
 from openpyxl import Workbook
+import xlrd
 
 from noodle_core.excel_importer import (
     normalize_date,
@@ -193,9 +194,9 @@ class TestAnalyzeWorkbook:
         with pytest.raises(ValueError, match="Failed to read"):
             analyze_workbook(b"not an excel file", "bad.xlsx")
 
-    def test_xls_format_rejected(self):
-        with pytest.raises(ValueError, match="legacy .xls"):
-            analyze_workbook(b"dummy", "old.xls")
+    def test_xls_corrupt_file(self):
+        with pytest.raises(ValueError, match="Failed to read .xls"):
+            analyze_workbook(b"not a real xls file", "old.xls")
 
     def test_wrong_extension(self):
         with pytest.raises(ValueError, match="Unsupported"):
@@ -456,3 +457,154 @@ class TestConvertExcelToMarkdown:
         })
         assert len(result["warnings"]) > 0
         assert "Could not parse" in result["warnings"][0]
+
+    def test_negative_duration_warning(self):
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Task 1", -5],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "duration": "Duration",
+        })
+        assert any("Negative duration" in w for w in result["warnings"])
+
+    def test_unparseable_duration_warning(self):
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Task 1", "abc"],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "duration": "Duration",
+        })
+        assert any("Could not parse duration" in w for w in result["warnings"])
+
+    def test_percent_out_of_range_warning(self):
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "% Complete"],
+                ["Task 1", 150],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "percent_complete": "% Complete",
+        })
+        assert any("outside 0-100 range" in w for w in result["warnings"])
+        # Value should be clamped to 100
+        assert "100%" in result["markdown"]
+
+    def test_percent_as_decimal_converted(self):
+        """Test that 0.75 is treated as 75%."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "% Complete"],
+                ["Task 1", 0.75],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "percent_complete": "% Complete",
+        })
+        assert "75%" in result["markdown"]
+
+    def test_unparseable_percent_warning(self):
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "% Complete"],
+                ["Task 1", "abc"],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "percent_complete": "% Complete",
+        })
+        assert any("Could not parse percent" in w for w in result["warnings"])
+
+
+# ---------- TestNormalizeDateFallback ----------
+
+class TestNormalizeDateFallback:
+    """Tests for the dateutil fallback in normalize_date."""
+
+    def test_month_name_with_spaces(self):
+        result = normalize_date("March 15, 2025")
+        assert result == "2025-03-15"
+
+    def test_abbreviated_month_with_comma(self):
+        result = normalize_date("Jan 6, 2025")
+        assert result == "2025-01-06"
+
+    def test_iso_with_time(self):
+        result = normalize_date("2025-03-15T10:30:00")
+        assert result == "2025-03-15"
+
+    def test_truly_invalid_still_none(self):
+        assert normalize_date("hello world") is None
+
+
+# ---------- TestXlsSupport ----------
+
+def _make_xls_bytes(sheets_data):
+    """Helper: create an xls file in memory and return bytes.
+
+    sheets_data: dict of {sheet_name: [row_list, ...]}
+    Each row_list is a list of cell values; first row is headers.
+    """
+    import xlwt
+    wb = xlwt.Workbook()
+    for name, rows in sheets_data.items():
+        ws = wb.add_sheet(name)
+        for row_idx, row in enumerate(rows):
+            for col_idx, value in enumerate(row):
+                ws.write(row_idx, col_idx, value)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+class TestXlsSupport:
+    """Tests for .xls file support via xlrd."""
+
+    def test_analyze_xls_workbook(self):
+        data = _make_xls_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Task 1", 5],
+                ["Task 2", 3],
+            ]
+        })
+        result = analyze_workbook(data, "test.xls")
+        assert len(result["sheets"]) == 1
+        sheet = result["sheets"][0]
+        assert sheet["name"] == "Tasks"
+        assert sheet["row_count"] == 2
+        assert "Task Name" in sheet["columns"]
+
+    def test_convert_xls_to_markdown(self):
+        data = _make_xls_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Phase 1", 0],
+                ["  Task A", 3],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xls", "Tasks", {
+            "task_name": "Task Name",
+            "duration": "Duration",
+        })
+        assert "Task A" in result["markdown"]
+        assert "3d" in result["markdown"]
+
+    def test_xls_multiple_sheets(self):
+        data = _make_xls_bytes({
+            "Tasks": [["Name"], ["A"]],
+            "Milestones": [["Milestone"], ["M1"]],
+        })
+        result = analyze_workbook(data, "test.xls")
+        assert len(result["sheets"]) == 2

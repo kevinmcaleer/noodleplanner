@@ -28,6 +28,10 @@
                         Import/Export ▾
                     </button>
                     <div class="export-menu" id="exportMenu">
+                        <div class="export-menu-item" onclick="triggerExcelUpload(); event.stopPropagation();">
+                            📥 Import from Excel
+                        </div>
+                        <div class="export-menu-divider"></div>
                         <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
                             📊 Export to Excel
                         </div>
@@ -1001,6 +1005,9 @@ Build
             </div>
         </div>
     </div>
+
+    <!-- Hidden file input for Import/Export dropdown Excel upload -->
+    <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display: none;">
 
     <!-- Excel Import Wizard Modal -->
     <div id="excelWizardOverlay" class="modal-overlay" onclick="if(event.target===this) closeExcelWizard()">

@@ -10,4 +10,5 @@ dev-dependencies = [
     "pytest>=8.4.1",
     "pytest-cov>=7.0.0",
     "httpx",
+    "xlwt>=1.3.0",
 ]

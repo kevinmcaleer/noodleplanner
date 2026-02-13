@@ -7158,6 +7158,19 @@ function toggleTimelinePhases() {
 
 // ===== Excel Import Wizard =====
 
+function triggerExcelUpload() {
+    const menu = document.getElementById('exportMenu');
+    if (menu) menu.classList.remove('show');
+    const input = document.getElementById('excelImportInput');
+    input.value = '';
+    input.onchange = function() {
+        if (input.files && input.files[0]) {
+            openExcelImportWizard(input.files[0]);
+        }
+    };
+    input.click();
+}
+
 let excelWizardFile = null;
 let excelWizardData = null;
 let excelWizardStep = 1;
