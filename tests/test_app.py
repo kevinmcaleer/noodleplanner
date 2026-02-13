@@ -979,5 +979,66 @@ class TestExcelConvertEndpoint:
         assert "! Done" in data["markdown"]
 
 
+class TestParseEndpointHighlights:
+    """Test suite for /api/parse endpoint highlights support."""
+
+    def test_parse_returns_highlights(self, client):
+        """Test that parse returns highlights data."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Completed phase 1
+
+## 2026-02-06 @Bob
+- Sprint done
+---end-highlights---"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "highlights" in data
+        assert len(data["highlights"]) == 2
+        assert data["highlights"][0]["date"] == "2026-02-13"
+        assert data["highlights"][0]["author"] == "Alice"
+        assert data["highlights"][1]["date"] == "2026-02-06"
+
+    def test_parse_returns_empty_highlights(self, client, sample_plan):
+        """Test that parse returns empty highlights when none exist."""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": sample_plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "highlights" in data
+        assert data["highlights"] == []
+
+    def test_parse_highlights_not_treated_as_tasks(self, client):
+        """Test that highlights are not parsed as tasks."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Completed phase 1
+---end-highlights---"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # Only actual tasks should appear in tasks list
+        task_names = [t["name"] for t in data["tasks"]]
+        assert "Completed phase 1" not in task_names
+        # highlights content should not leak into task names
+        for name in task_names:
+            assert "highlights" not in name.lower()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

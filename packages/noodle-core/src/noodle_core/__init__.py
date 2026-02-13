@@ -23,6 +23,10 @@ from .scheduling_engine import (
 from .format_converter import (
     convert_plan_format_to_standard,
     extract_title_from_frontmatter,
+    extract_highlights,
+    strip_highlights,
+    generate_highlights_text,
+    update_plan_highlights,
 )
 
 from .excel_importer import (
@@ -54,6 +58,10 @@ __all__ = [
     # Format converter
     "convert_plan_format_to_standard",
     "extract_title_from_frontmatter",
+    "extract_highlights",
+    "strip_highlights",
+    "generate_highlights_text",
+    "update_plan_highlights",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",

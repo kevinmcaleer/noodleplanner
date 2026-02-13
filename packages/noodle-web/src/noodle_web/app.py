@@ -31,6 +31,7 @@ from noodle_core import (
     parse_resource_mappings,
     analyze_workbook,
     convert_excel_to_markdown,
+    extract_highlights,
 )
 import json
 from .middleware import ActivityLoggingMiddleware
@@ -401,6 +402,10 @@ def collect_labels_from_plan(plan_text: str) -> set:
     Labels use hashtag syntax like #High #test #Risk
     """
     import re
+    from noodle_core import strip_highlights
+    # Strip highlights section so its content is not treated as labels
+    plan_text = strip_highlights(plan_text)
+
     labels = set()
     lines = plan_text.split('\n')
     in_front_matter = False
@@ -587,6 +592,9 @@ async def parse_plan(data: RenderRequest):
         updated_plan_text = update_front_matter_with_labels(data.plan_text, labels)
         logger.info(f"Updated plan text differs from original: {updated_plan_text != data.plan_text}")
 
+        # Extract highlights
+        highlights = extract_highlights(data.plan_text)
+
         # Return structured JSON
         return {
             "success": True,
@@ -596,6 +604,7 @@ async def parse_plan(data: RenderRequest):
             "resource_map": resource_map,
             "tasks": tasks_data,
             "updated_plan_text": updated_plan_text if labels else None,
+            "highlights": highlights,
         }
 
     except Exception as e:

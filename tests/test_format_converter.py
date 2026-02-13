@@ -3,7 +3,11 @@
 import pytest
 from noodle_core import (
     convert_plan_format_to_standard,
-    extract_title_from_frontmatter
+    extract_title_from_frontmatter,
+    extract_highlights,
+    strip_highlights,
+    generate_highlights_text,
+    update_plan_highlights,
 )
 
 
@@ -226,6 +230,254 @@ class TestEdgeCases:
         text = "Task 2 [DEPENDS Task 1] @john 2d"
         result = convert_plan_format_to_standard(text)
         assert "#Task 1" in result
+
+
+class TestExtractHighlights:
+    """Test suite for extract_highlights function."""
+
+    def test_extract_highlights_basic(self):
+        """Test extracting highlights from plan text."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Completed phase 1 ahead of schedule
+- **Key risk** mitigated
+
+## 2026-02-06 @Bob
+- Sprint planning completed
+---end-highlights---"""
+        result = extract_highlights(text)
+        assert len(result) == 2
+        assert result[0]['date'] == '2026-02-13'
+        assert result[0]['author'] == 'Alice'
+        assert 'Completed phase 1' in result[0]['content']
+        assert '**Key risk**' in result[0]['content']
+        assert result[1]['date'] == '2026-02-06'
+        assert result[1]['author'] == 'Bob'
+        assert 'Sprint planning' in result[1]['content']
+
+    def test_extract_highlights_none_present(self):
+        """Test when no highlights section exists."""
+        text = """Phase 1
+  Task 1 @john 3d"""
+        result = extract_highlights(text)
+        assert result == []
+
+    def test_extract_highlights_empty_section(self):
+        """Test with empty highlights section."""
+        text = """---highlights---
+---end-highlights---"""
+        result = extract_highlights(text)
+        assert result == []
+
+    def test_extract_highlights_missing_end_marker(self):
+        """Test with missing end marker."""
+        text = """---highlights---
+## 2026-02-13 @Alice
+- Some content"""
+        result = extract_highlights(text)
+        assert result == []
+
+    def test_extract_highlights_multiline_content(self):
+        """Test highlight with multiline content."""
+        text = """---highlights---
+## 2026-02-13 @Alice
+- First point
+- Second point
+- Third point
+---end-highlights---"""
+        result = extract_highlights(text)
+        assert len(result) == 1
+        assert 'First point' in result[0]['content']
+        assert 'Third point' in result[0]['content']
+
+    def test_extract_highlights_single_entry(self):
+        """Test with a single highlight entry."""
+        text = """---highlights---
+## 2026-01-15 @Dave
+- Kickoff meeting held
+---end-highlights---"""
+        result = extract_highlights(text)
+        assert len(result) == 1
+        assert result[0]['date'] == '2026-01-15'
+        assert result[0]['author'] == 'Dave'
+
+
+class TestStripHighlights:
+    """Test suite for strip_highlights function."""
+
+    def test_strip_highlights_basic(self):
+        """Test removing highlights section from plan text."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Content here
+---end-highlights---"""
+        result = strip_highlights(text)
+        assert '---highlights---' not in result
+        assert '---end-highlights---' not in result
+        assert 'Content here' not in result
+        assert 'Task 1 @john 3d' in result
+
+    def test_strip_highlights_no_section(self):
+        """Test stripping when no highlights section exists."""
+        text = """Phase 1
+  Task 1 @john 3d"""
+        result = strip_highlights(text)
+        assert result == text
+
+    def test_strip_highlights_preserves_content_before(self):
+        """Test that content before highlights is preserved."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+---end-highlights---"""
+        result = strip_highlights(text)
+        assert 'Phase 1' in result
+        assert 'Task 1 @john 3d' in result
+
+
+class TestGenerateHighlightsText:
+    """Test suite for generate_highlights_text function."""
+
+    def test_generate_highlights_basic(self):
+        """Test generating highlights text from data."""
+        highlights = [
+            {'date': '2026-02-13', 'author': 'Alice', 'content': '- Phase 1 complete'},
+            {'date': '2026-02-06', 'author': 'Bob', 'content': '- Sprint done'},
+        ]
+        result = generate_highlights_text(highlights)
+        assert '---highlights---' in result
+        assert '---end-highlights---' in result
+        assert '## 2026-02-13 @Alice' in result
+        assert '## 2026-02-06 @Bob' in result
+        assert '- Phase 1 complete' in result
+        assert '- Sprint done' in result
+
+    def test_generate_highlights_empty(self):
+        """Test generating text with empty list."""
+        result = generate_highlights_text([])
+        assert result == ''
+
+    def test_generate_highlights_none(self):
+        """Test generating text with None."""
+        result = generate_highlights_text(None)
+        assert result == ''
+
+
+class TestUpdatePlanHighlights:
+    """Test suite for update_plan_highlights function."""
+
+    def test_add_highlights_to_plan_without_existing(self):
+        """Test adding highlights to a plan that has none."""
+        plan = """Phase 1
+  Task 1 @john 3d"""
+        highlights = [
+            {'date': '2026-02-13', 'author': 'Alice', 'content': '- Good progress'},
+        ]
+        result = update_plan_highlights(plan, highlights)
+        assert 'Phase 1' in result
+        assert '---highlights---' in result
+        assert '## 2026-02-13 @Alice' in result
+
+    def test_replace_existing_highlights(self):
+        """Test replacing existing highlights section."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-01 @Old
+- Old content
+---end-highlights---"""
+        highlights = [
+            {'date': '2026-02-13', 'author': 'New', 'content': '- New content'},
+        ]
+        result = update_plan_highlights(plan, highlights)
+        assert 'Old content' not in result
+        assert '## 2026-02-13 @New' in result
+        assert '- New content' in result
+
+    def test_remove_highlights_with_empty_list(self):
+        """Test removing highlights by passing empty list."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+---end-highlights---"""
+        result = update_plan_highlights(plan, [])
+        assert '---highlights---' not in result
+        assert '---end-highlights---' not in result
+        assert 'Phase 1' in result
+
+    def test_roundtrip_extract_and_regenerate(self):
+        """Test that extracting and regenerating highlights preserves data."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Completed phase 1 ahead of schedule
+- **Key risk** mitigated
+
+## 2026-02-06 @Bob
+- Sprint planning completed
+---end-highlights---"""
+        highlights = extract_highlights(plan)
+        assert len(highlights) == 2
+
+        base = strip_highlights(plan)
+        rebuilt = update_plan_highlights(base, highlights)
+        re_extracted = extract_highlights(rebuilt)
+        assert len(re_extracted) == 2
+        assert re_extracted[0]['date'] == '2026-02-13'
+        assert re_extracted[0]['author'] == 'Alice'
+        assert re_extracted[1]['date'] == '2026-02-06'
+        assert re_extracted[1]['author'] == 'Bob'
+
+
+class TestConvertPlanFormatStripsHighlights:
+    """Test that convert_plan_format_to_standard strips highlights."""
+
+    def test_highlights_not_parsed_as_tasks(self):
+        """Highlights section should be stripped before task parsing."""
+        text = """Phase 1
+  Task 1 @john 3days
+
+---highlights---
+## 2026-02-13 @Alice
+- Completed phase 1
+---end-highlights---"""
+        result = convert_plan_format_to_standard(text)
+        assert '---highlights---' not in result
+        assert '---end-highlights---' not in result
+        assert 'Completed phase 1' not in result
+        assert 'Task 1' in result
+
+    def test_highlights_with_frontmatter(self):
+        """Both frontmatter and highlights should be stripped."""
+        text = """---
+title: My Project
+---
+Phase 1
+  Task 1 @john 3days
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+---end-highlights---"""
+        result = convert_plan_format_to_standard(text)
+        assert 'title:' not in result
+        assert '---highlights---' not in result
+        assert 'Task 1' in result
 
 
 if __name__ == "__main__":
