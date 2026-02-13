@@ -807,6 +807,25 @@
 
 **Status:** Complete! Gantt chart weekends now correctly highlight Saturday and Sunday only, task bars scale proportionally at all zoom levels, and headers/bars render correctly at weeks/months/quarters/years scales.
 
+### Highlight Section Sync Bug (GitHub Issue #185) - ✅ COMPLETED
+- [x] Fixed `_parse_highlights_section()` to preserve blank lines within highlight content
+  - Previously, blank lines in content were skipped, causing data loss during round-trip
+  - Now only skips blank lines before the first heading
+- [x] Fixed `syncHighlightsToPlanText()` to trigger a re-render after updating editor
+  - Previously, programmatic editor updates did not trigger a re-parse
+  - Backend and frontend could get out of sync after adding/editing highlights via UI
+  - Now calls `renderText()` after updating editor value
+- [x] Added 6 new round-trip tests verifying JS-to-Python format compatibility
+  - Tests simulate the exact format the JavaScript `updatePlanHighlightsText` generates
+  - Verifies blank line preservation, frontmatter interaction, and format equivalence
+
+**Files Modified:**
+- `packages/noodle-core/src/noodle_core/format_converter.py` - Fix `_parse_highlights_section` blank line handling
+- `packages/noodle-web/src/noodle_web/static/script.js` - Add `renderText()` call in `syncHighlightsToPlanText`
+- `tests/test_format_converter.py` - Add `TestHighlightSyncRoundTrip` test class
+
+**Status:** Complete! Highlights added via the UI now correctly sync with the plan editor and survive backend round-trips.
+
 ## Pending 📋
 
 ### Test Execution

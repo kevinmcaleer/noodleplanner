@@ -168,7 +168,9 @@ def _parse_highlights_section(section: str) -> list:
 
     for line in section.split('\n'):
         stripped = line.strip()
-        if not stripped:
+
+        # Skip blank lines before the first heading
+        if not stripped and current is None:
             continue
 
         # Match heading line: ## 2026-02-13 @Alice
@@ -186,7 +188,7 @@ def _parse_highlights_section(section: str) -> list:
             }
             continue
 
-        # Content line (belongs to current highlight)
+        # Content line (belongs to current highlight), including blank lines
         if current is not None:
             current['content'] += line.rstrip() + '\n'
 
