@@ -978,6 +978,20 @@ function updateReportPage(tasks, projectName, frontMatter) {
             titleEl.textContent = projectName || 'Untitled Project';
         }
 
+        // Project manager
+        const manager = frontMatter['project manager'] || frontMatter.manager || frontMatter.owner || '';
+        const managerDetail = document.getElementById('reportManagerDetail');
+        const managerEl = document.getElementById('reportManager');
+        if (managerDetail && managerEl) {
+            if (manager) {
+                managerEl.textContent = manager;
+                managerDetail.style.display = '';
+            } else {
+                managerDetail.style.display = 'none';
+            }
+        }
+
+        // Sponsor
         const sponsor = frontMatter.sponsor || '';
         const sponsorDetail = document.getElementById('reportSponsorDetail');
         const sponsorEl = document.getElementById('reportSponsor');
@@ -990,6 +1004,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
             }
         }
 
+        // Budget
         const budget = frontMatter.budget || '';
         const budgetDetail = document.getElementById('reportBudgetDetail');
         const budgetEl = document.getElementById('reportBudget');
@@ -1002,11 +1017,41 @@ function updateReportPage(tasks, projectName, frontMatter) {
             }
         }
 
+        // Project RAG status
+        const status = frontMatter.status || '';
+        const statusDetail = document.getElementById('reportStatusDetail');
+        const statusEl = document.getElementById('reportStatus');
+        if (statusDetail && statusEl) {
+            if (status) {
+                statusEl.innerHTML = '';
+                const badge = document.createElement('span');
+                badge.className = 'report-rag-badge';
+                const lower = status.toLowerCase();
+                if (lower === 'red' || lower === 'amber' || lower === 'green') {
+                    badge.classList.add('rag-' + lower);
+                }
+                badge.textContent = status;
+                statusEl.appendChild(badge);
+                statusDetail.style.display = '';
+            } else {
+                statusDetail.style.display = 'none';
+            }
+        }
+
+        // Current date
+        const dateEl = document.getElementById('reportDate');
+        if (dateEl) {
+            const now = new Date();
+            dateEl.textContent = now.toISOString().split('T')[0];
+        }
+
         // Render simple timeline (no phases, no detailed view)
         updateReportTimeline(tasks, projectName);
 
-        // Populate milestones table
+        // Populate quad sections
         updateReportMilestones(tasks);
+        updateReportRaid();
+        updateReportHighlight();
 
     } catch (error) {
         console.error('Error updating report page:', error);
@@ -1182,47 +1227,55 @@ function updateReportTimeline(tasks, projectName) {
 function updateReportMilestones(tasks) {
     try {
         const tbody = document.getElementById('reportMilestonesTableBody');
+        const emptyEl = document.getElementById('reportMilestonesEmpty');
+        const tableEl = tbody ? tbody.closest('table') : null;
         if (!tbody) return;
 
         tbody.innerHTML = '';
 
-        // Filter to only show actual milestones (0-duration, non-summary tasks)
-        const milestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
+        // Filter to only milestones (0-duration, non-summary tasks)
+        const allMilestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
 
-        milestones.forEach(task => {
+        // Separate incomplete from complete, sort incomplete by date
+        const incomplete = allMilestones
+            .filter(task => (parseFloat(task.percent) || 0) < 100)
+            .sort((a, b) => {
+                const dateA = a.finish ? new Date(a.finish) : new Date('9999-12-31');
+                const dateB = b.finish ? new Date(b.finish) : new Date('9999-12-31');
+                return dateA - dateB;
+            });
+
+        // Take next 10 incomplete milestones
+        const displayMilestones = incomplete.slice(0, 10);
+
+        if (displayMilestones.length === 0) {
+            if (tableEl) tableEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+
+        if (tableEl) tableEl.style.display = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        displayMilestones.forEach(task => {
             const row = document.createElement('tr');
-
-            const idCell = document.createElement('td');
-            idCell.textContent = task.id;
-            row.appendChild(idCell);
 
             const nameCell = document.createElement('td');
             nameCell.textContent = task.name;
             nameCell.classList.add('task-name');
             row.appendChild(nameCell);
 
-            const startCell = document.createElement('td');
-            startCell.textContent = task.start || '-';
-            row.appendChild(startCell);
-
-            const finishCell = document.createElement('td');
-            finishCell.textContent = task.finish || '-';
-            row.appendChild(finishCell);
-
-            const percentCell = document.createElement('td');
-            percentCell.textContent = task.percent || '-';
-            row.appendChild(percentCell);
+            const dateCell = document.createElement('td');
+            dateCell.textContent = task.finish || '-';
+            row.appendChild(dateCell);
 
             const ragCell = document.createElement('td');
-            ragCell.textContent = task.rag || '-';
+            const ragValue = task.rag || '-';
+            ragCell.textContent = ragValue;
             if (task.rag) {
-                ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
+                ragCell.classList.add('rag-' + task.rag.toLowerCase());
             }
             row.appendChild(ragCell);
-
-            const commentCell = document.createElement('td');
-            commentCell.textContent = task.comment || '-';
-            row.appendChild(commentCell);
 
             row.style.cursor = 'pointer';
             row.addEventListener('click', () => {
@@ -1234,6 +1287,117 @@ function updateReportMilestones(tasks) {
 
     } catch (error) {
         console.error('Error updating report milestones:', error);
+    }
+}
+
+/**
+ * Populate the report RAID quad with open risks and issues,
+ * sorted by score (highest first), limited to 10 items.
+ */
+function updateReportRaid() {
+    try {
+        const tbody = document.getElementById('reportRaidTableBody');
+        const emptyEl = document.getElementById('reportRaidEmpty');
+        const tableEl = document.getElementById('reportRaidTable');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        // Filter to open risks and issues only, sort by score descending
+        const openRisksAndIssues = raidItems
+            .filter(item => (item.type === 'risk' || item.type === 'issue') && item.status === 'open')
+            .sort((a, b) => (b.score || 0) - (a.score || 0))
+            .slice(0, 10);
+
+        if (openRisksAndIssues.length === 0) {
+            if (tableEl) tableEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+
+        if (tableEl) tableEl.style.display = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        openRisksAndIssues.forEach(item => {
+            const row = document.createElement('tr');
+
+            const typeCell = document.createElement('td');
+            const typeBadge = document.createElement('span');
+            typeBadge.className = 'raid-type-badge raid-type-' + item.type;
+            typeBadge.textContent = item.type;
+            typeCell.appendChild(typeBadge);
+            row.appendChild(typeCell);
+
+            const titleCell = document.createElement('td');
+            titleCell.textContent = item.title || item.description || '-';
+            row.appendChild(titleCell);
+
+            const scoreCell = document.createElement('td');
+            const scoreBadge = document.createElement('span');
+            const score = item.score || 0;
+            const scoreClass = score >= 16 ? 'raid-score-high' : score >= 6 ? 'raid-score-medium' : 'raid-score-low';
+            scoreBadge.className = 'raid-score ' + scoreClass;
+            scoreBadge.textContent = score;
+            scoreCell.appendChild(scoreBadge);
+            row.appendChild(scoreCell);
+
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Error updating report RAID:', error);
+    }
+}
+
+/**
+ * Show the most recent highlight entry in the report quad.
+ */
+function updateReportHighlight() {
+    try {
+        const container = document.getElementById('reportHighlightContent');
+        if (!container) return;
+
+        if (!highlightsData || highlightsData.length === 0) {
+            container.innerHTML = '<p class="quad-empty-state">No highlights recorded yet.</p>';
+            return;
+        }
+
+        // Most recent highlight is the last in the array
+        const latest = highlightsData[highlightsData.length - 1];
+
+        container.innerHTML = '';
+
+        const card = document.createElement('div');
+        card.className = 'report-highlight-card';
+
+        const meta = document.createElement('div');
+        meta.className = 'report-highlight-meta';
+
+        if (latest.date) {
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'highlight-date';
+            dateSpan.textContent = latest.date;
+            meta.appendChild(dateSpan);
+        }
+
+        if (latest.author) {
+            const authorSpan = document.createElement('span');
+            authorSpan.className = 'highlight-author';
+            authorSpan.textContent = '@' + latest.author;
+            meta.appendChild(authorSpan);
+        }
+
+        card.appendChild(meta);
+
+        const body = document.createElement('div');
+        body.className = 'report-highlight-body';
+        body.innerHTML = renderSimpleMarkdown(latest.content || '');
+        card.appendChild(body);
+
+        container.appendChild(card);
+
+    } catch (error) {
+        console.error('Error updating report highlight:', error);
     }
 }
 
@@ -2018,7 +2182,7 @@ function updateTimeline(tasks, projectName) {
         maxDate.setDate(maxDate.getDate() + 7);
 
         // Calculate total timeline width - scale to available screen width
-        const timelineWrapper = document.querySelector('.timeline-line-wrapper');
+        const timelineWrapper = document.querySelector('#timeline-view .timeline-line-wrapper');
 
         // Skip rendering if the container is hidden (e.g. tab not visible).
         // The timeline will be re-rendered when the tab becomes visible
@@ -2436,8 +2600,7 @@ function renderDayHeaders(container) {
         const dayDiv = document.createElement('div');
         dayDiv.className = 'gantt-month';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
-        const dayAbbr = currentDate.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
-        dayDiv.textContent = dayAbbr + ' ' + currentDate.getDate();
+        dayDiv.textContent = currentDate.getDate();
         dayDiv.title = currentDate.toLocaleDateString();
 
         // Highlight current date with light green background
@@ -3717,10 +3880,13 @@ class Task {
     }
 
     getPreviousTaskName(lines) {
-        // Find the previous non-empty task line
+        // Find the previous non-empty, non-summary task line
         for (let i = this.lineNumber - 2; i >= 0; i--) {
             const line = lines[i].trim();
             if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
+                // Skip summary tasks (phases that have children)
+                if (typeof isSummaryLine === 'function' && isSummaryLine(lines, i)) continue;
+
                 // Extract task name
                 let taskLine = line;
                 if (taskLine.startsWith('*')) {
@@ -4662,12 +4828,42 @@ function saveTask() {
     setTimeout(() => renderText(), 10);
 }
 
+/**
+ * Check if a line in the plan is a summary task (phase/parent).
+ * A summary task is a non-empty line that has a subsequent non-empty line
+ * with greater indentation (i.e., it has children).
+ */
+function isSummaryLine(lines, lineIndex) {
+    const line = lines[lineIndex];
+    if (!line || !line.trim()) return false;
+
+    const indent = line.search(/\S/);
+    if (indent < 0) return false;
+
+    // Look ahead for the next non-empty line
+    for (let j = lineIndex + 1; j < lines.length; j++) {
+        const nextLine = lines[j];
+        const nextTrimmed = nextLine.trim();
+        if (!nextTrimmed) continue; // Skip blank lines
+
+        const nextIndent = nextLine.search(/\S/);
+        // If the next non-empty line is more indented, this is a summary task
+        return nextIndent > indent;
+    }
+
+    // No subsequent non-empty line found - not a summary
+    return false;
+}
+
 function getPreviousTaskName(lines, currentLineNum) {
-    // Look backwards from current line to find the previous task
+    // Look backwards from current line to find the previous non-summary task
     for (let i = currentLineNum - 2; i >= 0; i--) {
         const line = lines[i].trim();
         // Skip empty lines, phase headers, and summary lines
         if (line && !line.includes('===') && !line.includes('---') && !line.startsWith('#')) {
+            // Skip summary tasks (phases that have children)
+            if (isSummaryLine(lines, i)) continue;
+
             // Parse this line to get just the task name
             const task = parseTaskLine(line, i + 1);
             if (task.name) {
@@ -4865,6 +5061,10 @@ function getAllTaskNames() {
         if (task.name && task.name.trim()) {
             // Don't include the current task
             if (currentTask && task.lineNumber === currentTask.lineNumber) {
+                continue;
+            }
+            // Don't include summary tasks (phases) as valid dependency targets
+            if (isSummaryLine(lines, i)) {
                 continue;
             }
             taskNames.push(task.name.trim());

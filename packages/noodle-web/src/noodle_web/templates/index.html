@@ -150,6 +150,10 @@ Press Enter to render..."></textarea>
                                 <div class="project-report-header">
                                     <h2 class="project-report-title" id="reportProjectTitle">Project Title</h2>
                                     <div class="project-report-details">
+                                        <div class="project-report-detail" id="reportManagerDetail" style="display: none;">
+                                            <span class="project-report-detail-label">Project Manager:</span>
+                                            <span class="project-report-detail-value" id="reportManager"></span>
+                                        </div>
                                         <div class="project-report-detail" id="reportSponsorDetail" style="display: none;">
                                             <span class="project-report-detail-label">Sponsor:</span>
                                             <span class="project-report-detail-value" id="reportSponsor"></span>
@@ -158,10 +162,18 @@ Press Enter to render..."></textarea>
                                             <span class="project-report-detail-label">Budget:</span>
                                             <span class="project-report-detail-value" id="reportBudget"></span>
                                         </div>
+                                        <div class="project-report-detail" id="reportStatusDetail" style="display: none;">
+                                            <span class="project-report-detail-label">Status:</span>
+                                            <span class="project-report-detail-value" id="reportStatus"></span>
+                                        </div>
+                                        <div class="project-report-detail">
+                                            <span class="project-report-detail-label">Date:</span>
+                                            <span class="project-report-detail-value" id="reportDate"></span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Timeline Section -->
+                                <!-- Timeline Section (full width) -->
                                 <div class="project-report-section">
                                     <h3>Timeline</h3>
                                     <div class="timeline-line-wrapper report-timeline-wrapper">
@@ -172,26 +184,60 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
 
-                                <!-- Milestones Table Section -->
-                                <div class="project-report-section">
-                                    <h3>Milestones</h3>
-                                    <div class="milestones-table-wrapper">
-                                        <table class="milestones-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>ID</th>
-                                                    <th>Task Name</th>
-                                                    <th>Start</th>
-                                                    <th>Finish</th>
-                                                    <th>%</th>
-                                                    <th>RAG</th>
-                                                    <th>Comment</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="reportMilestonesTableBody">
-                                                <!-- Milestone rows will be populated by JavaScript -->
-                                            </tbody>
-                                        </table>
+                                <!-- Quad Grid Layout -->
+                                <div class="quad-grid">
+                                    <!-- Top Left: Milestones -->
+                                    <div class="quad-cell">
+                                        <h3>Milestones</h3>
+                                        <div class="milestones-table-wrapper">
+                                            <table class="milestones-table quad-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Milestone</th>
+                                                        <th>Date</th>
+                                                        <th>RAG</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="reportMilestonesTableBody">
+                                                    <!-- Milestone rows populated by JavaScript -->
+                                                </tbody>
+                                            </table>
+                                            <p class="quad-empty-state" id="reportMilestonesEmpty" style="display: none;">No upcoming milestones.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Top Right: RAID Log -->
+                                    <div class="quad-cell">
+                                        <h3>Risks &amp; Issues</h3>
+                                        <div class="raid-table-wrapper">
+                                            <table class="milestones-table quad-table" id="reportRaidTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Type</th>
+                                                        <th>Title</th>
+                                                        <th>Score</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="reportRaidTableBody">
+                                                    <!-- RAID rows populated by JavaScript -->
+                                                </tbody>
+                                            </table>
+                                            <p class="quad-empty-state" id="reportRaidEmpty" style="display: none;">No open risks or issues.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom Left: Highlights -->
+                                    <div class="quad-cell">
+                                        <h3>Latest Highlight</h3>
+                                        <div id="reportHighlightContent" class="report-highlight-content">
+                                            <p class="quad-empty-state">No highlights recorded yet.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom Right: Placeholder -->
+                                    <div class="quad-cell">
+                                        <h3>Notes</h3>
+                                        <p class="quad-empty-state">Reserved for future use.</p>
                                     </div>
                                 </div>
                             </div>
