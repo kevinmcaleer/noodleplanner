@@ -810,5 +810,146 @@ class TestRaidExcelImport:
         assert data["items"] == []
 
 
+# ===== Excel Import Endpoint Tests =====
+
+def _make_xlsx_bytes(sheets_data):
+    """Helper: create an xlsx file in memory and return bytes."""
+    from openpyxl import Workbook as _Wb
+    import io as _io
+    wb = _Wb()
+    first = True
+    for name, rows in sheets_data.items():
+        if first:
+            ws = wb.active
+            ws.title = name
+            first = False
+        else:
+            ws = wb.create_sheet(name)
+        for row in rows:
+            ws.append(row)
+    buf = _io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+class TestExcelAnalyzeEndpoint:
+    """Test suite for POST /api/excel/analyze."""
+
+    def test_analyze_valid_xlsx(self, client):
+        xlsx = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Duration"],
+                ["Task 1", "2025-01-06", 5],
+            ]
+        })
+        response = client.post(
+            "/api/excel/analyze",
+            files={"file": ("test.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "sheets" in data
+        assert data["sheets"][0]["name"] == "Tasks"
+
+    def test_analyze_invalid_file(self, client):
+        response = client.post(
+            "/api/excel/analyze",
+            files={"file": ("test.xlsx", b"not excel", "application/octet-stream")},
+        )
+        assert response.status_code == 400
+
+    def test_analyze_wrong_extension(self, client):
+        response = client.post(
+            "/api/excel/analyze",
+            files={"file": ("test.csv", b"a,b,c", "text/csv")},
+        )
+        assert response.status_code == 400
+
+
+class TestExcelConvertEndpoint:
+    """Test suite for POST /api/excel/convert."""
+
+    def test_convert_basic(self, client):
+        import json
+        xlsx = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Phase 1", ""],
+                ["  Task A", 3],
+            ]
+        })
+        response = client.post(
+            "/api/excel/convert",
+            files={"file": ("test.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            data={
+                "sheet_name": "Tasks",
+                "column_mapping": json.dumps({"task_name": "Task Name", "duration": "Duration"}),
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "markdown" in data
+        assert "Task A" in data["markdown"]
+
+    def test_convert_missing_task_name_mapping(self, client):
+        import json
+        xlsx = _make_xlsx_bytes({"Tasks": [["Name"], ["T1"]]})
+        response = client.post(
+            "/api/excel/convert",
+            files={"file": ("test.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            data={
+                "sheet_name": "Tasks",
+                "column_mapping": json.dumps({}),
+            },
+        )
+        assert response.status_code == 400
+
+    def test_convert_invalid_json_mapping(self, client):
+        xlsx = _make_xlsx_bytes({"Tasks": [["Name"], ["T1"]]})
+        response = client.post(
+            "/api/excel/convert",
+            files={"file": ("test.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            data={
+                "sheet_name": "Tasks",
+                "column_mapping": "not valid json{",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_convert_roundtrip(self, client):
+        """Test importing a NoodlePlanner-style export."""
+        import json
+        xlsx = _make_xlsx_bytes({
+            "Tasks": [
+                ["ID", "Task Name", "Start", "Finish", "Duration (days)",
+                 "Resources", "% Complete", "RAG", "Comment"],
+                [1, "Planning", "", "", 0, "", "", "", ""],
+                [2, "  Req Gathering", "2025-01-06", "2025-01-10", 5,
+                 "John", 100, "Green", "Done"],
+            ]
+        })
+        response = client.post(
+            "/api/excel/convert",
+            files={"file": ("project.xlsx", xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            data={
+                "sheet_name": "Tasks",
+                "column_mapping": json.dumps({
+                    "task_name": "Task Name",
+                    "start_date": "Start",
+                    "end_date": "Finish",
+                    "duration": "Duration (days)",
+                    "resources": "Resources",
+                    "percent_complete": "% Complete",
+                    "comment": "Comment",
+                }),
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "Req Gathering" in data["markdown"]
+        assert "100%" in data["markdown"]
+        assert "! Done" in data["markdown"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

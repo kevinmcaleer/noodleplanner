@@ -457,13 +457,19 @@ function initializeUploadTab() {
 }
 
 function handleFile(file) {
-    if (!file.name.match(/\.(md|txt)$/i)) {
-        showMessage('upload', 'error', 'Please select a Markdown (.md) or text (.txt) file');
+    if (!file.name.match(/\.(md|txt|xlsx|xls)$/i)) {
+        showMessage('upload', 'error', 'Please select a Markdown (.md), text (.txt), or Excel (.xlsx) file');
         return;
     }
 
     if (file.size > 1048576) {
         showMessage('upload', 'error', 'File size must be less than 1MB');
+        return;
+    }
+
+    // Excel files go through the import wizard
+    if (file.name.match(/\.(xlsx|xls)$/i)) {
+        openExcelImportWizard(file);
         return;
     }
 
@@ -6812,4 +6818,277 @@ function toggleTimelinePhases() {
     if (timelineTasks && timelineTasks.length > 0) {
         updateTimeline(timelineTasks, timelineProjectName);
     }
+}
+
+// ===== Excel Import Wizard =====
+
+let excelWizardFile = null;
+let excelWizardData = null;
+let excelWizardStep = 1;
+
+async function openExcelImportWizard(file) {
+    excelWizardFile = file;
+    excelWizardStep = 1;
+    updateWizardStepUI();
+
+    document.getElementById('wizardSheetSelect').innerHTML = '<option value="">-- Select a worksheet --</option>';
+    document.getElementById('wizardSheetPreview').style.display = 'none';
+    document.getElementById('wizardNextBtn').disabled = true;
+    document.getElementById('wizardSpinner').style.display = 'block';
+
+    const overlay = document.getElementById('excelWizardOverlay');
+    overlay.classList.add('active');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/excel/analyze', { method: 'POST', body: formData });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to analyze file');
+        }
+        excelWizardData = await response.json();
+
+        const select = document.getElementById('wizardSheetSelect');
+        excelWizardData.sheets.forEach(sheet => {
+            const opt = document.createElement('option');
+            opt.value = sheet.name;
+            opt.textContent = sheet.name + ' (' + sheet.row_count + ' rows)';
+            select.appendChild(opt);
+        });
+
+        // Auto-select if only one sheet
+        if (excelWizardData.sheets.length === 1) {
+            select.value = excelWizardData.sheets[0].name;
+            onWorksheetSelected();
+        }
+    } catch (e) {
+        showMessage('upload', 'error', 'Excel analysis failed: ' + e.message);
+        closeExcelWizard();
+    } finally {
+        document.getElementById('wizardSpinner').style.display = 'none';
+    }
+}
+
+function closeExcelWizard() {
+    document.getElementById('excelWizardOverlay').classList.remove('active');
+    excelWizardFile = null;
+    excelWizardData = null;
+}
+
+function onWorksheetSelected() {
+    const sheetName = document.getElementById('wizardSheetSelect').value;
+    const previewDiv = document.getElementById('wizardSheetPreview');
+    const nextBtn = document.getElementById('wizardNextBtn');
+
+    if (!sheetName || !excelWizardData) {
+        previewDiv.style.display = 'none';
+        nextBtn.disabled = true;
+        return;
+    }
+
+    const sheet = excelWizardData.sheets.find(s => s.name === sheetName);
+    if (!sheet) return;
+
+    // Build preview table
+    const table = document.getElementById('wizardPreviewTable');
+    let html = '<thead><tr>';
+    sheet.columns.forEach(col => { html += '<th>' + escapeHtml(col) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    sheet.sample_rows.forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => { html += '<td>' + escapeHtml(cell) + '</td>'; });
+        html += '</tr>';
+    });
+    html += '</tbody>';
+    table.innerHTML = html;
+
+    previewDiv.style.display = 'block';
+    nextBtn.disabled = false;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function buildMappingGrid(columns) {
+    const grid = document.getElementById('wizardMappingGrid');
+    const fields = [
+        { key: 'task_name', label: 'Task Name', required: true },
+        { key: 'start_date', label: 'Start Date' },
+        { key: 'end_date', label: 'End Date' },
+        { key: 'duration', label: 'Duration' },
+        { key: 'resources', label: 'Resources' },
+        { key: 'percent_complete', label: '% Complete' },
+        { key: 'comment', label: 'Comment' },
+    ];
+
+    // Auto-detection patterns
+    const patterns = {
+        task_name: ['task name', 'task', 'name', 'activity', 'wbs'],
+        start_date: ['start', 'start date', 'begin', 'begin date'],
+        end_date: ['finish', 'finish date', 'end', 'end date'],
+        duration: ['duration', 'duration (days)', 'days', 'effort'],
+        resources: ['resources', 'resource', 'assigned to', 'owner'],
+        percent_complete: ['% complete', 'percent complete', 'complete', 'progress', '% done'],
+        comment: ['comment', 'comments', 'notes', 'note', 'description'],
+    };
+
+    let html = '';
+    fields.forEach(field => {
+        const autoMatch = autoDetectColumn(columns, patterns[field.key] || []);
+        html += '<div class="wizard-mapping-row">';
+        html += '<label>' + field.label + (field.required ? ' *' : '') + '</label>';
+        html += '<select id="wizardMap_' + field.key + '" class="form-control">';
+        html += '<option value="">-- Not mapped --</option>';
+        columns.forEach(col => {
+            const selected = (col === autoMatch) ? ' selected' : '';
+            html += '<option value="' + escapeHtml(col) + '"' + selected + '>' + escapeHtml(col) + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+    });
+
+    grid.innerHTML = html;
+}
+
+function autoDetectColumn(columns, patterns) {
+    const colsLower = columns.map(c => c.toLowerCase().trim());
+    for (const pattern of patterns) {
+        const idx = colsLower.indexOf(pattern);
+        if (idx >= 0) return columns[idx];
+    }
+    return '';
+}
+
+function getColumnMapping() {
+    const fields = ['task_name', 'start_date', 'end_date', 'duration', 'resources', 'percent_complete', 'comment'];
+    const mapping = {};
+    fields.forEach(f => {
+        const el = document.getElementById('wizardMap_' + f);
+        if (el && el.value) mapping[f] = el.value;
+    });
+    return mapping;
+}
+
+function updateWizardStepUI() {
+    // Step indicators
+    for (let i = 1; i <= 3; i++) {
+        const indicator = document.getElementById('wizardStep' + i + 'Indicator');
+        indicator.classList.toggle('active', i === excelWizardStep);
+        indicator.classList.toggle('completed', i < excelWizardStep);
+    }
+
+    // Panels
+    document.getElementById('wizardStep1').style.display = excelWizardStep === 1 ? 'block' : 'none';
+    document.getElementById('wizardStep2').style.display = excelWizardStep === 2 ? 'block' : 'none';
+    document.getElementById('wizardStep3').style.display = excelWizardStep === 3 ? 'block' : 'none';
+
+    // Buttons
+    document.getElementById('wizardBackBtn').style.display = excelWizardStep > 1 ? 'inline-block' : 'none';
+    document.getElementById('wizardNextBtn').style.display = excelWizardStep < 3 ? 'inline-block' : 'none';
+    document.getElementById('wizardImportBtn').style.display = excelWizardStep === 3 ? 'inline-block' : 'none';
+}
+
+async function wizardNext() {
+    if (excelWizardStep === 1) {
+        // Step 1 -> 2: Populate column mapping
+        const sheetName = document.getElementById('wizardSheetSelect').value;
+        const sheet = excelWizardData.sheets.find(s => s.name === sheetName);
+        if (!sheet) return;
+
+        buildMappingGrid(sheet.columns);
+        excelWizardStep = 2;
+        updateWizardStepUI();
+        document.getElementById('wizardNextBtn').disabled = false;
+
+    } else if (excelWizardStep === 2) {
+        // Step 2 -> 3: Convert and preview
+        const mapping = getColumnMapping();
+        if (!mapping.task_name) {
+            alert('Task Name mapping is required.');
+            return;
+        }
+
+        document.getElementById('wizardSpinner').style.display = 'block';
+        document.getElementById('wizardNextBtn').disabled = true;
+
+        const sheetName = document.getElementById('wizardSheetSelect').value;
+        const formData = new FormData();
+        formData.append('file', excelWizardFile);
+        formData.append('sheet_name', sheetName);
+        formData.append('column_mapping', JSON.stringify(mapping));
+
+        try {
+            const response = await fetch('/api/excel/convert', { method: 'POST', body: formData });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Failed to convert file');
+            }
+            const result = await response.json();
+
+            // Show warnings
+            const warningsDiv = document.getElementById('wizardConvertWarnings');
+            if (result.warnings && result.warnings.length > 0) {
+                warningsDiv.innerHTML = '<strong>Warnings:</strong><ul>' +
+                    result.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('') + '</ul>';
+                warningsDiv.style.display = 'block';
+            } else {
+                warningsDiv.style.display = 'none';
+            }
+
+            // Show stats
+            document.getElementById('wizardConvertStats').textContent =
+                'Found ' + result.phase_count + ' phase(s) and ' + result.task_count + ' task(s)';
+
+            // Show markdown preview
+            document.getElementById('wizardMarkdownPreview').value = result.markdown;
+
+            excelWizardStep = 3;
+            updateWizardStepUI();
+        } catch (e) {
+            alert('Conversion failed: ' + e.message);
+            document.getElementById('wizardNextBtn').disabled = false;
+        } finally {
+            document.getElementById('wizardSpinner').style.display = 'none';
+        }
+    }
+}
+
+function wizardBack() {
+    if (excelWizardStep > 1) {
+        excelWizardStep--;
+        updateWizardStepUI();
+        if (excelWizardStep === 1) {
+            document.getElementById('wizardNextBtn').disabled = !document.getElementById('wizardSheetSelect').value;
+        } else {
+            document.getElementById('wizardNextBtn').disabled = false;
+        }
+    }
+}
+
+function wizardImport() {
+    const markdown = document.getElementById('wizardMarkdownPreview').value;
+    if (!markdown) return;
+
+    const editor = document.getElementById('planEditor');
+    editor.value = markdown;
+
+    // Switch to editor tab
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    const editorTab = document.querySelector('[onclick*="editor"]');
+    if (editorTab) editorTab.classList.add('active');
+    document.getElementById('editor-tab').classList.add('active');
+
+    editor.dispatchEvent(new Event('input'));
+
+    closeExcelWizard();
+
+    // Render the imported plan
+    renderText();
 }
