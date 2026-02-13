@@ -22,6 +22,7 @@
                 <button class="tab active" onclick="switchTab('editor')">Editor</button>
                 <button class="tab" onclick="switchTab('kanban')">Kanban</button>
                 <button class="tab" onclick="switchTab('guide')">Syntax Guide</button>
+                <button class="tab" onclick="switchTab('raid')">RAID Log</button>
                 <div class="nav-export-dropdown">
                     <button class="export-btn" onclick="toggleExportMenu(event)">
                         Export ▾
@@ -525,9 +526,184 @@ Build
                     </ul>
                 </div>
             </div>
+
+            <!-- RAID Log Tab -->
+            <div id="raid-tab" class="tab-content">
+                <div class="raid-container">
+                    <!-- Toolbar -->
+                    <div class="raid-toolbar">
+                        <button class="btn-primary" onclick="addRaidItem()">
+                            + Add Item
+                        </button>
+                        <div class="raid-toolbar-separator"></div>
+                        <button class="btn-secondary" onclick="downloadRaidMarkdown()">
+                            ⬇ Download Markdown
+                        </button>
+                        <button class="btn-secondary" onclick="document.getElementById('raidMdUpload').click()">
+                            ⬆ Upload Markdown
+                        </button>
+                        <input type="file" id="raidMdUpload" accept=".md" style="display:none;" onchange="uploadRaidMarkdown(event)">
+                        <div class="raid-toolbar-separator"></div>
+                        <button class="btn-secondary" onclick="exportRaidExcel()">
+                            📊 Export Excel
+                        </button>
+                        <button class="btn-secondary" onclick="document.getElementById('raidXlUpload').click()">
+                            📊 Upload Excel
+                        </button>
+                        <input type="file" id="raidXlUpload" accept=".xlsx" style="display:none;" onchange="uploadRaidExcel(event)">
+                        <div class="raid-toolbar-separator"></div>
+                        <div class="raid-filter-group">
+                            <label for="raidFilterType">Type:</label>
+                            <select id="raidFilterType" onchange="renderRaidTable()">
+                                <option value="all">All</option>
+                                <option value="risk">Risk</option>
+                                <option value="action">Action</option>
+                                <option value="issue">Issue</option>
+                                <option value="decision">Decision</option>
+                                <option value="dependency">Dependency</option>
+                            </select>
+                        </div>
+                        <div class="raid-filter-group">
+                            <label for="raidFilterStatus">Status:</label>
+                            <select id="raidFilterStatus" onchange="renderRaidTable()">
+                                <option value="all">All</option>
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                                <option value="transferred">Transferred</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- RAID Table -->
+                    <div class="raid-table-wrapper">
+                        <table class="raid-table" id="raidTable">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortRaidTable('id')">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('type')">Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('title')">Title <span class="sort-indicator"></span></th>
+                                    <th>Description</th>
+                                    <th onclick="sortRaidTable('raised_by')">Raised By <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('owner')">Owner <span class="sort-indicator"></span></th>
+                                    <th>Mitigation Actions</th>
+                                    <th onclick="sortRaidTable('impact')">Impact <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('likelihood')">Likelihood <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('score')">Score <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="raidTableBody">
+                            </tbody>
+                        </table>
+                        <div class="raid-empty-state" id="raidEmptyState">
+                            <h3>RAID Log</h3>
+                            <p>Track Risks, Actions, Issues, Decisions, and Dependencies.</p>
+                            <p>Click <strong>"+ Add Item"</strong> to get started, or upload an existing RAID log.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
+
+    <!-- RAID Item Form Modal -->
+    <div id="raidFormOverlay" class="modal-overlay">
+        <div class="task-form-modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 id="raidFormTitle">New RAID Item</h2>
+                <button class="close-btn" onclick="closeRaidForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="raidItemId">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="raidItemType">Type</label>
+                            <select id="raidItemType" class="form-control">
+                                <option value="risk">Risk</option>
+                                <option value="action">Action</option>
+                                <option value="issue">Issue</option>
+                                <option value="decision">Decision</option>
+                                <option value="dependency">Dependency</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemStatus">Status</label>
+                            <select id="raidItemStatus" class="form-control">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                                <option value="transferred">Transferred to Issue</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemTitle">Title</label>
+                        <input type="text" id="raidItemTitle" class="form-control" placeholder="Brief title for this item">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemDescription">Description</label>
+                        <textarea id="raidItemDescription" class="form-control" placeholder="Detailed description" rows="3"></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="raidItemRaisedBy">Raised By</label>
+                            <input type="text" id="raidItemRaisedBy" class="form-control" placeholder="Person who raised this">
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemOwner">Owner</label>
+                            <input type="text" id="raidItemOwner" class="form-control" placeholder="Person responsible">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemMitigation">Mitigation Actions</label>
+                        <textarea id="raidItemMitigation" class="form-control" placeholder="Steps to mitigate or resolve" rows="2"></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="raidItemImpact">Impact (1-5)</label>
+                            <select id="raidItemImpact" class="form-control" onchange="updateRaidFormScore()">
+                                <option value="1">1 - Very Low</option>
+                                <option value="2">2 - Low</option>
+                                <option value="3" selected>3 - Medium</option>
+                                <option value="4">4 - High</option>
+                                <option value="5">5 - Very High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemLikelihood">Likelihood (1-5)</label>
+                            <select id="raidItemLikelihood" class="form-control" onchange="updateRaidFormScore()">
+                                <option value="1">1 - Very Low</option>
+                                <option value="2">2 - Low</option>
+                                <option value="3" selected>3 - Medium</option>
+                                <option value="4">4 - High</option>
+                                <option value="5">5 - Very High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Score</label>
+                            <div id="raidScoreDisplay" class="raid-score-display score-medium">
+                                9
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                        <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Task Form Modal -->
     <div id="taskFormOverlay" class="modal-overlay">

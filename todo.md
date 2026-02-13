@@ -354,6 +354,38 @@
 
 **Status:** Complete! Root directory cleaned up with only essential files remaining.
 
+### RAID Log (GitHub Issue #146) - ✅ COMPLETED
+- [x] Created RAID Log tab in navigation bar
+- [x] Implemented RAID table with sortable columns and filter controls
+- [x] Added type-specific colored badges (Risk=red, Action=blue, Issue=amber, Decision=green, Dependency=purple)
+- [x] Added status badges (Open=green, Closed=grey, Transferred=blue)
+- [x] Auto-calculated Score (Impact × Likelihood) with color-coded display
+- [x] Implemented modal form for adding/editing RAID items
+  - Type and Status dropdowns
+  - Impact and Likelihood 1-5 selects with live score preview
+  - All text fields: Title, Description, Raised By, Owner, Mitigation Actions
+- [x] Implemented markdown export/import (client-side)
+  - `generateRaidMarkdown()` creates standard markdown table
+  - `parseRaidMarkdown()` parses markdown back into items
+  - Download as `raid.md` file
+  - Upload `.md` files to restore state
+- [x] Implemented Excel export/import (server-side)
+  - `POST /api/raid/export-excel` endpoint with styled headers and color-coded scores
+  - `POST /api/raid/import-excel` endpoint with column mapping and validation
+  - Download as `.xlsx` file, upload to restore state
+- [x] Added CSS styling for RAID table, toolbar, badges, score colors, empty state
+- [x] Added RAID Log step to interface tour
+- [x] Written 15 tests for RAID Excel endpoints (all passing)
+- [x] Updated design/epic.md with RAID Log documentation
+
+**Design Decisions:**
+- No database storage — purely client-side state
+- Users persist data by downloading/uploading markdown files
+- Standard markdown tables for interoperability
+- Pipes in cell content escaped as `\|` for markdown safety
+
+**Status:** Complete! RAID Log provides comprehensive risk/issue tracking with markdown and Excel I/O.
+
 ## In Progress 🔄
 
 ### Dependency Loop Detection (GitHub Issue #22) - ✅ RESTORED
@@ -716,6 +748,7 @@
 - #83: Gantt chart day headers alignment and buffer (fixed all alignment issues + added 1-week buffer) - ✅ CLOSED
 - #28: Project analysis output (health check, actionable insights, Fix It buttons) - ✅ CLOSED
 - #97: Milestone page enhancements (fixed font, removed resources column) - ✅ CLOSED
+- #146: RAID Log (Risks, Actions, Issues, Decisions, Dependencies tracking with markdown/Excel I/O) - ✅ COMPLETED
 
 ---
 

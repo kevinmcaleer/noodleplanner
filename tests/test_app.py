@@ -554,5 +554,261 @@ class TestCORS:
         assert response.status_code == 200
 
 
+@pytest.fixture
+def sample_raid_items():
+    """Sample RAID log items for testing."""
+    return {
+        "items": [
+            {
+                "id": 1, "type": "risk", "title": "Server downtime",
+                "description": "Risk of server failure during migration",
+                "raised_by": "John", "owner": "Jane",
+                "mitigation_actions": "Setup backup server",
+                "impact": 4, "likelihood": 3, "score": 12, "status": "open"
+            },
+            {
+                "id": 2, "type": "action", "title": "Review code",
+                "description": "Code review needed before release",
+                "raised_by": "Jane", "owner": "John",
+                "mitigation_actions": "",
+                "impact": 2, "likelihood": 2, "score": 4, "status": "closed"
+            },
+            {
+                "id": 3, "type": "decision", "title": "Use PostgreSQL",
+                "description": "Decided to use PostgreSQL over MySQL",
+                "raised_by": "Tech Lead", "owner": "Tech Lead",
+                "mitigation_actions": "N/A",
+                "impact": 1, "likelihood": 1, "score": 1, "status": "closed"
+            }
+        ],
+        "project_name": "TestProject"
+    }
+
+
+class TestRaidExcelExport:
+    """Test suite for RAID Excel export endpoint."""
+
+    def test_export_returns_xlsx(self, client, sample_raid_items):
+        """Test that export returns an xlsx file."""
+        response = client.post("/api/raid/export-excel", json=sample_raid_items)
+        assert response.status_code == 200
+        assert "spreadsheetml.sheet" in response.headers["content-type"]
+
+    def test_export_has_correct_filename(self, client, sample_raid_items):
+        """Test that export filename includes project name."""
+        response = client.post("/api/raid/export-excel", json=sample_raid_items)
+        assert response.status_code == 200
+        content_disposition = response.headers.get("content-disposition", "")
+        assert "TestProject-raid.xlsx" in content_disposition
+
+    def test_export_returns_valid_xlsx(self, client, sample_raid_items):
+        """Test that export returns a valid xlsx (ZIP) file."""
+        response = client.post("/api/raid/export-excel", json=sample_raid_items)
+        assert response.status_code == 200
+        assert response.content[:2] == b'PK'
+
+    def test_export_empty_items(self, client):
+        """Test that exporting empty items list succeeds."""
+        response = client.post(
+            "/api/raid/export-excel",
+            json={"items": [], "project_name": "Empty"}
+        )
+        assert response.status_code == 200
+
+    def test_export_uses_default_project_name(self, client):
+        """Test that export uses default project name when not provided."""
+        response = client.post(
+            "/api/raid/export-excel",
+            json={"items": []}
+        )
+        assert response.status_code == 200
+        content_disposition = response.headers.get("content-disposition", "")
+        assert "Project-raid.xlsx" in content_disposition
+
+    def test_export_validates_invalid_type(self, client):
+        """Test that invalid type is rejected by validation."""
+        response = client.post(
+            "/api/raid/export-excel",
+            json={
+                "items": [{
+                    "id": 1, "type": "invalid", "title": "test",
+                    "impact": 3, "likelihood": 3, "score": 9, "status": "open"
+                }]
+            }
+        )
+        assert response.status_code == 422
+
+    def test_export_validates_impact_range(self, client):
+        """Test that impact outside 1-5 range is rejected."""
+        response = client.post(
+            "/api/raid/export-excel",
+            json={
+                "items": [{
+                    "id": 1, "type": "risk", "title": "test",
+                    "impact": 6, "likelihood": 3, "score": 18, "status": "open"
+                }]
+            }
+        )
+        assert response.status_code == 422
+
+    def test_export_validates_likelihood_range(self, client):
+        """Test that likelihood outside 1-5 range is rejected."""
+        response = client.post(
+            "/api/raid/export-excel",
+            json={
+                "items": [{
+                    "id": 1, "type": "risk", "title": "test",
+                    "impact": 3, "likelihood": 0, "score": 0, "status": "open"
+                }]
+            }
+        )
+        assert response.status_code == 422
+
+    def test_export_validates_invalid_status(self, client):
+        """Test that invalid status is rejected by validation."""
+        response = client.post(
+            "/api/raid/export-excel",
+            json={
+                "items": [{
+                    "id": 1, "type": "risk", "title": "test",
+                    "impact": 3, "likelihood": 3, "score": 9,
+                    "status": "invalid_status"
+                }]
+            }
+        )
+        assert response.status_code == 422
+
+
+class TestRaidExcelImport:
+    """Test suite for RAID Excel import endpoint."""
+
+    def test_import_rejects_non_xlsx(self, client):
+        """Test that non-xlsx files are rejected."""
+        from io import BytesIO
+        response = client.post(
+            "/api/raid/import-excel",
+            files={"file": ("raid.csv", BytesIO(b"data"), "text/csv")}
+        )
+        assert response.status_code == 400
+
+    def test_import_roundtrip_preserves_data(self, client, sample_raid_items):
+        """Test that export then import preserves all data."""
+        export_response = client.post(
+            "/api/raid/export-excel", json=sample_raid_items
+        )
+        assert export_response.status_code == 200
+
+        from io import BytesIO
+        import_response = client.post(
+            "/api/raid/import-excel",
+            files={
+                "file": (
+                    "raid.xlsx",
+                    BytesIO(export_response.content),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            }
+        )
+        assert import_response.status_code == 200
+        data = import_response.json()
+        assert "items" in data
+        assert len(data["items"]) == 3
+
+    def test_import_preserves_field_values(self, client, sample_raid_items):
+        """Test that imported fields match exported fields."""
+        export_response = client.post(
+            "/api/raid/export-excel", json=sample_raid_items
+        )
+
+        from io import BytesIO
+        import_response = client.post(
+            "/api/raid/import-excel",
+            files={
+                "file": (
+                    "raid.xlsx",
+                    BytesIO(export_response.content),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            }
+        )
+        data = import_response.json()
+        first_item = data["items"][0]
+        assert first_item["title"] == "Server downtime"
+        assert first_item["type"] == "risk"
+        assert first_item["impact"] == 4
+        assert first_item["likelihood"] == 3
+        assert first_item["score"] == 12
+        assert first_item["status"] == "open"
+
+    def test_import_recalculates_score(self, client, sample_raid_items):
+        """Test that score is recalculated on import."""
+        export_response = client.post(
+            "/api/raid/export-excel", json=sample_raid_items
+        )
+
+        from io import BytesIO
+        import_response = client.post(
+            "/api/raid/import-excel",
+            files={
+                "file": (
+                    "raid.xlsx",
+                    BytesIO(export_response.content),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            }
+        )
+        data = import_response.json()
+        for item in data["items"]:
+            assert item["score"] == item["impact"] * item["likelihood"]
+
+    def test_import_returns_json_structure(self, client, sample_raid_items):
+        """Test that import returns correct JSON structure."""
+        export_response = client.post(
+            "/api/raid/export-excel", json=sample_raid_items
+        )
+
+        from io import BytesIO
+        import_response = client.post(
+            "/api/raid/import-excel",
+            files={
+                "file": (
+                    "raid.xlsx",
+                    BytesIO(export_response.content),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            }
+        )
+        data = import_response.json()
+        assert "items" in data
+        for item in data["items"]:
+            assert "id" in item
+            assert "type" in item
+            assert "title" in item
+            assert "status" in item
+
+    def test_import_empty_xlsx(self, client):
+        """Test that importing an xlsx with only headers works."""
+        # Export with no items, then import
+        export_response = client.post(
+            "/api/raid/export-excel",
+            json={"items": [], "project_name": "Empty"}
+        )
+
+        from io import BytesIO
+        import_response = client.post(
+            "/api/raid/import-excel",
+            files={
+                "file": (
+                    "raid.xlsx",
+                    BytesIO(export_response.content),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            }
+        )
+        assert import_response.status_code == 200
+        data = import_response.json()
+        assert data["items"] == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

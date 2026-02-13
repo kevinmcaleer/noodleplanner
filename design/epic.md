@@ -32,6 +32,54 @@ The web application (`packages/noodle-web/`) provides:
 - **Report View**: Formatted markdown output
 - **Export**: Excel, PowerPoint, PDF
 
+### RAID Log
+
+The RAID Log tab provides tracking for project Risks, Actions, Issues, Decisions, and Dependencies.
+
+**Design Decisions:**
+- No database storage — RAID data lives in client-side JavaScript state
+- Users download/upload markdown files (`raid.md`) for persistence
+- Excel import/export handled server-side via openpyxl
+- Score is auto-calculated as Impact × Likelihood (both on a 1-5 scale)
+
+**Columns:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| ID | Auto-increment | Unique identifier |
+| Type | Enum | risk, action, issue, decision, dependency |
+| Title | Text | Brief title |
+| Description | Text | Detailed description |
+| Raised By | Text | Person who raised the item |
+| Owner | Text | Person responsible |
+| Mitigation Actions | Text | Steps to mitigate |
+| Impact | 1-5 | Severity if item occurs |
+| Likelihood | 1-5 | Probability of occurrence |
+| Score | Calculated | Impact × Likelihood |
+| Status | Enum | open, closed, transferred |
+
+**Markdown Format:**
+
+The RAID log is stored as a standard markdown table in a `raid.md` file:
+
+```markdown
+# RAID Log
+
+| ID | Type | Title | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status |
+|----|------|-------|-------------|-----------|-------|--------------------|--------|------------|-------|--------|
+| 1  | Risk | ...   | ...         | ...       | ...   | ...                | 3      | 4          | 12    | Open   |
+```
+
+**API Endpoints:**
+- `POST /api/raid/export-excel` — Export RAID items to styled .xlsx file
+- `POST /api/raid/import-excel` — Import RAID items from .xlsx file
+
+**Key JavaScript Functions:**
+- `renderRaidTable()` — Renders filtered/sorted table from client state
+- `generateRaidMarkdown()` / `parseRaidMarkdown()` — Markdown serialization
+- `exportRaidExcel()` / `uploadRaidExcel()` — Excel via backend endpoints
+- `openRaidForm()` / `saveRaidItemFromForm()` — Modal form for CRUD
+
 ### CLI Tool
 
 The CLI (`packages/noodle-cli/`) provides command-line access to the planning engine.

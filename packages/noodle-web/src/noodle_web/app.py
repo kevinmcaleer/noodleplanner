@@ -5,7 +5,7 @@ import logging
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
 from fastapi.responses import Response, HTMLResponse, FileResponse
@@ -581,6 +581,179 @@ async def parse_plan(data: RenderRequest):
     except Exception as e:
         logger.error(f"Error parsing plan: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to parse plan: {str(e)}")
+
+
+class RaidItem(BaseModel):
+    """A single RAID log item."""
+    id: int
+    type: str = Field(..., pattern=r'^(risk|action|issue|decision|dependency)$')
+    title: str = Field(..., max_length=500)
+    description: str = Field("", max_length=5000)
+    raised_by: str = Field("", max_length=200)
+    owner: str = Field("", max_length=200)
+    mitigation_actions: str = Field("", max_length=5000)
+    impact: int = Field(3, ge=1, le=5)
+    likelihood: int = Field(3, ge=1, le=5)
+    score: int = Field(9, ge=1, le=25)
+    status: str = Field("open", pattern=r'^(open|closed|transferred)$')
+
+
+class RaidExportRequest(BaseModel):
+    """Request body for RAID Excel export."""
+    items: List[RaidItem]
+    project_name: Optional[str] = Field("Project", max_length=200)
+
+
+@app.post("/api/raid/export-excel")
+async def export_raid_excel(data: RaidExportRequest):
+    """Export RAID log items to an Excel file."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "RAID Log"
+
+    headers = [
+        'ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner',
+        'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'
+    ]
+
+    header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    for row_idx, item in enumerate(data.items, 2):
+        ws.cell(row=row_idx, column=1, value=item.id)
+        ws.cell(row=row_idx, column=2, value=item.type.capitalize())
+        ws.cell(row=row_idx, column=3, value=item.title)
+        ws.cell(row=row_idx, column=4, value=item.description)
+        ws.cell(row=row_idx, column=5, value=item.raised_by)
+        ws.cell(row=row_idx, column=6, value=item.owner)
+        ws.cell(row=row_idx, column=7, value=item.mitigation_actions)
+        ws.cell(row=row_idx, column=8, value=item.impact)
+        ws.cell(row=row_idx, column=9, value=item.likelihood)
+
+        score_cell = ws.cell(row=row_idx, column=10, value=item.score)
+        if item.score >= 16:
+            score_cell.fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
+        elif item.score >= 6:
+            score_cell.fill = PatternFill(start_color="FFF3BF", end_color="FFF3BF", fill_type="solid")
+        else:
+            score_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
+
+        ws.cell(row=row_idx, column=11, value=item.status.capitalize())
+
+    column_widths = [6, 14, 25, 35, 15, 15, 35, 10, 12, 8, 14]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        wb.save(tmp_path)
+        with open(tmp_path, 'rb') as f:
+            file_bytes = f.read()
+        project_name = data.project_name or "Project"
+        return Response(
+            content=file_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f'attachment; filename="{project_name}-raid.xlsx"'
+            }
+        )
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.post("/api/raid/import-excel")
+async def import_raid_excel(file: UploadFile = File(...)):
+    """Import RAID log items from an Excel file."""
+    from openpyxl import load_workbook
+
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="File must be .xlsx format")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    try:
+        wb = load_workbook(filename=io.BytesIO(content))
+        ws = wb.active
+
+        headers = [
+            str(cell.value).lower().strip() if cell.value else ''
+            for cell in ws[1]
+        ]
+
+        field_names = {
+            'id': 'id', 'type': 'type', 'title': 'title',
+            'description': 'description', 'raised by': 'raised_by',
+            'owner': 'owner', 'mitigation actions': 'mitigation_actions',
+            'impact': 'impact', 'likelihood': 'likelihood',
+            'score': 'score', 'status': 'status'
+        }
+
+        col_map = {}
+        for idx, header in enumerate(headers):
+            if header in field_names:
+                col_map[field_names[header]] = idx
+
+        valid_types = {'risk', 'action', 'issue', 'decision', 'dependency'}
+        valid_statuses = {'open', 'closed', 'transferred'}
+
+        items = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not any(row):
+                continue
+
+            def get_cell(field, default=''):
+                idx = col_map.get(field)
+                if idx is not None and idx < len(row) and row[idx] is not None:
+                    return row[idx]
+                return default
+
+            item_type = str(get_cell('type', 'risk')).lower().strip()
+            item_status = str(get_cell('status', 'open')).lower().strip()
+            if item_status == 'transferred to issue':
+                item_status = 'transferred'
+
+            impact = int(get_cell('impact', 3))
+            likelihood = int(get_cell('likelihood', 3))
+            impact = max(1, min(5, impact))
+            likelihood = max(1, min(5, likelihood))
+
+            item = {
+                'id': int(get_cell('id', len(items) + 1)),
+                'type': item_type if item_type in valid_types else 'risk',
+                'title': str(get_cell('title', '')),
+                'description': str(get_cell('description', '')),
+                'raised_by': str(get_cell('raised_by', '')),
+                'owner': str(get_cell('owner', '')),
+                'mitigation_actions': str(get_cell('mitigation_actions', '')),
+                'impact': impact,
+                'likelihood': likelihood,
+                'score': impact * likelihood,
+                'status': item_status if item_status in valid_statuses else 'open',
+            }
+            items.append(item)
+
+        return {"items": items}
+
+    except Exception as e:
+        logger.error(f"Error importing RAID Excel: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to parse Excel file: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

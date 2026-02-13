@@ -5792,6 +5792,453 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
+ * RAID Log System
+ * Tracks Risks, Actions, Issues, Decisions, and Dependencies
+ */
+
+let raidItems = [];
+let raidNextId = 1;
+let raidSortColumn = 'id';
+let raidSortAsc = true;
+
+function addRaidItem() {
+    openRaidForm(null);
+}
+
+function openRaidForm(itemId) {
+    const overlay = document.getElementById('raidFormOverlay');
+    const title = document.getElementById('raidFormTitle');
+    const idField = document.getElementById('raidItemId');
+
+    if (itemId !== null) {
+        const item = raidItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit RAID Item';
+        idField.value = item.id;
+        document.getElementById('raidItemType').value = item.type;
+        document.getElementById('raidItemStatus').value = item.status;
+        document.getElementById('raidItemTitle').value = item.title;
+        document.getElementById('raidItemDescription').value = item.description;
+        document.getElementById('raidItemRaisedBy').value = item.raised_by;
+        document.getElementById('raidItemOwner').value = item.owner;
+        document.getElementById('raidItemMitigation').value = item.mitigation_actions;
+        document.getElementById('raidItemImpact').value = item.impact;
+        document.getElementById('raidItemLikelihood').value = item.likelihood;
+    } else {
+        title.textContent = 'New RAID Item';
+        idField.value = '';
+        document.getElementById('raidItemType').value = 'risk';
+        document.getElementById('raidItemStatus').value = 'open';
+        document.getElementById('raidItemTitle').value = '';
+        document.getElementById('raidItemDescription').value = '';
+        document.getElementById('raidItemRaisedBy').value = '';
+        document.getElementById('raidItemOwner').value = '';
+        document.getElementById('raidItemMitigation').value = '';
+        document.getElementById('raidItemImpact').value = '3';
+        document.getElementById('raidItemLikelihood').value = '3';
+    }
+
+    updateRaidFormScore();
+    overlay.classList.add('active');
+}
+
+function closeRaidForm() {
+    document.getElementById('raidFormOverlay').classList.remove('active');
+}
+
+function updateRaidFormScore() {
+    const impact = parseInt(document.getElementById('raidItemImpact').value) || 3;
+    const likelihood = parseInt(document.getElementById('raidItemLikelihood').value) || 3;
+    const score = impact * likelihood;
+    const display = document.getElementById('raidScoreDisplay');
+
+    display.textContent = score;
+    display.className = 'raid-score-display';
+
+    if (score >= 16) {
+        display.classList.add('score-high');
+    } else if (score >= 6) {
+        display.classList.add('score-medium');
+    } else {
+        display.classList.add('score-low');
+    }
+}
+
+function saveRaidItemFromForm() {
+    const idField = document.getElementById('raidItemId').value;
+    const title = document.getElementById('raidItemTitle').value.trim();
+
+    if (!title) {
+        alert('Please enter a title for the RAID item.');
+        return;
+    }
+
+    const impact = parseInt(document.getElementById('raidItemImpact').value);
+    const likelihood = parseInt(document.getElementById('raidItemLikelihood').value);
+
+    const itemData = {
+        type: document.getElementById('raidItemType').value,
+        title: title,
+        description: document.getElementById('raidItemDescription').value.trim(),
+        raised_by: document.getElementById('raidItemRaisedBy').value.trim(),
+        owner: document.getElementById('raidItemOwner').value.trim(),
+        mitigation_actions: document.getElementById('raidItemMitigation').value.trim(),
+        impact: impact,
+        likelihood: likelihood,
+        score: impact * likelihood,
+        status: document.getElementById('raidItemStatus').value
+    };
+
+    if (idField) {
+        const existingId = parseInt(idField);
+        const index = raidItems.findIndex(i => i.id === existingId);
+        if (index >= 0) {
+            raidItems[index] = { ...raidItems[index], ...itemData };
+        }
+    } else {
+        itemData.id = raidNextId++;
+        raidItems.push(itemData);
+    }
+
+    closeRaidForm();
+    renderRaidTable();
+}
+
+function deleteRaidItem(id) {
+    if (!confirm('Are you sure you want to delete this RAID item?')) return;
+    raidItems = raidItems.filter(i => i.id !== id);
+    renderRaidTable();
+}
+
+function renderRaidTable() {
+    const tbody = document.getElementById('raidTableBody');
+    const emptyState = document.getElementById('raidEmptyState');
+    const filterType = document.getElementById('raidFilterType').value;
+    const filterStatus = document.getElementById('raidFilterStatus').value;
+
+    let filtered = raidItems.filter(item => {
+        if (filterType !== 'all' && item.type !== filterType) return false;
+        if (filterStatus !== 'all' && item.status !== filterStatus) return false;
+        return true;
+    });
+
+    filtered.sort((a, b) => {
+        let valA = a[raidSortColumn];
+        let valB = b[raidSortColumn];
+
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+
+        if (valA < valB) return raidSortAsc ? -1 : 1;
+        if (valA > valB) return raidSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    tbody.innerHTML = '';
+
+    if (raidItems.length === 0) {
+        emptyState.style.display = 'block';
+        document.getElementById('raidTable').style.display = 'none';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    document.getElementById('raidTable').style.display = 'table';
+
+    filtered.forEach(item => {
+        const row = document.createElement('tr');
+
+        const scoreClass = item.score >= 16 ? 'raid-score-high' : item.score >= 6 ? 'raid-score-medium' : 'raid-score-low';
+
+        row.innerHTML = `
+            <td>${item.id}</td>
+            <td><span class="raid-type-badge raid-type-${item.type}">${item.type}</span></td>
+            <td title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
+            <td title="${escapeHtml(item.description)}">${escapeHtml(item.description)}</td>
+            <td>${escapeHtml(item.raised_by)}</td>
+            <td>${escapeHtml(item.owner)}</td>
+            <td title="${escapeHtml(item.mitigation_actions)}">${escapeHtml(item.mitigation_actions)}</td>
+            <td>${item.impact}</td>
+            <td>${item.likelihood}</td>
+            <td><span class="raid-score ${scoreClass}">${item.score}</span></td>
+            <td><span class="raid-status-badge raid-status-${item.status}">${item.status}</span></td>
+            <td>
+                <button class="raid-action-btn" onclick="openRaidForm(${item.id})" title="Edit">✏️</button>
+                <button class="raid-action-btn delete" onclick="deleteRaidItem(${item.id})" title="Delete">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    updateRaidSortIndicators();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function sortRaidTable(column) {
+    if (raidSortColumn === column) {
+        raidSortAsc = !raidSortAsc;
+    } else {
+        raidSortColumn = column;
+        raidSortAsc = true;
+    }
+    renderRaidTable();
+}
+
+function updateRaidSortIndicators() {
+    const headers = document.querySelectorAll('.raid-table th');
+    headers.forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (indicator) {
+            const onclick = th.getAttribute('onclick');
+            if (onclick && onclick.includes(`'${raidSortColumn}'`)) {
+                indicator.textContent = raidSortAsc ? '▲' : '▼';
+            } else {
+                indicator.textContent = '';
+            }
+        }
+    });
+}
+
+function generateRaidMarkdown() {
+    if (raidItems.length === 0) return '# RAID Log\n\n*No items.*\n';
+
+    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
+    const separator = headers.map(() => '---');
+
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const rows = raidItems.map(item => [
+        item.id,
+        item.type.charAt(0).toUpperCase() + item.type.slice(1),
+        escPipe(item.title),
+        escPipe(item.description),
+        escPipe(item.raised_by),
+        escPipe(item.owner),
+        escPipe(item.mitigation_actions),
+        item.impact,
+        item.likelihood,
+        item.score,
+        item.status.charAt(0).toUpperCase() + item.status.slice(1)
+    ]);
+
+    let md = '# RAID Log\n\n';
+    md += '| ' + headers.join(' | ') + ' |\n';
+    md += '| ' + separator.join(' | ') + ' |\n';
+    rows.forEach(row => {
+        md += '| ' + row.join(' | ') + ' |\n';
+    });
+
+    return md;
+}
+
+function parseRaidMarkdown(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    let headerIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('|') && lines[i].toLowerCase().includes('id') && lines[i].toLowerCase().includes('title')) {
+            headerIndex = i;
+            break;
+        }
+    }
+
+    if (headerIndex === -1) return [];
+
+    const parseRow = (line) => {
+        return line.split('|').map(cell => cell.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length);
+    };
+
+    const headers = parseRow(lines[headerIndex]).map(h => h.toLowerCase());
+
+    const colMap = {};
+    const fieldAliases = {
+        'id': 'id', 'type': 'type', 'title': 'title',
+        'description': 'description', 'raised by': 'raised_by',
+        'owner': 'owner', 'mitigation actions': 'mitigation_actions',
+        'impact': 'impact', 'likelihood': 'likelihood',
+        'score': 'score', 'status': 'status'
+    };
+
+    headers.forEach((h, idx) => {
+        for (const [alias, field] of Object.entries(fieldAliases)) {
+            if (h.includes(alias)) {
+                colMap[field] = idx;
+                break;
+            }
+        }
+    });
+
+    const items = [];
+    const validTypes = ['risk', 'action', 'issue', 'decision', 'dependency'];
+    const validStatuses = ['open', 'closed', 'transferred'];
+
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (line.replace(/[|\-\s]/g, '').length === 0) continue;
+
+        const cells = parseRow(line);
+        if (cells.length === 0) continue;
+
+        const getCell = (field, def) => {
+            const idx = colMap[field];
+            if (idx !== undefined && idx < cells.length) {
+                return cells[idx].replace(/\\\|/g, '|');
+            }
+            return def;
+        };
+
+        const itemType = (getCell('type', 'risk') || 'risk').toLowerCase();
+        let itemStatus = (getCell('status', 'open') || 'open').toLowerCase();
+        if (itemStatus.includes('transferred')) itemStatus = 'transferred';
+
+        const impact = Math.max(1, Math.min(5, parseInt(getCell('impact', '3')) || 3));
+        const likelihood = Math.max(1, Math.min(5, parseInt(getCell('likelihood', '3')) || 3));
+
+        items.push({
+            id: parseInt(getCell('id', items.length + 1)) || items.length + 1,
+            type: validTypes.includes(itemType) ? itemType : 'risk',
+            title: getCell('title', ''),
+            description: getCell('description', ''),
+            raised_by: getCell('raised_by', ''),
+            owner: getCell('owner', ''),
+            mitigation_actions: getCell('mitigation_actions', ''),
+            impact: impact,
+            likelihood: likelihood,
+            score: impact * likelihood,
+            status: validStatuses.includes(itemStatus) ? itemStatus : 'open'
+        });
+    }
+
+    return items;
+}
+
+function downloadRaidMarkdown() {
+    const content = generateRaidMarkdown();
+
+    if (raidItems.length === 0) {
+        alert('No RAID items to download. Add some items first.');
+        return;
+    }
+
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'raid.md';
+    document.body.appendChild(a);
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function uploadRaidMarkdown(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.match(/\.(md|txt)$/i)) {
+        alert('Please select a Markdown (.md) or text (.txt) file.');
+        event.target.value = '';
+        return;
+    }
+
+    file.text().then(text => {
+        const items = parseRaidMarkdown(text);
+        if (items.length === 0) {
+            alert('No RAID items found in the file. Please check the format.');
+        } else {
+            raidItems = items;
+            raidNextId = Math.max(...items.map(i => i.id)) + 1;
+            renderRaidTable();
+        }
+        event.target.value = '';
+    });
+}
+
+async function exportRaidExcel() {
+    if (raidItems.length === 0) {
+        alert('No RAID items to export. Add some items first.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/raid/export-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: raidItems,
+                project_name: 'RAID'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Export failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'raid.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (error) {
+        alert('Failed to export to Excel: ' + error.message);
+    }
+}
+
+async function uploadRaidExcel(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xlsx')) {
+        alert('Please select an Excel (.xlsx) file.');
+        event.target.value = '';
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/raid/import-excel', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Import failed');
+        }
+
+        const data = await response.json();
+        if (data.items.length === 0) {
+            alert('No RAID items found in the Excel file.');
+        } else {
+            raidItems = data.items;
+            raidNextId = Math.max(...data.items.map(i => i.id)) + 1;
+            renderRaidTable();
+        }
+    } catch (error) {
+        alert('Failed to import Excel: ' + error.message);
+    }
+
+    event.target.value = '';
+}
+
+
+/**
  * Interface Tour System
  */
 
@@ -5832,6 +6279,13 @@ const tourSteps = [
         message: "Need help with the syntax? Check out the Syntax Guide tab for examples and detailed instructions.",
         target: ".tab:nth-child(3)",
         position: "bottom"
+    },
+    {
+        title: "RAID Log",
+        message: "Track project Risks, Actions, Issues, Decisions, and Dependencies. Download as markdown or Excel, and upload files to continue editing.",
+        target: ".tab:nth-child(4)",
+        position: "bottom",
+        action: () => switchTab('raid')
     },
     {
         title: "You're Ready! 🚀",
