@@ -494,6 +494,10 @@ async def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
     logger.info(f"Parse request received")
 
+    # Extract highlights and RAID log early so they are always available,
+    # even if the task parsing pipeline fails.
+    highlights = extract_highlights(data.plan_text)
+
     try:
         # Extract title from front matter if present
         title_from_frontmatter = extract_title_from_frontmatter(data.plan_text)
@@ -593,9 +597,6 @@ async def parse_plan(data: RenderRequest):
         updated_plan_text = update_front_matter_with_labels(data.plan_text, labels)
         logger.info(f"Updated plan text differs from original: {updated_plan_text != data.plan_text}")
 
-        # Extract highlights
-        highlights = extract_highlights(data.plan_text)
-
         # Return structured JSON
         return {
             "success": True,
@@ -610,7 +611,19 @@ async def parse_plan(data: RenderRequest):
 
     except Exception as e:
         logger.error(f"Error parsing plan: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to parse plan: {str(e)}")
+        # Return a partial response with highlights so the frontend can
+        # still display them even when task parsing fails.
+        return {
+            "success": False,
+            "error": str(e),
+            "project_name": data.project_name or "Project",
+            "ascii_output": f"Error parsing plan: {str(e)}",
+            "front_matter": {},
+            "resource_map": {},
+            "tasks": [],
+            "updated_plan_text": None,
+            "highlights": highlights,
+        }
 
 
 class RaidItem(BaseModel):

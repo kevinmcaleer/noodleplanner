@@ -1080,5 +1080,106 @@ Phase 1
         assert "cool" in data["highlights"][0]["content"]
 
 
+class TestParseEndpointHighlightsResilience:
+    """Test that highlights are returned even when task parsing encounters issues."""
+
+    def test_parse_returns_highlights_with_partial_failure(self, client):
+        """Test that highlights are returned even in a partial-failure response.
+
+        When the task parsing pipeline succeeds, highlights should be in
+        the response alongside tasks.  This validates that extracting
+        highlights early in the pipeline does not break the normal flow.
+        """
+        plan = """---
+title: Test
+---
+Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @john
+- Status update
+- Work progressing well
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "highlights" in data
+        assert len(data["highlights"]) == 1
+        assert data["highlights"][0]["date"] == "2026-02-13"
+        assert data["highlights"][0]["author"] == "john"
+        assert "Status update" in data["highlights"][0]["content"]
+        assert "Work progressing well" in data["highlights"][0]["content"]
+
+    def test_parse_highlights_with_multiple_entries_and_no_end_marker(self, client):
+        """Test multiple highlights without an end marker are all extracted."""
+        plan = """---
+title: Multi Highlights Test
+---
+Phase 1
+  Task 1 @alice 2d
+  Task 2 @bob 3d
+
+---
+
+---highlights---
+## 2026-02-14 @alice
+- Latest sprint review completed
+- All acceptance criteria met
+
+## 2026-02-07 @bob
+- Sprint planning done
+- Backlog groomed
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "highlights" in data
+        assert len(data["highlights"]) == 2
+        assert data["highlights"][0]["date"] == "2026-02-14"
+        assert data["highlights"][0]["author"] == "alice"
+        assert "acceptance criteria" in data["highlights"][0]["content"]
+        assert data["highlights"][1]["date"] == "2026-02-07"
+        assert data["highlights"][1]["author"] == "bob"
+        assert "Sprint planning" in data["highlights"][1]["content"]
+
+    def test_parse_highlights_with_raid_log_following(self, client):
+        """Test highlights extraction stops at the RAID log marker."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @john
+- Highlight content here
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date |
+|------|-------------|--------|-------|-------|------|
+| Risk | Server fail | Open   | 8     | John  | 2026-02-13 |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "highlights" in data
+        assert len(data["highlights"]) == 1
+        assert data["highlights"][0]["author"] == "john"
+        assert "Highlight content" in data["highlights"][0]["content"]
+        # RAID log content should NOT appear in highlights
+        assert "Server fail" not in data["highlights"][0]["content"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
