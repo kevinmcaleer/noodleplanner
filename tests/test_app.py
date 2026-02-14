@@ -56,13 +56,15 @@ class TestRootEndpoint:
         assert "planEditor" in html_content  # Textarea ID
 
     def test_root_contains_timeline_controls(self, client):
-        """Test that HTML contains timeline view with Show Phases and Detailed checkboxes."""
+        """Test that HTML contains timeline view with Show Phases, Detailed, and Today checkboxes."""
         response = client.get("/")
         html_content = response.text
         assert "showPhasesToggle" in html_content
         assert "detailedTimelineToggle" in html_content
         assert "toggleDetailedTimeline()" in html_content
         assert "Detailed" in html_content
+        assert "todayMarkerToggle" in html_content
+        assert "toggleTodayMarker()" in html_content
 
 
 class TestHealthCheckEndpoint:
