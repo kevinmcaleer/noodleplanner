@@ -757,6 +757,13 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
     } catch (error) {
         showMessage(prefix, 'error', error.message);
         output.textContent = 'Error: ' + error.message;
+        // Even when the render fails, try to extract and display highlights
+        // from the plan text so the highlights tab is still populated.
+        try {
+            updateHighlightsView(extractHighlightsFromText(planText));
+        } catch (e) {
+            console.error('Failed to extract highlights as fallback:', e);
+        }
     } finally {
         if (btn) btn.disabled = false;
         spinner.style.display = 'none';
@@ -778,10 +785,22 @@ async function updateProjectSummary(planText, projectName) {
 
         if (!response.ok) {
             console.error('Failed to parse plan for summary');
+            // Even if the API call failed, try to extract highlights
+            // from the plan text on the client side as a fallback.
+            updateHighlightsView(extractHighlightsFromText(planText));
             return;
         }
 
         const result = await response.json();
+
+        // Always update highlights first (must be before updateReportPage
+        // so highlightsData is populated when the report renders its
+        // highlights quad).  Use backend data if available, otherwise
+        // extract directly from the plan text as a fallback.
+        const highlights = (result.highlights && result.highlights.length > 0)
+            ? result.highlights
+            : extractHighlightsFromText(planText);
+        updateHighlightsView(highlights);
 
         // Show summary content, hide placeholder
         const placeholder = document.querySelector('#summary-view .summary-placeholder');
@@ -855,10 +874,6 @@ async function updateProjectSummary(planText, projectName) {
         // Update Milestones Table
         updateMilestonesTable(result.tasks || []);
 
-        // Update Highlights (must be before updateReportPage so highlightsData
-        // is populated when the report renders its highlights quad)
-        updateHighlightsView(result.highlights || []);
-
         // Update Project Report page
         updateReportPage(result.tasks || [], result.project_name, result.front_matter || {});
 
@@ -893,6 +908,13 @@ async function updateProjectSummary(planText, projectName) {
 
     } catch (error) {
         console.error('Error updating project summary:', error);
+        // Fallback: extract highlights from plan text on the client side
+        // so the highlights tab is populated even when parsing fails.
+        try {
+            updateHighlightsView(extractHighlightsFromText(planText));
+        } catch (e) {
+            console.error('Failed to extract highlights as fallback:', e);
+        }
     }
 }
 
@@ -8515,6 +8537,73 @@ function updatePlanRaidLogText(planText, items) {
 let highlightsData = [];
 
 /**
+ * Extract highlights from plan text on the client side.
+ *
+ * This is the JavaScript equivalent of the Python extract_highlights()
+ * function in format_converter.py.  It provides a fallback when the
+ * backend /api/parse endpoint fails or does not return highlights.
+ *
+ * Parses the ---highlights--- section and returns an array of
+ * {date, author, content} objects.
+ */
+function extractHighlightsFromText(text) {
+    if (!text) return [];
+
+    const HIGHLIGHTS_START = '---highlights---';
+    const HIGHLIGHTS_END = '---end-highlights---';
+    const RAID_LOG_START_MARKER = '---raid log---';
+
+    const startIdx = text.indexOf(HIGHLIGHTS_START);
+    if (startIdx === -1) return [];
+
+    const afterStart = startIdx + HIGHLIGHTS_START.length;
+
+    // Find the end: explicit end marker, raid log section, or EOF
+    let endIdx = text.length;
+    for (const marker of [HIGHLIGHTS_END, RAID_LOG_START_MARKER]) {
+        const idx = text.indexOf(marker, afterStart);
+        if (idx !== -1 && idx < endIdx) {
+            endIdx = idx;
+        }
+    }
+
+    const section = text.substring(afterStart, endIdx);
+    const highlights = [];
+    let current = null;
+    const headingRe = /^##\s+(\d{4}-\d{2}-\d{2})\s+@(\S+)\s*$/;
+
+    for (const line of section.split('\n')) {
+        const stripped = line.trim();
+
+        // Skip blank lines before the first heading
+        if (!stripped && current === null) continue;
+
+        const match = stripped.match(headingRe);
+        if (match) {
+            if (current !== null) {
+                current.content = current.content.trimEnd();
+                highlights.push(current);
+            }
+            current = { date: match[1], author: match[2], content: '' };
+            continue;
+        }
+
+        // Content line (belongs to current highlight), including blank lines
+        if (current !== null) {
+            current.content += line.trimEnd() + '\n';
+        }
+    }
+
+    // Don't forget the last highlight
+    if (current !== null) {
+        current.content = current.content.trimEnd();
+        highlights.push(current);
+    }
+
+    return highlights;
+}
+
+/**
  * Update the highlights view with data from the backend parse response.
  */
 function updateHighlightsView(highlights) {
@@ -8786,7 +8875,7 @@ function saveHighlightFromForm() {
  * Generates the highlights section and updates the plan text
  * in the editor, preserving existing content.
  */
-function syncHighlightsToPlanText() {
+async function syncHighlightsToPlanText() {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
@@ -8803,7 +8892,7 @@ function syncHighlightsToPlanText() {
         }
         // Trigger a re-render so the backend parses the updated plan text
         // and all views (including highlights) stay in sync.
-        renderText();
+        await renderText();
     }
 }
 
