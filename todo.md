@@ -883,6 +883,53 @@
 
 **Status:** Complete! Highlights now render correctly in both the Highlights tab and the Report page's highlights quad.
 
+### Enhanced Navigation Structure (GitHub Issue #216) - ✅ COMPLETED
+- [x] Analyzed current navigation hierarchy and documented issues
+  - Inconsistent organization: Highlights buried under Editor, RAID at top level
+  - Mixed concerns: Editor tab contains both editing and viewing features
+  - 10 output views hidden in sub-navigation, hard to discover
+- [x] Implemented two-level navigation with Views and Tracking dropdowns
+  - Views dropdown: Project Report, Text Report, Summary, Milestones, Timeline, Gantt, Resources, Timesheet, Analysis
+  - Tracking dropdown: RAID Log, Highlights
+  - Both use consistent dropdown menu styling matching Import/Export
+- [x] Updated main navigation tabs
+  - Editor (plan editing)
+  - Views (dropdown with 9 report/visualization options)
+  - Board (Kanban view)
+  - Tracking (dropdown with RAID Log and Highlights)
+  - Help (Syntax Guide)
+  - Import/Export (existing dropdown)
+- [x] Added CSS styling for new dropdown menus
+  - `.nav-dropdown` and `.nav-menu` classes
+  - Hover effects and show/hide transitions
+  - Consistent with existing export menu styling
+- [x] Implemented JavaScript navigation functions
+  - `toggleViewsMenu()` - opens/closes Views dropdown
+  - `toggleTrackingMenu()` - opens/closes Tracking dropdown
+  - `switchToView()` - switches to Editor tab and selects specific view
+  - Click-outside-to-close functionality for all dropdowns
+- [x] Updated interface tour (script.js lines 7583-7634)
+  - Updated tour steps to reflect new navigation structure
+  - Added explanations for Views and Tracking menus
+  - Updated selectors for Board and Help tabs
+- [x] All 323 tests passing
+- [x] Documentation created in design/navigation-analysis.md
+
+**Benefits:**
+- Clearer organization: Editing vs. Viewing vs. Tracking
+- Better discoverability: All views accessible from top-level menu
+- Logical grouping: Related features grouped together
+- Consistent hierarchy: RAID and Highlights both under Tracking
+- Scalable: Easy to add new views or tracking features
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/templates/index.html` - Navigation structure
+- `packages/noodle-web/src/noodle_web/static/style.css` - Dropdown menu styles
+- `packages/noodle-web/src/noodle_web/static/script.js` - Navigation functions and tour updates
+- `design/navigation-analysis.md` - Documentation and analysis
+
+**Status:** Complete! Navigation is now organized into logical sections with dropdown menus providing easy access to all features.
+
 ## Pending 📋
 
 ### Test Execution

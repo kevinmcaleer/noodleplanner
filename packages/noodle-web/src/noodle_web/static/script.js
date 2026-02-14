@@ -6107,7 +6107,63 @@ document.addEventListener('click', function(e) {
     if (menu && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
         menu.classList.remove('show');
     }
+
+    // Also close Views and Tracking menus when clicking outside
+    const viewsMenu = document.getElementById('viewsMenu');
+    const viewsTab = document.getElementById('viewsTab');
+    if (viewsMenu && !viewsMenu.contains(e.target) && (!viewsTab || !viewsTab.contains(e.target))) {
+        viewsMenu.classList.remove('show');
+    }
+
+    const trackingMenu = document.getElementById('trackingMenu');
+    const trackingTab = document.getElementById('trackingTab');
+    if (trackingMenu && !trackingMenu.contains(e.target) && (!trackingTab || !trackingTab.contains(e.target))) {
+        trackingMenu.classList.remove('show');
+    }
 });
+
+// Toggle Views dropdown menu
+function toggleViewsMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('viewsMenu');
+    const trackingMenu = document.getElementById('trackingMenu');
+
+    // Close tracking menu if open
+    if (trackingMenu) {
+        trackingMenu.classList.remove('show');
+    }
+
+    menu.classList.toggle('show');
+}
+
+// Toggle Tracking dropdown menu
+function toggleTrackingMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('trackingMenu');
+    const viewsMenu = document.getElementById('viewsMenu');
+
+    // Close views menu if open
+    if (viewsMenu) {
+        viewsMenu.classList.remove('show');
+    }
+
+    menu.classList.toggle('show');
+}
+
+// Switch to a specific view (from Views or Tracking dropdown)
+function switchToView(viewName) {
+    // First, switch to editor tab (where all views live)
+    switchTab('editor');
+
+    // Then switch to the specific output tab
+    switchOutputTab(viewName);
+
+    // Close the dropdown menus
+    const viewsMenu = document.getElementById('viewsMenu');
+    const trackingMenu = document.getElementById('trackingMenu');
+    if (viewsMenu) viewsMenu.classList.remove('show');
+    if (trackingMenu) trackingMenu.classList.remove('show');
+}
 
 // Switch between output tabs (ASCII, Summary, Milestones, etc.)
 function switchOutputTab(tabName) {
@@ -7600,34 +7656,40 @@ const tourSteps = [
         position: "bottom"
     },
     {
-        title: "Kanban Board",
-        message: "Switch to the Kanban tab to see your tasks as cards. Drag and drop to organize by Phase, Resource, Progress, or Label.",
-        target: ".tab:nth-child(2)",
+        title: "Views Menu",
+        message: "Click the Views dropdown to access different reports and visualizations: Project Report, Summary, Timeline, Gantt Chart, Resources, and more!",
+        target: "#viewsTab",
+        position: "bottom"
+    },
+    {
+        title: "Board View",
+        message: "Switch to the Board tab to see your tasks as Kanban cards. Drag and drop to organize by Phase, Resource, Progress, or Label.",
+        target: ".tabs > .tab:nth-of-type(3)",
         position: "bottom",
         action: () => switchTab('kanban')
     },
     {
         title: "Collapsible Editor",
-        message: "In Kanban view, you can collapse the editor for more space, or keep it open to edit while viewing your board.",
+        message: "In Board view, you can collapse the editor for more space, or keep it open to edit while viewing your board.",
         target: "#kanbanEditorPanel",
         position: "right"
     },
     {
-        title: "Syntax Guide",
-        message: "Need help with the syntax? Check out the Syntax Guide tab for examples and detailed instructions.",
-        target: ".tab:nth-child(3)",
+        title: "Tracking Menu",
+        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies) and Highlights for project updates.",
+        target: "#trackingTab",
+        position: "bottom",
+        action: () => switchTab('editor')
+    },
+    {
+        title: "Help & Resources",
+        message: "Need help with the syntax? Check out the Help tab for examples and detailed instructions on how to use all features.",
+        target: ".tabs > .tab:nth-of-type(5)",
         position: "bottom"
     },
     {
-        title: "RAID Log",
-        message: "Track project Risks, Actions, Issues, Decisions, and Dependencies. Download as markdown or Excel, and upload files to continue editing.",
-        target: ".tab:nth-child(4)",
-        position: "bottom",
-        action: () => switchTab('raid')
-    },
-    {
         title: "You're Ready! 🚀",
-        message: "That's it! Start by creating your first task in the editor, or visit the Syntax Guide to learn more about all the features.",
+        message: "That's it! Start by creating your first task in the editor, explore the Views menu for different reports, or visit the Help tab to learn more.",
         target: null,
         position: "center"
     }

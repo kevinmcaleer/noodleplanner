@@ -20,9 +20,55 @@
             <div class="tabs">
                 <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
                 <button class="tab active" onclick="switchTab('editor')">Editor</button>
-                <button class="tab" onclick="switchTab('kanban')">Kanban</button>
-                <button class="tab" onclick="switchTab('guide')">Syntax Guide</button>
-                <button class="tab" onclick="switchTab('raid')">RAID Log</button>
+                <div class="nav-dropdown">
+                    <button class="tab" id="viewsTab" onclick="toggleViewsMenu(event)">
+                        Views ▾
+                    </button>
+                    <div class="nav-menu" id="viewsMenu">
+                        <div class="nav-menu-item" onclick="switchToView('project-report'); event.stopPropagation();">
+                            📊 Project Report
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('text-report'); event.stopPropagation();">
+                            📝 Text Report
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('summary'); event.stopPropagation();">
+                            📋 Summary
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
+                            💎 Milestones
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('timeline'); event.stopPropagation();">
+                            📅 Timeline
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('gantt'); event.stopPropagation();">
+                            📈 Gantt Chart
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
+                            👥 Resources
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('timesheet'); event.stopPropagation();">
+                            ⏰ Timesheet
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
+                            🔍 Analysis
+                        </div>
+                    </div>
+                </div>
+                <button class="tab" onclick="switchTab('kanban')">Board</button>
+                <div class="nav-dropdown">
+                    <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)">
+                        Tracking ▾
+                    </button>
+                    <div class="nav-menu" id="trackingMenu">
+                        <div class="nav-menu-item" onclick="switchTab('raid'); event.stopPropagation();">
+                            🛡️ RAID Log
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('highlights'); event.stopPropagation();">
+                            ⭐ Highlights
+                        </div>
+                    </div>
+                </div>
+                <button class="tab" onclick="switchTab('guide')">Help</button>
                 <div class="nav-export-dropdown">
                     <button class="export-btn" onclick="toggleExportMenu(event)">
                         Import/Export ▾
