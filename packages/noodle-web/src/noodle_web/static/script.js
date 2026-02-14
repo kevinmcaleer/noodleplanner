@@ -1914,6 +1914,45 @@ function toggleMinimalTimeline() {
     }
 }
 
+function toggleTodayMarker() {
+    if (timelineTasks && timelineTasks.length > 0) {
+        updateTimeline(timelineTasks, timelineProjectName);
+    }
+}
+
+function renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth, options) {
+    const subtle = options?.subtle ?? false;
+
+    // Remove any existing today marker in this container
+    const existing = container.querySelector('.timeline-today-marker');
+    if (existing) existing.remove();
+
+    // Get today as a local date (no time component)
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Only show if today falls within the timeline date range
+    if (today < minDate || today > maxDate) return;
+
+    const daysFromStart = Math.floor((today - minDate) / (1000 * 60 * 60 * 24));
+    const position = (daysFromStart / totalDays) * timelineWidth;
+
+    const marker = document.createElement('div');
+    marker.className = 'timeline-today-marker' + (subtle ? ' subtle' : '');
+    marker.style.left = position + 'px';
+
+    const label = document.createElement('div');
+    label.className = 'timeline-today-label';
+    label.textContent = 'Today';
+    marker.appendChild(label);
+
+    // Insert the marker into the timeline-line element so it spans the line height
+    const timelineLine = container.querySelector('.timeline-line');
+    if (timelineLine) {
+        timelineLine.appendChild(marker);
+    }
+}
+
 function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, timelineWidth, options) {
     const isReport = options?.isReport ?? false;
     const timelineLineId = isReport ? 'reportTimelineLine' : 'timelineLine';
@@ -1926,7 +1965,7 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
 
     // Clear existing content
     timelineMilestones.innerHTML = '';
-    timelineLine.querySelectorAll('.timeline-progress, .timeline-date-label, .timeline-scale').forEach(el => el.remove());
+    timelineLine.querySelectorAll('.timeline-progress, .timeline-date-label, .timeline-scale, .timeline-today-marker').forEach(el => el.remove());
 
     // Remove any existing detailed timeline container
     const existingDetailed = container.querySelector('.detailed-timeline-container');
@@ -2073,6 +2112,9 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
 
     // Add date scale in small font
     addMinimalDateScale(container, minDate, maxDate, totalDays, timelineWidth);
+
+    // Always show a subtle today marker on minimal timelines
+    renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth, { subtle: true });
 }
 
 function addMinimalDateScale(container, minDate, maxDate, totalDays, timelineWidth) {
@@ -2489,6 +2531,12 @@ function updateTimeline(tasks, projectName) {
             oldScale.remove();
         }
 
+        // Remove old today marker
+        const oldTodayMarker = timelineLine.querySelector('.timeline-today-marker');
+        if (oldTodayMarker) {
+            oldTodayMarker.remove();
+        }
+
         // Set timeline line and milestones container width (both must match for alignment)
         timelineLine.style.width = timelineWidth + 'px';
         timelineMilestones.style.width = timelineWidth + 'px';
@@ -2656,6 +2704,16 @@ function updateTimeline(tasks, projectName) {
 
             timelineMilestones.appendChild(milestoneDiv);
         });
+
+        // Render today marker if the toggle is checked
+        const showTodayMarker = document.getElementById('todayMarkerToggle')?.checked ?? false;
+        if (showTodayMarker && timelineWrapper) {
+            renderTodayMarker(timelineWrapper, minDate, maxDate, totalDays, timelineWidth, { subtle: false });
+        } else if (timelineWrapper) {
+            // Remove existing today marker if toggle is off
+            const existingMarker = timelineWrapper.querySelector('.timeline-today-marker');
+            if (existingMarker) existingMarker.remove();
+        }
 
     } catch (error) {
         console.error('Error updating timeline:', error);

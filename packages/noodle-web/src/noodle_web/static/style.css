@@ -1157,6 +1157,43 @@ h1 {
     transform: none;
 }
 
+/* Today Marker */
+.timeline-today-marker {
+    position: absolute;
+    width: 2px;
+    height: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #dc3545;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.timeline-today-marker .timeline-today-label {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65em;
+    color: #dc3545;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Subtle today marker for minimal and report timelines */
+.timeline-today-marker.subtle {
+    width: 1px;
+    height: 20px;
+    background: rgba(220, 53, 69, 0.4);
+}
+
+.timeline-today-marker.subtle .timeline-today-label {
+    color: rgba(220, 53, 69, 0.5);
+    font-weight: 400;
+    font-size: 0.55em;
+    top: -14px;
+}
+
 /* Report page minimal timeline compact padding */
 .report-timeline-wrapper.minimal-timeline-mode {
     padding: 10px 0 30px 0 !important;
