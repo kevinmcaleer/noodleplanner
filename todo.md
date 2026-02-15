@@ -1681,6 +1681,39 @@ MVP Build 10d @jen @kev 3% #High #test
 
 ## In Progress 🚧
 
+### RAID Log Rendering Bug (GitHub Issue #240) - ✅ COMPLETED
+- [x] Fixed `parseRaidMarkdown()` to accept both full and plan sync RAID table formats
+- [x] Added RAID extraction with error handling in `/api/parse` backend endpoint
+- [x] Added client-side RAID loading from plan text on page load and tab switch
+- [x] Fixed RAID table markdown formatting (columns pad to longest content width)
+- [x] Fixed header separator line (no spaces between dashes)
+- [x] Fixed RAID add/delete not syncing to plan editor and report page
+- [x] Added 14 new tests for RAID parsing robustness
+- [x] Added 4 new tests for API RAID item responses
+
+**Status:** ✅ COMPLETED - Merged to main, issue closed.
+
+### Visual WBS Chart for Planning Room (GitHub Issue #239 enhancement)
+- [x] Replaced text-based tree preview with SVG Work Breakdown Structure chart
+- [x] Project/phase nodes render as parallelograms, task nodes as rectangles
+- [x] Left-side spine connections from groups to children (matching outliner.png design)
+- [x] 2:1 ratio boxes with two-line text wrapping and truncation
+- [x] Horizontal scrolling for wide charts
+
+**Status:** ✅ COMPLETED - Merged to main.
+
+### DST Scheduling Regression Fix
+- [x] Normalized all `datetime.now()` calls to midnight to prevent off-by-one errors
+- [x] Added 7 DST boundary regression tests (spring/autumn transitions)
+- [x] Tests cover: working days, resource allocation, resource sheet rendering across DST
+
+**Status:** ✅ COMPLETED - Merged to main.
+
+### Worktree Cleanup
+- [x] Removed stale worktree: issue-224-enhancement (issue #224 closed)
+- [x] Removed stale worktree: issue-225-raid-enhancements (issue #225 closed)
+- [x] Removed stale worktree: issue-226-code-review (issue #226 open, no commits)
+
 ### Planning Room Implementation (GitHub Issue #239) - ✅ COMPLETED
 A new "Planning Room" feature for structured, guided planning workflows with 3 collaborative stages: Outlining (markdown-based WBS), Dependency Mapping (visual flow diagram), and Scheduling (auto-generated plan.md).
 
