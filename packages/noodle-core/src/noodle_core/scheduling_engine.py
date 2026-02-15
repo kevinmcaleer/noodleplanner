@@ -1509,16 +1509,24 @@ def calculate_rag_status(task, current_date=None):
     finish_date = task.get('finish')
     percent_complete = task.get('percent')
 
+    # Green: Task is 100% complete (check first, regardless of dates)
+    if percent_complete == 100:
+        return 'Green'
+
     if not start_date or not finish_date:
-        return 'Red'  # No dates defined
+        # Fallback when dates are missing: use percentage thresholds
+        if percent_complete is None or percent_complete == 0:
+            return 'Red'
+        elif percent_complete < 50:
+            return 'Red'
+        elif percent_complete < 80:
+            return 'Amber'
+        else:
+            return 'Green'
 
     # Convert to date objects
     start_date = start_date.date() if hasattr(start_date, 'date') else start_date
     finish_date = finish_date.date() if hasattr(finish_date, 'date') else finish_date
-
-    # Green: Task is 100% complete
-    if percent_complete == 100:
-        return 'Green'
 
     # Green: Task hasn't started yet (start date is in the future)
     if start_date > current_date:

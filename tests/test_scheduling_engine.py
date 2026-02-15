@@ -669,6 +669,62 @@ class TestCalculateRAGStatus:
         assert result in ['Green', 'Grey', 'Gray']  # Depends on implementation
 
 
+class TestRagStatusMilestoneAlignment:
+    """Regression tests ensuring milestone RAG matches task form RAG.
+
+    The backend calculate_rag_status() must produce the same result as the
+    frontend updateRagDisplay() for all cases, especially milestones and
+    tasks without dates.
+    """
+
+    def test_completed_milestone_is_green(self):
+        """A 100% complete milestone should be Green regardless of dates."""
+        task = {'start': datetime(2025, 11, 5), 'finish': datetime(2025, 11, 5), 'percent': 100}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+
+    def test_completed_task_no_dates_is_green(self):
+        """A 100% complete task with no dates should be Green."""
+        task = {'percent': 100}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+
+    def test_no_dates_zero_percent_is_red(self):
+        """A task with no dates and 0% should be Red."""
+        task = {'percent': 0}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+
+    def test_no_dates_none_percent_is_red(self):
+        """A task with no dates and no percent should be Red."""
+        task = {}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+
+    def test_no_dates_low_percent_is_red(self):
+        """A task with no dates and <50% should be Red."""
+        task = {'percent': 30}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+
+    def test_no_dates_mid_percent_is_amber(self):
+        """A task with no dates and 50-79% should be Amber."""
+        task = {'percent': 60}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Amber'
+
+    def test_no_dates_high_percent_is_green(self):
+        """A task with no dates and >=80% should be Green."""
+        task = {'percent': 85}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+
+    def test_milestone_zero_duration_overdue(self):
+        """An overdue milestone (0-duration, past date, 0%) should be Red."""
+        past = datetime(2025, 10, 1)
+        task = {'start': past, 'finish': past, 'percent': 0}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+
+    def test_milestone_future_is_green(self):
+        """A future milestone should be Green."""
+        future = datetime(2026, 6, 1)
+        task = {'start': future, 'finish': future, 'percent': 0}
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+
+
 class TestParseResourceMappings:
     """Test suite for parse_resource_mappings function."""
 
