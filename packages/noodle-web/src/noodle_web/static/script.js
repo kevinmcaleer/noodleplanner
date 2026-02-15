@@ -1273,8 +1273,11 @@ function updateReportHighlight() {
             return;
         }
 
-        // Most recent highlight is the last in the array
-        const latest = highlightsData[highlightsData.length - 1];
+        // Find the most recent highlight by date
+        const latest = highlightsData.reduce((newest, current) => {
+            if (!newest) return current;
+            return (current.date > newest.date) ? current : newest;
+        }, null);
 
         container.innerHTML = '';
 
