@@ -520,9 +520,15 @@ Press Enter to render..."></textarea>
                                     <div class="timesheet-scroll-container">
                                         <table class="timesheet-table">
                                             <thead>
-                                                <tr id="timesheetHeaderRow">
-                                                    <th class="timesheet-resource-col">Resource</th>
-                                                    <!-- Date columns will be added dynamically -->
+                                                <tr id="timesheetMonthRow">
+                                                    <th class="timesheet-resource-col" rowspan="3">Resource</th>
+                                                    <!-- Month names will be added dynamically -->
+                                                </tr>
+                                                <tr id="timesheetDayRow">
+                                                    <!-- Day numbers will be added dynamically -->
+                                                </tr>
+                                                <tr id="timesheetWeekdayRow">
+                                                    <!-- Day of week initials will be added dynamically -->
                                                 </tr>
                                             </thead>
                                             <tbody id="timesheetBody">
