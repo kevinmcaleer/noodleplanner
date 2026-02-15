@@ -67,6 +67,45 @@ class TestRootEndpoint:
         assert "toggleTodayMarker()" in html_content
 
 
+class TestEditorCursorAlignment:
+    """Regression tests to ensure the editor highlight overlay stays aligned with the textarea cursor.
+
+    The highlight layer must be inside the same container as the textarea so that
+    absolute positioning (left:0) aligns them exactly. A hardcoded left offset
+    (e.g., left:50px) causes cursor drift when the line-numbers gutter changes width.
+    """
+
+    def test_highlight_layer_inside_editor_area(self, client):
+        """Highlight layer and textarea must be siblings inside .editor-area container."""
+        response = client.get("/")
+        html = response.text
+        # The editor-area div must contain both the highlight layer and textarea
+        assert 'class="editor-area"' in html
+        # Highlight layer should be inside editor-area, not a direct child of editor-wrapper
+        import re
+        # Find editor-area blocks and verify they contain both elements
+        areas = re.findall(r'<div class="editor-area">(.*?)</div>\s*</div>', html, re.DOTALL)
+        assert len(areas) >= 1, "Expected at least one .editor-area container"
+        for area in areas:
+            assert 'editor-highlight-layer' in area, "Highlight layer must be inside .editor-area"
+            assert 'editor-textarea' in area, "Textarea must be inside .editor-area"
+
+    def test_css_highlight_layer_not_hardcoded_left(self, client):
+        """The highlight layer CSS must not use a hardcoded left offset (e.g., left: 50px)."""
+        import re
+        with open('packages/noodle-web/src/noodle_web/static/style.css', 'r') as f:
+            css = f.read()
+
+        # Find the .editor-highlight-layer rule and check left value
+        match = re.search(r'\.editor-highlight-layer\s*\{([^}]+)\}', css)
+        assert match, "Could not find .editor-highlight-layer CSS rule"
+        rule = match.group(1)
+        # Should have left: 0, not left: 50px or any other pixel value
+        left_match = re.search(r'left:\s*(\S+);', rule)
+        assert left_match, "No left property found in .editor-highlight-layer"
+        assert left_match.group(1) == '0', f"Highlight layer left should be 0, got {left_match.group(1)}"
+
+
 class TestHealthCheckEndpoint:
     """Test suite for health check endpoint."""
 
