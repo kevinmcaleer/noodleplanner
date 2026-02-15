@@ -79,6 +79,21 @@ function switchTab(tabName) {
         item.style.display = tabName === 'raid' ? '' : 'none';
     });
 
+    // If switching to RAID tab, load items from plan text if empty
+    if (tabName === 'raid' && raidItems.length === 0) {
+        try {
+            const editor = document.getElementById('planEditor');
+            if (editor && editor.value) {
+                const items = extractRaidItemsFromPlanText(editor.value);
+                if (items.length > 0) {
+                    loadRaidItemsFromData(items);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading RAID items on tab switch:', error);
+        }
+    }
+
     // If switching to Gantt tab, re-render the chart
     if (tabName === 'gantt') {
         setTimeout(() => {
@@ -898,6 +913,15 @@ async function updateProjectSummary(planText, projectName) {
         // Update User Workload
         updateUserWorkload(result.tasks || []);
 
+        // Load RAID items from backend data, with client-side fallback
+        const raidFromApi = result.raid_items || [];
+        if (raidFromApi.length > 0) {
+            loadRaidItemsFromData(raidFromApi);
+        } else {
+            const raidFromText = extractRaidItemsFromPlanText(planText);
+            loadRaidItemsFromData(raidFromText);
+        }
+
         // Update editor with labels if backend found and added them
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
             console.log('Backend returned updated plan text with labels');
@@ -914,12 +938,17 @@ async function updateProjectSummary(planText, projectName) {
 
     } catch (error) {
         console.error('Error updating project summary:', error);
-        // Fallback: extract highlights from plan text on the client side
-        // so the highlights tab is populated even when parsing fails.
+        // Fallback: extract highlights and RAID items from plan text on the
+        // client side so those tabs are populated even when parsing fails.
         try {
             updateHighlightsView(extractHighlightsFromText(planText));
         } catch (e) {
             console.error('Failed to extract highlights as fallback:', e);
+        }
+        try {
+            loadRaidItemsFromData(extractRaidItemsFromPlanText(planText));
+        } catch (e) {
+            console.error('Failed to extract RAID items as fallback:', e);
         }
     }
 }
@@ -7357,10 +7386,17 @@ function deleteRaidItem(id) {
 }
 
 function renderRaidTable() {
+    try {
     const tbody = document.getElementById('raidTableBody');
     const emptyState = document.getElementById('raidEmptyState');
-    const filterType = document.getElementById('raidFilterType').value;
-    const filterStatus = document.getElementById('raidFilterStatus').value;
+    if (!tbody || !emptyState) {
+        console.warn('RAID table elements not found in DOM');
+        return;
+    }
+    const filterTypeEl = document.getElementById('raidFilterType');
+    const filterStatusEl = document.getElementById('raidFilterStatus');
+    const filterType = filterTypeEl ? filterTypeEl.value : 'all';
+    const filterStatus = filterStatusEl ? filterStatusEl.value : 'all';
 
     let filtered = raidItems.filter(item => {
         if (filterType !== 'all' && item.type !== filterType) return false;
@@ -7392,33 +7428,40 @@ function renderRaidTable() {
     document.getElementById('raidTable').style.display = 'table';
 
     filtered.forEach(item => {
+        try {
         const row = document.createElement('tr');
 
         const scoreClass = item.score >= 16 ? 'raid-score-high' : item.score >= 6 ? 'raid-score-medium' : 'raid-score-low';
 
         row.innerHTML = `
-            <td>${item.id}</td>
-            <td><span class="raid-type-badge raid-type-${item.type}">${item.type}</span></td>
+            <td>${item.id || ''}</td>
+            <td><span class="raid-type-badge raid-type-${item.type || 'risk'}">${item.type || 'risk'}</span></td>
             <td title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
             <td title="${escapeHtml(item.description)}">${escapeHtml(item.description)}</td>
             <td>${escapeHtml(item.raised_by)}</td>
             <td>${escapeHtml(item.owner)}</td>
             <td title="${escapeHtml(item.mitigation_actions)}">${escapeHtml(item.mitigation_actions)}</td>
-            <td>${item.impact}</td>
-            <td>${item.likelihood}</td>
-            <td><span class="raid-score ${scoreClass}">${item.score}</span></td>
-            <td><span class="raid-status-badge raid-status-${item.status}">${item.status}</span></td>
+            <td>${item.impact || ''}</td>
+            <td>${item.likelihood || ''}</td>
+            <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
+            <td><span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span></td>
             <td>
                 <button class="raid-action-btn" onclick="openRaidForm(${item.id})" title="Edit">✏️</button>
                 <button class="raid-action-btn delete" onclick="deleteRaidItem(${item.id})" title="Delete">🗑️</button>
             </td>
         `;
         tbody.appendChild(row);
+        } catch (itemError) {
+            console.warn('Skipping malformed RAID item during render:', item, itemError);
+        }
     });
 
     updateRaidSortIndicators();
     updateRaidMarkdownEditor();
     syncRaidLogToPlanText();
+    } catch (error) {
+        console.error('Error rendering RAID table:', error);
+    }
 }
 
 function escapeHtml(text) {
@@ -7486,85 +7529,199 @@ function generateRaidMarkdown() {
 }
 
 function parseRaidMarkdown(text) {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    try {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    let headerIndex = -1;
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('|') && lines[i].toLowerCase().includes('id') && lines[i].toLowerCase().includes('title')) {
-            headerIndex = i;
-            break;
-        }
-    }
-
-    if (headerIndex === -1) return [];
-
-    const parseRow = (line) => {
-        return line.split('|').map(cell => cell.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length);
-    };
-
-    const headers = parseRow(lines[headerIndex]).map(h => h.toLowerCase());
-
-    const colMap = {};
-    const fieldAliases = {
-        'id': 'id', 'type': 'type', 'title': 'title',
-        'description': 'description', 'raised by': 'raised_by',
-        'owner': 'owner', 'mitigation actions': 'mitigation_actions',
-        'impact': 'impact', 'likelihood': 'likelihood',
-        'score': 'score', 'status': 'status'
-    };
-
-    headers.forEach((h, idx) => {
-        for (const [alias, field] of Object.entries(fieldAliases)) {
-            if (h.includes(alias)) {
-                colMap[field] = idx;
+        // Find header row - accept any row containing a pipe and at least one
+        // recognised keyword (id, title, type, or description).  This matches
+        // both the full format (ID | Type | Title | ...) and the simple plan
+        // sync format (Type | Description | Status | ...).
+        let headerIndex = -1;
+        const headerKeywords = ['id', 'title', 'type', 'description'];
+        for (let i = 0; i < lines.length; i++) {
+            const lower = lines[i].toLowerCase();
+            if (lower.includes('|') && headerKeywords.some(kw => lower.includes(kw))) {
+                headerIndex = i;
                 break;
             }
         }
-    });
 
-    const items = [];
-    const validTypes = ['risk', 'action', 'issue', 'decision', 'dependency'];
-    const validStatuses = ['open', 'closed', 'transferred'];
+        if (headerIndex === -1) return [];
 
-    for (let i = headerIndex + 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.includes('|')) continue;
-        if (line.replace(/[|\-\s]/g, '').length === 0) continue;
-
-        const cells = parseRow(line);
-        if (cells.length === 0) continue;
-
-        const getCell = (field, def) => {
-            const idx = colMap[field];
-            if (idx !== undefined && idx < cells.length) {
-                return cells[idx].replace(/\\\|/g, '|');
-            }
-            return def;
+        const parseRow = (line) => {
+            // Split on unescaped pipes, removing first/last empty entries
+            const parts = line.split(/(?<!\\)\|/).map(cell => cell.trim());
+            return parts.filter((cell, idx, arr) => idx > 0 && idx < arr.length - 1 || (cell.length > 0 && idx > 0));
         };
 
-        const itemType = (getCell('type', 'risk') || 'risk').toLowerCase();
-        let itemStatus = (getCell('status', 'open') || 'open').toLowerCase();
-        if (itemStatus.includes('transferred')) itemStatus = 'transferred';
+        const headers = parseRow(lines[headerIndex]).map(h => h.toLowerCase());
 
-        const impact = Math.max(1, Math.min(5, parseInt(getCell('impact', '3')) || 3));
-        const likelihood = Math.max(1, Math.min(5, parseInt(getCell('likelihood', '3')) || 3));
+        // Build column mapping with standard aliases first
+        const colMap = {};
+        const standardAliases = {
+            'id': 'id', 'type': 'type',
+            'raised by': 'raised_by',
+            'owner': 'owner', 'mitigation actions': 'mitigation_actions',
+            'impact': 'impact', 'likelihood': 'likelihood',
+            'score': 'score', 'status': 'status',
+            'date': 'date'
+        };
 
-        items.push({
-            id: parseInt(getCell('id', items.length + 1)) || items.length + 1,
-            type: validTypes.includes(itemType) ? itemType : 'risk',
-            title: getCell('title', ''),
-            description: getCell('description', ''),
-            raised_by: getCell('raised_by', ''),
-            owner: getCell('owner', ''),
-            mitigation_actions: getCell('mitigation_actions', ''),
-            impact: impact,
-            likelihood: likelihood,
-            score: impact * likelihood,
-            status: validStatuses.includes(itemStatus) ? itemStatus : 'open'
+        headers.forEach((h, idx) => {
+            for (const [alias, field] of Object.entries(standardAliases)) {
+                if (h.includes(alias)) {
+                    colMap[field] = idx;
+                    break;
+                }
+            }
         });
-    }
 
-    return items;
+        // Handle title/description mapping with explicit logic:
+        // If "title" column exists, map it to 'title'
+        // If "description" column exists, map it to 'description'
+        // If "description" exists but "title" doesn't, also use description for title (simple format)
+        let hasTitleCol = false;
+        let hasDescCol = false;
+
+        headers.forEach((h, idx) => {
+            if (h.includes('title') && !('title' in colMap)) {
+                colMap['title'] = idx;
+                hasTitleCol = true;
+            }
+            if (h.includes('description') && !('description' in colMap)) {
+                colMap['description'] = idx;
+                hasDescCol = true;
+            }
+        });
+
+        // Simple format fallback: use description column for title
+        if (!hasTitleCol && hasDescCol && !('title' in colMap)) {
+            colMap['title'] = colMap['description'];
+        }
+
+        const items = [];
+        const validTypes = ['risk', 'action', 'issue', 'decision', 'dependency'];
+        const validStatuses = ['open', 'closed', 'transferred'];
+        let maxIdSeen = 0;
+
+        for (let i = headerIndex + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line.includes('|')) continue;
+            if (line.replace(/[|\-\s]/g, '').length === 0) continue;
+
+            try {
+                const cells = parseRow(line);
+                if (cells.length === 0) continue;
+
+                const getCell = (field, def) => {
+                    const idx = colMap[field];
+                    if (idx !== undefined && idx < cells.length) {
+                        return cells[idx].replace(/\\\|/g, '|');
+                    }
+                    return def;
+                };
+
+                const itemType = (getCell('type', 'risk') || 'risk').toLowerCase();
+                let itemStatus = (getCell('status', 'open') || 'open').toLowerCase();
+                if (itemStatus.includes('transferred')) itemStatus = 'transferred';
+
+                // Try to get score directly, derive impact/likelihood
+                let impact, likelihood, score;
+                const scoreStr = getCell('score', '');
+                if (scoreStr) {
+                    score = parseInt(scoreStr) || 9;
+                    impact = Math.max(1, Math.min(5, parseInt(getCell('impact', '3')) || 3));
+                    likelihood = Math.max(1, Math.min(5, parseInt(getCell('likelihood', '3')) || 3));
+                } else {
+                    impact = Math.max(1, Math.min(5, parseInt(getCell('impact', '3')) || 3));
+                    likelihood = Math.max(1, Math.min(5, parseInt(getCell('likelihood', '3')) || 3));
+                    score = impact * likelihood;
+                }
+
+                // Generate ID: use provided ID if valid, otherwise auto-assign
+                const idStr = getCell('id', '');
+                let itemId;
+                if (idStr) {
+                    itemId = parseInt(idStr);
+                    if (isNaN(itemId)) itemId = maxIdSeen + 1;
+                } else {
+                    itemId = maxIdSeen + 1;
+                }
+                maxIdSeen = Math.max(maxIdSeen, itemId);
+
+                items.push({
+                    id: itemId,
+                    type: validTypes.includes(itemType) ? itemType : 'risk',
+                    title: getCell('title', ''),
+                    description: getCell('description', ''),
+                    raised_by: getCell('raised_by', ''),
+                    owner: getCell('owner', ''),
+                    mitigation_actions: getCell('mitigation_actions', ''),
+                    impact: impact,
+                    likelihood: likelihood,
+                    score: score,
+                    status: validStatuses.includes(itemStatus) ? itemStatus : 'open'
+                });
+            } catch (rowError) {
+                console.warn('Skipping malformed RAID row:', line, rowError);
+                continue;
+            }
+        }
+
+        return items;
+    } catch (error) {
+        console.error('Error parsing RAID markdown:', error);
+        return [];
+    }
+}
+
+/**
+ * Extract the RAID log section text from plan text.
+ * Returns the text after the ---raid log--- marker, or empty string if absent.
+ */
+function extractRaidLogFromPlanText(planText) {
+    if (!planText) return '';
+    const marker = '---raid log---';
+    const idx = planText.indexOf(marker);
+    if (idx === -1) return '';
+    return planText.substring(idx + marker.length).trim();
+}
+
+/**
+ * Load RAID items from parsed data (API response or plan text fallback).
+ * Populates the global raidItems array and renders the table.
+ * Only loads if items are found and raidItems is currently empty,
+ * to avoid overwriting user edits.
+ */
+function loadRaidItemsFromData(items) {
+    try {
+        if (!items || items.length === 0) return;
+        // Only populate if RAID tab is currently empty to avoid
+        // overwriting manual edits during the same session.
+        if (raidItems.length > 0) return;
+
+        raidItems = items;
+        raidNextId = Math.max(...items.map(i => i.id || 0)) + 1;
+        renderRaidTable();
+    } catch (error) {
+        console.error('Error loading RAID items:', error);
+    }
+}
+
+/**
+ * Extract RAID items from plan text on the client side.
+ * This is a fallback when the backend /api/parse endpoint does not
+ * return RAID items.
+ */
+function extractRaidItemsFromPlanText(planText) {
+    try {
+        const raidText = extractRaidLogFromPlanText(planText);
+        if (!raidText) return [];
+        return parseRaidMarkdown(raidText);
+    } catch (error) {
+        console.error('Error extracting RAID items from plan text:', error);
+        return [];
+    }
 }
 
 function downloadRaidMarkdown() {

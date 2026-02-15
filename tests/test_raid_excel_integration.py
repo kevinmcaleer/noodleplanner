@@ -11,6 +11,7 @@ from noodle_core import (
     generate_raid_log_text,
     convert_plan_format_to_standard
 )
+from noodle_core.format_converter import extract_raid_log
 from noodle_core.excel_importer import convert_excel_to_markdown
 
 
@@ -733,3 +734,130 @@ This is not a table, just random text
             import os
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+
+class TestParseRaidMarkdownPlanSync:
+    """Test suite for parse_raid_markdown handling the plan sync format.
+
+    The plan sync format uses columns:
+    Type | Description | Status | Score | Owner | Date
+
+    This is different from the full RAID format which uses:
+    ID | Type | Title | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status
+
+    The parser must handle both formats robustly.
+    """
+
+    def test_parse_plan_sync_format(self):
+        """Test parsing the simple plan sync RAID table format."""
+        markdown = """
+| Type | Description      | Status | Score | Owner | Date       |
+| ---- | ---------------- | ------ | ----- | ----- | ---------- |
+| risk | Security concern | open   | 12    | Alice | 2024-01-15 |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['type'] == 'risk'
+        assert items[0]['title'] == 'Security concern'
+        assert items[0]['status'] == 'open'
+        assert items[0]['score'] == 12
+        assert items[0]['owner'] == 'Alice'
+
+    def test_parse_plan_sync_format_no_id_column(self):
+        """Test that items get auto-assigned IDs when no ID column exists."""
+        markdown = """
+| Type  | Description       | Status | Score | Owner | Date       |
+| ----- | ----------------- | ------ | ----- | ----- | ---------- |
+| risk  | Risk one          | open   | 9     | Alice | 2024-01-15 |
+| issue | Issue two         | open   | 12    | Bob   | 2024-01-16 |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 2
+        assert items[0]['id'] == 1
+        assert items[1]['id'] == 2
+
+    def test_parse_plan_sync_description_maps_to_title(self):
+        """Test that Description column maps to title field in simple format."""
+        markdown = """
+| Type | Description           | Status |
+| ---- | --------------------- | ------ |
+| risk | Important risk detail | open   |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['title'] == 'Important risk detail'
+
+    def test_parse_full_format_keeps_title_and_description_separate(self):
+        """Test that full format keeps title and description as separate fields."""
+        markdown = """
+| ID | Type | Title       | Description        | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status |
+| -- | ---- | ----------- | ------------------ | --------- | ----- | ------------------ | ------ | ---------- | ----- | ------ |
+| 1  | risk | Risk Title  | Risk details here  | Bob       | Alice | Review             | 4      | 3          | 12    | open   |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['title'] == 'Risk Title'
+        assert items[0]['description'] == 'Risk details here'
+
+    def test_extract_raid_log_from_plan_text(self):
+        """Test extracting RAID log section from plan text."""
+        plan_text = """Phase 1
+  Task 1 5d
+
+---raid log---
+| Type | Description      | Status | Score | Owner | Date       |
+| ---- | ---------------- | ------ | ----- | ----- | ---------- |
+| risk | Security concern | open   | 12    | Alice | 2024-01-15 |
+"""
+        raid_text = extract_raid_log(plan_text)
+        assert '| Type |' in raid_text
+        assert 'Security concern' in raid_text
+
+        items = parse_raid_markdown(raid_text)
+        assert len(items) == 1
+        assert items[0]['title'] == 'Security concern'
+
+    def test_extract_raid_log_not_present(self):
+        """Test that empty string returned when no RAID log section."""
+        plan_text = """Phase 1
+  Task 1 5d
+"""
+        raid_text = extract_raid_log(plan_text)
+        assert raid_text == ''
+
+    def test_parse_malformed_rows_are_skipped(self):
+        """Test that malformed rows are skipped gracefully."""
+        markdown = """
+| Type | Description      | Status |
+| ---- | ---------------- | ------ |
+| risk | Valid item       | open   |
+This is not a table row
+| issue | Another valid   | closed |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 2
+        assert items[0]['title'] == 'Valid item'
+        assert items[1]['title'] == 'Another valid'
+
+    def test_parse_empty_text(self):
+        """Test parsing empty text returns empty list."""
+        assert parse_raid_markdown('') == []
+        assert parse_raid_markdown('   ') == []
+
+    def test_parse_no_table_found(self):
+        """Test parsing text with no table returns empty list."""
+        assert parse_raid_markdown('Just some random text') == []
+        assert parse_raid_markdown('No pipes or tables here\nJust lines') == []
+
+    def test_parse_only_type_column(self):
+        """Test parsing table with minimal columns."""
+        markdown = """
+| Type   | Description |
+| ------ | ----------- |
+| risk   | A risk      |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['type'] == 'risk'
+        assert items[0]['title'] == 'A risk'
+        assert items[0]['status'] == 'open'  # default

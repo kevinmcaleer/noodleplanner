@@ -1181,5 +1181,87 @@ Phase 1
         assert "Server fail" not in data["highlights"][0]["content"]
 
 
+class TestParseEndpointRaidItems:
+    """Test suite for /api/parse endpoint RAID items support."""
+
+    def test_parse_returns_raid_items_from_plan(self, client):
+        """Test that parse returns RAID items from plan text."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description      | Status | Score | Owner | Date       |
+| ---- | ---------------- | ------ | ----- | ----- | ---------- |
+| risk | Security concern | open   | 12    | Alice | 2024-01-15 |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "raid_items" in data
+        assert len(data["raid_items"]) == 1
+        assert data["raid_items"][0]["type"] == "risk"
+        assert data["raid_items"][0]["title"] == "Security concern"
+        assert data["raid_items"][0]["status"] == "open"
+
+    def test_parse_returns_empty_raid_items_when_none(self, client):
+        """Test that parse returns empty raid_items when no RAID log."""
+        plan = """Phase 1
+  Task 1 @john 3d
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "raid_items" in data
+        assert data["raid_items"] == []
+
+    def test_parse_returns_raid_items_with_highlights(self, client):
+        """Test RAID items returned alongside highlights."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @john
+- Status update
+
+---raid log---
+| Type  | Description  | Status | Score | Owner | Date       |
+| ----- | ------------ | ------ | ----- | ----- | ---------- |
+| issue | Build broken | open   | 15    | Bob   | 2024-01-15 |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["highlights"]) == 1
+        assert len(data["raid_items"]) == 1
+        assert data["raid_items"][0]["title"] == "Build broken"
+
+    def test_parse_raid_items_resilient_to_malformed_data(self, client):
+        """Test that malformed RAID log does not crash parse."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+This is not a valid table
+Just random text
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "raid_items" in data
+        assert data["raid_items"] == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
