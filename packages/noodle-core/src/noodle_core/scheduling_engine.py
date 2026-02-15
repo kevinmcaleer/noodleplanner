@@ -14,10 +14,27 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
+from .format_converter import extract_raid_log, parse_raid_markdown
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
+
+# RAID Log Excel column widths (in characters)
+RAID_COLUMN_WIDTHS = {
+    'ID': 6,
+    'Type': 14,
+    'Title': 25,
+    'Description': 35,
+    'Raised By': 15,
+    'Owner': 15,
+    'Mitigation Actions': 35,
+    'Impact': 10,
+    'Likelihood': 12,
+    'Score': 8,
+    'Status': 14,
+}
 
 def get_next_working_day(date, holidays=None):
     """Get the next working day from a given date.
@@ -2276,14 +2293,68 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                             current_color = cell.font.color
                             cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
 
-        # Auto-adjust column widths
-        for col_num, header in enumerate(resource_headers, 1):
-            column_letter = get_column_letter(col_num)
-            max_length = len(header)
-            for row in ws_resources.iter_rows(min_row=2, max_col=col_num, max_row=ws_resources.max_row):
-                cell_value = str(row[col_num-1].value) if row[col_num-1].value else ''
-                max_length = max(max_length, len(cell_value))
-            ws_resources.column_dimensions[column_letter].width = min(max_length + 2, 50)
+            # Auto-adjust column widths
+            for col_num, header in enumerate(resource_headers, 1):
+                column_letter = get_column_letter(col_num)
+                max_length = len(header)
+                for row in ws_resources.iter_rows(min_row=2, max_col=col_num, max_row=ws_resources.max_row):
+                    cell_value = str(row[col_num-1].value) if row[col_num-1].value else ''
+                    max_length = max(max_length, len(cell_value))
+                ws_resources.column_dimensions[column_letter].width = min(max_length + 2, 50)
+
+    # Create RAID Log sheet if original_text contains RAID items (outside 'if tasks' block)
+    if original_text:
+        raid_log_text = extract_raid_log(original_text)
+        if raid_log_text:
+            raid_items = parse_raid_markdown(raid_log_text)
+            if raid_items:
+                ws_raid = wb.create_sheet("RAID Log")
+
+                raid_headers = [
+                    'ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner',
+                    'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'
+                ]
+
+                ws_raid.append(raid_headers)
+
+                # Style header row
+                raid_header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+                raid_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+                for col_num, header in enumerate(raid_headers, 1):
+                    cell = ws_raid.cell(row=1, column=col_num)
+                    cell.fill = raid_header_fill
+                    cell.font = raid_header_font
+                    cell.alignment = Alignment(horizontal='center')
+
+                # Add RAID data
+                for row_idx, item in enumerate(raid_items, 2):
+                    ws_raid.cell(row=row_idx, column=1, value=item.get('id', ''))
+                    ws_raid.cell(row=row_idx, column=2, value=item.get('type', '').capitalize())
+                    ws_raid.cell(row=row_idx, column=3, value=item.get('title', ''))
+                    ws_raid.cell(row=row_idx, column=4, value=item.get('description', ''))
+                    ws_raid.cell(row=row_idx, column=5, value=item.get('raised_by', ''))
+                    ws_raid.cell(row=row_idx, column=6, value=item.get('owner', ''))
+                    ws_raid.cell(row=row_idx, column=7, value=item.get('mitigation_actions', ''))
+                    ws_raid.cell(row=row_idx, column=8, value=item.get('impact', ''))
+                    ws_raid.cell(row=row_idx, column=9, value=item.get('likelihood', ''))
+
+                    score = item.get('score', 0)
+                    score_cell = ws_raid.cell(row=row_idx, column=10, value=score)
+                    # Color code score cell
+                    if score >= 16:
+                        score_cell.fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
+                    elif score >= 6:
+                        score_cell.fill = PatternFill(start_color="FFF3BF", end_color="FFF3BF", fill_type="solid")
+                    else:
+                        score_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
+
+                    ws_raid.cell(row=row_idx, column=11, value=item.get('status', '').capitalize())
+
+                # Set column widths using named constants
+                for col_num, header in enumerate(raid_headers, 1):
+                    width = RAID_COLUMN_WIDTHS.get(header, 15)  # Default to 15 if not found
+                    ws_raid.column_dimensions[get_column_letter(col_num)].width = width
 
     # Save workbook
     wb.save(output_path)

@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 import openpyxl
 from dateutil import parser as dateutil_parser
 
+from .format_converter import generate_raid_log_text
+
 logger = logging.getLogger(__name__)
 
 # Known column name patterns for auto-detection
@@ -465,6 +467,91 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 "comment": comment,
             })
 
+        # Check if there's a RAID Log sheet and parse it before closing workbook
+        raid_log_section = ""
+        if "RAID Log" in wb.sheetnames:
+            try:
+                ws_raid = wb["RAID Log"]
+                raid_rows = list(ws_raid.iter_rows(values_only=True))
+
+                if raid_rows and len(raid_rows) > 1:  # Has header and at least one data row
+                    raid_headers = [str(c).lower() if c is not None else "" for c in raid_rows[0]]
+                    raid_data_rows = raid_rows[1:]
+
+                    # Build column mapping
+                    col_map = {}
+                    field_aliases = {
+                        'id': 'id', 'type': 'type', 'title': 'title',
+                        'description': 'description', 'raised by': 'raised_by',
+                        'owner': 'owner', 'mitigation actions': 'mitigation_actions',
+                        'impact': 'impact', 'likelihood': 'likelihood',
+                        'score': 'score', 'status': 'status', 'date': 'date'
+                    }
+
+                    for idx, header in enumerate(raid_headers):
+                        for alias, field in field_aliases.items():
+                            if alias in header:
+                                col_map[field] = idx
+                                break
+
+                    # Parse RAID items
+                    raid_items = []
+                    valid_types = {'risk', 'action', 'issue', 'decision', 'dependency'}
+                    valid_statuses = {'open', 'closed', 'transferred'}
+
+                    for row in raid_data_rows:
+                        if not row or not any(row):
+                            continue
+
+                        def get_cell(field, default=''):
+                            idx = col_map.get(field)
+                            if idx is not None and idx < len(row) and row[idx] is not None:
+                                return str(row[idx])
+                            return default
+
+                        item_type = get_cell('type', 'risk').lower()
+                        item_status = get_cell('status', 'open').lower()
+                        if 'transferred' in item_status:
+                            item_status = 'transferred'
+
+                        try:
+                            impact = int(get_cell('impact', '3') or '3')
+                            likelihood = int(get_cell('likelihood', '3') or '3')
+                            impact = max(1, min(5, impact))
+                            likelihood = max(1, min(5, likelihood))
+                            score = impact * likelihood
+                        except (ValueError, TypeError):
+                            impact = 3
+                            likelihood = 3
+                            score = 9
+
+                        # Try to get date from Excel, fallback to current date
+                        date_raw = get_cell('date', '')
+                        if date_raw:
+                            date = normalize_date(date_raw)
+                            if date is None:
+                                date = datetime.now().strftime('%Y-%m-%d')
+                        else:
+                            date = datetime.now().strftime('%Y-%m-%d')
+
+                        raid_items.append({
+                            'type': item_type if item_type in valid_types else 'risk',
+                            'title': get_cell('title', ''),
+                            'status': item_status if item_status in valid_statuses else 'open',
+                            'score': score,
+                            'owner': get_cell('owner', ''),
+                            'date': date,
+                        })
+
+                    # Generate RAID Log markdown section
+                    if raid_items:
+                        raid_table = generate_raid_log_text(raid_items)
+                        raid_log_section = f"\n\n---raid log---\n{raid_table}\n"
+
+            except (ValueError, KeyError, AttributeError, TypeError) as e:
+                logger.warning(f"Failed to parse RAID Log sheet: {e}")
+                warnings.append(f"RAID Log sheet found but could not be parsed: {e}")
+
     finally:
         wb.close()
 
@@ -535,7 +622,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 meta = _build_task_metadata(task, resource_map)
                 markdown_lines.append(f"{indent}{task['name']}{meta}")
 
-    markdown = "\n".join(markdown_lines) + "\n"
+    markdown = "\n".join(markdown_lines) + raid_log_section + "\n"
 
     return {
         "markdown": markdown,

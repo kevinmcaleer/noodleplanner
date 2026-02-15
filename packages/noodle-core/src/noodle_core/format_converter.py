@@ -323,6 +323,190 @@ def strip_raid_log(text: str) -> str:
     return before
 
 
+def parse_raid_markdown(text: str) -> list:
+    """Parse RAID log markdown table into a list of RAID items.
+
+    Handles two table formats:
+    1. Simple: Type | Description | Status | Score | Owner | Date
+       (Description maps to 'title' field internally)
+    2. Full: ID | Type | Title | Description | Raised By | Owner |
+             Mitigation Actions | Impact | Likelihood | Score | Status
+       (Title and Description are separate fields)
+
+    Args:
+        text: Markdown text containing a RAID log table
+
+    Returns:
+        List of dicts with keys: id, type, title, description, raised_by,
+        owner, mitigation_actions, impact, likelihood, score, status
+
+    Examples:
+        Simple format table:
+        >>> text = '''
+        ... | Type | Description | Status |
+        ... | risk | Test risk   | open   |
+        ... '''
+        >>> items = parse_raid_markdown(text)
+        >>> items[0]['title']
+        'Test risk'
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Find header row
+    header_index = -1
+    for i, line in enumerate(lines):
+        if '|' in line and any(keyword in line.lower() for keyword in ['id', 'title', 'type', 'description']):
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        """Parse a markdown table row into cells, handling escaped pipes."""
+        # Use regex to split on pipes that aren't escaped
+        import re
+        # Split on | that isn't preceded by \
+        parts = re.split(r'(?<!\\)\|', line)
+        # Remove first and last empty elements (before first | and after last |)
+        cells = [cell.strip() for cell in parts if cell.strip()]
+        return cells
+
+    headers = [h.lower() for h in parse_row(lines[header_index])]
+
+    # Build column mapping with explicit precedence
+    # Map standard fields first
+    col_map = {}
+    standard_aliases = {
+        'id': 'id',
+        'type': 'type',
+        'raised by': 'raised_by',
+        'owner': 'owner',
+        'mitigation actions': 'mitigation_actions',
+        'impact': 'impact',
+        'likelihood': 'likelihood',
+        'score': 'score',
+        'status': 'status'
+    }
+
+    for idx, header in enumerate(headers):
+        for alias, field in standard_aliases.items():
+            if alias in header:
+                col_map[field] = idx
+                break
+
+    # Handle title/description mapping with explicit logic:
+    # - If "title" exists, map it to 'title'
+    # - If "description" exists, map it to 'description'
+    # - If "description" exists but "title" doesn't, also map "description" to 'title' (simple format)
+    has_title_col = False
+    has_desc_col = False
+
+    for idx, header in enumerate(headers):
+        if 'title' in header and 'title' not in col_map:
+            col_map['title'] = idx
+            has_title_col = True
+        if 'description' in header and 'description' not in col_map:
+            col_map['description'] = idx
+            has_desc_col = True
+
+    # Simple format fallback: use description column for title if no title column exists
+    if not has_title_col and has_desc_col and 'title' not in col_map:
+        col_map['title'] = col_map['description']
+
+    valid_types = {'risk', 'action', 'issue', 'decision', 'dependency'}
+    valid_statuses = {'open', 'closed', 'transferred'}
+    items = []
+    max_id_seen = 0  # Track maximum ID to avoid duplicates
+
+    # Parse data rows (skip header and separator)
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if not '|' in line:
+            continue
+        # Skip separator row (all dashes)
+        if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                # Unescape pipes
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        item_type = get_cell('type', 'risk').lower()
+        item_status = get_cell('status', 'open').lower()
+        if 'transferred' in item_status:
+            item_status = 'transferred'
+
+        # Try to get score directly from table first
+        score_str = get_cell('score', '')
+        if score_str:
+            try:
+                score = int(score_str)
+                # Derive impact and likelihood from score if not provided
+                impact_str = get_cell('impact', '')
+                likelihood_str = get_cell('likelihood', '')
+                if impact_str:
+                    impact = int(impact_str)
+                    impact = max(1, min(5, impact))
+                else:
+                    impact = 3  # default
+                if likelihood_str:
+                    likelihood = int(likelihood_str)
+                    likelihood = max(1, min(5, likelihood))
+                else:
+                    likelihood = 3  # default
+            except (ValueError, TypeError):
+                # Fall back to calculating from impact/likelihood
+                impact = int(get_cell('impact', '3') or '3')
+                likelihood = int(get_cell('likelihood', '3') or '3')
+                impact = max(1, min(5, impact))
+                likelihood = max(1, min(5, likelihood))
+                score = impact * likelihood
+        else:
+            # Calculate score from impact and likelihood
+            impact = int(get_cell('impact', '3') or '3')
+            likelihood = int(get_cell('likelihood', '3') or '3')
+            impact = max(1, min(5, impact))
+            likelihood = max(1, min(5, likelihood))
+            score = impact * likelihood
+
+        # Generate ID: use provided ID if valid, otherwise use max_id + 1
+        id_str = get_cell('id', '')
+        if id_str:
+            try:
+                item_id = int(id_str)
+            except (ValueError, TypeError):
+                item_id = max_id_seen + 1
+        else:
+            item_id = max_id_seen + 1
+
+        max_id_seen = max(max_id_seen, item_id)
+
+        item = {
+            'id': item_id,
+            'type': item_type if item_type in valid_types else 'risk',
+            'title': get_cell('title', ''),
+            'description': get_cell('description', ''),
+            'raised_by': get_cell('raised_by', ''),
+            'owner': get_cell('owner', ''),
+            'mitigation_actions': get_cell('mitigation_actions', ''),
+            'impact': impact,
+            'likelihood': likelihood,
+            'score': score,
+            'status': item_status if item_status in valid_statuses else 'open',
+        }
+        items.append(item)
+
+    return items
+
+
 def generate_raid_log_text(raid_items: list) -> str:
     """Generate a formatted markdown table from RAID items.
 

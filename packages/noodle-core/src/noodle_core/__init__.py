@@ -29,6 +29,7 @@ from .format_converter import (
     update_plan_highlights,
     extract_raid_log,
     strip_raid_log,
+    parse_raid_markdown,
     generate_raid_log_text,
     update_plan_raid_log,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "update_plan_highlights",
     "extract_raid_log",
     "strip_raid_log",
+    "parse_raid_markdown",
     "generate_raid_log_text",
     "update_plan_raid_log",
     # Excel importer
