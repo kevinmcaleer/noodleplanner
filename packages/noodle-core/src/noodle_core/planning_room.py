@@ -293,8 +293,7 @@ def format_dependencies(dependencies: List[Tuple[str, str, str]]) -> str:
     """
     Format dependencies for plan.md syntax.
 
-    Uses simple #taskname syntax for single FS dependencies with no lag.
-    Uses [depends ...] syntax for complex dependencies.
+    Always uses [depends ...] syntax for dependencies.
 
     Args:
         dependencies: List of (name, type, lag) tuples
@@ -305,15 +304,7 @@ def format_dependencies(dependencies: List[Tuple[str, str, str]]) -> str:
     if not dependencies:
         return ""
 
-    # Check if we can use simple syntax
-    if len(dependencies) == 1:
-        name, dep_type, lag = dependencies[0]
-
-        if dep_type == 'FS' and not lag:
-            # Simple syntax: #taskname
-            return f" #{sanitize_task_name(name)}"
-
-    # Complex syntax: [depends ...]
+    # Always use [depends ...] syntax
     dep_strs = []
     for name, dep_type, lag in dependencies:
         dep_str = sanitize_task_name(name)

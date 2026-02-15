@@ -1720,31 +1720,17 @@ class KanbanBoard {
         const indent = line.match(/^(\s*)/)[1];
         const trimmed = line.trim();
 
-        // If line already has dependencies, add to them
-        if (trimmed.includes('#')) {
-            return line.replace(/(#\w+(?:\s+#\w+)*)/, `$1 #${dependency}`);
+        // If line already has a [depends ...] block, add to it
+        const dependsMatch = trimmed.match(/\[depends\s+([^\]]+)\]/i);
+        if (dependsMatch) {
+            return line.replace(/\[depends\s+([^\]]+)\]/i, `[depends $1, ${dependency}]`);
         } else {
-            // Add after resources or task name
-            const tokens = trimmed.split(/\s+/);
-            let insertIndex = 0;
-
-            for (let i = 0; i < tokens.length; i++) {
-                const token = tokens[i];
-                if (token.startsWith('@')) {
-                    insertIndex = i + 1;
-                    continue;
-                }
-                if (token.match(/^\d+[dmw]$/) || token.match(/^\d+%$/) ||
-                    token.match(/^\d{4}-\d{2}-\d{2}$/) || token.startsWith('"')) {
-                    break;
-                }
-                if (!token.startsWith('*') && !token.startsWith('#')) {
-                    insertIndex = i + 1;
-                }
+            // Add [depends dependency] at the end (before comment if present)
+            if (trimmed.includes('"')) {
+                return line.replace(/"/, `[depends ${dependency}] "`);
+            } else {
+                return line + ` [depends ${dependency}]`;
             }
-
-            tokens.splice(insertIndex, 0, `#${dependency}`);
-            return indent + tokens.join(' ');
         }
     }
 
