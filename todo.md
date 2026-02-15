@@ -978,6 +978,23 @@
 
 **Status:** ✅ Complete! Timesheet header merged to main. ~60% space reduction achieved. All 321 tests passing.
 
+### Summary Tasks Filtered from Kanban Resources (GitHub Issue #223) - ✅ CLOSED
+- [x] Filter out summary tasks from Kanban Resources view
+- [x] Only show leaf tasks (actual work assignments)
+- [x] Preserve drag-and-drop functionality
+- [x] Child tasks still appear correctly
+
+**Implementation:**
+- Modified `groupTasksByResource()` in kanban.js
+- Added filter using `hasSubtasks(task)` to exclude parent tasks
+- Summary tasks no longer clutter the Resources view
+- Only assignable work shown to users
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/static/kanban.js` - Added summary task filter
+
+**Status:** ✅ Complete! Kanban Resources view now only shows leaf tasks. All 321 tests passing.
+
 ## Pending 📋
 
 ### Test Execution
