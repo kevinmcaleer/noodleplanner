@@ -30,6 +30,8 @@ The web application (`packages/noodle-web/`) provides:
 - **Kanban View**: Board with 4 grouping modes (phase/resource/progress/label)
 - **Timeline View**: Milestone timeline with optional detailed phase blocks
 - **Report View**: Quad dashboard with project header, timeline, milestones, RAID, and highlights
+- **2-Week Look-Ahead View**: Focused view of upcoming tasks (next 14 days) and overdue items
+- **User Workload View**: Task breakdown by user with workload statistics and filtering
 - **Export**: Excel, PowerPoint, PDF
 
 ### Project Report (Quad Layout)
@@ -168,6 +170,116 @@ The Timeline view supports a "Detailed" mode that renders phase blocks as rectan
 - `assignPhaseRows()` — Greedy algorithm to assign phases to rows without overlap
 - `darkenColor()` — Utility to darken a hex colour for progress overlays
 - `toggleDetailedTimeline()` — Checkbox event handler
+
+### 2-Week Look-Ahead View
+
+The 2-Week Look-Ahead view (GitHub Issue #221) provides a focused snapshot of upcoming work and overdue items.
+
+**Purpose:**
+- Help teams focus on immediate priorities
+- Highlight tasks that need attention in the next two weeks
+- Surface overdue tasks that are blocking progress
+
+**Display Sections:**
+
+1. **Overdue Tasks** (red header):
+   - Tasks past their due date with completion < 100%
+   - Shows: Task Name, Due Date, Days Late, Resources, %, RAG
+   - Days Late calculated from current date, highlighted in red and bold
+   - Sorted by due date (earliest first)
+   - Hidden if no overdue tasks exist
+
+2. **Upcoming Tasks** (blue header):
+   - Tasks starting or finishing within next 14 days
+   - Shows: Task Name, Start Date, Due Date, Duration, Resources, %, RAG
+   - Sorted by start date (earliest first)
+   - Hidden if no upcoming tasks exist
+
+**Empty State:**
+- Displays "✅ No overdue or upcoming tasks in the next 2 weeks!" when both sections are empty
+- Indicates project is on track or completed
+
+**Interactivity:**
+- All task rows are clickable
+- Clicking a row opens the task form for editing
+- Uses existing `openMilestoneTaskForm()` function
+
+**Key JavaScript Functions:**
+- `updateLookAhead(tasks)` — Main function that filters tasks and populates both sections
+- `createLookAheadRow(task, type, today)` — Helper to create table rows with appropriate columns
+- `getRAGColor(rag)` — Returns color code for RAG status indicators
+
+**Date Calculations:**
+- Uses normalized dates (midnight) for accurate comparisons
+- 2-week window: current date + 14 days
+- Tasks included if start OR finish falls within window
+- Summary tasks always excluded
+
+### User Workload View
+
+The User Workload view (GitHub Issue #221) breaks down tasks by assigned user/resource, providing visibility into individual workloads.
+
+**Purpose:**
+- Show task distribution across team members
+- Identify workload imbalances
+- Help managers track individual assignments
+- Allow users to view their own task lists
+
+**Features:**
+
+1. **User Filter Dropdown:**
+   - "All Users" option shows all users
+   - Individual user options (alphabetically sorted)
+   - Users automatically extracted from task resources
+   - Dropdown updates when plan is rendered
+
+2. **User Sections** (when "All Users" selected):
+   - One expandable section per user
+   - Purple gradient header with user icon (👤)
+   - Statistics bar showing:
+     - Tasks: X/Y complete
+     - Days: X/Y complete
+     - Overall completion percentage
+
+3. **Task Tables:**
+   - Shows all tasks assigned to the user
+   - Columns: Task Name, Start, Finish, Duration, %, RAG
+   - Task names indented based on hierarchy level
+   - Monospace font for proper alignment
+   - RAG status color-coded
+
+**Workload Statistics:**
+- Total tasks assigned
+- Completed tasks (100% complete)
+- Total days (sum of all task durations)
+- Completed days (sum of completed task durations)
+- Completion percentage (tasks completed / total tasks)
+
+**Resource Extraction:**
+- Parses comma-separated resources from tasks
+- Strips @ symbols and allocation percentages
+- Summary tasks excluded from workload calculations
+- Case-sensitive matching for user names
+
+**Interactivity:**
+- Filter dropdown instantly updates the display
+- All task rows are clickable
+- Clicking a row opens the task form for editing
+- Uses existing `openMilestoneTaskForm()` function
+
+**Key JavaScript Functions:**
+- `updateUserWorkload(tasks)` — Extracts users and populates dropdown
+- `displayUserWorkload(userMap, filterUser)` — Renders user sections and tables
+- `filterUserWorkload()` — Dropdown change handler
+- `getRAGColor(rag)` — Returns color code for RAG status indicators
+
+**Global State:**
+- `window.currentUserMap` — Stores user-to-tasks mapping for filtering
+- Persists between filter selections for performance
+
+**Empty States:**
+- "No tasks assigned to users" shown when no resources found
+- Individual sections hidden if user has no tasks
 
 ### CLI Tool
 
