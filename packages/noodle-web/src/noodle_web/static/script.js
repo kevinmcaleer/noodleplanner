@@ -1544,18 +1544,22 @@ function updateTimesheet(tasks, frontMatter = {}) {
         }
 
         // Get table elements
-        const headerRow = document.getElementById('timesheetHeaderRow');
+        const monthRow = document.getElementById('timesheetMonthRow');
+        const dayRow = document.getElementById('timesheetDayRow');
+        const weekdayRow = document.getElementById('timesheetWeekdayRow');
         const tbody = document.getElementById('timesheetBody');
-        if (!headerRow || !tbody) {
+        if (!monthRow || !dayRow || !weekdayRow || !tbody) {
             console.error('Timesheet table elements not found');
             return;
         }
 
         // Clear existing content
-        // Keep the first header cell (Resource), remove date columns
-        while (headerRow.children.length > 1) {
-            headerRow.removeChild(headerRow.lastChild);
+        // Keep the first header cell (Resource) in monthRow, remove date columns from all rows
+        while (monthRow.children.length > 1) {
+            monthRow.removeChild(monthRow.lastChild);
         }
+        dayRow.innerHTML = '';
+        weekdayRow.innerHTML = '';
         tbody.innerHTML = '';
 
         // Filter out tasks without dates or resources
@@ -1586,28 +1590,63 @@ function updateTimesheet(tasks, frontMatter = {}) {
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Add date header columns with format "Mon 03 may"
+        // Add date header columns in three rows: month names, day numbers, weekday initials
+        // First, group dates by month for month row spanning
+        const monthGroups = [];
+        let currentMonth = null;
+        let currentMonthCount = 0;
+
         dates.forEach(date => {
+            const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+            const monthYear = `${monthName} ${date.getFullYear()}`;
+
+            if (monthYear !== currentMonth) {
+                if (currentMonth !== null) {
+                    monthGroups.push({ name: currentMonth, count: currentMonthCount });
+                }
+                currentMonth = monthYear;
+                currentMonthCount = 1;
+            } else {
+                currentMonthCount++;
+            }
+        });
+        // Add the last month group
+        if (currentMonth !== null) {
+            monthGroups.push({ name: currentMonth, count: currentMonthCount });
+        }
+
+        // Create month row headers
+        monthGroups.forEach(group => {
             const th = document.createElement('th');
-            th.className = 'timesheet-date-col';
-            const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = date.toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
-            th.textContent = `${dayOfWeek} ${day} ${month}`;
+            th.className = 'timesheet-month-header';
+            th.setAttribute('colspan', group.count);
+            th.textContent = group.name;
+            monthRow.appendChild(th);
+        });
 
-            // Add weekend class for Saturdays and Sundays
+        // Create day and weekday rows
+        dates.forEach(date => {
             const dayOfWeekNum = date.getDay();
-            if (dayOfWeekNum === 0 || dayOfWeekNum === 6) {
-                th.classList.add('timesheet-weekend');
-            }
-
-            // Add holiday class if applicable
             const dateKey = date.toISOString().split('T')[0];
-            if (holidays.includes(dateKey)) {
-                th.classList.add('timesheet-holiday');
-            }
+            const isWeekend = dayOfWeekNum === 0 || dayOfWeekNum === 6;
+            const isHoliday = holidays.includes(dateKey);
 
-            headerRow.appendChild(th);
+            // Day number header
+            const dayTh = document.createElement('th');
+            dayTh.className = 'timesheet-day-header';
+            dayTh.textContent = date.getDate();
+            if (isWeekend) dayTh.classList.add('timesheet-weekend');
+            if (isHoliday) dayTh.classList.add('timesheet-holiday');
+            dayRow.appendChild(dayTh);
+
+            // Weekday initial header
+            const weekdayTh = document.createElement('th');
+            weekdayTh.className = 'timesheet-weekday-header';
+            const weekdayInitials = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+            weekdayTh.textContent = weekdayInitials[dayOfWeekNum];
+            if (isWeekend) weekdayTh.classList.add('timesheet-weekend');
+            if (isHoliday) weekdayTh.classList.add('timesheet-holiday');
+            weekdayRow.appendChild(weekdayTh);
         });
 
         // Aggregate resource data

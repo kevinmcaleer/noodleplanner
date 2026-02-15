@@ -629,11 +629,32 @@ h1 {
 }
 
 .timesheet-table th {
-    padding: 12px 8px;
+    padding: 8px 6px;
     text-align: center;
     font-weight: 600;
     border-right: 1px solid rgba(255, 255, 255, 0.3);
     white-space: nowrap;
+}
+
+.timesheet-table th.timesheet-month-header {
+    padding: 10px 8px;
+    font-size: 0.95em;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.timesheet-table th.timesheet-day-header {
+    padding: 6px 4px;
+    font-size: 0.9em;
+    min-width: 32px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.timesheet-table th.timesheet-weekday-header {
+    padding: 6px 4px;
+    font-size: 0.85em;
+    min-width: 32px;
+    font-weight: 500;
 }
 
 .timesheet-table th.timesheet-resource-col {
@@ -647,8 +668,12 @@ h1 {
 }
 
 .timesheet-table th.timesheet-weekend {
-    background: rgba(0, 0, 0, 0.1);
-    color: black;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.timesheet-table th.timesheet-day-header.timesheet-weekend,
+.timesheet-table th.timesheet-weekday-header.timesheet-weekend {
+    background: rgba(0, 0, 0, 0.15);
 }
 
 .timesheet-table td {
@@ -718,8 +743,12 @@ h1 {
 }
 
 .timesheet-table th.timesheet-holiday {
-    background: rgba(255, 152, 0, 0.2);
-    color: black;
+    background: rgba(255, 152, 0, 0.3);
+}
+
+.timesheet-table th.timesheet-day-header.timesheet-holiday,
+.timesheet-table th.timesheet-weekday-header.timesheet-holiday {
+    background: rgba(255, 152, 0, 0.3);
 }
 
 .timesheet-title {
