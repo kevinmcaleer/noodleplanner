@@ -106,13 +106,16 @@ class KanbanBoard {
 
         // Second pass: Parse tasks
         inFrontMatter = false;
+        let inHighlights = false;
+        let inRaidLog = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const lineNum = i + 1;
+            const trimmedLine = line.trim();
 
             // Skip front matter entirely
-            if (line.trim() === '---') {
+            if (trimmedLine === '---') {
                 if (!inFrontMatter) {
                     inFrontMatter = true;
                     continue;
@@ -126,8 +129,29 @@ class KanbanBoard {
                 continue;
             }
 
+            // Track and skip highlights section
+            if (trimmedLine === '---highlights---') {
+                inHighlights = true;
+                continue;
+            }
+            if (trimmedLine === '---end-highlights---') {
+                inHighlights = false;
+                continue;
+            }
+
+            // Track and skip RAID log section (extends to end of file)
+            if (trimmedLine === '---raid log---') {
+                inHighlights = false; // RAID log marker also ends highlights
+                inRaidLog = true;
+                continue;
+            }
+
+            if (inHighlights || inRaidLog) {
+                continue;
+            }
+
             // Skip empty lines
-            if (!line.trim() || line.startsWith('===')) {
+            if (!trimmedLine || line.startsWith('===')) {
                 continue;
             }
 
