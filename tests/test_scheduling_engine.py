@@ -727,6 +727,36 @@ class TestRagStatusMilestoneAlignment:
         task = {'start': future, 'finish': future, 'percent': 0}
         assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
 
+    def test_label_does_not_override_explicit_start_date(self):
+        """A task with #label and explicit past start date + 0% should be Red.
+
+        Regression: #label was parsed as a dependency, causing the scheduler
+        to override the explicit start date with a future date when the
+        dependency didn't resolve, making RAG incorrectly return Green.
+        """
+        phases = {
+            'project start': {
+                '_text': 'project start 0d @kevin 0% 2026-02-09 #cool',
+                '_level': 0
+            }
+        }
+        tasks = schedule_tasks(phases)
+        task = tasks[0]
+        assert task['start'] == datetime(2026, 2, 9)
+        assert calculate_rag_status(task, datetime(2026, 2, 15)) == 'Red'
+
+    def test_unresolved_dependency_preserves_explicit_start(self):
+        """When a #dependency doesn't resolve, the explicit start date should be kept."""
+        phases = {
+            'my task': {
+                '_text': 'my task 3d 0% 2026-01-05 #nonexistent',
+                '_level': 0
+            }
+        }
+        tasks = schedule_tasks(phases)
+        task = tasks[0]
+        assert task['start'] == datetime(2026, 1, 5)
+
 
 class TestParseResourceMappings:
     """Test suite for parse_resource_mappings function."""

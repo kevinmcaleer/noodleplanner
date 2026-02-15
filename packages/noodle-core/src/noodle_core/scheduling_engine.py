@@ -557,7 +557,10 @@ def schedule_tasks(phases):
                     # Dependency finish dates are exclusive (day after last working day)
                     t['start'] = get_next_working_day(latest_dep_finish)
             else:
-                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
+                if 'start' in t and t['start']:
+                    pass  # Keep the explicit start date
+                else:
+                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
