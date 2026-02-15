@@ -898,5 +898,114 @@ class TestEdgeCases:
         assert result['percent'] == 100
 
 
+class TestDSTBoundaryRegression:
+    """Tests to ensure scheduling works correctly across DST transitions.
+
+    March 29 2026 is a Sunday (UK/Europe DST spring forward).
+    March 30 2026 is a Monday (first working day after DST change).
+    October 25 2026 is a Sunday (UK/Europe DST fall back).
+    """
+
+    def test_working_day_across_spring_dst(self):
+        """March 30 2026 (Monday after spring DST) should be a working day."""
+        monday = datetime(2026, 3, 30)
+        result = get_next_working_day(monday)
+        assert result == monday
+        assert result.weekday() == 0  # Monday
+
+    def test_add_working_days_across_spring_dst(self):
+        """Adding working days across the spring DST boundary should not skip or duplicate days."""
+        friday_before = datetime(2026, 3, 27)  # Friday before DST
+        # 1 working day from Friday = next Monday (March 30, after DST)
+        result = add_working_days(friday_before, 2)
+        # 2 working days: Fri 27 (day 1), Mon 30 (day 2), finish = Tue 31 (exclusive)
+        assert result == datetime(2026, 3, 31)
+
+    def test_add_working_days_across_autumn_dst(self):
+        """Adding working days across the autumn DST boundary should not skip or duplicate days."""
+        friday_before = datetime(2026, 10, 23)  # Friday before autumn DST (Oct 25)
+        # 3 working days: Fri 23 (day 1), Mon 26 (day 2), Tue 27 (day 3)
+        result = add_working_days(friday_before, 3)
+        assert result == datetime(2026, 10, 28)  # Exclusive finish = Wed 28
+
+    def test_five_working_days_across_spring_dst(self):
+        """5 working days starting Thursday before DST should end on Wednesday after."""
+        thursday = datetime(2026, 3, 26)
+        # 5 working days: Thu 26, Fri 27, Mon 30, Tue 31, Wed Apr 1
+        result = add_working_days(thursday, 5)
+        # Exclusive finish = day after Wed Apr 1 = Thu Apr 2
+        assert result == datetime(2026, 4, 2)
+
+    def test_no_resource_on_dst_weekend(self):
+        """Resources should not be assigned to the DST weekend (Sat 28, Sun 29 March 2026)."""
+        from noodle_core.scheduling_engine import calculate_resource_allocation
+        tasks = [
+            {
+                'name': 'DST Task',
+                'start': datetime(2026, 3, 26),
+                'finish': datetime(2026, 4, 2),
+                'duration': timedelta(days=5),
+                'resources': 'alice',
+                'level': 0,
+            },
+        ]
+        result = calculate_resource_allocation(
+            tasks,
+            start_date=datetime(2026, 3, 26),
+            finish_date=datetime(2026, 4, 2),
+        )
+        alice_days = result['allocation']['alice']
+        saturday = datetime(2026, 3, 28)
+        sunday = datetime(2026, 3, 29)
+        assert saturday not in alice_days, "Saturday during DST weekend should have no allocation"
+        assert sunday not in alice_days, "Sunday during DST weekend should have no allocation"
+        # Monday after DST should have allocation
+        monday = datetime(2026, 3, 30)
+        assert monday in alice_days, "Monday after DST should have allocation"
+
+    def test_datetime_with_time_component_does_not_break_day_calc(self):
+        """Dates with non-midnight times should not cause off-by-one in day calculations."""
+        # Simulate datetime.now() with time component
+        start_with_time = datetime(2026, 3, 27, 14, 30, 0)
+        start_midnight = datetime(2026, 3, 27, 0, 0, 0)
+
+        result_time = add_working_days(start_with_time, 3)
+        result_midnight = add_working_days(start_midnight, 3)
+        # Both should produce the same finish date
+        assert result_time.date() == result_midnight.date()
+
+    def test_resource_sheet_no_working_bar_on_weekend(self):
+        """Resource sheet should show ░ (not █) on DST weekend days."""
+        from noodle_core.scheduling_engine import render_resource_sheet
+        tasks = [
+            {
+                'name': 'DST Task',
+                'start': datetime(2026, 3, 26),
+                'finish': datetime(2026, 4, 2),
+                'duration': timedelta(days=5),
+                'resources': 'alice',
+                'level': 0,
+            },
+        ]
+        sheet = render_resource_sheet(
+            tasks,
+            start_date=datetime(2026, 3, 26),
+            finish_date=datetime(2026, 4, 2),
+            terminal_width=80,
+        )
+        # Find the resource line
+        for line in sheet.split('\n'):
+            if 'alice' in line.lower():
+                # The chart part is after the last '|'
+                parts = line.split('|')
+                chart = parts[-1] if len(parts) > 1 else ''
+                # Days: Thu26=0, Fri27=1, Sat28=2, Sun29=3, Mon30=4, Tue31=5, Wed1=6
+                if len(chart) >= 7:
+                    assert chart[2] == '░', f"Saturday (pos 2) should be ░, got '{chart[2]}'"
+                    assert chart[3] == '░', f"Sunday (pos 3) should be ░, got '{chart[3]}'"
+                    assert chart[4] == '█', f"Monday after DST (pos 4) should be █, got '{chart[4]}'"
+                break
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -7377,12 +7377,16 @@ function saveRaidItemFromForm() {
 
     closeRaidForm();
     renderRaidTable();
+    syncRaidLogToPlanText();
+    updateReportRaid();
 }
 
 function deleteRaidItem(id) {
     if (!confirm('Are you sure you want to delete this RAID item?')) return;
     raidItems = raidItems.filter(i => i.id !== id);
     renderRaidTable();
+    syncRaidLogToPlanText();
+    updateReportRaid();
 }
 
 function renderRaidTable() {
@@ -7500,29 +7504,39 @@ function generateRaidMarkdown() {
     if (raidItems.length === 0) return '# RAID Log\n\n*No items.*\n';
 
     const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
-    const separator = headers.map(() => '---');
 
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
     const rows = raidItems.map(item => [
-        item.id,
+        String(item.id),
         item.type.charAt(0).toUpperCase() + item.type.slice(1),
         escPipe(item.title),
         escPipe(item.description),
         escPipe(item.raised_by),
         escPipe(item.owner),
         escPipe(item.mitigation_actions),
-        item.impact,
-        item.likelihood,
-        item.score,
+        String(item.impact),
+        String(item.likelihood),
+        String(item.score),
         item.status.charAt(0).toUpperCase() + item.status.slice(1)
     ]);
 
-    let md = '# RAID Log\n\n';
-    md += '| ' + headers.join(' | ') + ' |\n';
-    md += '| ' + separator.join(' | ') + ' |\n';
+    const widths = headers.map(h => h.length);
     rows.forEach(row => {
-        md += '| ' + row.join(' | ') + ' |\n';
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    let md = '# RAID Log\n\n';
+    md += formatRow(headers) + '\n';
+    md += separator + '\n';
+    rows.forEach(row => {
+        md += formatRow(row) + '\n';
     });
 
     return md;
@@ -9204,7 +9218,7 @@ function generateRaidLogTable() {
     const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
 
     const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
-    const separator = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
 
     const lines = [formatRow(headers), separator];
     rows.forEach(row => lines.push(formatRow(row)));

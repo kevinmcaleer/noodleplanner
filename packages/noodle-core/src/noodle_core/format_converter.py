@@ -550,8 +550,7 @@ def generate_raid_log_text(raid_items: list) -> str:
         padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
         return '| ' + ' | '.join(padded) + ' |'
 
-    separator_cells = ['-' * widths[i] for i in range(len(headers))]
-    separator = '| ' + ' | '.join(separator_cells) + ' |'
+    separator = '|' + '|'.join('-' * (widths[i] + 2) for i in range(len(headers))) + '|'
 
     lines = [format_row(headers), separator]
     for row in rows:

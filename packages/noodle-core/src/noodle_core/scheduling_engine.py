@@ -510,7 +510,7 @@ def schedule_tasks(phases):
                 sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' scheduled after '{prev.get('name')}' finish={prev['finish']}, new start={t['start']}\n")
                 sys.stderr.flush()
             else:
-                t['start'] = get_next_working_day(datetime.now())
+                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
                 sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' no predecessor, starting from today: {t['start']}\n")
                 sys.stderr.flush()
 
@@ -557,7 +557,7 @@ def schedule_tasks(phases):
                     # Dependency finish dates are exclusive (day after last working day)
                     t['start'] = get_next_working_day(latest_dep_finish)
             else:
-                t['start'] = get_next_working_day(datetime.now())
+                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
@@ -593,9 +593,9 @@ def schedule_tasks(phases):
                 if first_sibling:
                     t['start'] = first_sibling['start']
                 else:
-                    t['start'] = get_next_working_day(datetime.now())
+                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
             else:
-                t['start'] = get_next_working_day(datetime.now())
+                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
 
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
