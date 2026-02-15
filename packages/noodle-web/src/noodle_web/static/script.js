@@ -4281,6 +4281,7 @@ class Task {
         this.resources = [];
         this.comment = '';
         this.dependencies = [];
+        this.labels = [];
         this.dependsOnPrevious = false;
 
         // Parse the line if provided
@@ -4331,10 +4332,10 @@ class Task {
             this.resources = resourceMatches.map(r => r.substring(1));
         }
 
-        // Extract dependencies (after #)
-        const depMatch = remaining.match(/#([^\\s@%!"]+)/);
-        if (depMatch) {
-            this.dependencies = depMatch[1].split(',').map(d => d.trim());
+        // Extract labels/tags (after #)
+        const labelMatches = remaining.match(/#([^\\s@%!"]+)/g);
+        if (labelMatches) {
+            this.labels = labelMatches.map(l => l.substring(1));
         }
 
         // Extract comment (text in quotes)
@@ -4387,7 +4388,7 @@ class Task {
             line += ' ' + this.resources.map(r => '@' + r).join(' ');
         }
 
-        // Add non-previous dependencies
+        // Add dependencies using [depends] syntax
         const nonPrevDeps = this.dependencies.filter(d => {
             // Get previous task name to filter it out
             const editor = document.getElementById('planEditor');
@@ -4400,7 +4401,12 @@ class Task {
         });
 
         if (nonPrevDeps.length > 0) {
-            line += ' #' + nonPrevDeps.join(',');
+            line += ' [depends ' + nonPrevDeps.join(', ') + ']';
+        }
+
+        // Add labels
+        if (this.labels.length > 0) {
+            line += ' ' + this.labels.map(l => '#' + l).join(' ');
         }
 
         // Add percent

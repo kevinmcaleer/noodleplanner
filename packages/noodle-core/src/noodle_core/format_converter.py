@@ -53,7 +53,7 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Strip YAML front matter (between --- markers)
     - Strip highlights section (---highlights--- / ---end-highlights---)
     - Convert "3days" to "3d", "2weeks" to "2w", etc.
-    - Convert [depends taskname] to #taskname
+    - Preserve [depends taskname] syntax (dependencies use bracket notation)
     - Convert multi-word task names to snake_case
     - Keep @ for resources
     - Keep % for completion
@@ -79,26 +79,8 @@ def convert_plan_format_to_standard(text: str) -> str:
         line = re.sub(r'(\d+)weeks?', r'\1w', line)
         line = re.sub(r'(\d+)months?', r'\1m', line)
 
-        # Convert dependency format: [depends taskname] or [depends task1, task2] -> #taskname or #task1 #task2
-        # BUT: Keep [depends] syntax if any dependency has lag/lead time (e.g., +2d, -1w)
-        # Support multiple comma-separated dependencies
-        def convert_depends(match):
-            depends_str = match.group(1).strip()
-
-            # Check if any dependency has lag/lead time
-            has_lag_lead = bool(re.search(r'[+\-]\d+[dwmy]', depends_str))
-
-            if has_lag_lead:
-                # Keep [depends ...] syntax for lag/lead support
-                return f'[depends {depends_str}]'
-
-            # Split by comma to handle multiple dependencies (no lag/lead)
-            task_names = [name.strip() for name in depends_str.split(',')]
-            # Convert each task name to #taskname format (preserve spaces, don't convert to snake_case)
-            result = ' '.join(f'#{name}' for name in task_names)
-            return result
-
-        line = re.sub(r'\[depends\s+([^\]]+)\]', convert_depends, line, flags=re.IGNORECASE)
+        # Preserve [depends ...] syntax as-is (dependencies use bracket notation)
+        # No conversion needed - the scheduling engine handles [depends] directly
 
         # Convert multi-word task names to snake_case for tasks with metadata
         # Only convert if line has @ or % or # or date or duration (has metadata)

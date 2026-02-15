@@ -167,15 +167,13 @@ def extract_metadata(task_str, task_name=None):
     if resources:
         meta['resources'] = ', '.join([r.lstrip('@') for r in resources])
 
-    # Extract dependencies using regex to support multi-word task names
-    # Matches #taskname or #task name (up to next @ % # ! or end of string)
-    dep_pattern = r'#([^@%#!]+?)(?=\s+[@%#!]|$)'
-    dep_matches = re.findall(dep_pattern, task_str)
-    if dep_matches:
-        # Strip whitespace from each dependency
-        meta['depends'] = [d.strip() for d in dep_matches]
+    # Extract labels/tags using # prefix (e.g. #urgent, #DEV)
+    label_pattern = r'#([^@%#!\s]+)'
+    label_matches = re.findall(label_pattern, task_str)
+    if label_matches:
+        meta['labels'] = [l.strip() for l in label_matches]
 
-    # Also support [depends task1, task2, ...] syntax for multiple dependencies
+    # Extract dependencies using [depends task1, task2, ...] syntax
     # Now also supports lag/lead time: [depends task1 +2d, task2 -1w]
     bracket_dep_pattern = r'\[depends\s+([^\]]+)\]'
     bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
@@ -201,11 +199,7 @@ def extract_metadata(task_str, task_name=None):
         if lag_lead_map:
             meta['lag_lead'] = lag_lead_map
 
-        # Merge with any existing dependencies from # syntax
-        if 'depends' in meta:
-            meta['depends'].extend(dep_list)
-        else:
-            meta['depends'] = dep_list
+        meta['depends'] = dep_list
     if task_name:
         meta['name'] = task_name
     if str(task_str).startswith('*'):

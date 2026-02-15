@@ -471,7 +471,7 @@ class TestMemoryAndPerformance:
             if i == 0:
                 lines.append(f"Task{i} @alice 1d")
             else:
-                lines.append(f"Task{i} #Task{i-1} @alice 1d")
+                lines.append(f"Task{i} [depends Task{i-1}] @alice 1d")
 
         plan = "\n".join(lines)
         yaml_data = natural_language_to_yaml(plan, "Project")

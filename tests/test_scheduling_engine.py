@@ -198,17 +198,35 @@ class TestExtractMetadata:
         assert result['comment'] == "This is a comment"
 
     def test_extract_dependencies(self):
-        """Test extracting dependencies."""
-        task = "Task 2 #Task 1 @john 2d"
+        """Test extracting dependencies using [depends] syntax."""
+        task = "Task 2 [depends Task 1] @john 2d"
         result = extract_metadata(task, "Task 2")
         assert 'Task 1' in result['depends']
 
     def test_extract_multiple_dependencies(self):
-        """Test extracting multiple dependencies."""
-        task = "Task 3 #Task 1 #Task 2 @john 2d"
+        """Test extracting multiple dependencies using [depends] syntax."""
+        task = "Task 3 [depends Task 1, Task 2] @john 2d"
         result = extract_metadata(task, "Task 3")
         assert 'Task 1' in result['depends']
         assert 'Task 2' in result['depends']
+
+    def test_hash_tokens_are_labels_not_dependencies(self):
+        """Test that # tokens are stored as labels, not dependencies."""
+        task = "Task 1 #urgent #DEV @john 3d"
+        result = extract_metadata(task, "Task 1")
+        assert 'labels' in result
+        assert 'urgent' in result['labels']
+        assert 'DEV' in result['labels']
+        assert 'depends' not in result
+
+    def test_labels_and_dependencies_coexist(self):
+        """Test that labels and [depends] dependencies work together."""
+        task = "Task 2 #high [depends Task 1] @john 2d"
+        result = extract_metadata(task, "Task 2")
+        assert 'labels' in result
+        assert 'high' in result['labels']
+        assert 'depends' in result
+        assert 'Task 1' in result['depends']
 
     def test_extract_sequential_marker(self):
         """Test extracting sequential task marker."""
@@ -297,7 +315,7 @@ class TestScheduleTasks:
             },
             {
                 'Task 2': {
-                    '_text': 'Task 2 #Task 1 @jane 2d',
+                    '_text': 'Task 2 [depends Task 1] @jane 2d',
                     '_level': 0
                 }
             }
@@ -407,7 +425,7 @@ class TestSummaryTaskExcludedFromDependencies:
                 '_level': 0,
                 '_is_summary': True,
                 'Task B': {
-                    '_text': 'Task B #Task A @jane 2d',
+                    '_text': 'Task B [depends Task A] @jane 2d',
                     '_level': 1
                 }
             }
@@ -486,7 +504,7 @@ class TestMilestoneAlignment:
             },
             {
                 'Milestone_1': {
-                    '_text': 'Milestone_1 0d #Task_1',
+                    '_text': 'Milestone_1 0d [depends Task_1]',
                     '_level': 0
                 }
             }
@@ -823,13 +841,13 @@ class TestDependencyLoopDetection:
         phases = [
             {
                 'Task 1': {
-                    '_text': 'Task 1 #Task 2 @john 2d',
+                    '_text': 'Task 1 [depends Task 2] @john 2d',
                     '_level': 0
                 }
             },
             {
                 'Task 2': {
-                    '_text': 'Task 2 #Task 1 @jane 2d',
+                    '_text': 'Task 2 [depends Task 1] @jane 2d',
                     '_level': 0
                 }
             }
@@ -845,19 +863,19 @@ class TestDependencyLoopDetection:
         phases = [
             {
                 'Task 1': {
-                    '_text': 'Task 1 #Task 3 @john 2d',
+                    '_text': 'Task 1 [depends Task 3] @john 2d',
                     '_level': 0
                 }
             },
             {
                 'Task 2': {
-                    '_text': 'Task 2 #Task 1 @jane 2d',
+                    '_text': 'Task 2 [depends Task 1] @jane 2d',
                     '_level': 0
                 }
             },
             {
                 'Task 3': {
-                    '_text': 'Task 3 #Task 2 @bob 2d',
+                    '_text': 'Task 3 [depends Task 2] @bob 2d',
                     '_level': 0
                 }
             }
@@ -873,7 +891,7 @@ class TestDependencyLoopDetection:
         phases = [
             {
                 'Task 1': {
-                    '_text': 'Task 1 #Task 1 @john 2d',
+                    '_text': 'Task 1 [depends Task 1] @john 2d',
                     '_level': 0
                 }
             }
@@ -893,13 +911,13 @@ class TestDependencyLoopDetection:
             },
             {
                 'Task 2': {
-                    '_text': 'Task 2 #Task 1 @jane 2d',
+                    '_text': 'Task 2 [depends Task 1] @jane 2d',
                     '_level': 0
                 }
             },
             {
                 'Task 3': {
-                    '_text': 'Task 3 #Task 2 @bob 2d',
+                    '_text': 'Task 3 [depends Task 2] @bob 2d',
                     '_level': 0
                 }
             }

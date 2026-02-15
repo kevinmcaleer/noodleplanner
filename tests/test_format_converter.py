@@ -108,20 +108,17 @@ Task 1 @john 3days"""
         assert "1m" in result
         assert "1month" not in result
 
-    def test_convert_single_dependency(self):
-        """Test conversion of single dependency."""
+    def test_preserve_single_dependency(self):
+        """Test that [depends] syntax is preserved."""
         text = "Task 2 [depends Task 1] @john 2d"
         result = convert_plan_format_to_standard(text)
-        assert "#Task 1" in result
-        assert "[depends" not in result
+        assert "[depends Task 1]" in result
 
-    def test_convert_multiple_dependencies(self):
-        """Test conversion of multiple dependencies."""
+    def test_preserve_multiple_dependencies(self):
+        """Test that multiple [depends] dependencies are preserved."""
         text = "Task 3 [depends Task 1, Task 2] @john 2d"
         result = convert_plan_format_to_standard(text)
-        assert "#Task 1" in result
-        assert "#Task 2" in result
-        assert "[depends" not in result
+        assert "[depends Task 1, Task 2]" in result
 
     def test_preserve_task_names_with_spaces(self):
         """Test that task names with spaces are preserved."""
@@ -182,9 +179,9 @@ Phase 1
         assert "2w" in result
         assert "1m" in result
 
-        # Dependencies converted
-        assert "#Task 1" in result
-        assert "#Task 2" in result
+        # Dependencies preserved in [depends] syntax
+        assert "[depends Task 1" in result
+        assert "Task 2" in result
 
         # Other elements preserved
         assert "@john" in result
@@ -230,10 +227,10 @@ class TestEdgeCases:
         assert long_name in result
 
     def test_dependency_case_insensitive(self):
-        """Test that dependency conversion is case insensitive."""
+        """Test that dependency syntax is preserved regardless of case."""
         text = "Task 2 [DEPENDS Task 1] @john 2d"
         result = convert_plan_format_to_standard(text)
-        assert "#Task 1" in result
+        assert "[DEPENDS Task 1]" in result
 
 
 class TestExtractHighlights:
