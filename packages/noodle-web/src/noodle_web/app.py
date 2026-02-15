@@ -33,6 +33,7 @@ from noodle_core import (
     convert_excel_to_markdown,
     extract_highlights,
 )
+from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
 import yaml
 from .middleware import ActivityLoggingMiddleware
@@ -956,60 +957,15 @@ async def generate_plan_from_planning_room(data: GeneratePlanRequest):
         HTTPException: 500 if generation fails
     """
     try:
-        # Phase 3: Implement full plan generation logic
-        # For now, return a basic plan from the outline
+        # Use planning_room module for full plan generation with dependencies
+        flow_data = {
+            'nodes': data.flow.nodes,
+            'edges': data.flow.edges
+        }
 
-        parsed = yaml.safe_load(data.outline)
+        plan_content = generate_plan_core(data.outline, flow_data)
 
-        if not parsed:
-            raise ValueError("Empty outline")
-
-        # Simple plan generation (Phase 3 will implement full logic)
-        plan_lines = []
-
-        # Add project info
-        if "project" in parsed:
-            project = parsed["project"]
-            if "name" in project:
-                plan_lines.append(f"# {project['name']}\n")
-
-            if "start_date" in project:
-                plan_lines.append(f"start: {project['start_date']}\n")
-
-            # Add resources
-            if "resources" in project and project["resources"]:
-                plan_lines.append("")
-                for res in project["resources"]:
-                    if isinstance(res, dict):
-                        res_id = res.get("id", "")
-                        res_name = res.get("name", res_id)
-                        res_role = res.get("role", "")
-                        plan_lines.append(f"@{res_id}: {res_name}, {res_role}")
-                plan_lines.append("")
-
-        # Add phases and tasks (simplified)
-        if "phases" in parsed:
-            for phase in parsed["phases"]:
-                if isinstance(phase, dict) and "name" in phase:
-                    plan_lines.append(f"\n## {phase['name']}")
-
-                    if "tasks" in phase:
-                        for task in phase["tasks"]:
-                            if isinstance(task, dict) and "name" in task:
-                                task_line = f"- {task['name']}"
-
-                                if "duration" in task:
-                                    task_line += f" {task['duration']}"
-
-                                if "resources" in task and task["resources"]:
-                                    resources_str = " ".join(task["resources"])
-                                    task_line += f" {resources_str}"
-
-                                plan_lines.append(task_line)
-
-        plan_content = "\n".join(plan_lines)
-
-        logger.info("Generated plan from Planning Room data")
+        logger.info("Generated plan from Planning Room with dependencies")
         return {"plan": plan_content}
 
     except yaml.YAMLError as e:
