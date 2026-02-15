@@ -8613,7 +8613,12 @@ function updateUserWorkload(tasks) {
 
         // Populate user filter dropdown
         const userFilter = document.getElementById('userFilter');
+        let currentSelection = 'all'; // Default to 'all'
+
         if (userFilter) {
+            // Save current selection before rebuilding
+            currentSelection = userFilter.value || 'all';
+
             // Keep "All Users" option, clear others
             userFilter.innerHTML = '<option value="all">All Users</option>';
 
@@ -8625,13 +8630,20 @@ function updateUserWorkload(tasks) {
                 option.textContent = user;
                 userFilter.appendChild(option);
             });
+
+            // Restore previous selection if it still exists
+            if (currentSelection !== 'all' && userMap.has(currentSelection)) {
+                userFilter.value = currentSelection;
+            } else {
+                currentSelection = 'all'; // Reset if user no longer exists
+            }
         }
 
         // Store userMap globally for filtering
         window.currentUserMap = userMap;
 
-        // Display workload for all users
-        displayUserWorkload(userMap, 'all');
+        // Display workload with preserved filter selection
+        displayUserWorkload(userMap, currentSelection);
 
     } catch (error) {
         console.error('Error updating user workload view:', error);
