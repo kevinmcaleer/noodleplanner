@@ -8,7 +8,7 @@
 
 The Planning Room is a structured, guided planning workflow that helps users create complex project plans through three collaborative stages:
 
-1. **Outline** - Define project structure using YAML (Work Breakdown Structure)
+1. **Outline** - Define project structure using simple markdown lists (Work Breakdown Structure)
 2. **Flow** - Visualize tasks and map dependencies with an interactive diagram
 3. **Schedule** - Generate complete plan.md files with proper dependency syntax
 
@@ -28,14 +28,14 @@ planningRoomState = {
 ### Storage Strategy
 
 - **Primary:** localStorage (client-side persistence)
-- **Backup:** File download/upload (outline.yaml, flow.json, plan.md)
+- **Backup:** File download/upload (outline.md, flow.json, plan.md)
 - **No database:** Follows existing architecture pattern (like RAID log)
 
 ### Data Flow
 
 ```
-Outline (YAML) → Parse → Flow Nodes → Auto-layout
-                              ↓
+Outline (Markdown) → Parse → Flow Nodes → Auto-layout
+                                  ↓
 Flow + Dependencies → Generate → Plan.md → Editor
 ```
 
@@ -43,47 +43,53 @@ Flow + Dependencies → Generate → Plan.md → Editor
 
 ### Features
 
-- YAML editor with auto-save (1-second debounce)
+- Markdown editor with auto-save (1-second debounce)
 - Real-time tree preview of project hierarchy
-- Download/upload outline.yaml files
+- Download/upload outline.md files
 - Clear outline with confirmation
-- Backend YAML validation
+- Backend markdown validation
 
-### YAML Format
+### Markdown Format
 
-```yaml
-project:
-  name: 'Project Name'
-  start_date: 2026-03-01
-  resources:
-    - {id: alice, name: 'Alice Smith', role: 'Developer'}
-    - {id: bob, name: 'Bob Jones', role: 'Designer'}
+Simple markdown-style lists with dashes and indentation:
 
-phases:
-  - name: 'Phase 1: Planning'
-    tasks:
-      - name: 'Task 1.1'
-        duration: 5d
-        resources: ['@alice']
-        children:
-          - name: 'Subtask 1.1.1'
-            duration: 2d
-            resources: ['@alice']
-      - name: 'Task 1.2'
-        duration: 3d
-        resources: ['@bob']
+```markdown
+My Project
+
+- Phase 1: Planning
+  - Setup environment 5d @alice
+  - Create mockups 3d @bob
+    - Design homepage 1d @bob
+    - Design dashboard 2d @bob
+  - Review designs 1d @alice @bob
+- Phase 2: Development
+  - Build backend 10d @alice
+    - Setup database 2d @alice
+    - Create API 5d @alice
+    - Add authentication 3d @alice
 ```
+
+**Format Rules:**
+- First line: Project name
+- Indentation level 0 (no spaces): Phase names
+- Indentation level 1 (2 spaces): Top-level tasks
+- Indentation level 2+ (4+ spaces): Subtasks
+- Duration: `5d`, `3w`, `2m` format (days/weeks/months/years)
+- Resources: `@username` format
+- Order: Task name, duration, resources (all optional except name)
 
 ### Backend API
 
 **POST /api/planning-room/parse-outline**
-- Validates YAML syntax
+- Validates markdown syntax
 - Returns structured JSON (project, phases, tasks)
-- Error handling for malformed YAML
+- Error handling for malformed content (empty/whitespace-only)
+- Uses regex for duration: `\b(\d+[dwmy])\b`
+- Uses regex for resources: `@\w+`
 
 ### Key Functions
 
-- `parseOutline()` - Call backend to parse YAML
+- `parseOutline()` - Call backend to parse markdown
 - `renderOutlineTree()` - Hierarchical tree view
 - `renderPhaseNode()` / `renderTaskNode()` - Recursive rendering
 - `downloadOutline()` / `uploadOutline()` - File I/O
@@ -180,8 +186,8 @@ phases:
 **planning_room.py** (~270 lines):
 
 ```python
-def generate_plan_from_planning_room(outline_yaml, flow_json):
-    # 1. Parse YAML outline
+def generate_plan_from_planning_room(outline_text, flow_json):
+    # 1. Parse markdown outline
     # 2. Build dependency map from flow edges
     # 3. Build node metadata map
     # 4. Walk task tree recursively
@@ -200,7 +206,7 @@ def generate_plan_from_planning_room(outline_yaml, flow_json):
 ### Backend API
 
 **POST /api/planning-room/generate-plan**
-- Input: outline YAML + flow JSON
+- Input: outline markdown + flow JSON
 - Output: Generated plan.md content
 - Uses core module for generation
 
@@ -237,13 +243,13 @@ undoHistory = {
 - Complete keyboard shortcuts reference
 - Workflow overview
 - Flow diagram mode explanations
-- YAML format examples
+- Markdown format examples
 - Tips for optimal usage
 - Accessible with `❓ Help` button
 
 ### Export Functionality
 
-- **Export All:** Downloads outline.yaml, flow.json, plan.md
+- **Export All:** Downloads outline.md, flow.json, plan.md
 - Staggered downloads (300ms intervals)
 - Individual export buttons also available per stage
 - Fallback for browsers without zip support
@@ -291,11 +297,12 @@ packages/
 ## Testing
 
 **Backend Tests:** 20 passing
-- YAML parsing and validation
+- Markdown parsing and validation
 - Plan generation with dependencies
-- Error handling (invalid YAML, empty content)
+- Error handling (empty/whitespace-only content)
 - Large outline performance (100+ tasks)
 - Flow data structure validation
+- Regex-based duration and resource extraction
 
 **Frontend Testing:**
 - Manual testing for keyboard shortcuts
@@ -337,11 +344,12 @@ packages/
 
 ### Recommended Flow
 
-1. **Start with Outline:** Define project structure in YAML
-   - Add project info (name, start date, resources)
-   - Create phases and tasks
-   - Set durations and resource assignments
-   - Nest subtasks for detailed breakdown
+1. **Start with Outline:** Define project structure in markdown
+   - Write project name on first line
+   - Create phases (no indentation)
+   - Add tasks under phases (2-space indent)
+   - Set durations and resource assignments (e.g., `5d @alice`)
+   - Nest subtasks for detailed breakdown (4+ space indent)
 
 2. **Switch to Flow:** Visualize and add dependencies
    - Review auto-generated nodes
@@ -400,10 +408,14 @@ packages/
 ## Deployment Notes
 
 - No database migrations required
-- No new dependencies (PyYAML already used elsewhere)
+- No new dependencies (uses built-in regex)
 - No configuration changes needed
 - Static files served via existing mechanism
 - Works immediately after deployment
+
+## Design Changes
+
+**February 2026:** Simplified outline format from YAML to markdown-style lists based on user feedback that YAML was "too complicated and finicky". The new format uses simple dashes and indentation, making it much more accessible while maintaining all functionality.
 
 ## Conclusion
 
