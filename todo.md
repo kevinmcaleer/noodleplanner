@@ -1681,18 +1681,18 @@ MVP Build 10d @jen @kev 3% #High #test
 
 ## In Progress 🚧
 
-### Planning Room Implementation (GitHub Issue #239) - 🚧 IN PROGRESS
-A new "Planning Room" feature for structured, guided planning workflows with 3 collaborative stages: Outlining (YAML-based WBS), Dependency Mapping (visual flow diagram), and Scheduling (auto-generated plan.md).
+### Planning Room Implementation (GitHub Issue #239) - ✅ COMPLETED
+A new "Planning Room" feature for structured, guided planning workflows with 3 collaborative stages: Outlining (markdown-based WBS), Dependency Mapping (visual flow diagram), and Scheduling (auto-generated plan.md).
 
 **Phase 1: Outline Editor (MVP)** - ✅ COMPLETED
 - [x] Add Planning tab structure to index.html with 3 sub-tabs (Outline, Flow, Scheduling)
 - [x] Create planning-room.js module (~650 lines Phase 1)
-- [x] Implement YAML outline editor (textarea with auto-save)
+- [x] Implement markdown outline editor (textarea with auto-save)
 - [x] Create tree view renderer for hierarchical preview
 - [x] Add localStorage persistence for outline state
-- [x] Implement download/upload .yaml file functionality
+- [x] Implement download/upload .md file functionality
 - [x] Add backend endpoint: POST /api/planning-room/parse-outline
-- [x] Write tests for YAML validation and parsing (8 tests)
+- [x] Write tests for markdown validation and parsing (8 tests)
 - [x] Write tests for tree rendering accuracy (covered in parse tests)
 - [x] Write tests for localStorage persistence (JS tests deferred, following existing pattern)
 - [x] Performance test with 100+ tasks (test_parse_large_outline passes)
@@ -1700,9 +1700,9 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 **Implementation Summary:**
 - Created planning-room.js with state management, editor, tree rendering
 - Added CSS styles (~400 lines) for Planning Room UI
-- Implemented /api/planning-room/parse-outline endpoint with full YAML validation
+- Implemented /api/planning-room/parse-outline endpoint with markdown validation
 - Added /api/planning-room/generate-plan endpoint (basic implementation)
-- Added PyYAML dependency to noodle-web
+- Uses regex for parsing (no external dependencies)
 - Comprehensive test suite: 17 tests, 100% passing
 - Committed on branch: issue-239-planning-room (commit b55dae4)
 
@@ -1733,7 +1733,7 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 
 **Phase 3: Plan Generation** - ✅ COMPLETED
 - [x] Create planning_room.py module in noodle-core
-- [x] Implement generate_plan_from_planning_room(outline_yaml, flow_json)
+- [x] Implement generate_plan_from_planning_room(outline_text, flow_json)
 - [x] Implement walk_task_tree() with dependency injection
 - [x] Enhance backend endpoint: POST /api/planning-room/generate-plan
 - [x] Create scheduling stage UI (preview + toolbar) - done in Phase 1
@@ -1770,29 +1770,40 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 - Keyboard shortcuts for all common actions
 - 20-action undo/redo with deep state cloning
 - Interactive help modal with shortcuts reference and examples
-- Export All downloads outline.yaml, flow.json, plan.md
+- Export All downloads outline.md, flow.json, plan.md
 - Visual notifications for user feedback
 - Updated interface tour with Planning Room step
 - Comprehensive documentation in design/planning-room.md
 - Committed on branch: issue-239-planning-room (commit 126d872)
 
-**Status:** ✅ ALL 4 PHASES COMPLETE - Ready to merge to main!
+**Status:** ✅ ALL 4 PHASES COMPLETE - Merged to main!
+
+**Format Simplification (February 2026):**
+- User feedback indicated YAML was "too complicated and finicky"
+- Simplified to markdown-style lists with dashes and indentation
+- Updated parsers in app.py and planning_room.py to use regex
+- Duration extraction: `\b(\d+[dwmy])\b`
+- Resource extraction: `@\w+`
+- All 20 tests updated and passing
+- Documentation updated to reflect markdown format
+- Commits: 0e68e9c (refactor), ef242b0 (docs)
 
 **Architecture Notes:**
-- Multi-file state: outline.yaml, flow.json, plan.md
-- Persistence: localStorage (primary) + zip download/upload (backup)
+- Multi-file state: outline.md, flow.json, plan.md
+- Persistence: localStorage (primary) + file download/upload (backup)
 - No database storage (follows existing architecture)
 - Pure SVG + DOM (no external libraries like D3/Mermaid)
 - Reuses existing patterns: switchTab(), drag-drop, localStorage, collapsible panels
 
-**Files to Create:**
-- /packages/noodle-web/src/noodle_web/static/planning-room.js (~2000 lines final)
+**Files Created:**
+- /packages/noodle-web/src/noodle_web/static/planning-room.js (1372 lines)
 - /packages/noodle-core/src/noodle_core/planning_room.py (~300 lines)
+- /design/planning-room.md (comprehensive documentation)
 
-**Files to Modify:**
-- /packages/noodle-web/src/noodle_web/templates/index.html (~200 lines)
-- /packages/noodle-web/src/noodle_web/static/style.css (~400 lines)
-- /packages/noodle-web/src/noodle_web/app.py (~150 lines for 3 endpoints)
+**Files Modified:**
+- /packages/noodle-web/src/noodle_web/templates/index.html (~200 lines added)
+- /packages/noodle-web/src/noodle_web/static/style.css (~450 lines added)
+- /packages/noodle-web/src/noodle_web/app.py (~150 lines for 2 endpoints)
 
-**Current Status:** Phase 1 in progress - Setting up worktree and initial structure
+**Merged:** Commit 1d2a770 (all 4 phases) + commits 0e68e9c and ef242b0 (markdown simplification)
 
