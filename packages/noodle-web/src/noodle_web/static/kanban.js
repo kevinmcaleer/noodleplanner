@@ -522,6 +522,10 @@ class KanbanBoard {
         // Create a column for each resource
         resourceMap.forEach((displayName, shortname) => {
             const resourceTasks = this.tasks.filter(task => {
+                // Filter out summary tasks (parent tasks with children)
+                if (this.hasSubtasks(task)) {
+                    return false;
+                }
                 if (shortname === null) {
                     return task.resourcesArray.length === 0;
                 }
