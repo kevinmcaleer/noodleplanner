@@ -962,26 +962,20 @@ Build
                                     </button>
                                 </div>
                                 <div class="planning-editor-wrapper">
-                                    <textarea id="outlineEditor" class="planning-yaml-editor" placeholder="project:
-  name: 'My Project'
-  start_date: 2026-03-01
-  resources:
-    - {id: alice, name: 'Alice Smith', role: 'Developer'}
-    - {id: bob, name: 'Bob Jones', role: 'Designer'}
+                                    <textarea id="outlineEditor" class="planning-yaml-editor" placeholder="My Project
 
-phases:
-  - name: 'Phase 1: Planning'
-    tasks:
-      - name: 'Task 1.1'
-        duration: 5d
-        resources: ['@alice']
-        children:
-          - name: 'Subtask 1.1.1'
-            duration: 2d
-            resources: ['@alice']
-      - name: 'Task 1.2'
-        duration: 3d
-        resources: ['@bob']"></textarea>
+- Phase 1: Planning
+  - Setup environment 5d @alice
+  - Create mockups 3d @bob
+  - Review designs 1d @alice @bob
+- Phase 2: Development
+  - Build backend 10d @alice
+    - Setup database 2d @alice
+    - Create API 5d @alice
+  - Build frontend 8d @bob
+- Phase 3: Testing
+  - QA testing 5d @bob
+  - Deploy 1d @alice"></textarea>
                                 </div>
                             </div>
                             <div class="planning-preview-panel">
@@ -1590,22 +1584,17 @@ phases:
                 <p><em>Tip:</em> Use mouse wheel to zoom in/out on the flow diagram.</p>
                 <p><em>Tip:</em> Ctrl+Click on an edge to delete it.</p>
 
-                <h3>Outline YAML Format</h3>
-                <pre style="background: #f8f9fa; padding: 12px; border-radius: 4px; font-size: 12px;">project:
-  name: 'My Project'
-  start_date: 2026-03-01
-  resources:
-    - {id: alice, name: 'Alice Smith', role: 'Developer'}
+                <h3>Outline Format</h3>
+                <pre style="background: #f8f9fa; padding: 12px; border-radius: 4px; font-size: 12px;">My Project
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task 1.1'
-        duration: 5d
-        resources: ['@alice']
-        children:
-          - name: 'Subtask 1.1.1'
-            duration: 2d</pre>
+- Phase 1: Planning
+  - Setup environment 5d @alice
+  - Create mockups 3d @bob
+    - Design homepage 1d @bob
+    - Design dashboard 2d @bob
+- Phase 2: Development
+  - Build backend 10d @alice
+  - Build frontend 8d @bob</pre>
 
                 <h3>Data Persistence</h3>
                 <p>Your Planning Room data is automatically saved to browser localStorage. Use the <strong>📦 Export All</strong> button to download all files for backup.</p>

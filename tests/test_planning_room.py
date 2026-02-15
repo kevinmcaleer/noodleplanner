@@ -18,24 +18,15 @@ class TestParseOutlineEndpoint:
     """Test /api/planning-room/parse-outline endpoint."""
 
     def test_parse_valid_outline(self):
-        """Test parsing a valid YAML outline."""
-        yaml_content = """
-project:
-  name: 'Test Project'
-  start_date: 2026-03-01
-  resources:
-    - {id: alice, name: 'Alice Smith', role: 'Developer'}
+        """Test parsing a valid markdown outline."""
+        outline_content = """Test Project
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task 1.1'
-        duration: 5d
-        resources: ['@alice']
+- Phase 1
+  - Task 1.1 5d @alice
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
@@ -43,33 +34,27 @@ phases:
 
         assert "project" in data
         assert data["project"]["name"] == "Test Project"
-        assert data["project"]["start_date"] == "2026-03-01"
 
         assert "phases" in data
         assert len(data["phases"]) == 1
         assert data["phases"][0]["name"] == "Phase 1"
         assert len(data["phases"][0]["tasks"]) == 1
+        assert data["phases"][0]["tasks"][0]["name"] == "Task 1.1"
+        assert data["phases"][0]["tasks"][0]["duration"] == "5d"
+        assert "@alice" in data["phases"][0]["tasks"][0]["resources"]
 
     def test_parse_outline_with_nested_tasks(self):
         """Test parsing outline with nested subtasks."""
-        yaml_content = """
-project:
-  name: 'Nested Project'
+        outline_content = """Nested Project
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Parent Task'
-        duration: 10d
-        children:
-          - name: 'Child Task 1'
-            duration: 3d
-          - name: 'Child Task 2'
-            duration: 4d
+- Phase 1
+  - Parent Task 10d
+    - Child Task 1 3d
+    - Child Task 2 4d
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
@@ -77,34 +62,26 @@ phases:
 
         parent_task = data["phases"][0]["tasks"][0]
         assert parent_task["name"] == "Parent Task"
+        assert parent_task["duration"] == "10d"
         assert len(parent_task["children"]) == 2
         assert parent_task["children"][0]["name"] == "Child Task 1"
+        assert parent_task["children"][0]["duration"] == "3d"
 
     def test_parse_outline_with_multiple_phases(self):
         """Test parsing outline with multiple phases."""
-        yaml_content = """
-project:
-  name: 'Multi-phase Project'
+        outline_content = """Multi-phase Project
 
-phases:
-  - name: 'Phase 1: Planning'
-    tasks:
-      - name: 'Task 1.1'
-        duration: 2d
-  - name: 'Phase 2: Execution'
-    tasks:
-      - name: 'Task 2.1'
-        duration: 5d
-      - name: 'Task 2.2'
-        duration: 3d
-  - name: 'Phase 3: Review'
-    tasks:
-      - name: 'Task 3.1'
-        duration: 1d
+- Phase 1: Planning
+  - Task 1.1 2d
+- Phase 2: Execution
+  - Task 2.1 5d
+  - Task 2.2 3d
+- Phase 3: Review
+  - Task 3.1 1d
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
@@ -114,88 +91,73 @@ phases:
         assert data["phases"][0]["name"] == "Phase 1: Planning"
         assert data["phases"][1]["name"] == "Phase 2: Execution"
         assert data["phases"][2]["name"] == "Phase 3: Review"
+        assert len(data["phases"][1]["tasks"]) == 2
 
-    def test_parse_invalid_yaml(self):
-        """Test parsing invalid YAML returns error."""
-        yaml_content = """
-project:
-  name: 'Test'
-  invalid: [unclosed bracket
-"""
-        response = client.post(
-            "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
-        )
-
-        assert response.status_code == 400
-        assert "Invalid YAML" in response.json()["detail"]
-
-    def test_parse_empty_yaml(self):
-        """Test parsing empty YAML returns error."""
+    def test_parse_invalid_outline(self):
+        """Test parsing outline with issues."""
+        # Totally empty outline returns just project name
         response = client.post(
             "/api/planning-room/parse-outline",
             json={"yaml": ""}
         )
-
+        # Empty string raises ValueError in parse_markdown_outline
         assert response.status_code == 400
 
-    def test_parse_yaml_non_dict_root(self):
-        """Test YAML with non-dict root returns error."""
-        yaml_content = """
-- item1
-- item2
-"""
+    def test_parse_empty_outline(self):
+        """Test parsing empty outline."""
+        # Empty string should error
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": "   "}
         )
 
         assert response.status_code == 400
-        assert "dictionary" in response.json()["detail"].lower()
 
-    def test_parse_yaml_phases_not_list(self):
-        """Test YAML with phases not a list returns error."""
-        yaml_content = """
-project:
-  name: 'Test'
-
-phases: not_a_list
-"""
+    def test_parse_outline_only_whitespace(self):
+        """Test outline with only whitespace."""
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": "   \n\n  "}
         )
 
+        # Whitespace only should error
         assert response.status_code == 400
-        assert "list" in response.json()["detail"].lower()
+
+    def test_parse_outline_project_name_only(self):
+        """Test outline with only project name."""
+        response = client.post(
+            "/api/planning-room/parse-outline",
+            json={"yaml": "My Project"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["project"]["name"] == "My Project"
+        assert data["phases"] == []
 
     def test_parse_outline_with_resources(self):
-        """Test parsing outline with resource definitions."""
-        yaml_content = """
-project:
-  name: 'Resource Test'
-  resources:
-    - {id: alice, name: 'Alice Smith', role: 'Developer'}
-    - {id: bob, name: 'Bob Jones', role: 'Designer'}
-    - {id: charlie, name: 'Charlie Brown', role: 'Manager'}
+        """Test parsing outline with resource assignments."""
+        outline_content = """Resource Test
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task 1'
-        resources: ['@alice', '@bob']
+- Phase 1
+  - Task 1 5d @alice @bob
+  - Task 2 3d @charlie
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert len(data["project"]["resources"]) == 3
-        assert data["project"]["resources"][0]["id"] == "alice"
-        assert data["project"]["resources"][1]["id"] == "bob"
+        task1 = data["phases"][0]["tasks"][0]
+        assert "@alice" in task1["resources"]
+        assert "@bob" in task1["resources"]
+        assert task1["duration"] == "5d"
+
+        task2 = data["phases"][0]["tasks"][1]
+        assert "@charlie" in task2["resources"]
 
 
 class TestGeneratePlanEndpoint:
@@ -203,19 +165,10 @@ class TestGeneratePlanEndpoint:
 
     def test_generate_plan_basic(self):
         """Test generating a basic plan from outline."""
-        outline = """
-project:
-  name: 'Test Project'
-  start_date: 2026-03-01
-  resources:
-    - {id: alice, name: 'Alice Smith', role: 'Developer'}
+        outline = """Test Project
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task 1'
-        duration: 5d
-        resources: ['@alice']
+- Phase 1
+  - Task 1 5d @alice
 """
         response = client.post(
             "/api/planning-room/generate-plan",
@@ -233,26 +186,17 @@ phases:
 
         # Check basic structure
         assert "Test Project" in plan
-        assert "start: 2026-03-01" in plan
-        assert "@alice: Alice Smith, Developer" in plan
         assert "Phase 1" in plan
         assert "Task 1" in plan
 
     def test_generate_plan_with_multiple_tasks(self):
         """Test generating plan with multiple tasks."""
-        outline = """
-project:
-  name: 'Multi-task Project'
+        outline = """Multi-task Project
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task 1'
-        duration: 3d
-      - name: 'Task 2'
-        duration: 5d
-      - name: 'Task 3'
-        duration: 2d
+- Phase 1
+  - Task 1 3d
+  - Task 2 5d
+  - Task 3 2d
 """
         response = client.post(
             "/api/planning-room/generate-plan",
@@ -270,21 +214,8 @@ phases:
         assert "Task 2" in plan
         assert "Task 3" in plan
 
-    def test_generate_plan_invalid_yaml(self):
-        """Test generating plan with invalid YAML returns error."""
-        response = client.post(
-            "/api/planning-room/generate-plan",
-            json={
-                "outline": "invalid: [unclosed",
-                "flow": {"nodes": [], "edges": []}
-            }
-        )
-
-        assert response.status_code == 400
-        assert "Invalid outline YAML" in response.json()["detail"]
-
-    def test_generate_plan_empty_outline(self):
-        """Test generating plan with empty outline returns error."""
+    def test_generate_plan_invalid_outline(self):
+        """Test generating plan with empty outline."""
         response = client.post(
             "/api/planning-room/generate-plan",
             json={
@@ -293,21 +224,29 @@ phases:
             }
         )
 
+        # Empty outline should error
+        assert response.status_code == 400
+
+    def test_generate_plan_empty_outline(self):
+        """Test generating plan with whitespace only."""
+        response = client.post(
+            "/api/planning-room/generate-plan",
+            json={
+                "outline": "   \n\n  ",
+                "flow": {"nodes": [], "edges": []}
+            }
+        )
+
+        # Whitespace only should error
         assert response.status_code == 400
 
     def test_generate_plan_with_flow_data(self):
         """Test generating plan with flow data (Phase 3 feature)."""
-        outline = """
-project:
-  name: 'Flow Test'
+        outline = """Flow Test
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task A'
-        duration: 2d
-      - name: 'Task B'
-        duration: 3d
+- Phase 1
+  - Task A 2d
+  - Task B 3d
 """
         flow_data = {
             "nodes": [
@@ -374,22 +313,16 @@ class TestPlanningRoomPerformance:
 
     def test_parse_large_outline(self):
         """Test parsing outline with 100+ tasks performs adequately."""
-        yaml_content = """
-project:
-  name: 'Large Project'
-  start_date: 2026-03-01
-
-phases:
-"""
+        outline_content = "Large Project\n\n"
         # Add 10 phases with 10 tasks each
         for phase_num in range(1, 11):
-            yaml_content += f"  - name: 'Phase {phase_num}'\n    tasks:\n"
+            outline_content += f"- Phase {phase_num}\n"
             for task_num in range(1, 11):
-                yaml_content += f"      - name: 'Task {phase_num}.{task_num}'\n        duration: {task_num}d\n"
+                outline_content += f"  - Task {phase_num}.{task_num} {task_num}d\n"
 
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
@@ -401,18 +334,12 @@ phases:
 
     def test_generate_plan_large_outline(self):
         """Test generating plan from large outline."""
-        outline = """
-project:
-  name: 'Large Project'
-  start_date: 2026-03-01
-
-phases:
-"""
+        outline = "Large Project\n\n"
         # Add 10 phases with 10 tasks each
         for phase_num in range(1, 11):
-            outline += f"  - name: 'Phase {phase_num}'\n    tasks:\n"
+            outline += f"- Phase {phase_num}\n"
             for task_num in range(1, 11):
-                outline += f"      - name: 'Task {phase_num}.{task_num}'\n        duration: {task_num}d\n"
+                outline += f"  - Task {phase_num}.{task_num} {task_num}d\n"
 
         response = client.post(
             "/api/planning-room/generate-plan",
@@ -438,21 +365,15 @@ class TestPlanningRoomFlowDiagram:
         """Test that parsing outline creates appropriate flow nodes structure."""
         # This tests the data structure that would be created
         # Full flow rendering is tested via manual/integration testing
-        yaml_content = """
-project:
-  name: 'Flow Test'
+        outline_content = """Flow Test
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task A'
-        duration: 2d
-      - name: 'Task B'
-        duration: 3d
+- Phase 1
+  - Task A 2d
+  - Task B 3d
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
@@ -465,28 +386,18 @@ phases:
 
     def test_parse_outline_with_dependencies_structure(self):
         """Test outline parsing preserves task hierarchy for flow diagram."""
-        yaml_content = """
-project:
-  name: 'Complex Flow'
+        outline_content = """Complex Flow
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Parent Task'
-        duration: 10d
-        children:
-          - name: 'Child 1'
-            duration: 3d
-          - name: 'Child 2'
-            duration: 4d
-  - name: 'Phase 2'
-    tasks:
-      - name: 'Task X'
-        duration: 2d
+- Phase 1
+  - Parent Task 10d
+    - Child 1 3d
+    - Child 2 4d
+- Phase 2
+  - Task X 2d
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200
@@ -500,26 +411,16 @@ phases:
 
     def test_outline_with_resources_for_flow(self):
         """Test that resource assignments are preserved for flow diagram nodes."""
-        yaml_content = """
-project:
-  name: 'Resource Flow Test'
-  resources:
-    - {id: alice, name: 'Alice', role: 'Dev'}
-    - {id: bob, name: 'Bob', role: 'Designer'}
+        outline_content = """Resource Flow Test
 
-phases:
-  - name: 'Phase 1'
-    tasks:
-      - name: 'Task 1'
-        resources: ['@alice']
-      - name: 'Task 2'
-        resources: ['@bob']
-      - name: 'Task 3'
-        resources: ['@alice', '@bob']
+- Phase 1
+  - Task 1 @alice
+  - Task 2 @bob
+  - Task 3 @alice @bob
 """
         response = client.post(
             "/api/planning-room/parse-outline",
-            json={"yaml": yaml_content}
+            json={"yaml": outline_content}
         )
 
         assert response.status_code == 200

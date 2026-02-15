@@ -1,23 +1,82 @@
 """
 Planning Room Module
 
-Generates Noodle-formatted plan.md files from YAML outlines and flow diagrams.
+Generates Noodle-formatted plan.md files from markdown outlines and flow diagrams.
 
-This module takes structured outline data (YAML) and dependency flow data (JSON)
+This module takes structured outline data (markdown) and dependency flow data (JSON)
 and produces a complete plan.md file with proper task hierarchy, resources,
 durations, and dependency syntax.
 """
 
-import yaml
+import re
 from typing import Dict, List, Any, Optional, Tuple
 
 
-def generate_plan_from_planning_room(outline_yaml: str, flow_json: Dict[str, Any]) -> str:
+def parse_markdown_outline(text: str) -> dict:
+    """Parse simple markdown-style outline into structured data."""
+    if not text or not text.strip():
+        raise ValueError("Empty outline")
+
+    lines = text.strip().split('\n')
+
+    project_name = lines[0].strip() if lines else "Untitled Project"
+    if not project_name:
+        raise ValueError("Empty outline")
+    phases = []
+    current_phase = None
+    task_stack = []
+
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+
+        stripped = line.lstrip()
+        indent_level = (len(line) - len(stripped)) // 2
+        content = stripped.lstrip('- ').strip()
+
+        if not content:
+            continue
+
+        duration_match = re.search(r'\b(\d+[dwmy])\b', content)
+        duration = duration_match.group(1) if duration_match else ''
+        resources = re.findall(r'@\w+', content)
+
+        task_name = content
+        if duration:
+            task_name = task_name.replace(duration, '').strip()
+        for res in resources:
+            task_name = task_name.replace(res, '').strip()
+
+        task = {
+            "name": task_name,
+            "duration": duration,
+            "resources": resources,
+            "children": []
+        }
+
+        if indent_level == 0:
+            current_phase = {"name": task_name, "tasks": []}
+            phases.append(current_phase)
+            task_stack = []
+        elif indent_level == 1 and current_phase:
+            current_phase["tasks"].append(task)
+            task_stack = [task]
+        elif indent_level > 1 and task_stack:
+            while len(task_stack) >= indent_level:
+                task_stack.pop()
+            if task_stack:
+                task_stack[-1]["children"].append(task)
+                task_stack.append(task)
+
+    return {"project": {"name": project_name}, "phases": phases}
+
+
+def generate_plan_from_planning_room(outline_text: str, flow_json: Dict[str, Any]) -> str:
     """
-    Generate a complete plan.md from outline YAML and flow diagram.
+    Generate a complete plan.md from outline markdown and flow diagram.
 
     Args:
-        outline_yaml: YAML string containing project outline
+        outline_text: Markdown string containing project outline
         flow_json: Flow diagram data with nodes and edges
 
     Returns:
@@ -25,10 +84,9 @@ def generate_plan_from_planning_room(outline_yaml: str, flow_json: Dict[str, Any
 
     Raises:
         ValueError: If outline is invalid or cannot be parsed
-        yaml.YAMLError: If YAML syntax is invalid
     """
-    # Parse YAML
-    outline = yaml.safe_load(outline_yaml)
+    # Parse markdown
+    outline = parse_markdown_outline(outline_text)
 
     if not outline:
         raise ValueError("Empty outline")

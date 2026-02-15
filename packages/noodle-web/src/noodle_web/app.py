@@ -883,51 +883,110 @@ class GeneratePlanRequest(BaseModel):
     flow: FlowData
 
 
+def parse_markdown_outline(text: str) -> dict:
+    """Parse simple markdown-style outline into structured data."""
+    import re
+
+    if not text or not text.strip():
+        raise ValueError("Empty outline")
+
+    lines = text.strip().split('\n')
+
+    # First non-empty line is project name
+    project_name = lines[0].strip() if lines else "Untitled Project"
+    if not project_name:
+        raise ValueError("Empty outline")
+
+    phases = []
+    current_phase = None
+    task_stack = []  # Stack to track nesting level
+
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+
+        # Calculate indentation level (number of spaces / 2)
+        stripped = line.lstrip()
+        indent_level = (len(line) - len(stripped)) // 2
+
+        # Remove leading dash and spaces
+        content = stripped.lstrip('- ').strip()
+        if not content:
+            continue
+
+        # Extract duration and resources using regex
+        # Pattern: "Task name 5d @alice @bob" or "Task name @alice" or just "Task name"
+        duration_match = re.search(r'\b(\d+[dwmy])\b', content)
+        duration = duration_match.group(1) if duration_match else ''
+
+        resources = re.findall(r'@\w+', content)
+
+        # Remove duration and resources from task name
+        task_name = content
+        if duration:
+            task_name = task_name.replace(duration, '').strip()
+        for res in resources:
+            task_name = task_name.replace(res, '').strip()
+
+        # Create task object
+        task = {
+            "name": task_name,
+            "duration": duration,
+            "resources": resources,
+            "children": []
+        }
+
+        # Level 0 = phase
+        if indent_level == 0:
+            current_phase = {
+                "name": task_name,
+                "tasks": []
+            }
+            phases.append(current_phase)
+            task_stack = []
+        # Level 1 = top-level task in phase
+        elif indent_level == 1 and current_phase:
+            current_phase["tasks"].append(task)
+            task_stack = [task]
+        # Level 2+ = nested subtask
+        elif indent_level > 1 and task_stack:
+            # Pop stack until we're at the right parent level
+            while len(task_stack) >= indent_level:
+                task_stack.pop()
+
+            if task_stack:
+                task_stack[-1]["children"].append(task)
+                task_stack.append(task)
+
+    return {
+        "project": {"name": project_name},
+        "phases": phases
+    }
+
+
 @app.post("/api/planning-room/parse-outline")
 async def parse_outline(data: ParseOutlineRequest):
     """
-    Parse YAML outline and return structured data for tree view.
+    Parse markdown outline and return structured data for tree view.
 
-    This endpoint validates and parses a YAML-formatted Work Breakdown Structure (WBS)
-    and returns hierarchical project data including phases, tasks, resources, etc.
+    This endpoint validates and parses a markdown-formatted Work Breakdown Structure (WBS)
+    and returns hierarchical project data including phases and tasks.
 
     Args:
-        data: ParseOutlineRequest containing YAML content
+        data: ParseOutlineRequest containing markdown content
 
     Returns:
         dict: Parsed outline data with project, phases, and tasks
 
     Raises:
-        HTTPException: 400 if YAML is invalid
+        HTTPException: 400 if outline is invalid
         HTTPException: 500 if parsing fails unexpectedly
     """
     try:
-        # Parse YAML
-        parsed = yaml.safe_load(data.yaml)
-
-        if not parsed:
-            raise ValueError("Empty YAML content")
-
-        # Validate basic structure
-        if not isinstance(parsed, dict):
-            raise ValueError("YAML root must be a dictionary")
-
-        # Extract and validate structure
-        result = {
-            "project": parsed.get("project", {}),
-            "phases": parsed.get("phases", [])
-        }
-
-        # Ensure phases is a list
-        if not isinstance(result["phases"], list):
-            raise ValueError("'phases' must be a list")
-
+        result = parse_markdown_outline(data.yaml)
         logger.info(f"Successfully parsed outline with {len(result['phases'])} phases")
         return result
 
-    except yaml.YAMLError as e:
-        logger.error(f"YAML parsing error: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid YAML: {str(e)}")
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
