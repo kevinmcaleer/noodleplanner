@@ -930,6 +930,31 @@
 
 **Status:** Complete! Navigation is now organized into logical sections with dropdown menus providing easy access to all features.
 
+### Enhanced User Views (GitHub Issue #221) - ✅ CLOSED
+- [x] Implement 2-week look-ahead view
+  - Show tasks occurring in the next two weeks
+  - Include overdue incomplete tasks with days late indicator
+  - Filter and sort by dates appropriately
+  - Two sections: Overdue (red) and Upcoming (blue)
+- [x] Implement user-based task breakdown views
+  - Filter tasks by assignee with dropdown
+  - Show workload statistics per user (tasks, days, completion %)
+  - Display task lists grouped by user with expandable sections
+  - Automatically extract users from task resources
+- [x] Add new view options to Views dropdown menu
+  - Added divider separator before new views
+  - "🔮 2-Week Look-Ahead" menu item
+  - "👤 User Workload" menu item
+- [x] Update design/epic.md with documentation
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/templates/index.html` - Added view HTML structures (+91 lines)
+- `packages/noodle-web/src/noodle_web/static/script.js` - Added update functions and helpers (+383 lines)
+- `packages/noodle-web/src/noodle_web/static/style.css` - Added comprehensive styling (+243 lines)
+- `design/epic.md` - Added documentation (+112 lines)
+
+**Status:** ✅ Complete! Both views merged to main. Accessible from Views dropdown. All 321 tests passing.
+
 ## Pending 📋
 
 ### Test Execution
