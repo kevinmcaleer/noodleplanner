@@ -955,6 +955,29 @@
 
 **Status:** ✅ Complete! Both views merged to main. Accessible from Views dropdown. All 321 tests passing.
 
+### Resource Timesheet Enhancement (GitHub Issue #222) - ✅ CLOSED
+- [x] Restructure timesheet header to use multiple rows
+  - Row 1: Month names with colspan grouping
+  - Row 2: Days of the month (1-31)
+  - Row 3: Day of week initials (S, M, T, W, T, F, S, S)
+- [x] Update CSS styling for multi-row header layout
+- [x] Minimize horizontal space usage (~32px per column, ~60% reduction)
+- [x] Maintain existing functionality (weekends, holidays, clickable resources)
+- [x] Test responsive design on mobile
+
+**Implementation Details:**
+- Month headers use colspan to group dates by month
+- Full month name and year displayed (e.g., "January 2026")
+- Visual hierarchy: large/bold month → medium day number → small weekday initial
+- All existing features maintained (weekend/holiday highlighting, clickable resources)
+
+**Files Modified:**
+- `packages/noodle-web/src/noodle_web/templates/index.html` - Added 3-row header structure
+- `packages/noodle-web/src/noodle_web/static/script.js` - Updated header generation logic
+- `packages/noodle-web/src/noodle_web/static/style.css` - Added styling for 3 header types
+
+**Status:** ✅ Complete! Timesheet header merged to main. ~60% space reduction achieved. All 321 tests passing.
+
 ## Pending 📋
 
 ### Test Execution
