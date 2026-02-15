@@ -62,6 +62,7 @@
                     </div>
                 </div>
                 <button class="tab" onclick="switchTab('kanban')">Board</button>
+                <button class="tab" onclick="switchTab('planning')">Planning</button>
                 <div class="nav-dropdown">
                     <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)">
                         Tracking ▾
@@ -921,6 +922,147 @@ Build
                 </div>
             </div>
 
+            <!-- Planning Room Tab -->
+            <div id="planning-tab" class="tab-content">
+                <div class="planning-room-container">
+                    <!-- Stage Selector -->
+                    <div class="planning-stage-tabs">
+                        <button class="planning-stage-tab active" onclick="switchPlanningStage('outline')" id="outlineStageTab">
+                            1. Outline
+                        </button>
+                        <button class="planning-stage-tab" onclick="switchPlanningStage('flow')" id="flowStageTab">
+                            2. Flow
+                        </button>
+                        <button class="planning-stage-tab" onclick="switchPlanningStage('schedule')" id="scheduleStageTab">
+                            3. Schedule
+                        </button>
+                    </div>
+
+                    <!-- Outline Stage -->
+                    <div id="outline-stage" class="planning-stage active">
+                        <div class="planning-stage-content">
+                            <div class="planning-editor-panel">
+                                <div class="planning-toolbar">
+                                    <button class="toolbar-btn" onclick="downloadOutline()" title="Download outline.yaml">
+                                        💾 Download
+                                    </button>
+                                    <button class="toolbar-btn" onclick="uploadOutline()" title="Upload outline.yaml">
+                                        📁 Upload
+                                    </button>
+                                    <button class="toolbar-btn" onclick="clearOutline()" title="Clear outline">
+                                        🗑️ Clear
+                                    </button>
+                                </div>
+                                <div class="planning-editor-wrapper">
+                                    <textarea id="outlineEditor" class="planning-yaml-editor" placeholder="project:
+  name: 'My Project'
+  start_date: 2026-03-01
+  resources:
+    - {id: alice, name: 'Alice Smith', role: 'Developer'}
+    - {id: bob, name: 'Bob Jones', role: 'Designer'}
+
+phases:
+  - name: 'Phase 1: Planning'
+    tasks:
+      - name: 'Task 1.1'
+        duration: 5d
+        resources: ['@alice']
+        children:
+          - name: 'Subtask 1.1.1'
+            duration: 2d
+            resources: ['@alice']
+      - name: 'Task 1.2'
+        duration: 3d
+        resources: ['@bob']"></textarea>
+                                </div>
+                            </div>
+                            <div class="planning-preview-panel">
+                                <div class="planning-toolbar">
+                                    <h3>Tree Preview</h3>
+                                    <button class="toolbar-btn" onclick="parseOutline()" title="Refresh preview">
+                                        🔄 Refresh
+                                    </button>
+                                </div>
+                                <div class="planning-tree-view" id="outlineTreeView">
+                                    <div class="empty-state">
+                                        <p>Tree preview will appear here</p>
+                                        <p>Edit the YAML on the left to see the task hierarchy</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flow Stage -->
+                    <div id="flow-stage" class="planning-stage">
+                        <div class="planning-stage-content">
+                            <div class="planning-flow-toolbar">
+                                <button class="toolbar-btn" onclick="autoLayoutFlow()" title="Auto-layout diagram">
+                                    ✨ Auto-layout
+                                </button>
+                                <button class="toolbar-btn" onclick="resetFlowZoom()" title="Reset zoom">
+                                    🔍 Reset Zoom
+                                </button>
+                                <button class="toolbar-btn" onclick="downloadFlow()" title="Download flow.json">
+                                    💾 Download
+                                </button>
+                                <div class="flow-mode-group">
+                                    <label>Mode:</label>
+                                    <button class="toolbar-btn" onclick="setFlowMode('pan')" id="flowModePan" title="Pan mode">
+                                        ✋ Pan
+                                    </button>
+                                    <button class="toolbar-btn active" onclick="setFlowMode('select')" id="flowModeSelect" title="Select/drag mode">
+                                        👆 Select
+                                    </button>
+                                    <button class="toolbar-btn" onclick="setFlowMode('edge')" id="flowModeEdge" title="Create edge mode">
+                                        🔗 Link
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="planning-flow-canvas-wrapper">
+                                <svg id="flowCanvas" class="planning-flow-canvas">
+                                    <defs>
+                                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                            <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                                        </marker>
+                                    </defs>
+                                    <g id="flowEdgesGroup"></g>
+                                    <g id="flowNodesGroup"></g>
+                                </svg>
+                                <div class="flow-empty-state" id="flowEmptyState">
+                                    <h3>Flow Diagram</h3>
+                                    <p>Create tasks in the Outline stage first</p>
+                                    <p>Then visualize and manage dependencies here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Stage -->
+                    <div id="schedule-stage" class="planning-stage">
+                        <div class="planning-stage-content">
+                            <div class="planning-schedule-toolbar">
+                                <button class="btn-primary" onclick="generatePlan()" title="Generate plan.md">
+                                    ⚙️ Generate Plan
+                                </button>
+                                <button class="toolbar-btn" onclick="copyToEditor()" title="Copy to Editor">
+                                    📋 Copy to Editor
+                                </button>
+                                <button class="toolbar-btn" onclick="downloadPlan()" title="Download plan.md">
+                                    💾 Download
+                                </button>
+                                <div class="schedule-status" id="scheduleStatus"></div>
+                            </div>
+                            <div class="planning-schedule-preview">
+                                <pre id="schedulePlanPreview" class="planning-plan-preview">
+<!-- Generated plan.md will appear here -->
+<!-- Click "Generate Plan" to create a plan from your outline and flow diagram --></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1407,5 +1549,6 @@ Build
     <!-- Custom JavaScript -->
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/planning-room.js?v={{ v }}"></script>
 </body>
 </html>

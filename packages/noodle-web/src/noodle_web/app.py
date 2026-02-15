@@ -34,6 +34,7 @@ from noodle_core import (
     extract_highlights,
 )
 import json
+import yaml
 from .middleware import ActivityLoggingMiddleware
 from .database import init_db, test_connection
 
@@ -857,6 +858,169 @@ async def excel_convert(
     except Exception as e:
         logger.error(f"Error converting Excel file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to convert file: {e}")
+
+
+# ==============================================================================
+# PLANNING ROOM API ENDPOINTS
+# ==============================================================================
+
+
+class ParseOutlineRequest(BaseModel):
+    """Request body for parsing YAML outline."""
+    yaml: str = Field(..., max_length=MAX_FILE_SIZE)
+
+
+class FlowData(BaseModel):
+    """Flow diagram data structure."""
+    nodes: List[dict] = Field(default_factory=list)
+    edges: List[dict] = Field(default_factory=list)
+
+
+class GeneratePlanRequest(BaseModel):
+    """Request body for generating plan.md."""
+    outline: str = Field(..., max_length=MAX_FILE_SIZE)
+    flow: FlowData
+
+
+@app.post("/api/planning-room/parse-outline")
+async def parse_outline(data: ParseOutlineRequest):
+    """
+    Parse YAML outline and return structured data for tree view.
+
+    This endpoint validates and parses a YAML-formatted Work Breakdown Structure (WBS)
+    and returns hierarchical project data including phases, tasks, resources, etc.
+
+    Args:
+        data: ParseOutlineRequest containing YAML content
+
+    Returns:
+        dict: Parsed outline data with project, phases, and tasks
+
+    Raises:
+        HTTPException: 400 if YAML is invalid
+        HTTPException: 500 if parsing fails unexpectedly
+    """
+    try:
+        # Parse YAML
+        parsed = yaml.safe_load(data.yaml)
+
+        if not parsed:
+            raise ValueError("Empty YAML content")
+
+        # Validate basic structure
+        if not isinstance(parsed, dict):
+            raise ValueError("YAML root must be a dictionary")
+
+        # Extract and validate structure
+        result = {
+            "project": parsed.get("project", {}),
+            "phases": parsed.get("phases", [])
+        }
+
+        # Ensure phases is a list
+        if not isinstance(result["phases"], list):
+            raise ValueError("'phases' must be a list")
+
+        logger.info(f"Successfully parsed outline with {len(result['phases'])} phases")
+        return result
+
+    except yaml.YAMLError as e:
+        logger.error(f"YAML parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid YAML: {str(e)}")
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error parsing outline: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to parse outline: {str(e)}")
+
+
+@app.post("/api/planning-room/generate-plan")
+async def generate_plan_from_planning_room(data: GeneratePlanRequest):
+    """
+    Generate plan.md from outline YAML and flow diagram.
+
+    This endpoint takes the structured outline and dependency flow data
+    and generates a complete plan.md file in Noodle format.
+
+    This is a Phase 3 placeholder - full implementation to come.
+
+    Args:
+        data: GeneratePlanRequest containing outline YAML and flow JSON
+
+    Returns:
+        dict: Generated plan markdown content
+
+    Raises:
+        HTTPException: 400 if outline is invalid
+        HTTPException: 500 if generation fails
+    """
+    try:
+        # Phase 3: Implement full plan generation logic
+        # For now, return a basic plan from the outline
+
+        parsed = yaml.safe_load(data.outline)
+
+        if not parsed:
+            raise ValueError("Empty outline")
+
+        # Simple plan generation (Phase 3 will implement full logic)
+        plan_lines = []
+
+        # Add project info
+        if "project" in parsed:
+            project = parsed["project"]
+            if "name" in project:
+                plan_lines.append(f"# {project['name']}\n")
+
+            if "start_date" in project:
+                plan_lines.append(f"start: {project['start_date']}\n")
+
+            # Add resources
+            if "resources" in project and project["resources"]:
+                plan_lines.append("")
+                for res in project["resources"]:
+                    if isinstance(res, dict):
+                        res_id = res.get("id", "")
+                        res_name = res.get("name", res_id)
+                        res_role = res.get("role", "")
+                        plan_lines.append(f"@{res_id}: {res_name}, {res_role}")
+                plan_lines.append("")
+
+        # Add phases and tasks (simplified)
+        if "phases" in parsed:
+            for phase in parsed["phases"]:
+                if isinstance(phase, dict) and "name" in phase:
+                    plan_lines.append(f"\n## {phase['name']}")
+
+                    if "tasks" in phase:
+                        for task in phase["tasks"]:
+                            if isinstance(task, dict) and "name" in task:
+                                task_line = f"- {task['name']}"
+
+                                if "duration" in task:
+                                    task_line += f" {task['duration']}"
+
+                                if "resources" in task and task["resources"]:
+                                    resources_str = " ".join(task["resources"])
+                                    task_line += f" {resources_str}"
+
+                                plan_lines.append(task_line)
+
+        plan_content = "\n".join(plan_lines)
+
+        logger.info("Generated plan from Planning Room data")
+        return {"plan": plan_content}
+
+    except yaml.YAMLError as e:
+        logger.error(f"YAML parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid outline YAML: {str(e)}")
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error generating plan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate plan: {str(e)}")
 
 
 if __name__ == "__main__":
