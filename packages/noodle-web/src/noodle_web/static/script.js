@@ -7728,6 +7728,12 @@ const tourSteps = [
         position: "right"
     },
     {
+        title: "Planning Room 📋",
+        message: "New! The Planning Room helps you create plans with a guided 3-stage workflow: Outline (YAML structure), Flow (visual dependencies), and Schedule (auto-generated plan.md). Perfect for complex projects!",
+        target: ".tabs > .tab:nth-of-type(4)",
+        position: "bottom"
+    },
+    {
         title: "Tracking Menu",
         message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies) and Highlights for project updates.",
         target: "#trackingTab",

@@ -39,6 +39,10 @@ from .excel_importer import (
     convert_excel_to_markdown,
 )
 
+from .planning_room import (
+    generate_plan_from_planning_room,
+)
+
 __version__ = "1.0.0"
 
 __all__ = [
@@ -75,4 +79,6 @@ __all__ = [
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",
+    # Planning room
+    "generate_plan_from_planning_room",
 ]
