@@ -221,7 +221,7 @@ async function parseOutline() {
 }
 
 /**
- * Render tree view of outline
+ * Render tree view of outline as a visual WBS (Work Breakdown Structure) chart
  * @param {object} parsed - Parsed outline data or null
  */
 function renderOutlineTree(parsed) {
@@ -241,101 +241,225 @@ function renderOutlineTree(parsed) {
     if (parsed.error) {
         treeView.innerHTML = `
             <div class="error-state">
-                <p style="color: #d9534f;">❌ Parse Error</p>
+                <p style="color: #d9534f;">&#x274C; Parse Error</p>
                 <p style="font-size: 0.9em;">${escapeHtml(parsed.error)}</p>
             </div>
         `;
         return;
     }
 
-    // Build tree HTML
-    let html = '<div class="outline-tree">';
+    const tree = buildWBSTree(parsed);
+    calculateWBSLayout(tree);
+    treeView.innerHTML = renderWBSSVG(tree);
+}
 
-    // Project info
-    if (parsed.project) {
-        html += '<div class="tree-node tree-project">';
-        html += `<span class="tree-icon">📦</span>`;
-        html += `<strong>${escapeHtml(parsed.project.name || 'Untitled Project')}</strong>`;
-        if (parsed.project.start_date) {
-            html += ` <span class="tree-meta">(Start: ${escapeHtml(parsed.project.start_date)})</span>`;
-        }
-        html += '</div>';
+/**
+ * Build a WBS tree data structure from parsed outline data
+ */
+function buildWBSTree(parsed) {
+    const projectName = (parsed.project && parsed.project.name) || 'Untitled Project';
+    const root = { name: projectName, type: 'project', children: [] };
 
-        // Resources
-        if (parsed.project.resources && parsed.project.resources.length > 0) {
-            html += '<div class="tree-node tree-resources">';
-            html += '<span class="tree-icon">👥</span>';
-            html += '<strong>Resources:</strong> ';
-            html += parsed.project.resources.map(r =>
-                `<span class="resource-badge">@${escapeHtml(r.id)}</span>`
-            ).join(' ');
-            html += '</div>';
-        }
-    }
-
-    // Phases and tasks
     if (parsed.phases && parsed.phases.length > 0) {
-        parsed.phases.forEach((phase, phaseIdx) => {
-            html += renderPhaseNode(phase, phaseIdx);
+        parsed.phases.forEach(phase => {
+            const phaseNode = { name: phase.name, type: 'phase', children: [] };
+            if (phase.tasks && phase.tasks.length > 0) {
+                phase.tasks.forEach(task => {
+                    phaseNode.children.push(buildWBSTaskNode(task));
+                });
+            }
+            root.children.push(phaseNode);
         });
     }
 
-    html += '</div>';
-    treeView.innerHTML = html;
+    return root;
 }
 
 /**
- * Render a phase node in the tree
+ * Recursively build a WBS task node from a parsed task
  */
-function renderPhaseNode(phase, phaseIdx) {
-    let html = '<div class="tree-node tree-phase">';
-    html += `<span class="tree-icon">📂</span>`;
-    html += `<strong>Phase ${phaseIdx + 1}:</strong> ${escapeHtml(phase.name)}`;
-    html += '</div>';
+function buildWBSTaskNode(task) {
+    const node = {
+        name: task.name,
+        type: 'task',
+        duration: task.duration || null,
+        resources: task.resources || [],
+        children: []
+    };
 
-    if (phase.tasks && phase.tasks.length > 0) {
-        html += '<div class="tree-children">';
-        phase.tasks.forEach((task, taskIdx) => {
-            html += renderTaskNode(task, `${phaseIdx + 1}.${taskIdx + 1}`, 1);
-        });
-        html += '</div>';
-    }
-
-    return html;
-}
-
-/**
- * Render a task node in the tree (recursive for children)
- */
-function renderTaskNode(task, number, depth) {
-    let html = '<div class="tree-node tree-task">';
-    html += `<span class="tree-icon">${depth === 1 ? '📋' : '📌'}</span>`;
-    html += `<span class="tree-number">${number}</span> `;
-    html += escapeHtml(task.name);
-
-    if (task.duration) {
-        html += ` <span class="tree-meta">(${escapeHtml(task.duration)})</span>`;
-    }
-
-    if (task.resources && task.resources.length > 0) {
-        html += ' ';
-        task.resources.forEach(res => {
-            html += `<span class="resource-badge">${escapeHtml(res)}</span>`;
-        });
-    }
-
-    html += '</div>';
-
-    // Render children recursively
     if (task.children && task.children.length > 0) {
-        html += '<div class="tree-children">';
-        task.children.forEach((child, childIdx) => {
-            html += renderTaskNode(child, `${number}.${childIdx + 1}`, depth + 1);
+        task.children.forEach(child => {
+            node.children.push(buildWBSTaskNode(child));
         });
-        html += '</div>';
     }
 
-    return html;
+    return node;
+}
+
+/**
+ * Calculate layout positions for all WBS nodes (two-pass algorithm)
+ * Project → Phases use horizontal spread (org chart style)
+ * Phases → Tasks use vertical stacking with left-side spine (list style)
+ */
+function calculateWBSLayout(root) {
+    const NODE_WIDTH = 120;
+    const NODE_HEIGHT = 60;
+    const H_GAP = 20;
+    const PROJECT_V_GAP = 30;
+    const V_GAP = 8;
+    const TASK_V_GAP = 2;
+    const SPINE_GAP = 8;
+
+    function measureSubtree(node) {
+        node.width = NODE_WIDTH;
+        node.height = NODE_HEIGHT;
+
+        if (node.children.length === 0) {
+            node.subtreeWidth = node.width;
+            node.subtreeHeight = node.height;
+            return;
+        }
+
+        node.children.forEach(child => measureSubtree(child));
+
+        if (node.type === 'project') {
+            // Horizontal spread for phases
+            const childrenWidth = node.children.reduce((sum, c) => sum + c.subtreeWidth, 0)
+                + (node.children.length - 1) * H_GAP;
+            node.subtreeWidth = Math.max(node.width, childrenWidth);
+            const maxChildSubtreeHeight = Math.max(...node.children.map(c => c.subtreeHeight));
+            node.subtreeHeight = node.height + PROJECT_V_GAP + maxChildSubtreeHeight;
+        } else {
+            // Vertical stack for tasks under phases/tasks
+            // Children left edges align to parent center, so subtree extends right
+            const maxChildSubtreeWidth = Math.max(...node.children.map(c => c.subtreeWidth));
+            node.subtreeWidth = Math.max(node.width, node.width / 2 + SPINE_GAP + maxChildSubtreeWidth);
+            const childrenHeight = node.children.reduce((sum, c) => sum + c.subtreeHeight, 0)
+                + (node.children.length - 1) * TASK_V_GAP;
+            node.subtreeHeight = node.height + V_GAP + childrenHeight;
+        }
+    }
+
+    function positionNodes(node, cx, y) {
+        node.x = cx - node.width / 2;
+        node.y = y;
+
+        if (node.children.length === 0) return;
+
+        if (node.type === 'project') {
+            // Horizontal spread for phases
+            const childrenWidth = node.children.reduce((sum, c) => sum + c.subtreeWidth, 0)
+                + (node.children.length - 1) * H_GAP;
+            let startX = cx - childrenWidth / 2;
+
+            node.children.forEach(child => {
+                const childCx = startX + child.subtreeWidth / 2;
+                positionNodes(child, childCx, y + NODE_HEIGHT + PROJECT_V_GAP);
+                startX += child.subtreeWidth + H_GAP;
+            });
+        } else {
+            // Vertical stack: children's left edges align just right of parent center
+            const childLeft = cx + SPINE_GAP;
+            let currentY = y + NODE_HEIGHT + V_GAP;
+
+            node.children.forEach(child => {
+                child.x = childLeft;
+                positionNodes(child, childLeft + child.width / 2, currentY);
+                child.x = childLeft;
+                currentY += child.subtreeHeight + TASK_V_GAP;
+            });
+        }
+    }
+
+    measureSubtree(root);
+    positionNodes(root, root.subtreeWidth / 2, 20);
+}
+
+/**
+ * Render the WBS tree as an SVG string
+ */
+function renderWBSSVG(root) {
+    const SKEW = 12;
+    const FILL_COLOR = '#2e8bc0';
+    const LINE_COLOR = '#999';
+    const PADDING = 40;
+
+    let maxX = 0;
+    let maxY = 0;
+
+    function findBounds(node) {
+        const right = node.x + node.width + SKEW;
+        const bottom = node.y + node.height;
+        if (right > maxX) maxX = right;
+        if (bottom > maxY) maxY = bottom;
+        node.children.forEach(child => findBounds(child));
+    }
+    findBounds(root);
+
+    const svgWidth = maxX + PADDING;
+    const svgHeight = maxY + PADDING;
+
+    let svg = `<svg class="wbs-chart-svg" xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">`;
+
+    function renderLines(node) {
+        if (node.children.length === 0) return;
+
+        const parentCx = node.x + node.width / 2;
+        const parentBottom = node.y + node.height;
+
+        if (node.type === 'project') {
+            // Horizontal org chart lines: parent bottom-center → horizontal bar → child top-center
+            const childTop = node.children[0].y;
+            const midY = parentBottom + (childTop - parentBottom) / 2;
+            svg += `<line x1="${parentCx}" y1="${parentBottom}" x2="${parentCx}" y2="${midY}" stroke="${LINE_COLOR}" stroke-width="1.5"/>`;
+
+            node.children.forEach(child => {
+                const childCx = child.x + child.width / 2;
+                svg += `<line x1="${parentCx}" y1="${midY}" x2="${childCx}" y2="${midY}" stroke="${LINE_COLOR}" stroke-width="1.5"/>`;
+                svg += `<line x1="${childCx}" y1="${midY}" x2="${childCx}" y2="${child.y}" stroke="${LINE_COLOR}" stroke-width="1.5"/>`;
+            });
+        } else {
+            // Straight vertical spine from parent center down past all children
+            const lastChild = node.children[node.children.length - 1];
+            const spineBottom = lastChild.y + lastChild.height / 2;
+
+            // Vertical line from parent bottom-center straight down
+            svg += `<line x1="${parentCx}" y1="${parentBottom}" x2="${parentCx}" y2="${spineBottom}" stroke="${LINE_COLOR}" stroke-width="1.5"/>`;
+
+            // Horizontal stubs from spine to each child's left edge
+            node.children.forEach(child => {
+                const childMidY = child.y + child.height / 2;
+                svg += `<line x1="${parentCx}" y1="${childMidY}" x2="${child.x}" y2="${childMidY}" stroke="${LINE_COLOR}" stroke-width="1.5"/>`;
+            });
+        }
+
+        node.children.forEach(child => renderLines(child));
+    }
+
+    function renderNode(node) {
+        const { x, y, width, height, name, type } = node;
+
+        if (type === 'project' || type === 'phase') {
+            const points = `${x + SKEW},${y} ${x + width},${y} ${x + width - SKEW},${y + height} ${x},${y + height}`;
+            svg += `<polygon points="${points}" fill="${FILL_COLOR}"/>`;
+        } else {
+            svg += `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="3" fill="${FILL_COLOR}"/>`;
+        }
+
+        const pad = 6;
+        svg += `<foreignObject x="${x + pad}" y="${y}" width="${width - pad * 2}" height="${height}">`;
+        svg += `<div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;color:white;font-size:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;line-height:1.2;">`;
+        svg += `<span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;">${escapeHtml(name)}</span>`;
+        svg += `</div></foreignObject>`;
+
+        node.children.forEach(child => renderNode(child));
+    }
+
+    renderLines(root);
+    renderNode(root);
+
+    svg += '</svg>';
+    return `<div class="outline-tree-svg">${svg}</div>`;
 }
 
 /**
