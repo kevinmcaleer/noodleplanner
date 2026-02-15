@@ -52,6 +52,13 @@
                         <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
                             🔍 Analysis
                         </div>
+                        <div class="nav-menu-divider"></div>
+                        <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
+                            🔮 2-Week Look-Ahead
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('user-workload'); event.stopPropagation();">
+                            👤 User Workload
+                        </div>
                     </div>
                 </div>
                 <button class="tab" onclick="switchTab('kanban')">Board</button>
@@ -557,6 +564,90 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="highlights-empty-state" id="highlightsEmptyState">
                                     <p>No highlights yet. Click <strong>"+ Add Highlight"</strong> to record project updates and commentary.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2-Week Look-Ahead View -->
+                        <div id="lookahead-view" class="output-tab-content">
+                            <div class="lookahead-placeholder placeholder-view">
+                                <h3>2-Week Look-Ahead</h3>
+                                <p>Render your plan to see upcoming tasks and overdue items here.</p>
+                            </div>
+                            <div class="lookahead-content" style="display: none;">
+                                <h2 class="lookahead-title">2-Week Look-Ahead</h2>
+                                <div class="lookahead-info">
+                                    <p id="lookaheadDateRange"></p>
+                                </div>
+                                <div class="lookahead-sections">
+                                    <!-- Overdue Tasks Section -->
+                                    <div class="lookahead-section" id="overdueSection" style="display: none;">
+                                        <h3 class="lookahead-section-title overdue">⚠️ Overdue Tasks</h3>
+                                        <div class="lookahead-table-wrapper">
+                                            <table class="lookahead-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Task Name</th>
+                                                        <th>Due Date</th>
+                                                        <th>Days Late</th>
+                                                        <th>Resources</th>
+                                                        <th>%</th>
+                                                        <th>RAG</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="overdueTableBody"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <!-- Upcoming Tasks Section -->
+                                    <div class="lookahead-section" id="upcomingSection" style="display: none;">
+                                        <h3 class="lookahead-section-title upcoming">📅 Upcoming Tasks (Next 2 Weeks)</h3>
+                                        <div class="lookahead-table-wrapper">
+                                            <table class="lookahead-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Task Name</th>
+                                                        <th>Start Date</th>
+                                                        <th>Due Date</th>
+                                                        <th>Duration</th>
+                                                        <th>Resources</th>
+                                                        <th>%</th>
+                                                        <th>RAG</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="upcomingTableBody"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <!-- No Tasks Message -->
+                                    <div class="lookahead-empty" id="lookaheadEmpty" style="display: none;">
+                                        <p>✅ No overdue or upcoming tasks in the next 2 weeks!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Workload View -->
+                        <div id="user-workload-view" class="output-tab-content">
+                            <div class="user-workload-placeholder placeholder-view">
+                                <h3>User Workload</h3>
+                                <p>Render your plan to see tasks broken down by user here.</p>
+                            </div>
+                            <div class="user-workload-content" style="display: none;">
+                                <h2 class="user-workload-title">User Workload Breakdown</h2>
+                                <div class="user-filter">
+                                    <label for="userFilter">Filter by user:</label>
+                                    <select id="userFilter" onchange="filterUserWorkload()">
+                                        <option value="all">All Users</option>
+                                    </select>
+                                </div>
+                                <div id="userWorkloadSections">
+                                    <!-- User sections will be populated by JavaScript -->
+                                </div>
+                                <div class="user-workload-empty" id="userWorkloadEmpty" style="display: none;">
+                                    <p>No tasks assigned to users.</p>
                                 </div>
                             </div>
                         </div>

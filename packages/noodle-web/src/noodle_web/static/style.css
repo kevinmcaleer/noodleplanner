@@ -4756,3 +4756,246 @@ body.detail-pane-open {
     padding: 60px 20px;
     color: #666;
 }
+
+/* 2-Week Look-Ahead View Styles */
+.lookahead-content {
+    padding: 20px;
+}
+
+.lookahead-title {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.lookahead-info {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.lookahead-info p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.lookahead-sections {
+    margin-top: 20px;
+}
+
+.lookahead-section {
+    margin-bottom: 30px;
+}
+
+.lookahead-section-title {
+    margin: 0 0 15px 0;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 18px;
+}
+
+.lookahead-section-title.overdue {
+    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    color: #fff;
+}
+
+.lookahead-section-title.upcoming {
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    color: #fff;
+}
+
+.lookahead-table-wrapper {
+    overflow-x: auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+
+.lookahead-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+
+.lookahead-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.lookahead-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #fff;
+}
+
+.lookahead-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.lookahead-table tbody tr:hover {
+    background-color: #f5f5f5;
+}
+
+.lookahead-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.lookahead-empty {
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 18px;
+    color: #388e3c;
+}
+
+.lookahead-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+/* User Workload View Styles */
+.user-workload-content {
+    padding: 20px;
+}
+
+.user-workload-title {
+    margin: 0 0 20px 0;
+    color: #333;
+}
+
+.user-filter {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-filter label {
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.user-filter select {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.user-filter select:hover {
+    border-color: #999;
+}
+
+.user-workload-section {
+    margin-bottom: 30px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-workload-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    padding: 15px 20px;
+}
+
+.user-workload-header h3 {
+    margin: 0 0 10px 0;
+    font-size: 20px;
+}
+
+.user-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: 14px;
+}
+
+.user-stats .stat {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.user-workload-table-wrapper {
+    overflow-x: auto;
+}
+
+.user-workload-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+
+.user-workload-table thead {
+    background: #f5f5f5;
+}
+
+.user-workload-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #666;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.user-workload-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.user-workload-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+.user-workload-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.user-workload-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.user-workload-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+/* Nav menu divider */
+.nav-menu-divider {
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 5px 0;
+}
+
+/* Mobile responsive for new views */
+@media (max-width: 768px) {
+    .user-stats {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .lookahead-table,
+    .user-workload-table {
+        font-size: 12px;
+    }
+
+    .lookahead-table th,
+    .lookahead-table td,
+    .user-workload-table th,
+    .user-workload-table td {
+        padding: 8px 6px;
+    }
+}
