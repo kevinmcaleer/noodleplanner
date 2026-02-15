@@ -54,6 +54,7 @@ let flowState = {
 function initPlanningRoom() {
     loadPlanningState();
     setupPlanningEventListeners();
+    setupFlowCanvasListeners();
     renderOutlineEditor();
     console.log('Planning Room initialized');
 }
@@ -394,43 +395,551 @@ function clearOutline() {
 }
 
 // ============================================================================
-// FLOW DIAGRAM (Phase 2 - Placeholder)
+// FLOW DIAGRAM (Phase 2)
 // ============================================================================
 
 /**
  * Sync outline tasks to flow nodes
+ * Creates/updates nodes from outline, preserves existing positions
  */
-function syncOutlineToFlow() {
-    // Phase 2: Parse outline and create/update flow nodes
-    console.log('syncOutlineToFlow - To be implemented in Phase 2');
+async function syncOutlineToFlow() {
+    const editor = document.getElementById('outlineEditor');
+    const yamlContent = editor.value.trim();
+
+    if (!yamlContent) {
+        planningRoomState.flow.nodes = [];
+        planningRoomState.flow.edges = [];
+        renderFlowDiagram();
+        return;
+    }
+
+    try {
+        // Parse outline via backend
+        const response = await fetch('/api/planning-room/parse-outline', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ yaml: yamlContent })
+        });
+
+        if (!response.ok) return;
+
+        const parsed = await response.json();
+
+        // Extract all tasks from phases
+        const tasks = [];
+        if (parsed.phases) {
+            parsed.phases.forEach((phase, phaseIdx) => {
+                if (phase.tasks) {
+                    extractTasksRecursive(phase.tasks, `Phase ${phaseIdx + 1}: ${phase.name}`, '', tasks);
+                }
+            });
+        }
+
+        // Create node map from existing nodes
+        const existingNodes = new Map();
+        planningRoomState.flow.nodes.forEach(node => {
+            existingNodes.set(node.taskPath, node);
+        });
+
+        // Create new nodes, preserving positions
+        const newNodes = [];
+        tasks.forEach((task, idx) => {
+            const existing = existingNodes.get(task.path);
+            const nodeId = existing ? existing.id : `node-${Date.now()}-${idx}`;
+
+            newNodes.push({
+                id: nodeId,
+                name: task.name,
+                taskPath: task.path,
+                duration: task.duration || '',
+                resources: task.resources || [],
+                position: existing ? existing.position : { x: 100 + (idx % 5) * 200, y: 100 + Math.floor(idx / 5) * 120 }
+            });
+        });
+
+        planningRoomState.flow.nodes = newNodes;
+
+        // Remove edges that reference deleted nodes
+        const nodeIds = new Set(newNodes.map(n => n.id));
+        planningRoomState.flow.edges = planningRoomState.flow.edges.filter(edge =>
+            nodeIds.has(edge.source) && nodeIds.has(edge.target)
+        );
+
+        planningRoomState.flow.lastModified = Date.now();
+        savePlanningState();
+        renderFlowDiagram();
+
+    } catch (e) {
+        console.error('Failed to sync outline to flow:', e);
+    }
 }
 
 /**
- * Render flow diagram
+ * Extract tasks recursively from outline structure
+ */
+function extractTasksRecursive(tasks, phaseName, parentPath, result) {
+    tasks.forEach((task, idx) => {
+        const taskNumber = parentPath ? `${parentPath}.${idx + 1}` : `${idx + 1}`;
+        const taskPath = parentPath ? `${phaseName} > ${parentPath} > ${task.name}` : `${phaseName} > ${task.name}`;
+
+        result.push({
+            name: task.name,
+            path: taskPath,
+            number: taskNumber,
+            duration: task.duration,
+            resources: task.resources
+        });
+
+        // Recurse into children
+        if (task.children && task.children.length > 0) {
+            extractTasksRecursive(task.children, phaseName, taskNumber, result);
+        }
+    });
+}
+
+/**
+ * Render flow diagram with SVG
  */
 function renderFlowDiagram() {
     const canvas = document.getElementById('flowCanvas');
     if (!canvas) return;
 
     const emptyState = document.getElementById('flowEmptyState');
+    const nodesGroup = document.getElementById('flowNodesGroup');
+    const edgesGroup = document.getElementById('flowEdgesGroup');
+
+    if (!nodesGroup || !edgesGroup) return;
 
     if (planningRoomState.flow.nodes.length === 0) {
         if (emptyState) emptyState.style.display = 'flex';
+        nodesGroup.innerHTML = '';
+        edgesGroup.innerHTML = '';
         return;
     }
 
     if (emptyState) emptyState.style.display = 'none';
 
-    // Phase 2: Render SVG nodes and edges
-    console.log('renderFlowDiagram - To be implemented in Phase 2');
+    // Clear existing content
+    nodesGroup.innerHTML = '';
+    edgesGroup.innerHTML = '';
+
+    // Apply transform for zoom/pan
+    const transform = `translate(${flowState.panX}, ${flowState.panY}) scale(${flowState.zoom})`;
+    nodesGroup.setAttribute('transform', transform);
+    edgesGroup.setAttribute('transform', transform);
+
+    // Render edges first (so they appear behind nodes)
+    planningRoomState.flow.edges.forEach(edge => {
+        renderEdge(edge, edgesGroup);
+    });
+
+    // Render nodes
+    planningRoomState.flow.nodes.forEach(node => {
+        renderNode(node, nodesGroup);
+    });
 }
 
 /**
- * Auto-layout flow diagram
+ * Render a single node
+ */
+function renderNode(node, group) {
+    const nodeWidth = 180;
+    const nodeHeight = 80;
+
+    // Create group for node
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'flow-node');
+    g.setAttribute('data-node-id', node.id);
+    g.setAttribute('transform', `translate(${node.position.x}, ${node.position.y})`);
+
+    // Rectangle
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('width', nodeWidth);
+    rect.setAttribute('height', nodeHeight);
+    rect.setAttribute('rx', 6);
+
+    // Name text
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', nodeWidth / 2);
+    text.setAttribute('y', 25);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-weight', 'bold');
+    text.textContent = truncateText(node.name, 20);
+
+    // Duration text
+    if (node.duration) {
+        const durationText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        durationText.setAttribute('x', nodeWidth / 2);
+        durationText.setAttribute('y', 45);
+        durationText.setAttribute('text-anchor', 'middle');
+        durationText.setAttribute('font-size', '12');
+        durationText.setAttribute('fill', '#6c757d');
+        durationText.textContent = node.duration;
+        g.appendChild(durationText);
+    }
+
+    // Resources text
+    if (node.resources && node.resources.length > 0) {
+        const resourceText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        resourceText.setAttribute('x', nodeWidth / 2);
+        resourceText.setAttribute('y', 65);
+        resourceText.setAttribute('text-anchor', 'middle');
+        resourceText.setAttribute('font-size', '11');
+        resourceText.setAttribute('fill', '#007bff');
+        resourceText.textContent = node.resources.join(' ');
+        g.appendChild(resourceText);
+    }
+
+    g.appendChild(rect);
+    g.appendChild(text);
+
+    // Add event listeners
+    g.addEventListener('mousedown', (e) => onNodeMouseDown(e, node));
+    g.addEventListener('click', (e) => onNodeClick(e, node));
+
+    group.appendChild(g);
+}
+
+/**
+ * Render a single edge
+ */
+function renderEdge(edge, group) {
+    const sourceNode = planningRoomState.flow.nodes.find(n => n.id === edge.source);
+    const targetNode = planningRoomState.flow.nodes.find(n => n.id === edge.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    const nodeWidth = 180;
+    const nodeHeight = 80;
+
+    // Calculate edge endpoints
+    const x1 = sourceNode.position.x + nodeWidth;
+    const y1 = sourceNode.position.y + nodeHeight / 2;
+    const x2 = targetNode.position.x;
+    const y2 = targetNode.position.y + nodeHeight / 2;
+
+    // Create path
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const d = `M ${x1} ${y1} L ${x2} ${y2}`;
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'flow-edge');
+    path.setAttribute('data-edge-id', edge.id);
+
+    // Add click handler for edge deletion
+    path.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.stopPropagation();
+            deleteEdge(edge.id);
+        }
+    });
+
+    group.appendChild(path);
+}
+
+/**
+ * Auto-layout flow diagram using layered layout
  */
 function autoLayoutFlow() {
-    // Phase 2: Implement topological sort + layer assignment
-    console.log('autoLayoutFlow - To be implemented in Phase 2');
+    if (planningRoomState.flow.nodes.length === 0) return;
+
+    // Build adjacency map
+    const adjacency = new Map();
+    planningRoomState.flow.nodes.forEach(node => {
+        adjacency.set(node.id, []);
+    });
+
+    planningRoomState.flow.edges.forEach(edge => {
+        if (adjacency.has(edge.source)) {
+            adjacency.get(edge.source).push(edge.target);
+        }
+    });
+
+    // Topological sort with layer assignment
+    const layers = [];
+    const visited = new Set();
+    const inDegree = new Map();
+
+    // Calculate in-degree
+    planningRoomState.flow.nodes.forEach(node => {
+        inDegree.set(node.id, 0);
+    });
+    planningRoomState.flow.edges.forEach(edge => {
+        inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
+    });
+
+    // Start with nodes that have no incoming edges
+    let currentLayer = planningRoomState.flow.nodes
+        .filter(node => inDegree.get(node.id) === 0)
+        .map(node => node.id);
+
+    if (currentLayer.length === 0) {
+        // No roots found, use all nodes (graph may have cycles)
+        currentLayer = planningRoomState.flow.nodes.map(node => node.id);
+    }
+
+    // Layer assignment
+    while (currentLayer.length > 0) {
+        layers.push([...currentLayer]);
+        currentLayer.forEach(id => visited.add(id));
+
+        const nextLayer = new Set();
+        currentLayer.forEach(nodeId => {
+            const neighbors = adjacency.get(nodeId) || [];
+            neighbors.forEach(neighborId => {
+                if (!visited.has(neighborId)) {
+                    nextLayer.add(neighborId);
+                }
+            });
+        });
+
+        currentLayer = Array.from(nextLayer);
+    }
+
+    // Add any remaining nodes (disconnected)
+    planningRoomState.flow.nodes.forEach(node => {
+        if (!visited.has(node.id)) {
+            layers.push([node.id]);
+        }
+    });
+
+    // Position nodes
+    const layerSpacing = 250;
+    const nodeSpacing = 120;
+    const startX = 100;
+    const startY = 100;
+
+    layers.forEach((layer, layerIdx) => {
+        const x = startX + layerIdx * layerSpacing;
+
+        layer.forEach((nodeId, nodeIdx) => {
+            const node = planningRoomState.flow.nodes.find(n => n.id === nodeId);
+            if (node) {
+                node.position.x = x;
+                node.position.y = startY + nodeIdx * nodeSpacing;
+            }
+        });
+    });
+
+    planningRoomState.flow.lastModified = Date.now();
+    savePlanningState();
+    renderFlowDiagram();
+}
+
+/**
+ * Handle node mouse down (start drag)
+ */
+function onNodeMouseDown(event, node) {
+    if (flowState.mode !== 'select') return;
+
+    event.stopPropagation();
+
+    flowState.isDragging = true;
+    flowState.dragNode = node;
+    flowState.dragStartX = event.clientX;
+    flowState.dragStartY = event.clientY;
+    flowState.dragNodeStartX = node.position.x;
+    flowState.dragNodeStartY = node.position.y;
+
+    // Add global mouse move and up listeners
+    document.addEventListener('mousemove', onDocumentMouseMove);
+    document.addEventListener('mouseup', onDocumentMouseUp);
+}
+
+/**
+ * Handle document mouse move (during drag)
+ */
+function onDocumentMouseMove(event) {
+    if (!flowState.isDragging || !flowState.dragNode) return;
+
+    const dx = (event.clientX - flowState.dragStartX) / flowState.zoom;
+    const dy = (event.clientY - flowState.dragStartY) / flowState.zoom;
+
+    flowState.dragNode.position.x = flowState.dragNodeStartX + dx;
+    flowState.dragNode.position.y = flowState.dragNodeStartY + dy;
+
+    renderFlowDiagram();
+}
+
+/**
+ * Handle document mouse up (end drag)
+ */
+function onDocumentMouseUp(event) {
+    if (flowState.isDragging) {
+        flowState.isDragging = false;
+        flowState.dragNode = null;
+
+        planningRoomState.flow.lastModified = Date.now();
+        savePlanningState();
+    }
+
+    document.removeEventListener('mousemove', onDocumentMouseMove);
+    document.removeEventListener('mouseup', onDocumentMouseUp);
+}
+
+/**
+ * Handle node click
+ */
+function onNodeClick(event, node) {
+    event.stopPropagation();
+
+    if (flowState.mode === 'edge') {
+        // Edge creation mode
+        if (!flowState.edgeSourceNode) {
+            // Select source node
+            flowState.edgeSourceNode = node;
+            selectNode(node.id);
+        } else {
+            // Create edge from source to target
+            if (flowState.edgeSourceNode.id !== node.id) {
+                createEdge(flowState.edgeSourceNode.id, node.id);
+            }
+            flowState.edgeSourceNode = null;
+            deselectAllNodes();
+        }
+    } else if (flowState.mode === 'select') {
+        // Select mode - toggle selection
+        if (flowState.selectedNode === node.id) {
+            deselectAllNodes();
+        } else {
+            selectNode(node.id);
+        }
+    }
+}
+
+/**
+ * Select a node
+ */
+function selectNode(nodeId) {
+    flowState.selectedNode = nodeId;
+
+    // Update visual selection
+    document.querySelectorAll('.flow-node').forEach(el => {
+        el.classList.remove('selected');
+    });
+
+    const nodeEl = document.querySelector(`[data-node-id="${nodeId}"]`);
+    if (nodeEl) {
+        nodeEl.classList.add('selected');
+    }
+}
+
+/**
+ * Deselect all nodes
+ */
+function deselectAllNodes() {
+    flowState.selectedNode = null;
+    document.querySelectorAll('.flow-node').forEach(el => {
+        el.classList.remove('selected');
+    });
+}
+
+/**
+ * Create edge between two nodes
+ */
+function createEdge(sourceId, targetId) {
+    // Check if edge already exists
+    const exists = planningRoomState.flow.edges.some(edge =>
+        edge.source === sourceId && edge.target === targetId
+    );
+
+    if (exists) {
+        console.log('Edge already exists');
+        return;
+    }
+
+    // Create new edge
+    const edge = {
+        id: `edge-${Date.now()}`,
+        source: sourceId,
+        target: targetId,
+        type: 'FS',  // Finish-Start
+        lag: ''
+    };
+
+    planningRoomState.flow.edges.push(edge);
+    planningRoomState.flow.lastModified = Date.now();
+    savePlanningState();
+    renderFlowDiagram();
+}
+
+/**
+ * Delete edge
+ */
+function deleteEdge(edgeId) {
+    planningRoomState.flow.edges = planningRoomState.flow.edges.filter(e => e.id !== edgeId);
+    planningRoomState.flow.lastModified = Date.now();
+    savePlanningState();
+    renderFlowDiagram();
+}
+
+/**
+ * Setup flow canvas event listeners
+ */
+function setupFlowCanvasListeners() {
+    const canvas = document.getElementById('flowCanvas');
+    if (!canvas) return;
+
+    // Pan mode
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panStartOffsetX = 0;
+    let panStartOffsetY = 0;
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (flowState.mode === 'pan') {
+            isPanning = true;
+            panStartX = e.clientX;
+            panStartY = e.clientY;
+            panStartOffsetX = flowState.panX;
+            panStartOffsetY = flowState.panY;
+        } else if (flowState.mode === 'edge' && flowState.edgeSourceNode) {
+            // Click on empty canvas cancels edge creation
+            flowState.edgeSourceNode = null;
+            deselectAllNodes();
+            renderFlowDiagram();
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (isPanning) {
+            const dx = e.clientX - panStartX;
+            const dy = e.clientY - panStartY;
+
+            flowState.panX = panStartOffsetX + dx;
+            flowState.panY = panStartOffsetY + dy;
+
+            renderFlowDiagram();
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isPanning = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        isPanning = false;
+    });
+
+    // Zoom with mouse wheel
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        const zoomSensitivity = 0.001;
+        const delta = -e.deltaY * zoomSensitivity;
+
+        flowState.zoom = Math.max(0.1, Math.min(3.0, flowState.zoom + delta));
+
+        renderFlowDiagram();
+    });
+}
+
+/**
+ * Truncate text to max length
+ */
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
 }
 
 /**

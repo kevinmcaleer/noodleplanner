@@ -429,3 +429,103 @@ phases:
         # Verify plan contains all phases
         for phase_num in range(1, 11):
             assert f"Phase {phase_num}" in plan
+
+
+class TestPlanningRoomFlowDiagram:
+    """Test flow diagram node/edge logic (Phase 2)."""
+
+    def test_parse_outline_creates_nodes(self):
+        """Test that parsing outline creates appropriate flow nodes structure."""
+        # This tests the data structure that would be created
+        # Full flow rendering is tested via manual/integration testing
+        yaml_content = """
+project:
+  name: 'Flow Test'
+
+phases:
+  - name: 'Phase 1'
+    tasks:
+      - name: 'Task A'
+        duration: 2d
+      - name: 'Task B'
+        duration: 3d
+"""
+        response = client.post(
+            "/api/planning-room/parse-outline",
+            json={"yaml": yaml_content}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify structure suitable for flow node creation
+        assert len(data["phases"][0]["tasks"]) == 2
+        assert data["phases"][0]["tasks"][0]["name"] == "Task A"
+        assert data["phases"][0]["tasks"][1]["name"] == "Task B"
+
+    def test_parse_outline_with_dependencies_structure(self):
+        """Test outline parsing preserves task hierarchy for flow diagram."""
+        yaml_content = """
+project:
+  name: 'Complex Flow'
+
+phases:
+  - name: 'Phase 1'
+    tasks:
+      - name: 'Parent Task'
+        duration: 10d
+        children:
+          - name: 'Child 1'
+            duration: 3d
+          - name: 'Child 2'
+            duration: 4d
+  - name: 'Phase 2'
+    tasks:
+      - name: 'Task X'
+        duration: 2d
+"""
+        response = client.post(
+            "/api/planning-room/parse-outline",
+            json={"yaml": yaml_content}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify nested structure
+        assert len(data["phases"]) == 2
+        parent = data["phases"][0]["tasks"][0]
+        assert parent["name"] == "Parent Task"
+        assert len(parent["children"]) == 2
+
+    def test_outline_with_resources_for_flow(self):
+        """Test that resource assignments are preserved for flow diagram nodes."""
+        yaml_content = """
+project:
+  name: 'Resource Flow Test'
+  resources:
+    - {id: alice, name: 'Alice', role: 'Dev'}
+    - {id: bob, name: 'Bob', role: 'Designer'}
+
+phases:
+  - name: 'Phase 1'
+    tasks:
+      - name: 'Task 1'
+        resources: ['@alice']
+      - name: 'Task 2'
+        resources: ['@bob']
+      - name: 'Task 3'
+        resources: ['@alice', '@bob']
+"""
+        response = client.post(
+            "/api/planning-room/parse-outline",
+            json={"yaml": yaml_content}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        tasks = data["phases"][0]["tasks"]
+        assert tasks[0]["resources"] == ['@alice']
+        assert tasks[1]["resources"] == ['@bob']
+        assert tasks[2]["resources"] == ['@alice', '@bob']
