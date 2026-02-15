@@ -2,12 +2,12 @@
  * Planning Room Module
  *
  * A structured, guided planning workflow with 3 stages:
- * 1. Outline - YAML-based Work Breakdown Structure (WBS)
+ * 1. Outline - Markdown-based Work Breakdown Structure (WBS)
  * 2. Flow - Visual dependency mapping with interactive diagram
  * 3. Schedule - Auto-generated plan.md from outline + dependencies
  *
  * Storage: localStorage (primary) + zip download/upload (backup)
- * Architecture: Multi-file state (outline.yaml, flow.json, plan.md)
+ * Architecture: Multi-file state (outline.md, flow.json, plan.md)
  */
 
 // ============================================================================
@@ -185,7 +185,7 @@ function renderOutlineEditor() {
 }
 
 /**
- * Parse YAML outline and render tree view
+ * Parse markdown outline and render tree view
  */
 async function parseOutline() {
     const editor = document.getElementById('outlineEditor');
@@ -197,7 +197,7 @@ async function parseOutline() {
     }
 
     try {
-        // Call backend to parse YAML
+        // Call backend to parse markdown outline
         const response = await fetch('/api/planning-room/parse-outline', {
             method: 'POST',
             headers: {
@@ -208,7 +208,7 @@ async function parseOutline() {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to parse YAML');
+            throw new Error(error.detail || 'Failed to parse outline');
         }
 
         const parsed = await response.json();
@@ -232,7 +232,7 @@ function renderOutlineTree(parsed) {
         treeView.innerHTML = `
             <div class="empty-state">
                 <p>Tree preview will appear here</p>
-                <p>Edit the YAML on the left to see the task hierarchy</p>
+                <p>Edit the outline on the left to see the task hierarchy</p>
             </div>
         `;
         return;
@@ -241,7 +241,7 @@ function renderOutlineTree(parsed) {
     if (parsed.error) {
         treeView.innerHTML = `
             <div class="error-state">
-                <p style="color: #d9534f;">❌ YAML Error</p>
+                <p style="color: #d9534f;">❌ Parse Error</p>
                 <p style="font-size: 0.9em;">${escapeHtml(parsed.error)}</p>
             </div>
         `;
@@ -339,21 +339,21 @@ function renderTaskNode(task, number, depth) {
 }
 
 /**
- * Download outline as YAML file
+ * Download outline as markdown file
  */
 function downloadOutline() {
     const content = planningRoomState.outline.content || '';
-    const blob = new Blob([content], { type: 'text/yaml' });
+    const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'outline.yaml';
+    a.download = 'outline.md';
     a.click();
     URL.revokeObjectURL(url);
 }
 
 /**
- * Upload outline YAML file
+ * Upload outline markdown file
  */
 function uploadOutline() {
     // Create hidden file input if not exists
@@ -362,7 +362,7 @@ function uploadOutline() {
         input = document.createElement('input');
         input.type = 'file';
         input.id = 'outlineFileUpload';
-        input.accept = '.yaml,.yml';
+        input.accept = '.md,.txt';
         input.style.display = 'none';
         document.body.appendChild(input);
         input.addEventListener('change', handleOutlineUpload);
@@ -1110,7 +1110,7 @@ async function exportPlanningRoomZip() {
         const plan = planningRoomState.plan.content || '';
 
         // Create download links for each file
-        downloadFile(outline, 'outline.yaml', 'text/yaml');
+        downloadFile(outline, 'outline.md', 'text/markdown');
         setTimeout(() => downloadFile(flow, 'flow.json', 'application/json'), 300);
         setTimeout(() => downloadFile(plan, 'plan.md', 'text/markdown'), 600);
 
