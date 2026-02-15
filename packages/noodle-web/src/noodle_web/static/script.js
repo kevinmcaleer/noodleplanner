@@ -9081,6 +9081,7 @@ function updatePlanHighlightsText(planText, highlights) {
             section += (h.content || '').replace(/\n+$/, '') + '\n\n';
         });
         section = section.replace(/\n+$/, '');
+        section += '\n\n---end-highlights---';
         result = base + '\n\n---\n\n' + section;
     }
 
