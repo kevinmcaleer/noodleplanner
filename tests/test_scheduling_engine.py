@@ -388,7 +388,9 @@ class TestSummaryTaskExcludedFromDependencies:
         task_b = next(t for t in tasks if t['name'] == 'Task B')
         task_c = next(t for t in tasks if t['name'] == 'Task C')
         # Task C should depend on Task B (not Phase 2 summary)
-        assert task_c['start'] == task_b['finish']
+        # finish is exclusive (day after last working day), so next task starts
+        # on the next working day after that (which may skip weekends)
+        assert task_c['start'] == get_next_working_day(task_b['finish'])
 
     def test_summary_tasks_not_in_dependency_lookup(self):
         """Summary tasks should not interfere with explicit dependency resolution."""
@@ -544,8 +546,9 @@ class TestMilestoneAlignment:
         tasks = schedule_tasks(phases)
         task1 = next(t for t in tasks if t['name'] == 'Task_1')
         task2 = next(t for t in tasks if t['name'] == 'Task_2')
-        # Non-milestone sequential task starts at predecessor's finish (already the next working day)
-        assert task2['start'] == task1['finish']
+        # Non-milestone sequential task starts on next working day after predecessor's
+        # exclusive finish date (which may skip weekends)
+        assert task2['start'] == get_next_working_day(task1['finish'])
 
 
 class TestRenderCustomTimeline:
