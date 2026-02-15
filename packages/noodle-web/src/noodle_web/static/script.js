@@ -8437,7 +8437,7 @@ function updateLookAhead(tasks) {
             if (task.is_summary || !task.finish) return false;
             const finishDate = new Date(task.finish);
             finishDate.setHours(0, 0, 0, 0);
-            const percentComplete = parseInt(task.percent_complete) || 0;
+            const percentComplete = parseInt(task.percent) || 0;
             return finishDate < today && percentComplete < 100;
         });
 
@@ -8563,13 +8563,13 @@ function createLookAheadRow(task, type, today) {
 
     // Percent complete
     const percentCell = document.createElement('td');
-    percentCell.textContent = task.percent_complete ? `${task.percent_complete}%` : '0%';
+    percentCell.textContent = task.percent !== undefined && task.percent !== null ? `${task.percent}%` : '0%';
     row.appendChild(percentCell);
 
     // RAG status
     const ragCell = document.createElement('td');
-    ragCell.textContent = task.rag_status || '-';
-    ragCell.style.backgroundColor = getRAGColor(task.rag_status);
+    ragCell.textContent = task.rag || '-';
+    ragCell.style.backgroundColor = getRAGColor(task.rag);
     ragCell.style.color = '#fff';
     ragCell.style.fontWeight = 'bold';
     ragCell.style.textAlign = 'center';
@@ -8678,9 +8678,9 @@ function displayUserWorkload(userMap, filterUser) {
 
         // Calculate workload statistics
         const totalTasks = userTasks.length;
-        const completedTasks = userTasks.filter(t => parseInt(t.percent_complete) === 100).length;
+        const completedTasks = userTasks.filter(t => parseInt(t.percent) === 100).length;
         const totalDays = userTasks.reduce((sum, t) => sum + (t.duration_days || 0), 0);
-        const completedDays = userTasks.filter(t => parseInt(t.percent_complete) === 100)
+        const completedDays = userTasks.filter(t => parseInt(t.percent) === 100)
             .reduce((sum, t) => sum + (t.duration_days || 0), 0);
 
         // Create user section
@@ -8752,13 +8752,13 @@ function displayUserWorkload(userMap, filterUser) {
 
             // Percent
             const percentCell = document.createElement('td');
-            percentCell.textContent = task.percent_complete ? `${task.percent_complete}%` : '0%';
+            percentCell.textContent = task.percent !== undefined && task.percent !== null ? `${task.percent}%` : '0%';
             row.appendChild(percentCell);
 
             // RAG
             const ragCell = document.createElement('td');
-            ragCell.textContent = task.rag_status || '-';
-            ragCell.style.backgroundColor = getRAGColor(task.rag_status);
+            ragCell.textContent = task.rag || '-';
+            ragCell.style.backgroundColor = getRAGColor(task.rag);
             ragCell.style.color = '#fff';
             ragCell.style.fontWeight = 'bold';
             ragCell.style.textAlign = 'center';
