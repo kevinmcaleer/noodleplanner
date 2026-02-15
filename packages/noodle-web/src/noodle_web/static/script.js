@@ -892,6 +892,12 @@ async function updateProjectSummary(planText, projectName) {
         // Update Analysis (pass planText directly since front_matter might be an object)
         updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
 
+        // Update 2-Week Look-Ahead
+        updateLookAhead(result.tasks || []);
+
+        // Update User Workload
+        updateUserWorkload(result.tasks || []);
+
         // Update editor with labels if backend found and added them
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
             console.log('Backend returned updated plan text with labels');
@@ -8355,6 +8361,383 @@ function autoDetectColumn(columns, patterns) {
         if (idx >= 0) return columns[idx];
     }
     return '';
+}
+
+// Update 2-Week Look-Ahead View
+function updateLookAhead(tasks) {
+    try {
+        // Show content, hide placeholder
+        const placeholder = document.querySelector('#lookahead-view .lookahead-placeholder');
+        const content = document.querySelector('#lookahead-view .lookahead-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Calculate date range (today + 14 days)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const twoWeeksFromNow = new Date(today);
+        twoWeeksFromNow.setDate(today.getDate() + 14);
+
+        // Update date range display
+        const dateRangeEl = document.getElementById('lookaheadDateRange');
+        if (dateRangeEl) {
+            const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            dateRangeEl.textContent = `Showing tasks from ${formatDate(today)} to ${formatDate(twoWeeksFromNow)}`;
+        }
+
+        // Filter overdue tasks (past due date, not complete)
+        const overdueTasks = tasks.filter(task => {
+            if (task.is_summary || !task.finish) return false;
+            const finishDate = new Date(task.finish);
+            finishDate.setHours(0, 0, 0, 0);
+            const percentComplete = parseInt(task.percent_complete) || 0;
+            return finishDate < today && percentComplete < 100;
+        });
+
+        // Filter upcoming tasks (start or finish within next 2 weeks, not summary)
+        const upcomingTasks = tasks.filter(task => {
+            if (task.is_summary) return false;
+
+            const startDate = task.start ? new Date(task.start) : null;
+            const finishDate = task.finish ? new Date(task.finish) : null;
+
+            if (startDate) startDate.setHours(0, 0, 0, 0);
+            if (finishDate) finishDate.setHours(0, 0, 0, 0);
+
+            // Check if task starts or finishes within the 2-week window
+            const startsInWindow = startDate && startDate >= today && startDate <= twoWeeksFromNow;
+            const finishesInWindow = finishDate && finishDate >= today && finishDate <= twoWeeksFromNow;
+
+            return startsInWindow || finishesInWindow;
+        });
+
+        // Sort by finish date
+        overdueTasks.sort((a, b) => new Date(a.finish) - new Date(b.finish));
+        upcomingTasks.sort((a, b) => new Date(a.start || a.finish) - new Date(b.start || b.finish));
+
+        // Populate overdue tasks table
+        const overdueSection = document.getElementById('overdueSection');
+        const overdueBody = document.getElementById('overdueTableBody');
+        if (overdueBody && overdueSection) {
+            overdueBody.innerHTML = '';
+            if (overdueTasks.length > 0) {
+                overdueSection.style.display = 'block';
+                overdueTasks.forEach(task => {
+                    const row = createLookAheadRow(task, 'overdue', today);
+                    overdueBody.appendChild(row);
+                });
+            } else {
+                overdueSection.style.display = 'none';
+            }
+        }
+
+        // Populate upcoming tasks table
+        const upcomingSection = document.getElementById('upcomingSection');
+        const upcomingBody = document.getElementById('upcomingTableBody');
+        if (upcomingBody && upcomingSection) {
+            upcomingBody.innerHTML = '';
+            if (upcomingTasks.length > 0) {
+                upcomingSection.style.display = 'block';
+                upcomingTasks.forEach(task => {
+                    const row = createLookAheadRow(task, 'upcoming');
+                    upcomingBody.appendChild(row);
+                });
+            } else {
+                upcomingSection.style.display = 'none';
+            }
+        }
+
+        // Show empty state if no tasks
+        const emptyState = document.getElementById('lookaheadEmpty');
+        if (emptyState) {
+            emptyState.style.display = (overdueTasks.length === 0 && upcomingTasks.length === 0) ? 'block' : 'none';
+        }
+
+    } catch (error) {
+        console.error('Error updating look-ahead view:', error);
+    }
+}
+
+// Helper function to create a row for look-ahead table
+function createLookAheadRow(task, type, today) {
+    const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    row.onclick = () => openMilestoneTaskForm(task.name);
+
+    // Task name with indentation
+    const nameCell = document.createElement('td');
+    const indent = '  '.repeat(task.level || 0);
+    nameCell.textContent = indent + task.name;
+    nameCell.style.fontFamily = 'monospace';
+    nameCell.classList.add('task-level-' + (task.level || 0));
+    row.appendChild(nameCell);
+
+    if (type === 'overdue') {
+        // Due date
+        const dueDateCell = document.createElement('td');
+        dueDateCell.textContent = task.finish ? new Date(task.finish).toLocaleDateString() : '-';
+        row.appendChild(dueDateCell);
+
+        // Days late
+        const daysLateCell = document.createElement('td');
+        if (task.finish && today) {
+            const finishDate = new Date(task.finish);
+            finishDate.setHours(0, 0, 0, 0);
+            const diffTime = today - finishDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            daysLateCell.textContent = diffDays;
+            daysLateCell.style.color = '#d32f2f';
+            daysLateCell.style.fontWeight = 'bold';
+        } else {
+            daysLateCell.textContent = '-';
+        }
+        row.appendChild(daysLateCell);
+    } else {
+        // Start date
+        const startCell = document.createElement('td');
+        startCell.textContent = task.start ? new Date(task.start).toLocaleDateString() : '-';
+        row.appendChild(startCell);
+
+        // Due date
+        const dueDateCell = document.createElement('td');
+        dueDateCell.textContent = task.finish ? new Date(task.finish).toLocaleDateString() : '-';
+        row.appendChild(dueDateCell);
+
+        // Duration
+        const durationCell = document.createElement('td');
+        durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+        row.appendChild(durationCell);
+    }
+
+    // Resources
+    const resourcesCell = document.createElement('td');
+    resourcesCell.textContent = task.resources || '-';
+    row.appendChild(resourcesCell);
+
+    // Percent complete
+    const percentCell = document.createElement('td');
+    percentCell.textContent = task.percent_complete ? `${task.percent_complete}%` : '0%';
+    row.appendChild(percentCell);
+
+    // RAG status
+    const ragCell = document.createElement('td');
+    ragCell.textContent = task.rag_status || '-';
+    ragCell.style.backgroundColor = getRAGColor(task.rag_status);
+    ragCell.style.color = '#fff';
+    ragCell.style.fontWeight = 'bold';
+    ragCell.style.textAlign = 'center';
+    ragCell.style.borderRadius = '4px';
+    row.appendChild(ragCell);
+
+    return row;
+}
+
+// Update User Workload View
+function updateUserWorkload(tasks) {
+    try {
+        // Show content, hide placeholder
+        const placeholder = document.querySelector('#user-workload-view .user-workload-placeholder');
+        const content = document.querySelector('#user-workload-view .user-workload-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        // Extract unique users from tasks (excluding summary tasks)
+        const userMap = new Map();
+        tasks.forEach(task => {
+            if (task.is_summary || !task.resources) return;
+
+            // Split resources by comma and process each
+            const resources = task.resources.split(',').map(r => r.trim());
+            resources.forEach(resource => {
+                if (!resource) return;
+
+                // Extract shortname (strip @ if present)
+                const shortname = resource.replace('@', '').split('[')[0].trim();
+
+                if (!userMap.has(shortname)) {
+                    userMap.set(shortname, []);
+                }
+                userMap.get(shortname).push(task);
+            });
+        });
+
+        // Populate user filter dropdown
+        const userFilter = document.getElementById('userFilter');
+        if (userFilter) {
+            // Keep "All Users" option, clear others
+            userFilter.innerHTML = '<option value="all">All Users</option>';
+
+            // Add user options (sorted alphabetically)
+            const sortedUsers = Array.from(userMap.keys()).sort();
+            sortedUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                userFilter.appendChild(option);
+            });
+        }
+
+        // Store userMap globally for filtering
+        window.currentUserMap = userMap;
+
+        // Display workload for all users
+        displayUserWorkload(userMap, 'all');
+
+    } catch (error) {
+        console.error('Error updating user workload view:', error);
+    }
+}
+
+// Display user workload (filtered or all)
+function displayUserWorkload(userMap, filterUser) {
+    const sectionsContainer = document.getElementById('userWorkloadSections');
+    const emptyState = document.getElementById('userWorkloadEmpty');
+
+    if (!sectionsContainer) return;
+
+    sectionsContainer.innerHTML = '';
+
+    // Filter users if needed
+    const usersToShow = filterUser === 'all'
+        ? Array.from(userMap.keys()).sort()
+        : [filterUser];
+
+    if (usersToShow.length === 0 || (filterUser !== 'all' && !userMap.has(filterUser))) {
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Create section for each user
+    usersToShow.forEach(user => {
+        const userTasks = userMap.get(user);
+        if (!userTasks || userTasks.length === 0) return;
+
+        // Calculate workload statistics
+        const totalTasks = userTasks.length;
+        const completedTasks = userTasks.filter(t => parseInt(t.percent_complete) === 100).length;
+        const totalDays = userTasks.reduce((sum, t) => sum + (t.duration_days || 0), 0);
+        const completedDays = userTasks.filter(t => parseInt(t.percent_complete) === 100)
+            .reduce((sum, t) => sum + (t.duration_days || 0), 0);
+
+        // Create user section
+        const section = document.createElement('div');
+        section.className = 'user-workload-section';
+
+        // Section header with stats
+        const header = document.createElement('div');
+        header.className = 'user-workload-header';
+        header.innerHTML = `
+            <h3>👤 ${user}</h3>
+            <div class="user-stats">
+                <span class="stat"><strong>Tasks:</strong> ${completedTasks}/${totalTasks} complete</span>
+                <span class="stat"><strong>Days:</strong> ${completedDays}/${totalDays} complete</span>
+                <span class="stat"><strong>Completion:</strong> ${Math.round(completedTasks / totalTasks * 100)}%</span>
+            </div>
+        `;
+        section.appendChild(header);
+
+        // Create tasks table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'user-workload-table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'user-workload-table';
+
+        // Table header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th>Task Name</th>
+                <th>Start</th>
+                <th>Finish</th>
+                <th>Duration</th>
+                <th>%</th>
+                <th>RAG</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        // Table body
+        const tbody = document.createElement('tbody');
+        userTasks.forEach(task => {
+            const row = document.createElement('tr');
+            row.style.cursor = 'pointer';
+            row.onclick = () => openMilestoneTaskForm(task.name);
+
+            // Task name with indentation
+            const nameCell = document.createElement('td');
+            const indent = '  '.repeat(task.level || 0);
+            nameCell.textContent = indent + task.name;
+            nameCell.style.fontFamily = 'monospace';
+            row.appendChild(nameCell);
+
+            // Start date
+            const startCell = document.createElement('td');
+            startCell.textContent = task.start ? new Date(task.start).toLocaleDateString() : '-';
+            row.appendChild(startCell);
+
+            // Finish date
+            const finishCell = document.createElement('td');
+            finishCell.textContent = task.finish ? new Date(task.finish).toLocaleDateString() : '-';
+            row.appendChild(finishCell);
+
+            // Duration
+            const durationCell = document.createElement('td');
+            durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+            row.appendChild(durationCell);
+
+            // Percent
+            const percentCell = document.createElement('td');
+            percentCell.textContent = task.percent_complete ? `${task.percent_complete}%` : '0%';
+            row.appendChild(percentCell);
+
+            // RAG
+            const ragCell = document.createElement('td');
+            ragCell.textContent = task.rag_status || '-';
+            ragCell.style.backgroundColor = getRAGColor(task.rag_status);
+            ragCell.style.color = '#fff';
+            ragCell.style.fontWeight = 'bold';
+            ragCell.style.textAlign = 'center';
+            ragCell.style.borderRadius = '4px';
+            row.appendChild(ragCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+        section.appendChild(tableWrapper);
+
+        sectionsContainer.appendChild(section);
+    });
+}
+
+// Filter user workload by selected user
+function filterUserWorkload() {
+    const filterSelect = document.getElementById('userFilter');
+    if (!filterSelect || !window.currentUserMap) return;
+
+    const selectedUser = filterSelect.value;
+    displayUserWorkload(window.currentUserMap, selectedUser);
+}
+
+// Helper function to get RAG color
+function getRAGColor(rag) {
+    if (!rag) return '#ccc';
+    switch(rag.toUpperCase()) {
+        case 'R': case 'RED': return '#d32f2f';
+        case 'A': case 'AMBER': return '#f57c00';
+        case 'G': case 'GREEN': return '#388e3c';
+        default: return '#ccc';
+    }
 }
 
 function getColumnMapping() {
