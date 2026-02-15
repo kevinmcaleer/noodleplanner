@@ -1585,8 +1585,13 @@ function updateTimesheet(tasks, frontMatter = {}) {
         // Generate array of all dates in range
         const dates = [];
         const currentDate = new Date(minDate);
+        // Normalize to midnight to avoid DST issues
+        currentDate.setHours(12, 0, 0, 0); // Use noon to avoid DST transitions
+
         while (currentDate <= maxDate) {
-            dates.push(new Date(currentDate));
+            const dateToAdd = new Date(currentDate);
+            dateToAdd.setHours(12, 0, 0, 0); // Normalize each date
+            dates.push(dateToAdd);
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
