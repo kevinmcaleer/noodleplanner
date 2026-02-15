@@ -5388,6 +5388,44 @@ body.detail-pane-open {
     color: #333;
 }
 
+/* Stage Actions */
+.planning-stage-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 16px;
+    border-left: 1px solid #dee2e6;
+}
+
+/* Help Table */
+.help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.help-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.help-table td:first-child {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.help-table kbd {
+    display: inline-block;
+    padding: 3px 6px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    font-size: 11px;
+    font-family: monospace;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     #outline-stage .planning-stage-content {

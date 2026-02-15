@@ -936,6 +936,14 @@ Build
                         <button class="planning-stage-tab" onclick="switchPlanningStage('schedule')" id="scheduleStageTab">
                             3. Schedule
                         </button>
+                        <div class="planning-stage-actions">
+                            <button class="toolbar-btn" onclick="exportPlanningRoomZip()" title="Export all files (Outline, Flow, Plan)">
+                                📦 Export All
+                            </button>
+                            <button class="toolbar-btn" onclick="showPlanningHelp()" title="Keyboard shortcuts and help">
+                                ❓ Help
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Outline Stage -->
@@ -1542,6 +1550,74 @@ phases:
 
                 <!-- Loading spinner -->
                 <div id="wizardSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Planning Room Help Modal -->
+    <div id="planningHelpOverlay" class="modal-overlay" onclick="if(event.target===this) closePlanningHelp()">
+        <div class="task-form-modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Planning Room Help</h2>
+                <button class="close-btn" onclick="closePlanningHelp()">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                <h3>Overview</h3>
+                <p>The Planning Room provides a structured workflow for creating project plans with three stages:</p>
+                <ul>
+                    <li><strong>1. Outline</strong> - Define project structure using YAML</li>
+                    <li><strong>2. Flow</strong> - Visualize and map task dependencies</li>
+                    <li><strong>3. Schedule</strong> - Generate plan.md with dependencies</li>
+                </ul>
+
+                <h3>Keyboard Shortcuts</h3>
+                <table class="help-table">
+                    <tr><td><kbd>Ctrl+S</kbd> / <kbd>Cmd+S</kbd></td><td>Save to localStorage</td></tr>
+                    <tr><td><kbd>Ctrl+L</kbd> / <kbd>Cmd+L</kbd></td><td>Auto-layout flow diagram</td></tr>
+                    <tr><td><kbd>Ctrl+G</kbd> / <kbd>Cmd+G</kbd></td><td>Generate plan</td></tr>
+                    <tr><td><kbd>Ctrl+Z</kbd> / <kbd>Cmd+Z</kbd></td><td>Undo</td></tr>
+                    <tr><td><kbd>Ctrl+Shift+Z</kbd> / <kbd>Cmd+Shift+Z</kbd></td><td>Redo</td></tr>
+                    <tr><td><kbd>Ctrl+Y</kbd> / <kbd>Cmd+Y</kbd></td><td>Redo (alternative)</td></tr>
+                    <tr><td><kbd>Esc</kbd></td><td>Cancel edge creation</td></tr>
+                </table>
+
+                <h3>Flow Diagram Modes</h3>
+                <ul>
+                    <li><strong>Pan</strong> (✋) - Drag the canvas to navigate</li>
+                    <li><strong>Select</strong> (👆) - Click to select, drag to reposition nodes</li>
+                    <li><strong>Link</strong> (🔗) - Click source node, then target node to create edge</li>
+                </ul>
+                <p><em>Tip:</em> Use mouse wheel to zoom in/out on the flow diagram.</p>
+                <p><em>Tip:</em> Ctrl+Click on an edge to delete it.</p>
+
+                <h3>Outline YAML Format</h3>
+                <pre style="background: #f8f9fa; padding: 12px; border-radius: 4px; font-size: 12px;">project:
+  name: 'My Project'
+  start_date: 2026-03-01
+  resources:
+    - {id: alice, name: 'Alice Smith', role: 'Developer'}
+
+phases:
+  - name: 'Phase 1'
+    tasks:
+      - name: 'Task 1.1'
+        duration: 5d
+        resources: ['@alice']
+        children:
+          - name: 'Subtask 1.1.1'
+            duration: 2d</pre>
+
+                <h3>Data Persistence</h3>
+                <p>Your Planning Room data is automatically saved to browser localStorage. Use the <strong>📦 Export All</strong> button to download all files for backup.</p>
+
+                <h3>Tips</h3>
+                <ul>
+                    <li>Start with the Outline stage to define your project structure</li>
+                    <li>Switch to Flow stage to visualize and add dependencies</li>
+                    <li>Use Auto-layout to organize the diagram</li>
+                    <li>Generate the plan in the Schedule stage</li>
+                    <li>Copy the generated plan to the Editor tab for further refinement</li>
+                </ul>
             </div>
         </div>
     </div>

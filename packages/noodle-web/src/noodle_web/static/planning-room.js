@@ -44,6 +44,13 @@ let flowState = {
     dragNode: null
 };
 
+// Undo/redo history
+let undoHistory = {
+    actions: [],  // Array of state snapshots
+    currentIndex: -1,
+    maxSize: 20
+};
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -55,7 +62,12 @@ function initPlanningRoom() {
     loadPlanningState();
     setupPlanningEventListeners();
     setupFlowCanvasListeners();
+    setupKeyboardShortcuts();
     renderOutlineEditor();
+
+    // Save initial state for undo
+    saveUndoState();
+
     console.log('Planning Room initialized');
 }
 
@@ -1077,6 +1089,245 @@ function downloadPlan() {
 }
 
 // ============================================================================
+// ZIP EXPORT/IMPORT (Phase 4)
+// ============================================================================
+
+/**
+ * Export all Planning Room files as a zip
+ */
+async function exportPlanningRoomZip() {
+    try {
+        // Dynamically import JSZip (assuming it's available globally or via CDN)
+        // For now, create a simple download of individual files
+        // Full zip implementation would require JSZip library
+
+        // Generate all three files
+        const outline = planningRoomState.outline.content || '';
+        const flow = JSON.stringify({
+            nodes: planningRoomState.flow.nodes,
+            edges: planningRoomState.flow.edges
+        }, null, 2);
+        const plan = planningRoomState.plan.content || '';
+
+        // Create download links for each file
+        downloadFile(outline, 'outline.yaml', 'text/yaml');
+        setTimeout(() => downloadFile(flow, 'flow.json', 'application/json'), 300);
+        setTimeout(() => downloadFile(plan, 'plan.md', 'text/markdown'), 600);
+
+        console.log('Planning Room files exported');
+    } catch (e) {
+        console.error('Failed to export Planning Room:', e);
+        alert('Failed to export files. Please try individual downloads.');
+    }
+}
+
+/**
+ * Helper to download a file
+ */
+function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Import Planning Room from uploaded files
+ */
+async function importPlanningRoomZip() {
+    // For Phase 4, provide individual file upload
+    // Full zip import would require JSZip library
+    alert('Import feature: Please upload files individually using the upload buttons in each stage.');
+}
+
+// ============================================================================
+// UNDO/REDO (Phase 4)
+// ============================================================================
+
+/**
+ * Save current state to undo history
+ */
+function saveUndoState() {
+    // Create snapshot of current state
+    const snapshot = {
+        outline: { ...planningRoomState.outline },
+        flow: {
+            nodes: JSON.parse(JSON.stringify(planningRoomState.flow.nodes)),
+            edges: JSON.parse(JSON.stringify(planningRoomState.flow.edges))
+        },
+        plan: { ...planningRoomState.plan }
+    };
+
+    // Remove any redo history after current position
+    undoHistory.actions = undoHistory.actions.slice(0, undoHistory.currentIndex + 1);
+
+    // Add new snapshot
+    undoHistory.actions.push(snapshot);
+
+    // Limit history size
+    if (undoHistory.actions.length > undoHistory.maxSize) {
+        undoHistory.actions.shift();
+    } else {
+        undoHistory.currentIndex++;
+    }
+}
+
+/**
+ * Undo last action
+ */
+function undo() {
+    if (undoHistory.currentIndex > 0) {
+        undoHistory.currentIndex--;
+        restoreState(undoHistory.actions[undoHistory.currentIndex]);
+        console.log('Undo:', undoHistory.currentIndex);
+    } else {
+        console.log('Nothing to undo');
+    }
+}
+
+/**
+ * Redo last undone action
+ */
+function redo() {
+    if (undoHistory.currentIndex < undoHistory.actions.length - 1) {
+        undoHistory.currentIndex++;
+        restoreState(undoHistory.actions[undoHistory.currentIndex]);
+        console.log('Redo:', undoHistory.currentIndex);
+    } else {
+        console.log('Nothing to redo');
+    }
+}
+
+/**
+ * Restore state from snapshot
+ */
+function restoreState(snapshot) {
+    planningRoomState.outline = { ...snapshot.outline };
+    planningRoomState.flow.nodes = JSON.parse(JSON.stringify(snapshot.flow.nodes));
+    planningRoomState.flow.edges = JSON.parse(JSON.stringify(snapshot.flow.edges));
+    planningRoomState.plan = { ...snapshot.plan };
+
+    // Re-render current stage
+    renderOutlineEditor();
+    parseOutline();
+    renderFlowDiagram();
+
+    savePlanningState();
+}
+
+// ============================================================================
+// KEYBOARD SHORTCUTS (Phase 4)
+// ============================================================================
+
+/**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Only handle shortcuts when Planning tab is active
+        const planningTab = document.getElementById('planning-tab');
+        if (!planningTab || !planningTab.classList.contains('active')) {
+            return;
+        }
+
+        // Ctrl/Cmd + S: Save (already auto-saves, but trigger manual save)
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            savePlanningState();
+            console.log('Manual save triggered');
+            // Show brief confirmation
+            showNotification('Saved to localStorage', 'success');
+        }
+
+        // Ctrl/Cmd + L: Auto-layout flow
+        if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+            e.preventDefault();
+            if (planningRoomState.currentStage === 'flow') {
+                autoLayoutFlow();
+                showNotification('Auto-layout applied', 'success');
+            }
+        }
+
+        // Ctrl/Cmd + G: Generate plan
+        if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+            e.preventDefault();
+            if (planningRoomState.currentStage === 'schedule') {
+                generatePlan();
+            }
+        }
+
+        // Ctrl/Cmd + Z: Undo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+            showNotification('Undo', 'info');
+        }
+
+        // Ctrl/Cmd + Shift + Z: Redo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+            e.preventDefault();
+            redo();
+            showNotification('Redo', 'info');
+        }
+
+        // Ctrl/Cmd + Y: Redo (alternative)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+            e.preventDefault();
+            redo();
+            showNotification('Redo', 'info');
+        }
+
+        // Escape: Cancel edge creation
+        if (e.key === 'Escape') {
+            if (flowState.edgeSourceNode) {
+                flowState.edgeSourceNode = null;
+                deselectAllNodes();
+                renderFlowDiagram();
+                showNotification('Edge creation cancelled', 'info');
+            }
+        }
+    });
+}
+
+/**
+ * Show brief notification
+ */
+function showNotification(message, type = 'info') {
+    // Simple notification system
+    const notification = document.createElement('div');
+    notification.className = `planning-notification planning-notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+        color: white;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        z-index: 10000;
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    `;
+
+    document.body.appendChild(notification);
+
+    // Fade in
+    setTimeout(() => notification.style.opacity = '1', 10);
+
+    // Fade out and remove
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
+}
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
@@ -1087,6 +1338,26 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Show Planning Room help modal
+ */
+function showPlanningHelp() {
+    const overlay = document.getElementById('planningHelpOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+    }
+}
+
+/**
+ * Close Planning Room help modal
+ */
+function closePlanningHelp() {
+    const overlay = document.getElementById('planningHelpOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
 }
 
 // ============================================================================
