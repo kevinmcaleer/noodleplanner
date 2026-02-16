@@ -198,6 +198,12 @@ export class TimelineView extends BaseView {
       const nameSpan = label.createDiv({ cls: 'noodle-milestone-name' });
       nameSpan.setText(task.description);
 
+      // Add phase name for summary tasks (phases) with white font at small size
+      if (task.isSummary && task.phase) {
+        const phaseSpan = label.createDiv({ cls: 'noodle-milestone-phase' });
+        phaseSpan.setText(task.phase);
+      }
+
       const dateSpan = label.createDiv({ cls: 'noodle-milestone-date' });
       dateSpan.setText(this.formatDateShort(task.finish));
     }

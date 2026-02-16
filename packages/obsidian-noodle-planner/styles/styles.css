@@ -752,6 +752,15 @@
   text-overflow: ellipsis;
 }
 
+.noodle-milestone-phase {
+  font-size: 0.7rem;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
 .noodle-milestone-date {
   font-size: 0.7rem;
   color: var(--noodle-text-muted);
