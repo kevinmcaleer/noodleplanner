@@ -1192,23 +1192,7 @@ h1 {
     cursor: default;
 }
 
-.minimal-phase-label {
-    position: absolute;
-    top: -18px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.65em;
-    color: white;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 80px;
-    text-align: center;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 1px 4px;
-    border-radius: 2px;
-    font-weight: 500;
-}
+/* Phase names are now rendered as SVG text inside the phase rectangles */
 
 .minimal-timeline-mode .timeline-line {
     height: 2px;

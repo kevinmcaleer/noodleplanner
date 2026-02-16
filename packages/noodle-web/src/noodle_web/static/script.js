@@ -2089,11 +2089,10 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
     // Get phase (summary) tasks with valid start and finish dates
     const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
 
-    // Get milestones (0-duration, non-summary) and phases (summary tasks)
+    // Get milestones (0-duration, non-summary) - phases are shown as rectangles above
     const milestones = tasks.filter(t => {
         if (!t.finish) return false;
-        // Include regular milestones (0-duration, non-summary) and phases (summary tasks)
-        return (t.duration_days === 0 && !t.is_summary) || t.is_summary;
+        return t.duration_days === 0 && !t.is_summary;
     });
 
     // Calculate bar height as ~1.7% of timeline width
@@ -2174,6 +2173,32 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
                 progressRect.setAttribute('opacity', '0.9');
                 svg.appendChild(progressRect);
             }
+
+            // Add phase name text inside the rectangle (left-aligned, white, small font)
+            if (width > 20) { // Only show text if rectangle is wide enough
+                const fontSize = Math.min(10, Math.max(8, barHeight - 2)); // Slightly smaller font for minimal view
+                const clipId = 'minimal-phase-clip-' + index;
+                const clipPath = document.createElementNS(svgNS, 'clipPath');
+                clipPath.setAttribute('id', clipId);
+                const clipRect = document.createElementNS(svgNS, 'rect');
+                clipRect.setAttribute('x', x + 2);
+                clipRect.setAttribute('y', y);
+                clipRect.setAttribute('width', Math.max(0, width - 4));
+                clipRect.setAttribute('height', barHeight);
+                clipPath.appendChild(clipRect);
+                svg.appendChild(clipPath);
+
+                const text = document.createElementNS(svgNS, 'text');
+                text.setAttribute('x', x + 4); // Left-aligned with small padding
+                text.setAttribute('y', y + barHeight / 2);
+                text.setAttribute('dominant-baseline', 'central');
+                text.setAttribute('font-size', fontSize + 'px');
+                text.setAttribute('fill', '#ffffff'); // White text
+                text.setAttribute('font-weight', '500');
+                text.setAttribute('clip-path', 'url(#' + clipId + ')');
+                text.textContent = isComplete ? '✓ ' + phase.name : phase.name;
+                svg.appendChild(text);
+            }
         });
 
         svgContainer.appendChild(svg);
@@ -2213,15 +2238,7 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
 
         milestoneDiv.appendChild(marker);
 
-        // Add phase name label if this is a summary task (phase) with white font at small size
-        if (task.is_summary) {
-            console.log('Found summary task:', task.name, 'phase:', task.phase); // Debug logging
-            const phaseLabel = document.createElement('div');
-            phaseLabel.className = 'minimal-phase-label';
-            // Use task.phase if available, otherwise use task.name as the phase name
-            phaseLabel.textContent = task.phase || task.name;
-            milestoneDiv.appendChild(phaseLabel);
-        }
+        // Phase names are now displayed inside the phase rectangles above, not as milestone labels
         timelineMilestones.appendChild(milestoneDiv);
     });
 
