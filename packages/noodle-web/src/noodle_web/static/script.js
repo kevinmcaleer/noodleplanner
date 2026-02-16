@@ -3296,6 +3296,24 @@ function renderGanttRows() {
             infoRow.style.display = 'none';
         }
 
+        // Done checkbox cell (skip for summary tasks)
+        const doneCell = document.createElement('td');
+        doneCell.classList.add('gantt-done-cell');
+        if (!task.is_summary) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.percent === '100%';
+            checkbox.title = checkbox.checked ? 'Mark incomplete' : 'Mark complete';
+            checkbox.addEventListener('change', () => {
+                const newPercent = checkbox.checked ? '100%' : '0%';
+                task.percent = newPercent;
+                syncGanttPercentToEditor(task, index);
+                renderGanttChart();
+            });
+            doneCell.appendChild(checkbox);
+        }
+        infoRow.appendChild(doneCell);
+
         // ID cell (not editable)
         const idCell = document.createElement('td');
         idCell.textContent = task.id;
