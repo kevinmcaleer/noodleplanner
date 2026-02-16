@@ -6537,7 +6537,8 @@ async function useTemplate(templateId) {
                 kanbanEditor.value = template.content;
             }
 
-            updateLineNumbers();
+            // Trigger input event to update line numbers and syntax highlighting
+            editor.dispatchEvent(new Event('input'));
             showMessage('editor', 'success', `Template "${template.title}" loaded successfully! Press Enter to render your plan.`, 5000);
             closeTemplatesModal();
         }
