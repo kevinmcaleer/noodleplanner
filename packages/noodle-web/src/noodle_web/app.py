@@ -38,7 +38,6 @@ from noodle_core import (
 )
 from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
-import yaml
 from .middleware import ActivityLoggingMiddleware
 from .database import init_db, test_connection
 
@@ -1142,7 +1141,9 @@ async def get_templates():
 async def get_template(template_id: str):
     """Get a specific template's content and metadata."""
     templates_dir = TEMPLATES_DIR
-    template_path = templates_dir / template_id
+    template_path = (templates_dir / template_id).resolve()
+    if not str(template_path).startswith(str(templates_dir.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid template ID")
 
     if not template_path.exists() or not template_path.is_dir():
         raise HTTPException(status_code=404, detail="Template not found")
@@ -1191,7 +1192,9 @@ async def get_template_hero(template_id: str, ext: str):
         raise HTTPException(status_code=400, detail="Invalid image format")
 
     templates_dir = TEMPLATES_DIR
-    hero_path = templates_dir / template_id / f"hero.{ext}"
+    hero_path = (templates_dir / template_id / f"hero.{ext}").resolve()
+    if not str(hero_path).startswith(str(templates_dir.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid template ID")
 
     if not hero_path.exists():
         raise HTTPException(status_code=404, detail="Hero image not found")
