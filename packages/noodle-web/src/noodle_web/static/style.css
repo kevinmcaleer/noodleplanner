@@ -1242,16 +1242,15 @@ h1 {
     pointer-events: none;
 }
 
-.timeline-today-label {
+.timeline-today-marker .timeline-today-label {
     position: absolute;
-    bottom: -44px;
-    left: var(--today-position);
+    bottom: -16px;
+    left: 50%;
     transform: translateX(-50%);
     font-size: 0.65em;
     color: #dc3545;
     font-weight: 600;
     white-space: nowrap;
-    z-index: 10;
 }
 
 /* Subtle today marker for minimal and report timelines */
@@ -1261,10 +1260,11 @@ h1 {
     background: rgba(220, 53, 69, 0.4);
 }
 
-.timeline-today-label.subtle {
+.timeline-today-marker.subtle .timeline-today-label {
     color: rgba(220, 53, 69, 0.5);
     font-weight: 400;
     font-size: 0.55em;
+    bottom: -14px;
 }
 
 /* Report page minimal timeline compact padding */
