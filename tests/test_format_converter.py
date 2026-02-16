@@ -1043,6 +1043,37 @@ class TestRaidLogNotParsedAsTasks:
         assert 'Task 1' in result
 
 
+    def test_raid_log_after_highlights_without_end_marker(self):
+        """RAID log after highlights without ---end-highlights--- should be stripped.
+
+        Regression test: when highlights don't have an explicit end marker,
+        strip_highlights was consuming the ---raid log--- marker, so
+        strip_raid_log couldn't find it and the RAID table leaked through.
+        """
+        text = """Phase 1
+  Task 1 @john 3days
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Content
+
+---
+
+---raid log---
+| Type     | Description           | Status | Score | Owner | Date       |
+|----------|-----------------------|--------|-------|-------|------------|
+| risk     | this is a test        | open   | 9     | kev   | 2026-02-16 |
+| issue    | mo money, mo problems | open   | 25    | kev   | 2026-02-16 |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---highlights---' not in result
+        assert '---raid log---' not in result
+        assert 'this is a test' not in result
+        assert 'mo money' not in result
+        assert 'Task 1' in result
+
+
 class TestHighlightsPreserveRaidLog:
     """Test that highlights operations preserve the RAID log."""
 

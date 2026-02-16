@@ -1867,3 +1867,53 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 
 **Status:** ✅ COMPLETED - Merged to main (c320fbd), issue #242 closed.
 
+### Gantt Chart Completion Checkbox (GitHub Issue #249) - ✅ CLOSED
+- [x] Added checkbox column as first column in Gantt chart task rows
+- [x] Pre-checked if task is 100% complete
+- [x] Toggle sets 100%/0% and syncs to plan editor via `syncGanttPercentToEditor()`
+- [x] Summary/phase tasks skipped (completion derived from children)
+- [x] Compact 30px column with pointer cursor styling
+
+**Status:** ✅ COMPLETED - Merged to main (8e380f5), issue #249 closed.
+
+### Templates System (GitHub Issue #250) - ✅ CLOSED
+- [x] Backend API: `/api/templates`, `/api/templates/{id}`, `/api/templates/{id}/hero.{ext}`, `/templates` gallery page
+- [x] 6 templates with metadata (template.yml), plans (plan.md), and hero images
+- [x] Templates gallery page with category filtering and popular templates section
+- [x] Templates modal in main app with Use Template button that loads content into editor
+- [x] Dockerfile updated to copy templates directory into Docker image
+- [x] Robust path resolution with env var / cwd / fallback strategies
+- [x] Fixed layout (removed conflicting style.css import) and Use Template JS bugs
+- [x] Path traversal security fix on template API endpoints
+- [x] Removed duplicate template modal implementations in script.js
+- [x] 8 API tests for template endpoints
+
+**Status:** ✅ COMPLETED - Merged to main, issue #250 closed.
+
+### Resource View Enhancements (GitHub Issue #251) - ✅ CLOSED
+- [x] Consolidated resource pages under Resources dropdown menu (Table, Timesheet, User Workload, Resource Sheet)
+- [x] Resource table: editable Full Name and Shortname columns
+- [x] Auto-update shortname references in plan editor on rename
+- [x] Fix Resource Names button to capitalise first letter of all shortnames
+- [x] New Resource Sheet view with tasks grouped by resource and timeline bars
+- [x] Resource filter dropdown (All Resources or individual)
+- [x] Highlights overlapping task assignments
+
+**Status:** ✅ COMPLETED - Merged to main (6d04bc3), issue #251 closed.
+
+### Interactive Timeline (GitHub Issue #252) - ✅ CLOSED
+- [x] Gantt bars: click-to-open task details with 5px drag threshold (preserves drag-to-move)
+- [x] SVG detailed timeline: phase blocks, progress overlays, and labels are clickable
+- [x] SVG minimal timeline: phase bars and milestone markers are clickable
+- [x] All use existing `openMilestoneTaskForm(taskName)` function
+- [x] Visual affordance: pointer cursor, brightness hover on SVG, scale hover on milestones
+
+**Status:** ✅ COMPLETED - Merged to main (454a24c), issue #252 closed.
+
+### Security Fix: Template API Path Traversal
+- [x] Added path traversal protection to `/api/templates/{id}` and `/api/templates/{id}/hero.{ext}`
+- [x] Validates resolved paths stay within TEMPLATES_DIR
+- [x] Removed duplicate yaml import
+
+**Status:** ✅ COMPLETED - Committed to main (ad4d8ee).
+

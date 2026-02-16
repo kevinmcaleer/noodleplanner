@@ -211,7 +211,9 @@ def strip_highlights(text: str) -> str:
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
-            end_len = len(marker)
+            # Only consume the end-highlights marker, not the raid log marker
+            # so strip_raid_log can still find it
+            end_len = len(marker) if marker == HIGHLIGHTS_END else 0
 
     before = text[:start_idx].rstrip('\n')
     after = text[end_idx + end_len:].lstrip('\n')
