@@ -112,7 +112,6 @@ window.addEventListener('load', function() {
     initializeKanbanEditor();
     initializeUploadTab();
     initializeEditorDragDrop();
-    initializeGlobalKeyboardShortcuts();
 });
 
 function initializeEditor() {
@@ -428,53 +427,19 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     editor.addEventListener('keyup', updateActiveLine);
     editor.addEventListener('focus', updateActiveLine);
 
-    // Enhanced keyboard shortcuts for editor
+    // Keyboard shortcuts
     editor.addEventListener('keydown', function(e) {
-        // Check if user is typing in the editor (not using shortcuts)
-        const isTyping = !e.ctrlKey && !e.metaKey && !e.altKey;
 
         // Indent with Cmd+] (macOS) or Ctrl+] (Windows/Linux)
         if ((e.metaKey || e.ctrlKey) && e.key === ']') {
             e.preventDefault();
             indentSelectedLines();
-            return;
         }
 
         // Outdent with Cmd+[ (macOS) or Ctrl+[ (Windows/Linux)
         if ((e.metaKey || e.ctrlKey) && e.key === '[') {
             e.preventDefault();
             outdentSelectedLines();
-            return;
-        }
-
-        // Render plan with Cmd+Enter or Ctrl+Enter
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            e.preventDefault();
-            renderText();
-            return;
-        }
-
-        // Save/Download with Cmd+S or Ctrl+S
-        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-            e.preventDefault();
-            downloadMarkdown();
-            return;
-        }
-
-        // New plan with Cmd+N or Ctrl+N
-        if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-            e.preventDefault();
-            if (confirm('Create a new plan? This will clear the current editor content.')) {
-                editor.value = '';
-                editor.dispatchEvent(new Event('input'));
-            }
-            return;
-        }
-
-        // Find with Cmd+F or Ctrl+F (browser default, but we'll add visual feedback)
-        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-            // Let browser handle find, but add visual feedback
-            showMessage('editor', 'info', 'Use Cmd/Ctrl+F to find text in the editor');
         }
     });
 
@@ -729,196 +694,6 @@ async function handleEditorFileDrop(file) {
     } catch (error) {
         console.error('Error loading file:', error);
         showMessage('editor', 'error', 'Failed to load file: ' + error.message);
-    }
-}
-
-/**
- * Initialize global keyboard shortcuts that work across the entire application
- */
-function initializeGlobalKeyboardShortcuts() {
-    document.addEventListener('keydown', function(e) {
-        // Ignore shortcuts when user is typing in input fields
-        const activeElement = document.activeElement;
-        const isInputField = activeElement && (
-            activeElement.tagName === 'INPUT' ||
-            activeElement.tagName === 'TEXTAREA' ||
-            activeElement.contentEditable === 'true'
-        );
-
-        // For editor-specific shortcuts, let the editor handler manage them
-        const isInEditor = activeElement && activeElement.id === 'planEditor';
-        if (isInEditor) {
-            return; // Let editor's keydown handler manage these
-        }
-
-        // Tab switching shortcuts (only when not in input fields)
-        if (!isInputField) {
-            // Switch to Editor tab with Alt+1
-            if (e.altKey && e.key === '1') {
-                e.preventDefault();
-                switchTab('editor');
-                showMessage('editor', 'info', 'Switched to Editor (Alt+1)');
-                return;
-            }
-
-            // Switch to Board tab with Alt+2
-            if (e.altKey && e.key === '2') {
-                e.preventDefault();
-                switchTab('kanban');
-                showMessage('kanban', 'info', 'Switched to Board (Alt+2)');
-                return;
-            }
-
-            // Switch to Planning tab with Alt+3
-            if (e.altKey && e.key === '3') {
-                e.preventDefault();
-                switchTab('planning');
-                showMessage('planning', 'info', 'Switched to Planning (Alt+3)');
-                return;
-            }
-
-            // Switch to RAID Log with Alt+4
-            if (e.altKey && e.key === '4') {
-                e.preventDefault();
-                switchTab('raid');
-                showMessage('raid', 'info', 'Switched to RAID Log (Alt+4)');
-                return;
-            }
-
-            // Switch to Help tab with Alt+H
-            if (e.altKey && e.key === 'h') {
-                e.preventDefault();
-                switchTab('guide');
-                showMessage('guide', 'info', 'Switched to Help (Alt+H)');
-                return;
-            }
-        }
-
-        // Global shortcuts that work even in input fields (with Cmd/Ctrl)
-        // Toggle between main views with Cmd+Shift or Ctrl+Shift combinations
-        if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
-            // Toggle Project Report view with Cmd+Shift+R
-            if (e.key === 'R') {
-                e.preventDefault();
-                switchToView('project-report');
-                showMessage('editor', 'info', 'Switched to Project Report (Cmd/Ctrl+Shift+R)');
-                return;
-            }
-
-            // Toggle Timeline view with Cmd+Shift+T
-            if (e.key === 'T') {
-                e.preventDefault();
-                switchToView('timeline');
-                showMessage('editor', 'info', 'Switched to Timeline (Cmd/Ctrl+Shift+T)');
-                return;
-            }
-
-            // Toggle Gantt view with Cmd+Shift+G
-            if (e.key === 'G') {
-                e.preventDefault();
-                switchToView('gantt');
-                showMessage('editor', 'info', 'Switched to Gantt Chart (Cmd/Ctrl+Shift+G)');
-                return;
-            }
-
-            // Toggle Summary view with Cmd+Shift+S
-            if (e.key === 'S') {
-                e.preventDefault();
-                switchToView('summary');
-                showMessage('editor', 'info', 'Switched to Summary (Cmd/Ctrl+Shift+S)');
-                return;
-            }
-
-            // Toggle Resources view with Cmd+Shift+U
-            if (e.key === 'U') {
-                e.preventDefault();
-                switchToView('resources');
-                showMessage('editor', 'info', 'Switched to Resources (Cmd/Ctrl+Shift+U)');
-                return;
-            }
-        }
-
-        // Show help for keyboard shortcuts with Cmd+? or Ctrl+?
-        if ((e.metaKey || e.ctrlKey) && e.key === '?') {
-            e.preventDefault();
-            showKeyboardShortcutsHelp();
-            return;
-        }
-    });
-}
-
-/**
- * Show a help dialog with all available keyboard shortcuts
- */
-function showKeyboardShortcutsHelp() {
-    const shortcuts = `
-<h3>Keyboard Shortcuts</h3>
-
-<h4>Editor Shortcuts:</h4>
-<ul>
-    <li><strong>Cmd/Ctrl + Enter</strong> - Render plan</li>
-    <li><strong>Cmd/Ctrl + S</strong> - Save/Download plan</li>
-    <li><strong>Cmd/Ctrl + N</strong> - New plan (clears editor)</li>
-    <li><strong>Cmd/Ctrl + ]</strong> - Indent selected lines</li>
-    <li><strong>Cmd/Ctrl + [</strong> - Outdent selected lines</li>
-    <li><strong>Cmd/Ctrl + F</strong> - Find text in editor</li>
-</ul>
-
-<h4>Tab Navigation:</h4>
-<ul>
-    <li><strong>Alt + 1</strong> - Switch to Editor tab</li>
-    <li><strong>Alt + 2</strong> - Switch to Board tab</li>
-    <li><strong>Alt + 3</strong> - Switch to Planning tab</li>
-    <li><strong>Alt + 4</strong> - Switch to RAID Log tab</li>
-    <li><strong>Alt + H</strong> - Switch to Help tab</li>
-</ul>
-
-<h4>View Navigation:</h4>
-<ul>
-    <li><strong>Cmd/Ctrl + Shift + R</strong> - Project Report view</li>
-    <li><strong>Cmd/Ctrl + Shift + T</strong> - Timeline view</li>
-    <li><strong>Cmd/Ctrl + Shift + G</strong> - Gantt Chart view</li>
-    <li><strong>Cmd/Ctrl + Shift + S</strong> - Summary view</li>
-    <li><strong>Cmd/Ctrl + Shift + U</strong> - Resources view</li>
-</ul>
-
-<h4>Help:</h4>
-<ul>
-    <li><strong>Cmd/Ctrl + ?</strong> - Show this shortcuts help</li>
-</ul>
-    `;
-
-    // Create or update help modal
-    let modal = document.getElementById('shortcutsModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'shortcutsModal';
-        modal.innerHTML = `
-            <div class="modal-backdrop" onclick="closeShortcutsHelp()"></div>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <button class="modal-close" onclick="closeShortcutsHelp()">×</button>
-                </div>
-                <div class="modal-body">${shortcuts}</div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    } else {
-        modal.querySelector('.modal-body').innerHTML = shortcuts;
-    }
-
-    modal.style.display = 'block';
-    modal.classList.add('show');
-}
-
-/**
- * Close the keyboard shortcuts help modal
- */
-function closeShortcutsHelp() {
-    const modal = document.getElementById('shortcutsModal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
     }
 }
 
