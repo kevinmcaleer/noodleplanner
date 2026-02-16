@@ -1619,61 +1619,6 @@ Build
         </div>
     </div>
 
-    <!-- Find and Replace Modal -->
-    <div id="findReplaceOverlay" class="modal-overlay" onclick="if(event.target===this) closeFindReplace()">
-        <div class="find-replace-modal">
-            <div class="modal-header">
-                <h2 id="findReplaceTitle">Find & Replace</h2>
-                <button class="close-btn" onclick="closeFindReplace()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="find-replace-form">
-                    <div class="form-group">
-                        <label for="findInput">Find</label>
-                        <input type="text" id="findInput" class="form-control" placeholder="Search for text..."
-                               onkeydown="handleFindKeydown(event)" oninput="performFind()">
-                    </div>
-                    <div class="form-group">
-                        <label for="replaceInput">Replace with</label>
-                        <input type="text" id="replaceInput" class="form-control" placeholder="Replace with..."
-                               onkeydown="handleReplaceKeydown(event)">
-                    </div>
-                    <div class="find-options">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="caseSensitive" onchange="performFind()">
-                            <span>Match case</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="useRegex" onchange="performFind()">
-                            <span>Use regex</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="wholeWords" onchange="performFind()">
-                            <span>Whole words</span>
-                        </label>
-                    </div>
-                    <div class="find-results">
-                        <span id="findResultsText">No results</span>
-                    </div>
-                    <div class="find-actions">
-                        <button class="btn-secondary" onclick="findPrevious()" title="Find Previous (Shift+F3)">
-                            ⬆ Previous
-                        </button>
-                        <button class="btn-secondary" onclick="findNext()" title="Find Next (F3)">
-                            ⬇ Next
-                        </button>
-                        <button class="btn-primary" onclick="replaceOne()" title="Replace (Enter)">
-                            Replace
-                        </button>
-                        <button class="btn-primary" onclick="replaceAll()" title="Replace All (Ctrl+Enter)">
-                            Replace All
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Custom JavaScript -->
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
