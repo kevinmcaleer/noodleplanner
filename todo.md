@@ -1840,3 +1840,30 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 
 **Merged:** Commit 1d2a770 (all 4 phases) + commits 0e68e9c and ef242b0 (markdown simplification)
 
+### Milestone RAG Status Bug Fix
+- [x] Fixed `schedule_tasks()` to preserve explicit start dates when `#label` dependencies don't resolve
+- [x] Previously, unresolved `#label` tokens caused the scheduler to override explicit start dates with today's date
+- [x] Added 2 regression tests for explicit start date preservation
+
+**Status:** ✅ COMPLETED - Committed to main (593d609).
+
+### Labels Not Dependencies (GitHub Issue #241) - ✅ CLOSED
+- [x] Removed `#`-prefix dependency parsing from `extract_metadata()` in scheduling_engine.py
+- [x] `#tokens` now stored as `meta['labels']` instead of `meta['depends']`
+- [x] Removed `convert_depends()` function from format_converter.py that converted `[depends]` to `#`
+- [x] Updated `format_dependencies()` in planning_room.py to always use `[depends ...]` syntax
+- [x] Updated frontend `Task` class in script.js to parse `#tokens` as labels
+- [x] Updated `addDependencyToTaskLine()` in kanban.js to use `[depends ...]` syntax
+- [x] Updated all dependency tests to use `[depends]` syntax
+- [x] Added tests verifying `#tokens` are stored as labels and coexist with `[depends]` dependencies
+
+**Status:** ✅ COMPLETED - Merged to main (c1043c9), issue #241 closed.
+
+### Board Views Filtering Bug (GitHub Issue #242) - ✅ CLOSED
+- [x] Added `inHighlights` and `inRaidLog` section-boundary tracking to `KanbanBoard.parse()` in kanban.js
+- [x] Lines within `---highlights---` and `---raid log---` sections are now skipped during board parsing
+- [x] Matches existing pattern used in the syntax highlighter in script.js
+- [x] Phase, resource, label, and progress boards now only show actual plan tasks
+
+**Status:** ✅ COMPLETED - Merged to main (c320fbd), issue #242 closed.
+
