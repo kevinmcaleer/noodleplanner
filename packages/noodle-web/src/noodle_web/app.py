@@ -4,6 +4,7 @@ import hashlib
 import tempfile
 import logging
 import zipfile
+import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
