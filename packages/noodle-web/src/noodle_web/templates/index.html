@@ -43,21 +43,12 @@
                         <div class="nav-menu-item" onclick="switchToView('gantt'); event.stopPropagation();">
                             📈 Gantt Chart
                         </div>
-                        <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
-                            👥 Resources
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('timesheet'); event.stopPropagation();">
-                            ⏰ Timesheet
-                        </div>
                         <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
                             🔍 Analysis
                         </div>
                         <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
                             🔮 2-Week Look-Ahead
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('user-workload'); event.stopPropagation();">
-                            👤 User Workload
                         </div>
                     </div>
                 </div>
@@ -73,6 +64,25 @@
                         </div>
                         <div class="nav-menu-item" onclick="switchToView('highlights'); event.stopPropagation();">
                             ⭐ Highlights
+                        </div>
+                    </div>
+                </div>
+                <div class="nav-dropdown">
+                    <button class="tab" id="resourcesTab" onclick="toggleResourcesMenu(event)">
+                        Resources ▾
+                    </button>
+                    <div class="nav-menu" id="resourcesMenu">
+                        <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
+                            👥 Resources Table
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('timesheet'); event.stopPropagation();">
+                            ⏰ Timesheet
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('user-workload'); event.stopPropagation();">
+                            👤 User Workload
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('resource-sheet'); event.stopPropagation();">
+                            📋 Resource Sheet
                         </div>
                     </div>
                 </div>
@@ -196,6 +206,7 @@ Press Enter to render..."></textarea>
                             <button class="output-tab" data-tab="timesheet" onclick="switchOutputTab('timesheet')">Timesheet</button>
                             <button class="output-tab" data-tab="analysis" onclick="switchOutputTab('analysis')">Analysis</button>
                             <button class="output-tab" data-tab="highlights" onclick="switchOutputTab('highlights')">Highlights</button>
+                            <button class="output-tab" data-tab="resource-sheet" onclick="switchOutputTab('resource-sheet')">Resource Sheet</button>
                         </div>
 
                         <!-- Project Report View (default) -->
@@ -504,12 +515,16 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see resource allocation here.</p>
                             </div>
                             <div class="resources-content" style="display: none;">
-                                <h2 class="resources-title">Resource Allocation</h2>
+                                <div class="resources-toolbar">
+                                    <h2 class="resources-title">Resource Allocation</h2>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="fixResourceNames()" title="Capitalise first letter of all resource shortnames">Fix Resource Names</button>
+                                </div>
                                 <div class="resources-table-wrapper">
                                     <table class="resources-table">
                                         <thead>
                                             <tr>
-                                                <th>Resource Name</th>
+                                                <th>Full Name</th>
+                                                <th>Shortname</th>
                                                 <th>Tasks Assigned</th>
                                                 <th>Total Days</th>
                                                 <th>Total Hours</th>
@@ -669,6 +684,46 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="user-workload-empty" id="userWorkloadEmpty" style="display: none;">
                                     <p>No tasks assigned to users.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resource Sheet View -->
+                        <div id="resource-sheet-view" class="output-tab-content">
+                            <div class="resource-sheet-placeholder placeholder-view">
+                                <h3>Resource Sheet</h3>
+                                <p>Render your plan to see tasks grouped by resource with a timeline view.</p>
+                            </div>
+                            <div class="resource-sheet-content" style="display: none;">
+                                <div class="resource-sheet-toolbar">
+                                    <h2 class="resource-sheet-title">Resource Sheet</h2>
+                                    <div class="resource-sheet-filter">
+                                        <label for="resourceSheetFilter">Filter:</label>
+                                        <select id="resourceSheetFilter" onchange="filterResourceSheet()">
+                                            <option value="all">All Resources</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="resource-sheet-wrapper">
+                                    <div class="resource-sheet-scroll-container">
+                                        <table class="resource-sheet-table">
+                                            <thead>
+                                                <tr id="resourceSheetMonthRow">
+                                                    <th class="resource-sheet-task-col" rowspan="2">Task</th>
+                                                    <th class="resource-sheet-dates-col" rowspan="2">Start</th>
+                                                    <th class="resource-sheet-dates-col" rowspan="2">Finish</th>
+                                                    <th class="resource-sheet-pct-col" rowspan="2">%</th>
+                                                    <!-- Month headers added dynamically -->
+                                                </tr>
+                                                <tr id="resourceSheetDayRow">
+                                                    <!-- Day numbers added dynamically -->
+                                                </tr>
+                                            </thead>
+                                            <tbody id="resourceSheetBody">
+                                                <!-- Resource rows populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
