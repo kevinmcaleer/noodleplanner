@@ -119,6 +119,16 @@ async def index(request: Request):
     })
 
 
+@app.post("/", response_class=HTMLResponse)
+async def index_with_template(request: Request, template_content: str = Form(None)):
+    """Serve the main HTML page with template content pre-loaded."""
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "v": STATIC_VERSION,
+        "template_content": template_content,
+    })
+
+
 @app.get("/favicon.png")
 async def favicon():
     """Serve the favicon."""
@@ -1047,6 +1057,139 @@ async def generate_plan_from_planning_room(data: GeneratePlanRequest):
     except Exception as e:
         logger.error(f"Error generating plan: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate plan: {str(e)}")
+
+
+# ==============================================================================
+# TEMPLATES API ENDPOINTS
+# ==============================================================================
+
+@app.get("/api/templates")
+async def get_templates():
+    """Get all available templates with metadata."""
+    templates_dir = Path(__file__).parent.parent.parent.parent.parent / "templates"
+
+    if not templates_dir.exists():
+        return {"templates": [], "categories": []}
+
+    templates = []
+    categories = set()
+
+    for template_path in templates_dir.iterdir():
+        if template_path.is_dir():
+            template_yml = template_path / "template.yml"
+            plan_md = template_path / "plan.md"
+
+            if template_yml.exists() and plan_md.exists():
+                try:
+                    with open(template_yml, 'r', encoding='utf-8') as f:
+                        metadata = yaml.safe_load(f)
+
+                    # Find hero image
+                    hero_image = None
+                    for ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                        hero_path = template_path / f"hero{ext}"
+                        if hero_path.exists():
+                            hero_image = f"/api/templates/{template_path.name}/hero{ext}"
+                            break
+
+                    template_data = {
+                        "id": template_path.name,
+                        "title": metadata.get("title", template_path.name),
+                        "description": metadata.get("description", ""),
+                        "author": metadata.get("author", ""),
+                        "category": metadata.get("category", "General"),
+                        "hero_image": hero_image,
+                        "popular": metadata.get("popular", False)
+                    }
+
+                    templates.append(template_data)
+                    categories.add(metadata.get("category", "General"))
+
+                except Exception as e:
+                    logger.error(f"Error loading template {template_path.name}: {e}")
+
+    return {
+        "templates": sorted(templates, key=lambda x: x["title"]),
+        "categories": sorted(list(categories))
+    }
+
+
+@app.get("/api/templates/{template_id}")
+async def get_template(template_id: str):
+    """Get a specific template's content and metadata."""
+    templates_dir = Path(__file__).parent.parent.parent.parent.parent / "templates"
+    template_path = templates_dir / template_id
+
+    if not template_path.exists() or not template_path.is_dir():
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    template_yml = template_path / "template.yml"
+    plan_md = template_path / "plan.md"
+
+    if not template_yml.exists() or not plan_md.exists():
+        raise HTTPException(status_code=404, detail="Template files not found")
+
+    try:
+        with open(template_yml, 'r', encoding='utf-8') as f:
+            metadata = yaml.safe_load(f)
+
+        with open(plan_md, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Find hero image
+        hero_image = None
+        for ext in ['.jpg', '.jpeg', '.png', '.gif']:
+            hero_path = template_path / f"hero{ext}"
+            if hero_path.exists():
+                hero_image = f"/api/templates/{template_id}/hero{ext}"
+                break
+
+        return {
+            "id": template_id,
+            "title": metadata.get("title", template_id),
+            "description": metadata.get("description", ""),
+            "author": metadata.get("author", ""),
+            "category": metadata.get("category", "General"),
+            "hero_image": hero_image,
+            "content": content,
+            "popular": metadata.get("popular", False)
+        }
+
+    except Exception as e:
+        logger.error(f"Error loading template {template_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load template")
+
+
+@app.get("/api/templates/{template_id}/hero.{ext}")
+async def get_template_hero(template_id: str, ext: str):
+    """Serve template hero images."""
+    if ext.lower() not in ['jpg', 'jpeg', 'png', 'gif']:
+        raise HTTPException(status_code=400, detail="Invalid image format")
+
+    templates_dir = Path(__file__).parent.parent.parent.parent.parent / "templates"
+    hero_path = templates_dir / template_id / f"hero.{ext}"
+
+    if not hero_path.exists():
+        raise HTTPException(status_code=404, detail="Hero image not found")
+
+    # Determine media type
+    media_types = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif'
+    }
+
+    return FileResponse(hero_path, media_type=media_types[ext.lower()])
+
+
+@app.get("/templates", response_class=HTMLResponse)
+async def templates_page(request: Request):
+    """Serve the templates page."""
+    return templates.TemplateResponse("templates.html", {
+        "request": request,
+        "v": STATIC_VERSION,
+    })
 
 
 if __name__ == "__main__":

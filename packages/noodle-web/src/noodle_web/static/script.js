@@ -6325,6 +6325,12 @@ document.addEventListener('click', function(e) {
     if (trackingMenu && !trackingMenu.contains(e.target) && (!trackingTab || !trackingTab.contains(e.target))) {
         trackingMenu.classList.remove('show');
     }
+
+    const helpMenu = document.getElementById('helpMenu');
+    const helpTab = document.getElementById('helpTab');
+    if (helpMenu && !helpMenu.contains(e.target) && (!helpTab || !helpTab.contains(e.target))) {
+        helpMenu.classList.remove('show');
+    }
 });
 
 // Toggle Views dropdown menu
@@ -6350,6 +6356,24 @@ function toggleTrackingMenu(event) {
     // Close views menu if open
     if (viewsMenu) {
         viewsMenu.classList.remove('show');
+    }
+
+    menu.classList.toggle('show');
+}
+
+// Toggle Help dropdown menu
+function toggleHelpMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('helpMenu');
+    const viewsMenu = document.getElementById('viewsMenu');
+    const trackingMenu = document.getElementById('trackingMenu');
+
+    // Close other menus if open
+    if (viewsMenu) {
+        viewsMenu.classList.remove('show');
+    }
+    if (trackingMenu) {
+        trackingMenu.classList.remove('show');
     }
 
     menu.classList.toggle('show');
