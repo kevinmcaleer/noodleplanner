@@ -23,7 +23,7 @@ COPY packages ./packages
 COPY tests ./tests
 COPY pytest.ini .
 
-# Copy templates
+# Copy project templates
 COPY templates ./templates
 
 # Add cache-busting argument for app code

@@ -1302,5 +1302,66 @@ Just random text
         assert data["raid_items"] == []
 
 
+class TestTemplateEndpoints:
+    """Test suite for template API endpoints."""
+
+    def test_get_templates_returns_list(self, client):
+        """Test that GET /api/templates returns a list of templates."""
+        response = client.get("/api/templates")
+        assert response.status_code == 200
+        data = response.json()
+        assert "templates" in data
+        assert "categories" in data
+        assert isinstance(data["templates"], list)
+        assert len(data["templates"]) > 0
+
+    def test_get_templates_have_required_fields(self, client):
+        """Test that each template has required metadata fields."""
+        response = client.get("/api/templates")
+        data = response.json()
+        for template in data["templates"]:
+            assert "id" in template
+            assert "title" in template
+            assert "description" in template
+            assert "category" in template
+
+    def test_get_template_by_id(self, client):
+        """Test that GET /api/templates/{id} returns template content."""
+        response = client.get("/api/templates/software-development")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == "software-development"
+        assert "title" in data
+        assert "content" in data
+        assert len(data["content"]) > 0
+
+    def test_get_template_not_found(self, client):
+        """Test that GET /api/templates/{id} returns 404 for non-existent template."""
+        response = client.get("/api/templates/non-existent-template")
+        assert response.status_code == 404
+
+    def test_templates_gallery_page(self, client):
+        """Test that GET /templates returns the HTML gallery page."""
+        response = client.get("/templates")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+
+    def test_get_template_hero_image(self, client):
+        """Test that GET /api/templates/{id}/hero.png returns an image."""
+        response = client.get("/api/templates/software-development/hero.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    def test_get_template_hero_image_not_found(self, client):
+        """Test that hero image returns 404 for non-existent template."""
+        response = client.get("/api/templates/non-existent-template/hero.png")
+        assert response.status_code == 404
+
+    def test_get_template_hero_invalid_format(self, client):
+        """Test that hero image returns 400 for invalid image format."""
+        response = client.get("/api/templates/software-development/hero.bmp")
+        assert response.status_code == 400
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

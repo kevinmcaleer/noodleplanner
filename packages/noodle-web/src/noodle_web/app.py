@@ -53,6 +53,28 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 1048576))
 
+
+def _resolve_templates_dir() -> Path:
+    """Resolve the templates directory using multiple strategies."""
+    # 1. Explicit environment variable
+    env_path = os.getenv("NOODLE_TEMPLATES_DIR")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+
+    # 2. Current working directory (works for Docker WORKDIR and local uv run)
+    cwd_path = Path.cwd() / "templates"
+    if cwd_path.exists():
+        return cwd_path
+
+    # 3. Relative to source file (editable install fallback)
+    src_path = Path(__file__).parent.parent.parent.parent.parent / "templates"
+    return src_path
+
+
+TEMPLATES_DIR = _resolve_templates_dir()
+
 app = FastAPI(
     title="Noodle Planner API",
     description="Project planning and scheduling tool",
@@ -1064,26 +1086,11 @@ async def generate_plan_from_planning_room(data: GeneratePlanRequest):
 # TEMPLATES API ENDPOINTS
 # ==============================================================================
 
-def _find_templates_dir() -> Path:
-    """Find the templates directory, works both locally and in Docker."""
-    # First, try walking up to find "noodleplanner" project root (local dev)
-    project_root = Path(__file__).parent
-    while project_root.name != "noodleplanner" and project_root != project_root.parent:
-        project_root = project_root.parent
-    templates_dir = project_root / "templates"
-    if templates_dir.exists():
-        return templates_dir
-    # Fallback: check /app/templates (Docker container)
-    docker_templates = Path("/app/templates")
-    if docker_templates.exists():
-        return docker_templates
-    return templates_dir  # Return original (will fail exists() check upstream)
-
 
 @app.get("/api/templates")
 async def get_templates():
     """Get all available templates with metadata."""
-    templates_dir = _find_templates_dir()
+    templates_dir = TEMPLATES_DIR
 
     if not templates_dir.exists():
         return {"templates": [], "categories": []}
@@ -1134,7 +1141,7 @@ async def get_templates():
 @app.get("/api/templates/{template_id}")
 async def get_template(template_id: str):
     """Get a specific template's content and metadata."""
-    templates_dir = _find_templates_dir()
+    templates_dir = TEMPLATES_DIR
     template_path = templates_dir / template_id
 
     if not template_path.exists() or not template_path.is_dir():
@@ -1183,7 +1190,7 @@ async def get_template_hero(template_id: str, ext: str):
     if ext.lower() not in ['jpg', 'jpeg', 'png', 'gif']:
         raise HTTPException(status_code=400, detail="Invalid image format")
 
-    templates_dir = _find_templates_dir()
+    templates_dir = TEMPLATES_DIR
     hero_path = templates_dir / template_id / f"hero.{ext}"
 
     if not hero_path.exists():
