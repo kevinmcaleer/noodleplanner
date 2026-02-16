@@ -1174,6 +1174,11 @@ h1 {
     display: block;
 }
 
+.detailed-timeline-svg .timeline-clickable:hover,
+.minimal-timeline-svg .timeline-clickable:hover {
+    filter: brightness(1.15);
+}
+
 /* Minimal Timeline View */
 .minimal-timeline-mode {
     padding: 10px 0 30px 0 !important;
@@ -1199,7 +1204,13 @@ h1 {
     border-radius: 50%;
     border: 1px solid #fff;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
-    cursor: default;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.minimal-milestone-marker:hover {
+    transform: scale(1.5);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
 }
 
 /* Phase names are now rendered as SVG text inside the phase rectangles */
@@ -1504,7 +1515,7 @@ h1 {
     height: 28px;
     top: 6px;
     border-radius: 4px;
-    cursor: move;
+    cursor: pointer;
     transition: all 0.2s;
     overflow: visible;
 }
