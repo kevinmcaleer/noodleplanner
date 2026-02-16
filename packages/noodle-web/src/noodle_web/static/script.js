@@ -1002,6 +1002,9 @@ async function updateProjectSummary(planText, projectName) {
         // Update User Workload
         updateUserWorkload(result.tasks || []);
 
+        // Update Resource Sheet
+        updateResourceSheet(result.tasks || [], result.front_matter || {});
+
         // Load RAID items from backend data, with client-side fallback
         const raidFromApi = result.raid_items || [];
         if (raidFromApi.length > 0) {
@@ -1462,15 +1465,12 @@ function updateResourcesTable(tasks) {
 
         // Build reverse lookup map: full name -> shortname
         const fullNameToShortname = {};
-        console.log('Building reverse lookup from globalResourceMap:', globalResourceMap);
         Object.keys(globalResourceMap).forEach(shortname => {
             const fullName = globalResourceMap[shortname];
             if (fullName) {
                 fullNameToShortname[fullName.toLowerCase()] = shortname;
-                console.log('Mapped:', fullName.toLowerCase(), '->', shortname);
             }
         });
-        console.log('Final fullNameToShortname map:', fullNameToShortname);
 
         // Aggregate resource data from tasks
         const resourceData = {};
@@ -1488,11 +1488,10 @@ function updateResourcesTable(tasks) {
                 if (!resourceData[resource]) {
                     // Look up shortname from full name
                     const shortname = fullNameToShortname[resource.toLowerCase()] || resource;
-                    console.log('Resource:', resource, '-> shortname:', shortname, '(from lookup:', resource.toLowerCase(), ')');
 
                     resourceData[resource] = {
                         name: resource,
-                        shortname: shortname, // Store shortname for form population
+                        shortname: shortname,
                         taskCount: 0,
                         totalDays: 0,
                         totalHours: 0
@@ -1501,7 +1500,7 @@ function updateResourcesTable(tasks) {
 
                 resourceData[resource].taskCount++;
                 resourceData[resource].totalDays += task.duration_days || 0;
-                resourceData[resource].totalHours += (task.duration_days || 0) * 8; // Assuming 8 hour work days
+                resourceData[resource].totalHours += (task.duration_days || 0) * 8;
             });
         });
 
@@ -1514,18 +1513,29 @@ function updateResourcesTable(tasks) {
         sortedResources.forEach(resource => {
             const row = document.createElement('tr');
 
-            // Resource Name cell
+            // Full Name cell (editable on double-click)
             const nameCell = document.createElement('td');
             nameCell.textContent = resource.name;
             nameCell.classList.add('resource-name');
             nameCell.style.cursor = 'pointer';
+            nameCell.title = 'Double-click to edit resource';
             nameCell.addEventListener('dblclick', () => {
-                // Use the stored shortname for form population
                 const shortname = resource.shortname || resource.name.replace(/^@/, '');
-                console.log('Opening resource form for:', shortname, 'from resource.name:', resource.name, 'shortname:', resource.shortname);
                 openResourceForm(shortname);
             });
             row.appendChild(nameCell);
+
+            // Shortname cell (editable on double-click)
+            const shortnameCell = document.createElement('td');
+            const displayShortname = resource.shortname || resource.name;
+            shortnameCell.textContent = '@' + displayShortname;
+            shortnameCell.classList.add('resource-shortname');
+            shortnameCell.style.cursor = 'pointer';
+            shortnameCell.title = 'Double-click to rename shortname';
+            shortnameCell.addEventListener('dblclick', () => {
+                startInlineRename(shortnameCell, displayShortname);
+            });
+            row.appendChild(shortnameCell);
 
             // Tasks Assigned cell
             const tasksCell = document.createElement('td');
@@ -1558,6 +1568,10 @@ function updateResourcesTable(tasks) {
             totalLabelCell.style.fontWeight = 'bold';
             totalRow.appendChild(totalLabelCell);
 
+            // Empty shortname cell for totals row
+            const emptyCell = document.createElement('td');
+            totalRow.appendChild(emptyCell);
+
             const totalTasksCell = document.createElement('td');
             totalTasksCell.textContent = sortedResources.reduce((sum, r) => sum + r.taskCount, 0);
             totalTasksCell.classList.add('text-center');
@@ -1581,6 +1595,90 @@ function updateResourcesTable(tasks) {
 
     } catch (error) {
         console.error('Error updating resources table:', error);
+    }
+}
+
+// Inline rename for resource shortname in the resources table
+function startInlineRename(cell, currentShortname) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentShortname;
+    input.className = 'resource-inline-edit';
+    input.style.width = '100%';
+    input.style.padding = '2px 4px';
+    input.style.border = '1px solid #4a6fa5';
+    input.style.borderRadius = '3px';
+    input.style.fontSize = 'inherit';
+
+    const originalText = cell.textContent;
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    function finishEdit() {
+        const newShortname = input.value.trim();
+        if (newShortname && newShortname !== currentShortname) {
+            renameResourceShortname(currentShortname, newShortname);
+            cell.textContent = '@' + newShortname;
+        } else {
+            cell.textContent = originalText;
+        }
+    }
+
+    input.addEventListener('blur', finishEdit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            input.value = currentShortname; // Reset to original
+            input.blur();
+        }
+    });
+}
+
+// Rename a resource shortname throughout the plan text
+function renameResourceShortname(oldShortname, newShortname) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    let content = editor.value;
+
+    // Replace in front matter resource definition: @oldname: -> @newname:
+    content = content.replace(
+        new RegExp(`(@${oldShortname})(\\s*:)`, 'gi'),
+        `@${newShortname}$2`
+    );
+
+    // Replace @oldname references in task lines (not in front matter definition)
+    // Match @oldname followed by word boundary (space, comma, bracket, end of line)
+    content = content.replace(
+        new RegExp(`@${oldShortname}\\b`, 'g'),
+        `@${newShortname}`
+    );
+
+    editor.value = content;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// Fix resource names - capitalise first letter of all resource shortnames
+function fixResourceNames() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    let content = editor.value;
+    let changesMade = false;
+
+    // Find all @shortname references and capitalise first letter
+    content = content.replace(/@([a-z])(\w*)/g, (match, firstChar, rest) => {
+        changesMade = true;
+        return '@' + firstChar.toUpperCase() + rest;
+    });
+
+    if (changesMade) {
+        editor.value = content;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
@@ -6375,70 +6473,58 @@ document.addEventListener('click', function(e) {
         menu.classList.remove('show');
     }
 
-    // Also close Views and Tracking menus when clicking outside
-    const viewsMenu = document.getElementById('viewsMenu');
-    const viewsTab = document.getElementById('viewsTab');
-    if (viewsMenu && !viewsMenu.contains(e.target) && (!viewsTab || !viewsTab.contains(e.target))) {
-        viewsMenu.classList.remove('show');
-    }
-
-    const trackingMenu = document.getElementById('trackingMenu');
-    const trackingTab = document.getElementById('trackingTab');
-    if (trackingMenu && !trackingMenu.contains(e.target) && (!trackingTab || !trackingTab.contains(e.target))) {
-        trackingMenu.classList.remove('show');
-    }
-
-    const helpMenu = document.getElementById('helpMenu');
-    const helpTab = document.getElementById('helpTab');
-    if (helpMenu && !helpMenu.contains(e.target) && (!helpTab || !helpTab.contains(e.target))) {
-        helpMenu.classList.remove('show');
-    }
+    // Also close all nav dropdown menus when clicking outside
+    const navMenus = [
+        { menu: 'viewsMenu', tab: 'viewsTab' },
+        { menu: 'trackingMenu', tab: 'trackingTab' },
+        { menu: 'resourcesMenu', tab: 'resourcesTab' },
+        { menu: 'helpMenu', tab: 'helpTab' }
+    ];
+    navMenus.forEach(({ menu: menuId, tab: tabId }) => {
+        const navMenu = document.getElementById(menuId);
+        const navTab = document.getElementById(tabId);
+        if (navMenu && !navMenu.contains(e.target) && (!navTab || !navTab.contains(e.target))) {
+            navMenu.classList.remove('show');
+        }
+    });
 });
 
 // Toggle Views dropdown menu
+function closeAllNavMenus(except) {
+    const menuIds = ['viewsMenu', 'trackingMenu', 'resourcesMenu', 'helpMenu'];
+    menuIds.forEach(id => {
+        if (id !== except) {
+            const m = document.getElementById(id);
+            if (m) m.classList.remove('show');
+        }
+    });
+}
+
 function toggleViewsMenu(event) {
     event.stopPropagation();
-    const menu = document.getElementById('viewsMenu');
-    const trackingMenu = document.getElementById('trackingMenu');
-
-    // Close tracking menu if open
-    if (trackingMenu) {
-        trackingMenu.classList.remove('show');
-    }
-
-    menu.classList.toggle('show');
+    closeAllNavMenus('viewsMenu');
+    document.getElementById('viewsMenu').classList.toggle('show');
 }
 
 // Toggle Tracking dropdown menu
 function toggleTrackingMenu(event) {
     event.stopPropagation();
-    const menu = document.getElementById('trackingMenu');
-    const viewsMenu = document.getElementById('viewsMenu');
+    closeAllNavMenus('trackingMenu');
+    document.getElementById('trackingMenu').classList.toggle('show');
+}
 
-    // Close views menu if open
-    if (viewsMenu) {
-        viewsMenu.classList.remove('show');
-    }
-
-    menu.classList.toggle('show');
+// Toggle Resources dropdown menu
+function toggleResourcesMenu(event) {
+    event.stopPropagation();
+    closeAllNavMenus('resourcesMenu');
+    document.getElementById('resourcesMenu').classList.toggle('show');
 }
 
 // Toggle Help dropdown menu
 function toggleHelpMenu(event) {
     event.stopPropagation();
-    const menu = document.getElementById('helpMenu');
-    const viewsMenu = document.getElementById('viewsMenu');
-    const trackingMenu = document.getElementById('trackingMenu');
-
-    // Close other menus if open
-    if (viewsMenu) {
-        viewsMenu.classList.remove('show');
-    }
-    if (trackingMenu) {
-        trackingMenu.classList.remove('show');
-    }
-
-    menu.classList.toggle('show');
+    closeAllNavMenus('helpMenu');
+    document.getElementById('helpMenu').classList.toggle('show');
 }
 
 // Templates Modal Functions
@@ -6626,10 +6712,8 @@ function switchToView(viewName) {
     switchOutputTab(viewName);
 
     // Close the dropdown menus
-    const viewsMenu = document.getElementById('viewsMenu');
-    const trackingMenu = document.getElementById('trackingMenu');
-    if (viewsMenu) viewsMenu.classList.remove('show');
-    if (trackingMenu) trackingMenu.classList.remove('show');
+    // Close all nav dropdown menus
+    closeAllNavMenus();
 }
 
 // Switch between output tabs (ASCII, Summary, Milestones, etc.)
@@ -8312,6 +8396,12 @@ const tourSteps = [
         action: () => switchTab('editor')
     },
     {
+        title: "Resources Menu",
+        message: "The Resources dropdown consolidates all resource views: Resources Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource.",
+        target: "#resourcesTab",
+        position: "bottom"
+    },
+    {
         title: "Help & Resources",
         message: "Need help with the syntax? Check out the Help tab for examples and detailed instructions on how to use all features.",
         target: ".tabs > .tab:nth-of-type(5)",
@@ -9360,6 +9450,285 @@ function filterUserWorkload() {
 
     const selectedUser = filterSelect.value;
     displayUserWorkload(window.currentUserMap, selectedUser);
+}
+
+// ========================================
+// Resource Sheet View
+// ========================================
+
+function updateResourceSheet(tasks, frontMatter = {}) {
+    try {
+        const placeholder = document.querySelector('#resource-sheet-view .resource-sheet-placeholder');
+        const content = document.querySelector('#resource-sheet-view .resource-sheet-content');
+
+        if (placeholder && content) {
+            placeholder.style.display = 'none';
+            content.style.display = 'block';
+        }
+
+        const monthRow = document.getElementById('resourceSheetMonthRow');
+        const dayRow = document.getElementById('resourceSheetDayRow');
+        const tbody = document.getElementById('resourceSheetBody');
+
+        if (!monthRow || !dayRow || !tbody) {
+            console.error('Resource sheet table elements not found');
+            return;
+        }
+
+        // Keep static header cells, remove dynamic date columns
+        while (monthRow.children.length > 4) monthRow.removeChild(monthRow.lastChild);
+        while (dayRow.children.length > 0) dayRow.removeChild(dayRow.lastChild);
+        tbody.innerHTML = '';
+
+        // Filter tasks: non-summary with dates and resources
+        const validTasks = tasks.filter(t =>
+            !t.is_summary && t.start && t.finish && t.resources && t.resources !== '-'
+        );
+
+        if (validTasks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="100%" style="text-align:center;padding:20px;">No tasks with resources and dates found</td></tr>';
+            return;
+        }
+
+        // Parse holidays from front matter
+        const holidays = [];
+        if (frontMatter.holidays) {
+            const holidayList = Array.isArray(frontMatter.holidays) ? frontMatter.holidays : [frontMatter.holidays];
+            holidayList.forEach(h => {
+                if (typeof h === 'string') holidays.push(h);
+            });
+        }
+
+        // Determine date range
+        let minDate = null;
+        let maxDate = null;
+        validTasks.forEach(task => {
+            const start = parseLocalDate(task.start);
+            const finish = parseLocalDate(task.finish);
+            if (!minDate || start < minDate) minDate = new Date(start);
+            if (!maxDate || finish > maxDate) maxDate = new Date(finish);
+        });
+
+        // Build date columns
+        const dates = [];
+        const current = new Date(minDate);
+        while (current <= maxDate) {
+            dates.push(new Date(current));
+            current.setDate(current.getDate() + 1);
+        }
+
+        // Build month headers
+        let currentMonth = -1;
+        let currentYear = -1;
+        let monthSpan = 0;
+        let monthTh = null;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        dates.forEach((date, i) => {
+            const m = date.getMonth();
+            const y = date.getFullYear();
+
+            if (m !== currentMonth || y !== currentYear) {
+                if (monthTh) {
+                    monthTh.colSpan = monthSpan;
+                    monthRow.appendChild(monthTh);
+                }
+                monthTh = document.createElement('th');
+                monthTh.className = 'resource-sheet-month-header';
+                monthTh.textContent = `${monthNames[m]} ${y}`;
+                monthSpan = 1;
+                currentMonth = m;
+                currentYear = y;
+            } else {
+                monthSpan++;
+            }
+
+            // Day number header
+            const dayTh = document.createElement('th');
+            dayTh.className = 'resource-sheet-day-header';
+            dayTh.textContent = date.getDate();
+            const dayOfWeek = date.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) dayTh.classList.add('resource-sheet-weekend');
+            const dateKey = date.toISOString().split('T')[0];
+            if (holidays.includes(dateKey)) dayTh.classList.add('resource-sheet-holiday');
+            dayRow.appendChild(dayTh);
+        });
+        // Append last month header
+        if (monthTh) {
+            monthTh.colSpan = monthSpan;
+            monthRow.appendChild(monthTh);
+        }
+
+        // Group tasks by resource
+        const resourceTasks = {};
+        validTasks.forEach(task => {
+            const resources = task.resources.split(',').map(r => r.trim()).filter(r => r && r !== '-');
+            resources.forEach(resource => {
+                let resourceName = resource;
+                const allocationMatch = resource.match(/^(.+?)\[(\d+)%\]$/);
+                if (allocationMatch) resourceName = allocationMatch[1].trim();
+
+                if (!resourceTasks[resourceName]) {
+                    resourceTasks[resourceName] = [];
+                }
+                resourceTasks[resourceName].push(task);
+            });
+        });
+
+        // Build a map of which dates each resource is working on (for overlap detection)
+        const resourceDateCount = {};
+        Object.keys(resourceTasks).forEach(resource => {
+            resourceDateCount[resource] = {};
+            resourceTasks[resource].forEach(task => {
+                const taskStart = parseLocalDate(task.start);
+                const taskFinish = parseLocalDate(task.finish);
+                const d = new Date(taskStart);
+                while (d <= taskFinish) {
+                    const dayOfWeek = d.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        const key = d.toISOString().split('T')[0];
+                        resourceDateCount[resource][key] = (resourceDateCount[resource][key] || 0) + 1;
+                    }
+                    d.setDate(d.getDate() + 1);
+                }
+            });
+        });
+
+        // Store data for filtering
+        window.resourceSheetData = { resourceTasks, resourceDateCount, dates, holidays };
+
+        // Populate filter dropdown
+        const filterSelect = document.getElementById('resourceSheetFilter');
+        if (filterSelect) {
+            const currentSelection = filterSelect.value || 'all';
+            filterSelect.innerHTML = '<option value="all">All Resources</option>';
+            Object.keys(resourceTasks).sort().forEach(resource => {
+                const option = document.createElement('option');
+                option.value = resource;
+                option.textContent = resource;
+                filterSelect.appendChild(option);
+            });
+            if (currentSelection !== 'all' && resourceTasks[currentSelection]) {
+                filterSelect.value = currentSelection;
+            }
+        }
+
+        // Render the sheet
+        renderResourceSheet(filterSelect ? filterSelect.value : 'all');
+
+    } catch (error) {
+        console.error('Error updating resource sheet:', error);
+    }
+}
+
+function renderResourceSheet(filterValue) {
+    const data = window.resourceSheetData;
+    if (!data) return;
+
+    const { resourceTasks, resourceDateCount, dates, holidays } = data;
+    const tbody = document.getElementById('resourceSheetBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    const resourcesToShow = filterValue === 'all'
+        ? Object.keys(resourceTasks).sort()
+        : [filterValue];
+
+    resourcesToShow.forEach(resource => {
+        const tasks = resourceTasks[resource];
+        if (!tasks) return;
+
+        // Resource header row
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'resource-sheet-group-header';
+        const headerCell = document.createElement('td');
+        headerCell.colSpan = 4 + dates.length;
+        headerCell.textContent = resource;
+        headerCell.className = 'resource-sheet-group-name';
+        headerRow.appendChild(headerCell);
+        tbody.appendChild(headerRow);
+
+        // Task rows
+        tasks.forEach(task => {
+            const row = document.createElement('tr');
+            row.className = 'resource-sheet-task-row';
+            row.style.cursor = 'pointer';
+            row.onclick = () => openMilestoneTaskForm(task.name);
+
+            // Task name
+            const nameCell = document.createElement('td');
+            nameCell.className = 'resource-sheet-task-name';
+            nameCell.textContent = task.name;
+            row.appendChild(nameCell);
+
+            // Start date
+            const startCell = document.createElement('td');
+            startCell.className = 'resource-sheet-date-cell';
+            startCell.textContent = task.start ? formatDateShort(task.start) : '-';
+            row.appendChild(startCell);
+
+            // Finish date
+            const finishCell = document.createElement('td');
+            finishCell.className = 'resource-sheet-date-cell';
+            finishCell.textContent = task.finish ? formatDateShort(task.finish) : '-';
+            row.appendChild(finishCell);
+
+            // Percent
+            const pctCell = document.createElement('td');
+            pctCell.className = 'resource-sheet-pct-cell';
+            pctCell.textContent = (task.percent !== undefined && task.percent !== null) ? `${task.percent}%` : '0%';
+            row.appendChild(pctCell);
+
+            // Timeline cells
+            const taskStart = parseLocalDate(task.start);
+            const taskFinish = parseLocalDate(task.finish);
+
+            dates.forEach(date => {
+                const cell = document.createElement('td');
+                cell.className = 'resource-sheet-timeline-cell';
+
+                const dayOfWeek = date.getDay();
+                const dateKey = date.toISOString().split('T')[0];
+
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    cell.classList.add('resource-sheet-weekend');
+                }
+                if (holidays.includes(dateKey)) {
+                    cell.classList.add('resource-sheet-holiday');
+                }
+
+                // Check if this date falls within the task range
+                if (date >= taskStart && date <= taskFinish && dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    cell.classList.add('resource-sheet-active');
+
+                    // Check for overlap (resource has multiple tasks on this date)
+                    const overlapCount = resourceDateCount[resource][dateKey] || 0;
+                    if (overlapCount > 1) {
+                        cell.classList.add('resource-sheet-overlap');
+                        cell.title = `${resource} has ${overlapCount} tasks on ${dateKey}`;
+                    }
+                }
+
+                row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+        });
+    });
+}
+
+function filterResourceSheet() {
+    const filterSelect = document.getElementById('resourceSheetFilter');
+    if (!filterSelect) return;
+    renderResourceSheet(filterSelect.value);
+}
+
+// Format a date string as short date (e.g., "15 Jan")
+function formatDateShort(dateStr) {
+    const date = parseLocalDate(dateStr);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${date.getDate()} ${months[date.getMonth()]}`;
 }
 
 // Helper function to get RAG color

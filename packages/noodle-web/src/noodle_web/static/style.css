@@ -610,6 +610,224 @@ h1 {
     background: #dde0f3;
 }
 
+.resources-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.resources-toolbar .resources-title {
+    margin-bottom: 0;
+}
+
+.resources-table .resource-shortname {
+    color: #667eea;
+    font-family: monospace;
+    font-size: 0.9em;
+    transition: color 0.2s, background 0.2s;
+}
+
+.resources-table .resource-shortname:hover {
+    color: #108bb9;
+    text-decoration: underline;
+}
+
+.resource-inline-edit {
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+/* Resource Sheet Styling */
+.resource-sheet-content {
+    padding: 20px;
+    max-width: 100%;
+}
+
+.resource-sheet-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.resource-sheet-title {
+    font-size: 1.8em;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.resource-sheet-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.resource-sheet-filter label {
+    font-weight: 500;
+    color: #555;
+    white-space: nowrap;
+}
+
+.resource-sheet-filter select {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9em;
+    background: white;
+}
+
+.resource-sheet-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.resource-sheet-scroll-container {
+    overflow-x: auto;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+.resource-sheet-table {
+    border-collapse: collapse;
+    font-size: 0.85em;
+    min-width: 100%;
+    white-space: nowrap;
+}
+
+.resource-sheet-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.resource-sheet-table th {
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85em;
+    border-right: 1px solid rgba(255,255,255,0.2);
+}
+
+.resource-sheet-task-col {
+    min-width: 200px;
+    max-width: 300px;
+    text-align: left !important;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.resource-sheet-dates-col {
+    min-width: 70px;
+    text-align: center !important;
+}
+
+.resource-sheet-pct-col {
+    min-width: 45px;
+    text-align: center !important;
+}
+
+.resource-sheet-month-header {
+    font-size: 0.85em;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+}
+
+.resource-sheet-day-header {
+    font-size: 0.75em;
+    min-width: 24px;
+    padding: 3px 2px;
+}
+
+.resource-sheet-day-header.resource-sheet-weekend {
+    background: rgba(0,0,0,0.15);
+}
+
+.resource-sheet-day-header.resource-sheet-holiday {
+    background: rgba(255,193,7,0.3);
+}
+
+.resource-sheet-group-header {
+    background: #e8eaf6;
+}
+
+.resource-sheet-group-name {
+    font-weight: 700;
+    color: #333;
+    padding: 10px 8px;
+    font-size: 0.95em;
+    border-bottom: 2px solid #667eea;
+}
+
+.resource-sheet-task-row td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.resource-sheet-task-row:hover {
+    background: #f8f9fa;
+}
+
+.resource-sheet-task-name {
+    min-width: 200px;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 1;
+    font-weight: 500;
+}
+
+.resource-sheet-task-row:hover .resource-sheet-task-name {
+    background: #f8f9fa;
+}
+
+.resource-sheet-date-cell {
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+}
+
+.resource-sheet-pct-cell {
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+}
+
+.resource-sheet-timeline-cell {
+    min-width: 24px;
+    padding: 0 !important;
+    height: 24px;
+    border-right: 1px solid #f5f5f5;
+}
+
+.resource-sheet-timeline-cell.resource-sheet-weekend {
+    background: #f5f5f5;
+}
+
+.resource-sheet-timeline-cell.resource-sheet-holiday {
+    background: #fff8e1;
+}
+
+.resource-sheet-timeline-cell.resource-sheet-active {
+    background: #42a5f5;
+}
+
+.resource-sheet-timeline-cell.resource-sheet-overlap {
+    background: #ef5350;
+}
+
 /* Timesheet Styling */
 .timesheet-wrapper {
     background: white;
@@ -2510,6 +2728,19 @@ input[type="checkbox"] {
 
     .resources-title {
         font-size: 1.4em;
+    }
+
+    .resource-sheet-content {
+        padding: 10px;
+    }
+
+    .resource-sheet-title {
+        font-size: 1.4em;
+    }
+
+    .resource-sheet-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     /* Milestones table scroll */
