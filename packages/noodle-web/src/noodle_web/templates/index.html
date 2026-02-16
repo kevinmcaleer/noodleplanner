@@ -84,7 +84,7 @@
                         <div class="nav-menu-item" onclick="switchTab('guide'); event.stopPropagation();">
                             📖 Syntax Guide
                         </div>
-                        <div class="nav-menu-item" onclick="window.open('/templates', '_blank'); event.stopPropagation();">
+                        <div class="nav-menu-item" onclick="openTemplatesModal(); event.stopPropagation();">
                             📋 Templates
                         </div>
                     </div>
@@ -1623,6 +1623,46 @@ Build
                     <li>Generate the plan in the Schedule stage</li>
                     <li>Copy the generated plan to the Editor tab for further refinement</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Modal -->
+    <div id="templatesModalOverlay" class="modal-overlay templates-overlay">
+        <div class="templates-modal">
+            <div class="templates-header">
+                <h1>📋 Project Templates</h1>
+                <button class="close-btn" onclick="closeTemplatesModal()">&times;</button>
+            </div>
+            <div class="templates-body">
+                <div class="templates-loading" id="templatesLoading">
+                    Loading templates...
+                </div>
+                <div class="templates-error" id="templatesError" style="display: none;">
+                    Failed to load templates. Please try again.
+                </div>
+                <div class="templates-content" id="templatesContent" style="display: none;">
+                    <div class="templates-sidebar">
+                        <h3>Categories</h3>
+                        <ul class="category-list" id="categoryList">
+                            <li><a href="#" class="category-link active" data-category="all">All Templates</a></li>
+                        </ul>
+                    </div>
+                    <div class="templates-main">
+                        <div class="templates-start-here" id="startHereSection">
+                            <h2>🚀 Start Here - Popular Templates</h2>
+                            <div class="templates-grid popular-grid" id="popularTemplatesGrid">
+                                <!-- Popular templates will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="templates-all-section">
+                            <h2>All Templates</h2>
+                            <div class="templates-grid" id="allTemplatesGrid">
+                                <!-- All templates will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

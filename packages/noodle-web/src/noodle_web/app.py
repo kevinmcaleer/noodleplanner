@@ -1066,7 +1066,11 @@ async def generate_plan_from_planning_room(data: GeneratePlanRequest):
 @app.get("/api/templates")
 async def get_templates():
     """Get all available templates with metadata."""
-    templates_dir = Path(__file__).parent.parent.parent.parent.parent / "templates"
+    # Go to project root (noodleplanner) and find templates directory
+    project_root = Path(__file__).parent
+    while project_root.name != "noodleplanner" and project_root != project_root.parent:
+        project_root = project_root.parent
+    templates_dir = project_root / "templates"
 
     if not templates_dir.exists():
         return {"templates": [], "categories": []}
@@ -1117,7 +1121,11 @@ async def get_templates():
 @app.get("/api/templates/{template_id}")
 async def get_template(template_id: str):
     """Get a specific template's content and metadata."""
-    templates_dir = Path(__file__).parent.parent.parent.parent.parent / "templates"
+    # Go to project root (noodleplanner) and find templates directory
+    project_root = Path(__file__).parent
+    while project_root.name != "noodleplanner" and project_root != project_root.parent:
+        project_root = project_root.parent
+    templates_dir = project_root / "templates"
     template_path = templates_dir / template_id
 
     if not template_path.exists() or not template_path.is_dir():
@@ -1166,7 +1174,11 @@ async def get_template_hero(template_id: str, ext: str):
     if ext.lower() not in ['jpg', 'jpeg', 'png', 'gif']:
         raise HTTPException(status_code=400, detail="Invalid image format")
 
-    templates_dir = Path(__file__).parent.parent.parent.parent.parent / "templates"
+    # Go to project root (noodleplanner) and find templates directory
+    project_root = Path(__file__).parent
+    while project_root.name != "noodleplanner" and project_root != project_root.parent:
+        project_root = project_root.parent
+    templates_dir = project_root / "templates"
     hero_path = templates_dir / template_id / f"hero.{ext}"
 
     if not hero_path.exists():

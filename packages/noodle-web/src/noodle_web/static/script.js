@@ -6379,6 +6379,175 @@ function toggleHelpMenu(event) {
     menu.classList.toggle('show');
 }
 
+// Templates Modal Functions
+let templatesData = null;
+let currentCategory = 'all';
+
+async function openTemplatesModal() {
+    const overlay = document.getElementById('templatesModalOverlay');
+    const loading = document.getElementById('templatesLoading');
+    const error = document.getElementById('templatesError');
+    const content = document.getElementById('templatesContent');
+
+    // Show modal
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+
+    // Show loading state
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    content.style.display = 'none';
+
+    try {
+        // Load templates data if not already loaded
+        if (!templatesData) {
+            const response = await fetch('/api/templates');
+            if (!response.ok) {
+                throw new Error('Failed to load templates');
+            }
+            templatesData = await response.json();
+        }
+
+        // Hide loading, show content
+        loading.style.display = 'none';
+        content.style.display = 'flex';
+
+        // Render templates
+        renderTemplatesModal();
+
+    } catch (err) {
+        console.error('Error loading templates:', err);
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = 'Failed to load templates: ' + err.message;
+    }
+}
+
+function closeTemplatesModal() {
+    const overlay = document.getElementById('templatesModalOverlay');
+    overlay.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function renderTemplatesModal() {
+    if (!templatesData) return;
+
+    // Render categories
+    const categoryList = document.getElementById('categoryList');
+    categoryList.innerHTML = '<li><a href="#" class="category-link active" data-category="all" onclick="filterTemplates(\'all\')">All Templates</a></li>';
+
+    templatesData.categories.forEach(category => {
+        const li = document.createElement('li');
+        li.innerHTML = `<a href="#" class="category-link" data-category="${category}" onclick="filterTemplates('${category}')">${category}</a>`;
+        categoryList.appendChild(li);
+    });
+
+    // Render popular templates
+    const popularTemplates = templatesData.templates.filter(t => t.popular);
+    renderTemplateGrid('popularTemplatesGrid', popularTemplates);
+
+    // Show/hide start here section based on popular templates
+    const startHereSection = document.getElementById('startHereSection');
+    if (popularTemplates.length > 0) {
+        startHereSection.style.display = 'block';
+    } else {
+        startHereSection.style.display = 'none';
+    }
+
+    // Render all templates
+    renderTemplateGrid('allTemplatesGrid', templatesData.templates);
+}
+
+function renderTemplateGrid(containerId, templates) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+
+    templates.forEach(template => {
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        card.innerHTML = `
+            <div class="template-hero">
+                <img src="${template.hero_image || '/static/placeholder-template.png'}" alt="${template.title}" onerror="this.src='/static/placeholder-template.png'">
+            </div>
+            <div class="template-info">
+                <h3>${template.title}</h3>
+                <p class="template-description">${template.description}</p>
+                <div class="template-meta">
+                    <span class="template-category">${template.category}</span>
+                    <span class="template-author">by ${template.author}</span>
+                </div>
+                <button class="template-use-btn" onclick="useTemplate('${template.id}')">Use This Template</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    if (templates.length === 0) {
+        container.innerHTML = '<div class="no-templates">No templates found in this category.</div>';
+    }
+}
+
+function filterTemplates(category) {
+    if (!templatesData) return;
+
+    currentCategory = category;
+
+    // Update active category link
+    document.querySelectorAll('.category-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    document.querySelector(`[data-category="${category}"]`).classList.add('active');
+
+    // Filter and render templates
+    let filteredTemplates = templatesData.templates;
+    if (category !== 'all') {
+        filteredTemplates = templatesData.templates.filter(t => t.category === category);
+    }
+
+    renderTemplateGrid('allTemplatesGrid', filteredTemplates);
+}
+
+async function useTemplate(templateId) {
+    try {
+        // Show loading indicator
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = 'Loading...';
+        btn.disabled = true;
+
+        // Fetch template content
+        const response = await fetch(`/api/templates/${templateId}`);
+        if (!response.ok) {
+            throw new Error('Failed to load template');
+        }
+
+        const template = await response.json();
+
+        // Load template content into editor via form submission
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/';
+        form.style.display = 'none';
+
+        const contentInput = document.createElement('input');
+        contentInput.type = 'hidden';
+        contentInput.name = 'template_content';
+        contentInput.value = template.content;
+
+        form.appendChild(contentInput);
+        document.body.appendChild(form);
+        form.submit();
+
+    } catch (err) {
+        console.error('Error using template:', err);
+        showMessage('editor', 'error', 'Failed to load template: ' + err.message, 5000);
+
+        // Reset button
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
 // Switch to a specific view (from Views or Tracking dropdown)
 function switchToView(viewName) {
     // First, switch to editor tab (where all views live)
@@ -9895,4 +10064,194 @@ function updatePlanHighlightsText(planText, highlights) {
     }
 
     return result;
+}
+
+// ==============================================================================
+// TEMPLATES MODAL FUNCTIONS
+// ==============================================================================
+
+async function openTemplatesModal() {
+    try {
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.id = 'templatesModal';
+        modal.className = 'templates-modal';
+        modal.innerHTML = `
+            <div class="templates-modal-content">
+                <div class="templates-modal-header">
+                    <h2>Project Templates</h2>
+                    <button class="templates-modal-close" onclick="closeTemplatesModal()">&times;</button>
+                </div>
+                <div class="templates-modal-body">
+                    <div class="templates-loading">
+                        <div class="loading-spinner">Loading templates...</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+
+        // Load templates
+        await loadTemplatesIntoModal();
+
+        // Show modal
+        modal.style.display = 'flex';
+
+    } catch (error) {
+        console.error('Error opening templates modal:', error);
+        showMessage('editor', 'error', 'Failed to load templates. Please try again.', 5000);
+        closeTemplatesModal();
+    }
+}
+
+function closeTemplatesModal() {
+    const modal = document.getElementById('templatesModal');
+    if (modal) {
+        modal.remove();
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+}
+
+async function loadTemplatesIntoModal() {
+    try {
+        const response = await fetch('/api/templates');
+        const data = await response.json();
+
+        const templates = data.templates || [];
+        const categories = data.categories || [];
+
+        const modalBody = document.querySelector('.templates-modal-body');
+
+        if (templates.length === 0) {
+            modalBody.innerHTML = `
+                <div class="templates-empty">
+                    <h3>No Templates Available</h3>
+                    <p>No project templates were found. Check back later for new templates.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render templates
+        const popularTemplates = templates.filter(t => t.popular);
+
+        let content = '';
+
+        // Popular templates section
+        if (popularTemplates.length > 0) {
+            content += `
+                <div class="templates-section">
+                    <h3>🚀 Popular Templates</h3>
+                    <div class="templates-grid">
+                        ${popularTemplates.map(createTemplateCard).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // All templates section
+        content += `
+            <div class="templates-section">
+                <h3>All Templates</h3>
+                <div class="templates-grid">
+                    ${templates.map(createTemplateCard).join('')}
+                </div>
+            </div>
+        `;
+
+        modalBody.innerHTML = content;
+
+    } catch (error) {
+        console.error('Error loading templates:', error);
+        const modalBody = document.querySelector('.templates-modal-body');
+        modalBody.innerHTML = `
+            <div class="templates-error">
+                <h3>Error Loading Templates</h3>
+                <p>Failed to load templates. Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+function createTemplateCard(template) {
+    const heroImage = template.hero_image ?
+        `<img src="${template.hero_image}" alt="${template.title}" class="template-card-hero">` :
+        `<div class="template-card-hero template-card-hero-placeholder">
+            <div class="template-card-hero-text">${template.title}</div>
+        </div>`;
+
+    const popularBadge = template.popular ? '<div class="template-popular-badge">Popular</div>' : '';
+
+    return `
+        <div class="template-card" onclick="useTemplate('${template.id}')">
+            ${popularBadge}
+            ${heroImage}
+            <div class="template-card-body">
+                <div class="template-card-title">${template.title}</div>
+                <div class="template-card-description">${template.description}</div>
+                <div class="template-card-meta">
+                    <span class="template-card-category">${template.category}</span>
+                    <span class="template-card-author">by ${template.author}</span>
+                </div>
+                <button class="template-card-btn">Use This Template</button>
+            </div>
+        </div>
+    `;
+}
+
+async function useTemplate(templateId) {
+    try {
+        // Show loading state
+        const modal = document.getElementById('templatesModal');
+        const card = modal.querySelector(`[onclick="useTemplate('${templateId}')"]`);
+        const button = card.querySelector('.template-card-btn');
+        const originalText = button.textContent;
+        button.textContent = 'Loading...';
+        button.disabled = true;
+
+        // Fetch template content
+        const response = await fetch(`/api/templates/${templateId}`);
+        const template = await response.json();
+
+        if (response.ok) {
+            // Load content into editor
+            const editor = document.getElementById('planEditor');
+            const kanbanEditor = document.getElementById('kanbanPlanEditor');
+
+            if (editor && template.content) {
+                editor.value = template.content;
+
+                // Also update kanban editor to keep in sync
+                if (kanbanEditor) {
+                    kanbanEditor.value = template.content;
+                }
+
+                // Update line numbers
+                updateLineNumbers();
+
+                // Show success message
+                showMessage('editor', 'success', `Template "${template.title}" loaded successfully! Press Enter to render your plan.`, 5000);
+
+                // Close modal
+                closeTemplatesModal();
+            }
+        } else {
+            throw new Error(template.detail || 'Failed to load template');
+        }
+
+    } catch (error) {
+        console.error('Error using template:', error);
+        showMessage('editor', 'error', 'Failed to load template. Please try again.', 5000);
+
+        // Reset button state
+        const modal = document.getElementById('templatesModal');
+        const card = modal.querySelector(`[onclick="useTemplate('${templateId}')"]`);
+        if (card) {
+            const button = card.querySelector('.template-card-btn');
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    }
 }
