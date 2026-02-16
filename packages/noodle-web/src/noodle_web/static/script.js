@@ -674,6 +674,9 @@ async function handleEditorFileDrop(file) {
         const planEditor = document.getElementById('planEditor');
         if (!planEditor) return;
 
+        // Clear RAID log entries and highlights BEFORE loading new plan
+        clearPlanTrackingData();
+
         // Read the file content
         const text = await file.text();
 
@@ -727,6 +730,9 @@ function handleFile(file) {
 
 async function renderFile() {
     if (!selectedFile) return;
+
+    // Clear RAID log entries and highlights BEFORE loading new plan
+    clearPlanTrackingData();
 
     const text = await selectedFile.text();
 
@@ -7393,6 +7399,21 @@ let raidNextId = 1;
 let raidSortColumn = 'id';
 let raidSortAsc = true;
 
+/**
+ * Clear RAID log entries from the UI and global state.
+ * This should be called before loading a new plan to ensure
+ * old RAID entries don't persist.
+ */
+function clearRaidLogEntries() {
+    raidItems = [];
+    raidNextId = 1;
+
+    // Re-render the RAID table to show empty state
+    renderRaidTable();
+
+    console.log('Cleared RAID log entries');
+}
+
 function addRaidItem() {
     openRaidForm(null);
 }
@@ -9200,6 +9221,9 @@ function wizardImport() {
     const markdown = document.getElementById('wizardMarkdownPreview').value;
     if (!markdown) return;
 
+    // Clear RAID log entries and highlights BEFORE loading new plan
+    clearPlanTrackingData();
+
     const editor = document.getElementById('planEditor');
     editor.value = markdown;
 
@@ -9391,6 +9415,29 @@ function updatePlanRaidLogText(planText, items) {
  */
 
 let highlightsData = [];
+
+/**
+ * Clear highlights from the UI and global state.
+ * This should be called before loading a new plan to ensure
+ * old highlights don't persist.
+ */
+function clearHighlights() {
+    highlightsData = [];
+
+    // Re-render the highlights list to show empty state
+    renderHighlightsList();
+
+    console.log('Cleared highlights');
+}
+
+/**
+ * Clear both RAID log entries and highlights before loading a new plan.
+ * This ensures that old data doesn't persist when switching between plans.
+ */
+function clearPlanTrackingData() {
+    clearRaidLogEntries();
+    clearHighlights();
+}
 
 /**
  * Extract highlights from plan text on the client side.
