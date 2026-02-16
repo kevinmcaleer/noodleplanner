@@ -2027,9 +2027,11 @@ function toggleTodayMarker() {
 function renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth, options) {
     const subtle = options?.subtle ?? false;
 
-    // Remove any existing today marker in this container
-    const existing = container.querySelector('.timeline-today-marker');
-    if (existing) existing.remove();
+    // Remove any existing today marker and label in this container
+    const existingMarker = container.querySelector('.timeline-today-marker');
+    if (existingMarker) existingMarker.remove();
+    const existingLabel = container.querySelector('.timeline-today-label');
+    if (existingLabel) existingLabel.remove();
 
     // Get today as a local date (no time component)
     const now = new Date();
@@ -2041,20 +2043,25 @@ function renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth
     const daysFromStart = Math.floor((today - minDate) / (1000 * 60 * 60 * 24));
     const position = (daysFromStart / totalDays) * timelineWidth;
 
+    // Create marker line (vertical line)
     const marker = document.createElement('div');
     marker.className = 'timeline-today-marker' + (subtle ? ' subtle' : '');
     marker.style.left = position + 'px';
-
-    const label = document.createElement('div');
-    label.className = 'timeline-today-label';
-    label.textContent = 'Today';
-    marker.appendChild(label);
 
     // Insert the marker into the timeline-line element so it spans the line height
     const timelineLine = container.querySelector('.timeline-line');
     if (timelineLine) {
         timelineLine.appendChild(marker);
     }
+
+    // Create separate label positioned below the dates
+    const label = document.createElement('div');
+    label.className = 'timeline-today-label' + (subtle ? ' subtle' : '');
+    label.textContent = 'Today';
+    label.style.left = position + 'px';
+
+    // Insert the label into the container at the bottom, below the date scale
+    container.appendChild(label);
 }
 
 function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, timelineWidth, options) {
