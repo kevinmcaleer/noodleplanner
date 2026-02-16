@@ -3422,13 +3422,13 @@ function renderGanttRows() {
         if (!task.is_summary) {
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.checked = task.percent === '100%';
+            checkbox.checked = (parseFloat(task.percent) || 0) >= 100;
             checkbox.title = checkbox.checked ? 'Mark incomplete' : 'Mark complete';
-            checkbox.addEventListener('change', () => {
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
                 const newPercent = checkbox.checked ? '100%' : '0%';
                 task.percent = newPercent;
                 syncGanttPercentToEditor(task, index);
-                renderGanttChart();
             });
             doneCell.appendChild(checkbox);
         }

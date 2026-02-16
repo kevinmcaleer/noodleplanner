@@ -1641,10 +1641,32 @@ h1 {
 }
 
 .gantt-done-cell input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     cursor: pointer;
     width: 16px;
     height: 16px;
     margin: 0;
+    border: 2px solid #adb5bd;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.15s ease;
+}
+
+.gantt-done-cell input[type="checkbox"]:checked {
+    background: #28a745;
+    border-color: #28a745;
+}
+
+.gantt-done-cell input[type="checkbox"]:checked::after {
+    content: '✓';
+    display: block;
+    color: white;
+    font-size: 10px;
+    line-height: 12px;
+    text-align: center;
+    font-weight: bold;
 }
 
 .gantt-info-table td.editable {
