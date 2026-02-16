@@ -111,6 +111,7 @@ window.addEventListener('load', function() {
     initializeEditor();
     initializeKanbanEditor();
     initializeUploadTab();
+    initializeEditorDragDrop();
 });
 
 function initializeEditor() {
@@ -612,6 +613,88 @@ function initializeUploadTab() {
             handleFile(e.target.files[0]);
         }
     });
+}
+
+function initializeEditorDragDrop() {
+    const editorPanel = document.querySelector('.editor-panel');
+    const editorWrapper = document.querySelector('.editor-wrapper');
+    const planEditor = document.getElementById('planEditor');
+
+    if (!editorPanel || !editorWrapper || !planEditor) {
+        console.error('Editor drag drop elements not found');
+        return;
+    }
+
+    // Add drag over event to the editor panel
+    editorPanel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        editorPanel.classList.add('drag-over');
+    });
+
+    // Remove drag over styling when leaving
+    editorPanel.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only remove if we're actually leaving the editor panel
+        if (!editorPanel.contains(e.relatedTarget)) {
+            editorPanel.classList.remove('drag-over');
+        }
+    });
+
+    // Handle file drop
+    editorPanel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        editorPanel.classList.remove('drag-over');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+
+            // Check if it's a markdown file
+            if (!file.name.match(/\.(md|txt)$/i)) {
+                showMessage('editor', 'error', 'Please drop only Markdown (.md) or text (.txt) files');
+                return;
+            }
+
+            if (file.size > 1048576) {
+                showMessage('editor', 'error', 'File size must be less than 1MB');
+                return;
+            }
+
+            handleEditorFileDrop(file);
+        }
+    });
+}
+
+async function handleEditorFileDrop(file) {
+    try {
+        // Clear existing plan data
+        const planEditor = document.getElementById('planEditor');
+        if (!planEditor) return;
+
+        // Read the file content
+        const text = await file.text();
+
+        // Clear the editor and load new content
+        planEditor.value = text;
+
+        // Trigger input event to update line numbers and syntax highlighting
+        planEditor.dispatchEvent(new Event('input'));
+
+        // Show success message
+        showMessage('editor', 'success', `Loaded ${file.name} successfully`);
+
+        // Auto-render the plan
+        await renderText();
+
+        console.log(`Loaded plan from ${file.name}`);
+
+    } catch (error) {
+        console.error('Error loading file:', error);
+        showMessage('editor', 'error', 'Failed to load file: ' + error.message);
+    }
 }
 
 function handleFile(file) {
