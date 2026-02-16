@@ -2089,10 +2089,11 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
     // Get phase (summary) tasks with valid start and finish dates
     const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
 
-    // Get milestones (0-duration, non-summary)
+    // Get milestones (0-duration, non-summary) and phases (summary tasks)
     const milestones = tasks.filter(t => {
         if (!t.finish) return false;
-        return t.duration_days === 0 && !t.is_summary;
+        // Include regular milestones (0-duration, non-summary) and phases (summary tasks)
+        return (t.duration_days === 0 && !t.is_summary) || t.is_summary;
     });
 
     // Calculate bar height as ~1.7% of timeline width
@@ -2213,10 +2214,12 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
         milestoneDiv.appendChild(marker);
 
         // Add phase name label if this is a summary task (phase) with white font at small size
-        if (task.is_summary && task.phase) {
+        if (task.is_summary) {
+            console.log('Found summary task:', task.name, 'phase:', task.phase); // Debug logging
             const phaseLabel = document.createElement('div');
             phaseLabel.className = 'minimal-phase-label';
-            phaseLabel.textContent = task.phase;
+            // Use task.phase if available, otherwise use task.name as the phase name
+            phaseLabel.textContent = task.phase || task.name;
             milestoneDiv.appendChild(phaseLabel);
         }
         timelineMilestones.appendChild(milestoneDiv);
