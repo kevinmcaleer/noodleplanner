@@ -41,6 +41,7 @@ docker-compose.yml
 # Documentation
 *.md
 !requirements.txt
+!templates/**/*.md
 
 # OS
 .DS_Store

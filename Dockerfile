@@ -23,6 +23,9 @@ COPY packages ./packages
 COPY tests ./tests
 COPY pytest.ini .
 
+# Copy templates
+COPY templates ./templates
+
 # Add cache-busting argument for app code
 ARG CACHEBUST=1
 
