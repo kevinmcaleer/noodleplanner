@@ -1244,7 +1244,8 @@ h1 {
 
 .timeline-today-label {
     position: absolute;
-    bottom: -22px;
+    bottom: -44px;
+    left: var(--today-position);
     transform: translateX(-50%);
     font-size: 0.65em;
     color: #dc3545;

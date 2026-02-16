@@ -2058,7 +2058,7 @@ function renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth
     const label = document.createElement('div');
     label.className = 'timeline-today-label' + (subtle ? ' subtle' : '');
     label.textContent = 'Today';
-    label.style.left = position + 'px';
+    label.style.setProperty('--today-position', position + 'px');
     console.log('Today marker: creating label at position', position, 'subtle:', subtle); // Debug
 
     // Insert the label into the container at the bottom, below the date scale
