@@ -1397,6 +1397,27 @@ h1 {
     box-sizing: border-box;
 }
 
+.gantt-done-col {
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+}
+
+.gantt-done-cell {
+    text-align: center;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    padding: 8px 4px !important;
+}
+
+.gantt-done-cell input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
 .gantt-info-table td.editable {
     cursor: text;
     position: relative;
