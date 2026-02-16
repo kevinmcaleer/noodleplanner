@@ -1969,6 +1969,9 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         bgRect.setAttribute('ry', 3);
         bgRect.setAttribute('fill', bgColor);
         bgRect.setAttribute('opacity', '0.7');
+        bgRect.setAttribute('class', 'timeline-clickable');
+        bgRect.style.cursor = 'pointer';
+        bgRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
         svg.appendChild(bgRect);
 
         // Draw the percent complete overlay (darker shade on the left portion)
@@ -1984,6 +1987,9 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
             progressRect.setAttribute('ry', 3);
             progressRect.setAttribute('fill', darkerColor);
             progressRect.setAttribute('opacity', '0.9');
+            progressRect.setAttribute('class', 'timeline-clickable');
+            progressRect.style.cursor = 'pointer';
+            progressRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
             svg.appendChild(progressRect);
         }
 
@@ -2015,6 +2021,8 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         text.setAttribute('font-weight', '600');
         text.setAttribute('clip-path', 'url(#' + clipId + ')');
         text.textContent = isComplete ? '✓ ' + phase.name : phase.name;
+        text.style.cursor = 'pointer';
+        text.addEventListener('click', () => openMilestoneTaskForm(phase.name));
         svg.appendChild(text);
 
         // Add tooltip
@@ -2239,11 +2247,16 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
             rect.setAttribute('ry', 2);
             rect.setAttribute('fill', bgColor);
             rect.setAttribute('opacity', isComplete ? '0.9' : '0.7');
+            rect.setAttribute('class', 'timeline-clickable');
+            rect.style.cursor = 'pointer';
 
             // Add tooltip
             const title = document.createElementNS(svgNS, 'title');
             title.textContent = phase.name + ' (' + percent + '% complete)';
             rect.appendChild(title);
+
+            // Click to open task detail view
+            rect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
 
             svg.appendChild(rect);
 
@@ -2260,6 +2273,9 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
                 progressRect.setAttribute('ry', 2);
                 progressRect.setAttribute('fill', darkerColor);
                 progressRect.setAttribute('opacity', '0.9');
+                progressRect.setAttribute('class', 'timeline-clickable');
+                progressRect.style.cursor = 'pointer';
+                progressRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
                 svg.appendChild(progressRect);
             }
 
@@ -2286,6 +2302,8 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
                 text.setAttribute('font-weight', '500');
                 text.setAttribute('clip-path', 'url(#' + clipId + ')');
                 text.textContent = isComplete ? '✓ ' + phase.name : phase.name;
+                text.style.cursor = 'pointer';
+                text.addEventListener('click', () => openMilestoneTaskForm(phase.name));
                 svg.appendChild(text);
             }
         });
@@ -2324,6 +2342,10 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
 
         // Add tooltip
         marker.title = task.name + ' (' + task.finish + ')';
+
+        // Click to open task detail view
+        marker.style.cursor = 'pointer';
+        marker.addEventListener('click', () => openMilestoneTaskForm(task.name));
 
         milestoneDiv.appendChild(marker);
 
@@ -3459,6 +3481,7 @@ function renderGanttRows() {
                 diamond.dataset.taskIndex = index;
 
                 setupBarDragListeners(diamond, task, index);
+                setupBarClickToOpenTask(diamond, task);
 
                 barRow.appendChild(diamond);
             } else {
@@ -3505,6 +3528,7 @@ function renderGanttRows() {
 
                 // Add drag event listeners
                 setupBarDragListeners(bar, task, index);
+                setupBarClickToOpenTask(bar, task);
 
                 barRow.appendChild(bar);
             }
@@ -3514,6 +3538,26 @@ function renderGanttRows() {
         ganttBody.appendChild(barRow);
     });
 
+}
+
+function setupBarClickToOpenTask(element, task) {
+    let mouseDownPos = null;
+
+    element.addEventListener('mousedown', (e) => {
+        mouseDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    element.addEventListener('mouseup', (e) => {
+        if (!mouseDownPos) return;
+        const dx = Math.abs(e.clientX - mouseDownPos.x);
+        const dy = Math.abs(e.clientY - mouseDownPos.y);
+        mouseDownPos = null;
+
+        // Only open if this was a click, not a drag
+        if (dx < 5 && dy < 5) {
+            openMilestoneTaskForm(task.name);
+        }
+    });
 }
 
 function renderWeekendHighlights(container) {
