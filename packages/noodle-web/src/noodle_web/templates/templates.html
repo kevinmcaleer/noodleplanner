@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Templates - Noodle Planner</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css?v={{ v }}">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .templates-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0 40px;
+        }
+
+        .templates-hero {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .templates-hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .templates-hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .templates-main {
+            padding: 60px 0;
+        }
+
+        .templates-sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            position: sticky;
+            top: 30px;
+        }
+
+        .templates-sidebar h3 {
+            color: #333;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .category-filter {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .category-filter li {
+            margin-bottom: 8px;
+        }
+
+        .category-filter a {
+            color: #666;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: block;
+            transition: all 0.2s ease;
+        }
+
+        .category-filter a:hover,
+        .category-filter a.active {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .template-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+
+        .template-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .template-hero-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f8f9fa;
+        }
+
+        .template-card-body {
+            padding: 24px;
+        }
+
+        .template-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .template-description {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .template-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .template-category {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .popular-badge {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+
+        .template-card {
+            position: relative;
+        }
+
+        .start-here-section {
+            margin-bottom: 60px;
+        }
+
+        .start-here-section h2 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .section-divider {
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #667eea, transparent);
+            margin: 60px 0 40px;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 60px;
+        }
+
+        .spinner-border {
+            color: #667eea;
+        }
+
+        .no-templates {
+            text-align: center;
+            padding: 60px;
+            color: #666;
+        }
+
+        .use-template-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .use-template-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+
+        .breadcrumb {
+            background: transparent;
+            padding: 20px 0;
+        }
+
+        .breadcrumb a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="templates-header">
+        <div class="container">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Templates</li>
+                </ol>
+            </nav>
+
+            <div class="templates-hero">
+                <h1>Project Templates</h1>
+                <p>Jumpstart your projects with professionally designed templates. Choose from various categories and get started in minutes.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="templates-main">
+        <div class="container">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-lg-3">
+                    <div class="templates-sidebar">
+                        <h3>Categories</h3>
+                        <ul class="category-filter" id="categoryFilter">
+                            <li><a href="#" class="active" data-category="all">All Templates</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="col-lg-9">
+                    <!-- Start Here Section -->
+                    <div class="start-here-section" id="startHereSection">
+                        <h2>🚀 Start Here - Popular Templates</h2>
+                        <div class="templates-grid" id="popularTemplatesGrid">
+                            <!-- Popular templates will be loaded here -->
+                        </div>
+                    </div>
+
+                    <hr class="section-divider">
+
+                    <!-- All Templates Section -->
+                    <div class="all-templates-section">
+                        <h2 id="allTemplatesTitle">All Templates</h2>
+
+                        <!-- Loading State -->
+                        <div class="loading-spinner" id="loadingSpinner">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading templates...</span>
+                            </div>
+                            <p class="mt-3">Loading templates...</p>
+                        </div>
+
+                        <!-- Templates Grid -->
+                        <div class="templates-grid" id="templatesGrid" style="display: none;">
+                            <!-- Templates will be loaded here -->
+                        </div>
+
+                        <!-- No Templates State -->
+                        <div class="no-templates" id="noTemplates" style="display: none;">
+                            <h3>No templates found</h3>
+                            <p>No templates match your current filter. Try selecting a different category.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        let allTemplates = [];
+        let filteredTemplates = [];
+        let selectedCategory = 'all';
+
+        // Load templates on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+        });
+
+        async function loadTemplates() {
+            try {
+                const response = await fetch('/api/templates');
+                const data = await response.json();
+
+                allTemplates = data.templates || [];
+                const categories = data.categories || [];
+
+                // Populate category filter
+                populateCategoryFilter(categories);
+
+                // Display templates
+                filteredTemplates = allTemplates;
+                displayTemplates();
+
+                // Hide loading spinner
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('templatesGrid').style.display = 'grid';
+
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                document.getElementById('loadingSpinner').innerHTML = `
+                    <div class="text-danger">
+                        <h3>Error Loading Templates</h3>
+                        <p>Failed to load templates. Please try again later.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function populateCategoryFilter(categories) {
+            const filterElement = document.getElementById('categoryFilter');
+
+            // Add categories
+            categories.forEach(category => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = '#';
+                a.textContent = category;
+                a.dataset.category = category.toLowerCase();
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    filterByCategory(category.toLowerCase());
+                });
+                li.appendChild(a);
+                filterElement.appendChild(li);
+            });
+        }
+
+        function filterByCategory(category) {
+            selectedCategory = category;
+
+            // Update active state
+            document.querySelectorAll('.category-filter a').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-category="${category}"]`).classList.add('active');
+
+            // Filter templates
+            if (category === 'all') {
+                filteredTemplates = allTemplates;
+                document.getElementById('allTemplatesTitle').textContent = 'All Templates';
+            } else {
+                filteredTemplates = allTemplates.filter(template =>
+                    template.category.toLowerCase() === category
+                );
+                document.getElementById('allTemplatesTitle').textContent =
+                    `${category.charAt(0).toUpperCase() + category.slice(1)} Templates`;
+            }
+
+            displayTemplates();
+        }
+
+        function displayTemplates() {
+            const popularGrid = document.getElementById('popularTemplatesGrid');
+            const allGrid = document.getElementById('templatesGrid');
+            const noTemplatesDiv = document.getElementById('noTemplates');
+
+            // Popular templates (only show on "all" category)
+            if (selectedCategory === 'all') {
+                const popularTemplates = allTemplates.filter(t => t.popular);
+                popularGrid.innerHTML = popularTemplates.map(createTemplateCard).join('');
+                document.getElementById('startHereSection').style.display = 'block';
+            } else {
+                document.getElementById('startHereSection').style.display = 'none';
+            }
+
+            // All templates
+            if (filteredTemplates.length > 0) {
+                allGrid.innerHTML = filteredTemplates.map(createTemplateCard).join('');
+                allGrid.style.display = 'grid';
+                noTemplatesDiv.style.display = 'none';
+            } else {
+                allGrid.style.display = 'none';
+                noTemplatesDiv.style.display = 'block';
+            }
+        }
+
+        function createTemplateCard(template) {
+            const heroImage = template.hero_image ?
+                `<img src="${template.hero_image}" alt="${template.title}" class="template-hero-image">` :
+                `<div class="template-hero-image" style="background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: 600;">${template.title}</div>`;
+
+            const popularBadge = template.popular ? '<div class="popular-badge">Popular</div>' : '';
+
+            return `
+                <div class="template-card" onclick="useTemplate('${template.id}')">
+                    ${popularBadge}
+                    ${heroImage}
+                    <div class="template-card-body">
+                        <div class="template-title">${template.title}</div>
+                        <div class="template-description">${template.description}</div>
+                        <div class="template-meta">
+                            <span class="template-category">${template.category}</span>
+                            <span class="template-author">by ${template.author}</span>
+                        </div>
+                        <div class="mt-3">
+                            <button class="use-template-btn btn w-100">Use This Template</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function useTemplate(templateId) {
+            try {
+                // Show loading state
+                const card = event.currentTarget;
+                const button = card.querySelector('.use-template-btn');
+                const originalText = button.textContent;
+                button.textContent = 'Loading...';
+                button.disabled = true;
+
+                // Fetch template content
+                const response = await fetch(`/api/templates/${templateId}`);
+                const template = await response.json();
+
+                if (response.ok) {
+                    // Open main app in the same window with template content
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/';
+
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'template_content';
+                    input.value = template.content;
+
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
+                } else {
+                    throw new Error(template.detail || 'Failed to load template');
+                }
+
+            } catch (error) {
+                console.error('Error loading template:', error);
+                alert('Failed to load template. Please try again.');
+
+                // Reset button state
+                const button = card.querySelector('.use-template-btn');
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

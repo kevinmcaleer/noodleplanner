@@ -76,7 +76,19 @@
                         </div>
                     </div>
                 </div>
-                <button class="tab" onclick="switchTab('guide')">Help</button>
+                <div class="nav-dropdown">
+                    <button class="tab" id="helpTab" onclick="toggleHelpMenu(event)">
+                        Help & Resources ▾
+                    </button>
+                    <div class="nav-menu" id="helpMenu">
+                        <div class="nav-menu-item" onclick="switchTab('guide'); event.stopPropagation();">
+                            📖 Syntax Guide
+                        </div>
+                        <div class="nav-menu-item" onclick="window.open('/templates', '_blank'); event.stopPropagation();">
+                            📋 Templates
+                        </div>
+                    </div>
+                </div>
                 <div class="nav-export-dropdown">
                     <button class="export-btn" onclick="toggleExportMenu(event)">
                         Import/Export ▾
@@ -1614,6 +1626,33 @@ Build
             </div>
         </div>
     </div>
+
+    <!-- Template Content Handler -->
+    {% if template_content %}
+    <script>
+        // Pre-load template content when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const editor = document.getElementById('planEditor');
+            const kanbanEditor = document.getElementById('kanbanPlanEditor');
+            const templateContent = {{ template_content|tojson }};
+
+            if (editor && templateContent) {
+                editor.value = templateContent;
+
+                // Also update kanban editor to keep in sync
+                if (kanbanEditor) {
+                    kanbanEditor.value = templateContent;
+                }
+
+                // Update line numbers
+                updateLineNumbers();
+
+                // Show a success message
+                showMessage('editor', 'success', 'Template loaded successfully! Press Enter to render your plan.', 5000);
+            }
+        });
+    </script>
+    {% endif %}
 
     <!-- Custom JavaScript -->
     <script src="/static/script.js?v={{ v }}"></script>
