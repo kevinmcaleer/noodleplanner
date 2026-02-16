@@ -2211,6 +2211,14 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
         marker.title = task.name + ' (' + task.finish + ')';
 
         milestoneDiv.appendChild(marker);
+
+        // Add phase name label if this is a summary task (phase) with white font at small size
+        if (task.is_summary && task.phase) {
+            const phaseLabel = document.createElement('div');
+            phaseLabel.className = 'minimal-phase-label';
+            phaseLabel.textContent = task.phase;
+            milestoneDiv.appendChild(phaseLabel);
+        }
         timelineMilestones.appendChild(milestoneDiv);
     });
 
