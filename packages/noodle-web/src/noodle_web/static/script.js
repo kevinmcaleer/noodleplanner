@@ -12,33 +12,38 @@ let resourceFormReturnSection = null;
  */
 async function copyElementAsImage(element, feedbackBtn) {
     if (!element) return;
-    const originalText = feedbackBtn ? feedbackBtn.innerHTML : '';
     try {
         if (typeof html2canvas === 'undefined') {
             console.error('html2canvas not loaded');
             return;
         }
+        // Hide the copy button during capture so it doesn't appear in the image
+        if (feedbackBtn) feedbackBtn.style.visibility = 'hidden';
         const canvas = await html2canvas(element, { backgroundColor: '#ffffff' });
-        canvas.toBlob(async (blob) => {
-            if (!blob) return;
-            try {
-                await navigator.clipboard.write([
-                    new ClipboardItem({ 'image/png': blob })
-                ]);
-                if (feedbackBtn) {
-                    feedbackBtn.innerHTML = '&#x2705; Copied!';
-                    setTimeout(() => { feedbackBtn.innerHTML = originalText; }, 1500);
-                }
-            } catch (err) {
-                console.error('Failed to copy image to clipboard:', err);
-                if (feedbackBtn) {
-                    feedbackBtn.innerHTML = '&#x274C; Failed';
-                    setTimeout(() => { feedbackBtn.innerHTML = originalText; }, 1500);
-                }
+        if (feedbackBtn) feedbackBtn.style.visibility = '';
+
+        // Convert canvas to blob via Promise (keeps user gesture context)
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) return;
+
+        try {
+            await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+            ]);
+            if (feedbackBtn) {
+                feedbackBtn.style.opacity = '1';
+                feedbackBtn.style.color = '#28a745';
+                setTimeout(() => { feedbackBtn.style.color = ''; feedbackBtn.style.opacity = ''; }, 1500);
             }
-        }, 'image/png');
+        } catch (err) {
+            console.error('Clipboard write failed, opening in new tab:', err);
+            // Fallback: open image in new tab for manual save
+            const url = canvas.toDataURL('image/png');
+            window.open(url, '_blank');
+        }
     } catch (err) {
         console.error('html2canvas error:', err);
+        if (feedbackBtn) feedbackBtn.style.visibility = '';
     }
 }
 

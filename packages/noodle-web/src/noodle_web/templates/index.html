@@ -251,11 +251,9 @@ Press Enter to render..."></textarea>
 
                                 <!-- Timeline Section (full width) -->
                                 <div class="project-report-section">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <h3>Timeline</h3>
-                                        <button class="btn btn-sm btn-outline-secondary copy-image-btn" onclick="copyElementAsImage(document.querySelector('.report-timeline-wrapper'), this)" title="Copy timeline as image">&#x1F4CB; Copy</button>
-                                    </div>
-                                    <div class="timeline-line-wrapper report-timeline-wrapper">
+                                    <h3>Timeline</h3>
+                                    <div class="timeline-line-wrapper report-timeline-wrapper" style="position: relative;">
+                                        <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                         <div class="timeline-line" id="reportTimelineLine"></div>
                                         <div class="timeline-milestones" id="reportTimelineMilestones">
                                             <!-- Milestone markers will be populated by JavaScript -->
@@ -396,10 +394,8 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the milestones table here.</p>
                             </div>
                             <div class="milestones-content" style="display: none;">
-                                <div class="milestones-toolbar" style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
-                                    <button class="btn btn-sm btn-outline-secondary copy-image-btn" onclick="copyElementAsImage(document.querySelector('#milestones-view .milestones-table-wrapper'), this)" title="Copy table as image">&#x1F4CB; Copy</button>
-                                </div>
-                                <div class="milestones-table-wrapper">
+                                <div class="milestones-table-wrapper" style="position: relative;">
+                                    <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy table as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="milestones-table">
                                         <thead>
                                             <tr>
@@ -522,9 +518,9 @@ Press Enter to render..."></textarea>
                                 <div class="resources-toolbar">
                                     <h2 class="resources-title">Resource Allocation</h2>
                                     <button class="btn btn-sm btn-outline-secondary" onclick="fixResourceNames()" title="Capitalise first letter of all resource shortnames">Fix Resource Names</button>
-                                    <button class="btn btn-sm btn-outline-secondary copy-image-btn" onclick="copyElementAsImage(document.querySelector('#resources-view .resources-table-wrapper'), this)" title="Copy table as image">&#x1F4CB; Copy</button>
                                 </div>
-                                <div class="resources-table-wrapper">
+                                <div class="resources-table-wrapper" style="position: relative;">
+                                    <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy table as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="resources-table">
                                         <thead>
                                             <tr>
