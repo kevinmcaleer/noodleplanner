@@ -31,15 +31,17 @@ async function copyElementAsImage(element, feedbackBtn) {
                 new ClipboardItem({ 'image/png': blob })
             ]);
             if (feedbackBtn) {
-                feedbackBtn.style.opacity = '1';
                 feedbackBtn.style.color = '#28a745';
-                setTimeout(() => { feedbackBtn.style.color = ''; feedbackBtn.style.opacity = ''; }, 1500);
+                setTimeout(() => { feedbackBtn.style.color = ''; }, 1500);
             }
         } catch (err) {
-            console.error('Clipboard write failed, opening in new tab:', err);
-            // Fallback: open image in new tab for manual save
+            console.error('Clipboard write failed, downloading instead:', err);
+            // Fallback: download as PNG file
             const url = canvas.toDataURL('image/png');
-            window.open(url, '_blank');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'screenshot.png';
+            a.click();
         }
     } catch (err) {
         console.error('html2canvas error:', err);
