@@ -4156,6 +4156,12 @@ body.detail-pane-open {
     position: relative;
 }
 
+/* Conditional formatting applied to kanban cards */
+.kanban-card-cf .kanban-card-title,
+.kanban-card-cf .kanban-card-comment {
+    color: inherit;
+}
+
 .kanban-card:hover {
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     transform: translateY(-2px);
