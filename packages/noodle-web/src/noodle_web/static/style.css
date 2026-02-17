@@ -1149,6 +1149,17 @@ h1 {
     padding: 0;
 }
 
+.report-highlight-card.clickable {
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 8px;
+    transition: background-color 0.15s ease;
+}
+
+.report-highlight-card.clickable:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
 .report-highlight-meta {
     display: flex;
     gap: 12px;
