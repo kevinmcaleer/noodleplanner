@@ -1066,6 +1066,9 @@ async function updateProjectSummary(planText, projectName) {
         // Update Timeline
         updateTimeline(result.tasks || [], result.project_name);
 
+        // Load conditional formatting rules before rendering
+        loadConditionalFormattingRulesFromFrontMatter();
+
         // Update Gantt Chart
         updateGantt(result.tasks || []);
 
@@ -3628,6 +3631,9 @@ function renderGanttRows() {
         // Skip hidden tasks (children of collapsed summary tasks)
         const isHidden = hiddenIndices.has(index);
 
+        // Get conditional formatting for this task
+        const cfStyle = !task.is_summary ? getConditionalFormatting(task) : null;
+
         // Info row
         const infoRow = document.createElement('tr');
         infoRow.dataset.taskIndex = index;
@@ -3636,6 +3642,11 @@ function renderGanttRows() {
         }
         if (isHidden) {
             infoRow.style.display = 'none';
+        }
+        // Apply conditional formatting to info row
+        if (cfStyle) {
+            infoRow.style.backgroundColor = cfStyle.backgroundColor;
+            infoRow.style.color = cfStyle.color;
         }
 
         // Done checkbox cell (skip for summary tasks)
@@ -3835,6 +3846,11 @@ function renderGanttRows() {
                 diamond.title = `${task.name}\nMilestone: ${task.finish}`;
                 diamond.dataset.taskIndex = index;
 
+                // Apply conditional formatting to milestone
+                if (cfStyle) {
+                    diamond.style.backgroundColor = cfStyle.backgroundColor;
+                }
+
                 setupBarDragListeners(diamond, task, index);
                 setupBarClickToOpenTask(diamond, task);
 
@@ -3879,6 +3895,11 @@ function renderGanttRows() {
                     progress.className = 'gantt-progress';
                     progress.style.width = task.percent;
                     bar.appendChild(progress);
+                }
+
+                // Apply conditional formatting to bar
+                if (cfStyle) {
+                    bar.style.backgroundColor = cfStyle.backgroundColor;
                 }
 
                 // Add drag event listeners
@@ -8109,10 +8130,11 @@ function saveProjectDetailsInternal(closeModal = true) {
     const editor = document.getElementById('planEditor');
     let content = editor.value;
 
-    // Extract existing Resources and Key Stakeholders sections from current editor
-    // to preserve any changes made via resource form
+    // Extract existing Resources, Key Stakeholders, and Formatting sections from current editor
+    // to preserve any changes made via resource form or conditional formatting
     const existingResourcesSection = extractFrontMatterSection(content, 'Resources');
     const existingStakeholdersSection = extractFrontMatterSection(content, 'Key Stakeholders');
+    const existingFormattingSection = extractFrontMatterSection(content, 'Formatting');
 
     // Collect form data
     const title = document.getElementById('projectTitle').value.trim();
@@ -8143,6 +8165,11 @@ function saveProjectDetailsInternal(closeModal = true) {
     // Preserve existing Key Stakeholders section from editor (don't overwrite)
     if (existingStakeholdersSection) {
         frontMatter += existingStakeholdersSection;
+    }
+
+    // Preserve existing Formatting section from editor (don't overwrite)
+    if (existingFormattingSection) {
+        frontMatter += existingFormattingSection;
     }
 
     frontMatter += '---\n';
@@ -8295,6 +8322,500 @@ document.addEventListener('DOMContentLoaded', function() {
         kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 });
+
+/**
+ * Conditional Formatting System
+ * Allows users to define rules that colour tasks in Gantt and Kanban views.
+ * Rules are stored in the plan front matter under "Formatting:" section.
+ */
+
+let conditionalFormattingRules = [];
+let cfActivePickerRowIndex = null;
+
+const CF_PASTEL_COLOURS = [
+    '#FFE0B2', '#FFCCBC', '#F8BBD0', '#E1BEE7', '#D1C4E9',
+    '#C5CAE9', '#BBDEFB', '#B3E5FC', '#B2EBF2', '#B2DFDB',
+    '#C8E6C9', '#DCEDC8', '#F0F4C3', '#FFF9C4', '#FFECB3',
+    '#D7CCC8', '#F5F5F5', '#CFD8DC'
+];
+
+const CF_DARK_COLOURS = [
+    '#E65100', '#BF360C', '#880E4F', '#4A148C', '#311B92',
+    '#1A237E', '#0D47A1', '#01579B', '#006064', '#004D40',
+    '#1B5E20', '#33691E', '#827717', '#F57F17', '#FF6F00',
+    '#3E2723', '#212121', '#263238'
+];
+
+function isPastelColour(colour) {
+    const upper = colour.toUpperCase();
+    return CF_PASTEL_COLOURS.includes(upper);
+}
+
+function getForegroundForColour(bgColour) {
+    return isPastelColour(bgColour) ? '#000000' : '#FFFFFF';
+}
+
+function getConditionsForField(field) {
+    const dateFields = ['Start', 'Finish'];
+    const numericFields = ['% Complete', 'Duration'];
+
+    if (dateFields.includes(field)) {
+        return ['is before', 'is after', 'is before today', 'is after today'];
+    }
+    if (numericFields.includes(field)) {
+        return ['is less than', 'is more than', 'equals'];
+    }
+    return ['contains'];
+}
+
+function openConditionalFormattingPanel() {
+    loadConditionalFormattingRulesFromFrontMatter();
+    renderConditionalFormattingRules();
+    populateCfColourPicker();
+    openDetailPane('conditionalFormattingSection');
+}
+
+function populateCfColourPicker() {
+    const pastelGrid = document.getElementById('cfPastelColours');
+    const darkGrid = document.getElementById('cfDarkColours');
+    if (!pastelGrid || !darkGrid) return;
+
+    pastelGrid.innerHTML = '';
+    darkGrid.innerHTML = '';
+
+    CF_PASTEL_COLOURS.forEach(colour => {
+        const swatch = document.createElement('div');
+        swatch.className = 'cf-colour-option';
+        swatch.style.backgroundColor = colour;
+        swatch.title = colour;
+        swatch.addEventListener('click', () => selectCfColour(colour));
+        pastelGrid.appendChild(swatch);
+    });
+
+    CF_DARK_COLOURS.forEach(colour => {
+        const swatch = document.createElement('div');
+        swatch.className = 'cf-colour-option';
+        swatch.style.backgroundColor = colour;
+        swatch.title = colour;
+        swatch.addEventListener('click', () => selectCfColour(colour));
+        darkGrid.appendChild(swatch);
+    });
+}
+
+function selectCfColour(colour) {
+    if (cfActivePickerRowIndex === null) return;
+
+    const rule = conditionalFormattingRules[cfActivePickerRowIndex];
+    if (rule) {
+        rule.colour = colour;
+        saveConditionalFormattingRulesToFrontMatter();
+        renderConditionalFormattingRules();
+        hideCfColourPicker();
+    }
+}
+
+function showCfColourPicker(rowIndex) {
+    cfActivePickerRowIndex = rowIndex;
+    const picker = document.getElementById('cfColourPicker');
+    if (picker) {
+        picker.style.display = 'block';
+
+        // Highlight current selection
+        const currentColour = conditionalFormattingRules[rowIndex]?.colour || '';
+        picker.querySelectorAll('.cf-colour-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.style.backgroundColor === currentColour ||
+                opt.title === currentColour);
+        });
+    }
+}
+
+function hideCfColourPicker() {
+    cfActivePickerRowIndex = null;
+    const picker = document.getElementById('cfColourPicker');
+    if (picker) picker.style.display = 'none';
+}
+
+function addConditionalFormattingRule() {
+    conditionalFormattingRules.push({
+        field: 'Task Name',
+        condition: 'contains',
+        value: '',
+        colour: '#FFE0B2'
+    });
+    saveConditionalFormattingRulesToFrontMatter();
+    renderConditionalFormattingRules();
+}
+
+function deleteConditionalFormattingRule(index) {
+    conditionalFormattingRules.splice(index, 1);
+    saveConditionalFormattingRulesToFrontMatter();
+    renderConditionalFormattingRules();
+}
+
+function updateConditionalFormattingRule(index, field, value) {
+    const rule = conditionalFormattingRules[index];
+    if (!rule) return;
+
+    rule[field] = value;
+
+    // When field changes, reset condition to first available
+    if (field === 'field') {
+        const conditions = getConditionsForField(value);
+        rule.condition = conditions[0];
+    }
+
+    saveConditionalFormattingRulesToFrontMatter();
+    renderConditionalFormattingRules();
+}
+
+function renderConditionalFormattingRules() {
+    const tbody = document.getElementById('cfRulesBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const fields = ['Task Name', 'Label', 'Start', 'Finish', '% Complete', 'Assigned To', 'Duration'];
+
+    conditionalFormattingRules.forEach((rule, index) => {
+        const row = document.createElement('tr');
+
+        // Field selector
+        const fieldCell = document.createElement('td');
+        const fieldSelect = document.createElement('select');
+        fields.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = f;
+            opt.selected = rule.field === f;
+            fieldSelect.appendChild(opt);
+        });
+        fieldSelect.addEventListener('change', () => updateConditionalFormattingRule(index, 'field', fieldSelect.value));
+        fieldCell.appendChild(fieldSelect);
+        row.appendChild(fieldCell);
+
+        // Condition selector
+        const condCell = document.createElement('td');
+        const condSelect = document.createElement('select');
+        const conditions = getConditionsForField(rule.field);
+        conditions.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            opt.selected = rule.condition === c;
+            condSelect.appendChild(opt);
+        });
+        condSelect.addEventListener('change', () => updateConditionalFormattingRule(index, 'condition', condSelect.value));
+        condCell.appendChild(condSelect);
+        row.appendChild(condCell);
+
+        // Value input (not needed for "is before today"/"is after today")
+        const valCell = document.createElement('td');
+        if (!rule.condition.includes('today')) {
+            const valInput = document.createElement('input');
+            valInput.type = 'text';
+            valInput.value = rule.value || '';
+            valInput.placeholder = getValuePlaceholder(rule);
+            valInput.addEventListener('change', () => updateConditionalFormattingRule(index, 'value', valInput.value));
+            valCell.appendChild(valInput);
+        } else {
+            valCell.textContent = '-';
+        }
+        row.appendChild(valCell);
+
+        // Colour swatch
+        const colourCell = document.createElement('td');
+        colourCell.className = 'cf-colour-cell';
+        const swatch = document.createElement('span');
+        swatch.className = 'cf-colour-swatch';
+        swatch.style.backgroundColor = rule.colour || '#FFE0B2';
+        swatch.addEventListener('click', () => showCfColourPicker(index));
+        colourCell.appendChild(swatch);
+        row.appendChild(colourCell);
+
+        // Delete button
+        const delCell = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'cf-delete-btn';
+        delBtn.innerHTML = '&times;';
+        delBtn.title = 'Delete rule';
+        delBtn.addEventListener('click', () => deleteConditionalFormattingRule(index));
+        delCell.appendChild(delBtn);
+        row.appendChild(delCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+function getValuePlaceholder(rule) {
+    if (rule.field === 'Start' || rule.field === 'Finish') {
+        return 'e.g. 2026-03-01 or today + 3d';
+    }
+    if (rule.field === '% Complete' || rule.field === 'Duration') {
+        return 'e.g. 50';
+    }
+    return 'e.g. Design';
+}
+
+/**
+ * Parse "today + 3d" or "today - 5d" or a date string into a Date.
+ */
+function parseCfDateValue(value) {
+    if (!value) return null;
+    const trimmed = value.trim().toLowerCase();
+
+    const todayMatch = trimmed.match(/^today\s*([+-])\s*(\d+)d$/);
+    if (todayMatch) {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        const offset = parseInt(todayMatch[2]) * (todayMatch[1] === '+' ? 1 : -1);
+        date.setDate(date.getDate() + offset);
+        return date;
+    }
+
+    if (trimmed === 'today') {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }
+
+    // Try parsing as a date string
+    const parsed = new Date(value.trim());
+    if (!isNaN(parsed.getTime())) {
+        parsed.setHours(0, 0, 0, 0);
+        return parsed;
+    }
+    return null;
+}
+
+/**
+ * Evaluate a single conditional formatting rule against a task.
+ * Returns true if the rule matches.
+ */
+function evaluateCfRule(rule, task) {
+    const field = rule.field;
+    const condition = rule.condition;
+    const value = rule.value || '';
+
+    let taskValue = getTaskFieldValue(task, field);
+    if (taskValue === null || taskValue === undefined) return false;
+
+    switch (condition) {
+        case 'contains': {
+            const tv = String(taskValue).toLowerCase();
+            const rv = value.toLowerCase();
+            return tv.includes(rv);
+        }
+        case 'is before today': {
+            const taskDate = parseDateToLocal(taskValue);
+            if (!taskDate) return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return taskDate < today;
+        }
+        case 'is after today': {
+            const taskDate = parseDateToLocal(taskValue);
+            if (!taskDate) return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return taskDate > today;
+        }
+        case 'is before': {
+            const taskDate = parseDateToLocal(taskValue);
+            const compareDate = parseCfDateValue(value);
+            if (!taskDate || !compareDate) return false;
+            return taskDate < compareDate;
+        }
+        case 'is after': {
+            const taskDate = parseDateToLocal(taskValue);
+            const compareDate = parseCfDateValue(value);
+            if (!taskDate || !compareDate) return false;
+            return taskDate > compareDate;
+        }
+        case 'is less than': {
+            const num = parseFloat(String(taskValue).replace('%', ''));
+            const target = parseFloat(value);
+            if (isNaN(num) || isNaN(target)) return false;
+            return num < target;
+        }
+        case 'is more than': {
+            const num = parseFloat(String(taskValue).replace('%', ''));
+            const target = parseFloat(value);
+            if (isNaN(num) || isNaN(target)) return false;
+            return num > target;
+        }
+        case 'equals': {
+            const num = parseFloat(String(taskValue).replace('%', ''));
+            const target = parseFloat(value);
+            if (isNaN(num) || isNaN(target)) return false;
+            return num === target;
+        }
+        default:
+            return false;
+    }
+}
+
+function parseDateToLocal(dateStr) {
+    if (!dateStr || dateStr === '-') return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function getTaskFieldValue(task, field) {
+    switch (field) {
+        case 'Task Name': return task.name;
+        case 'Label': return task.labels || '';
+        case 'Start': return task.start || task.startDate || '';
+        case 'Finish': return task.finish || task.finishDate || '';
+        case '% Complete': return task.percent ? String(task.percent).replace('%', '') : '0';
+        case 'Assigned To': return task.resources || '';
+        case 'Duration': return task.duration_days !== undefined ? String(task.duration_days) : (task.duration || '0');
+        default: return null;
+    }
+}
+
+/**
+ * Get the formatting (background + foreground colour) for a task based on rules.
+ * First matching rule wins.
+ */
+function getConditionalFormatting(task) {
+    for (const rule of conditionalFormattingRules) {
+        if (!rule.colour || (!rule.value && !rule.condition.includes('today'))) continue;
+        if (evaluateCfRule(rule, task)) {
+            return {
+                backgroundColor: rule.colour,
+                color: getForegroundForColour(rule.colour)
+            };
+        }
+    }
+    return null;
+}
+
+/**
+ * Parse conditional formatting rules from plan front matter.
+ * Format: Formatting:
+ *   - Task Name contains "Design" -> #FFE0B2
+ *   - Start is after today -> #E65100
+ */
+function loadConditionalFormattingRulesFromFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const content = editor.value;
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) {
+        conditionalFormattingRules = [];
+        return;
+    }
+
+    const lines = frontMatterMatch[1].split('\n');
+    const rules = [];
+    let inFormatting = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.toLowerCase() === 'formatting:') {
+            inFormatting = true;
+            continue;
+        }
+
+        // New section header ends formatting section
+        if (inFormatting && trimmed.match(/^[a-z\s]+:/i) && !trimmed.startsWith('-')) {
+            break;
+        }
+
+        if (inFormatting && trimmed.startsWith('-')) {
+            const rule = parseCfRuleLine(trimmed.substring(1).trim());
+            if (rule) rules.push(rule);
+        }
+    }
+
+    conditionalFormattingRules = rules;
+}
+
+/**
+ * Parse a single rule line like: Task Name contains "Design" -> #FFE0B2
+ */
+function parseCfRuleLine(line) {
+    const arrowIndex = line.lastIndexOf('->');
+    if (arrowIndex === -1) return null;
+
+    const leftPart = line.substring(0, arrowIndex).trim();
+    const colour = line.substring(arrowIndex + 2).trim();
+
+    // Match: field condition "value" OR field condition value OR field condition
+    const fields = ['Task Name', 'Label', 'Start', 'Finish', '% Complete', 'Assigned To', 'Duration'];
+    const conditions = ['contains', 'is before today', 'is after today', 'is before', 'is after', 'is less than', 'is more than', 'equals'];
+
+    // Sort conditions longest first for greedy matching
+    const sortedConditions = [...conditions].sort((a, b) => b.length - a.length);
+
+    for (const field of fields) {
+        if (!leftPart.startsWith(field)) continue;
+        const rest = leftPart.substring(field.length).trim();
+
+        for (const cond of sortedConditions) {
+            if (!rest.startsWith(cond)) continue;
+            let value = rest.substring(cond.length).trim();
+            // Remove surrounding quotes if present
+            if ((value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1);
+            }
+            return { field, condition: cond, value, colour };
+        }
+    }
+    return null;
+}
+
+/**
+ * Save conditional formatting rules to plan front matter.
+ */
+function saveConditionalFormattingRulesToFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    let content = editor.value;
+    const existingFormatting = extractFrontMatterSection(content, 'Formatting');
+
+    // Build new formatting section
+    let formattingSection = '';
+    if (conditionalFormattingRules.length > 0) {
+        formattingSection = 'Formatting:\n';
+        for (const rule of conditionalFormattingRules) {
+            const valueStr = rule.value ? ` "${rule.value}"` : '';
+            formattingSection += `- ${rule.field} ${rule.condition}${valueStr} -> ${rule.colour}\n`;
+        }
+    }
+
+    // Replace existing formatting in front matter or add it
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (frontMatterMatch) {
+        let fmContent = frontMatterMatch[1];
+
+        // Remove existing Formatting section
+        if (existingFormatting) {
+            fmContent = fmContent.replace(existingFormatting, '');
+            // Clean up empty lines
+            fmContent = fmContent.replace(/\n{3,}/g, '\n');
+        }
+
+        // Add new formatting section if there are rules
+        if (formattingSection) {
+            fmContent = fmContent.trimEnd() + '\n' + formattingSection;
+        }
+
+        const newFrontMatter = '---\n' + fmContent.trim() + '\n---';
+        content = content.replace(/^---\s*\n[\s\S]*?\n---/, newFrontMatter);
+    } else if (formattingSection) {
+        // No front matter exists, create one
+        content = '---\n' + formattingSection + '---\n\n' + content;
+    }
+
+    editor.value = content;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
 
 /**
  * RAID Log System

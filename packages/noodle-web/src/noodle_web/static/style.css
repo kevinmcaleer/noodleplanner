@@ -3101,6 +3101,89 @@ body.detail-pane-open {
     }
 }
 
+/* Conditional Formatting */
+#cfRulesTable {
+    font-size: 0.85em;
+}
+
+#cfRulesTable select,
+#cfRulesTable input[type="text"] {
+    font-size: 0.85em;
+    padding: 2px 6px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    width: 100%;
+}
+
+#cfRulesTable .cf-colour-cell {
+    cursor: pointer;
+    text-align: center;
+    min-width: 50px;
+    position: relative;
+}
+
+#cfRulesTable .cf-colour-swatch {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+#cfRulesTable .cf-delete-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 2px 6px;
+}
+
+#cfRulesTable .cf-delete-btn:hover {
+    color: #a71d2a;
+}
+
+.cf-colour-picker {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.cf-colour-section {
+    margin-bottom: 4px;
+}
+
+.cf-colour-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.cf-colour-grid .cf-colour-option {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.cf-colour-grid .cf-colour-option:hover {
+    transform: scale(1.2);
+    border-color: #333;
+}
+
+.cf-colour-grid .cf-colour-option.selected {
+    border-color: #333;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+}
+
 .modal-header {
     background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
     color: white;
