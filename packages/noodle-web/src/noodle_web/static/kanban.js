@@ -1265,9 +1265,9 @@ class KanbanBoard {
         if (typeof getConditionalFormatting === 'function') {
             const cfStyle = getConditionalFormatting(task);
             if (cfStyle) {
+                cardEl.classList.add('kanban-card-cf');
                 cardEl.style.backgroundColor = cfStyle.backgroundColor;
                 cardEl.style.color = cfStyle.color;
-                cardEl.style.borderLeftColor = cfStyle.backgroundColor;
             }
         }
 
