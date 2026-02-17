@@ -450,6 +450,20 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                             f"Row {row_num}: Could not parse percent '{raw_pct}'"
                         )
 
+            # Parse priority
+            priority = ""
+            if "priority" in col_index and col_index["priority"] < len(row):
+                raw_priority = row[col_index["priority"]]
+                if raw_priority is not None and str(raw_priority).strip():
+                    priority = str(raw_priority).strip()
+
+            # Parse bucket
+            bucket = ""
+            if "bucket" in col_index and col_index["bucket"] < len(row):
+                raw_bucket = row[col_index["bucket"]]
+                if raw_bucket is not None and str(raw_bucket).strip():
+                    bucket = str(raw_bucket).strip()
+
             # Parse comment
             comment = ""
             if "comment" in col_index and col_index["comment"] < len(row):
@@ -464,6 +478,8 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 "duration": duration,
                 "resources": resources,
                 "percent": percent,
+                "priority": priority,
+                "bucket": bucket,
                 "comment": comment,
             })
 
@@ -654,9 +670,20 @@ def _build_task_metadata(task, resource_map):
     if task.get("percent") is not None and task["percent"] > 0:
         parts.append(f"{task['percent']}%")
 
+    # Priority
+    if task.get("priority"):
+        priority_markers = {'Urgent': '!!!', 'Important': '!!', 'Medium': '!'}
+        marker = priority_markers.get(task["priority"], '')
+        if marker:
+            parts.append(marker)
+
+    # Bucket
+    if task.get("bucket"):
+        parts.append(f"{{{task['bucket']}}}")
+
     # Comment
     if task.get("comment"):
-        parts.append(f"! {task['comment']}")
+        parts.append(f'"{task["comment"]}"')
 
     if not parts:
         return ""

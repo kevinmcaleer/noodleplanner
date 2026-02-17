@@ -406,6 +406,8 @@ Press Enter to render..."></textarea>
                                                 <th>Finish</th>
                                                 <th>%</th>
                                                 <th>RAG</th>
+                                                <th>Priority</th>
+                                                <th>Bucket</th>
                                                 <th>Comment</th>
                                             </tr>
                                         </thead>
@@ -488,6 +490,8 @@ Press Enter to render..."></textarea>
                                                     <th>Resources</th>
                                                     <th>%</th>
                                                     <th>RAG</th>
+                                                    <th>Priority</th>
+                                                    <th>Bucket</th>
                                                     <th>Comment</th>
                                                 </tr>
                                             </thead>
@@ -1259,6 +1263,23 @@ Build
                             <span class="add-icon">+</span> Add Sub Task
                         </a>
                         <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="taskPriority">Priority</label>
+                            <select id="taskPriority" onchange="saveTask()" style="background: white; color: black;">
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium (!)</option>
+                                <option value="Important">Important (!!)</option>
+                                <option value="Urgent">Urgent (!!!)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskBucket">Bucket</label>
+                            <input type="text" id="taskBucket" placeholder="e.g. Project Management" oninput="saveTask()"
+                                   style="background: white; color: black;">
+                        </div>
                     </div>
 
                     <div class="form-group">

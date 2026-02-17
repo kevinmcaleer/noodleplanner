@@ -211,6 +211,26 @@ def extract_metadata(task_str, task_name=None):
         import sys
         sys.stderr.write(f"[NOT SEQUENTIAL] Task '{task_name}' not sequential (task_str: '{task_str}')\n")
         sys.stderr.flush()
+    # Extract bucket name from {BucketName} syntax
+    bucket_match = re.search(r'\{([^}]+)\}', task_str)
+    if bucket_match:
+        meta['bucket'] = bucket_match.group(1).strip()
+
+    # Extract priority from ! markers (!!!=Urgent, !!=Important, !=Medium, none=Low)
+    # Must check for !!! before !! before ! to match greedily
+    # Only match standalone ! markers, not !"comment" patterns
+    priority_match = re.search(r'(?<!\w)(!!!|!!|!)(?!["\'])', task_str)
+    if priority_match:
+        marker = priority_match.group(1)
+        if marker == '!!!':
+            meta['priority'] = 'Urgent'
+        elif marker == '!!':
+            meta['priority'] = 'Important'
+        elif marker == '!':
+            meta['priority'] = 'Medium'
+    else:
+        meta['priority'] = 'Low'
+
     # Support both !"comment" and "comment" formats
     comment_match = re.search(r'!(?:"([^"]+)"|\'([^\']+)\')', task_str)
     if comment_match:
@@ -259,7 +279,7 @@ def extract_metadata(task_str, task_name=None):
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|$)", task_str)
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
@@ -1993,9 +2013,9 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     ws_tasks = wb.active
     ws_tasks.title = "Tasks"
 
-    # Task headers (removed Phase column, added RAG)
+    # Task headers (removed Phase column, added RAG, Priority, Bucket)
     task_headers = ['ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
-                    'Resources', '% Complete', 'RAG', 'Comment']
+                    'Resources', '% Complete', 'RAG', 'Priority', 'Bucket', 'Comment']
     ws_tasks.append(task_headers)
 
     # Style header row
@@ -2052,6 +2072,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             resources_str,
             task.get('percent', 0) if task.get('percent') else '',
             rag_status,
+            task.get('priority', 'Low'),
+            task.get('bucket', ''),
             task.get('comment', '')
         ]
         ws_tasks.append(row)
@@ -3239,7 +3261,7 @@ def export_to_csv(text, output_path, is_yaml=True, project_name="Project", origi
     with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
         # Define CSV headers
         fieldnames = ['ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
-                      'Resources', '% Complete', 'RAG', 'Comment']
+                      'Resources', '% Complete', 'RAG', 'Priority', 'Bucket', 'Comment']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         # Write header row
@@ -3285,6 +3307,8 @@ def export_to_csv(text, output_path, is_yaml=True, project_name="Project", origi
                 'Resources': resource_str,
                 '% Complete': percentage,
                 'RAG': rag_status,
+                'Priority': task.get('priority', 'Low'),
+                'Bucket': task.get('bucket', ''),
                 'Comment': comment
             })
 
