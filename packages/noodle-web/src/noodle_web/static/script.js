@@ -1591,16 +1591,23 @@ function updateReportHighlight() {
             return;
         }
 
-        // Find the most recent highlight by date
-        const latest = highlightsData.reduce((newest, current) => {
-            if (!newest) return current;
-            return (current.date > newest.date) ? current : newest;
+        // Find the most recent highlight by date, tracking its index
+        let latestIndex = 0;
+        const latest = highlightsData.reduce((newest, current, idx) => {
+            if (!newest) { latestIndex = idx; return current; }
+            if (current.date > newest.date) {
+                latestIndex = idx;
+                return current;
+            }
+            return newest;
         }, null);
 
         container.innerHTML = '';
 
         const card = document.createElement('div');
-        card.className = 'report-highlight-card';
+        card.className = 'report-highlight-card clickable';
+        card.title = 'Click to edit this highlight';
+        card.addEventListener('click', () => editHighlight(latestIndex));
 
         const meta = document.createElement('div');
         meta.className = 'report-highlight-meta';
