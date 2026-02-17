@@ -298,7 +298,10 @@ Press Enter to render..."></textarea>
 
                                     <!-- Top Right: RAID Log -->
                                     <div class="quad-cell">
-                                        <h3>Risks &amp; Issues</h3>
+                                        <div class="quad-header">
+                                            <h3>Risks &amp; Issues</h3>
+                                            <button class="quad-add-btn" onclick="openRaidForm()" title="Add new risk or issue">+</button>
+                                        </div>
                                         <div class="raid-table-wrapper">
                                             <table class="milestones-table quad-table" id="reportRaidTable">
                                                 <thead>
@@ -318,7 +321,10 @@ Press Enter to render..."></textarea>
 
                                     <!-- Bottom Left: Highlights -->
                                     <div class="quad-cell">
-                                        <h3>Latest Highlight</h3>
+                                        <div class="quad-header">
+                                            <h3>Latest Highlight</h3>
+                                            <button class="quad-add-btn" onclick="addHighlight()" title="Add new highlight">+</button>
+                                        </div>
                                         <div id="reportHighlightContent" class="report-highlight-content">
                                             <p class="quad-empty-state">No highlights recorded yet.</p>
                                         </div>
