@@ -1127,7 +1127,7 @@ def _build_task_metadata(task, resource_map):
 
     # Comment
     if task.get("comment"):
-        parts.append(f'"{task["comment"]}"')
+        parts.append(f'! {task["comment"]}')
 
     if not parts:
         return ""

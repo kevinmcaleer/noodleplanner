@@ -53,7 +53,8 @@ def get_next_working_day(date, holidays=None):
         holidays = set()
 
     current_date = date
-    while True:
+    max_iterations = 366
+    for _ in range(max_iterations):
         is_weekend = current_date.weekday() >= 5  # Saturday=5, Sunday=6
         is_holiday = current_date in holidays
 
@@ -61,6 +62,10 @@ def get_next_working_day(date, holidays=None):
             return current_date
 
         current_date += timedelta(days=1)
+
+    raise ValueError(
+        f"Could not find a working day within {max_iterations} days of {date}"
+    )
 
 def add_working_days(start_date, num_days, holidays=None):
     """Add working days to a start date, skipping weekends and holidays.
@@ -83,6 +88,12 @@ def add_working_days(start_date, num_days, holidays=None):
     if num_days == 0:
         # Zero-duration tasks (milestones) finish on the same day
         return start_date
+
+    max_working_days = 5000  # ~20 years of working days
+    if abs(num_days) > max_working_days:
+        raise ValueError(
+            f"Number of working days ({num_days}) exceeds maximum allowed ({max_working_days})"
+        )
 
     # Handle negative days (going backwards)
     if num_days < 0:
@@ -175,25 +186,29 @@ def extract_metadata(task_str, task_name=None):
 
     # Extract dependencies using [depends task1, task2, ...] syntax
     # Now also supports lag/lead time: [depends task1 +2d, task2 -1w]
-    bracket_dep_pattern = r'\[depends\s+([^\]]+)\]'
+    bracket_dep_pattern = r'\[depends\s*([^\]]*)\]'
     bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
     if bracket_dep_match:
         # Split by comma and parse each dependency with optional lag/lead
-        dep_specs = bracket_dep_match.group(1).split(',')
+        raw_deps = bracket_dep_match.group(1).strip()
         dep_list = []
         lag_lead_map = {}  # Maps dependency name to lag/lead offset
 
-        for dep_spec in dep_specs:
-            dep_spec = dep_spec.strip()
-            # Check for lag/lead time: "TaskName +2d" or "TaskName -1w"
-            lag_lead_match = re.search(r'^(.+?)\s+([+\-]\d+[dwmy])$', dep_spec)
-            if lag_lead_match:
-                dep_task_name = lag_lead_match.group(1).strip()
-                lag_lead_str = lag_lead_match.group(2)
-                dep_list.append(dep_task_name)
-                lag_lead_map[dep_task_name] = lag_lead_str
-            else:
-                dep_list.append(dep_spec)
+        if raw_deps:
+            dep_specs = raw_deps.split(',')
+            for dep_spec in dep_specs:
+                dep_spec = dep_spec.strip()
+                if not dep_spec:
+                    continue
+                # Check for lag/lead time: "TaskName +2d" or "TaskName -1w"
+                lag_lead_match = re.search(r'^(.+?)\s+([+\-]\d+[dwmy])$', dep_spec)
+                if lag_lead_match:
+                    dep_task_name = lag_lead_match.group(1).strip()
+                    lag_lead_str = lag_lead_match.group(2)
+                    dep_list.append(dep_task_name)
+                    lag_lead_map[dep_task_name] = lag_lead_str
+                else:
+                    dep_list.append(dep_spec)
 
         # Store lag/lead map if any were found
         if lag_lead_map:
@@ -248,12 +263,12 @@ def extract_metadata(task_str, task_name=None):
     # Support both new format (10%) and old format (p10)
     percent_match = re.search(r'(\d{1,3})%', task_str)
     if percent_match:
-        meta['percent'] = int(percent_match.group(1))
+        meta['percent'] = max(0, min(100, int(percent_match.group(1))))
     else:
         # Fall back to old format
         percent_match = re.search(r'\bp(\d{1,3})\b', task_str)
         if percent_match:
-            meta['percent'] = int(percent_match.group(1))
+            meta['percent'] = max(0, min(100, int(percent_match.group(1))))
 
     date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str)
     if date_match:
@@ -1391,7 +1406,8 @@ def natural_language_to_yaml(text, project_name="Project"):
             stack.pop()
 
         parent = stack[-1]
-        node['level'] = parent['level'] + 1
+        max_nesting_depth = 20
+        node['level'] = min(parent['level'] + 1, max_nesting_depth)
         parent['children'].append(node)
         stack.append(node)
 

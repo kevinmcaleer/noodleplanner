@@ -8,6 +8,19 @@ HIGHLIGHTS_END = '---end-highlights---'
 RAID_LOG_START = '---raid log---'
 
 
+def _is_valid_yaml_value(value: str) -> bool:
+    """Check if a string looks like a valid YAML scalar value.
+
+    Rejects values that appear to be malformed YAML collections
+    (e.g. unclosed brackets or braces).
+    """
+    if value.startswith('[') and not value.endswith(']'):
+        return False
+    if value.startswith('{') and not value.endswith('}'):
+        return False
+    return True
+
+
 def extract_title_from_frontmatter(text: str) -> str:
     """Extract title from YAML front matter.
 
@@ -47,7 +60,7 @@ def extract_title_from_frontmatter(text: str) -> str:
                     key, value = line.split(':', 1)
                     if key.strip().lower() == 'title':
                         title = value.strip()
-                        if title:
+                        if title and _is_valid_yaml_value(title):
                             return title
 
     return None

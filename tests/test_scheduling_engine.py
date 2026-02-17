@@ -925,8 +925,11 @@ class TestDependencyLoopDetection:
         tasks = schedule_tasks(phases)
         # Valid chain: Task 1 -> Task 2 -> Task 3
         assert len(tasks) == 3
-        assert tasks[1]['start'] == tasks[0]['finish']
-        assert tasks[2]['start'] == tasks[1]['finish']
+        # Dependent tasks start on the next working day after their dependency finishes.
+        # The finish date is exclusive (day after last working day), so if it falls
+        # on a weekend, get_next_working_day skips to Monday.
+        assert tasks[1]['start'] == get_next_working_day(tasks[0]['finish'])
+        assert tasks[2]['start'] == get_next_working_day(tasks[1]['finish'])
         # Valid chain should not trigger warnings
         loop_warnings = [t for t in tasks if 'loop_warning' in t]
         assert len(loop_warnings) == 0, "Valid dependency chain should not be flagged"
