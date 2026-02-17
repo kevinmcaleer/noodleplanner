@@ -3904,6 +3904,64 @@ body.detail-pane-open {
     opacity: 1;
 }
 
+/* Column colour picker button */
+.kanban-column-colour-btn {
+    background: transparent;
+    border: none;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    margin-left: 8px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.kanban-column-colour-btn:hover {
+    opacity: 1;
+}
+
+/* Theme colour picker popup */
+.theme-colour-picker {
+    position: fixed;
+    z-index: 10000;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-width: 280px;
+}
+
+.theme-colour-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    margin: 8px 0 4px 0;
+}
+
+.theme-colour-label:first-child {
+    margin-top: 0;
+}
+
+.theme-colour-clear-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 6px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: #f8f9fa;
+    color: #495057;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.theme-colour-clear-btn:hover {
+    background: #e9ecef;
+}
+
 .kanban-column-body {
     flex: 1;
     overflow-y: auto;
