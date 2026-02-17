@@ -3644,6 +3644,7 @@ function renderGanttRows() {
         if (!task.is_summary) {
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
+            checkbox.className = 'round-checkbox';
             checkbox.checked = (parseFloat(task.percent) || 0) >= 100;
             checkbox.title = checkbox.checked ? 'Mark incomplete' : 'Mark complete';
             checkbox.addEventListener('change', (e) => {
@@ -5508,7 +5509,7 @@ function populateSubtasks(parentLineNumber, lines) {
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.className = 'subtask-checkbox';
+        checkbox.className = 'subtask-checkbox round-checkbox';
         checkbox.checked = parseInt(subtask.percent) === 100;
         checkbox.addEventListener('change', () => toggleSubtaskCompletion(subtask.lineNumber, checkbox.checked));
 
@@ -5612,7 +5613,7 @@ function addNewSubtask() {
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.className = 'subtask-checkbox';
+    checkbox.className = 'subtask-checkbox round-checkbox';
     checkbox.disabled = true;
 
     const input = document.createElement('input');
