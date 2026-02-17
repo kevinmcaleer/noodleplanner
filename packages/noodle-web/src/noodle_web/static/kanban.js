@@ -8,6 +8,8 @@ class KanbanBoard {
     constructor(viewMode = 'phase') {
         this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label', 'bucket'
         this.sortByPriority = false; // Sort tasks by priority within columns
+        this.hideCompleted = false; // Hide tasks with 100% progress
+        this.createdBuckets = []; // User-created empty buckets
         this.tasks = [];
         this.columns = [];
         this.phases = [];
@@ -686,6 +688,9 @@ class KanbanBoard {
             }
         });
 
+        // Merge user-created buckets
+        this.createdBuckets.forEach(b => bucketSet.add(b));
+
         // Add "No Bucket" column
         bucketSet.add('No Bucket');
 
@@ -815,8 +820,8 @@ class KanbanBoard {
             boardContainer.appendChild(columnEl);
         });
 
-        // Add "Add Column" button for phase, resource, and label views
-        if (this.viewMode === 'phase' || this.viewMode === 'label' || this.viewMode === 'resource') {
+        // Add "Add Column" button for phase, resource, label, and bucket views
+        if (this.viewMode === 'phase' || this.viewMode === 'label' || this.viewMode === 'resource' || this.viewMode === 'bucket') {
             const addColumnEl = this.renderAddColumnButton();
             boardContainer.appendChild(addColumnEl);
         }
@@ -845,6 +850,8 @@ class KanbanBoard {
             descEl.textContent = 'Your plan is empty. Get started by adding tasks.';
         } else if (this.viewMode === 'label') {
             descEl.textContent = 'Your plan is empty. Get started by adding labels and tasks.';
+        } else if (this.viewMode === 'bucket') {
+            descEl.textContent = 'Your plan is empty. Get started by adding buckets and tasks.';
         }
 
         emptyStateEl.appendChild(descEl);
@@ -993,6 +1000,12 @@ class KanbanBoard {
             button.addEventListener('click', () => {
                 this.addNewLabel();
             });
+        } else if (this.viewMode === 'bucket') {
+            button.innerHTML = '+ Add Bucket';
+            button.setAttribute('aria-label', 'Add new bucket column');
+            button.addEventListener('click', () => {
+                this.addNewBucket();
+            });
         }
 
         addColumnEl.appendChild(button);
@@ -1008,6 +1021,12 @@ class KanbanBoard {
         columnEl.setAttribute('data-column-id', column.id);
         columnEl.setAttribute('role', 'region');
         columnEl.setAttribute('aria-label', `${column.name} column with ${column.tasks.length} task${column.tasks.length !== 1 ? 's' : ''}`);
+
+        // Filter out completed tasks if hideCompleted is enabled
+        const visibleTasks = this.hideCompleted
+            ? column.tasks.filter(task => this.getProgressStatus(task.percent) !== 'complete')
+            : column.tasks;
+        const visibleCount = visibleTasks.length;
 
         // Column header
         const headerEl = document.createElement('div');
@@ -1041,7 +1060,7 @@ class KanbanBoard {
 
         const countEl = document.createElement('span');
         countEl.className = 'kanban-column-count';
-        countEl.textContent = `${column.count} ${column.count === 1 ? 'task' : 'tasks'}`;
+        countEl.textContent = `${visibleCount} ${visibleCount === 1 ? 'task' : 'tasks'}`;
         headerEl.appendChild(countEl);
 
         // Add delete button for label view (except Unlabeled)
@@ -1146,14 +1165,14 @@ class KanbanBoard {
             this.handleCardDrop(taskLineNumber, column);
         });
 
-        if (column.tasks.length === 0) {
+        if (visibleTasks.length === 0) {
             bodyEl.innerHTML = `
                 <div class="kanban-column-empty">
                     No tasks in this ${this.viewMode}
                 </div>
             `;
         } else {
-            column.tasks.forEach(task => {
+            visibleTasks.forEach(task => {
                 const cardEl = this.renderCard(task);
                 bodyEl.appendChild(cardEl);
             });
@@ -1273,6 +1292,20 @@ class KanbanBoard {
 
             this.handleCardReorder(draggedLineNumber, task.lineNumber, insertBefore);
         });
+
+        // Quick-complete checkbox
+        const checkboxEl = document.createElement('input');
+        checkboxEl.type = 'checkbox';
+        checkboxEl.className = 'kanban-card-checkbox';
+        checkboxEl.checked = task.progressStatus === 'complete';
+        checkboxEl.title = task.progressStatus === 'complete' ? 'Mark as incomplete' : 'Mark as complete';
+        checkboxEl.setAttribute('aria-label', `Mark "${task.name}" as ${task.progressStatus === 'complete' ? 'incomplete' : 'complete'}`);
+        checkboxEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newPercent = checkboxEl.checked ? 100 : 0;
+            this.quickSetPercent(task, newPercent);
+        });
+        cardEl.appendChild(checkboxEl);
 
         // Card header with title and resources
         const headerEl = document.createElement('div');
@@ -1500,6 +1533,20 @@ class KanbanBoard {
                 } else {
                     // Moving to Unlabeled - remove all labels
                     const updatedLine = this.removeLabelsFromTaskLine(taskLine);
+                    lines[taskLineNumber - 1] = updatedLine;
+                    updated = true;
+                }
+                break;
+
+            case 'bucket':
+                // Update bucket assignment
+                const bucketName = targetColumn.title;
+                if (bucketName !== 'No Bucket') {
+                    const updatedLine = this.replaceBucketInTaskLine(taskLine, bucketName);
+                    lines[taskLineNumber - 1] = updatedLine;
+                    updated = true;
+                } else {
+                    const updatedLine = this.removeBucketFromTaskLine(taskLine);
                     lines[taskLineNumber - 1] = updatedLine;
                     updated = true;
                 }
@@ -1788,6 +1835,52 @@ class KanbanBoard {
     }
 
     /**
+     * Quickly set a task's percent complete and update the editor
+     */
+    quickSetPercent(task, newPercent) {
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        const taskLineNumber = task.lineNumber;
+        const taskLine = lines[taskLineNumber - 1];
+
+        if (!taskLine) return;
+
+        const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
+        lines[taskLineNumber - 1] = updatedLine;
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        // Update editor
+        editor.value = lines.join('\n');
+
+        // Dispatch input event to trigger editor listeners
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Trigger immediate re-parse and render
+        setTimeout(() => {
+            this.parse();
+            this.render();
+
+            // Trigger main render to update all views
+            if (typeof renderText === 'function') {
+                renderText();
+            }
+
+            // Re-enable editor listener after update
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
      * Update percent in task line
      */
     updatePercentInTaskLine(line, newPercent) {
@@ -1867,6 +1960,48 @@ class KanbanBoard {
 
         // Remove all #label tokens and clean up extra spaces
         const updated = trimmed.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
+        return indent + updated;
+    }
+
+    /**
+     * Replace or add bucket in task line
+     */
+    replaceBucketInTaskLine(line, newBucket) {
+        const indent = line.match(/^(\s*)/)[1];
+        const trimmed = line.trim();
+
+        if (/\{[^}]*\}/.test(trimmed)) {
+            // Replace existing bucket
+            const updated = trimmed.replace(/\{[^}]*\}/, `{${newBucket}}`);
+            return indent + updated;
+        }
+
+        // No existing bucket - insert before trailing metadata (dates, percent, comment, dependencies)
+        const tokens = trimmed.split(/\s+/);
+        let insertIndex = tokens.length;
+
+        for (let i = tokens.length - 1; i >= 0; i--) {
+            const token = tokens[i];
+            if (token.match(/^\d+%$/) || token.match(/^\d{4}-\d{2}-\d{2}$/) ||
+                token.startsWith('"') || token.startsWith('[depends')) {
+                insertIndex = i;
+            } else {
+                break;
+            }
+        }
+
+        tokens.splice(insertIndex, 0, `{${newBucket}}`);
+        return indent + tokens.join(' ');
+    }
+
+    /**
+     * Remove bucket from task line
+     */
+    removeBucketFromTaskLine(line) {
+        const indent = line.match(/^(\s*)/)[1];
+        const trimmed = line.trim();
+
+        const updated = trimmed.replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
         return indent + updated;
     }
 
@@ -2312,6 +2447,20 @@ class KanbanBoard {
     }
 
     /**
+     * Add a new bucket column
+     */
+    addNewBucket() {
+        const bucketName = prompt('Bucket name:');
+        if (!bucketName || bucketName.trim() === '') {
+            return;
+        }
+
+        this.createdBuckets.push(bucketName.trim());
+        this.parse();
+        this.render();
+    }
+
+    /**
      * Add first task to an empty plan
      */
     addFirstTask(phaseName = null, percent = null) {
@@ -2749,6 +2898,20 @@ function toggleKanbanPrioritySort(enabled) {
     }
 
     kanbanBoard.sortByPriority = enabled;
+    kanbanBoard.parse();
+    kanbanBoard.render();
+}
+
+/**
+ * Toggle hiding completed cards in kanban view
+ */
+function toggleKanbanHideCompleted(enabled) {
+    if (!kanbanBoard) {
+        initializeKanban();
+        kanbanBoard.parse();
+    }
+
+    kanbanBoard.hideCompleted = enabled;
     kanbanBoard.parse();
     kanbanBoard.render();
 }
