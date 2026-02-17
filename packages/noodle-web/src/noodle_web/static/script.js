@@ -3588,7 +3588,7 @@ function renderGanttRows() {
         const percentCell = document.createElement('td');
         percentCell.classList.add('editable');
         percentCell.dataset.field = 'percent';
-        percentCell.textContent = task.percent || '-';
+        percentCell.textContent = task.percent ? `${String(task.percent).replace('%', '')}%` : '-';
         percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
         infoRow.appendChild(percentCell);
 
@@ -3783,7 +3783,7 @@ function makeEditable(cell, task, taskIndex) {
     } else if (field === 'finish') {
         currentValue = task.finish || '';
     } else if (field === 'percent') {
-        currentValue = task.percent ? task.percent.replace('%', '') : '';
+        currentValue = task.percent ? String(task.percent).replace('%', '') : '';
     } else {
         currentValue = task[field] || '';
     }
@@ -4044,19 +4044,22 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
     const searchName = (field === 'name' && oldName) ? oldName : task.name;
 
     // Find the task line (need to match by task name and level)
-    // This is a simplified version - may need more robust matching
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+    const escapedSearchName = searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedSearchName}`);
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const indent = '  '.repeat(task.level);
-        const taskNamePattern = new RegExp(`^${indent}${searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
 
         if (taskNamePattern.test(line)) {
             // Update the field in the line
             if (field === 'name') {
                 // Replace task name (preserve rest of line)
-                // Use searchName length (the old name) to correctly extract the rest of the line
-                const rest = line.substring(indent.length + searchName.length);
-                lines[i] = indent + newValue + rest;
+                // Account for optional * prefix (milestone marker)
+                const prefix = line.substring(indent.length).startsWith('*') ? '*' : '';
+                const rest = line.substring(indent.length + prefix.length + searchName.length);
+                lines[i] = indent + prefix + newValue + rest;
             } else if (field === 'resources') {
                 // Update resources - need to find and replace resource pattern
                 const resourcePattern = /\[([^\]]+)\]/;
@@ -4065,11 +4068,11 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
                         lines[i] = line.replace(resourcePattern, `[${newValue}]`);
                     } else {
                         // Add resources if not present
-                        lines[i] = line.trim() + ` [${newValue}]`;
+                        lines[i] = line.trimEnd() + ` [${newValue}]`;
                     }
                 } else {
                     // Remove resources
-                    lines[i] = line.replace(resourcePattern, '').trim();
+                    lines[i] = line.replace(resourcePattern, '').trimEnd();
                 }
             } else if (field === 'comment') {
                 // Update comment - need to find and replace comment pattern
@@ -4079,11 +4082,11 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
                         lines[i] = line.replace(commentPattern, `{${newValue}}`);
                     } else {
                         // Add comment if not present
-                        lines[i] = line.trim() + ` {${newValue}}`;
+                        lines[i] = line.trimEnd() + ` {${newValue}}`;
                     }
                 } else {
                     // Remove comment
-                    lines[i] = line.replace(commentPattern, '').trim();
+                    lines[i] = line.replace(commentPattern, '').trimEnd();
                 }
             }
 
