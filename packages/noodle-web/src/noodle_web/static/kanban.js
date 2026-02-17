@@ -8,6 +8,7 @@ class KanbanBoard {
     constructor(viewMode = 'phase') {
         this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label', 'bucket'
         this.sortByPriority = false; // Sort tasks by priority within columns
+        this.createdBuckets = []; // User-created empty buckets
         this.tasks = [];
         this.columns = [];
         this.phases = [];
@@ -686,6 +687,9 @@ class KanbanBoard {
             }
         });
 
+        // Merge user-created buckets
+        this.createdBuckets.forEach(b => bucketSet.add(b));
+
         // Add "No Bucket" column
         bucketSet.add('No Bucket');
 
@@ -815,8 +819,8 @@ class KanbanBoard {
             boardContainer.appendChild(columnEl);
         });
 
-        // Add "Add Column" button for phase, resource, and label views
-        if (this.viewMode === 'phase' || this.viewMode === 'label' || this.viewMode === 'resource') {
+        // Add "Add Column" button for phase, resource, label, and bucket views
+        if (this.viewMode === 'phase' || this.viewMode === 'label' || this.viewMode === 'resource' || this.viewMode === 'bucket') {
             const addColumnEl = this.renderAddColumnButton();
             boardContainer.appendChild(addColumnEl);
         }
@@ -845,6 +849,8 @@ class KanbanBoard {
             descEl.textContent = 'Your plan is empty. Get started by adding tasks.';
         } else if (this.viewMode === 'label') {
             descEl.textContent = 'Your plan is empty. Get started by adding labels and tasks.';
+        } else if (this.viewMode === 'bucket') {
+            descEl.textContent = 'Your plan is empty. Get started by adding buckets and tasks.';
         }
 
         emptyStateEl.appendChild(descEl);
@@ -992,6 +998,12 @@ class KanbanBoard {
             button.setAttribute('aria-label', 'Add new label column');
             button.addEventListener('click', () => {
                 this.addNewLabel();
+            });
+        } else if (this.viewMode === 'bucket') {
+            button.innerHTML = '+ Add Bucket';
+            button.setAttribute('aria-label', 'Add new bucket column');
+            button.addEventListener('click', () => {
+                this.addNewBucket();
             });
         }
 
@@ -1504,6 +1516,20 @@ class KanbanBoard {
                     updated = true;
                 }
                 break;
+
+            case 'bucket':
+                // Update bucket assignment
+                const bucketName = targetColumn.title;
+                if (bucketName !== 'No Bucket') {
+                    const updatedLine = this.replaceBucketInTaskLine(taskLine, bucketName);
+                    lines[taskLineNumber - 1] = updatedLine;
+                    updated = true;
+                } else {
+                    const updatedLine = this.removeBucketFromTaskLine(taskLine);
+                    lines[taskLineNumber - 1] = updatedLine;
+                    updated = true;
+                }
+                break;
         }
 
         if (updated) {
@@ -1867,6 +1893,48 @@ class KanbanBoard {
 
         // Remove all #label tokens and clean up extra spaces
         const updated = trimmed.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
+        return indent + updated;
+    }
+
+    /**
+     * Replace or add bucket in task line
+     */
+    replaceBucketInTaskLine(line, newBucket) {
+        const indent = line.match(/^(\s*)/)[1];
+        const trimmed = line.trim();
+
+        if (/\{[^}]*\}/.test(trimmed)) {
+            // Replace existing bucket
+            const updated = trimmed.replace(/\{[^}]*\}/, `{${newBucket}}`);
+            return indent + updated;
+        }
+
+        // No existing bucket - insert before trailing metadata (dates, percent, comment, dependencies)
+        const tokens = trimmed.split(/\s+/);
+        let insertIndex = tokens.length;
+
+        for (let i = tokens.length - 1; i >= 0; i--) {
+            const token = tokens[i];
+            if (token.match(/^\d+%$/) || token.match(/^\d{4}-\d{2}-\d{2}$/) ||
+                token.startsWith('"') || token.startsWith('[depends')) {
+                insertIndex = i;
+            } else {
+                break;
+            }
+        }
+
+        tokens.splice(insertIndex, 0, `{${newBucket}}`);
+        return indent + tokens.join(' ');
+    }
+
+    /**
+     * Remove bucket from task line
+     */
+    removeBucketFromTaskLine(line) {
+        const indent = line.match(/^(\s*)/)[1];
+        const trimmed = line.trim();
+
+        const updated = trimmed.replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
         return indent + updated;
     }
 
@@ -2309,6 +2377,20 @@ class KanbanBoard {
                 }
             }, 100);
         }, 50);
+    }
+
+    /**
+     * Add a new bucket column
+     */
+    addNewBucket() {
+        const bucketName = prompt('Bucket name:');
+        if (!bucketName || bucketName.trim() === '') {
+            return;
+        }
+
+        this.createdBuckets.push(bucketName.trim());
+        this.parse();
+        this.render();
     }
 
     /**
