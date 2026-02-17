@@ -251,7 +251,10 @@ Press Enter to render..."></textarea>
 
                                 <!-- Timeline Section (full width) -->
                                 <div class="project-report-section">
-                                    <h3>Timeline</h3>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <h3>Timeline</h3>
+                                        <button class="btn btn-sm btn-outline-secondary copy-image-btn" onclick="copyElementAsImage(document.querySelector('.report-timeline-wrapper'), this)" title="Copy timeline as image">&#x1F4CB; Copy</button>
+                                    </div>
                                     <div class="timeline-line-wrapper report-timeline-wrapper">
                                         <div class="timeline-line" id="reportTimelineLine"></div>
                                         <div class="timeline-milestones" id="reportTimelineMilestones">
@@ -393,6 +396,9 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the milestones table here.</p>
                             </div>
                             <div class="milestones-content" style="display: none;">
+                                <div class="milestones-toolbar" style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                                    <button class="btn btn-sm btn-outline-secondary copy-image-btn" onclick="copyElementAsImage(document.querySelector('#milestones-view .milestones-table-wrapper'), this)" title="Copy table as image">&#x1F4CB; Copy</button>
+                                </div>
                                 <div class="milestones-table-wrapper">
                                     <table class="milestones-table">
                                         <thead>
@@ -516,6 +522,7 @@ Press Enter to render..."></textarea>
                                 <div class="resources-toolbar">
                                     <h2 class="resources-title">Resource Allocation</h2>
                                     <button class="btn btn-sm btn-outline-secondary" onclick="fixResourceNames()" title="Capitalise first letter of all resource shortnames">Fix Resource Names</button>
+                                    <button class="btn btn-sm btn-outline-secondary copy-image-btn" onclick="copyElementAsImage(document.querySelector('#resources-view .resources-table-wrapper'), this)" title="Copy table as image">&#x1F4CB; Copy</button>
                                 </div>
                                 <div class="resources-table-wrapper">
                                     <table class="resources-table">
@@ -523,6 +530,7 @@ Press Enter to render..."></textarea>
                                             <tr>
                                                 <th>Full Name</th>
                                                 <th>Shortname</th>
+                                                <th>Role</th>
                                                 <th>Tasks Assigned</th>
                                                 <th>Total Days</th>
                                                 <th>Total Hours</th>
@@ -1746,6 +1754,9 @@ Build
         });
     </script>
     {% endif %}
+
+    <!-- html2canvas for copy-as-image -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
     <!-- Custom JavaScript -->
     <script src="/static/script.js?v={{ v }}"></script>

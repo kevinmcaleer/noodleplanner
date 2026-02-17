@@ -1,9 +1,46 @@
 let selectedFile = null;
 let renderTimeout = null;
 let globalResourceMap = {}; // Maps shortnames to full names from backend
+let globalResourceDetails = {}; // Maps shortnames to { name, role } from front matter
 
 // Track which section the resource form was opened from (for returning to it)
 let resourceFormReturnSection = null;
+
+/**
+ * Copy a DOM element as a PNG image to the clipboard using html2canvas.
+ * Shows brief visual feedback on the button.
+ */
+async function copyElementAsImage(element, feedbackBtn) {
+    if (!element) return;
+    const originalText = feedbackBtn ? feedbackBtn.innerHTML : '';
+    try {
+        if (typeof html2canvas === 'undefined') {
+            console.error('html2canvas not loaded');
+            return;
+        }
+        const canvas = await html2canvas(element, { backgroundColor: '#ffffff' });
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            try {
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                if (feedbackBtn) {
+                    feedbackBtn.innerHTML = '&#x2705; Copied!';
+                    setTimeout(() => { feedbackBtn.innerHTML = originalText; }, 1500);
+                }
+            } catch (err) {
+                console.error('Failed to copy image to clipboard:', err);
+                if (feedbackBtn) {
+                    feedbackBtn.innerHTML = '&#x274C; Failed';
+                    setTimeout(() => { feedbackBtn.innerHTML = originalText; }, 1500);
+                }
+            }
+        }, 'image/png');
+    } catch (err) {
+        console.error('html2canvas error:', err);
+    }
+}
 
 /**
  * Open the detail pane and show the specified section.
@@ -966,14 +1003,7 @@ async function updateProjectSummary(planText, projectName) {
 
         // Store resource map globally BEFORE updating tables that need it
         globalResourceMap = result.resource_map || {};
-        console.log('Received resource_map from backend:', result.resource_map);
-        console.log('Set globalResourceMap to:', globalResourceMap);
-        console.log('globalResourceMap keys:', Object.keys(globalResourceMap));
-        console.log('globalResourceMap entries:', JSON.stringify(Object.entries(globalResourceMap)));
-        // Log each entry individually
-        for (const [key, value] of Object.entries(globalResourceMap)) {
-            console.log(`  Resource mapping: "${key}" -> "${value}"`);
-        }
+        globalResourceDetails = parseResourceDetails(planText);
 
         // Update Milestones Table
         updateMilestonesTable(result.tasks || []);
@@ -1537,6 +1567,12 @@ function updateResourcesTable(tasks) {
             });
             row.appendChild(shortnameCell);
 
+            // Role cell
+            const roleCell = document.createElement('td');
+            const details = globalResourceDetails[displayShortname.toLowerCase()];
+            roleCell.textContent = details ? details.role : '';
+            row.appendChild(roleCell);
+
             // Tasks Assigned cell
             const tasksCell = document.createElement('td');
             tasksCell.textContent = resource.taskCount;
@@ -1571,6 +1607,10 @@ function updateResourcesTable(tasks) {
             // Empty shortname cell for totals row
             const emptyCell = document.createElement('td');
             totalRow.appendChild(emptyCell);
+
+            // Empty role cell for totals row
+            const emptyRoleCell = document.createElement('td');
+            totalRow.appendChild(emptyRoleCell);
 
             const totalTasksCell = document.createElement('td');
             totalTasksCell.textContent = sortedResources.reduce((sum, r) => sum + r.taskCount, 0);
@@ -5863,6 +5903,44 @@ function parseResourceMappings(planText) {
     }
 
     return resourceMap;
+}
+
+/**
+ * Parse resource details from front matter including name and role.
+ * Returns an object mapping lowercase shortnames to { name, role }.
+ * Example: { "kev": { name: "Kevin McAleer", role: "Developer" } }
+ */
+function parseResourceDetails(planText) {
+    const details = {};
+    const lines = planText.split('\n');
+    let inFrontMatter = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (line.trim() === '---') {
+            if (!inFrontMatter) {
+                inFrontMatter = true;
+            } else {
+                break;
+            }
+            continue;
+        }
+
+        if (inFrontMatter && line.trim().match(/^-\s*@(\w+):\s*(.+)/)) {
+            const match = line.trim().match(/^-\s*@(\w+):\s*(.+)/);
+            if (match) {
+                const shortname = match[1].toLowerCase();
+                const fullInfo = match[2].trim();
+                const parts = fullInfo.split(',').map(p => p.trim());
+                const name = parts[0];
+                const role = parts.length > 1 ? parts[1] : '';
+                details[shortname] = { name, role };
+            }
+        }
+    }
+
+    return details;
 }
 
 // Autocomplete functionality for dependencies and resources
