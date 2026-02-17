@@ -3161,6 +3161,121 @@ function parseLocalDate(dateString) {
     return new Date(year, month, day);
 }
 
+// ----- Dependency / Predecessors helpers -----
+
+/**
+ * Build a lookup from lowercase task name to Gantt row ID.
+ * Called once per render so every helper can reuse it.
+ */
+function buildTaskNameToIdMap(tasks) {
+    const map = {};
+    tasks.forEach(t => {
+        if (t.name) {
+            map[t.name.toLowerCase()] = t.id;
+        }
+    });
+    return map;
+}
+
+/**
+ * Build a lookup from Gantt row ID to task name.
+ */
+function buildIdToTaskNameMap(tasks) {
+    const map = {};
+    tasks.forEach(t => {
+        map[t.id] = t.name;
+    });
+    return map;
+}
+
+/**
+ * Convert a task's depends[] + lag_lead{} into a display string like "3FS, 5FS+2d".
+ * All dependencies are Finish-to-Start (FS) since that is the only type currently supported.
+ */
+function formatPredecessors(task, nameToId) {
+    if (!task.depends || task.depends.length === 0) return '';
+    const lagLead = task.lag_lead || {};
+    const parts = [];
+    for (const depName of task.depends) {
+        const depId = nameToId[depName.toLowerCase()];
+        if (depId === undefined) continue;  // unknown dependency — skip
+        let entry = depId + 'FS';
+        if (lagLead[depName]) {
+            // lagLead values look like "+2d" or "-1w"
+            entry += lagLead[depName];
+        }
+        parts.push(entry);
+    }
+    return parts.join(', ');
+}
+
+/**
+ * Parse a predecessors display string (e.g. "3FS, 5FS+2d") back into
+ * { depends: [name1, name2], lag_lead: { name1: '+2d' } }.
+ * Returns null if parsing fails.
+ */
+function parsePredecessorsString(str, idToName) {
+    if (!str || !str.trim()) return { depends: [], lag_lead: {} };
+    const depends = [];
+    const lagLead = {};
+    const specs = str.split(',');
+    for (let spec of specs) {
+        spec = spec.trim();
+        if (!spec) continue;
+        // Pattern: ID + "FS" + optional lag like "+2d" or "-1w"
+        const m = spec.match(/^(\d+)\s*FS\s*([+-]\d+[dwmy])?$/i);
+        if (!m) return null;  // invalid format
+        const id = parseInt(m[1], 10);
+        const name = idToName[id];
+        if (!name) return null;  // unknown ID
+        depends.push(name);
+        if (m[2]) {
+            lagLead[name] = m[2];
+        }
+    }
+    return { depends, lag_lead: lagLead };
+}
+
+/**
+ * Detect dependency loops in ganttTasks using DFS.
+ * Returns true if adding the proposed dependencies for taskId would create a cycle.
+ * proposedDeps is an array of task IDs that taskId would depend on.
+ */
+function wouldCreateLoop(taskId, proposedDepIds, tasks) {
+    // Build adjacency: task ID -> set of IDs it depends on
+    const deps = {};
+    tasks.forEach(t => {
+        deps[t.id] = new Set();
+        if (t.depends && t.depends.length > 0) {
+            const nameToId = buildTaskNameToIdMap(tasks);
+            for (const dn of t.depends) {
+                const did = nameToId[dn.toLowerCase()];
+                if (did !== undefined) deps[t.id].add(did);
+            }
+        }
+    });
+    // Apply the proposed change
+    deps[taskId] = new Set(proposedDepIds);
+
+    // DFS from each proposed dep — can we reach taskId?
+    const visited = new Set();
+    function canReach(current, target) {
+        if (current === target) return true;
+        if (visited.has(current)) return false;
+        visited.add(current);
+        if (!deps[current]) return false;
+        for (const next of deps[current]) {
+            if (canReach(next, target)) return true;
+        }
+        return false;
+    }
+    for (const depId of proposedDepIds) {
+        visited.clear();
+        if (canReach(depId, taskId)) return true;
+    }
+    return false;
+}
+
 function updateGantt(tasks) {
     try {
         // Show gantt content, hide placeholder
@@ -3613,6 +3728,16 @@ function renderGanttRows() {
         commentCell.addEventListener('dblclick', () => makeEditable(commentCell, task, index));
         infoRow.appendChild(commentCell);
 
+        // Predecessors cell (editable)
+        const predCell = document.createElement('td');
+        predCell.classList.add('editable');
+        predCell.dataset.field = 'predecessors';
+        const nameToId = buildTaskNameToIdMap(ganttTasks);
+        const predText = formatPredecessors(task, nameToId);
+        predCell.textContent = predText || '-';
+        predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
+        infoRow.appendChild(predCell);
+
         ganttInfoBody.appendChild(infoRow);
 
         // Gantt bar row
@@ -3784,6 +3909,9 @@ function makeEditable(cell, task, taskIndex) {
         currentValue = task.finish || '';
     } else if (field === 'percent') {
         currentValue = task.percent ? String(task.percent).replace('%', '') : '';
+    } else if (field === 'predecessors') {
+        const _nameToId = buildTaskNameToIdMap(ganttTasks);
+        currentValue = formatPredecessors(task, _nameToId);
     } else {
         currentValue = task[field] || '';
     }
@@ -3859,6 +3987,30 @@ function makeEditable(cell, task, taskIndex) {
                     cell.textContent = `${percentValue}%`;
                 } else {
                     cell.textContent = originalContent;
+                }
+            } else if (field === 'predecessors') {
+                // Parse the predecessors string back to depends / lag_lead
+                const _idToName = buildIdToTaskNameMap(ganttTasks);
+                const parsed = parsePredecessorsString(newValue, _idToName);
+                if (parsed === null) {
+                    alert('Invalid predecessors format. Use e.g. "3FS" or "3FS+2d, 5FS".');
+                    cell.textContent = originalContent;
+                } else {
+                    // Check for loops before accepting
+                    const _nameToId2 = buildTaskNameToIdMap(ganttTasks);
+                    const proposedIds = parsed.depends.map(n => _nameToId2[n.toLowerCase()]).filter(id => id !== undefined);
+                    if (wouldCreateLoop(task.id, proposedIds, ganttTasks)) {
+                        alert('Cannot set these predecessors — it would create a circular dependency.');
+                        cell.textContent = originalContent;
+                    } else {
+                        task.depends = parsed.depends;
+                        task.lag_lead = parsed.lag_lead;
+                        ganttTasks[taskIndex].depends = parsed.depends;
+                        ganttTasks[taskIndex].lag_lead = parsed.lag_lead;
+                        syncGanttPredecessorsToEditor(task, taskIndex);
+                        const _nameToId3 = buildTaskNameToIdMap(ganttTasks);
+                        cell.textContent = formatPredecessors(task, _nameToId3) || '-';
+                    }
                 }
             } else {
                 // Original fields: name, resources, comment
@@ -4273,6 +4425,73 @@ function syncGanttPercentToEditor(task, taskIndex) {
             const updatedLine = updatePercentInLine(line, task.percent, indent, task.name);
             console.log('Updated line:', updatedLine);
 
+            lines[i] = updatedLine;
+
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
+    }
+}
+
+function syncGanttPredecessorsToEditor(task, taskIndex) {
+    console.log('syncGanttPredecessorsToEditor called:', { task: task.name, depends: task.depends, lag_lead: task.lag_lead });
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) {
+        console.error('Editor not found!');
+        return;
+    }
+
+    const lines = editor.value.split('\n');
+
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+
+    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
+
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (taskNamePattern.test(line)) {
+            console.log('Found task at line', i + 1, ':', line);
+
+            // Build the new [depends ...] string
+            let newDependsStr = '';
+            if (task.depends && task.depends.length > 0) {
+                const depParts = task.depends.map(depName => {
+                    const lag = (task.lag_lead && task.lag_lead[depName]) ? ' ' + task.lag_lead[depName] : '';
+                    return depName + lag;
+                });
+                newDependsStr = '[depends ' + depParts.join(', ') + ']';
+            }
+
+            // Replace or add/remove the [depends ...] block in the line
+            const dependsPattern = /\[depends\s+[^\]]+\]/i;
+            let updatedLine;
+            if (dependsPattern.test(line)) {
+                if (newDependsStr) {
+                    updatedLine = line.replace(dependsPattern, newDependsStr);
+                } else {
+                    // Remove the depends block
+                    updatedLine = line.replace(dependsPattern, '').replace(/\s{2,}/g, ' ').trimEnd();
+                }
+            } else {
+                if (newDependsStr) {
+                    updatedLine = line.trimEnd() + ' ' + newDependsStr;
+                } else {
+                    updatedLine = line;
+                }
+            }
+
+            console.log('Updated line:', updatedLine);
             lines[i] = updatedLine;
 
             editor.value = lines.join('\n');
