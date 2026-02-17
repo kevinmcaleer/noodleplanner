@@ -266,7 +266,8 @@ Press Enter to render..."></textarea>
                                     <!-- Top Left: Milestones -->
                                     <div class="quad-cell">
                                         <h3>Milestones</h3>
-                                        <div class="milestones-table-wrapper">
+                                        <div class="milestones-table-wrapper" style="position: relative;">
+                                            <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                             <table class="milestones-table quad-table">
                                                 <thead>
                                                     <tr>
@@ -395,7 +396,7 @@ Press Enter to render..."></textarea>
                             </div>
                             <div class="milestones-content" style="display: none;">
                                 <div class="milestones-table-wrapper" style="position: relative;">
-                                    <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy table as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                    <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="milestones-table">
                                         <thead>
                                             <tr>
@@ -520,7 +521,7 @@ Press Enter to render..."></textarea>
                                     <button class="btn btn-sm btn-outline-secondary" onclick="fixResourceNames()" title="Capitalise first letter of all resource shortnames">Fix Resource Names</button>
                                 </div>
                                 <div class="resources-table-wrapper" style="position: relative;">
-                                    <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy table as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                    <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="resources-table">
                                         <thead>
                                             <tr>

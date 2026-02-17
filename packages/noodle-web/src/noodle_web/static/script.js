@@ -10,6 +10,31 @@ let resourceFormReturnSection = null;
  * Copy a DOM element as a PNG image to the clipboard using html2canvas.
  * Shows brief visual feedback on the button.
  */
+/**
+ * Copy a table element as a tab-separated text table to the clipboard.
+ */
+async function copyTableAsText(tableElement, feedbackBtn) {
+    if (!tableElement) return;
+    const table = tableElement.querySelector('table') || tableElement;
+    const rows = table.querySelectorAll('tr');
+    const lines = [];
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('th, td');
+        const values = Array.from(cells).map(c => c.textContent.trim());
+        lines.push(values.join('\t'));
+    });
+    const text = lines.join('\n');
+    try {
+        await navigator.clipboard.writeText(text);
+        if (feedbackBtn) {
+            feedbackBtn.style.color = '#28a745';
+            setTimeout(() => { feedbackBtn.style.color = ''; }, 1500);
+        }
+    } catch (err) {
+        console.error('Clipboard writeText failed:', err);
+    }
+}
+
 async function copyElementAsImage(element, feedbackBtn) {
     if (!element) return;
     try {
@@ -19,7 +44,7 @@ async function copyElementAsImage(element, feedbackBtn) {
         }
         // Hide the copy button during capture so it doesn't appear in the image
         if (feedbackBtn) feedbackBtn.style.visibility = 'hidden';
-        const canvas = await html2canvas(element, { backgroundColor: '#ffffff' });
+        const canvas = await html2canvas(element, { backgroundColor: '#ffffff', scale: 3 });
         if (feedbackBtn) feedbackBtn.style.visibility = '';
 
         // Convert canvas to blob via Promise (keeps user gesture context)
