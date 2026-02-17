@@ -37,6 +37,10 @@ from .format_converter import (
 from .excel_importer import (
     analyze_workbook,
     convert_excel_to_markdown,
+    convert_planner_to_markdown,
+    detect_planner_worksheet,
+    parse_planner_duration,
+    parse_planner_dependency,
 )
 
 from .planning_room import (
@@ -79,6 +83,10 @@ __all__ = [
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",
+    "convert_planner_to_markdown",
+    "detect_planner_worksheet",
+    "parse_planner_duration",
+    "parse_planner_dependency",
     # Planning room
     "generate_plan_from_planning_room",
 ]
