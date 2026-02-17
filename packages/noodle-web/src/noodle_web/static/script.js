@@ -2569,10 +2569,9 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
 
             svg.appendChild(rect);
 
-            // Draw progress overlay for partially complete phases
+            // Draw green progress overlay for partially complete phases
             if (percent > 0 && percent < 100) {
                 const progressWidth = (percent / 100) * width;
-                const darkerColor = darkenColor(bgColor, 0.35);
                 const progressRect = document.createElementNS(svgNS, 'rect');
                 progressRect.setAttribute('x', x);
                 progressRect.setAttribute('y', y);
@@ -2580,8 +2579,8 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
                 progressRect.setAttribute('height', barHeight);
                 progressRect.setAttribute('rx', 2);
                 progressRect.setAttribute('ry', 2);
-                progressRect.setAttribute('fill', darkerColor);
-                progressRect.setAttribute('opacity', '0.9');
+                progressRect.setAttribute('fill', greenComplete);
+                progressRect.setAttribute('opacity', '0.85');
                 progressRect.setAttribute('class', 'timeline-clickable');
                 progressRect.style.cursor = 'pointer';
                 progressRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
