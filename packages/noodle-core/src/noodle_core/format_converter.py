@@ -34,14 +34,21 @@ def extract_title_from_frontmatter(text: str) -> str:
         try:
             yaml_text = '\n'.join(frontmatter_lines)
             frontmatter = yaml.safe_load(yaml_text)
-            if isinstance(frontmatter, dict) and 'title' in frontmatter:
-                title = frontmatter['title']
-                # Ensure we return a string, not None or other types
-                if title is not None:
-                    return str(title)
-        except Exception as e:
-            # Invalid YAML should return None
-            pass
+            if isinstance(frontmatter, dict):
+                # Case-insensitive lookup for 'title' key
+                for key, value in frontmatter.items():
+                    if key.lower() == 'title' and value is not None:
+                        return str(value)
+        except Exception:
+            # YAML parsing can fail (e.g. @ symbols in resource lines).
+            # Fall back to simple line-by-line parsing.
+            for line in frontmatter_lines:
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    if key.strip().lower() == 'title':
+                        title = value.strip()
+                        if title:
+                            return title
 
     return None
 
