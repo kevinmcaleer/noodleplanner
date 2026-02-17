@@ -6926,8 +6926,23 @@ function getAllTaskNames() {
 
     const lines = editor.value.split('\n');
     const taskNames = [];
+    let inFrontMatter = false;
+    let inHighlights = false;
+    let inRaidLog = false;
 
     for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+
+        // Track section boundaries
+        if (trimmed === '---') { inFrontMatter = !inFrontMatter; continue; }
+        if (trimmed === '---highlights---') { inHighlights = true; continue; }
+        if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
+        if (trimmed === '---raid log---') { inRaidLog = true; continue; }
+
+        // Skip non-task content
+        if (inFrontMatter || inHighlights || inRaidLog) continue;
+        if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+
         const task = parseTaskLine(lines[i], i + 1);
         if (task.name && task.name.trim()) {
             // Don't include the current task
