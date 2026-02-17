@@ -661,6 +661,97 @@ function outdentSelectedLines() {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/**
+ * Extract the task name from a single editor line.
+ * Returns empty string if the line is not a task (blank, header, separator, etc.)
+ */
+function extractTaskNameFromEditorLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===') || trimmed.includes('---')) {
+        return '';
+    }
+    const task = parseTaskLine(line, 0);
+    return task.name ? task.name.trim() : '';
+}
+
+/**
+ * Add or replace a [depends TaskName] tag on a line.
+ * If the line already has a [depends ...] block, the new dependency is appended.
+ */
+function addDependencyToLine(line, dependencyName) {
+    const dependsPattern = /\[depends\s+([^\]]+)\]/i;
+    const existingMatch = line.match(dependsPattern);
+
+    if (existingMatch) {
+        const existingDeps = existingMatch[1].split(',').map(d => d.trim());
+        if (!existingDeps.some(d => d === dependencyName || d.startsWith(dependencyName + ' '))) {
+            const updatedDeps = existingDeps.concat(dependencyName).join(', ');
+            return line.replace(dependsPattern, '[depends ' + updatedDeps + ']');
+        }
+        return line; // Already has this dependency
+    }
+
+    return line.trimEnd() + ' [depends ' + dependencyName + ']';
+}
+
+/**
+ * Link selected tasks as a dependency chain from top to bottom.
+ * Each task becomes dependent on the task above it in the selection.
+ */
+function linkSelectedTasks() {
+    const mainEditor = document.getElementById('planEditor');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
+    if (!editor) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+
+    // Find the start of the first selected line
+    let lineStart = start;
+    while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+        lineStart--;
+    }
+
+    // Find the end of the last selected line
+    let lineEnd = end;
+    while (lineEnd < text.length && text[lineEnd] !== '\n') {
+        lineEnd++;
+    }
+
+    const selectedText = text.substring(lineStart, lineEnd);
+    const lines = selectedText.split('\n');
+
+    // Extract task names and filter to valid task lines
+    const taskEntries = [];
+    for (let i = 0; i < lines.length; i++) {
+        const name = extractTaskNameFromEditorLine(lines[i]);
+        if (name) {
+            taskEntries.push({ index: i, name: name });
+        }
+    }
+
+    // Need at least 2 tasks to create a chain
+    if (taskEntries.length < 2) return;
+
+    // Chain each task to depend on the previous one
+    for (let i = 1; i < taskEntries.length; i++) {
+        const prevTaskName = taskEntries[i - 1].name;
+        const lineIndex = taskEntries[i].index;
+        lines[lineIndex] = addDependencyToLine(lines[lineIndex], prevTaskName);
+    }
+
+    const updatedText = lines.join('\n');
+    editor.value = text.substring(0, lineStart) + updatedText + text.substring(lineEnd);
+
+    // Restore selection to cover the modified lines
+    editor.setSelectionRange(lineStart, lineStart + updatedText.length);
+
+    // Trigger render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function initializeUploadTab() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
