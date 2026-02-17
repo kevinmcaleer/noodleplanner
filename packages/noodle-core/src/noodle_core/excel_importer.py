@@ -24,6 +24,29 @@ COLUMN_PATTERNS = {
     "comment": ["comment", "comments", "notes", "note", "description"],
 }
 
+# Planner header field names (case-insensitive matching)
+PLANNER_HEADER_FIELDS = {
+    "task number",
+    "plan owner",
+    "project start date",
+    "project finish date",
+    "% complete",
+    "exported on",
+}
+
+# Planner task column names (case-insensitive matching)
+PLANNER_TASK_COLUMNS = {
+    "task_name": "task name",
+    "start_date": "start",
+    "end_date": "finish",
+    "duration": "duration",
+    "resources": "resource names",
+    "percent_complete": "% complete",
+    "depends_on": "predecessors",
+    "task_number": "id",
+    "outline_level": "outline level",
+}
+
 # Excel epoch for serial date conversion (Excel uses Jan 0, 1900 as day 1)
 EXCEL_EPOCH = datetime(1899, 12, 30)
 
@@ -195,6 +218,422 @@ def _read_xls_workbook(file_bytes):
     return wb
 
 
+def parse_planner_duration(raw_duration):
+    """Parse a Planner duration string with units into noodleplanner format.
+
+    Planner exports durations like "5 days", "2 weeks", "1 month", "3 days?".
+    Converts to noodleplanner format: days -> Xd, weeks -> Xw, months -> Xm.
+
+    Returns (value, suffix) tuple, e.g. (5, "d") or None if unparseable.
+    """
+    if raw_duration is None:
+        return None
+
+    text = str(raw_duration).strip().rstrip("?")
+    if not text:
+        return None
+
+    # Try numeric-only value (assume days)
+    try:
+        val = int(float(text))
+        return (val, "d") if val >= 0 else None
+    except (ValueError, TypeError):
+        pass
+
+    # Match patterns like "5 days", "2 weeks", "1 month", "1.5 days", "10 mons"
+    match = re.match(r"(\d+(?:\.\d+)?)\s*(days?|weeks?|wks?|months?|mons?)", text, re.IGNORECASE)
+    if not match:
+        return None
+
+    value = float(match.group(1))
+    unit = match.group(2).lower()
+
+    if unit.startswith("day"):
+        return (int(value), "d")
+    elif unit.startswith("week") or unit.startswith("wk"):
+        return (int(value), "w")
+    elif unit.startswith("mon"):
+        return (int(value), "m")
+
+    return None
+
+
+def parse_planner_dependency(dep_string, task_number_to_name):
+    """Parse a Planner dependency string into noodleplanner dependency references.
+
+    Planner uses formats like:
+    - "2FS" (task 2, finish-to-start)
+    - "3SS" (task 3, start-to-start)
+    - "2FS,5FS" (multiple dependencies)
+    - "2" (task 2, implied finish-to-start)
+
+    Only finish-to-start (FS) dependencies are supported by noodleplanner.
+    Other types (SS, FF, SF) generate warnings.
+
+    Returns (dependency_names, warnings) tuple.
+    """
+    if dep_string is None or not str(dep_string).strip():
+        return [], []
+
+    text = str(dep_string).strip()
+    deps = []
+    warnings = []
+
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            continue
+
+        # Match: optional number + optional dependency type (FS, SS, FF, SF)
+        match = re.match(r"(\d+)\s*(FS|SS|FF|SF)?", part, re.IGNORECASE)
+        if not match:
+            warnings.append(f"Could not parse dependency '{part}'")
+            continue
+
+        task_num = int(match.group(1))
+        dep_type = (match.group(2) or "FS").upper()
+
+        if dep_type != "FS":
+            warnings.append(
+                f"Dependency type '{dep_type}' on task {task_num} "
+                f"not supported, treating as finish-to-start (FS)"
+            )
+
+        task_name = task_number_to_name.get(task_num)
+        if task_name:
+            deps.append(task_name)
+        else:
+            warnings.append(f"Dependency references unknown task number {task_num}")
+
+    return deps, warnings
+
+
+def detect_planner_worksheet(wb):
+    """Check if a workbook contains a Microsoft Planner export.
+
+    Planner exports have a 'Project tasks' worksheet with specific header
+    fields in the first few rows before the task data table.
+
+    Returns the worksheet name if detected, None otherwise.
+    """
+    for sheet_name in wb.sheetnames:
+        if sheet_name.lower().strip() == "project tasks":
+            return sheet_name
+    return None
+
+
+def parse_planner_header(ws):
+    """Parse the Planner header section from a 'Project tasks' worksheet.
+
+    The header occupies the first few rows and contains project metadata
+    as label-value pairs. The task data table starts after a blank row
+    or at the row containing task column headers.
+
+    Returns dict with parsed header fields and the row index where
+    task data headers begin.
+    """
+    header = {}
+    task_header_row = None
+
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return header, None
+
+    for row_idx, row in enumerate(rows):
+        if not row or all(cell is None for cell in row):
+            continue
+
+        first_cell = str(row[0]).strip().lower() if row[0] is not None else ""
+
+        # Check if this row is a header field
+        if first_cell == "task number":
+            header["project_name"] = str(row[1]).strip() if len(row) > 1 and row[1] else ""
+        elif first_cell == "plan owner":
+            header["plan_owner"] = str(row[1]).strip() if len(row) > 1 and row[1] else ""
+        elif first_cell == "project start date":
+            header["start_date"] = normalize_date(row[1]) if len(row) > 1 else None
+        elif first_cell == "project finish date":
+            # Calculated field, can be discarded but store for completeness
+            pass
+        elif first_cell == "% complete":
+            # Calculated field, can be discarded
+            pass
+        elif first_cell == "exported on":
+            # Export timestamp, can be discarded
+            pass
+        else:
+            # Check if this row looks like task column headers
+            row_cells = [str(c).strip().lower() for c in row if c is not None]
+            if "task name" in row_cells or "name" in row_cells:
+                task_header_row = row_idx
+                break
+
+    return header, task_header_row
+
+
+def convert_planner_to_markdown(file_bytes, filename):
+    """Convert a Microsoft Planner export to NoodlePlanner markdown format.
+
+    Detects the Planner-specific format, parses header metadata, and
+    converts tasks with durations and dependencies into markdown.
+
+    Returns the same format as convert_excel_to_markdown:
+        {
+            "markdown": str,
+            "warnings": [str, ...],
+            "task_count": int,
+            "phase_count": int,
+        }
+    """
+    wb = _read_workbook(file_bytes, filename)
+    warnings = []
+
+    try:
+        planner_sheet = detect_planner_worksheet(wb)
+        if not planner_sheet:
+            raise ValueError("No 'Project tasks' worksheet found in workbook")
+
+        ws = wb[planner_sheet]
+        header_info, task_header_row = parse_planner_header(ws)
+
+        if task_header_row is None:
+            raise ValueError("Could not find task column headers in Planner worksheet")
+
+        rows = list(ws.iter_rows(values_only=True))
+        header_row = rows[task_header_row]
+        headers = [str(c).strip().lower() if c is not None else "" for c in header_row]
+        data_rows = rows[task_header_row + 1:]
+
+        # Build column index map for Planner columns
+        col_index = {}
+        for field, pattern in PLANNER_TASK_COLUMNS.items():
+            for i, h in enumerate(headers):
+                if h == pattern:
+                    col_index[field] = i
+                    break
+
+        if "task_name" not in col_index:
+            raise ValueError("Could not find 'Task Name' column in Planner worksheet")
+
+        # First pass: build task number to name mapping for dependencies
+        task_number_to_name = {}
+        for row in data_rows:
+            if not row or all(c is None for c in row):
+                continue
+            task_name_val = row[col_index["task_name"]] if col_index["task_name"] < len(row) else None
+            if task_name_val is None or str(task_name_val).strip() == "":
+                continue
+            if "task_number" in col_index and col_index["task_number"] < len(row):
+                raw_num = row[col_index["task_number"]]
+                if raw_num is not None:
+                    try:
+                        task_num = int(float(str(raw_num)))
+                        task_number_to_name[task_num] = str(task_name_val).strip()
+                    except (ValueError, TypeError):
+                        pass
+
+        # Second pass: extract task data
+        tasks = []
+        all_resources = set()
+
+        for row_num, row in enumerate(data_rows, start=task_header_row + 2):
+            if not row or all(c is None for c in row):
+                continue
+
+            task_name_val = row[col_index["task_name"]] if col_index["task_name"] < len(row) else None
+            if task_name_val is None or str(task_name_val).strip() == "":
+                continue
+
+            task_name = str(task_name_val).strip()
+
+            # Parse dates
+            start_date = None
+            end_date = None
+            if "start_date" in col_index and col_index["start_date"] < len(row):
+                start_date = normalize_date(row[col_index["start_date"]])
+            if "end_date" in col_index and col_index["end_date"] < len(row):
+                end_date = normalize_date(row[col_index["end_date"]])
+
+            # Parse duration with units
+            duration = None
+            duration_suffix = "d"
+            if "duration" in col_index and col_index["duration"] < len(row):
+                raw_dur = row[col_index["duration"]]
+                parsed = parse_planner_duration(raw_dur)
+                if parsed:
+                    duration, duration_suffix = parsed
+                elif raw_dur is not None and str(raw_dur).strip():
+                    warnings.append(f"Row {row_num}: Could not parse duration '{raw_dur}'")
+
+            # Calculate duration from dates if not explicit
+            if duration is None and start_date and end_date:
+                calc_dur = calculate_duration_from_dates(start_date, end_date)
+                if calc_dur:
+                    duration = calc_dur
+                    duration_suffix = "d"
+
+            # Parse resources
+            resources = ""
+            if "resources" in col_index and col_index["resources"] < len(row):
+                raw_res = row[col_index["resources"]]
+                if raw_res is not None and str(raw_res).strip():
+                    resources = str(raw_res).strip()
+                    for r in resources.split(","):
+                        r = r.strip()
+                        if r:
+                            all_resources.add(r)
+
+            # Parse percent complete
+            percent = None
+            if "percent_complete" in col_index and col_index["percent_complete"] < len(row):
+                raw_pct = row[col_index["percent_complete"]]
+                if raw_pct is not None and str(raw_pct).strip():
+                    try:
+                        pct_val = float(str(raw_pct).rstrip("%"))
+                        # Planner stores as float 0.0-1.0
+                        if 0 < pct_val <= 1:
+                            pct_val = pct_val * 100
+                        percent = int(pct_val)
+                        percent = max(0, min(100, percent))
+                    except (ValueError, TypeError):
+                        pass
+
+            # Parse dependencies
+            dep_names = []
+            if "depends_on" in col_index and col_index["depends_on"] < len(row):
+                raw_dep = row[col_index["depends_on"]]
+                dep_names, dep_warnings = parse_planner_dependency(raw_dep, task_number_to_name)
+                warnings.extend(
+                    f"Row {row_num}: {w}" for w in dep_warnings
+                )
+
+            # Detect hierarchy from outline level
+            level = 0
+            if "outline_level" in col_index and col_index["outline_level"] < len(row):
+                raw_level = row[col_index["outline_level"]]
+                if raw_level is not None:
+                    try:
+                        level = max(0, int(float(str(raw_level))) - 1)
+                    except (ValueError, TypeError):
+                        pass
+
+            tasks.append({
+                "name": task_name,
+                "start_date": start_date,
+                "end_date": end_date,
+                "duration": duration,
+                "duration_suffix": duration_suffix,
+                "resources": resources,
+                "percent": percent,
+                "depends": dep_names,
+                "level": level,
+            })
+
+        if not tasks:
+            raise ValueError("No tasks found in Planner worksheet")
+
+        # Build resource map
+        resource_map = {}
+        for name in all_resources:
+            resource_map[name] = _make_shortname(name)
+
+        # Build markdown
+        markdown_lines = []
+
+        # Front matter with project metadata
+        markdown_lines.append("---")
+        if header_info.get("project_name"):
+            markdown_lines.append(f"title: {header_info['project_name']}")
+        if header_info.get("plan_owner"):
+            markdown_lines.append(f"manager: {header_info['plan_owner']}")
+        if header_info.get("start_date"):
+            markdown_lines.append(f"start: {header_info['start_date']}")
+        if all_resources:
+            markdown_lines.append(_build_resource_section(all_resources))
+        markdown_lines.append("---")
+        markdown_lines.append("")
+
+        # Render tasks with hierarchy
+        phase_count = 0
+        task_count = 0
+        has_hierarchy = any(t["level"] > 0 for t in tasks)
+
+        if not has_hierarchy:
+            markdown_lines.append(header_info.get("project_name", "Imported Tasks"))
+            phase_count = 1
+            for task in tasks:
+                task_count += 1
+                meta = _build_planner_task_metadata(task, resource_map)
+                markdown_lines.append(f"  {task['name']}{meta}")
+        else:
+            current_phase = None
+            for task in tasks:
+                level = task["level"]
+                if level == 0:
+                    phase_count += 1
+                    current_phase = task["name"]
+                    meta = _build_planner_task_metadata(task, resource_map)
+                    if meta:
+                        markdown_lines.append(f"{task['name']}{meta}")
+                        task_count += 1
+                    else:
+                        markdown_lines.append(task["name"])
+                else:
+                    task_count += 1
+                    if current_phase is None:
+                        markdown_lines.append("Tasks")
+                        current_phase = "Tasks"
+                        phase_count += 1
+                    indent = "  " * level
+                    meta = _build_planner_task_metadata(task, resource_map)
+                    markdown_lines.append(f"{indent}{task['name']}{meta}")
+
+        markdown = "\n".join(markdown_lines) + "\n"
+
+        return {
+            "markdown": markdown,
+            "warnings": warnings,
+            "task_count": task_count,
+            "phase_count": phase_count,
+        }
+
+    finally:
+        wb.close()
+
+
+def _build_planner_task_metadata(task, resource_map):
+    """Build the metadata suffix for a Planner task line."""
+    parts = []
+
+    # Resources
+    if task.get("resources"):
+        shortnames = _resource_to_shortname(task["resources"], resource_map)
+        if shortnames:
+            parts.append(shortnames)
+
+    # Duration with proper suffix (d, w, m)
+    if task.get("duration") and task["duration"] > 0:
+        suffix = task.get("duration_suffix", "d")
+        parts.append(f"{task['duration']}{suffix}")
+
+    # Start date (only if no duration)
+    if task.get("start_date") and not task.get("duration"):
+        parts.append(f"start:{task['start_date']}")
+
+    # Percent complete
+    if task.get("percent") is not None and task["percent"] > 0:
+        parts.append(f"{task['percent']}%")
+
+    # Dependencies
+    if task.get("depends"):
+        dep_str = ", ".join(task["depends"])
+        parts.append(f"[depends {dep_str}]")
+
+    if not parts:
+        return ""
+    return " " + " ".join(parts)
+
+
 def analyze_workbook(file_bytes, filename):
     """Analyze an Excel workbook and return sheet/column metadata.
 
@@ -251,10 +690,15 @@ def analyze_workbook(file_bytes, filename):
                 "columns": headers,
                 "sample_rows": sample_rows,
             })
+        # Detect if this is a Planner export
+        is_planner = detect_planner_worksheet(wb) is not None
     finally:
         wb.close()
 
-    return {"sheets": sheets}
+    result = {"sheets": sheets}
+    if is_planner:
+        result["is_planner"] = True
+    return result
 
 
 def _auto_detect_column(columns, field_name):

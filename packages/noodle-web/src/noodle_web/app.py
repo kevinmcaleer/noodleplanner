@@ -32,6 +32,7 @@ from noodle_core import (
     parse_resource_mappings,
     analyze_workbook,
     convert_excel_to_markdown,
+    convert_planner_to_markdown,
     extract_highlights,
     extract_raid_log,
     parse_raid_markdown,
@@ -906,6 +907,30 @@ async def excel_convert(
     except Exception as e:
         logger.error(f"Error converting Excel file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to convert file: {e}")
+
+
+@app.post("/api/excel/convert-planner")
+async def excel_convert_planner(file: UploadFile = File(...)):
+    """Convert a Microsoft Planner export to NoodlePlanner markdown format."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    extension = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
+    if extension not in ("xlsx", "xls"):
+        raise HTTPException(status_code=400, detail="File must be .xlsx or .xls")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
+
+    try:
+        result = convert_planner_to_markdown(file_bytes, file.filename)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error converting Planner file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to convert Planner file: {e}")
 
 
 # ==============================================================================
