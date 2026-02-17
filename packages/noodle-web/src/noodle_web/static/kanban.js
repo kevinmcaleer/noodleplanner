@@ -1293,19 +1293,23 @@ class KanbanBoard {
             this.handleCardReorder(draggedLineNumber, task.lineNumber, insertBefore);
         });
 
-        // Quick-complete checkbox
+        // Title row: checkbox on the left + header
+        const titleRowEl = document.createElement('div');
+        titleRowEl.className = 'kanban-card-title-row';
+
+        // Quick-complete checkbox (round, on the left)
         const checkboxEl = document.createElement('input');
         checkboxEl.type = 'checkbox';
-        checkboxEl.className = 'kanban-card-checkbox';
+        checkboxEl.className = 'round-checkbox';
         checkboxEl.checked = task.progressStatus === 'complete';
         checkboxEl.title = task.progressStatus === 'complete' ? 'Mark as incomplete' : 'Mark as complete';
         checkboxEl.setAttribute('aria-label', `Mark "${task.name}" as ${task.progressStatus === 'complete' ? 'incomplete' : 'complete'}`);
         checkboxEl.addEventListener('click', (e) => {
             e.stopPropagation();
             const newPercent = checkboxEl.checked ? 100 : 0;
-            this.quickSetPercent(task, newPercent);
+            this.quickSetPercent(task, newPercent, cardEl);
         });
-        cardEl.appendChild(checkboxEl);
+        titleRowEl.appendChild(checkboxEl);
 
         // Card header with title and resources
         const headerEl = document.createElement('div');
@@ -1338,7 +1342,8 @@ class KanbanBoard {
             headerEl.appendChild(resourcesEl);
         }
 
-        cardEl.appendChild(headerEl);
+        titleRowEl.appendChild(headerEl);
+        cardEl.appendChild(titleRowEl);
 
         // Card body with metadata
         const bodyEl = document.createElement('div');
@@ -1837,7 +1842,7 @@ class KanbanBoard {
     /**
      * Quickly set a task's percent complete and update the editor
      */
-    quickSetPercent(task, newPercent) {
+    quickSetPercent(task, newPercent, cardEl) {
         const editor = document.getElementById('planEditor');
         if (!editor) return;
 
@@ -1850,23 +1855,35 @@ class KanbanBoard {
         const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
         lines[taskLineNumber - 1] = updatedLine;
 
+        // Immediately update the card visually without waiting for rerender
+        if (cardEl) {
+            this.updateCardVisual(cardEl, task, newPercent);
+        }
+
+        // Update the task object so state stays in sync
+        task.percent = newPercent;
+        task.progressStatus = newPercent >= 100 ? 'complete' : (newPercent > 0 ? 'in_progress' : 'not_started');
+
         // Prevent circular updates
         if (window.kanbanIsUpdating) {
             window.kanbanIsUpdating(true);
         }
 
-        // Update editor
+        // Update editor (markdown)
         editor.value = lines.join('\n');
 
         // Dispatch input event to trigger editor listeners
         editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Trigger immediate re-parse and render
-        setTimeout(() => {
-            this.parse();
-            this.render();
+        // Sync kanban editor
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = editor.value;
+            kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
+        }
 
-            // Trigger main render to update all views
+        // Trigger main render to update other views (gantt, etc.)
+        setTimeout(() => {
             if (typeof renderText === 'function') {
                 renderText();
             }
@@ -1878,6 +1895,39 @@ class KanbanBoard {
                 }
             }, 100);
         }, 50);
+    }
+
+    /**
+     * Immediately update a card's visual state after checkbox change
+     */
+    updateCardVisual(cardEl, task, newPercent) {
+        const isComplete = newPercent >= 100;
+
+        // Update progress badge text and class
+        const progressEl = cardEl.querySelector('.kanban-meta-progress');
+        if (progressEl) {
+            progressEl.textContent = `${newPercent}%`;
+            progressEl.classList.remove('progress-complete', 'progress-in-progress', 'progress-not-started');
+            if (isComplete) {
+                progressEl.classList.add('progress-complete');
+            } else if (newPercent > 0) {
+                progressEl.classList.add('progress-in-progress');
+            } else {
+                progressEl.classList.add('progress-not-started');
+            }
+        }
+
+        // Update progress bar if present
+        const progressBar = cardEl.querySelector('.kanban-card-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = `${newPercent}%`;
+        }
+
+        // Update checkbox tooltip
+        const checkbox = cardEl.querySelector('.round-checkbox');
+        if (checkbox) {
+            checkbox.title = isComplete ? 'Mark as incomplete' : 'Mark as complete';
+        }
     }
 
     /**

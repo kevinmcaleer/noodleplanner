@@ -1660,33 +1660,9 @@ h1 {
     padding: 8px 4px !important;
 }
 
+/* Gantt checkboxes use .round-checkbox class - these are kept for specificity */
 .gantt-done-cell input[type="checkbox"] {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    cursor: pointer;
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    border: 2px solid #adb5bd;
-    border-radius: 50%;
-    background: white;
-    transition: all 0.15s ease;
-}
-
-.gantt-done-cell input[type="checkbox"]:checked {
-    background: #28a745;
-    border-color: #28a745;
-}
-
-.gantt-done-cell input[type="checkbox"]:checked::after {
-    content: '✓';
-    display: block;
-    color: white;
-    font-size: 10px;
-    line-height: 12px;
-    text-align: center;
-    font-weight: bold;
+    /* Inherits from .round-checkbox */
 }
 
 .gantt-info-table td.editable {
@@ -3350,11 +3326,7 @@ body.detail-pane-open {
 }
 
 .subtask-checkbox {
-    width: 18px;
-    height: 18px;
     margin-right: 10px;
-    cursor: pointer;
-    flex-shrink: 0;
 }
 
 .subtask-label {
@@ -3976,22 +3948,51 @@ body.detail-pane-open {
     border-radius: 4px;
 }
 
-/* Card Quick-Complete Checkbox */
-.kanban-card-checkbox {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 18px;
-    height: 18px;
+/* Shared Round Checkbox Style */
+.round-checkbox {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     cursor: pointer;
-    accent-color: #2b8a3e;
-    z-index: 2;
+    width: 16px;
+    height: 16px;
     margin: 0;
+    border: 2px solid #adb5bd;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.15s ease;
     flex-shrink: 0;
 }
 
-.kanban-card-checkbox:hover {
+.round-checkbox:checked {
+    background: #28a745;
+    border-color: #28a745;
+}
+
+.round-checkbox:checked::after {
+    content: '\2713';
+    display: block;
+    color: white;
+    font-size: 10px;
+    line-height: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.round-checkbox:hover {
     transform: scale(1.2);
+}
+
+/* Card Title Row (checkbox + title) */
+.kanban-card-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.kanban-card-title-row .round-checkbox {
+    margin-top: 3px;
 }
 
 /* Card Header */
@@ -3999,9 +4000,9 @@ body.detail-pane-open {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 8px;
     gap: 8px;
-    padding-right: 24px;
+    flex: 1;
+    min-width: 0;
 }
 
 .kanban-card-title {
