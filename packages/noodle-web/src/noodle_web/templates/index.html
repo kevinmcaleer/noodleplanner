@@ -25,6 +25,9 @@
                         Views ▾
                     </button>
                     <div class="nav-menu" id="viewsMenu">
+                        <div class="nav-menu-item" onclick="switchToView('tasks'); event.stopPropagation();">
+                            📋 Tasks
+                        </div>
                         <div class="nav-menu-item" onclick="switchToView('project-report'); event.stopPropagation();">
                             📊 Project Report
                         </div>
@@ -205,6 +208,7 @@ Press Enter to render..."></textarea>
                         <!-- Output Tabs Navigation -->
                         <div class="output-tabs">
                             <button class="output-tab active" data-tab="project-report" onclick="switchOutputTab('project-report')">Project Report</button>
+                            <button class="output-tab" data-tab="tasks" onclick="switchOutputTab('tasks')">Tasks</button>
                             <button class="output-tab" data-tab="text-report" onclick="switchOutputTab('text-report')">Text Report</button>
                             <button class="output-tab" data-tab="summary" onclick="switchOutputTab('summary')">Project Summary</button>
                             <button class="output-tab" data-tab="milestones" onclick="switchOutputTab('milestones')">Milestones</button>
@@ -473,15 +477,23 @@ Press Enter to render..."></textarea>
                             <div class="gantt-content" style="display: none;">
                                 <div class="gantt-toolbar">
                                     <h2 class="gantt-title">Gantt Chart</h2>
-                                    <div class="gantt-scale-selector">
-                                        <label for="ganttScale">Scale:</label>
-                                        <select id="ganttScale">
-                                            <option value="days" selected>Days</option>
-                                            <option value="weeks">Weeks</option>
-                                            <option value="months">Months</option>
-                                            <option value="quarters">Quarters</option>
-                                            <option value="years">Years</option>
-                                        </select>
+                                    <div class="gantt-toolbar-controls">
+                                        <div class="gantt-scale-selector">
+                                            <label for="ganttScale">Scale:</label>
+                                            <select id="ganttScale">
+                                                <option value="days" selected>Days</option>
+                                                <option value="weeks">Weeks</option>
+                                                <option value="months">Months</option>
+                                                <option value="quarters">Quarters</option>
+                                                <option value="years">Years</option>
+                                            </select>
+                                        </div>
+                                        <div class="gantt-dependency-toggle">
+                                            <label>
+                                                <input type="checkbox" id="ganttShowDependencies">
+                                                Show Dependencies
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="gantt-wrapper">
@@ -518,6 +530,43 @@ Press Enter to render..."></textarea>
                                             <!-- Gantt bars will be populated by JavaScript -->
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tasks View -->
+                        <div id="tasks-view" class="output-tab-content">
+                            <div class="placeholder-view">
+                                <h3>Tasks</h3>
+                                <p>Render your plan to see the tasks table</p>
+                            </div>
+                            <div class="tasks-content" style="display: none;">
+                                <div class="tasks-toolbar">
+                                    <h2 class="tasks-title">Tasks</h2>
+                                </div>
+                                <div class="tasks-table-wrapper">
+                                    <table class="gantt-info-table tasks-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="gantt-done-col"></th>
+                                                <th>ID</th>
+                                                <th>Task Name</th>
+                                                <th>Duration</th>
+                                                <th>Start</th>
+                                                <th>Finish</th>
+                                                <th>Resources</th>
+                                                <th>%</th>
+                                                <th>RAG</th>
+                                                <th>Priority</th>
+                                                <th>Bucket</th>
+                                                <th>Comment</th>
+                                                <th>Predecessors</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tasksTableBody">
+                                            <!-- Task rows will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>

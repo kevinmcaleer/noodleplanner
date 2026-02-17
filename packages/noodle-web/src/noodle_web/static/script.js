@@ -1163,6 +1163,9 @@ async function updateProjectSummary(planText, projectName) {
         // Update Gantt Chart
         updateGantt(result.tasks || []);
 
+        // Update Tasks Table
+        updateTasksTable(result.tasks || []);
+
         // Update Analysis (pass planText directly since front_matter might be an object)
         updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
 
@@ -3451,6 +3454,15 @@ function updateGantt(tasks) {
             scaleSelector.dataset.initialized = 'true';
         }
 
+        // Set up dependency toggle if not already done
+        const depToggle = document.getElementById('ganttShowDependencies');
+        if (depToggle && !depToggle.dataset.initialized) {
+            depToggle.addEventListener('change', function() {
+                renderDependencyLines();
+            });
+            depToggle.dataset.initialized = 'true';
+        }
+
         // Initial render
         renderGanttChart();
 
@@ -3493,6 +3505,9 @@ function renderGanttChart() {
 
     // Render task rows
     renderGanttRows();
+
+    // Render dependency lines if toggle is on
+    renderDependencyLines();
 
     // Auto-scroll to current date (only in days view)
     if (ganttScale === 'days') {
@@ -3878,12 +3893,12 @@ function renderGanttRows() {
         priorityCell.addEventListener('dblclick', () => makePriorityEditable(priorityCell, task, index));
         infoRow.appendChild(priorityCell);
 
-        // Bucket cell (editable)
+        // Bucket cell (editable with dropdown)
         const bucketCell = document.createElement('td');
         bucketCell.classList.add('editable');
         bucketCell.dataset.field = 'bucket';
         bucketCell.textContent = task.bucket || '-';
-        bucketCell.addEventListener('dblclick', () => makeEditable(bucketCell, task, index));
+        bucketCell.addEventListener('dblclick', () => makeBucketEditable(bucketCell, task, index));
         infoRow.appendChild(bucketCell);
 
         // Comment cell (editable)
@@ -4059,6 +4074,363 @@ function renderWeekendHighlights(container) {
         currentDate.setDate(currentDate.getDate() + 1);
         dayIndex++;
     }
+}
+
+/**
+ * Collect unique bucket names from the current gantt tasks.
+ */
+function collectBucketsFromTasks() {
+    const buckets = new Set();
+    if (!ganttTasks) return [];
+    ganttTasks.forEach(t => {
+        if (t.bucket && t.bucket.trim()) {
+            buckets.add(t.bucket.trim());
+        }
+    });
+    return Array.from(buckets).sort();
+}
+
+/**
+ * Make a bucket cell editable with a dropdown of available buckets.
+ */
+function makeBucketEditable(cell, task, taskIndex) {
+    if (cell.classList.contains('editing')) return;
+
+    const originalContent = cell.textContent;
+    cell.classList.add('editing');
+
+    const select = document.createElement('select');
+    select.style.width = '100%';
+    select.style.padding = '2px';
+    select.style.fontSize = 'inherit';
+
+    const buckets = collectBucketsFromTasks();
+
+    // Add empty option for no bucket
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '(none)';
+    select.appendChild(emptyOpt);
+
+    buckets.forEach(b => {
+        const option = document.createElement('option');
+        option.value = b;
+        option.textContent = b;
+        if (b === (task.bucket || '')) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+
+    // If current bucket is not in the list, select it anyway
+    if (task.bucket && !buckets.includes(task.bucket)) {
+        const option = document.createElement('option');
+        option.value = task.bucket;
+        option.textContent = task.bucket;
+        option.selected = true;
+        select.appendChild(option);
+    }
+
+    cell.textContent = '';
+    cell.appendChild(select);
+    select.focus();
+
+    const saveEdit = () => {
+        cell.classList.remove('editing');
+        const newValue = select.value;
+        if (newValue !== (task.bucket || '')) {
+            task.bucket = newValue;
+            ganttTasks[taskIndex].bucket = newValue;
+            syncGanttEditToEditor(task, taskIndex, 'bucket', newValue);
+            cell.textContent = newValue || '-';
+        } else {
+            cell.textContent = originalContent;
+        }
+    };
+
+    select.addEventListener('blur', saveEdit);
+    select.addEventListener('change', saveEdit);
+}
+
+/**
+ * Draw SVG dependency lines on the gantt chart.
+ * Lines run from the end of the dependency bar to the start of the dependent bar.
+ */
+function renderDependencyLines() {
+    // Remove any existing dependency SVG
+    const existing = document.getElementById('ganttDependencySvg');
+    if (existing) existing.remove();
+
+    const toggle = document.getElementById('ganttShowDependencies');
+    if (!toggle || !toggle.checked) return;
+
+    const ganttBody = document.getElementById('ganttBody');
+    if (!ganttBody || !ganttTasks || ganttTasks.length === 0) return;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'ganttDependencySvg';
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '1';
+
+    const nameToIndex = {};
+    ganttTasks.forEach((t, i) => {
+        if (t.name) nameToIndex[t.name.toLowerCase()] = i;
+    });
+
+    const barRows = ganttBody.querySelectorAll('.gantt-bar-row');
+    const rowHeight = 40;
+
+    // Build a map of task index to visible row position (accounting for hidden rows)
+    const visibleRowY = {};
+    let visibleCount = 0;
+    for (let i = 0; i < barRows.length; i++) {
+        if (barRows[i].style.display !== 'none') {
+            visibleRowY[i] = visibleCount * rowHeight + rowHeight / 2;
+            visibleCount++;
+        }
+    }
+
+    ganttTasks.forEach((task, index) => {
+        if (!task.depends || task.depends.length === 0) return;
+        if (!task.start) return;
+
+        const depBarRow = barRows[index];
+        if (!depBarRow || depBarRow.style.display === 'none') return;
+
+        const depBar = depBarRow.querySelector('.gantt-bar');
+        if (!depBar) return;
+
+        const depLeft = parseInt(depBar.style.left) || 0;
+        const depY = visibleRowY[index];
+        if (depY === undefined) return;
+
+        task.depends.forEach(depName => {
+            const predIndex = nameToIndex[depName.toLowerCase()];
+            if (predIndex === undefined) return;
+
+            const predTask = ganttTasks[predIndex];
+            if (!predTask || !predTask.start) return;
+
+            const predBarRow = barRows[predIndex];
+            if (!predBarRow || predBarRow.style.display === 'none') return;
+
+            const predBar = predBarRow.querySelector('.gantt-bar');
+            if (!predBar) return;
+
+            const predLeft = parseInt(predBar.style.left) || 0;
+            const predWidth = parseInt(predBar.style.width) || 18;
+            const predY = visibleRowY[predIndex];
+            if (predY === undefined) return;
+
+            // Line from end of predecessor to start of dependent
+            const startX = predLeft + predWidth;
+            const startY = predY;
+            const endX = depLeft;
+            const endY = depY;
+
+            // Draw an L-shaped path: right from pred, then down/up to dep
+            const midX = startX + 8;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const d = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
+            path.setAttribute('d', d);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#adb5bd');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('stroke-dasharray', '4,3');
+
+            // Add small arrowhead at end
+            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            const arrowSize = 5;
+            arrow.setAttribute('points',
+                `${endX},${endY} ${endX - arrowSize},${endY - arrowSize} ${endX - arrowSize},${endY + arrowSize}`
+            );
+            arrow.setAttribute('fill', '#adb5bd');
+
+            svg.appendChild(path);
+            svg.appendChild(arrow);
+        });
+    });
+
+    ganttBody.appendChild(svg);
+}
+
+/**
+ * Update the standalone Tasks table (without gantt bars).
+ */
+function updateTasksTable(tasks) {
+    const placeholder = document.querySelector('#tasks-view .placeholder-view');
+    const content = document.querySelector('#tasks-view .tasks-content');
+
+    if (placeholder && content) {
+        placeholder.style.display = 'none';
+        content.style.display = 'block';
+    }
+
+    const tbody = document.getElementById('tasksTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!tasks || tasks.length === 0) return;
+
+    const nameToId = buildTaskNameToIdMap(tasks);
+
+    tasks.forEach((task, index) => {
+        const cfStyle = !task.is_summary ? getConditionalFormatting(task) : null;
+
+        const row = document.createElement('tr');
+        row.dataset.taskIndex = index;
+        if (task.is_summary) row.classList.add('gantt-phase-row');
+        if (cfStyle) {
+            row.style.backgroundColor = cfStyle.backgroundColor;
+            row.style.color = cfStyle.color;
+        }
+
+        // Done checkbox
+        const doneCell = document.createElement('td');
+        doneCell.classList.add('gantt-done-cell');
+        if (!task.is_summary) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'round-checkbox';
+            checkbox.checked = (parseFloat(task.percent) || 0) >= 100;
+            checkbox.title = checkbox.checked ? 'Mark incomplete' : 'Mark complete';
+            checkbox.addEventListener('change', () => {
+                const newPercent = checkbox.checked ? '100%' : '0%';
+                task.percent = newPercent;
+                syncGanttPercentToEditor(task, index);
+            });
+            doneCell.appendChild(checkbox);
+        }
+        row.appendChild(doneCell);
+
+        // ID
+        const idCell = document.createElement('td');
+        idCell.textContent = task.id;
+        row.appendChild(idCell);
+
+        // Task Name
+        const nameCell = document.createElement('td');
+        nameCell.classList.add('editable');
+        nameCell.dataset.field = 'name';
+        const indent = '  '.repeat(task.level);
+        if (task.is_summary) {
+            nameCell.style.fontFamily = "'Courier New', monospace";
+            nameCell.style.whiteSpace = 'pre';
+            nameCell.style.fontWeight = '600';
+            nameCell.textContent = indent + task.name;
+        } else {
+            nameCell.textContent = indent + task.name;
+            nameCell.style.fontFamily = "'Courier New', monospace";
+            nameCell.style.whiteSpace = 'pre';
+        }
+        nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
+        row.appendChild(nameCell);
+
+        // Duration
+        const durationCell = document.createElement('td');
+        durationCell.classList.add('editable');
+        durationCell.dataset.field = 'duration';
+        durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+        durationCell.addEventListener('dblclick', () => makeEditable(durationCell, task, index));
+        row.appendChild(durationCell);
+
+        // Start
+        const startCell = document.createElement('td');
+        startCell.classList.add('editable');
+        startCell.dataset.field = 'start';
+        startCell.textContent = task.start || '-';
+        startCell.addEventListener('dblclick', () => makeEditable(startCell, task, index));
+        row.appendChild(startCell);
+
+        // Finish
+        const finishCell = document.createElement('td');
+        finishCell.classList.add('editable');
+        finishCell.dataset.field = 'finish';
+        finishCell.textContent = task.finish || '-';
+        finishCell.addEventListener('dblclick', () => makeEditable(finishCell, task, index));
+        row.appendChild(finishCell);
+
+        // Resources
+        const resourcesCell = document.createElement('td');
+        resourcesCell.classList.add('editable');
+        resourcesCell.dataset.field = 'resources';
+        resourcesCell.textContent = task.resources || '-';
+        resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
+        row.appendChild(resourcesCell);
+
+        // Percent
+        const percentCell = document.createElement('td');
+        percentCell.classList.add('editable');
+        percentCell.dataset.field = 'percent';
+        percentCell.textContent = task.percent ? `${String(task.percent).replace('%', '')}%` : '-';
+        percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
+        row.appendChild(percentCell);
+
+        // RAG
+        const ragCell = document.createElement('td');
+        ragCell.classList.add('gantt-rag-cell');
+        if (task.rag) {
+            const ragDot = document.createElement('span');
+            ragDot.className = 'gantt-rag-dot rag-' + task.rag.toLowerCase();
+            ragDot.title = task.rag;
+            ragCell.appendChild(ragDot);
+        } else {
+            ragCell.textContent = '-';
+        }
+        row.appendChild(ragCell);
+
+        // Priority
+        const priorityCell = document.createElement('td');
+        priorityCell.classList.add('editable');
+        priorityCell.dataset.field = 'priority';
+        const priorityValue = task.priority || 'Low';
+        priorityCell.textContent = priorityValue;
+        if (priorityValue === 'Urgent') priorityCell.classList.add('priority-urgent');
+        else if (priorityValue === 'Important') priorityCell.classList.add('priority-important');
+        else if (priorityValue === 'Medium') priorityCell.classList.add('priority-medium');
+        priorityCell.addEventListener('dblclick', () => makePriorityEditable(priorityCell, task, index));
+        row.appendChild(priorityCell);
+
+        // Bucket (dropdown)
+        const bucketCell = document.createElement('td');
+        bucketCell.classList.add('editable');
+        bucketCell.dataset.field = 'bucket';
+        bucketCell.textContent = task.bucket || '-';
+        bucketCell.addEventListener('dblclick', () => makeBucketEditable(bucketCell, task, index));
+        row.appendChild(bucketCell);
+
+        // Comment
+        const commentCell = document.createElement('td');
+        commentCell.classList.add('editable');
+        commentCell.dataset.field = 'comment';
+        commentCell.textContent = task.comment || '-';
+        commentCell.addEventListener('dblclick', () => makeEditable(commentCell, task, index));
+        row.appendChild(commentCell);
+
+        // Predecessors
+        const predCell = document.createElement('td');
+        predCell.classList.add('editable');
+        predCell.dataset.field = 'predecessors';
+        const predText = formatPredecessors(task, nameToId);
+        predCell.textContent = predText || '-';
+        predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
+        row.appendChild(predCell);
+
+        // Click to open task
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', (e) => {
+            if (e.target.closest('.editable') || e.target.closest('.gantt-done-cell')) return;
+            openMilestoneTaskForm(task.name);
+        });
+
+        tbody.appendChild(row);
+    });
 }
 
 function getWeekNumber(date) {
@@ -9570,7 +9942,7 @@ const tourSteps = [
     },
     {
         title: "Views Menu",
-        message: "Click the Views dropdown to access different reports and visualizations: Project Report, Summary, Timeline, Gantt Chart, Resources, and more!",
+        message: "Click the Views dropdown to access different reports and visualizations: Tasks, Project Report, Summary, Timeline, Gantt Chart (with dependency lines), and more!",
         target: "#viewsTab",
         position: "bottom"
     },

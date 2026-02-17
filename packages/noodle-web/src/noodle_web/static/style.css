@@ -1595,6 +1595,55 @@ h1 {
     box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.1);
 }
 
+.gantt-toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.gantt-dependency-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.gantt-dependency-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+    color: #495057;
+    cursor: pointer;
+    user-select: none;
+}
+
+.gantt-dependency-toggle input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Tasks view */
+.tasks-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    margin-bottom: 10px;
+}
+
+.tasks-title {
+    font-size: 1.2em;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.tasks-table-wrapper {
+    overflow-x: auto;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .gantt-wrapper {
     display: flex;
     background: white;
