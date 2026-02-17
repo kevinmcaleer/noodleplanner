@@ -636,6 +636,7 @@ async def parse_plan(data: RenderRequest):
                 'phase': task.get('phase', ''),
                 'depends': task.get('depends', []),
                 'lag_lead': task.get('lag_lead', {}),
+                'inherited_resource': task.get('inherited_resource', False),
             }
             tasks_data.append(task_data)
 

@@ -1114,5 +1114,111 @@ class TestDSTBoundaryRegression:
                 break
 
 
+class TestInheritSummaryResources:
+    """Test suite for summary task resource inheritance."""
+
+    def test_children_inherit_resource_from_summary_parent(self):
+        """Children without resources inherit from their summary parent."""
+        from noodle_core.scheduling_engine import inherit_summary_resources
+        tasks = [
+            {'name': 'Design', 'summary': True, 'resources': 'kev', 'parent': None},
+            {'name': 'Wireframes', 'summary': False, 'resources': '', 'parent': 'Design'},
+            {'name': 'Mockups', 'summary': False, 'resources': '', 'parent': 'Design'},
+        ]
+        inherit_summary_resources(tasks)
+        assert tasks[1]['resources'] == 'kev'
+        assert tasks[1]['inherited_resource'] is True
+        assert tasks[2]['resources'] == 'kev'
+        assert tasks[2]['inherited_resource'] is True
+
+    def test_children_keep_own_resource_over_inherited(self):
+        """Children with their own resource are not overwritten."""
+        from noodle_core.scheduling_engine import inherit_summary_resources
+        tasks = [
+            {'name': 'Design', 'summary': True, 'resources': 'kev', 'parent': None},
+            {'name': 'Wireframes', 'summary': False, 'resources': 'alice', 'parent': 'Design'},
+            {'name': 'Mockups', 'summary': False, 'resources': '', 'parent': 'Design'},
+        ]
+        inherit_summary_resources(tasks)
+        assert tasks[1]['resources'] == 'alice'
+        assert tasks[1].get('inherited_resource') is None or tasks[1].get('inherited_resource') is False
+        assert tasks[2]['resources'] == 'kev'
+        assert tasks[2]['inherited_resource'] is True
+
+    def test_no_inheritance_when_summary_has_no_resource(self):
+        """No inheritance occurs when the summary task has no resource."""
+        from noodle_core.scheduling_engine import inherit_summary_resources
+        tasks = [
+            {'name': 'Design', 'summary': True, 'resources': '', 'parent': None},
+            {'name': 'Wireframes', 'summary': False, 'resources': '', 'parent': 'Design'},
+        ]
+        inherit_summary_resources(tasks)
+        assert tasks[1]['resources'] == ''
+        assert tasks[1].get('inherited_resource') is None or tasks[1].get('inherited_resource') is False
+
+    def test_nested_summary_inheritance(self):
+        """Resource propagates through nested summary tasks."""
+        from noodle_core.scheduling_engine import inherit_summary_resources
+        tasks = [
+            {'name': 'Project', 'summary': True, 'resources': 'kev', 'parent': None},
+            {'name': 'Design', 'summary': True, 'resources': '', 'parent': 'Project'},
+            {'name': 'Wireframes', 'summary': False, 'resources': '', 'parent': 'Design'},
+        ]
+        inherit_summary_resources(tasks)
+        assert tasks[1]['resources'] == 'kev'
+        assert tasks[1]['inherited_resource'] is True
+        assert tasks[2]['resources'] == 'kev'
+        assert tasks[2]['inherited_resource'] is True
+
+    def test_child_summary_with_own_resource_overrides_parent(self):
+        """A child summary with its own resource uses that instead of parent's."""
+        from noodle_core.scheduling_engine import inherit_summary_resources
+        tasks = [
+            {'name': 'Project', 'summary': True, 'resources': 'kev', 'parent': None},
+            {'name': 'Design', 'summary': True, 'resources': 'alice', 'parent': 'Project'},
+            {'name': 'Wireframes', 'summary': False, 'resources': '', 'parent': 'Design'},
+        ]
+        inherit_summary_resources(tasks)
+        assert tasks[1]['resources'] == 'alice'
+        assert tasks[2]['resources'] == 'alice'
+
+    def test_schedule_tasks_with_summary_resource(self):
+        """End-to-end: summary task resource is inherited by leaf tasks."""
+        plan_text = """Design @kev
+    Wireframes 3d
+    Mockups 2d"""
+        from noodle_core.scheduling_engine import natural_language_to_yaml
+        phases = natural_language_to_yaml(plan_text)
+        tasks = schedule_tasks(phases["Project"])
+        # Find leaf tasks
+        wireframes = next(t for t in tasks if t['name'] == 'Wireframes')
+        mockups = next(t for t in tasks if t['name'] == 'Mockups')
+        assert wireframes['resources'] == 'kev'
+        assert wireframes.get('inherited_resource') is True
+        assert mockups['resources'] == 'kev'
+        assert mockups.get('inherited_resource') is True
+
+    def test_schedule_tasks_summary_resource_not_double_counted(self):
+        """Inherited resources should not cause double counting in resource allocation."""
+        from noodle_core.scheduling_engine import natural_language_to_yaml, calculate_resource_allocation
+        plan_text = """Design @kev
+    Wireframes 3d
+    Mockups 2d"""
+        phases = natural_language_to_yaml(plan_text)
+        tasks = schedule_tasks(phases["Project"])
+        start = min(t['start'] for t in tasks if 'start' in t)
+        finish = max(t['finish'] for t in tasks if 'finish' in t)
+        result = calculate_resource_allocation(tasks, start, finish)
+        # kev should appear as a resource
+        assert 'kev' in result['resources']
+        # Check there is no double-counting (summary task itself should not be counted)
+        summary = next(t for t in tasks if t.get('summary'))
+        assert summary['resources'] == 'kev'  # Summary has resource
+        # But allocation only counts leaf tasks
+        total_hours = sum(result['allocation']['kev'].values())
+        # 3d + 2d = 5d * 8h = 40h (not 80h from double-counting)
+        assert total_hours == pytest.approx(40.0, abs=1.0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

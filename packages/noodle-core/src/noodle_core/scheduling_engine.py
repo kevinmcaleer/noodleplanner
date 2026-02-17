@@ -383,6 +383,42 @@ def detect_dependency_loops(tasks):
     return result
 
 
+def inherit_summary_resources(tasks):
+    """Propagate resources from summary tasks to their unassigned children.
+
+    When a summary task has a resource assigned (e.g. @kev), all child tasks
+    that don't have their own resource will inherit it for calculation purposes.
+    The inherited resource is marked so the markdown is not modified.
+    """
+    for task in tasks:
+        if not task.get('summary'):
+            continue
+        summary_resource = task.get('resources', '')
+        if not summary_resource:
+            continue
+        parent_name = task.get('name')
+        _propagate_resource_to_children(tasks, parent_name, summary_resource)
+
+
+def _propagate_resource_to_children(tasks, parent_name, resource):
+    """Recursively assign inherited resource to unassigned children."""
+    for task in tasks:
+        if task.get('parent') != parent_name:
+            continue
+        if task.get('summary'):
+            # If child summary has no resource, inherit from parent
+            if not task.get('resources'):
+                task['resources'] = resource
+                task['inherited_resource'] = True
+            # Recurse into child summary's children
+            _propagate_resource_to_children(tasks, task['name'], task.get('resources', ''))
+        else:
+            # Leaf task: only assign if no resource already set
+            if not task.get('resources'):
+                task['resources'] = resource
+                task['inherited_resource'] = True
+
+
 def schedule_tasks(phases):
     """Schedule tasks from arbitrarily nested structure.
 
@@ -457,6 +493,12 @@ def schedule_tasks(phases):
                     all_tasks.append(meta)
                 elif '_is_summary' in value or any(isinstance(v, dict) for v in value.values()):
                     # Summary task with children
+                    # Extract resources from summary text if present
+                    summary_resources = ''
+                    summary_text = value.get('_summary_text', '')
+                    if summary_text:
+                        summary_meta_data = extract_metadata(summary_text, key)
+                        summary_resources = summary_meta_data.get('resources', '')
                     summary_meta = {
                         'name': key,
                         'description': key,
@@ -464,7 +506,7 @@ def schedule_tasks(phases):
                         'parent': parent_name,
                         'phase': parent_name or '',
                         'summary': True,
-                        'resources': '',
+                        'resources': summary_resources,
                         'percent': 0,
                         'comment': ''
                     }
@@ -694,6 +736,9 @@ def schedule_tasks(phases):
         return ordered
 
     ordered_tasks = build_ordered_list()
+
+    # Inherit resources from summary tasks to unassigned children
+    inherit_summary_resources(ordered_tasks)
 
     # Check for dependency loops and add warnings to affected tasks
     loop_analysis = detect_dependency_loops(ordered_tasks)
@@ -1416,6 +1461,9 @@ def natural_language_to_yaml(text, project_name="Project"):
         # Mark as summary with level
         result['_level'] = node['level']
         result['_is_summary'] = True
+        # Preserve summary task text for resource extraction
+        if node.get('has_details') and node.get('text'):
+            result['_summary_text'] = node['text']
         return result
 
     result_dict = tree_to_nested_dict(root)
@@ -1464,6 +1512,10 @@ def calculate_resource_allocation(tasks, start_date, finish_date):
     allocation = defaultdict(lambda: defaultdict(float))
 
     for t in tasks:
+        # Skip summary tasks - their children carry the resource allocations
+        if t.get('summary'):
+            continue
+
         task_start = t.get('start')
         task_finish = t.get('finish')
         if not task_start or not task_finish:
