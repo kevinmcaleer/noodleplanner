@@ -1293,6 +1293,15 @@ class KanbanBoard {
             e.preventDefault();
             const draggingCard = document.querySelector('.dragging');
             if (draggingCard && draggingCard !== cardEl) {
+                // In bucket view, only show drop indicator for cross-column moves
+                if (this.viewMode === 'bucket') {
+                    const draggedColumn = draggingCard.closest('.kanban-column-body');
+                    const targetColumn = cardEl.closest('.kanban-column-body');
+                    if (draggedColumn === targetColumn) {
+                        return; // No reordering within same bucket column
+                    }
+                }
+
                 // Get the bounding rectangle
                 const rect = cardEl.getBoundingClientRect();
                 const midpoint = rect.top + rect.height / 2;
@@ -1311,13 +1320,26 @@ class KanbanBoard {
             cardEl.classList.remove('drop-before', 'drop-after');
         });
 
-        // Drop on card for reordering
+        // Drop on card for reordering (or bucket reassignment in bucket view)
         cardEl.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
             cardEl.classList.remove('drop-before', 'drop-after');
 
             const draggedLineNumber = parseInt(e.dataTransfer.getData('text/plain'));
+
+            if (this.viewMode === 'bucket') {
+                // In bucket view, update bucket assignment instead of reordering
+                const targetColumnBody = cardEl.closest('.kanban-column-body');
+                const targetColumnTitle = targetColumnBody ? targetColumnBody.getAttribute('data-column-title') : null;
+                if (targetColumnTitle) {
+                    const column = this.columns.find(c => c.title === targetColumnTitle);
+                    if (column) {
+                        this.handleCardDrop(draggedLineNumber, column);
+                    }
+                }
+                return;
+            }
 
             // Determine if inserting before or after this card
             const rect = cardEl.getBoundingClientRect();
@@ -1578,16 +1600,21 @@ class KanbanBoard {
                 break;
 
             case 'bucket':
-                // Update bucket assignment
+                // Update bucket assignment (skip if already in the same bucket)
                 const bucketName = targetColumn.title;
-                if (bucketName !== 'No Bucket') {
-                    const updatedLine = this.replaceBucketInTaskLine(taskLine, bucketName);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
-                } else {
-                    const updatedLine = this.removeBucketFromTaskLine(taskLine);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
+                const currentBucket = task.bucket ? task.bucket.trim() : '';
+                const isAlreadyInBucket = (bucketName === 'No Bucket' && !currentBucket) ||
+                    (bucketName !== 'No Bucket' && currentBucket === bucketName);
+                if (!isAlreadyInBucket) {
+                    if (bucketName !== 'No Bucket') {
+                        const updatedLine = this.replaceBucketInTaskLine(taskLine, bucketName);
+                        lines[taskLineNumber - 1] = updatedLine;
+                        updated = true;
+                    } else {
+                        const updatedLine = this.removeBucketFromTaskLine(taskLine);
+                        lines[taskLineNumber - 1] = updatedLine;
+                        updated = true;
+                    }
                 }
                 break;
         }
