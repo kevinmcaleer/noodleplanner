@@ -5538,9 +5538,8 @@ function populateSubtasks(parentLineNumber, lines) {
         label.className = 'subtask-label';
         label.textContent = subtask.name;
         label.addEventListener('click', () => {
-            // Close current form and open subtask form
-            closeTaskForm();
-            setTimeout(() => openTaskForm(subtask.lineNumber), 100);
+            // Navigate directly to the subtask's details
+            openTaskForm(subtask.lineNumber);
         });
 
         // Show completion percentage if not 0 or 100
