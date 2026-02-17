@@ -728,6 +728,10 @@ class KanbanBoard {
         return str.toLowerCase().replace(/[^a-z0-9]/g, '-');
     }
 
+    escapeRegExp(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     /**
      * Render the Kanban board to DOM
      */
@@ -1053,6 +1057,16 @@ class KanbanBoard {
             titleEl.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.renameLabel(column.title);
+            });
+        }
+
+        // Make title editable in bucket view (except No Bucket)
+        if (this.viewMode === 'bucket' && column.title !== 'No Bucket') {
+            titleEl.style.cursor = 'pointer';
+            titleEl.title = 'Double-click to rename bucket';
+            titleEl.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this.startInlineBucketRename(titleEl, column.title);
             });
         }
 
@@ -2732,6 +2746,99 @@ class KanbanBoard {
             this.render();
 
             // Re-enable editor listener
+            setTimeout(() => {
+                if (window.kanbanIsUpdating) {
+                    window.kanbanIsUpdating(false);
+                }
+            }, 100);
+        }, 50);
+    }
+
+    /**
+     * Replace the bucket title element with an inline input field for renaming
+     */
+    startInlineBucketRename(titleEl, oldBucketName) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldBucketName;
+        input.className = 'kanban-bucket-rename-input';
+        input.setAttribute('aria-label', `Rename bucket "${oldBucketName}"`);
+
+        const commitRename = () => {
+            const newName = input.value.trim();
+            if (newName && newName !== oldBucketName) {
+                this.renameBucket(oldBucketName, newName);
+            } else {
+                titleEl.textContent = oldBucketName;
+                titleEl.style.display = '';
+            }
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            } else if (e.key === 'Escape') {
+                input.value = oldBucketName;
+                input.blur();
+            }
+        });
+
+        input.addEventListener('blur', () => {
+            commitRename();
+        }, { once: true });
+
+        titleEl.textContent = '';
+        titleEl.style.display = 'none';
+        titleEl.parentNode.insertBefore(input, titleEl);
+        input.focus();
+        input.select();
+    }
+
+    /**
+     * Rename a bucket in all task lines
+     */
+    renameBucket(oldBucketName, newBucketName) {
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        let inFrontMatter = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            if (line.trim() === '---') {
+                inFrontMatter = !inFrontMatter;
+                continue;
+            }
+            if (inFrontMatter) continue;
+
+            // Replace {oldBucketName} with {newBucketName} in task lines
+            lines[i] = line.replace(
+                new RegExp(`\\{${this.escapeRegExp(oldBucketName)}\\}`, 'g'),
+                `{${newBucketName}}`
+            );
+        }
+
+        // Update user-created buckets list
+        const bucketIndex = this.createdBuckets.indexOf(oldBucketName);
+        if (bucketIndex !== -1) {
+            this.createdBuckets[bucketIndex] = newBucketName;
+        }
+
+        // Prevent circular updates
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
+        editor.value = lines.join('\n');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        setTimeout(() => {
+            this.parse();
+            this.render();
+
             setTimeout(() => {
                 if (window.kanbanIsUpdating) {
                     window.kanbanIsUpdating(false);
