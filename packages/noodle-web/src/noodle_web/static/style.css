@@ -3675,6 +3675,21 @@ body.detail-pane-open {
     min-width: 150px;
 }
 
+.kanban-sort-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.kanban-sort-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 14px;
+    color: #495057;
+    cursor: pointer;
+}
+
 .kanban-message {
     position: absolute;
     top: 50%;
@@ -3919,6 +3934,7 @@ body.detail-pane-open {
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     transition: all 0.2s;
     border: 1px solid #e9ecef;
+    position: relative;
 }
 
 .kanban-card:hover {
@@ -6492,4 +6508,26 @@ body.detail-pane-open {
 
 .priority-medium {
     color: #ffc107;
+}
+
+/* Kanban priority dots */
+.kanban-priority-dot {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.priority-dot-urgent {
+    background-color: #e53e3e;
+}
+
+.priority-dot-important {
+    background-color: #dd6b20;
+}
+
+.priority-dot-medium {
+    background-color: #38a169;
 }

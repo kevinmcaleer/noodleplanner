@@ -6,7 +6,8 @@
 
 class KanbanBoard {
     constructor(viewMode = 'phase') {
-        this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label'
+        this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label', 'bucket'
+        this.sortByPriority = false; // Sort tasks by priority within columns
         this.tasks = [];
         this.columns = [];
         this.phases = [];
@@ -413,8 +414,23 @@ class KanbanBoard {
             case 'label':
                 this.columns = this.groupTasksByLabel();
                 break;
+            case 'bucket':
+                this.columns = this.groupTasksByBucket();
+                break;
             default:
                 this.columns = this.groupTasksByPhase();
+        }
+
+        // Apply priority sorting if enabled
+        if (this.sortByPriority) {
+            const priorityOrder = { 'Urgent': 0, 'Important': 1, 'Medium': 2, 'Low': 3 };
+            this.columns.forEach(column => {
+                column.tasks.sort((a, b) => {
+                    const aPriority = priorityOrder[a.priority] ?? 3;
+                    const bPriority = priorityOrder[b.priority] ?? 3;
+                    return aPriority - bPriority;
+                });
+            });
         }
 
         // Restore all tasks
@@ -649,6 +665,51 @@ class KanbanBoard {
                 title: label,
                 tasks: labelTasks,
                 count: labelTasks.length
+            });
+        });
+
+        return columns;
+    }
+
+    /**
+     * Group tasks by bucket
+     */
+    groupTasksByBucket() {
+        const columns = [];
+        const bucketSet = new Set();
+
+        // Collect all unique buckets from tasks
+        this.tasks.forEach(task => {
+            const bucket = task.bucket ? task.bucket.trim() : '';
+            if (bucket) {
+                bucketSet.add(bucket);
+            }
+        });
+
+        // Add "No Bucket" column
+        bucketSet.add('No Bucket');
+
+        // Create a column for each bucket
+        bucketSet.forEach(bucket => {
+            const bucketTasks = this.tasks.filter(task => {
+                // Filter out summary tasks (same as other views)
+                if (this.hasSubtasks(task)) return false;
+                if (bucket === 'No Bucket') {
+                    return !task.bucket || !task.bucket.trim();
+                }
+                return task.bucket && task.bucket.trim() === bucket;
+            });
+
+            // Skip empty columns when drilling down
+            if (this.currentParentTask && bucketTasks.length === 0) {
+                return;
+            }
+
+            columns.push({
+                id: this.sanitizeId(bucket),
+                title: bucket,
+                tasks: bucketTasks,
+                count: bucketTasks.length
             });
         });
 
@@ -1289,6 +1350,15 @@ class KanbanBoard {
         }
 
         cardEl.appendChild(bodyEl);
+
+        // Priority indicator dot
+        if (task.priority && task.priority !== 'Low') {
+            const dotEl = document.createElement('span');
+            const level = task.priority.toLowerCase();
+            dotEl.className = `kanban-priority-dot priority-dot-${level}`;
+            dotEl.title = `Priority: ${task.priority}`;
+            cardEl.appendChild(dotEl);
+        }
 
         // Card footer with labels/dependencies/drill-down
         if (task.dependenciesArray.length > 0 || task.labelsArray.length > 0 || isSummaryTask) {
@@ -2667,6 +2737,20 @@ function switchKanbanView(mode) {
     }
 
     kanbanBoard.switchViewMode(mode);
+}
+
+/**
+ * Toggle priority sorting in kanban view
+ */
+function toggleKanbanPrioritySort(enabled) {
+    if (!kanbanBoard) {
+        initializeKanban();
+        kanbanBoard.parse();
+    }
+
+    kanbanBoard.sortByPriority = enabled;
+    kanbanBoard.parse();
+    kanbanBoard.render();
 }
 
 /**
