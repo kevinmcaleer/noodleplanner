@@ -9373,7 +9373,7 @@ function openRaidForm(itemId) {
     const title = document.getElementById('raidFormTitle');
     const idField = document.getElementById('raidItemId');
 
-    if (itemId !== null) {
+    if (itemId != null) {
         const item = raidItems.find(i => i.id === itemId);
         if (!item) return;
 
