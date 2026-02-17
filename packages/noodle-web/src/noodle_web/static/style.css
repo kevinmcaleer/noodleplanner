@@ -3408,7 +3408,7 @@ body.detail-pane-open {
     background: #f5f5f5;
 }
 
-.subtask-checkbox {
+.subtask-checkbox.round-checkbox {
     margin-right: 10px;
 }
 
