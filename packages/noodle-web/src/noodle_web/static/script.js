@@ -8495,7 +8495,7 @@ function getConditionsForField(field) {
     if (numericFields.includes(field)) {
         return ['is less than', 'is more than', 'equals'];
     }
-    return ['contains'];
+    return ['contains', 'is exactly'];
 }
 
 function openConditionalFormattingPanel() {
@@ -8603,7 +8603,7 @@ function renderConditionalFormattingRules() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const fields = ['Task Name', 'Label', 'Start', 'Finish', '% Complete', 'Assigned To', 'Duration'];
+    const fields = ['Task Name', 'Label', 'Start', 'Finish', '% Complete', 'Assigned To', 'Duration', 'RAG'];
 
     conditionalFormattingRules.forEach((rule, index) => {
         const row = document.createElement('tr');
@@ -8734,6 +8734,11 @@ function evaluateCfRule(rule, task) {
             const rv = value.toLowerCase();
             return tv.includes(rv);
         }
+        case 'is exactly': {
+            const tv = String(taskValue).toLowerCase();
+            const rv = value.toLowerCase();
+            return tv === rv;
+        }
         case 'is before today': {
             const taskDate = parseDateToLocal(taskValue);
             if (!taskDate) return false;
@@ -8800,6 +8805,7 @@ function getTaskFieldValue(task, field) {
         case '% Complete': return task.percent ? String(task.percent).replace('%', '') : '0';
         case 'Assigned To': return task.resources || '';
         case 'Duration': return task.duration_days !== undefined ? String(task.duration_days) : (task.duration || '0');
+        case 'RAG': return task.rag || '';
         default: return null;
     }
 }
@@ -8875,8 +8881,8 @@ function parseCfRuleLine(line) {
     const colour = line.substring(arrowIndex + 2).trim();
 
     // Match: field condition "value" OR field condition value OR field condition
-    const fields = ['Task Name', 'Label', 'Start', 'Finish', '% Complete', 'Assigned To', 'Duration'];
-    const conditions = ['contains', 'is before today', 'is after today', 'is before', 'is after', 'is less than', 'is more than', 'equals'];
+    const fields = ['Task Name', 'Label', 'Start', 'Finish', '% Complete', 'Assigned To', 'Duration', 'RAG'];
+    const conditions = ['contains', 'is exactly', 'is before today', 'is after today', 'is before', 'is after', 'is less than', 'is more than', 'equals'];
 
     // Sort conditions longest first for greedy matching
     const sortedConditions = [...conditions].sort((a, b) => b.length - a.length);
