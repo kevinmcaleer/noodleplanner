@@ -18,6 +18,7 @@ from .scheduling_engine import (
     calculate_rag_status,
     parse_resource_mappings,
     natural_language_to_yaml,
+    inherit_summary_resources,
 )
 
 from .format_converter import (
@@ -68,6 +69,7 @@ __all__ = [
     "calculate_rag_status",
     "parse_resource_mappings",
     "natural_language_to_yaml",
+    "inherit_summary_resources",
     # Format converter
     "convert_plan_format_to_standard",
     "extract_title_from_frontmatter",

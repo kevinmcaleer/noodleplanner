@@ -3848,11 +3848,15 @@ function renderGanttRows() {
         finishCell.addEventListener('dblclick', () => makeEditable(finishCell, task, index));
         infoRow.appendChild(finishCell);
 
-        // Resources cell (editable)
+        // Resources cell (editable, unless inherited)
         const resourcesCell = document.createElement('td');
         resourcesCell.classList.add('editable');
         resourcesCell.dataset.field = 'resources';
         resourcesCell.textContent = task.resources || '-';
+        if (task.inherited_resource) {
+            resourcesCell.style.fontStyle = 'italic';
+            resourcesCell.title = 'Inherited from parent summary task';
+        }
         resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
         infoRow.appendChild(resourcesCell);
 
@@ -4361,6 +4365,10 @@ function updateTasksTable(tasks) {
         resourcesCell.classList.add('editable');
         resourcesCell.dataset.field = 'resources';
         resourcesCell.textContent = task.resources || '-';
+        if (task.inherited_resource) {
+            resourcesCell.style.fontStyle = 'italic';
+            resourcesCell.title = 'Inherited from parent summary task';
+        }
         resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
         row.appendChild(resourcesCell);
 
