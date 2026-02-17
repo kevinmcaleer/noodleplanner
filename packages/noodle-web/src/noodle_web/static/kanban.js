@@ -248,6 +248,13 @@ class KanbanBoard {
     }
 
     /**
+     * Check if a column would be empty after filtering out completed tasks
+     */
+    isColumnEmptyAfterFilter(column) {
+        return column.tasks.every(task => this.getProgressStatus(task.percent) === 'complete');
+    }
+
+    /**
      * Check if a task has subtasks (is a summary task)
      */
     hasSubtasks(task) {
@@ -818,8 +825,11 @@ class KanbanBoard {
             return;
         }
 
-        // Render each column (even if empty)
+        // Render each column (skip empty columns when hiding completed tasks)
         this.columns.forEach(column => {
+            if (this.hideCompleted && this.isColumnEmptyAfterFilter(column)) {
+                return;
+            }
             const columnEl = this.renderColumn(column);
             boardContainer.appendChild(columnEl);
         });
