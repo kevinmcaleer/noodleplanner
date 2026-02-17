@@ -630,7 +630,9 @@ async def parse_plan(data: RenderRequest):
                 'comment': task.get('comment', ''),
                 'level': task.get('level', 0),
                 'is_summary': task.get('summary', False),
-                'phase': task.get('phase', '')
+                'phase': task.get('phase', ''),
+                'depends': task.get('depends', []),
+                'lag_lead': task.get('lag_lead', {}),
             }
             tasks_data.append(task_data)
 
