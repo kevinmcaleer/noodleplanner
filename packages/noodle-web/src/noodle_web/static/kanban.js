@@ -1235,6 +1235,16 @@ class KanbanBoard {
         cardEl.setAttribute('tabindex', '0');
         cardEl.setAttribute('aria-label', `Task: ${task.name}. Press Enter to edit, or drag to move.`);
 
+        // Apply conditional formatting
+        if (typeof getConditionalFormatting === 'function') {
+            const cfStyle = getConditionalFormatting(task);
+            if (cfStyle) {
+                cardEl.style.backgroundColor = cfStyle.backgroundColor;
+                cardEl.style.color = cfStyle.color;
+                cardEl.style.borderLeftColor = cfStyle.backgroundColor;
+            }
+        }
+
         // Check if this is a summary task
         const isSummaryTask = this.hasSubtasks(task);
 

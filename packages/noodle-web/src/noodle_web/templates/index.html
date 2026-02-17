@@ -158,6 +158,10 @@
                             <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
                                 💾
                             </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="openConditionalFormattingPanel()" title="Conditional Formatting">
+                                🎨
+                            </button>
                         </div>
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
@@ -807,6 +811,10 @@ Press Enter to render..."></textarea>
                             </button>
                             <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
                                 💾
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" onclick="openConditionalFormattingPanel()" title="Conditional Formatting">
+                                🎨
                             </button>
                         </div>
                         <div class="editor-wrapper">
@@ -1520,6 +1528,44 @@ Build
                         <button type="button" class="btn-primary" onclick="saveProjectDetails()">Done</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Conditional Formatting Section -->
+        <div id="conditionalFormattingSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 style="color: white; margin: 0;">Conditional Formatting</h2>
+                <button class="close-btn" onclick="closeDetailPane()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="cfRulesContainer">
+                    <table class="table table-sm" id="cfRulesTable">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Condition</th>
+                                <th>Value</th>
+                                <th>Colour</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfRulesBody">
+                        </tbody>
+                    </table>
+                </div>
+                <button class="btn btn-sm btn-outline-primary mt-2" onclick="addConditionalFormattingRule()">
+                    + Add Rule
+                </button>
+                <div id="cfColourPicker" class="cf-colour-picker" style="display: none;">
+                    <div class="cf-colour-section">
+                        <small class="text-muted">Pastel (dark text)</small>
+                        <div class="cf-colour-grid" id="cfPastelColours"></div>
+                    </div>
+                    <div class="cf-colour-section mt-2">
+                        <small class="text-muted">Dark (light text)</small>
+                        <div class="cf-colour-grid" id="cfDarkColours"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
