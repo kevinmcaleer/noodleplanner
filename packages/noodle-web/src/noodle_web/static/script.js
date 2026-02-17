@@ -1420,6 +1420,9 @@ function updateReportRaid() {
 
         openRisksAndIssues.forEach(item => {
             const row = document.createElement('tr');
+            row.style.cursor = 'pointer';
+            row.title = 'Click to view details';
+            row.addEventListener('click', () => openRaidForm(item.id));
 
             const typeCell = document.createElement('td');
             const typeBadge = document.createElement('span');
