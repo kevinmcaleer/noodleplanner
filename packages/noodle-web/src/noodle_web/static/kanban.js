@@ -1319,12 +1319,12 @@ class KanbanBoard {
             e.preventDefault();
             const draggingCard = document.querySelector('.dragging');
             if (draggingCard && draggingCard !== cardEl) {
-                // In bucket view, only show drop indicator for cross-column moves
-                if (this.viewMode === 'bucket') {
+                // In bucket/label view, only show drop indicator for cross-column moves
+                if (this.viewMode === 'bucket' || this.viewMode === 'label') {
                     const draggedColumn = draggingCard.closest('.kanban-column-body');
                     const targetColumn = cardEl.closest('.kanban-column-body');
                     if (draggedColumn === targetColumn) {
-                        return; // No reordering within same bucket column
+                        return; // No reordering within same column
                     }
                 }
 
@@ -1354,8 +1354,8 @@ class KanbanBoard {
 
             const draggedLineNumber = parseInt(e.dataTransfer.getData('text/plain'));
 
-            if (this.viewMode === 'bucket') {
-                // In bucket view, update bucket assignment instead of reordering
+            if (this.viewMode === 'bucket' || this.viewMode === 'label') {
+                // In bucket/label view, update assignment instead of reordering
                 const targetColumnBody = cardEl.closest('.kanban-column-body');
                 const targetColumnTitle = targetColumnBody ? targetColumnBody.getAttribute('data-column-title') : null;
                 if (targetColumnTitle) {
