@@ -583,7 +583,8 @@ Phase 1
                 reader = csv.DictReader(f)
                 expected_columns = {
                     "ID", "Task Name", "Start", "Finish",
-                    "Duration (days)", "Resources", "% Complete", "RAG", "Comment"
+                    "Duration (days)", "Resources", "% Complete", "RAG",
+                    "Priority", "Bucket", "Comment"
                 }
                 assert set(reader.fieldnames) == expected_columns
         finally:

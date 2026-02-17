@@ -239,10 +239,10 @@ class TestNegativeAndLargeDurations:
         Task @alice 99999d
         """
         yaml_data = natural_language_to_yaml(plan, "Project")
-        tasks = schedule_tasks(yaml_data["Project"])
 
-        # Should either reject or handle gracefully
-        assert len(tasks) <= 1
+        # Should reject unreasonably large durations
+        with pytest.raises(ValueError):
+            schedule_tasks(yaml_data["Project"])
 
     def test_zero_duration(self):
         """Test milestone with 0 duration."""
@@ -307,12 +307,12 @@ class TestWeekendAndHolidayEdgeCases:
         monday = datetime(2025, 11, 10)
         holidays = {monday}  # Monday is holiday
 
-        # 3 working days from Friday = Mon, Tue, Wed
-        # But Monday is holiday, so Tue, Wed, Thu
+        # 3 working days starting from Friday (inclusive): Fri, Tue, Wed
+        # Monday is a holiday so it's skipped, weekend is skipped
         result = add_working_days(friday, 3, holidays)
-        tuesday = datetime(2025, 11, 11)
-        # Result should be Thursday (3 working days: Tue, Wed, Thu)
-        expected = datetime(2025, 11, 14)  # Day after Thu
+        # Fri (day 1), skip Sat/Sun/Mon-holiday, Tue (day 2), Wed (day 3)
+        # Exclusive finish = Thu Nov 13
+        expected = datetime(2025, 11, 13)
         assert result == expected
 
 
