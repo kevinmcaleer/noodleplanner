@@ -15,6 +15,7 @@ class KanbanBoard {
         this.phases = [];
         this.resourceMap = {}; // Maps shortname to full name from front matter
         this.labelsFromFrontMatter = []; // Labels defined in front matter
+        this.themeColours = {}; // Column background colours from front matter Theme section
         this.currentParentTask = null; // Track current hierarchy level for drill-down
         this.hierarchyBreadcrumb = []; // Breadcrumb trail for navigation
     }
@@ -41,6 +42,7 @@ class KanbanBoard {
         this.phases = [];
         this.resourceMap = {};
         this.labelsFromFrontMatter = [];
+        this.themeColours = {};
         let currentPhase = null;
         let currentIndent = 0;
         let inFrontMatter = false;
@@ -106,6 +108,9 @@ class KanbanBoard {
                 }
             }
         }
+
+        // Parse theme colours from front matter
+        this.themeColours = this.parseThemeColours(planText);
 
         // Second pass: Parse tasks
         inFrontMatter = false;
@@ -1154,6 +1159,27 @@ class KanbanBoard {
                     this.handleColumnReorder(draggedColumnTitle, column.title, insertBefore);
                 }
             });
+        }
+
+        // Add colour picker button in phase view
+        if (this.viewMode === 'phase') {
+            const colourBtn = document.createElement('button');
+            colourBtn.className = 'kanban-column-colour-btn';
+            colourBtn.innerHTML = '&#x1f3a8;';
+            colourBtn.title = 'Set column colour';
+            colourBtn.setAttribute('aria-label', `Set colour for ${column.title}`);
+            colourBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showColumnColourPicker(column.title, colourBtn);
+            });
+            headerEl.appendChild(colourBtn);
+        }
+
+        // Apply theme colour to column header
+        const themeColour = this.themeColours[column.title];
+        if (themeColour) {
+            headerEl.style.background = themeColour;
+            headerEl.style.color = isPastelColour(themeColour) ? '#000000' : '#FFFFFF';
         }
 
         columnEl.appendChild(headerEl);
@@ -2728,16 +2754,20 @@ class KanbanBoard {
             }
         }
 
+        // Update theme colour key if phase had a colour
+        if (this.themeColours[oldPhaseName]) {
+            this.themeColours[trimmedNewName] = this.themeColours[oldPhaseName];
+            delete this.themeColours[oldPhaseName];
+        }
+
         // Prevent circular updates
         if (window.kanbanIsUpdating) {
             window.kanbanIsUpdating(true);
         }
 
-        // Update editor
+        // Update editor and save theme colours to reflect the rename
         editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        this.saveThemeColours();
 
         // Refresh Kanban
         setTimeout(() => {
@@ -3045,6 +3075,165 @@ class KanbanBoard {
                 }
             }, 100);
         }, 50);
+    }
+
+    /**
+     * Parse theme colours from front matter Theme section
+     * Format: Theme:\n- Column Name: #HEX\n
+     */
+    parseThemeColours(planText) {
+        const colours = {};
+        if (typeof extractFrontMatterSection !== 'function') return colours;
+
+        const section = extractFrontMatterSection(planText, 'Theme');
+        if (!section) return colours;
+
+        const lines = section.split('\n');
+        for (const line of lines) {
+            const match = line.match(/^-\s+(.+?):\s*(#[0-9A-Fa-f]{6})\s*$/);
+            if (match) {
+                colours[match[1].trim()] = match[2].toUpperCase();
+            }
+        }
+        return colours;
+    }
+
+    /**
+     * Save theme colours to front matter
+     */
+    saveThemeColours() {
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        let content = editor.value;
+
+        // Build theme section
+        let themeSection = '';
+        const entries = Object.entries(this.themeColours);
+        if (entries.length > 0) {
+            themeSection = 'Theme:\n';
+            for (const [columnName, colour] of entries) {
+                themeSection += `- ${columnName}: ${colour}\n`;
+            }
+        }
+
+        // Replace or add theme section in front matter
+        const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+        if (frontMatterMatch) {
+            const fmContent = removeFrontMatterSection(frontMatterMatch[1], 'Theme');
+            let newContent = fmContent.trimEnd();
+            if (themeSection) {
+                newContent += '\n' + themeSection;
+            }
+            const newFrontMatter = '---\n' + newContent.trim() + '\n---';
+            content = content.replace(/^---\s*\n[\s\S]*?\n---/, newFrontMatter);
+        } else if (themeSection) {
+            content = '---\n' + themeSection + '---\n\n' + content;
+        }
+
+        editor.value = content;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    /**
+     * Set a column's background colour and save to front matter
+     */
+    setColumnColour(columnTitle, colour) {
+        if (colour) {
+            this.themeColours[columnTitle] = colour;
+        } else {
+            delete this.themeColours[columnTitle];
+        }
+        this.saveThemeColours();
+    }
+
+    /**
+     * Show colour picker popup for a column
+     */
+    showColumnColourPicker(columnTitle, anchorEl) {
+        this.hideColumnColourPicker();
+
+        const picker = document.createElement('div');
+        picker.className = 'theme-colour-picker';
+        picker.id = 'themeColourPicker';
+
+        const pastelLabel = document.createElement('div');
+        pastelLabel.className = 'theme-colour-label';
+        pastelLabel.textContent = 'Pastel';
+        picker.appendChild(pastelLabel);
+
+        const pastelGrid = document.createElement('div');
+        pastelGrid.className = 'cf-colour-grid';
+        CF_PASTEL_COLOURS.forEach(colour => {
+            const swatch = this.createColourSwatch(colour, columnTitle);
+            pastelGrid.appendChild(swatch);
+        });
+        picker.appendChild(pastelGrid);
+
+        const darkLabel = document.createElement('div');
+        darkLabel.className = 'theme-colour-label';
+        darkLabel.textContent = 'Dark';
+        picker.appendChild(darkLabel);
+
+        const darkGrid = document.createElement('div');
+        darkGrid.className = 'cf-colour-grid';
+        CF_DARK_COLOURS.forEach(colour => {
+            const swatch = this.createColourSwatch(colour, columnTitle);
+            darkGrid.appendChild(swatch);
+        });
+        picker.appendChild(darkGrid);
+
+        // Clear colour button
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'theme-colour-clear-btn';
+        clearBtn.textContent = 'Clear colour';
+        clearBtn.addEventListener('click', () => {
+            this.setColumnColour(columnTitle, null);
+            this.hideColumnColourPicker();
+        });
+        picker.appendChild(clearBtn);
+
+        // Position relative to anchor element
+        const rect = anchorEl.getBoundingClientRect();
+        picker.style.top = (rect.bottom + 4) + 'px';
+        picker.style.left = rect.left + 'px';
+
+        document.body.appendChild(picker);
+
+        // Close on outside click
+        const closeHandler = (e) => {
+            if (!picker.contains(e.target) && e.target !== anchorEl) {
+                this.hideColumnColourPicker();
+                document.removeEventListener('mousedown', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+    }
+
+    /**
+     * Create a single colour swatch element
+     */
+    createColourSwatch(colour, columnTitle) {
+        const swatch = document.createElement('div');
+        swatch.className = 'cf-colour-option';
+        swatch.style.backgroundColor = colour;
+        swatch.title = colour;
+        if (this.themeColours[columnTitle] === colour) {
+            swatch.classList.add('selected');
+        }
+        swatch.addEventListener('click', () => {
+            this.setColumnColour(columnTitle, colour);
+            this.hideColumnColourPicker();
+        });
+        return swatch;
+    }
+
+    /**
+     * Hide the column colour picker
+     */
+    hideColumnColourPicker() {
+        const existing = document.getElementById('themeColourPicker');
+        if (existing) existing.remove();
     }
 
     /**
