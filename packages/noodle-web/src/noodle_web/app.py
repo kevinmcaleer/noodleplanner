@@ -628,6 +628,8 @@ async def parse_plan(data: RenderRequest):
                 'percent': task.get('percent', ''),
                 'rag': rag_status,
                 'comment': task.get('comment', ''),
+                'priority': task.get('priority', 'Low'),
+                'bucket': task.get('bucket', ''),
                 'level': task.get('level', 0),
                 'is_summary': task.get('summary', False),
                 'phase': task.get('phase', ''),

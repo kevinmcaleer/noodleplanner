@@ -242,6 +242,10 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             taskText = taskText.replace(/"[^"]*"/, '').trim();
             // Remove [depends ...] blocks
             taskText = taskText.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
+            // Remove bucket names in curly braces
+            taskText = taskText.replace(/\{[^}]+\}/g, '').trim();
+            // Remove priority markers
+            taskText = taskText.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, '').trim();
             // Extract name tokens (everything that's not a duration, resource, date, percent, or label)
             const tokens = taskText.split(/\s+/);
             const nameTokens = [];
@@ -363,6 +367,16 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             // Highlight labels/tags (e.g., #DEV, #HIGH)
             highlighted = highlighted.replace(/#(\w+)/g, (match, name) => {
                 return savePlaceholder('<span class="syntax-label">#' + name + '</span>');
+            });
+
+            // Highlight bucket names (e.g., {Project Management})
+            highlighted = highlighted.replace(/\{([^}]+)\}/g, (match, bucket) => {
+                return savePlaceholder('<span class="syntax-bucket">{' + bucket + '}</span>');
+            });
+
+            // Highlight priority markers (!!!, !!, !)
+            highlighted = highlighted.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, (match, marker) => {
+                return savePlaceholder('<span class="syntax-priority">' + marker + '</span>');
             });
 
             // Replace all placeholders with actual HTML
@@ -1170,6 +1184,24 @@ function updateMilestonesTable(tasks) {
                 ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
             }
             row.appendChild(ragCell);
+
+            // Priority cell
+            const priorityCell = document.createElement('td');
+            const priorityVal = task.priority || 'Low';
+            priorityCell.textContent = priorityVal;
+            if (priorityVal === 'Urgent') {
+                priorityCell.classList.add('priority-urgent');
+            } else if (priorityVal === 'Important') {
+                priorityCell.classList.add('priority-important');
+            } else if (priorityVal === 'Medium') {
+                priorityCell.classList.add('priority-medium');
+            }
+            row.appendChild(priorityCell);
+
+            // Bucket cell
+            const bucketCell = document.createElement('td');
+            bucketCell.textContent = task.bucket || '-';
+            row.appendChild(bucketCell);
 
             // Comment cell
             const commentCell = document.createElement('td');
@@ -3720,6 +3752,30 @@ function renderGanttRows() {
         }
         infoRow.appendChild(ragCell);
 
+        // Priority cell (editable)
+        const priorityCell = document.createElement('td');
+        priorityCell.classList.add('editable');
+        priorityCell.dataset.field = 'priority';
+        const priorityValue = task.priority || 'Low';
+        priorityCell.textContent = priorityValue;
+        if (priorityValue === 'Urgent') {
+            priorityCell.classList.add('priority-urgent');
+        } else if (priorityValue === 'Important') {
+            priorityCell.classList.add('priority-important');
+        } else if (priorityValue === 'Medium') {
+            priorityCell.classList.add('priority-medium');
+        }
+        priorityCell.addEventListener('dblclick', () => makePriorityEditable(priorityCell, task, index));
+        infoRow.appendChild(priorityCell);
+
+        // Bucket cell (editable)
+        const bucketCell = document.createElement('td');
+        bucketCell.classList.add('editable');
+        bucketCell.dataset.field = 'bucket';
+        bucketCell.textContent = task.bucket || '-';
+        bucketCell.addEventListener('dblclick', () => makeEditable(bucketCell, task, index));
+        infoRow.appendChild(bucketCell);
+
         // Comment cell (editable)
         const commentCell = document.createElement('td');
         commentCell.classList.add('editable');
@@ -4054,6 +4110,54 @@ function makeEditable(cell, task, taskIndex) {
     });
 }
 
+function makePriorityEditable(cell, task, taskIndex) {
+    if (cell.classList.contains('editing')) return;
+
+    const originalContent = cell.textContent;
+    cell.classList.add('editing');
+
+    const select = document.createElement('select');
+    select.style.width = '100%';
+    select.style.padding = '2px';
+    select.style.fontSize = 'inherit';
+
+    const options = ['Low', 'Medium', 'Important', 'Urgent'];
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        if (opt === (task.priority || 'Low')) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+
+    cell.textContent = '';
+    cell.appendChild(select);
+    select.focus();
+
+    const saveEdit = () => {
+        cell.classList.remove('editing');
+        const newValue = select.value;
+        if (newValue !== originalContent) {
+            task.priority = newValue;
+            ganttTasks[taskIndex].priority = newValue;
+            syncGanttPriorityToEditor(task, taskIndex);
+            cell.textContent = newValue;
+            // Update styling
+            cell.classList.remove('priority-urgent', 'priority-important', 'priority-medium');
+            if (newValue === 'Urgent') cell.classList.add('priority-urgent');
+            else if (newValue === 'Important') cell.classList.add('priority-important');
+            else if (newValue === 'Medium') cell.classList.add('priority-medium');
+        } else {
+            cell.textContent = originalContent;
+        }
+    };
+
+    select.addEventListener('blur', saveEdit);
+    select.addEventListener('change', saveEdit);
+}
+
 function setupBarDragListeners(bar, task, taskIndex) {
     let dragState = null;
 
@@ -4227,22 +4331,68 @@ function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null)
                     lines[i] = line.replace(resourcePattern, '').trimEnd();
                 }
             } else if (field === 'comment') {
-                // Update comment - need to find and replace comment pattern
-                const commentPattern = /\{([^}]*)\}/;
+                // Update comment - use "quoted" format matching backend parser
+                const commentPattern = /"([^"]*)"/;
                 if (newValue) {
                     if (commentPattern.test(line)) {
-                        lines[i] = line.replace(commentPattern, `{${newValue}}`);
+                        lines[i] = line.replace(commentPattern, `"${newValue}"`);
                     } else {
                         // Add comment if not present
-                        lines[i] = line.trimEnd() + ` {${newValue}}`;
+                        lines[i] = line.trimEnd() + ` "${newValue}"`;
                     }
                 } else {
                     // Remove comment
                     lines[i] = line.replace(commentPattern, '').trimEnd();
                 }
+            } else if (field === 'bucket') {
+                // Update bucket - use {BucketName} format
+                const bucketPattern = /\{([^}]*)\}/;
+                if (newValue) {
+                    if (bucketPattern.test(line)) {
+                        lines[i] = line.replace(bucketPattern, `{${newValue}}`);
+                    } else {
+                        // Add bucket if not present
+                        lines[i] = line.trimEnd() + ` {${newValue}}`;
+                    }
+                } else {
+                    // Remove bucket
+                    lines[i] = line.replace(bucketPattern, '').trimEnd();
+                }
             }
 
             // Update editor
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            break;
+        }
+    }
+}
+
+function syncGanttPriorityToEditor(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+    const escapedName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedName}`);
+
+    // Map priority to ! markers
+    const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
+    const marker = priorityMarkers[task.priority] || '';
+
+    for (let i = 0; i < lines.length; i++) {
+        if (taskNamePattern.test(lines[i])) {
+            // Remove existing priority markers (standalone !, !!, !!!)
+            let line = lines[i].replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, '').replace(/\s{2,}/g, ' ').trimEnd();
+            // Add new marker if not Low
+            if (marker) {
+                // Add marker after the task name portion
+                const nameEnd = indent.length + (line.substring(indent.length).startsWith('*') ? 1 : 0) + task.name.length;
+                line = line.substring(0, nameEnd) + ' ' + marker + line.substring(nameEnd);
+            }
+            lines[i] = line;
             editor.value = lines.join('\n');
             editor.dispatchEvent(new Event('input'));
             break;
@@ -4854,6 +5004,8 @@ class Task {
         this.percent = 0;
         this.resources = [];
         this.comment = '';
+        this.priority = 'Low';
+        this.bucket = '';
         this.dependencies = [];
         this.labels = [];
         this.dependsOnPrevious = false;
@@ -4916,6 +5068,21 @@ class Task {
         const commentMatch = remaining.match(/"([^"]*)"/);
         if (commentMatch) {
             this.comment = commentMatch[1];
+        }
+
+        // Extract bucket (text in curly braces)
+        const bucketMatch = remaining.match(/\{([^}]+)\}/);
+        if (bucketMatch) {
+            this.bucket = bucketMatch[1].trim();
+        }
+
+        // Extract priority markers
+        const priorityMatch = remaining.match(/(?<!\w)(!!!|!!|!)(?!["'{])/);
+        if (priorityMatch) {
+            const marker = priorityMatch[1];
+            if (marker === '!!!') this.priority = 'Urgent';
+            else if (marker === '!!') this.priority = 'Important';
+            else if (marker === '!') this.priority = 'Medium';
         }
     }
 
@@ -4986,6 +5153,17 @@ class Task {
         // Add percent
         if (this.percent > 0) {
             line += ' ' + this.percent + '%';
+        }
+
+        // Add priority marker
+        const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
+        if (priorityMarkers[this.priority]) {
+            line += ' ' + priorityMarkers[this.priority];
+        }
+
+        // Add bucket
+        if (this.bucket) {
+            line += ' {' + this.bucket + '}';
         }
 
         // Add comment
@@ -5202,6 +5380,14 @@ function openTaskForm(lineNumber) {
         document.getElementById('taskPercent').value = task.percent || '';
         document.getElementById('taskResources').value = task.resources || '';
         document.getElementById('taskComment').value = task.comment || '';
+        const prioritySelect = document.getElementById('taskPriority');
+        if (prioritySelect) {
+            prioritySelect.value = task.priority || 'Low';
+        }
+        const bucketInput = document.getElementById('taskBucket');
+        if (bucketInput) {
+            bucketInput.value = task.bucket || '';
+        }
         populateDependenciesTable(task.dependencies || '');
 
         // Populate labels field if it exists
@@ -5915,6 +6101,25 @@ function saveTask() {
     if (startDate && userSetStartDate) newLine += ' ' + startDate;
     if (finishDate && userSetFinishDate) newLine += ' ' + finishDate;
 
+    // Add priority marker
+    const prioritySelect = document.getElementById('taskPriority');
+    if (prioritySelect) {
+        const priority = prioritySelect.value;
+        const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
+        if (priorityMarkers[priority]) {
+            newLine += ' ' + priorityMarkers[priority];
+        }
+    }
+
+    // Add bucket
+    const bucketInput = document.getElementById('taskBucket');
+    if (bucketInput) {
+        const bucket = bucketInput.value.trim();
+        if (bucket) {
+            newLine += ' {' + bucket + '}';
+        }
+    }
+
     // Add comment
     if (comment) newLine += ' "' + comment + '"';
 
@@ -6001,6 +6206,8 @@ function parseTaskLine(line, lineNum) {
         percent: '',
         resources: '',
         comment: '',
+        priority: 'Low',
+        bucket: '',
         dependencies: '',
         labels: ''
     };
@@ -6033,6 +6240,24 @@ function parseTaskLine(line, lineNum) {
         comment = quoteMatch[1];
         // Remove the comment from the text
         text = text.replace(/"[^"]*"/, '').trim();
+    }
+
+    // Handle bucket (text in curly braces {BucketName})
+    const bucketMatch = text.match(/\{([^}]+)\}/);
+    if (bucketMatch) {
+        task.bucket = bucketMatch[1].trim();
+        text = text.replace(/\{[^}]+\}/, '').trim();
+    }
+
+    // Handle priority markers (!!!=Urgent, !!=Important, !=Medium)
+    // Must check longest first; avoid matching !"comment" patterns
+    const priorityMatch = text.match(/(?<!\w)(!!!|!!|!)(?!["'{])/);
+    if (priorityMatch) {
+        const marker = priorityMatch[1];
+        if (marker === '!!!') task.priority = 'Urgent';
+        else if (marker === '!!') task.priority = 'Important';
+        else if (marker === '!') task.priority = 'Medium';
+        text = text.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/, '').trim();
     }
 
     // Handle dependencies (everything in square brackets [depends ...])
@@ -9368,6 +9593,8 @@ function buildMappingGrid(columns) {
         { key: 'duration', label: 'Duration' },
         { key: 'resources', label: 'Resources' },
         { key: 'percent_complete', label: '% Complete' },
+        { key: 'priority', label: 'Priority' },
+        { key: 'bucket', label: 'Bucket' },
         { key: 'comment', label: 'Comment' },
     ];
 
@@ -9379,6 +9606,8 @@ function buildMappingGrid(columns) {
         duration: ['duration', 'duration (days)', 'days', 'effort'],
         resources: ['resources', 'resource', 'assigned to', 'owner'],
         percent_complete: ['% complete', 'percent complete', 'complete', 'progress', '% done'],
+        priority: ['priority', 'urgency', 'importance'],
+        bucket: ['bucket', 'category', 'group', 'board column'],
         comment: ['comment', 'comments', 'notes', 'note', 'description'],
     };
 
@@ -10078,7 +10307,7 @@ function getRAGColor(rag) {
 }
 
 function getColumnMapping() {
-    const fields = ['task_name', 'start_date', 'end_date', 'duration', 'resources', 'percent_complete', 'comment'];
+    const fields = ['task_name', 'start_date', 'end_date', 'duration', 'resources', 'percent_complete', 'priority', 'bucket', 'comment'];
     const mapping = {};
     fields.forEach(f => {
         const el = document.getElementById('wizardMap_' + f);

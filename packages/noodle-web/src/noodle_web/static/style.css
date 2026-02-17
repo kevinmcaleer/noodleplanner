@@ -2158,6 +2158,16 @@ h1 {
     color: #858585;
 }
 
+.syntax-bucket {
+    color: #4ec9b0;
+    font-style: italic;
+}
+
+.syntax-priority {
+    color: #d7ba7d;
+    font-weight: bold;
+}
+
 .syntax-highlights-delimiter {
     color: #569cd6;
     font-weight: 600;
@@ -6467,4 +6477,19 @@ body.detail-pane-open {
     .templates-section h3 {
         font-size: 1.3rem;
     }
+}
+
+/* Priority indicators */
+.priority-urgent {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.priority-important {
+    color: #fd7e14;
+    font-weight: bold;
+}
+
+.priority-medium {
+    color: #ffc107;
 }
