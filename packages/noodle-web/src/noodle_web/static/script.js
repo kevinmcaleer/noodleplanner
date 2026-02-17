@@ -8324,6 +8324,39 @@ function extractFrontMatterSection(content, sectionName) {
 }
 
 /**
+ * Remove a named section from front matter content, returning the remaining lines.
+ * This avoids fragile string replacement that can fail on trailing newline mismatches.
+ */
+function removeFrontMatterSection(fmContent, sectionName) {
+    const lines = fmContent.split('\n');
+    const result = [];
+    let inSection = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.endsWith(':') && !trimmed.includes('- ')) {
+            const name = trimmed.replace(':', '');
+            if (name === sectionName) {
+                inSection = true;
+                continue;
+            } else {
+                inSection = false;
+            }
+        }
+
+        if (inSection && (line.startsWith('- ') || trimmed === '')) {
+            continue;
+        }
+
+        inSection = false;
+        result.push(line);
+    }
+
+    return result.join('\n');
+}
+
+/**
  * Kanban Editor Panel Functions
  */
 
@@ -8867,7 +8900,6 @@ function saveConditionalFormattingRulesToFrontMatter() {
     if (!editor) return;
 
     let content = editor.value;
-    const existingFormatting = extractFrontMatterSection(content, 'Formatting');
 
     // Build new formatting section
     let formattingSection = '';
@@ -8882,21 +8914,15 @@ function saveConditionalFormattingRulesToFrontMatter() {
     // Replace existing formatting in front matter or add it
     const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
     if (frontMatterMatch) {
-        let fmContent = frontMatterMatch[1];
-
-        // Remove existing Formatting section
-        if (existingFormatting) {
-            fmContent = fmContent.replace(existingFormatting, '');
-            // Clean up empty lines
-            fmContent = fmContent.replace(/\n{3,}/g, '\n');
-        }
+        const fmContent = removeFrontMatterSection(frontMatterMatch[1], 'Formatting');
 
         // Add new formatting section if there are rules
+        let newContent = fmContent.trimEnd();
         if (formattingSection) {
-            fmContent = fmContent.trimEnd() + '\n' + formattingSection;
+            newContent += '\n' + formattingSection;
         }
 
-        const newFrontMatter = '---\n' + fmContent.trim() + '\n---';
+        const newFrontMatter = '---\n' + newContent.trim() + '\n---';
         content = content.replace(/^---\s*\n[\s\S]*?\n---/, newFrontMatter);
     } else if (formattingSection) {
         // No front matter exists, create one
