@@ -654,6 +654,9 @@ def analyze_workbook(file_bytes, filename):
     sheets = []
 
     try:
+        # Detect if this is a Planner export
+        is_planner = detect_planner_worksheet(wb) is not None
+
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
             rows = list(ws.iter_rows(values_only=True))
@@ -667,9 +670,15 @@ def analyze_workbook(file_bytes, filename):
                 })
                 continue
 
-            # First row is headers
-            headers = [str(c) if c is not None else "" for c in rows[0]]
-            data_rows = rows[1:]
+            # For Planner exports, skip metadata rows and find actual headers
+            header_row_idx = 0
+            if is_planner and sheet_name.lower().strip() == "project tasks":
+                _header_info, task_header_row = parse_planner_header(ws)
+                if task_header_row is not None:
+                    header_row_idx = task_header_row
+
+            headers = [str(c) if c is not None else "" for c in rows[header_row_idx]]
+            data_rows = rows[header_row_idx + 1:]
 
             # Sample up to 5 data rows, converting values to strings
             sample_rows = []
@@ -690,8 +699,6 @@ def analyze_workbook(file_bytes, filename):
                 "columns": headers,
                 "sample_rows": sample_rows,
             })
-        # Detect if this is a Planner export
-        is_planner = detect_planner_worksheet(wb) is not None
     finally:
         wb.close()
 
