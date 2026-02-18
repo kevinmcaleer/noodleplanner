@@ -75,10 +75,23 @@ async function copyElementAsImage(element, feedbackBtn) {
 }
 
 /**
+ * Timer ID for the deferred section cleanup in closeDetailPane.
+ * Tracked so openDetailPane can cancel it to avoid a race condition
+ * where a stale timeout blanks a newly opened form.
+ */
+let closeDetailPaneTimer = null;
+
+/**
  * Open the detail pane and show the specified section.
  * Hides all other sections within the pane.
  */
 function openDetailPane(sectionId) {
+    // Cancel any pending close cleanup to prevent it from blanking this section
+    if (closeDetailPaneTimer) {
+        clearTimeout(closeDetailPaneTimer);
+        closeDetailPaneTimer = null;
+    }
+
     const overlay = document.getElementById('detailPaneOverlay');
     const pane = document.getElementById('detailPane');
 
@@ -108,9 +121,10 @@ function closeDetailPane() {
     pane.classList.remove('open');
     document.body.classList.remove('detail-pane-open');
 
-    // Hide all sections after transition
-    setTimeout(() => {
+    // Hide all sections after transition (tracked so openDetailPane can cancel it)
+    closeDetailPaneTimer = setTimeout(() => {
         pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
+        closeDetailPaneTimer = null;
     }, 300);
 }
 
@@ -3985,13 +3999,18 @@ function renderGanttRows() {
                 barRow.appendChild(diamond);
             } else {
                 // Regular task or summary bar
-                // Calculate task duration in days by counting (inclusive of both start and end day)
-                let taskDuration = 1; // Start day counts as 1
+                // Calculate bar width in calendar days (finish date is exclusive from backend)
+                let taskCalendarDays = 0;
                 tempDate = new Date(taskStart);
                 while (tempDate < taskFinish) {
                     tempDate.setDate(tempDate.getDate() + 1);
-                    taskDuration++;
+                    taskCalendarDays++;
                 }
+                // Ensure at least 1 day width for visibility
+                if (taskCalendarDays < 1) taskCalendarDays = 1;
+
+                // Use task.duration_days for display (working days) if available
+                const displayDuration = task.duration_days || taskCalendarDays;
 
                 const bar = document.createElement('div');
                 bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
@@ -4000,10 +4019,10 @@ function renderGanttRows() {
                     bar.classList.add('gantt-bar-' + task.rag.toLowerCase());
                 }
                 const leftPos = daysFromStart * ganttPixelsPerDay;
-                const barWidth = taskDuration * ganttPixelsPerDay;
+                const barWidth = taskCalendarDays * ganttPixelsPerDay;
                 bar.style.left = leftPos + 'px';
                 bar.style.width = barWidth + 'px';
-                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
+                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${displayDuration} days`;
                 bar.dataset.taskIndex = index;
 
                 // Add drag handles
@@ -6960,8 +6979,8 @@ function getAllTaskNames() {
 
         const task = parseTaskLine(lines[i], i + 1);
         if (task.name && task.name.trim()) {
-            // Don't include the current task
-            if (currentTask && task.lineNumber === currentTask.lineNumber) {
+            // Don't include the current task being edited
+            if (currentTaskLineNumber && task.lineNumber === currentTaskLineNumber) {
                 continue;
             }
             // Don't include summary tasks (phases) as valid dependency targets
