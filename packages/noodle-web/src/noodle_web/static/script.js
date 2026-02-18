@@ -1752,6 +1752,11 @@ function updateReportUpNext(tasks) {
 
         displayTasks.forEach(({ task, status, statusClass }) => {
             const row = document.createElement('tr');
+            row.classList.add('up-next-row-clickable');
+            row.addEventListener('click', () => {
+                switchTab('plan');
+                openTaskFormByName(task.name);
+            });
 
             const nameCell = document.createElement('td');
             nameCell.textContent = task.name;
@@ -6157,6 +6162,20 @@ function calculateTaskDates(task, taskMap, lines, visited) {
     }
 
     return task;
+}
+
+function openTaskFormByName(taskName) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const t = parseTaskLine(lines[i], i + 1);
+        if (t.name && t.name === taskName) {
+            openTaskForm(i + 1);
+            return;
+        }
+    }
 }
 
 function openTaskForm(lineNumber) {

@@ -567,6 +567,15 @@ h1 {
     color: #495057;
 }
 
+.up-next-row-clickable {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.up-next-row-clickable:hover {
+    background-color: rgba(0, 123, 255, 0.08);
+}
+
 /* Resources Table Styling */
 .resources-content {
     padding: 30px;
