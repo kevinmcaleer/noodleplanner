@@ -292,6 +292,23 @@ class TestAnalyzeWorkbookPlannerDetection:
         result = analyze_workbook(data, "test.xlsx")
         assert result.get("is_planner") is True
 
+    def test_planner_columns_use_task_headers(self):
+        """analyze_workbook should return task column headers, not metadata rows."""
+        data = _make_planner_xlsx_bytes()
+        result = analyze_workbook(data, "test.xlsx")
+        sheet = result["sheets"][0]
+        columns_lower = [c.lower() for c in sheet["columns"]]
+        # Should have task data columns, not metadata labels
+        assert "task name" in columns_lower
+        assert "duration" in columns_lower
+        # Should NOT have metadata labels as columns
+        assert "task number" not in columns_lower
+        assert "plan owner" not in columns_lower
+        # Sample rows should be actual task data, not metadata values
+        assert len(sheet["sample_rows"]) > 0
+        all_cells = [cell for row in sheet["sample_rows"] for cell in row]
+        assert any("Planning" in str(c) or "Requirements" in str(c) for c in all_cells)
+
     def test_non_planner_not_flagged(self):
         wb = Workbook()
         ws = wb.active
