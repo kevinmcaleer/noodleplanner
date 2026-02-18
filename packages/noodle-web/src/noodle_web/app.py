@@ -23,6 +23,7 @@ from noodle_core import (
     export_to_excel,
     export_to_csv,
     export_timeline_to_powerpoint,
+    export_report_to_powerpoint,
     export_to_pdf,
     convert_plan_format_to_standard,
     extract_title_from_frontmatter,
@@ -681,6 +682,87 @@ async def parse_plan(data: RenderRequest):
             "highlights": highlights,
             "raid_items": raid_items,
         }
+
+
+class ReportMilestone(BaseModel):
+    name: str = Field("", max_length=500)
+    date: str = Field("", max_length=50)
+    rag: str = Field("", max_length=20)
+
+
+class ReportUpNextItem(BaseModel):
+    name: str = Field("", max_length=500)
+    start: str = Field("", max_length=50)
+    finish: str = Field("", max_length=50)
+    status: str = Field("", max_length=50)
+
+
+class ReportHighlight(BaseModel):
+    date: Optional[str] = Field(None, max_length=50)
+    author: Optional[str] = Field(None, max_length=200)
+    content: Optional[str] = Field(None, max_length=10000)
+
+
+class ReportRiskIssue(BaseModel):
+    type: str = Field("", max_length=20)
+    title: str = Field("", max_length=500)
+    score: int = Field(0)
+
+
+class ReportExportRequest(BaseModel):
+    """Request body for weekly report PowerPoint export."""
+    project_name: str = Field("Project", max_length=500)
+    manager: str = Field("", max_length=200)
+    sponsor: str = Field("", max_length=200)
+    budget: str = Field("", max_length=200)
+    date: str = Field("", max_length=50)
+    status: str = Field("", max_length=20)
+    milestones: List[ReportMilestone] = Field(default_factory=list)
+    up_next: List[ReportUpNextItem] = Field(default_factory=list)
+    highlight: Optional[ReportHighlight] = None
+    risks_issues: List[ReportRiskIssue] = Field(default_factory=list)
+
+
+@app.post("/api/export-report-pptx")
+async def export_report_pptx(data: ReportExportRequest):
+    """Export the project report as a PowerPoint file."""
+    logger.info(f"Report PPTX export request for: {data.project_name}")
+
+    with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        report_data = {
+            'project_name': data.project_name,
+            'manager': data.manager,
+            'sponsor': data.sponsor,
+            'budget': data.budget,
+            'date': data.date,
+            'status': data.status,
+            'milestones': [m.model_dump() for m in data.milestones],
+            'up_next': [u.model_dump() for u in data.up_next],
+            'highlight': data.highlight.model_dump() if data.highlight else None,
+            'risks_issues': [r.model_dump() for r in data.risks_issues],
+        }
+
+        export_report_to_powerpoint(tmp_path, report_data)
+
+        with open(tmp_path, 'rb') as f:
+            file_bytes = f.read()
+
+        return Response(
+            content=file_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={
+                "Content-Disposition": f'attachment; filename="{data.project_name}-report.pptx"'
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error exporting report to PPTX: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to export report: {str(e)}")
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 class RaidItem(BaseModel):

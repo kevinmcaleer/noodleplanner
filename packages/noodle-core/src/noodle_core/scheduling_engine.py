@@ -2087,6 +2087,389 @@ def export_timeline_to_powerpoint(text, output_path, is_yaml=True, project_name=
     prs.save(output_path)
     logger.info(f"Exported timeline to PowerPoint: {output_path}")
 
+
+def export_report_to_powerpoint(output_path, report_data):
+    """Export the weekly project report to a single PowerPoint slide.
+
+    The slide mirrors the Project Report view with:
+      - Title bar (project name, PM, sponsor, budget, date, status)
+      - Milestones table (top-left)
+      - Up Next table (top-right)
+      - Latest Highlight (bottom-left)
+      - Risks & Issues table (bottom-right)
+
+    Args:
+        output_path: Path to save the PowerPoint file.
+        report_data: dict with keys:
+            project_name, manager, sponsor, budget, date, status,
+            milestones (list of dicts with name, date, rag),
+            up_next (list of dicts with name, start, finish, status),
+            highlight (dict with date, author, content or None),
+            risks_issues (list of dicts with type, title, score),
+            timeline_phases (list of dicts with name, start_pct, width_pct),
+            timeline_milestones (list of dicts with name, date_str, position_pct),
+            timeline_start, timeline_end (date strings for axis labels).
+    """
+    # -- Colour palette -------------------------------------------------------
+    DARK_BLUE = RGBColor(33, 60, 114)
+    MID_BLUE = RGBColor(54, 96, 146)
+    LIGHT_BLUE = RGBColor(180, 198, 231)
+    WHITE = RGBColor(255, 255, 255)
+    BLACK = RGBColor(0, 0, 0)
+    LIGHT_GREY = RGBColor(242, 242, 242)
+    RED = RGBColor(192, 0, 0)
+    AMBER = RGBColor(218, 165, 32)
+    GREEN = RGBColor(0, 128, 0)
+
+    def _rag_colour(rag_str):
+        lower = (rag_str or '').lower()
+        if lower == 'red':
+            return RED
+        if lower in ('amber', 'yellow'):
+            return AMBER
+        if lower == 'green':
+            return GREEN
+        return BLACK
+
+    def _set_cell_text(cell, text, font_size=8, bold=False, colour=None,
+                       alignment=PP_ALIGN.LEFT):
+        """Set text in a table cell with formatting."""
+        cell.text = str(text)
+        for para in cell.text_frame.paragraphs:
+            para.font.size = Pt(font_size)
+            para.font.bold = bold
+            if colour:
+                para.font.color.rgb = colour
+            para.alignment = alignment
+        cell.text_frame.word_wrap = True
+
+    def _shade_header_row(table, col_count):
+        """Apply dark-blue fill to the first row of a table."""
+        for c in range(col_count):
+            cell = table.cell(0, c)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = DARK_BLUE
+
+    # -- Create presentation ---------------------------------------------------
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)   # Widescreen 16:9
+    prs.slide_height = Inches(7.5)
+
+    slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank layout
+
+    project_name = report_data.get('project_name', 'Project')
+    manager = report_data.get('manager', '')
+    sponsor = report_data.get('sponsor', '')
+    budget = report_data.get('budget', '')
+    report_date = report_data.get('date', '')
+    status = report_data.get('status', '')
+
+    # -- Title bar (dark blue strip) ------------------------------------------
+    title_bar = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(0), Inches(0),
+        Inches(13.333), Inches(0.85)
+    )
+    title_bar.fill.solid()
+    title_bar.fill.fore_color.rgb = DARK_BLUE
+    title_bar.line.fill.background()
+
+    # Project name
+    tb = slide.shapes.add_textbox(Inches(0.4), Inches(0.08),
+                                  Inches(6), Inches(0.45))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.text = project_name
+    p.font.size = Pt(22)
+    p.font.bold = True
+    p.font.color.rgb = WHITE
+
+    # Detail line: PM | Sponsor | Budget | Date | Status
+    details_parts = []
+    if manager:
+        details_parts.append(f"PM: {manager}")
+    if sponsor:
+        details_parts.append(f"Sponsor: {sponsor}")
+    if budget:
+        details_parts.append(f"Budget: {budget}")
+    if report_date:
+        details_parts.append(f"Date: {report_date}")
+    detail_text = "   |   ".join(details_parts) if details_parts else ""
+
+    if detail_text:
+        dtb = slide.shapes.add_textbox(Inches(0.4), Inches(0.50),
+                                       Inches(10), Inches(0.30))
+        dtf = dtb.text_frame
+        dtf.word_wrap = True
+        dp = dtf.paragraphs[0]
+        dp.text = detail_text
+        dp.font.size = Pt(10)
+        dp.font.color.rgb = WHITE
+
+    # Status badge (right-aligned)
+    if status:
+        stb = slide.shapes.add_textbox(Inches(11.5), Inches(0.15),
+                                       Inches(1.6), Inches(0.55))
+        stf = stb.text_frame
+        stf.word_wrap = True
+        sp = stf.paragraphs[0]
+        sp.text = status.upper()
+        sp.font.size = Pt(16)
+        sp.font.bold = True
+        sp.font.color.rgb = _rag_colour(status)
+        sp.alignment = PP_ALIGN.CENTER
+
+    # -- Quad grid layout ------------------------------------------------------
+    # Margins & dimensions
+    left_margin = Inches(0.4)
+    right_margin = Inches(0.4)
+    quad_gap = Inches(0.3)
+    total_width = Inches(13.333) - left_margin - right_margin
+    col_width = (total_width - quad_gap) / 2
+
+    top_row_top = Inches(1.05)
+    row_height = Inches(3.0)
+    bottom_row_top = top_row_top + row_height + quad_gap
+
+    right_col_left = left_margin + col_width + quad_gap
+
+    # ---- Helper: add a section heading label --------------------------------
+    def _add_section_heading(text, left, top, width):
+        hbox = slide.shapes.add_textbox(left, top, width, Inches(0.30))
+        hf = hbox.text_frame
+        hf.word_wrap = True
+        hp = hf.paragraphs[0]
+        hp.text = text
+        hp.font.size = Pt(13)
+        hp.font.bold = True
+        hp.font.color.rgb = MID_BLUE
+
+    # =========================================================================
+    # TOP-LEFT: Milestones
+    # =========================================================================
+    _add_section_heading("Milestones", left_margin, top_row_top, col_width)
+
+    milestones = report_data.get('milestones', [])
+    ms_table_top = top_row_top + Inches(0.35)
+
+    if milestones:
+        ms_rows = min(len(milestones), 10) + 1  # +1 for header
+        ms_table = slide.shapes.add_table(
+            ms_rows, 3, left_margin, ms_table_top,
+            col_width, Inches(0.26 * ms_rows)
+        ).table
+
+        ms_table.columns[0].width = int(col_width * 0.55)
+        ms_table.columns[1].width = int(col_width * 0.30)
+        ms_table.columns[2].width = int(col_width * 0.15)
+
+        _shade_header_row(ms_table, 3)
+        _set_cell_text(ms_table.cell(0, 0), "Milestone", 9, True, WHITE)
+        _set_cell_text(ms_table.cell(0, 1), "Date", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+        _set_cell_text(ms_table.cell(0, 2), "RAG", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+
+        for i, ms in enumerate(milestones[:10]):
+            row_idx = i + 1
+            _set_cell_text(ms_table.cell(row_idx, 0), ms.get('name', ''))
+            _set_cell_text(ms_table.cell(row_idx, 1), ms.get('date', ''),
+                           8, False, None, PP_ALIGN.CENTER)
+            rag = ms.get('rag', '')
+            _set_cell_text(ms_table.cell(row_idx, 2), rag, 8, True,
+                           _rag_colour(rag), PP_ALIGN.CENTER)
+            # Alternate row shading
+            if row_idx % 2 == 0:
+                for c in range(3):
+                    ms_table.cell(row_idx, c).fill.solid()
+                    ms_table.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
+    else:
+        nb = slide.shapes.add_textbox(left_margin, ms_table_top,
+                                      col_width, Inches(0.3))
+        nb.text_frame.text = "No upcoming milestones."
+        nb.text_frame.paragraphs[0].font.size = Pt(9)
+        nb.text_frame.paragraphs[0].font.color.rgb = RGBColor(128, 128, 128)
+
+    # =========================================================================
+    # TOP-RIGHT: Up Next
+    # =========================================================================
+    _add_section_heading("Up Next", right_col_left, top_row_top, col_width)
+
+    up_next = report_data.get('up_next', [])
+    un_table_top = top_row_top + Inches(0.35)
+
+    if up_next:
+        un_rows = min(len(up_next), 10) + 1
+        un_table = slide.shapes.add_table(
+            un_rows, 4, right_col_left, un_table_top,
+            col_width, Inches(0.26 * un_rows)
+        ).table
+
+        un_table.columns[0].width = int(col_width * 0.40)
+        un_table.columns[1].width = int(col_width * 0.18)
+        un_table.columns[2].width = int(col_width * 0.18)
+        un_table.columns[3].width = int(col_width * 0.24)
+
+        _shade_header_row(un_table, 4)
+        _set_cell_text(un_table.cell(0, 0), "Task", 9, True, WHITE)
+        _set_cell_text(un_table.cell(0, 1), "Start", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+        _set_cell_text(un_table.cell(0, 2), "Finish", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+        _set_cell_text(un_table.cell(0, 3), "Status", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+
+        for i, item in enumerate(up_next[:10]):
+            row_idx = i + 1
+            _set_cell_text(un_table.cell(row_idx, 0), item.get('name', ''))
+            _set_cell_text(un_table.cell(row_idx, 1), item.get('start', ''),
+                           8, False, None, PP_ALIGN.CENTER)
+            _set_cell_text(un_table.cell(row_idx, 2), item.get('finish', ''),
+                           8, False, None, PP_ALIGN.CENTER)
+            status_text = item.get('status', '')
+            status_colour = None
+            lower_status = status_text.lower()
+            if 'behind' in lower_status or 'late' in lower_status:
+                status_colour = RED
+            elif 'in progress' in lower_status:
+                status_colour = AMBER
+            elif 'starting soon' in lower_status:
+                status_colour = MID_BLUE
+            _set_cell_text(un_table.cell(row_idx, 3), status_text, 8, False,
+                           status_colour, PP_ALIGN.CENTER)
+            if row_idx % 2 == 0:
+                for c in range(4):
+                    un_table.cell(row_idx, c).fill.solid()
+                    un_table.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
+    else:
+        nb = slide.shapes.add_textbox(right_col_left, un_table_top,
+                                      col_width, Inches(0.3))
+        nb.text_frame.text = "No upcoming tasks in the next 2 weeks."
+        nb.text_frame.paragraphs[0].font.size = Pt(9)
+        nb.text_frame.paragraphs[0].font.color.rgb = RGBColor(128, 128, 128)
+
+    # =========================================================================
+    # BOTTOM-LEFT: Latest Highlight
+    # =========================================================================
+    _add_section_heading("Latest Highlight", left_margin, bottom_row_top,
+                         col_width)
+
+    highlight = report_data.get('highlight')
+    hl_top = bottom_row_top + Inches(0.35)
+
+    if highlight and highlight.get('content'):
+        # Meta line (date + author)
+        meta_parts = []
+        if highlight.get('date'):
+            meta_parts.append(highlight['date'])
+        if highlight.get('author'):
+            meta_parts.append(f"@{highlight['author']}")
+        meta_text = "  ".join(meta_parts)
+
+        if meta_text:
+            mb = slide.shapes.add_textbox(left_margin, hl_top,
+                                          col_width, Inches(0.25))
+            mf = mb.text_frame
+            mf.word_wrap = True
+            mp = mf.paragraphs[0]
+            mp.text = meta_text
+            mp.font.size = Pt(8)
+            mp.font.color.rgb = RGBColor(100, 100, 100)
+            mp.font.italic = True
+            hl_top += Inches(0.25)
+
+        # Content
+        cb = slide.shapes.add_textbox(left_margin, hl_top,
+                                      col_width, Inches(2.3))
+        cf = cb.text_frame
+        cf.word_wrap = True
+        content = highlight.get('content', '')
+        # Split content into paragraphs
+        lines = content.split('\n')
+        for idx, line in enumerate(lines):
+            if idx == 0:
+                cp = cf.paragraphs[0]
+            else:
+                cp = cf.add_paragraph()
+            # Handle basic markdown: **bold** and *italic*
+            clean = line.strip()
+            if clean.startswith('- '):
+                clean = '\u2022 ' + clean[2:]
+            cp.text = clean
+            cp.font.size = Pt(9)
+            cp.font.color.rgb = BLACK
+    else:
+        nb = slide.shapes.add_textbox(left_margin, hl_top,
+                                      col_width, Inches(0.3))
+        nb.text_frame.text = "No highlights recorded yet."
+        nb.text_frame.paragraphs[0].font.size = Pt(9)
+        nb.text_frame.paragraphs[0].font.color.rgb = RGBColor(128, 128, 128)
+
+    # =========================================================================
+    # BOTTOM-RIGHT: Risks & Issues
+    # =========================================================================
+    _add_section_heading("Risks & Issues", right_col_left, bottom_row_top,
+                         col_width)
+
+    risks_issues = report_data.get('risks_issues', [])
+    ri_table_top = bottom_row_top + Inches(0.35)
+
+    if risks_issues:
+        ri_rows = min(len(risks_issues), 10) + 1
+        ri_table = slide.shapes.add_table(
+            ri_rows, 3, right_col_left, ri_table_top,
+            col_width, Inches(0.26 * ri_rows)
+        ).table
+
+        ri_table.columns[0].width = int(col_width * 0.15)
+        ri_table.columns[1].width = int(col_width * 0.65)
+        ri_table.columns[2].width = int(col_width * 0.20)
+
+        _shade_header_row(ri_table, 3)
+        _set_cell_text(ri_table.cell(0, 0), "Type", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+        _set_cell_text(ri_table.cell(0, 1), "Title", 9, True, WHITE)
+        _set_cell_text(ri_table.cell(0, 2), "Score", 9, True, WHITE,
+                       PP_ALIGN.CENTER)
+
+        for i, item in enumerate(risks_issues[:10]):
+            row_idx = i + 1
+            item_type = item.get('type', '')
+            _set_cell_text(ri_table.cell(row_idx, 0),
+                           item_type.capitalize(), 8, True, None,
+                           PP_ALIGN.CENTER)
+            _set_cell_text(ri_table.cell(row_idx, 1),
+                           item.get('title', ''))
+            score = item.get('score', 0)
+            score_colour = RED if score >= 16 else (
+                AMBER if score >= 6 else GREEN)
+            _set_cell_text(ri_table.cell(row_idx, 2), str(score), 8,
+                           True, score_colour, PP_ALIGN.CENTER)
+            if row_idx % 2 == 0:
+                for c in range(3):
+                    ri_table.cell(row_idx, c).fill.solid()
+                    ri_table.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
+    else:
+        nb = slide.shapes.add_textbox(right_col_left, ri_table_top,
+                                      col_width, Inches(0.3))
+        nb.text_frame.text = "No open risks or issues."
+        nb.text_frame.paragraphs[0].font.size = Pt(9)
+        nb.text_frame.paragraphs[0].font.color.rgb = RGBColor(128, 128, 128)
+
+    # -- Footer ---------------------------------------------------------------
+    fb = slide.shapes.add_textbox(Inches(0.4), Inches(7.1),
+                                  Inches(4), Inches(0.25))
+    ff = fb.text_frame
+    fp = ff.paragraphs[0]
+    fp.text = f"Generated by Noodle Planner  |  {report_date}"
+    fp.font.size = Pt(7)
+    fp.font.color.rgb = RGBColor(160, 160, 160)
+
+    # -- Save -----------------------------------------------------------------
+    prs.save(output_path)
+    logger.info(f"Exported weekly report to PowerPoint: {output_path}")
+
+
 def export_to_excel(text, output_path, is_yaml=True, project_name="Project", original_text=None):
     """Export project data to Excel format.
 
