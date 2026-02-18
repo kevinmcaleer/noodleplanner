@@ -3310,6 +3310,18 @@ function parseLocalDate(dateString) {
     return new Date(year, month, day);
 }
 
+/**
+ * Format a local Date object as YYYY-MM-DD string without timezone conversion.
+ * Unlike toISOString().split('T')[0], this preserves the local date correctly
+ * regardless of the user's timezone offset.
+ */
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // ----- Dependency / Predecessors helpers -----
 
 /**
@@ -4754,23 +4766,23 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
 
     if (handleType === 'left') {
         startDate.setDate(startDate.getDate() + deltaDays);
-        task.start = startDate.toISOString().split('T')[0];
+        task.start = formatLocalDate(startDate);
         ganttTasks[taskIndex].start = task.start;
     } else if (handleType === 'right') {
         finishDate.setDate(finishDate.getDate() + deltaDays);
-        task.finish = finishDate.toISOString().split('T')[0];
+        task.finish = formatLocalDate(finishDate);
         ganttTasks[taskIndex].finish = task.finish;
     } else {
         // Move both dates
         startDate.setDate(startDate.getDate() + deltaDays);
         finishDate.setDate(finishDate.getDate() + deltaDays);
-        task.start = startDate.toISOString().split('T')[0];
-        task.finish = finishDate.toISOString().split('T')[0];
+        task.start = formatLocalDate(startDate);
+        task.finish = formatLocalDate(finishDate);
         ganttTasks[taskIndex].start = task.start;
         ganttTasks[taskIndex].finish = task.finish;
     }
 
-    // Recalculate duration by counting days (same method as rendering)
+    // Recalculate duration by counting working days (matching the backend scheduler)
     const newStartDate = parseLocalDate(task.start);
     const newFinishDate = parseLocalDate(task.finish);
 
@@ -4779,14 +4791,9 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
         task.duration_days = 0;
         ganttTasks[taskIndex].duration_days = 0;
     } else {
-        // Count calendar days from start to finish (finish is exclusive)
-        let taskDuration = 0;
-        let tempDate = new Date(newStartDate);
-        while (tempDate < newFinishDate) {
-            tempDate.setDate(tempDate.getDate() + 1);
-            taskDuration++;
-        }
-        if (taskDuration < 1) taskDuration = 1;
+        // Count working days from start to finish (inclusive), skipping weekends
+        // This matches the backend scheduling engine which treats duration as working days
+        const taskDuration = countWorkingDays(newStartDate, newFinishDate);
 
         task.duration_days = taskDuration;
         ganttTasks[taskIndex].duration_days = task.duration_days;
