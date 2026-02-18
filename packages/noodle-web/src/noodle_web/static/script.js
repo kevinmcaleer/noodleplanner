@@ -6952,8 +6952,8 @@ function getAllTaskNames() {
 
         const task = parseTaskLine(lines[i], i + 1);
         if (task.name && task.name.trim()) {
-            // Don't include the current task
-            if (currentTask && task.lineNumber === currentTask.lineNumber) {
+            // Don't include the current task being edited
+            if (currentTaskLineNumber && task.lineNumber === currentTaskLineNumber) {
                 continue;
             }
             // Don't include summary tasks (phases) as valid dependency targets
