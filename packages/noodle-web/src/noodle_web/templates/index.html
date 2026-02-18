@@ -299,7 +299,40 @@ Press Enter to render..."></textarea>
                                         </div>
                                     </div>
 
-                                    <!-- Top Right: RAID Log -->
+                                    <!-- Top Right: Up Next -->
+                                    <div class="quad-cell">
+                                        <h3>Up Next</h3>
+                                        <div class="up-next-table-wrapper" style="position: relative;">
+                                            <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                            <table class="milestones-table quad-table" id="reportUpNextTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Task</th>
+                                                        <th>Start</th>
+                                                        <th>Finish</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="reportUpNextTableBody">
+                                                    <!-- Up Next rows populated by JavaScript -->
+                                                </tbody>
+                                            </table>
+                                            <p class="quad-empty-state" id="reportUpNextEmpty" style="display: none;">No upcoming tasks in the next 2 weeks.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom Left: Highlights -->
+                                    <div class="quad-cell">
+                                        <div class="quad-header">
+                                            <h3>Latest Highlight</h3>
+                                            <button class="quad-add-btn" onclick="addHighlight()" title="Add new highlight">+</button>
+                                        </div>
+                                        <div id="reportHighlightContent" class="report-highlight-content">
+                                            <p class="quad-empty-state">No highlights recorded yet.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom Right: RAID Log -->
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Risks &amp; Issues</h3>
@@ -319,39 +352,6 @@ Press Enter to render..."></textarea>
                                                 </tbody>
                                             </table>
                                             <p class="quad-empty-state" id="reportRaidEmpty" style="display: none;">No open risks or issues.</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Bottom Left: Highlights -->
-                                    <div class="quad-cell">
-                                        <div class="quad-header">
-                                            <h3>Latest Highlight</h3>
-                                            <button class="quad-add-btn" onclick="addHighlight()" title="Add new highlight">+</button>
-                                        </div>
-                                        <div id="reportHighlightContent" class="report-highlight-content">
-                                            <p class="quad-empty-state">No highlights recorded yet.</p>
-                                        </div>
-                                    </div>
-
-                                    <!-- Bottom Right: Up Next -->
-                                    <div class="quad-cell">
-                                        <h3>Up Next</h3>
-                                        <div class="up-next-table-wrapper" style="position: relative;">
-                                            <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-                                            <table class="milestones-table quad-table" id="reportUpNextTable">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Task</th>
-                                                        <th>Start</th>
-                                                        <th>Finish</th>
-                                                        <th>Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="reportUpNextTableBody">
-                                                    <!-- Up Next rows populated by JavaScript -->
-                                                </tbody>
-                                            </table>
-                                            <p class="quad-empty-state" id="reportUpNextEmpty" style="display: none;">No upcoming tasks in the next 2 weeks.</p>
                                         </div>
                                     </div>
                                 </div>
