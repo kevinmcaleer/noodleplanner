@@ -263,6 +263,31 @@ def extract_metadata(task_str, task_name=None):
             if comment_match:
                 meta['comment'] = comment_match.group(1)
 
+    # Extract effort using ~ prefix: ~8h, ~3d, ~8h/16h, ~2d/5d
+    # Format: ~completed/total or ~total (if no slash, it's the total with 0 completed)
+    effort_match = re.search(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?', task_str)
+    if effort_match:
+        completed_val = float(effort_match.group(1))
+        completed_unit = effort_match.group(2)
+        if effort_match.group(3) is not None:
+            # Format: ~completed/total (e.g., ~8h/16h)
+            total_val = float(effort_match.group(3))
+            total_unit = effort_match.group(4)
+            meta['effort_completed'] = completed_val
+            meta['effort_completed_unit'] = completed_unit
+            meta['effort_total'] = total_val
+            meta['effort_total_unit'] = total_unit
+            meta['effort_remaining'] = total_val - completed_val
+            meta['effort_remaining_unit'] = total_unit
+        else:
+            # Format: ~total (e.g., ~16h) - total only, no completed
+            meta['effort_completed'] = 0
+            meta['effort_completed_unit'] = completed_unit
+            meta['effort_total'] = completed_val
+            meta['effort_total_unit'] = completed_unit
+            meta['effort_remaining'] = completed_val
+            meta['effort_remaining_unit'] = completed_unit
+
     # Support both new format (10%) and old format (p10)
     percent_match = re.search(r'(\d{1,3})%', task_str)
     if percent_match:
@@ -279,7 +304,8 @@ def extract_metadata(task_str, task_name=None):
         meta['start'] = parse_date(date_match.group(1))
 
     # Support new simple format: 10d, 2w, 3m, 1y
-    duration_match = re.search(r'\b(\d+)([dwmy])\b', task_str)
+    # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
+    duration_match = re.search(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b', task_str)
     if duration_match:
         value = int(duration_match.group(1))
         unit = duration_match.group(2)
@@ -297,7 +323,7 @@ def extract_metadata(task_str, task_name=None):
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
