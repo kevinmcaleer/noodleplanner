@@ -75,10 +75,23 @@ async function copyElementAsImage(element, feedbackBtn) {
 }
 
 /**
+ * Timer ID for the deferred section cleanup in closeDetailPane.
+ * Tracked so openDetailPane can cancel it to avoid a race condition
+ * where a stale timeout blanks a newly opened form.
+ */
+let closeDetailPaneTimer = null;
+
+/**
  * Open the detail pane and show the specified section.
  * Hides all other sections within the pane.
  */
 function openDetailPane(sectionId) {
+    // Cancel any pending close cleanup to prevent it from blanking this section
+    if (closeDetailPaneTimer) {
+        clearTimeout(closeDetailPaneTimer);
+        closeDetailPaneTimer = null;
+    }
+
     const overlay = document.getElementById('detailPaneOverlay');
     const pane = document.getElementById('detailPane');
 
@@ -108,9 +121,10 @@ function closeDetailPane() {
     pane.classList.remove('open');
     document.body.classList.remove('detail-pane-open');
 
-    // Hide all sections after transition
-    setTimeout(() => {
+    // Hide all sections after transition (tracked so openDetailPane can cancel it)
+    closeDetailPaneTimer = setTimeout(() => {
         pane.querySelectorAll('.detail-pane-section').forEach(s => s.classList.remove('active'));
+        closeDetailPaneTimer = null;
     }, 300);
 }
 
