@@ -8648,11 +8648,12 @@ function saveProjectDetailsInternal(closeModal = true) {
     const editor = document.getElementById('planEditor');
     let content = editor.value;
 
-    // Extract existing Resources, Key Stakeholders, and Formatting sections from current editor
-    // to preserve any changes made via resource form or conditional formatting
+    // Extract existing Resources, Key Stakeholders, Formatting, and Theme sections from current editor
+    // to preserve any changes made via resource form, conditional formatting, or kanban theme colours
     const existingResourcesSection = extractFrontMatterSection(content, 'Resources');
     const existingStakeholdersSection = extractFrontMatterSection(content, 'Key Stakeholders');
     const existingFormattingSection = extractFrontMatterSection(content, 'Formatting');
+    const existingThemeSection = extractFrontMatterSection(content, 'Theme');
 
     // Collect form data
     const title = document.getElementById('projectTitle').value.trim();
@@ -8688,6 +8689,11 @@ function saveProjectDetailsInternal(closeModal = true) {
     // Preserve existing Formatting section from editor (don't overwrite)
     if (existingFormattingSection) {
         frontMatter += existingFormattingSection;
+    }
+
+    // Preserve existing Theme section from editor (don't overwrite kanban theme colours)
+    if (existingThemeSection) {
+        frontMatter += existingThemeSection;
     }
 
     frontMatter += '---\n';
