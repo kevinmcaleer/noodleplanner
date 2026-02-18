@@ -9009,6 +9009,17 @@ function deleteConditionalFormattingRule(index) {
     renderConditionalFormattingRules();
 }
 
+function moveConditionalFormattingRule(index, direction) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= conditionalFormattingRules.length) return;
+
+    const rules = conditionalFormattingRules;
+    [rules[index], rules[targetIndex]] = [rules[targetIndex], rules[index]];
+
+    saveConditionalFormattingRulesToFrontMatter();
+    renderConditionalFormattingRules();
+}
+
 function updateConditionalFormattingRule(index, field, value) {
     const rule = conditionalFormattingRules[index];
     if (!rule) return;
@@ -9087,6 +9098,28 @@ function renderConditionalFormattingRules() {
         swatch.addEventListener('click', () => showCfColourPicker(index));
         colourCell.appendChild(swatch);
         row.appendChild(colourCell);
+
+        // Move up/down buttons
+        const moveCell = document.createElement('td');
+        moveCell.className = 'cf-move-cell';
+
+        const upBtn = document.createElement('button');
+        upBtn.className = 'cf-move-btn';
+        upBtn.innerHTML = '&#9650;';
+        upBtn.title = 'Move up (higher priority)';
+        upBtn.disabled = index === 0;
+        upBtn.addEventListener('click', () => moveConditionalFormattingRule(index, -1));
+        moveCell.appendChild(upBtn);
+
+        const downBtn = document.createElement('button');
+        downBtn.className = 'cf-move-btn';
+        downBtn.innerHTML = '&#9660;';
+        downBtn.title = 'Move down (lower priority)';
+        downBtn.disabled = index === conditionalFormattingRules.length - 1;
+        downBtn.addEventListener('click', () => moveConditionalFormattingRule(index, 1));
+        moveCell.appendChild(downBtn);
+
+        row.appendChild(moveCell);
 
         // Delete button
         const delCell = document.createElement('td');
