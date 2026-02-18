@@ -298,6 +298,22 @@ def extract_metadata(task_str, task_name=None):
         if percent_match:
             meta['percent'] = max(0, min(100, int(percent_match.group(1))))
 
+    # Auto-calculate percent from effort if both completed and total are present
+    if 'effort_completed' in meta and 'effort_total' in meta and meta['effort_total'] > 0:
+        completed = meta['effort_completed']
+        total = meta['effort_total']
+        completed_unit = meta.get('effort_completed_unit', 'h')
+        total_unit = meta.get('effort_total_unit', 'h')
+        # Convert to hours if units differ (1d = 8h)
+        if completed_unit != total_unit:
+            completed_hours = completed * 8 if completed_unit == 'd' else completed
+            total_hours = total * 8 if total_unit == 'd' else total
+        else:
+            completed_hours = completed
+            total_hours = total
+        if total_hours > 0:
+            meta['percent'] = max(0, min(100, round(completed_hours / total_hours * 100)))
+
     date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str)
     if date_match:
         meta['due'] = date_match.group(1)
