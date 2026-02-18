@@ -3983,7 +3983,7 @@ function renderGanttRows() {
             if (task.duration_days === 0 && !task.is_summary) {
                 const diamond = document.createElement('div');
                 diamond.className = 'gantt-bar gantt-milestone';
-                const leftPos = daysFromStart * ganttPixelsPerDay + (ganttPixelsPerDay / 2) - 9;
+                const leftPos = daysFromStart * ganttPixelsPerDay - 9;
                 diamond.style.left = leftPos + 'px';
                 diamond.title = `${task.name}\nMilestone: ${task.finish}`;
                 diamond.dataset.taskIndex = index;
