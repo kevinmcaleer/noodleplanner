@@ -6,6 +6,7 @@ from .scheduling_engine import (
     export_to_excel,
     export_to_csv,
     export_timeline_to_powerpoint,
+    export_report_to_powerpoint,
     export_to_pdf,
     analyze_plan,
     get_next_working_day,

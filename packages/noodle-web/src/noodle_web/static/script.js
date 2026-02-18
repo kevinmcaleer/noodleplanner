@@ -976,6 +976,151 @@ async function exportFile(format, prefix) {
     await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix);
 }
 
+/**
+ * Collect data from the rendered Project Report view and export to PowerPoint.
+ * This sends the currently displayed report data to the backend which generates
+ * a single-slide PPTX matching the report layout.
+ */
+async function exportReportPptx() {
+    // Close the export menu
+    document.getElementById('exportMenu').classList.remove('show');
+
+    // Check that the report content is visible
+    const content = document.querySelector('#project-report-view .project-report-content');
+    if (!content || content.style.display === 'none') {
+        showMessage('editor', 'error', 'Please render a plan first before exporting the report.');
+        return;
+    }
+
+    // Collect header data
+    const projectName = (document.getElementById('reportProjectTitle') || {}).textContent || 'Project';
+
+    const managerEl = document.getElementById('reportManager');
+    const managerDetail = document.getElementById('reportManagerDetail');
+    const manager = (managerDetail && managerDetail.style.display !== 'none' && managerEl)
+        ? managerEl.textContent : '';
+
+    const sponsorEl = document.getElementById('reportSponsor');
+    const sponsorDetail = document.getElementById('reportSponsorDetail');
+    const sponsor = (sponsorDetail && sponsorDetail.style.display !== 'none' && sponsorEl)
+        ? sponsorEl.textContent : '';
+
+    const budgetEl = document.getElementById('reportBudget');
+    const budgetDetail = document.getElementById('reportBudgetDetail');
+    const budget = (budgetDetail && budgetDetail.style.display !== 'none' && budgetEl)
+        ? budgetEl.textContent : '';
+
+    const statusEl = document.getElementById('reportStatus');
+    const statusDetail = document.getElementById('reportStatusDetail');
+    let status = '';
+    if (statusDetail && statusDetail.style.display !== 'none' && statusEl) {
+        const badge = statusEl.querySelector('.report-rag-badge');
+        status = badge ? badge.textContent : statusEl.textContent;
+    }
+
+    const dateEl = document.getElementById('reportDate');
+    const reportDate = dateEl ? dateEl.textContent : new Date().toISOString().split('T')[0];
+
+    // Collect milestones from the table
+    const milestones = [];
+    const msRows = document.querySelectorAll('#reportMilestonesTableBody tr');
+    msRows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            milestones.push({
+                name: cells[0].textContent.trim(),
+                date: cells[1].textContent.trim(),
+                rag: cells[2].textContent.trim()
+            });
+        }
+    });
+
+    // Collect up next from the table
+    const upNext = [];
+    const unRows = document.querySelectorAll('#reportUpNextTableBody tr');
+    unRows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 4) {
+            upNext.push({
+                name: cells[0].textContent.trim(),
+                start: cells[1].textContent.trim(),
+                finish: cells[2].textContent.trim(),
+                status: cells[3].textContent.trim()
+            });
+        }
+    });
+
+    // Collect latest highlight
+    let highlight = null;
+    const hlCard = document.querySelector('.report-highlight-card');
+    if (hlCard) {
+        const dateSp = hlCard.querySelector('.highlight-date');
+        const authorSp = hlCard.querySelector('.highlight-author');
+        const bodySp = hlCard.querySelector('.report-highlight-body');
+        highlight = {
+            date: dateSp ? dateSp.textContent.trim() : null,
+            author: authorSp ? authorSp.textContent.replace(/^@/, '').trim() : null,
+            content: bodySp ? bodySp.textContent.trim() : null
+        };
+    }
+
+    // Collect risks & issues from the table
+    const risksIssues = [];
+    const riRows = document.querySelectorAll('#reportRaidTableBody tr');
+    riRows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            risksIssues.push({
+                type: cells[0].textContent.trim().toLowerCase(),
+                title: cells[1].textContent.trim(),
+                score: parseInt(cells[2].textContent.trim(), 10) || 0
+            });
+        }
+    });
+
+    // Build request payload
+    const payload = {
+        project_name: projectName,
+        manager: manager,
+        sponsor: sponsor,
+        budget: budget,
+        date: reportDate,
+        status: status,
+        milestones: milestones,
+        up_next: upNext,
+        highlight: highlight,
+        risks_issues: risksIssues
+    };
+
+    try {
+        const response = await fetch('/api/export-report-pptx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Export failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = projectName + '-report.pptx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+        showMessage('editor', 'success', 'Report exported to PowerPoint successfully!');
+    } catch (error) {
+        console.error('Error exporting report to PowerPoint:', error);
+        showMessage('editor', 'error', 'Failed to export report: ' + error.message);
+    }
+}
+
 async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix) {
     const btn = document.getElementById(prefix + 'Btn');
     const spinner = document.getElementById(prefix + 'Spinner');
