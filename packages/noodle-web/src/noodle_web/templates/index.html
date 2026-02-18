@@ -578,6 +578,7 @@ Press Enter to render..."></textarea>
                                                 <th>Finish</th>
                                                 <th>Resources</th>
                                                 <th>%</th>
+                                                <th>Effort</th>
                                                 <th>RAG</th>
                                                 <th>Priority</th>
                                                 <th>Bucket</th>
@@ -1305,6 +1306,40 @@ Build
                             </div>
                         </div>
                         <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="taskEffortCompleted">Effort Completed</label>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <input type="number" id="taskEffortCompleted" placeholder="0" min="0" step="0.5"
+                                       style="flex: 1;" oninput="updateEffortTotal()">
+                                <select id="taskEffortCompletedUnit" style="width: 50px;" onchange="updateEffortTotal()">
+                                    <option value="h">h</option>
+                                    <option value="d">d</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskEffortRemaining">Effort Remaining</label>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <input type="number" id="taskEffortRemaining" placeholder="0" min="0" step="0.5"
+                                       style="flex: 1;" oninput="updateEffortTotal()">
+                                <select id="taskEffortRemainingUnit" style="width: 50px;" onchange="updateEffortTotal()">
+                                    <option value="h">h</option>
+                                    <option value="d">d</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskEffortTotal">Effort Total</label>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <input type="number" id="taskEffortTotal" placeholder="0" min="0"
+                                       style="flex: 1; background-color: #f0f0f0; cursor: not-allowed;" readonly>
+                                <span id="taskEffortTotalUnit" style="width: 50px; text-align: center; padding: 4px;">h</span>
+                            </div>
+                            <small>Auto-calculated (completed + remaining)</small>
+                        </div>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">

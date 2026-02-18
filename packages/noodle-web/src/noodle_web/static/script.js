@@ -4543,6 +4543,22 @@ function updateTasksTable(tasks) {
         percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
         row.appendChild(percentCell);
 
+        // Effort
+        const effortCell = document.createElement('td');
+        if (task.effort_total) {
+            const completed = parseFloat(task.effort_completed) || 0;
+            const total = parseFloat(task.effort_total) || 0;
+            const unit = task.effort_total_unit || 'h';
+            if (completed > 0) {
+                effortCell.textContent = `${completed}${task.effort_completed_unit || unit}/${total}${unit}`;
+            } else {
+                effortCell.textContent = `${total}${unit}`;
+            }
+        } else {
+            effortCell.textContent = '-';
+        }
+        row.appendChild(effortCell);
+
         // RAG
         const ragCell = document.createElement('td');
         ragCell.classList.add('gantt-rag-cell');
@@ -6037,6 +6053,26 @@ function openTaskForm(lineNumber) {
         durationField.style.fontStyle = userSetDuration ? 'normal' : 'italic';
 
         document.getElementById('taskPercent').value = task.percent || '';
+
+        // Populate effort fields
+        const effortCompletedInput = document.getElementById('taskEffortCompleted');
+        const effortCompletedUnitSelect = document.getElementById('taskEffortCompletedUnit');
+        const effortRemainingInput = document.getElementById('taskEffortRemaining');
+        const effortRemainingUnitSelect = document.getElementById('taskEffortRemainingUnit');
+        if (effortCompletedInput) {
+            effortCompletedInput.value = (task.effortCompleted && task.effortCompleted !== '0') ? task.effortCompleted : '';
+        }
+        if (effortCompletedUnitSelect) {
+            effortCompletedUnitSelect.value = task.effortCompletedUnit || 'h';
+        }
+        if (effortRemainingInput) {
+            effortRemainingInput.value = task.effortRemaining || '';
+        }
+        if (effortRemainingUnitSelect) {
+            effortRemainingUnitSelect.value = task.effortRemainingUnit || 'h';
+        }
+        updateEffortTotal();
+
         document.getElementById('taskResources').value = task.resources || '';
         document.getElementById('taskComment').value = task.comment || '';
         const prioritySelect = document.getElementById('taskPriority');
@@ -6551,6 +6587,41 @@ function updateProgressBar() {
     }
 }
 
+function updateEffortTotal() {
+    const completedInput = document.getElementById('taskEffortCompleted');
+    const remainingInput = document.getElementById('taskEffortRemaining');
+    const totalInput = document.getElementById('taskEffortTotal');
+    const totalUnitSpan = document.getElementById('taskEffortTotalUnit');
+    const completedUnit = document.getElementById('taskEffortCompletedUnit');
+    const remainingUnit = document.getElementById('taskEffortRemainingUnit');
+
+    if (!completedInput || !remainingInput || !totalInput) return;
+
+    const completed = parseFloat(completedInput.value) || 0;
+    const remaining = parseFloat(remainingInput.value) || 0;
+
+    // Convert to common unit (hours) for calculation if units differ
+    const cUnit = completedUnit ? completedUnit.value : 'h';
+    const rUnit = remainingUnit ? remainingUnit.value : 'h';
+
+    const completedHours = cUnit === 'd' ? completed * 8 : completed;
+    const remainingHours = rUnit === 'd' ? remaining * 8 : remaining;
+    const totalHours = completedHours + remainingHours;
+
+    // Display total in the most appropriate unit
+    if (cUnit === rUnit) {
+        // Same units - just add
+        totalInput.value = completed + remaining;
+        if (totalUnitSpan) totalUnitSpan.textContent = cUnit;
+    } else {
+        // Different units - show in hours
+        totalInput.value = totalHours;
+        if (totalUnitSpan) totalUnitSpan.textContent = 'h';
+    }
+
+    saveTask();
+}
+
 function closeTaskForm() {
     closeDetailPane();
     currentTaskLineNumber = null;
@@ -6744,6 +6815,31 @@ function saveTask() {
     // Add duration
     if (duration) newLine += ' ' + duration + 'd';
 
+    // Add effort
+    const effortCompleted = document.getElementById('taskEffortCompleted').value.trim();
+    const effortRemaining = document.getElementById('taskEffortRemaining').value.trim();
+    const effortCompletedUnit = document.getElementById('taskEffortCompletedUnit').value;
+    const effortRemainingUnit = document.getElementById('taskEffortRemainingUnit').value;
+    const completedNum = parseFloat(effortCompleted) || 0;
+    const remainingNum = parseFloat(effortRemaining) || 0;
+
+    if (completedNum > 0 || remainingNum > 0) {
+        const totalNum = completedNum + remainingNum;
+        // Use the remaining unit for total (or completed unit if no remaining)
+        const totalUnit = remainingNum > 0 ? effortRemainingUnit : effortCompletedUnit;
+
+        if (completedNum > 0) {
+            // Format: ~completed/total (e.g., ~8h/16h)
+            const completedStr = Number.isInteger(completedNum) ? String(completedNum) : String(completedNum);
+            const totalStr = Number.isInteger(totalNum) ? String(totalNum) : String(totalNum);
+            newLine += ' ~' + completedStr + effortCompletedUnit + '/' + totalStr + totalUnit;
+        } else {
+            // Format: ~total (e.g., ~16h) - no completed yet
+            const totalStr = Number.isInteger(totalNum) ? String(totalNum) : String(totalNum);
+            newLine += ' ~' + totalStr + totalUnit;
+        }
+    }
+
     // Add resources - split by comma and add @ prefix to each
     if (resources) {
         const resourceList = resources.split(',').map(r => r.trim()).filter(r => r);
@@ -6919,7 +7015,13 @@ function parseTaskLine(line, lineNum) {
         priority: 'Low',
         bucket: '',
         dependencies: '',
-        labels: ''
+        labels: '',
+        effortCompleted: '',
+        effortCompletedUnit: 'h',
+        effortRemaining: '',
+        effortRemainingUnit: 'h',
+        effortTotal: '',
+        effortTotalUnit: 'h'
     };
 
     // Remove leading whitespace
@@ -6941,6 +7043,31 @@ function parseTaskLine(line, lineNum) {
             starLagLead = starLagMatch[1];
             text = text.substring(starLagMatch[0].length).trim();
         }
+    }
+
+    // Handle effort syntax: ~8h, ~3d, ~8h/16h, ~2d/5d
+    let effortMatch = text.match(/~(\d+(?:\.\d+)?)(h|d)(?:\/(\d+(?:\.\d+)?)(h|d))?/);
+    if (effortMatch) {
+        if (effortMatch[3] !== undefined) {
+            // Format: ~completed/total
+            task.effortCompleted = effortMatch[1];
+            task.effortCompletedUnit = effortMatch[2];
+            task.effortTotal = effortMatch[3];
+            task.effortTotalUnit = effortMatch[4];
+            const total = parseFloat(effortMatch[3]);
+            const completed = parseFloat(effortMatch[1]);
+            task.effortRemaining = String(total - completed);
+            task.effortRemainingUnit = effortMatch[4];
+        } else {
+            // Format: ~total only
+            task.effortCompleted = '0';
+            task.effortCompletedUnit = effortMatch[2];
+            task.effortTotal = effortMatch[1];
+            task.effortTotalUnit = effortMatch[2];
+            task.effortRemaining = effortMatch[1];
+            task.effortRemainingUnit = effortMatch[2];
+        }
+        text = text.replace(/~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?/, '').trim();
     }
 
     // Handle comment first (everything in quotes)

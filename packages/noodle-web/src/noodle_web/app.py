@@ -637,6 +637,12 @@ async def parse_plan(data: RenderRequest):
                 'depends': task.get('depends', []),
                 'lag_lead': task.get('lag_lead', {}),
                 'inherited_resource': task.get('inherited_resource', False),
+                'effort_completed': task.get('effort_completed', ''),
+                'effort_completed_unit': task.get('effort_completed_unit', ''),
+                'effort_total': task.get('effort_total', ''),
+                'effort_total_unit': task.get('effort_total_unit', ''),
+                'effort_remaining': task.get('effort_remaining', ''),
+                'effort_remaining_unit': task.get('effort_remaining_unit', ''),
             }
             tasks_data.append(task_data)
 
