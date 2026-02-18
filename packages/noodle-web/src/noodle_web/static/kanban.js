@@ -1170,10 +1170,11 @@ class KanbanBoard {
         }
 
         // Add colour picker button in phase view
+        let colourBtn = null;
         if (this.viewMode === 'phase') {
-            const colourBtn = document.createElement('button');
+            colourBtn = document.createElement('button');
             colourBtn.className = 'kanban-column-colour-btn';
-            colourBtn.innerHTML = '&#x1f3a8;';
+            colourBtn.textContent = '...';
             colourBtn.title = 'Set column colour';
             colourBtn.setAttribute('aria-label', `Set colour for ${column.title}`);
             colourBtn.addEventListener('click', (e) => {
@@ -1183,11 +1184,18 @@ class KanbanBoard {
             headerEl.appendChild(colourBtn);
         }
 
-        // Apply theme colour to column header
+        // Apply theme colour to column header and full column
         const themeColour = this.themeColours[column.title];
         if (themeColour) {
             headerEl.style.background = themeColour;
-            headerEl.style.color = isPastelColour(themeColour) ? '#000000' : '#FFFFFF';
+            const textColour = isPastelColour(themeColour) ? '#000000' : '#FFFFFF';
+            headerEl.style.color = textColour;
+            // Apply a lighter tint of the colour to the entire column
+            columnEl.style.background = themeColour + '1A'; // ~10% opacity hex suffix
+            // Set the dots colour to match the column title text colour
+            if (colourBtn) {
+                colourBtn.style.color = textColour;
+            }
         }
 
         columnEl.appendChild(headerEl);
@@ -1241,6 +1249,9 @@ class KanbanBoard {
         // Column footer with "Add Card" button
         const footerEl = document.createElement('div');
         footerEl.className = 'kanban-column-footer';
+        if (themeColour) {
+            footerEl.style.background = 'transparent';
+        }
 
         const addButton = document.createElement('button');
         addButton.className = 'kanban-add-card-btn';
