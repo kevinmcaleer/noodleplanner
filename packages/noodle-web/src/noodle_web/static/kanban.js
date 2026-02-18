@@ -227,6 +227,14 @@ class KanbanBoard {
                     task.labels.split(',').map(l => l.trim()).filter(l => l) :
                     [];
 
+                // Enrich with RAG status from scheduled backend data if available
+                if (typeof ganttTasks !== 'undefined' && Array.isArray(ganttTasks)) {
+                    const scheduledTask = ganttTasks.find(gt => gt.name === task.name);
+                    if (scheduledTask && scheduledTask.rag) {
+                        task.rag = scheduledTask.rag;
+                    }
+                }
+
                 // Determine progress status
                 task.progressStatus = this.getProgressStatus(task.percent);
 
