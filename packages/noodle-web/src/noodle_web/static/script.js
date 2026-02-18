@@ -1754,7 +1754,7 @@ function updateReportUpNext(tasks) {
             const row = document.createElement('tr');
             row.classList.add('up-next-row-clickable');
             row.addEventListener('click', () => {
-                switchTab('plan');
+                switchTab('editor');
                 openTaskFormByName(task.name);
             });
 
