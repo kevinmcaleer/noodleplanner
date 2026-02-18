@@ -3973,13 +3973,18 @@ function renderGanttRows() {
                 barRow.appendChild(diamond);
             } else {
                 // Regular task or summary bar
-                // Calculate task duration in days by counting (inclusive of both start and end day)
-                let taskDuration = 1; // Start day counts as 1
+                // Calculate bar width in calendar days (finish date is exclusive from backend)
+                let taskCalendarDays = 0;
                 tempDate = new Date(taskStart);
                 while (tempDate < taskFinish) {
                     tempDate.setDate(tempDate.getDate() + 1);
-                    taskDuration++;
+                    taskCalendarDays++;
                 }
+                // Ensure at least 1 day width for visibility
+                if (taskCalendarDays < 1) taskCalendarDays = 1;
+
+                // Use task.duration_days for display (working days) if available
+                const displayDuration = task.duration_days || taskCalendarDays;
 
                 const bar = document.createElement('div');
                 bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
@@ -3988,10 +3993,10 @@ function renderGanttRows() {
                     bar.classList.add('gantt-bar-' + task.rag.toLowerCase());
                 }
                 const leftPos = daysFromStart * ganttPixelsPerDay;
-                const barWidth = taskDuration * ganttPixelsPerDay;
+                const barWidth = taskCalendarDays * ganttPixelsPerDay;
                 bar.style.left = leftPos + 'px';
                 bar.style.width = barWidth + 'px';
-                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${taskDuration} days`;
+                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${displayDuration} days`;
                 bar.dataset.taskIndex = index;
 
                 // Add drag handles
@@ -4760,13 +4765,14 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
         task.duration_days = 0;
         ganttTasks[taskIndex].duration_days = 0;
     } else {
-        // Count days from start to finish (inclusive)
-        let taskDuration = 1; // Start day counts as 1
+        // Count calendar days from start to finish (finish is exclusive)
+        let taskDuration = 0;
         let tempDate = new Date(newStartDate);
         while (tempDate < newFinishDate) {
             tempDate.setDate(tempDate.getDate() + 1);
             taskDuration++;
         }
+        if (taskDuration < 1) taskDuration = 1;
 
         task.duration_days = taskDuration;
         ganttTasks[taskIndex].duration_days = task.duration_days;

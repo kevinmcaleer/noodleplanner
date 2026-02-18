@@ -70,9 +70,12 @@ def get_next_working_day(date, holidays=None):
 def add_working_days(start_date, num_days, holidays=None):
     """Add working days to a start date, skipping weekends and holidays.
 
-    The finish date is the last working day (inclusive).
-    For example, a 1-day task starting Monday will finish on Monday.
-    A 5-day task starting Monday will finish on Friday (Mon-Fri = 5 working days).
+    The finish date is exclusive (one day after the last working day).
+    For example, a 1-day task starting Monday will have finish = Tuesday.
+    A 5-day task starting Monday will have finish = Saturday (Mon-Fri are the 5 working days).
+
+    This convention allows Gantt bar widths to be calculated as (finish - start) in
+    calendar days without needing to add 1.
 
     Args:
         start_date: The starting date
@@ -80,7 +83,7 @@ def add_working_days(start_date, num_days, holidays=None):
         holidays: Set of holiday dates to skip (optional)
 
     Returns:
-        The finish date after adding working days (inclusive)
+        The finish date after adding working days (exclusive)
     """
     if holidays is None:
         holidays = set()
