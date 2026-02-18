@@ -570,6 +570,15 @@ def schedule_tasks(phases):
             is_milestone = isinstance(duration, timedelta) and duration.days == 0
 
             if prev and 'finish' in prev:
+                # Record the resolved sequential dependency so the frontend
+                # can draw dependency lines for '*' tasks.
+                prev_name = prev.get('name', '')
+                if prev_name:
+                    if 'depends' not in t or not t['depends']:
+                        t['depends'] = []
+                    if prev_name not in t['depends']:
+                        t['depends'].append(prev_name)
+
                 if is_milestone:
                     # Milestones (0-duration) align with the end of the predecessor.
                     # Predecessor finish is exclusive (day after last working day),
