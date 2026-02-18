@@ -1423,6 +1423,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
         // Populate quad sections
         updateReportMilestones(tasks);
         updateReportRaid();
+        updateReportUpNext(tasks);
         updateReportHighlight();
 
     } catch (error) {
@@ -1530,6 +1531,108 @@ function updateReportMilestones(tasks) {
 
     } catch (error) {
         console.error('Error updating report milestones:', error);
+    }
+}
+
+/**
+ * Populate the Up Next quad with late, in-progress, and upcoming tasks
+ * for the next 2 weeks. Limited to 10 leaf tasks.
+ */
+function updateReportUpNext(tasks) {
+    try {
+        const tbody = document.getElementById('reportUpNextTableBody');
+        const emptyEl = document.getElementById('reportUpNextEmpty');
+        const tableEl = document.getElementById('reportUpNextTable');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const twoWeeksFromNow = new Date(today);
+        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+
+        // Filter to leaf tasks only (non-summary, non-milestone, with dates)
+        const leafTasks = tasks.filter(t =>
+            !t.is_summary &&
+            t.duration_days !== 0 &&
+            t.start && t.finish
+        );
+
+        const categorized = [];
+
+        leafTasks.forEach(task => {
+            const percent = parseFloat(task.percent) || 0;
+            const startDate = parseLocalDate(task.start);
+            const finishDate = parseLocalDate(task.finish);
+
+            if (percent >= 100) return;
+
+            const isLate = finishDate < today && percent < 100;
+            const isInProgress = percent > 0 && percent < 100;
+            const isUpcoming = startDate <= twoWeeksFromNow && startDate >= today && percent === 0;
+
+            if (isLate) {
+                categorized.push({ task, sortOrder: 0, status: 'Behind schedule', statusClass: 'up-next-late' });
+            } else if (isInProgress) {
+                categorized.push({ task, sortOrder: 1, status: 'In progress', statusClass: 'up-next-in-progress' });
+            } else if (isUpcoming) {
+                const daysUntilStart = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+                if (daysUntilStart <= 3) {
+                    categorized.push({ task, sortOrder: 2, status: 'Starting soon', statusClass: 'up-next-starting-soon' });
+                } else {
+                    categorized.push({ task, sortOrder: 3, status: 'Not started yet', statusClass: 'up-next-not-started' });
+                }
+            }
+        });
+
+        // Sort: late first, then in progress, then upcoming (by start date within each group)
+        categorized.sort((a, b) => {
+            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+            const dateA = parseLocalDate(a.task.start);
+            const dateB = parseLocalDate(b.task.start);
+            return dateA - dateB;
+        });
+
+        const displayTasks = categorized.slice(0, 10);
+
+        if (displayTasks.length === 0) {
+            if (tableEl) tableEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+
+        if (tableEl) tableEl.style.display = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        displayTasks.forEach(({ task, status, statusClass }) => {
+            const row = document.createElement('tr');
+
+            const nameCell = document.createElement('td');
+            nameCell.textContent = task.name;
+            nameCell.classList.add('task-name');
+            row.appendChild(nameCell);
+
+            const startCell = document.createElement('td');
+            startCell.textContent = task.start || '-';
+            row.appendChild(startCell);
+
+            const finishCell = document.createElement('td');
+            finishCell.textContent = task.finish || '-';
+            row.appendChild(finishCell);
+
+            const statusCell = document.createElement('td');
+            const statusBadge = document.createElement('span');
+            statusBadge.className = 'up-next-status ' + statusClass;
+            statusBadge.textContent = status;
+            statusCell.appendChild(statusBadge);
+            row.appendChild(statusCell);
+
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error('Error updating report up next:', error);
     }
 }
 
