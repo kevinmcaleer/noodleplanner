@@ -6565,6 +6565,9 @@ function saveTask() {
         return;
     }
 
+    // Get old task name before making changes (for rename detection)
+    const oldTaskName = extractTaskNameFromEditorLine(originalLine);
+
     // Get form values
     const name = document.getElementById('taskName').value.trim();
     const duration = document.getElementById('taskDuration').value.trim();
@@ -6698,11 +6701,60 @@ function saveTask() {
 
     // Update the line
     lines[currentTaskLineNumber - 1] = newLine;
+
+    // Auto-update dependencies if task was renamed
+    if (oldTaskName && name && oldTaskName !== name) {
+        updateDependencyReferences(lines, oldTaskName, name);
+    }
+
     editor.value = lines.join('\n');
 
     // Trigger input event to update line numbers and render
     editor.dispatchEvent(new Event('input'));
     setTimeout(() => renderText(), 10);
+}
+
+/**
+ * Update all dependency references in the editor when a task is renamed.
+ * Scans all lines for [depends ...] blocks containing the old name and
+ * replaces them with the new name, handling comma-separated lists and
+ * lag/lead suffixes (e.g., "OldName +2d" becomes "NewName +2d").
+ */
+function updateDependencyReferences(lines, oldName, newName) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!/\[depends\s+[^\]]+\]/i.test(line)) continue;
+
+        lines[i] = line.replace(/\[depends\s+([^\]]+)\]/gi, function(match, depsContent) {
+            const deps = depsContent.split(',').map(d => d.trim());
+            let changed = false;
+
+            const updatedDeps = deps.map(dep => {
+                // Check for exact match (with optional lag/lead suffix)
+                // e.g., "OldName" or "OldName +2d"
+                const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d*[dwmy]?)$/);
+
+                if (lagLeadMatch) {
+                    const taskName = lagLeadMatch[1].trim();
+                    const lagLead = lagLeadMatch[2];
+                    if (taskName === oldName) {
+                        changed = true;
+                        return newName + ' ' + lagLead;
+                    }
+                } else if (dep === oldName) {
+                    changed = true;
+                    return newName;
+                }
+
+                return dep;
+            });
+
+            if (changed) {
+                return '[depends ' + updatedDeps.join(', ') + ']';
+            }
+            return match;
+        });
+    }
 }
 
 /**
