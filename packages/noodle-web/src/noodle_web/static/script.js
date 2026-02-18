@@ -6070,6 +6070,18 @@ function openTaskForm(lineNumber) {
 
         document.getElementById('taskPercent').value = task.percent || '';
 
+        // Check if percent is effort-driven and style accordingly
+        const effortTotal = parseFloat(task.effortTotal) || 0;
+        const effortPercentInput = document.getElementById('taskPercent');
+        if (effortTotal > 0 && effortPercentInput) {
+            effortPercentInput.readOnly = true;
+            effortPercentInput.title = 'Auto-calculated from effort (completed / total)';
+            effortPercentInput.style.fontStyle = 'italic';
+        } else if (effortPercentInput) {
+            effortPercentInput.style.fontStyle = 'normal';
+            effortPercentInput.title = '';
+        }
+
         // Populate effort fields
         const effortCompletedInput = document.getElementById('taskEffortCompleted');
         const effortCompletedUnitSelect = document.getElementById('taskEffortCompletedUnit');
@@ -6204,6 +6216,7 @@ function populateSubtasks(parentLineNumber, lines) {
         const helperText = document.getElementById('percentHelperText');
         if (percentInput) {
             percentInput.readOnly = false;
+            percentInput.dataset.isSummary = 'false';
             percentInput.style.backgroundColor = '';
             percentInput.style.cursor = '';
         }
@@ -6255,6 +6268,7 @@ function populateSubtasks(parentLineNumber, lines) {
     if (percentInput) {
         percentInput.value = avgPercent;
         percentInput.readOnly = true;
+        percentInput.dataset.isSummary = 'true';
         percentInput.style.backgroundColor = '#f0f0f0';
         percentInput.style.cursor = 'not-allowed';
 
@@ -6635,6 +6649,26 @@ function updateEffortTotal() {
         if (totalUnitSpan) totalUnitSpan.textContent = 'h';
     }
 
+    // Auto-calculate percent from effort if total > 0
+    if (totalHours > 0) {
+        const effortPercent = Math.max(0, Math.min(100, Math.round(completedHours / totalHours * 100)));
+        const percentInput = document.getElementById('taskPercent');
+        if (percentInput) {
+            percentInput.value = effortPercent;
+            percentInput.readOnly = true;
+            percentInput.title = 'Auto-calculated from effort (completed / total)';
+            percentInput.style.fontStyle = 'italic';
+        }
+    } else {
+        // No effort data - restore manual percent editing
+        const percentInput = document.getElementById('taskPercent');
+        if (percentInput && percentInput.dataset.isSummary !== 'true') {
+            percentInput.readOnly = false;
+            percentInput.title = '';
+            percentInput.style.fontStyle = 'normal';
+        }
+    }
+
     saveTask();
 }
 
@@ -6866,8 +6900,9 @@ function saveTask() {
 
     // Add percent - but only if this is not a summary task
     // Summary tasks have their percent auto-calculated from subtasks
+    // Effort-driven tasks should still emit percent (it's derived from effort data)
     const percentInput = document.getElementById('taskPercent');
-    const isSummaryTask = percentInput && percentInput.readOnly;
+    const isSummaryTask = percentInput && percentInput.dataset.isSummary === 'true';
     if (percent && !isSummaryTask) newLine += ' ' + percent + '%';
 
     // Add dates (ISO format) - only if user explicitly set them
@@ -7084,6 +7119,19 @@ function parseTaskLine(line, lineNum) {
             task.effortRemainingUnit = effortMatch[2];
         }
         text = text.replace(/~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?/, '').trim();
+
+        // Auto-calculate percent from effort
+        const effortCompleted = parseFloat(task.effortCompleted) || 0;
+        const effortTotal = parseFloat(task.effortTotal) || 0;
+        if (effortTotal > 0) {
+            const cUnit = task.effortCompletedUnit || 'h';
+            const tUnit = task.effortTotalUnit || 'h';
+            const completedHours = cUnit === 'd' ? effortCompleted * 8 : effortCompleted;
+            const totalHours = tUnit === 'd' ? effortTotal * 8 : effortTotal;
+            if (totalHours > 0) {
+                task.percent = String(Math.max(0, Math.min(100, Math.round(completedHours / totalHours * 100))));
+            }
+        }
     }
 
     // Handle comment first (everything in quotes)
