@@ -4609,10 +4609,26 @@ function updateTasksTable(tasks) {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         row.appendChild(predCell);
 
+        // Actions column with inspect button
+        const actionsCell = document.createElement('td');
+        actionsCell.classList.add('task-actions-cell');
+        if (!task.is_summary) {
+            const inspectBtn = document.createElement('button');
+            inspectBtn.className = 'task-inspect-btn';
+            inspectBtn.title = 'Inspect task';
+            inspectBtn.textContent = '🔍';
+            inspectBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openTaskInspectorByName(task.name);
+            });
+            actionsCell.appendChild(inspectBtn);
+        }
+        row.appendChild(actionsCell);
+
         // Click to open task
         row.style.cursor = 'pointer';
         row.addEventListener('click', (e) => {
-            if (e.target.closest('.editable') || e.target.closest('.gantt-done-cell')) return;
+            if (e.target.closest('.editable') || e.target.closest('.gantt-done-cell') || e.target.closest('.task-actions-cell')) return;
             openMilestoneTaskForm(task.name);
         });
 
@@ -8335,6 +8351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 'highlightFormSection': closeHighlightForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
+                        case 'taskInspectorSection': closeTaskInspector(); break;
                         default: closeDetailPane();
                     }
                 } else {
@@ -8373,6 +8390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 'highlightFormSection': closeHighlightForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
+                        case 'taskInspectorSection': closeTaskInspector(); break;
                         default: closeDetailPane();
                     }
                 } else {
@@ -12490,4 +12508,455 @@ function updatePlanHighlightsText(planText, highlights) {
 
     return result;
 }
+
+// ============================================================
+// Task Inspector
+// ============================================================
+
+/**
+ * Open the Task Inspector for the task on the current editor line.
+ * Determines the line number from the cursor position in the plan editor.
+ */
+function openTaskInspectorForCurrentLine() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const cursorPos = editor.selectionStart;
+    const textBefore = editor.value.substring(0, cursorPos);
+    const lineNumber = textBefore.split('\n').length;
+
+    openTaskInspector(lineNumber);
+}
+
+/**
+ * Open the Task Inspector for a given task by its editor line number.
+ */
+function openTaskInspector(lineNumber) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    const taskLine = lines[lineNumber - 1];
+    if (!taskLine || !taskLine.trim()) {
+        showInspectorEmpty('No task found on this line. Place your cursor on a task line and try again.');
+        openDetailPane('taskInspectorSection');
+        return;
+    }
+
+    // Parse the current task
+    const task = parseTaskLine(taskLine, lineNumber);
+    if (!task.name) {
+        showInspectorEmpty('This line does not contain a recognisable task. Check the syntax and try again.');
+        openDetailPane('taskInspectorSection');
+        return;
+    }
+
+    // Build task map for dependency resolution
+    const taskMap = new Map();
+    for (let i = 0; i < lines.length; i++) {
+        const t = parseTaskLine(lines[i], i + 1);
+        if (t.name) {
+            taskMap.set(t.name, t);
+        }
+    }
+
+    // Calculate dates (recursive dependency resolution)
+    calculateTaskDates(task, taskMap, lines);
+
+    // Calculate RAG info
+    const ragInfo = calculateInspectorRag(task);
+
+    // Find dependency details
+    const depDetails = getInspectorDependencies(task, taskMap, lines);
+
+    // Generate hints
+    const hints = generateInspectorHints(task, ragInfo, depDetails);
+
+    // Render the inspector
+    renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber);
+    openDetailPane('taskInspectorSection');
+}
+
+/**
+ * Open the Task Inspector for a task specified by name.
+ * Finds the task in the editor and opens the inspector for it.
+ */
+function openTaskInspectorByName(taskName) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const t = parseTaskLine(lines[i], i + 1);
+        if (t.name && t.name === taskName) {
+            openTaskInspector(i + 1);
+            return;
+        }
+    }
+}
+
+function closeTaskInspector() {
+    closeDetailPane();
+}
+
+function showInspectorEmpty(message) {
+    const body = document.getElementById('inspectorBody');
+    const title = document.getElementById('inspectorTaskTitle');
+    title.textContent = 'Task Inspector';
+    body.innerHTML = '<div class="inspector-empty-state"><p>' + escapeHtml(message) + '</p></div>';
+}
+
+/**
+ * Calculate RAG status and reasoning for the inspector.
+ * Returns { status, reasoning, bgClass, expectedPercent }
+ */
+function calculateInspectorRag(task) {
+    const percent = parseInt(task.percent) || 0;
+    const startDateStr = task.startDate;
+    const finishDateStr = task.finishDate;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let status, reasoning, bgClass, expectedPercent = null;
+
+    if (percent === 100) {
+        status = 'Green';
+        bgClass = 'rag-green';
+        reasoning = 'This task is complete. No further action needed.';
+    } else if (startDateStr && new Date(startDateStr) > today) {
+        status = 'Green';
+        bgClass = 'rag-green';
+        const startDate = new Date(startDateStr);
+        const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
+        reasoning = 'This task is not due to start yet. It begins in ' + daysUntil + ' day' + (daysUntil !== 1 ? 's' : '') + ' on ' + formatInspectorDate(startDateStr) + '.';
+    } else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
+        status = 'Red';
+        bgClass = 'rag-red';
+        const startDate = new Date(startDateStr);
+        const daysOverdue = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24));
+        reasoning = 'This task was scheduled to start ' + daysOverdue + ' day' + (daysOverdue !== 1 ? 's' : '') + ' ago but has no progress reported. It needs immediate attention.';
+    } else if (startDateStr && finishDateStr) {
+        const startDate = new Date(startDateStr);
+        const finishDate = new Date(finishDateStr);
+        const totalDuration = (finishDate - startDate) / (1000 * 60 * 60 * 24);
+        const elapsedDays = Math.max(0, (today - startDate) / (1000 * 60 * 60 * 24));
+        expectedPercent = Math.min(100, Math.round((elapsedDays / Math.max(1, totalDuration)) * 100));
+
+        if (today > finishDate && percent < 100) {
+            status = 'Red';
+            bgClass = 'rag-red';
+            const daysLate = Math.ceil((today - finishDate) / (1000 * 60 * 60 * 24));
+            reasoning = 'This task is ' + daysLate + ' day' + (daysLate !== 1 ? 's' : '') + ' past its finish date with only ' + percent + '% complete. It is overdue and blocking downstream work.';
+        } else if (percent < expectedPercent) {
+            status = 'Amber';
+            bgClass = 'rag-amber';
+            const gap = expectedPercent - percent;
+            reasoning = 'This task is behind schedule. Based on elapsed time, it should be around ' + expectedPercent + '% complete but is only at ' + percent + '%. There is a ' + gap + ' percentage point gap to close.';
+        } else {
+            status = 'Green';
+            bgClass = 'rag-green';
+            reasoning = 'This task is on track. It is ' + percent + '% complete against an expected ' + expectedPercent + '%.';
+        }
+    } else if (percent === 0) {
+        status = 'Red';
+        bgClass = 'rag-red';
+        reasoning = 'No progress has been reported for this task and no schedule dates are available.';
+    } else if (percent < 50) {
+        status = 'Red';
+        bgClass = 'rag-red';
+        reasoning = 'Progress is below 50% and no schedule dates are available to assess whether this is on track.';
+    } else if (percent < 80) {
+        status = 'Amber';
+        bgClass = 'rag-amber';
+        reasoning = 'Progress is between 50% and 80%. Without schedule dates, it is hard to confirm this is on track.';
+    } else {
+        status = 'Green';
+        bgClass = 'rag-green';
+        reasoning = 'Progress is at ' + percent + '%, which indicates the task is nearing completion.';
+    }
+
+    return { status, reasoning, bgClass, expectedPercent };
+}
+
+/**
+ * Build dependency detail list for the inspector.
+ * Returns an array of { name, finishDate, isDriving, lineNumber }
+ */
+function getInspectorDependencies(task, taskMap, lines) {
+    if (!task.dependencies) return [];
+
+    const depEntries = task.dependencies.split(',').map(d => d.trim()).filter(d => d);
+    const results = [];
+
+    let latestFinishDate = null;
+
+    // First pass: find the latest finish date (the driving dependency)
+    for (const depEntry of depEntries) {
+        const lagLeadMatch = depEntry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
+        const depName = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+        const depTask = taskMap.get(depName);
+
+        if (depTask) {
+            calculateTaskDates(depTask, taskMap, lines);
+            if (depTask.finishDate) {
+                if (!latestFinishDate || depTask.finishDate > latestFinishDate) {
+                    latestFinishDate = depTask.finishDate;
+                }
+            }
+        }
+    }
+
+    // Second pass: build details and mark the driving dependency
+    for (const depEntry of depEntries) {
+        const lagLeadMatch = depEntry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
+        const depName = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+        const depTask = taskMap.get(depName);
+
+        const detail = {
+            name: depName,
+            finishDate: null,
+            isDriving: false,
+            lineNumber: null,
+            rag: null
+        };
+
+        if (depTask) {
+            detail.finishDate = depTask.finishDate || null;
+            detail.lineNumber = depTask.lineNumber || null;
+            detail.isDriving = (depTask.finishDate && depTask.finishDate === latestFinishDate);
+
+            // Calculate dep RAG
+            const depRag = calculateInspectorRag(depTask);
+            detail.rag = depRag.status;
+        }
+
+        results.push(detail);
+    }
+
+    return results;
+}
+
+/**
+ * Generate actionable hints for the project manager.
+ */
+function generateInspectorHints(task, ragInfo, depDetails) {
+    const hints = [];
+    const percent = parseInt(task.percent) || 0;
+
+    // Hint for red tasks
+    if (ragInfo.status === 'Red') {
+        if (percent === 0 && task.startDate) {
+            hints.push('This task has not started despite being past its start date. Check with the assigned resource to confirm availability and remove any blockers.');
+        }
+        if (ragInfo.expectedPercent !== null && ragInfo.expectedPercent > percent) {
+            hints.push('Consider re-planning: can additional resources be allocated, or should the scope be reduced to bring this back on track?');
+        }
+        if (!task.resources) {
+            hints.push('No resources are assigned to this task. Assigning an owner will help ensure accountability.');
+        }
+    }
+
+    // Hint for amber tasks
+    if (ragInfo.status === 'Amber') {
+        hints.push('This task is falling behind. A short check-in with the assigned resource may uncover issues early before the situation worsens.');
+        if (ragInfo.expectedPercent !== null) {
+            const gap = ragInfo.expectedPercent - percent;
+            if (gap > 20) {
+                hints.push('The progress gap is significant (' + gap + '%). Consider whether the task estimate was realistic or if there are hidden blockers.');
+            }
+        }
+    }
+
+    // Hints about dependencies
+    const redDeps = depDetails.filter(d => d.rag === 'Red');
+    const amberDeps = depDetails.filter(d => d.rag === 'Amber');
+
+    if (redDeps.length > 0) {
+        const names = redDeps.map(d => d.name).join(', ');
+        hints.push('Upstream dependency "' + names + '" is flagged red. This task cannot truly begin until its dependencies are resolved.');
+    }
+
+    if (amberDeps.length > 0 && redDeps.length === 0) {
+        const names = amberDeps.map(d => d.name).join(', ');
+        hints.push('Upstream dependency "' + names + '" is at amber status. Monitor closely to avoid knock-on delays to this task.');
+    }
+
+    // Hint for tasks with no dependencies and no dates
+    if (depDetails.length === 0 && !task.startDate && !task.finishDate) {
+        hints.push('This task has no dependencies or dates set. Adding start/finish dates or linking it to predecessor tasks will improve schedule accuracy.');
+    }
+
+    // Hint for completed tasks
+    if (percent === 100 && ragInfo.status === 'Green') {
+        hints.push('This task is complete. Well done!');
+    }
+
+    return hints;
+}
+
+/**
+ * Format a date string (YYYY-MM-DD) into a readable format.
+ */
+function formatInspectorDate(dateStr) {
+    if (!dateStr) return '-';
+    try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
+
+/**
+ * Render the full Task Inspector content.
+ */
+function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
+    const title = document.getElementById('inspectorTaskTitle');
+    const body = document.getElementById('inspectorBody');
+
+    title.textContent = task.name || 'Task Inspector';
+
+    const percent = parseInt(task.percent) || 0;
+    const durationText = task.duration ? task.duration + ' day' + (task.duration !== '1' ? 's' : '') : '-';
+    const resourcesText = task.resources || 'Unassigned';
+    const priorityText = task.priority || 'Low';
+
+    // Determine progress bar colour
+    let progressColour = 'green';
+    if (ragInfo.status === 'Amber') progressColour = 'amber';
+    if (ragInfo.status === 'Red') progressColour = 'red';
+
+    let html = '';
+
+    // --- RAG Banner ---
+    html += '<div class="inspector-rag-banner ' + ragInfo.bgClass + '">';
+    html += '  <div class="inspector-rag-dot ' + ragInfo.bgClass + '"></div>';
+    html += '  <div class="inspector-rag-text">';
+    html += '    <div class="inspector-rag-status">' + escapeHtml(ragInfo.status) + ' Status</div>';
+    html += '    <div class="inspector-rag-explanation">' + escapeHtml(ragInfo.reasoning) + '</div>';
+    html += '  </div>';
+    html += '</div>';
+
+    // --- Schedule & Details ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">📅</span> Schedule &amp; Details</div>';
+    html += '  <div class="inspector-section-body">';
+    html += '    <div class="inspector-field-grid">';
+    html += '      <div class="inspector-field">';
+    html += '        <div class="inspector-field-label">Start Date</div>';
+    html += '        <div class="inspector-field-value">' + formatInspectorDate(task.startDate) + '</div>';
+    html += '      </div>';
+    html += '      <div class="inspector-field">';
+    html += '        <div class="inspector-field-label">Finish Date</div>';
+    html += '        <div class="inspector-field-value">' + formatInspectorDate(task.finishDate) + '</div>';
+    html += '      </div>';
+    html += '      <div class="inspector-field">';
+    html += '        <div class="inspector-field-label">Duration</div>';
+    html += '        <div class="inspector-field-value">' + escapeHtml(durationText) + '</div>';
+    html += '      </div>';
+    html += '      <div class="inspector-field">';
+    html += '        <div class="inspector-field-label">Priority</div>';
+    html += '        <div class="inspector-field-value">' + escapeHtml(priorityText) + '</div>';
+    html += '      </div>';
+    html += '      <div class="inspector-field">';
+    html += '        <div class="inspector-field-label">Resources</div>';
+    html += '        <div class="inspector-field-value">' + escapeHtml(resourcesText) + '</div>';
+    html += '      </div>';
+    html += '      <div class="inspector-field">';
+    html += '        <div class="inspector-field-label">Bucket</div>';
+    html += '        <div class="inspector-field-value">' + escapeHtml(task.bucket || '-') + '</div>';
+    html += '      </div>';
+    html += '    </div>';
+
+    // Progress bar
+    html += '    <div class="inspector-field" style="margin-top: 6px;">';
+    html += '      <div class="inspector-field-label">Progress: ' + percent + '%</div>';
+    html += '      <div class="inspector-progress-bar-wrapper">';
+    html += '        <div class="inspector-progress-bar-fill ' + progressColour + '" style="width: ' + percent + '%;"></div>';
+    html += '      </div>';
+    html += '    </div>';
+
+    if (ragInfo.expectedPercent !== null && percent < 100) {
+        html += '    <div style="font-size: 0.82em; color: #888; margin-top: 4px;">Expected progress based on elapsed time: ' + ragInfo.expectedPercent + '%</div>';
+    }
+
+    html += '  </div>';
+    html += '</div>';
+
+    // --- Dependencies ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">🔗</span> Dependencies (What Drives the Start Date)</div>';
+    html += '  <div class="inspector-section-body">';
+
+    if (depDetails.length === 0) {
+        html += '    <div class="inspector-no-deps">This task has no dependencies. Its start date is set directly or defaults to today.</div>';
+    } else {
+        html += '    <ul class="inspector-dep-list">';
+        for (const dep of depDetails) {
+            html += '      <li class="inspector-dep-item">';
+            html += '        <span class="inspector-dep-badge ' + (dep.isDriving ? 'driving' : 'non-driving') + '">';
+            html += dep.isDriving ? 'DRIVING' : 'predecessor';
+            html += '        </span>';
+            html += '        <span class="inspector-dep-name">';
+            if (dep.lineNumber) {
+                html += '<a href="#" onclick="openTaskInspectorByName(\'' + escapeHtml(dep.name).replace(/'/g, "\\'") + '\'); return false;" style="color: inherit; text-decoration: underline dotted;">';
+                html += escapeHtml(dep.name);
+                html += '</a>';
+            } else {
+                html += escapeHtml(dep.name);
+            }
+            html += '        </span>';
+            html += '        <span class="inspector-dep-date">finishes ' + formatInspectorDate(dep.finishDate) + '</span>';
+            if (dep.rag) {
+                html += '        <span class="inspector-rag-dot rag-' + dep.rag.toLowerCase() + '" style="width:10px; height:10px;" title="' + escapeHtml(dep.rag) + '"></span>';
+            }
+            html += '      </li>';
+        }
+        html += '    </ul>';
+
+        // Explain the driving dependency
+        const drivingDep = depDetails.find(d => d.isDriving);
+        if (drivingDep) {
+            html += '    <div style="font-size: 0.85em; color: #555; margin-top: 8px;">';
+            html += '      The <strong>driving dependency</strong> is "' + escapeHtml(drivingDep.name) + '", finishing on ' + formatInspectorDate(drivingDep.finishDate) + '. ';
+            html += '      This task cannot start until that date.';
+            if (depDetails.length > 1) {
+                html += ' The other predecessor' + (depDetails.length > 2 ? 's are' : ' is') + ' expected to finish earlier and ' + (depDetails.length > 2 ? 'do' : 'does') + ' not affect the start date.';
+            }
+            html += '    </div>';
+        }
+    }
+
+    html += '  </div>';
+    html += '</div>';
+
+    // --- Comment ---
+    if (task.comment) {
+        html += '<div class="inspector-section">';
+        html += '  <div class="inspector-section-header"><span class="inspector-icon">💬</span> Comment</div>';
+        html += '  <div class="inspector-section-body">';
+        html += '    <div style="font-size: 0.9em; color: #444; line-height: 1.5;">' + escapeHtml(task.comment) + '</div>';
+        html += '  </div>';
+        html += '</div>';
+    }
+
+    // --- Hints ---
+    if (hints.length > 0) {
+        html += '<div class="inspector-section">';
+        html += '  <div class="inspector-section-header"><span class="inspector-icon">💡</span> Recommendations</div>';
+        html += '  <div class="inspector-section-body">';
+        for (const hint of hints) {
+            html += '    <div class="inspector-hint">' + escapeHtml(hint) + '</div>';
+        }
+        html += '  </div>';
+        html += '</div>';
+    }
+
+    // Edit button
+    html += '<button class="inspector-open-task-btn" onclick="closeTaskInspector(); openTaskForm(' + lineNumber + ');">Edit This Task</button>';
+
+    body.innerHTML = html;
+}
+
 
