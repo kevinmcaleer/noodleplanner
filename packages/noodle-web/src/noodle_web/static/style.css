@@ -3226,6 +3226,31 @@ body.detail-pane-open {
     vertical-align: middle;
 }
 
+#cfRulesTable .cf-move-cell {
+    white-space: nowrap;
+    text-align: center;
+}
+
+#cfRulesTable .cf-move-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    font-size: 0.7em;
+    padding: 0 3px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+#cfRulesTable .cf-move-btn:hover:not(:disabled) {
+    color: #0d6efd;
+}
+
+#cfRulesTable .cf-move-btn:disabled {
+    color: #dee2e6;
+    cursor: default;
+}
+
 #cfRulesTable .cf-delete-btn {
     background: none;
     border: none;
