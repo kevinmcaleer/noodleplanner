@@ -4261,25 +4261,55 @@ function renderDependencyLines() {
             const predY = visibleRowY[predIndex];
             if (predY === undefined) return;
 
-            // Line from end of predecessor to start of dependent
+            // Finish-to-Start: line from right edge of predecessor
+            // to left edge of dependent, with orthogonal routing
             const startX = predLeft + predWidth;
             const startY = predY;
             const endX = depLeft;
             const endY = depY;
 
-            // Draw an L-shaped path: right from pred, then down/up to dep
-            const midX = startX + 8;
+            const offset = 10;
+            const arrowSize = 5;
+            let d;
+
+            if (endX > startX + offset * 2) {
+                // Simple case: dependent is to the right of predecessor
+                // Route: right from pred, down/up to midpoint Y, left/right to dep, into dep
+                const midX = startX + offset;
+                const midY = startY + (endY - startY) / 2;
+                d = `M ${startX} ${startY} ` +
+                    `L ${midX} ${startY} ` +
+                    `L ${midX} ${endY} ` +
+                    `L ${endX - offset} ${endY} ` +
+                    `L ${endX} ${endY}`;
+            } else {
+                // Overlap case: dependent starts at or before predecessor ends
+                // Route in an S/5 shape going around:
+                // 1. Right from pred edge
+                // 2. Down/up halfway to dep row
+                // 3. Left past dep left edge
+                // 4. Down/up to dep row
+                // 5. Right into dep left edge
+                const exitX = startX + offset;
+                const entryX = endX - offset;
+                const midY = startY + (endY - startY) / 2;
+                d = `M ${startX} ${startY} ` +
+                    `L ${exitX} ${startY} ` +
+                    `L ${exitX} ${midY} ` +
+                    `L ${entryX} ${midY} ` +
+                    `L ${entryX} ${endY} ` +
+                    `L ${endX} ${endY}`;
+            }
+
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const d = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
             path.setAttribute('d', d);
             path.setAttribute('fill', 'none');
             path.setAttribute('stroke', '#adb5bd');
             path.setAttribute('stroke-width', '1.5');
             path.setAttribute('stroke-dasharray', '4,3');
 
-            // Add small arrowhead at end
+            // Arrowhead pointing right into the left side of dependent task
             const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            const arrowSize = 5;
             arrow.setAttribute('points',
                 `${endX},${endY} ${endX - arrowSize},${endY - arrowSize} ${endX - arrowSize},${endY + arrowSize}`
             );
