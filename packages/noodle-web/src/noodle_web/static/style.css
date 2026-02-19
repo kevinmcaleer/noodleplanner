@@ -1115,6 +1115,54 @@ h1 {
     overflow-x: auto;
 }
 
+/* Embedded Timeline in Tasks/Gantt Views */
+.embedded-timeline-section {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+}
+
+.embedded-timeline-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+}
+
+.embedded-timeline-toggle {
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.embedded-timeline-toggle .toggle-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 0.7rem;
+}
+
+.embedded-timeline-section:not(.collapsed) .embedded-timeline-toggle .toggle-icon {
+    transform: rotate(90deg);
+}
+
+.embedded-timeline-section.collapsed .embedded-timeline-body {
+    display: none;
+}
+
+.embedded-timeline-section.collapsed .embedded-timeline-copy {
+    display: none;
+}
+
+.embedded-timeline-body {
+    padding: 0 8px 8px;
+}
+
+.embedded-timeline-wrapper {
+    overflow-x: auto;
+}
+
 /* Quad Grid Layout */
 .quad-grid {
     display: grid;

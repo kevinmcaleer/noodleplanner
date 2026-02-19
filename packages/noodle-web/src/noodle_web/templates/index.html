@@ -475,6 +475,20 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the interactive Gantt chart</p>
                             </div>
                             <div class="gantt-content" style="display: none;">
+                                <div class="embedded-timeline-section collapsed">
+                                    <div class="embedded-timeline-header">
+                                        <button class="btn btn-sm btn-outline-secondary embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('gantt-view')" title="Toggle timeline">
+                                            <span class="toggle-icon">&#9654;</span> Timeline
+                                        </button>
+                                        <button class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                    </div>
+                                    <div class="embedded-timeline-body">
+                                        <div class="timeline-line-wrapper embedded-timeline-wrapper" style="position: relative;">
+                                            <div class="timeline-line" id="gantt-view-timeline-line"></div>
+                                            <div class="timeline-milestones" id="gantt-view-timeline-milestones"></div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="gantt-toolbar">
                                     <h2 class="gantt-title">Gantt Chart</h2>
                                     <div class="gantt-toolbar-controls">
@@ -541,6 +555,20 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the tasks table</p>
                             </div>
                             <div class="tasks-content" style="display: none;">
+                                <div class="embedded-timeline-section collapsed">
+                                    <div class="embedded-timeline-header">
+                                        <button class="btn btn-sm btn-outline-secondary embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('tasks-view')" title="Toggle timeline">
+                                            <span class="toggle-icon">&#9654;</span> Timeline
+                                        </button>
+                                        <button class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                    </div>
+                                    <div class="embedded-timeline-body">
+                                        <div class="timeline-line-wrapper embedded-timeline-wrapper" style="position: relative;">
+                                            <div class="timeline-line" id="tasks-view-timeline-line"></div>
+                                            <div class="timeline-milestones" id="tasks-view-timeline-milestones"></div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="tasks-toolbar">
                                     <h2 class="tasks-title">Tasks</h2>
                                 </div>

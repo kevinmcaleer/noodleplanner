@@ -1316,6 +1316,9 @@ async function updateProjectSummary(planText, projectName) {
         // Update Timeline
         updateTimeline(result.tasks || [], result.project_name);
 
+        // Update embedded timelines in tasks and gantt views
+        updateAllEmbeddedTimelines();
+
         // Load conditional formatting rules before rendering
         loadConditionalFormattingRulesFromFrontMatter();
 
@@ -1611,6 +1614,64 @@ function updateReportTimeline(tasks, projectName) {
     } catch (error) {
         console.error('Error updating report timeline:', error);
     }
+}
+
+function updateEmbeddedTimeline(viewId) {
+    try {
+        const wrapper = document.querySelector(`#${viewId} .embedded-timeline-wrapper`);
+        if (!wrapper || wrapper.offsetWidth === 0) return;
+
+        const tasks = timelineTasks;
+        if (!tasks || tasks.length === 0) return;
+
+        const allTasks = tasks.filter(t => (t.start && t.finish) || (t.finish && t.duration_days === 0));
+        if (allTasks.length === 0) return;
+
+        const allDates = [];
+        allTasks.forEach(t => {
+            if (t.start) allDates.push(parseLocalDate(t.start));
+            if (t.finish) allDates.push(parseLocalDate(t.finish));
+        });
+        const minDate = new Date(Math.min(...allDates));
+        const maxDate = new Date(Math.max(...allDates));
+
+        minDate.setDate(minDate.getDate() - 7);
+        maxDate.setDate(maxDate.getDate() + 7);
+
+        const availableWidth = wrapper.offsetWidth - 100;
+        const timelineWidth = Math.max(800, availableWidth);
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        const lineId = viewId + '-timeline-line';
+        const milestonesId = viewId + '-timeline-milestones';
+
+        renderMinimalTimeline(wrapper, tasks, minDate, maxDate, totalDays, timelineWidth, {
+            isReport: true,
+            timelineLineId: lineId,
+            milestonesId: milestonesId
+        });
+    } catch (error) {
+        console.error('Error updating embedded timeline for ' + viewId + ':', error);
+    }
+}
+
+function toggleEmbeddedTimeline(viewId) {
+    const section = document.querySelector(`#${viewId} .embedded-timeline-section`);
+    if (!section) return;
+
+    const isCollapsed = section.classList.toggle('collapsed');
+    if (!isCollapsed) {
+        setTimeout(() => updateEmbeddedTimeline(viewId), 50);
+    }
+}
+
+function updateAllEmbeddedTimelines() {
+    ['tasks-view', 'gantt-view'].forEach(viewId => {
+        const section = document.querySelector(`#${viewId} .embedded-timeline-section`);
+        if (section && !section.classList.contains('collapsed')) {
+            updateEmbeddedTimeline(viewId);
+        }
+    });
 }
 
 function updateReportMilestones(tasks) {
@@ -2732,8 +2793,8 @@ function renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth
 
 function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, timelineWidth, options) {
     const isReport = options?.isReport ?? false;
-    const timelineLineId = isReport ? 'reportTimelineLine' : 'timelineLine';
-    const milestonesId = isReport ? 'reportTimelineMilestones' : 'timelineMilestones';
+    const timelineLineId = options?.timelineLineId || (isReport ? 'reportTimelineLine' : 'timelineLine');
+    const milestonesId = options?.milestonesId || (isReport ? 'reportTimelineMilestones' : 'timelineMilestones');
 
     const timelineLine = document.getElementById(timelineLineId);
     const timelineMilestones = document.getElementById(milestonesId);
@@ -8395,6 +8456,13 @@ function switchOutputTab(tabName) {
             updateReportTimeline(timelineTasks, timelineProjectName);
         }, 50);
     }
+
+    // If switching to tasks or gantt view, re-render embedded timeline if visible
+    if ((tabName === 'tasks' || tabName === 'gantt') && timelineTasks.length > 0) {
+        setTimeout(() => {
+            updateEmbeddedTimeline(tabName + '-view');
+        }, 50);
+    }
 }
 
 // Resizer functionality
@@ -9365,6 +9433,7 @@ function toggleMainEditor() {
             if (ganttTasks && ganttTasks.length > 0) {
                 renderGanttChart();
             }
+            updateAllEmbeddedTimelines();
         }, 350); // Wait for collapse animation to complete
     }
 }
