@@ -2124,15 +2124,17 @@ function renameResourceShortname(oldShortname, newShortname) {
     let content = editor.value;
 
     // Replace in front matter resource definition: @oldname: -> @newname:
+    // Use negative lookbehind to avoid matching inside email addresses (e.g. user@oldname)
     content = content.replace(
-        new RegExp(`(@${oldShortname})(\\s*:)`, 'gi'),
+        new RegExp(`(?<!\\w)(@${oldShortname})(\\s*:)`, 'gi'),
         `@${newShortname}$2`
     );
 
     // Replace @oldname references in task lines (not in front matter definition)
     // Match @oldname followed by word boundary (space, comma, bracket, end of line)
+    // Use negative lookbehind to avoid matching inside email addresses
     content = content.replace(
-        new RegExp(`@${oldShortname}\\b`, 'g'),
+        new RegExp(`(?<!\\w)@${oldShortname}\\b`, 'g'),
         `@${newShortname}`
     );
 
@@ -2149,7 +2151,8 @@ function fixResourceNames() {
     let changesMade = false;
 
     // Find all @shortname references and capitalise first letter
-    content = content.replace(/@([a-z])(\w*)/g, (match, firstChar, rest) => {
+    // Use negative lookbehind to avoid matching inside email addresses (e.g. user@example.com)
+    content = content.replace(/(?<!\w)@([a-z])(\w*)/g, (match, firstChar, rest) => {
         changesMade = true;
         return '@' + firstChar.toUpperCase() + rest;
     });
