@@ -5934,7 +5934,7 @@ function updatePiechartAppearance(element, percent) {
     } else {
         element.classList.remove('complete');
         element.style.setProperty('--percent', percent + '%');
-        element.style.background = `conic-gradient(#667eea 0% ${percent}%, #e0e0e0 ${percent}% 100%)`;
+        element.style.background = `conic-gradient(#28a745 0% ${percent}%, #e0e0e0 ${percent}% 100%)`;
         element.title = percent > 0 ? `${percent}% complete - click to complete` : 'Mark complete';
     }
 }
@@ -7124,7 +7124,7 @@ function addNewSubtask() {
     const piechartPlaceholder = document.createElement('div');
     piechartPlaceholder.className = 'mini-piechart';
     piechartPlaceholder.style.setProperty('--percent', '0%');
-    piechartPlaceholder.style.background = 'conic-gradient(#667eea 0% 0%, #e0e0e0 0% 100%)';
+    piechartPlaceholder.style.background = 'conic-gradient(#28a745 0% 0%, #e0e0e0 0% 100%)';
     piechartPlaceholder.style.pointerEvents = 'none';
     piechartPlaceholder.style.opacity = '0.5';
 

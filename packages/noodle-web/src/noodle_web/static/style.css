@@ -4889,7 +4889,7 @@ tr:hover .task-inspect-btn {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: conic-gradient(#667eea 0% var(--percent), #e0e0e0 var(--percent) 100%);
+    background: conic-gradient(#28a745 0% var(--percent), #e0e0e0 var(--percent) 100%);
     cursor: pointer;
     flex-shrink: 0;
     transition: transform 0.15s ease;
@@ -4942,7 +4942,7 @@ tr:hover .task-inspect-btn {
 }
 
 .piechart-popup-btn:hover {
-    background: #667eea;
+    background: #28a745;
     color: white;
 }
 
