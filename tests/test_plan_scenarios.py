@@ -502,9 +502,10 @@ Phase 2
   Task C @Carol 4d [depends Task A]"""
 
     def test_excel_export_produces_valid_file(self):
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-            tmp_path = tmp.name
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                tmp_path = tmp.name
             data = natural_language_to_yaml(self.PLAN, "Test Project")
             # export_to_excel expects the text and path
             export_to_excel(self.PLAN, tmp_path, is_yaml=False, project_name="Test Project")
@@ -526,12 +527,14 @@ Phase 2
             assert ws.max_row >= 2
             wb.close()
         finally:
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     def test_excel_export_has_correct_row_count(self):
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-            tmp_path = tmp.name
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                tmp_path = tmp.name
             export_to_excel(self.PLAN, tmp_path, is_yaml=False, project_name="Test Project")
             wb = load_workbook(tmp_path)
             ws = wb.active
@@ -541,7 +544,8 @@ Phase 2
             assert ws.max_row == expected_rows
             wb.close()
         finally:
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
 
 class TestCSVExport:
@@ -553,9 +557,10 @@ Phase 1
   Task B @Bob 2d"""
 
     def test_csv_export_produces_valid_output(self):
-        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as tmp:
-            tmp_path = tmp.name
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as tmp:
+                tmp_path = tmp.name
             export_to_csv(self.PLAN, tmp_path, is_yaml=False, project_name="Test Project")
             # Verify file is non-empty
             assert os.path.getsize(tmp_path) > 0
@@ -572,12 +577,14 @@ Phase 1
             # Verify we have data rows
             assert len(rows) >= 2  # At least phase + tasks
         finally:
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     def test_csv_export_has_expected_columns(self):
-        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as tmp:
-            tmp_path = tmp.name
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as tmp:
+                tmp_path = tmp.name
             export_to_csv(self.PLAN, tmp_path, is_yaml=False, project_name="Test Project")
             with open(tmp_path, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
@@ -588,7 +595,8 @@ Phase 1
                 }
                 assert set(reader.fieldnames) == expected_columns
         finally:
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 """Tests for RAID Log integration with Excel export/import."""
 
 import io
+import os
 import tempfile
 import pytest
 from openpyxl import load_workbook
@@ -37,10 +38,11 @@ Phase 1
         # Convert plan to standard format (strips RAID log for task parsing)
         converted_text = convert_plan_format_to_standard(plan_text)
 
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             export_to_excel(
                 converted_text,
                 tmp_path,
@@ -82,8 +84,7 @@ Phase 1
             wb.close()
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
     def test_export_without_raid_log(self):
@@ -98,10 +99,11 @@ Phase 1
 
         converted_text = convert_plan_format_to_standard(plan_text)
 
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             export_to_excel(
                 converted_text,
                 tmp_path,
@@ -118,8 +120,7 @@ Phase 1
             wb.close()
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
     def test_export_raid_log_color_coding(self):
@@ -137,10 +138,11 @@ Phase 1
 
         converted_text = convert_plan_format_to_standard(plan_text)
 
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             export_to_excel(
                 converted_text,
                 tmp_path,
@@ -175,8 +177,7 @@ Phase 1
             wb.close()
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
 
@@ -390,10 +391,11 @@ class TestRaidLogRoundTrip:
         converted_text = convert_plan_format_to_standard(original_plan)
 
         # Export to Excel
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             export_to_excel(
                 converted_text,
                 tmp_path,
@@ -423,8 +425,7 @@ class TestRaidLogRoundTrip:
             assert "decision" in markdown.lower()
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
 
@@ -569,10 +570,11 @@ class TestRaidLogPerformance:
 
         converted_text = convert_plan_format_to_standard(plan_text)
 
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             start_time = time.time()
             export_to_excel(
                 converted_text,
@@ -593,8 +595,7 @@ class TestRaidLogPerformance:
             assert elapsed < 5.0  # Should complete in less than 5 seconds
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
 
@@ -679,10 +680,11 @@ class TestRaidLogErrorHandling:
 
         converted_text = convert_plan_format_to_standard(plan_text)
 
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             # Should not crash even with empty title
             export_to_excel(
                 converted_text,
@@ -697,8 +699,7 @@ class TestRaidLogErrorHandling:
             wb.close()
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
     def test_export_with_malformed_raid_markdown(self):
@@ -712,10 +713,11 @@ This is not a table, just random text
 
         converted_text = convert_plan_format_to_standard(plan_text)
 
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
             # Should not crash even with malformed RAID section
             export_to_excel(
                 converted_text,
@@ -731,8 +733,7 @@ This is not a table, just random text
             wb.close()
 
         finally:
-            import os
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
 
