@@ -1,7 +1,9 @@
 import logging
 import os
+import time
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
@@ -13,6 +15,10 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://noodleuser:noodlepass@localhost:5432/noodledb"
 )
+
+# Retry configuration
+MAX_RETRIES = int(os.getenv("DB_MAX_RETRIES", "3"))
+BASE_RETRY_DELAY = float(os.getenv("DB_RETRY_DELAY", "1.0"))
 
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -48,10 +54,37 @@ def init_db():
     pass  # Migrations are handled by Alembic
 
 
+def _create_session_with_retry():
+    """Create a database session, retrying on connection errors."""
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            db = SessionLocal()
+            # Verify the connection is alive by issuing a simple query
+            db.execute(text("SELECT 1"))
+            return db
+        except OperationalError as e:
+            last_error = e
+            if attempt < MAX_RETRIES:
+                delay = BASE_RETRY_DELAY * (2 ** (attempt - 1))
+                logger.warning(
+                    "Database connection error (attempt %d/%d), retrying in %.1fs: %s",
+                    attempt, MAX_RETRIES, delay, e,
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    "Database connection failed after %d attempts: %s",
+                    MAX_RETRIES, e,
+                )
+                raise
+    raise last_error
+
+
 @contextmanager
 def get_db():
-    """Context manager for database sessions"""
-    db = SessionLocal()
+    """Context manager for database sessions with connection retry."""
+    db = _create_session_with_retry()
     try:
         yield db
         db.commit()
@@ -63,11 +96,22 @@ def get_db():
 
 
 def test_connection():
-    """Test database connection"""
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return True
-    except Exception as e:
-        logger.debug("Database connection failed: %s", e)
-        return False
+    """Test database connection with retry logic."""
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except Exception as e:
+            last_error = e
+            if attempt < MAX_RETRIES:
+                delay = BASE_RETRY_DELAY * (2 ** (attempt - 1))
+                logger.warning(
+                    "Database connection test failed (attempt %d/%d), retrying in %.1fs: %s",
+                    attempt, MAX_RETRIES, delay, e,
+                )
+                time.sleep(delay)
+            else:
+                logger.error("Database connection failed after %d attempts: %s", MAX_RETRIES, e)
+    return False
