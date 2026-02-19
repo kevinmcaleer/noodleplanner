@@ -3181,11 +3181,13 @@ input[type="checkbox"] {
         padding: 15px;
     }
 
-    .modal-header {
+    .modal-header,
+    .detail-pane-header {
         padding: 15px 20px;
     }
 
-    .modal-header h2 {
+    .modal-header h2,
+    .detail-pane-title {
         font-size: 1.2em;
     }
 
@@ -3287,9 +3289,40 @@ input[type="checkbox"] {
     display: flex;
 }
 
-.detail-pane-section .modal-header {
+.detail-pane-section .modal-header,
+.detail-pane-header {
     border-radius: 0;
     flex-shrink: 0;
+}
+
+.detail-pane-header {
+    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+    color: white;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.detail-pane-title {
+    flex: 1;
+    font-size: 1.5em;
+    font-weight: 500;
+    color: white;
+    outline: none;
+    cursor: text;
+    padding: 5px;
+    border-radius: 4px;
+    min-height: 1.2em;
+    transition: background-color 0.2s;
+}
+
+.detail-pane-title:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.detail-pane-title:focus {
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
 .detail-pane-section .modal-body {
