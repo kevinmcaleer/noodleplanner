@@ -7495,3 +7495,246 @@ tr:hover .task-inspect-btn {
 .priority-dot-medium {
     background-color: #38a169;
 }
+
+/* ============================================================
+   Calendar View
+   ============================================================ */
+
+.calendar-content {
+    padding: 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.calendar-nav-btn {
+    background: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.9em;
+    line-height: 1.4;
+    transition: background 0.15s;
+}
+
+.calendar-nav-btn:hover {
+    background: #505050;
+}
+
+.calendar-today-btn {
+    font-weight: 600;
+    padding: 4px 14px;
+}
+
+.calendar-title {
+    margin: 0;
+    font-size: 1.3em;
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+.calendar-grid-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #444;
+    border: 1px solid #444;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.calendar-day-header {
+    background: #3a3a3a;
+    color: #aaa;
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.calendar-day-cell {
+    background: #2d2d2d;
+    min-height: 100px;
+    padding: 4px 6px;
+    position: relative;
+    vertical-align: top;
+    transition: background 0.15s;
+}
+
+.calendar-day-cell:hover {
+    background: #353535;
+}
+
+.calendar-day-cell.calendar-other-month {
+    background: #252525;
+    opacity: 0.5;
+}
+
+.calendar-day-cell.calendar-today {
+    background: #1a3a4a;
+    border: 2px solid #108BB9;
+}
+
+.calendar-day-number {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #bbb;
+    margin-bottom: 4px;
+}
+
+.calendar-today .calendar-day-number {
+    color: #4fc3f7;
+    font-weight: 700;
+}
+
+.calendar-task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.calendar-task-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: #3a4a5a;
+    cursor: default;
+    overflow: hidden;
+    min-height: 20px;
+}
+
+.calendar-task-item.calendar-task-complete {
+    background: #2d4a2d;
+}
+
+.calendar-task-tick {
+    color: #4caf50;
+    font-size: 0.75em;
+    flex-shrink: 0;
+    font-weight: 700;
+}
+
+.calendar-task-name {
+    font-size: 0.72em;
+    color: #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    line-height: 1.3;
+}
+
+.calendar-task-name:hover {
+    text-decoration: underline;
+    color: #4fc3f7;
+}
+
+.calendar-more-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 0.7em;
+    cursor: pointer;
+    padding: 1px 4px;
+    text-align: left;
+    transition: color 0.15s;
+}
+
+.calendar-more-btn:hover {
+    color: #4fc3f7;
+}
+
+.calendar-hidden-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.calendar-add-btn {
+    display: none;
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #108BB9;
+    color: #fff;
+    border: none;
+    font-size: 0.85em;
+    line-height: 1;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.calendar-day-cell:hover .calendar-add-btn {
+    display: flex;
+}
+
+.calendar-add-btn:hover {
+    background: #0d7aa3;
+}
+
+/* Calendar slide animations */
+.calendar-enter-right {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.calendar-enter-left {
+    transform: translateX(-100%);
+    opacity: 0;
+}
+
+.calendar-enter-active {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.calendar-exit-left {
+    transform: translateX(-100%);
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+.calendar-exit-right {
+    transform: translateX(100%);
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}

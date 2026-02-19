@@ -47,6 +47,9 @@
                         <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
                             🔍 Analysis
                         </div>
+                        <div class="nav-menu-item" onclick="switchToView('calendar'); event.stopPropagation();">
+                            📆 Calendar
+                        </div>
                         <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
                             🔮 2-Week Look-Ahead
@@ -190,6 +193,7 @@ Press Enter to render..."></textarea>
                             <button class="output-tab" data-tab="gantt" onclick="switchOutputTab('gantt')">Gantt</button>
                             <button class="output-tab" data-tab="analysis" onclick="switchOutputTab('analysis')">Analysis</button>
                             <button class="output-tab" data-tab="highlights" onclick="switchOutputTab('highlights')">Highlights</button>
+                            <button class="output-tab" data-tab="calendar" onclick="switchOutputTab('calendar')">Calendar</button>
                         </div>
 
                         <!-- Project Report View (default) -->
@@ -777,7 +781,28 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
-
+                        <!-- Calendar View -->
+                        <div id="calendar-view" class="output-tab-content">
+                            <div class="calendar-placeholder placeholder-view">
+                                <h3>Calendar View</h3>
+                                <p>Render your plan to see tasks on a monthly calendar.</p>
+                            </div>
+                            <div class="calendar-content" style="display: none;">
+                                <div class="calendar-header">
+                                    <div class="calendar-nav">
+                                        <button class="calendar-nav-btn" id="calendarPrev" onclick="navigateCalendar(-1)" title="Previous month">&lt;</button>
+                                        <button class="calendar-nav-btn calendar-today-btn" id="calendarToday" onclick="navigateCalendarToday()" title="Go to today">Today</button>
+                                        <button class="calendar-nav-btn" id="calendarNext" onclick="navigateCalendar(1)" title="Next month">&gt;</button>
+                                    </div>
+                                    <h2 class="calendar-title" id="calendarTitle"></h2>
+                                </div>
+                                <div class="calendar-grid-wrapper" id="calendarGridWrapper">
+                                    <div class="calendar-grid" id="calendarGrid">
+                                        <!-- Calendar grid populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
 
 
