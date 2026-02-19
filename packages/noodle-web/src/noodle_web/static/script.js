@@ -7072,12 +7072,21 @@ function populateSubtasks(parentLineNumber, lines) {
         const rightSection = document.createElement('div');
         rightSection.className = 'subtask-right-section';
 
-        // Date display
-        if (subtask.startDate || subtask.finishDate) {
+        // Date display - use backend calculated dates if subtask has no explicit dates
+        let displayStartDate = subtask.startDate;
+        let displayFinishDate = subtask.finishDate;
+        if (!displayStartDate || !displayFinishDate) {
+            const backendSubtask = lastRenderedTasks.find(bt => bt.name === subtask.name);
+            if (backendSubtask) {
+                if (!displayStartDate && backendSubtask.start) displayStartDate = backendSubtask.start;
+                if (!displayFinishDate && backendSubtask.finish) displayFinishDate = backendSubtask.finish;
+            }
+        }
+        if (displayStartDate || displayFinishDate) {
             const dateSpan = document.createElement('span');
             dateSpan.className = 'subtask-dates';
-            const startStr = subtask.startDate ? formatSubtaskDate(subtask.startDate) : '';
-            const finishStr = subtask.finishDate ? formatSubtaskDate(subtask.finishDate) : '';
+            const startStr = displayStartDate ? formatSubtaskDate(displayStartDate) : '';
+            const finishStr = displayFinishDate ? formatSubtaskDate(displayFinishDate) : '';
             if (startStr && finishStr) {
                 dateSpan.textContent = `${startStr} – ${finishStr}`;
             } else if (startStr) {
@@ -7170,8 +7179,9 @@ function formatSubtaskDate(dateStr) {
     if (parts.length === 3) {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const year = parts[0].slice(-2);
         const monthIdx = parseInt(parts[1], 10) - 1;
-        return `${parseInt(parts[2], 10)} ${months[monthIdx]}`;
+        return `${parseInt(parts[2], 10)} ${months[monthIdx]} ${year}`;
     }
     return dateStr;
 }
