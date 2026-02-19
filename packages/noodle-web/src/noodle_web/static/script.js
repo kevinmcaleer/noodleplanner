@@ -1340,8 +1340,8 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             output.textContent = result.ascii_output;
             // No success message needed - silent render
 
-            // Also update the Project Summary tab
-            await updateProjectSummary(planText, projectName);
+            // Parse plan data and update all views
+            await updateAllViews(planText, projectName);
         } else {
             // Download file (ZIP, Excel, PowerPoint, or PDF)
             const blob = await response.blob();
@@ -1386,7 +1386,7 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
     }
 }
 
-async function updateProjectSummary(planText, projectName) {
+async function updateAllViews(planText, projectName) {
     try {
         const data = {
             plan_text: planText,
@@ -1400,7 +1400,7 @@ async function updateProjectSummary(planText, projectName) {
         });
 
         if (!response.ok) {
-            console.error('Failed to parse plan for summary');
+            console.error('Failed to parse plan');
             // Even if the API call failed, try to extract highlights
             // from the plan text on the client side as a fallback.
             updateHighlightsView(extractHighlightsFromText(planText));
@@ -1417,64 +1417,6 @@ async function updateProjectSummary(planText, projectName) {
             ? result.highlights
             : extractHighlightsFromText(planText);
         updateHighlightsView(highlights);
-
-        // Show summary content, hide placeholder
-        const placeholder = document.querySelector('#summary-view .summary-placeholder');
-        const content = document.querySelector('#summary-view .summary-content');
-
-        if (placeholder && content) {
-            placeholder.style.display = 'none';
-            content.style.display = 'block';
-        }
-
-        // Update project title
-        const titleElement = document.getElementById('summaryTitle');
-        if (titleElement) {
-            titleElement.textContent = result.project_name || 'Untitled Project';
-        }
-
-        // Update front matter fields
-        const frontMatter = result.front_matter || {};
-
-        const managerElement = document.getElementById('summaryManager');
-        if (managerElement) {
-            managerElement.textContent = frontMatter['project manager'] || frontMatter.manager || frontMatter.owner || '-';
-        }
-
-        const sponsorElement = document.getElementById('summarySponsor');
-        if (sponsorElement) {
-            sponsorElement.textContent = frontMatter.sponsor || '-';
-        }
-
-        const budgetElement = document.getElementById('summaryBudget');
-        if (budgetElement) {
-            budgetElement.textContent = frontMatter.budget || '-';
-        }
-
-        const statusElement = document.getElementById('summaryStatus');
-        if (statusElement) {
-            statusElement.textContent = frontMatter.status || '-';
-        }
-
-        // Calculate RAG counts from the ASCII output
-        // Parse the output to count Red, Amber, Green tasks
-        const asciiOutput = result.ascii_output || '';
-        const ragCounts = calculateRAGCounts(asciiOutput);
-
-        const ragRedElement = document.getElementById('ragRedCount');
-        if (ragRedElement) {
-            ragRedElement.textContent = ragCounts.red;
-        }
-
-        const ragAmberElement = document.getElementById('ragAmberCount');
-        if (ragAmberElement) {
-            ragAmberElement.textContent = ragCounts.amber;
-        }
-
-        const ragGreenElement = document.getElementById('ragGreenCount');
-        if (ragGreenElement) {
-            ragGreenElement.textContent = ragCounts.green;
-        }
 
         // Store resource map and tasks globally BEFORE updating tables that need them
         globalResourceMap = result.resource_map || {};
@@ -1544,7 +1486,7 @@ async function updateProjectSummary(planText, projectName) {
         }
 
     } catch (error) {
-        console.error('Error updating project summary:', error);
+        console.error('Error updating views:', error);
         // Fallback: extract highlights and RAID items from plan text on the
         // client side so those tabs are populated even when parsing fails.
         try {
@@ -6400,23 +6342,6 @@ function updatePercentInLine(line, newPercent, indent, taskName) {
     return indent + tokens.join(' ');
 }
 
-function calculateRAGCounts(asciiOutput) {
-    // Count occurrences of descriptive RAG statuses in the ASCII output
-    const redMatches = asciiOutput.match(/Task Overdue/g) || [];
-    const amberMatches = asciiOutput.match(/Behind Schedule/g) || [];
-    const greenMatches = [
-        ...(asciiOutput.match(/On Track/g) || []),
-        ...(asciiOutput.match(/Not Started/g) || [])
-    ];
-    const blueMatches = asciiOutput.match(/Complete/g) || [];
-
-    return {
-        red: redMatches.length,
-        amber: amberMatches.length,
-        green: greenMatches.length + blueMatches.length
-    };
-}
-
 function showMessage(prefix, type, text) {
     const message = document.getElementById(prefix + 'Message');
     message.className = 'message ' + type;
@@ -9244,7 +9169,7 @@ function switchToView(viewName) {
     closeAllNavMenus();
 }
 
-// Switch between output tabs (ASCII, Summary, Milestones, etc.)
+// Switch between output tabs (Tasks, Project Report, Milestones, etc.)
 function switchOutputTab(tabName) {
     // Hide all tab content
     document.querySelectorAll('.output-tab-content').forEach(content => {
@@ -11486,7 +11411,7 @@ const tourSteps = [
     },
     {
         title: "Views Menu",
-        message: "Click the Views dropdown to access different reports and visualizations: Tasks, Project Report, Summary, Timeline, Gantt Chart (with dependency lines), and more!",
+        message: "Click the Views dropdown to access different reports and visualizations: Tasks, Project Report, Timeline, Gantt Chart (with dependency lines), and more!",
         target: "#viewsTab",
         position: "bottom"
     },
