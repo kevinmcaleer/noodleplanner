@@ -1132,6 +1132,7 @@ h1 {
 
 .report-timeline-wrapper {
     overflow-x: auto;
+    max-width: 100%;
 }
 
 /* Embedded Timeline in Tasks/Gantt Views */
@@ -1187,6 +1188,7 @@ h1 {
 
 .embedded-timeline-wrapper {
     overflow-x: auto;
+    max-width: 100%;
 }
 
 /* Quad Grid Layout */
