@@ -2097,6 +2097,7 @@ def export_report_to_powerpoint(output_path, report_data):
       - Up Next table (top-right)
       - Latest Highlight (bottom-left)
       - Risks & Issues table (bottom-right)
+      - Timeline graphic (full-width, above the quad grid)
 
     Args:
         output_path: Path to save the PowerPoint file.
@@ -2106,9 +2107,7 @@ def export_report_to_powerpoint(output_path, report_data):
             up_next (list of dicts with name, start, finish, status),
             highlight (dict with date, author, content or None),
             risks_issues (list of dicts with type, title, score),
-            timeline_phases (list of dicts with name, start_pct, width_pct),
-            timeline_milestones (list of dicts with name, date_str, position_pct),
-            timeline_start, timeline_end (date strings for axis labels).
+            timeline_image (base64-encoded PNG string, optional).
     """
     # -- Colour palette -------------------------------------------------------
     DARK_BLUE = RGBColor(33, 60, 114)
@@ -2131,10 +2130,17 @@ def export_report_to_powerpoint(output_path, report_data):
             return GREEN
         return BLACK
 
+    def _sanitise_text(text):
+        """Remove XML-illegal control characters from text."""
+        import re
+        # Remove control characters that are illegal in XML 1.0
+        # (chars 0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F except 0x09/tab and 0x0A/newline)
+        return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', str(text))
+
     def _set_cell_text(cell, text, font_size=8, bold=False, colour=None,
                        alignment=PP_ALIGN.LEFT):
         """Set text in a table cell with formatting."""
-        cell.text = str(text)
+        cell.text = _sanitise_text(text)
         for para in cell.text_frame.paragraphs:
             para.font.size = Pt(font_size)
             para.font.bold = bold
@@ -2142,6 +2148,11 @@ def export_report_to_powerpoint(output_path, report_data):
                 para.font.color.rgb = colour
             para.alignment = alignment
         cell.text_frame.word_wrap = True
+        # Reduce internal margins so text fits snugly
+        cell.text_frame.margin_top = Inches(0.02)
+        cell.text_frame.margin_bottom = Inches(0.02)
+        cell.text_frame.margin_left = Inches(0.04)
+        cell.text_frame.margin_right = Inches(0.04)
 
     def _shade_header_row(table, col_count):
         """Apply dark-blue fill to the first row of a table."""
@@ -2179,7 +2190,7 @@ def export_report_to_powerpoint(output_path, report_data):
     tf = tb.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
-    p.text = project_name
+    p.text = _sanitise_text(project_name)
     p.font.size = Pt(22)
     p.font.bold = True
     p.font.color.rgb = WHITE
@@ -2202,7 +2213,7 @@ def export_report_to_powerpoint(output_path, report_data):
         dtf = dtb.text_frame
         dtf.word_wrap = True
         dp = dtf.paragraphs[0]
-        dp.text = detail_text
+        dp.text = _sanitise_text(detail_text)
         dp.font.size = Pt(10)
         dp.font.color.rgb = WHITE
 
@@ -2213,11 +2224,34 @@ def export_report_to_powerpoint(output_path, report_data):
         stf = stb.text_frame
         stf.word_wrap = True
         sp = stf.paragraphs[0]
-        sp.text = status.upper()
+        sp.text = _sanitise_text(status.upper())
         sp.font.size = Pt(16)
         sp.font.bold = True
         sp.font.color.rgb = _rag_colour(status)
         sp.alignment = PP_ALIGN.CENTER
+
+    # -- Timeline graphic (full width, below title bar) -----------------------
+    timeline_image_b64 = report_data.get('timeline_image')
+    timeline_height_used = Inches(0)
+    if timeline_image_b64:
+        import base64
+        import io
+        try:
+            img_data = base64.b64decode(timeline_image_b64)
+            img_stream = io.BytesIO(img_data)
+            tl_left = Inches(0.4)
+            tl_top = Inches(1.05)
+            tl_width = Inches(12.533)  # 13.333 - 0.4 - 0.4
+            pic = slide.shapes.add_picture(
+                img_stream, tl_left, tl_top, width=tl_width
+            )
+            # add_picture auto-scales height from aspect ratio;
+            # read the resulting height to position content below.
+            timeline_height_used = pic.height + Inches(0.15)
+        except Exception:
+            # If timeline image fails, skip it gracefully
+            logger.warning("Failed to add timeline image to PPTX report")
+            timeline_height_used = Inches(0)
 
     # -- Quad grid layout ------------------------------------------------------
     # Margins & dimensions
@@ -2225,9 +2259,9 @@ def export_report_to_powerpoint(output_path, report_data):
     right_margin = Inches(0.4)
     quad_gap = Inches(0.3)
     total_width = Inches(13.333) - left_margin - right_margin
-    col_width = (total_width - quad_gap) / 2
+    col_width = (total_width - quad_gap) // 2  # integer division for exact EMU
 
-    top_row_top = Inches(1.05)
+    top_row_top = Inches(1.05) + timeline_height_used
     row_height = Inches(3.0)
     bottom_row_top = top_row_top + row_height + quad_gap
 
@@ -2259,9 +2293,12 @@ def export_report_to_powerpoint(output_path, report_data):
             col_width, Inches(0.26 * ms_rows)
         ).table
 
-        ms_table.columns[0].width = int(col_width * 0.55)
-        ms_table.columns[1].width = int(col_width * 0.30)
-        ms_table.columns[2].width = int(col_width * 0.15)
+        w0 = int(col_width * 55 // 100)
+        w1 = int(col_width * 30 // 100)
+        w2 = int(col_width) - w0 - w1  # remainder goes to last col
+        ms_table.columns[0].width = w0
+        ms_table.columns[1].width = w1
+        ms_table.columns[2].width = w2
 
         _shade_header_row(ms_table, 3)
         _set_cell_text(ms_table.cell(0, 0), "Milestone", 9, True, WHITE)
@@ -2305,10 +2342,14 @@ def export_report_to_powerpoint(output_path, report_data):
             col_width, Inches(0.26 * un_rows)
         ).table
 
-        un_table.columns[0].width = int(col_width * 0.40)
-        un_table.columns[1].width = int(col_width * 0.18)
-        un_table.columns[2].width = int(col_width * 0.18)
-        un_table.columns[3].width = int(col_width * 0.24)
+        w0 = int(col_width * 40 // 100)
+        w1 = int(col_width * 18 // 100)
+        w2 = int(col_width * 18 // 100)
+        w3 = int(col_width) - w0 - w1 - w2  # remainder goes to last col
+        un_table.columns[0].width = w0
+        un_table.columns[1].width = w1
+        un_table.columns[2].width = w2
+        un_table.columns[3].width = w3
 
         _shade_header_row(un_table, 4)
         _set_cell_text(un_table.cell(0, 0), "Task", 9, True, WHITE)
@@ -2372,7 +2413,7 @@ def export_report_to_powerpoint(output_path, report_data):
             mf = mb.text_frame
             mf.word_wrap = True
             mp = mf.paragraphs[0]
-            mp.text = meta_text
+            mp.text = _sanitise_text(meta_text)
             mp.font.size = Pt(8)
             mp.font.color.rgb = RGBColor(100, 100, 100)
             mp.font.italic = True
@@ -2395,7 +2436,7 @@ def export_report_to_powerpoint(output_path, report_data):
             clean = line.strip()
             if clean.startswith('- '):
                 clean = '\u2022 ' + clean[2:]
-            cp.text = clean
+            cp.text = _sanitise_text(clean)
             cp.font.size = Pt(9)
             cp.font.color.rgb = BLACK
     else:
@@ -2421,9 +2462,12 @@ def export_report_to_powerpoint(output_path, report_data):
             col_width, Inches(0.26 * ri_rows)
         ).table
 
-        ri_table.columns[0].width = int(col_width * 0.15)
-        ri_table.columns[1].width = int(col_width * 0.65)
-        ri_table.columns[2].width = int(col_width * 0.20)
+        w0 = int(col_width * 15 // 100)
+        w1 = int(col_width * 65 // 100)
+        w2 = int(col_width) - w0 - w1  # remainder goes to last col
+        ri_table.columns[0].width = w0
+        ri_table.columns[1].width = w1
+        ri_table.columns[2].width = w2
 
         _shade_header_row(ri_table, 3)
         _set_cell_text(ri_table.cell(0, 0), "Type", 9, True, WHITE,
