@@ -9595,7 +9595,7 @@ function openProjectDetailsForm() {
 
     // Focus on the first input
     setTimeout(() => {
-        const firstInput = document.getElementById('projectOwner');
+        const firstInput = document.getElementById('projectManager');
         if (firstInput) firstInput.focus();
     }, 100);
 }
@@ -9847,7 +9847,7 @@ function populateProjectDetailsFromFrontMatter() {
 
     // Clear existing form
     document.getElementById('projectTitle').value = '';
-    document.getElementById('projectOwner').value = '';
+    document.getElementById('projectManager').value = '';
     document.getElementById('projectStartDate').value = '';
     document.getElementById('projectStatus').value = 'Open';
     document.getElementById('projectSponsor').value = '';
@@ -9900,7 +9900,7 @@ function populateProjectDetailsFromFrontMatter() {
                 case 'project manager':
                 case 'project owner':
                 case 'owner':
-                    document.getElementById('projectOwner').value = value;
+                    document.getElementById('projectManager').value = value;
                     break;
                 case 'start date':
                 case 'project start date':
@@ -9934,7 +9934,7 @@ function populateProjectDetailsFromFrontMatter() {
 
 function clearProjectDetailsForm() {
     document.getElementById('projectTitle').value = '';
-    document.getElementById('projectOwner').value = '';
+    document.getElementById('projectManager').value = '';
     document.getElementById('projectStartDate').value = '';
     document.getElementById('projectStatus').value = 'Open';
     document.getElementById('projectSponsor').value = '';
@@ -10031,7 +10031,7 @@ function saveProjectDetailsInternal(closeModal = true) {
 
     // Collect form data
     const title = document.getElementById('projectTitle').value.trim();
-    const owner = document.getElementById('projectOwner').value.trim();
+    const manager = document.getElementById('projectManager').value.trim();
     const startDate = document.getElementById('projectStartDate').value.trim();
     const status = document.getElementById('projectStatus').value;
     const sponsor = document.getElementById('projectSponsor').value.trim();
@@ -10042,7 +10042,7 @@ function saveProjectDetailsInternal(closeModal = true) {
     // Build front matter
     let frontMatter = '---\n';
     if (title) frontMatter += `title: ${title}\n`;
-    if (owner) frontMatter += `project manager: ${owner}\n`;
+    if (manager) frontMatter += `project manager: ${manager}\n`;
     if (startDate) frontMatter += `start date: ${startDate}\n`;
     if (status && status !== 'Open') frontMatter += `status: ${status}\n`;
     if (sponsor) frontMatter += `sponsor: ${sponsor}\n`;
