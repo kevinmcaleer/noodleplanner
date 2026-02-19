@@ -6401,6 +6401,9 @@ function openTaskFormByName(taskName) {
 }
 
 function openTaskForm(lineNumber) {
+    // Parse task name early so it is available for both the form title
+    // and the catch-block fallback.
+    let parsedTaskName = '';
     try {
         const editor = document.getElementById('planEditor');
         const lines = editor.value.split('\n');
@@ -6413,6 +6416,12 @@ function openTaskForm(lineNumber) {
 
         // Parse task details from line
         const task = parseTaskLine(taskLine, lineNumber);
+        parsedTaskName = task.name || '';
+
+        // Set the task name and title immediately so they are visible
+        // even if later steps (e.g. date calculation) throw an error.
+        document.getElementById('taskName').value = parsedTaskName;
+        document.getElementById('taskFormTitle').textContent = parsedTaskName || 'Task Name';
 
         // Track which fields were in the original task (user set)
         const originalStartDate = task.startDate;
@@ -6435,10 +6444,6 @@ function openTaskForm(lineNumber) {
         userSetStartDate = !!originalStartDate;
         userSetFinishDate = !!originalFinishDate;
         userSetDuration = !!originalDuration;
-
-        // Populate form
-        document.getElementById('taskName').value = task.name || '';
-        document.getElementById('taskFormTitle').textContent = task.name || 'Task Name';
 
         const durationField = document.getElementById('taskDuration');
         durationField.value = task.duration || '1';
@@ -6515,6 +6520,11 @@ function openTaskForm(lineNumber) {
         openDetailPane('taskFormSection');
     } catch (error) {
         console.error('Error opening task form for line', lineNumber, ':', error);
+        // Ensure the title is set even when an error occurs during form population
+        if (parsedTaskName) {
+            document.getElementById('taskFormTitle').textContent = parsedTaskName;
+            document.getElementById('taskName').value = parsedTaskName;
+        }
         // Still try to open the pane even if there was an error populating some fields
         openDetailPane('taskFormSection');
     }
