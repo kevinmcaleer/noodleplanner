@@ -3693,6 +3693,8 @@ tr:hover .task-inspect-btn {
     padding: 5px;
     border-radius: 4px;
     transition: background-color 0.2s;
+    color: inherit;
+    min-height: 1.2em;
 }
 
 .modal-header h2:hover {

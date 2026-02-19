@@ -6591,10 +6591,7 @@ function setTaskFormTitle(title) {
     const el = document.getElementById('taskFormTitle');
     if (!el) return;
     const displayTitle = title || 'Task Name';
-    // Use textContent for reliable rendering on contenteditable elements.
-    // Create a text node explicitly to ensure the browser renders it.
-    while (el.firstChild) el.removeChild(el.firstChild);
-    el.appendChild(document.createTextNode(displayTitle));
+    el.textContent = displayTitle;
 }
 
 function openTaskForm(lineNumber) {
@@ -6715,20 +6712,20 @@ function openTaskForm(lineNumber) {
         populateSubtasks(lineNumber, lines);
 
         openDetailPane('taskFormSection');
-        // Re-apply title after the pane is visible to work around browsers
-        // that skip painting text set while the container was display:none.
-        setTaskFormTitle(parsedTaskName);
+        // Re-apply title after the browser has painted the now-visible pane.
+        // Using requestAnimationFrame ensures layout is complete before we
+        // update the contenteditable element.
+        requestAnimationFrame(() => setTaskFormTitle(parsedTaskName));
     } catch (error) {
         console.error('Error opening task form for line', lineNumber, ':', error);
         // Ensure the title is set even when an error occurs during form population
         if (parsedTaskName) {
-            setTaskFormTitle(parsedTaskName);
             document.getElementById('taskName').value = parsedTaskName;
         }
         // Still try to open the pane even if there was an error populating some fields
         openDetailPane('taskFormSection');
-        // Re-apply title after the pane is visible
-        setTaskFormTitle(parsedTaskName);
+        // Re-apply title after the browser has painted
+        requestAnimationFrame(() => setTaskFormTitle(parsedTaskName));
     }
 }
 
