@@ -263,6 +263,51 @@ svg.icon {
     background: white;
 }
 
+/* Plan Sub-Navigation Bar */
+.plan-subnav {
+    display: none;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 12px;
+    background: #f0f1f4;
+    border-bottom: 1px solid #e0e0e0;
+    flex-shrink: 0;
+}
+
+.plan-subnav.visible {
+    display: flex;
+}
+
+.plan-subnav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border: none;
+    background: transparent;
+    color: #666;
+    font-size: 0.85em;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.plan-subnav-btn:hover {
+    background: #e2e3e8;
+    color: #333;
+}
+
+.plan-subnav-btn.active {
+    background: #667eea;
+    color: white;
+}
+
+.plan-subnav-btn.active svg.icon {
+    stroke: white;
+}
+
 /* Output Tab Content Styling */
 .output-tab-content {
     display: none;
@@ -2875,6 +2920,22 @@ input[type="checkbox"] {
         flex: 1;
         min-width: 0;
         min-height: 50vh;
+    }
+
+    .plan-subnav {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: 3px 8px;
+    }
+
+    .plan-subnav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .plan-subnav-btn {
+        padding: 4px 8px;
+        font-size: 0.8em;
     }
 
     /* Hide the vertical splitter on mobile, show a horizontal toggle instead */
