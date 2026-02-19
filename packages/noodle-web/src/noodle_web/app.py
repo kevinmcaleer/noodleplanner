@@ -709,6 +709,16 @@ class ReportRiskIssue(BaseModel):
     score: int = Field(0)
 
 
+class ReportTimelineTask(BaseModel):
+    """A task for the timeline graphic in the report PPTX."""
+    name: str = Field("", max_length=500)
+    start: str = Field("", max_length=50)
+    finish: str = Field("", max_length=50)
+    percent: float = Field(0)
+    is_summary: bool = Field(False)
+    duration_days: int = Field(0)
+
+
 class ReportExportRequest(BaseModel):
     """Request body for weekly report PowerPoint export."""
     project_name: str = Field("Project", max_length=500)
@@ -721,7 +731,7 @@ class ReportExportRequest(BaseModel):
     up_next: List[ReportUpNextItem] = Field(default_factory=list)
     highlight: Optional[ReportHighlight] = None
     risks_issues: List[ReportRiskIssue] = Field(default_factory=list)
-    timeline_image: Optional[str] = Field(None, description="Base64-encoded PNG of the timeline graphic")
+    timeline_tasks: List[ReportTimelineTask] = Field(default_factory=list, description="Phase and milestone tasks for server-side timeline rendering")
 
 
 @app.post("/api/export-report-pptx")
@@ -744,7 +754,7 @@ async def export_report_pptx(data: ReportExportRequest):
             'up_next': [u.model_dump() for u in data.up_next],
             'highlight': data.highlight.model_dump() if data.highlight else None,
             'risks_issues': [r.model_dump() for r in data.risks_issues],
-            'timeline_image': data.timeline_image,
+            'timeline_tasks': [t.model_dump() for t in data.timeline_tasks],
         }
 
         export_report_to_powerpoint(tmp_path, report_data)
