@@ -2193,11 +2193,11 @@ function updateReportDonutChart(tasks) {
         const incompleteCount = total - completedCount;
 
         const svgNS = 'http://www.w3.org/2000/svg';
-        const size = 200;
+        const size = 100;
         const cx = size / 2;
         const cy = size / 2;
-        const outerRadius = 90;
-        const innerRadius = 58;
+        const outerRadius = 45;
+        const innerRadius = 29;
 
         const completedColor = '#90EE90';
         const incompleteColor = '#D3D3D3';
@@ -2274,10 +2274,10 @@ function updateReportDonutChart(tasks) {
         // Center text: total number
         const totalText = document.createElementNS(svgNS, 'text');
         totalText.setAttribute('x', cx);
-        totalText.setAttribute('y', cy - 6);
+        totalText.setAttribute('y', cy - 3);
         totalText.setAttribute('text-anchor', 'middle');
         totalText.setAttribute('dominant-baseline', 'central');
-        totalText.setAttribute('font-size', '32');
+        totalText.setAttribute('font-size', '16');
         totalText.setAttribute('font-weight', '700');
         totalText.setAttribute('fill', '#333');
         totalText.textContent = total;
@@ -2285,10 +2285,10 @@ function updateReportDonutChart(tasks) {
 
         const totalLabel = document.createElementNS(svgNS, 'text');
         totalLabel.setAttribute('x', cx);
-        totalLabel.setAttribute('y', cy + 20);
+        totalLabel.setAttribute('y', cy + 10);
         totalLabel.setAttribute('text-anchor', 'middle');
         totalLabel.setAttribute('dominant-baseline', 'central');
-        totalLabel.setAttribute('font-size', '12');
+        totalLabel.setAttribute('font-size', '7');
         totalLabel.setAttribute('fill', '#888');
         totalLabel.textContent = 'tasks';
         svg.appendChild(totalLabel);
