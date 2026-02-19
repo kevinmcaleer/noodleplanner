@@ -17,7 +17,6 @@ from pptx.enum.text import PP_ALIGN
 from .format_converter import extract_raid_log, parse_raid_markdown
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
 
 DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
 
