@@ -2361,6 +2361,8 @@ def export_report_to_powerpoint(output_path, report_data):
     AMBER = RGBColor(218, 165, 32)
     GREEN = RGBColor(0, 128, 0)
 
+    COMPLETE_BLUE = RGBColor(25, 118, 210)
+
     def _rag_colour(rag_str):
         lower = (rag_str or '').lower()
         if lower == 'red':
@@ -2369,6 +2371,8 @@ def export_report_to_powerpoint(output_path, report_data):
             return AMBER
         if lower == 'green':
             return GREEN
+        if lower == 'complete':
+            return COMPLETE_BLUE
         return BLACK
 
     def _sanitise_text(text):
