@@ -207,6 +207,16 @@ h1 {
     opacity: 0.8;
 }
 
+/* Drag and drop styling for kanban editor panel */
+.kanban-editor-panel.drag-over {
+    border: 3px dashed #108BB9;
+    background: rgba(16, 139, 185, 0.1);
+}
+
+.kanban-editor-panel.drag-over .editor-wrapper {
+    opacity: 0.8;
+}
+
 .editor-splitter {
     width: 6px;
     background: #dee2e6;
