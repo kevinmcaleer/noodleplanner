@@ -12370,45 +12370,22 @@ function navigateCalendarToday() {
 }
 
 function renderCalendarMonth(year, month, animation) {
-    const grid = document.getElementById('calendarGrid');
+    const wrapper = document.getElementById('calendarGridWrapper');
     const title = document.getElementById('calendarTitle');
-    if (!grid || !title) return;
+    if (!wrapper || !title) return;
 
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
     title.textContent = `${monthNames[month]} ${year}`;
 
     const newGrid = buildCalendarGrid(year, month);
+    newGrid.id = 'calendarGrid';
 
-    if (animation) {
-        const wrapper = document.getElementById('calendarGridWrapper');
-        const oldGrid = grid;
+    // Remove all existing calendar grids from the wrapper to prevent duplicates
+    const existingGrids = wrapper.querySelectorAll('.calendar-grid');
+    existingGrids.forEach(g => g.remove());
 
-        newGrid.id = 'calendarGridNew';
-        newGrid.classList.add('calendar-grid');
-
-        const enterClass = animation === 'slide-left' ? 'calendar-enter-right' : 'calendar-enter-left';
-        const exitClass = animation === 'slide-left' ? 'calendar-exit-left' : 'calendar-exit-right';
-
-        newGrid.classList.add(enterClass);
-        wrapper.appendChild(newGrid);
-
-        requestAnimationFrame(() => {
-            oldGrid.classList.add(exitClass);
-            newGrid.classList.remove(enterClass);
-            newGrid.classList.add('calendar-enter-active');
-        });
-
-        const onEnd = () => {
-            oldGrid.remove();
-            newGrid.id = 'calendarGrid';
-            newGrid.classList.remove('calendar-enter-active');
-            newGrid.removeEventListener('transitionend', onEnd);
-        };
-        newGrid.addEventListener('transitionend', onEnd);
-    } else {
-        grid.innerHTML = newGrid.innerHTML;
-    }
+    wrapper.appendChild(newGrid);
 }
 
 function buildCalendarGrid(year, month) {
