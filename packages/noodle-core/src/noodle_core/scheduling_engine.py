@@ -1684,8 +1684,8 @@ def calculate_rag_status(task, current_date=None):
         current_date: Current date for comparison (defaults to today)
 
     Returns:
-        String: 'Complete', 'Not Started', 'On Track', 'Behind Schedule',
-                or 'Task Overdue'
+        String: 'Complete', 'Not Started', 'Ahead of Schedule', 'On Track',
+                'Behind Schedule', or 'Task Overdue'
     """
     if current_date is None:
         current_date = datetime.now().date()
@@ -1718,6 +1718,8 @@ def calculate_rag_status(task, current_date=None):
 
     # Green: Task hasn't started yet (start date is in the future)
     if start_date > current_date:
+        if percent_complete is not None and percent_complete > 0:
+            return 'Ahead of Schedule'
         return 'Not Started'
 
     # Red: Start date is in the past and no progress or 0%
@@ -1755,6 +1757,7 @@ def rag_status_to_colour(rag_status):
     mapping = {
         'not started': 'green',
         'on track': 'green',
+        'ahead of schedule': 'green',
         'complete': 'blue',
         'behind schedule': 'amber',
         'task overdue': 'red',
