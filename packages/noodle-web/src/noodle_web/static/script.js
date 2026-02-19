@@ -223,18 +223,8 @@ async function handleBoardFileUpload(file) {
 }
 
 function switchTab(tabName) {
-    // Remove active class from all tabs and content
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    // Remove active class from all tab content
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-    // Find and activate the correct tab button
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => {
-        const onclick = tab.getAttribute('onclick');
-        if (onclick && onclick.includes(`'${tabName}'`)) {
-            tab.classList.add('active');
-        }
-    });
 
     // Activate the corresponding content
     const tabContent = document.getElementById(tabName + '-tab');
@@ -273,6 +263,28 @@ function switchTab(tabName) {
             }
         }, 50);
     }
+
+    // Update nav bar active state for special tabs
+    // Remove active class from all nav tabs first
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+
+    // Map special tab names to their parent nav tab
+    const tabToNavTab = {
+        'kanban': 'planTab',
+        'raid': 'trackingTab',
+        'planning': 'toolsTab',
+        'guide': 'toolsTab',
+        'editor': 'dashboardTab'
+    };
+
+    const navTabId = tabToNavTab[tabName];
+    if (navTabId) {
+        const navTab = document.getElementById(navTabId);
+        if (navTab) navTab.classList.add('active');
+    }
+
+    // Close all nav dropdown menus
+    closeAllNavMenus();
 }
 
 // Initialize editor functionality when DOM is ready
@@ -1108,8 +1120,8 @@ async function exportFile(format, prefix) {
         return;
     }
 
-    // Close the export menu
-    document.getElementById('exportMenu').classList.remove('show');
+    // Close the nav menu
+    closeAllNavMenus();
 
     // Set export flags based on format
     const exportExcel = format === 'excel';
@@ -1126,8 +1138,8 @@ async function exportFile(format, prefix) {
  * a single-slide PPTX matching the report layout.
  */
 async function exportReportPptx() {
-    // Close the export menu
-    document.getElementById('exportMenu').classList.remove('show');
+    // Close the nav menu
+    closeAllNavMenus();
 
     // Check that the report content is visible
     const content = document.querySelector('#project-report-view .project-report-content');
@@ -8918,23 +8930,17 @@ function selectProjectLabel(name) {
 function toggleExportMenu(event) {
     event.stopPropagation();
     const menu = document.getElementById('exportMenu');
-    menu.classList.toggle('show');
+    if (menu) menu.classList.toggle('show');
 }
 
-// Close export menu when clicking outside
+// Close nav dropdown menus when clicking outside
 document.addEventListener('click', function(e) {
-    const menu = document.getElementById('exportMenu');
-    const btn = document.querySelector('.export-btn');
-    if (menu && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
-        menu.classList.remove('show');
-    }
-
-    // Also close all nav dropdown menus when clicking outside
+    // Close all nav dropdown menus when clicking outside
     const navMenus = [
-        { menu: 'viewsMenu', tab: 'viewsTab' },
+        { menu: 'planMenu', tab: 'planTab' },
         { menu: 'trackingMenu', tab: 'trackingTab' },
         { menu: 'resourcesMenu', tab: 'resourcesTab' },
-        { menu: 'helpMenu', tab: 'helpTab' }
+        { menu: 'toolsMenu', tab: 'toolsTab' }
     ];
     navMenus.forEach(({ menu: menuId, tab: tabId }) => {
         const navMenu = document.getElementById(menuId);
@@ -8945,9 +8951,9 @@ document.addEventListener('click', function(e) {
     });
 });
 
-// Toggle Views dropdown menu
+// Close all nav dropdown menus (optionally except one)
 function closeAllNavMenus(except) {
-    const menuIds = ['viewsMenu', 'trackingMenu', 'resourcesMenu', 'helpMenu'];
+    const menuIds = ['planMenu', 'trackingMenu', 'resourcesMenu', 'toolsMenu'];
     menuIds.forEach(id => {
         if (id !== except) {
             const m = document.getElementById(id);
@@ -8956,10 +8962,11 @@ function closeAllNavMenus(except) {
     });
 }
 
-function toggleViewsMenu(event) {
+// Toggle Plan dropdown menu
+function togglePlanMenu(event) {
     event.stopPropagation();
-    closeAllNavMenus('viewsMenu');
-    document.getElementById('viewsMenu').classList.toggle('show');
+    closeAllNavMenus('planMenu');
+    document.getElementById('planMenu').classList.toggle('show');
 }
 
 // Toggle Tracking dropdown menu
@@ -8976,11 +8983,11 @@ function toggleResourcesMenu(event) {
     document.getElementById('resourcesMenu').classList.toggle('show');
 }
 
-// Toggle Help dropdown menu
-function toggleHelpMenu(event) {
+// Toggle Tools dropdown menu
+function toggleToolsMenu(event) {
     event.stopPropagation();
-    closeAllNavMenus('helpMenu');
-    document.getElementById('helpMenu').classList.toggle('show');
+    closeAllNavMenus('toolsMenu');
+    document.getElementById('toolsMenu').classList.toggle('show');
 }
 
 // Templates Modal Functions
@@ -9164,36 +9171,59 @@ function switchToView(viewName) {
     // First, switch to editor tab (where all views live)
     switchTab('editor');
 
-    // Then switch to the specific output tab
+    // Then switch to the specific output tab content
     switchOutputTab(viewName);
 
-    // Close the dropdown menus
     // Close all nav dropdown menus
     closeAllNavMenus();
+
+    // Update nav bar active state
+    updateNavActiveState(viewName);
 }
 
-// Switch between output tabs (Tasks, Project Report, Milestones, etc.)
+// Update the active state in the navigation bar
+function updateNavActiveState(viewName) {
+    // Remove active class from all nav tabs
+    document.querySelectorAll('.tabs .tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Map view names to their parent nav dropdown tab
+    const viewToNavTab = {
+        'project-report': 'dashboardTab',
+        'tasks': 'planTab',
+        'gantt': 'planTab',
+        'calendar': 'planTab',
+        'timeline': 'planTab',
+        'milestones': 'planTab',
+        'highlights': 'trackingTab',
+        'lookahead': 'trackingTab',
+        'analysis': 'trackingTab',
+        'resources': 'resourcesTab',
+        'timesheet': 'resourcesTab',
+        'user-workload': 'resourcesTab',
+        'resource-sheet': 'resourcesTab',
+        'text-report': 'toolsTab'
+    };
+
+    const navTabId = viewToNavTab[viewName];
+    if (navTabId) {
+        const navTab = document.getElementById(navTabId);
+        if (navTab) navTab.classList.add('active');
+    }
+}
+
+// Switch between output tab content panels (Tasks, Project Report, Milestones, etc.)
 function switchOutputTab(tabName) {
     // Hide all tab content
     document.querySelectorAll('.output-tab-content').forEach(content => {
         content.classList.remove('active');
     });
 
-    // Remove active from all tab buttons
-    document.querySelectorAll('.output-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-
     // Show selected tab content
     const tabView = document.getElementById(`${tabName}-view`);
     if (tabView) {
         tabView.classList.add('active');
-    }
-
-    // Mark selected tab button as active
-    const activeTab = document.querySelector(`.output-tab[data-tab="${tabName}"]`);
-    if (activeTab) {
-        activeTab.classList.add('active');
     }
 
     // If switching to timeline view, trigger a re-render after layout is ready
@@ -11420,52 +11450,38 @@ const tourSteps = [
         position: "bottom"
     },
     {
-        title: "Views Menu",
-        message: "Click the Views dropdown to access different reports and visualizations: Tasks, Project Report, Timeline, Gantt Chart (with dependency lines), and more!",
-        target: "#viewsTab",
+        title: "Dashboard",
+        message: "Click Dashboard to see your Project Report - an overview with timeline, task completion, milestones, highlights, and RAID summary.",
+        target: "#dashboardTab",
         position: "bottom"
     },
     {
-        title: "Board View",
-        message: "Switch to the Board tab to see your tasks as Kanban cards. Drag and drop to organize by Phase, Resource, Progress, or Label.",
-        target: ".tabs > .tab:nth-of-type(3)",
-        position: "bottom",
-        action: () => switchTab('kanban')
-    },
-    {
-        title: "Collapsible Editor",
-        message: "In Board view, you can collapse the editor for more space, or keep it open to edit while viewing your board.",
-        target: "#kanbanEditorPanel",
-        position: "right"
-    },
-    {
-        title: "Planning Room 📋",
-        message: "New! The Planning Room helps you create plans with a guided 3-stage workflow: Outline (YAML structure), Flow (visual dependencies), and Schedule (auto-generated plan.md). Perfect for complex projects!",
-        target: ".tabs > .tab:nth-of-type(4)",
+        title: "Plan Menu",
+        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones.",
+        target: "#planTab",
         position: "bottom"
     },
     {
         title: "Tracking Menu",
-        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies) and Highlights for project updates.",
+        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies), Highlights, 2-Week Look-Ahead, and Analysis.",
         target: "#trackingTab",
-        position: "bottom",
-        action: () => switchTab('editor')
+        position: "bottom"
     },
     {
         title: "Resources Menu",
-        message: "The Resources dropdown consolidates all resource views: Resources Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource.",
+        message: "The Resources dropdown consolidates all resource views: Resource Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource.",
         target: "#resourcesTab",
         position: "bottom"
     },
     {
-        title: "Help & Resources",
-        message: "Need help with the syntax? Check out the Help tab for examples and detailed instructions on how to use all features.",
-        target: ".tabs > .tab:nth-of-type(5)",
+        title: "Tools Menu",
+        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options.",
+        target: "#toolsTab",
         position: "bottom"
     },
     {
         title: "You're Ready! 🚀",
-        message: "That's it! Start by creating your first task in the editor, explore the Views menu for different reports, or visit the Help tab to learn more.",
+        message: "That's it! Start by creating your first task in the editor, explore the Plan menu for different views, or check Tools > Syntax Guide to learn more.",
         target: null,
         position: "center"
     }
@@ -11976,8 +11992,7 @@ function toggleTimelinePhases() {
 // ===== Excel Import Wizard =====
 
 function triggerExcelUpload() {
-    const menu = document.getElementById('exportMenu');
-    if (menu) menu.classList.remove('show');
+    closeAllNavMenus();
     const input = document.getElementById('excelImportInput');
     input.value = '';
     input.onchange = function() {
