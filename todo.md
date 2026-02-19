@@ -1917,3 +1917,91 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 
 **Status:** ✅ COMPLETED - Committed to main (ad4d8ee).
 
+### Batch Issues (February 2026 Sprint) - ✅ COMPLETED
+
+#### Issue #261: Rename Bucket Feature - ✅ CLOSED
+#### Issue #264: Board Checkbox Enhancements - ✅ CLOSED
+#### Issue #267: Hide Empty Columns - ✅ CLOSED
+#### Issue #248: Conditional Formatting - ✅ CLOSED
+#### Issue #255: Planner Import - ✅ CLOSED
+#### Issue #281: Subtask Click Bug Fix - ✅ CLOSED
+#### Issue #246: Add Link Button - ✅ CLOSED
+#### Issue #282: Bucket View Drag Fix - ✅ CLOSED
+#### Issue #284: CF Rules Duplication Bug - ✅ CLOSED
+#### Issue #288: Highlight Enhancements - ✅ CLOSED
+#### Issue #291: Enhanced Conditional Formatting - ✅ CLOSED
+#### Issue #292: Gantt Enhancements - ✅ CLOSED
+#### Issue #293: Phase Column Colours - ✅ CLOSED
+#### Issue #297: Dependency Dropdown Bug - ✅ CLOSED
+#### Issue #298: Report Page + Buttons - ✅ CLOSED
+#### Issue #301: CF on Board Cards - ✅ CLOSED
+#### Issue #245: Summary Task Resources - ✅ CLOSED
+#### Issue #302: Label View Reorder Bug - ✅ CLOSED
+#### Issue #304: Timeline % Complete Bar - ✅ CLOSED
+#### Issue #309: Add Risk Button Bug - ✅ CLOSED
+#### Issue #311: Dependency Self-loop Prevention - ✅ CLOSED
+#### Issue #312: Double-click Blank Form Bug - ✅ CLOSED
+#### Issue #314: Drag Handle Duration Bug - ✅ CLOSED
+#### Issue #315: Gantt Duration Off-by-one - ✅ CLOSED
+#### Issue #319: Gantt Show All Dependencies - ✅ CLOSED
+#### Issue #320: Theme Frontmatter Bug - ✅ CLOSED
+#### Issue #323: CF Rule Ordering - ✅ CLOSED
+#### Issue #324: Milestone Centering Fix - ✅ CLOSED
+#### Issue #327: Dependency Line Routing - ✅ CLOSED
+#### Issue #329: Task Inspector Pane - ✅ CLOSED
+#### Issue #253: Effort Enhancement - ✅ CLOSED
+#### Issue #243: Auto Update Deps on Rename - ✅ CLOSED
+#### Issue #330: Report Up Next Section - ✅ CLOSED
+#### Issue #335: Percent from Effort - ✅ CLOSED
+#### Issue #337: PowerPoint Report Export - ✅ CLOSED
+#### Issue #338: Report Widget Swap - ✅ CLOSED
+#### Issue #339: CF RAG on Board Cards - ✅ CLOSED
+#### Issue #343: Up Next Clickable - ✅ CLOSED
+#### Issue #344: Navbar Clickable Bug - ✅ CLOSED
+#### Issue #348: Column Format Enhancement - ✅ CLOSED
+#### Issue #349: Add Refresh Icon - ✅ CLOSED
+#### Issue #352: Up Next Click Bug - ✅ CLOSED
+#### Issue #354: Drag Drop Files - ✅ CLOSED
+#### Issue #355: Resource Email Bug - ✅ CLOSED
+#### Issue #356: Board Import/Export Bug - ✅ CLOSED
+#### Issue #357: Timeline in Views - ✅ CLOSED
+#### Issue #362: PPTX Export Fix - ✅ CLOSED
+#### Issue #364: Board Column Colour Bug - ✅ CLOSED
+#### Issue #365: Subtle Toggle Buttons - ✅ CLOSED
+#### Issue #369: Task Form Missing Title - ✅ CLOSED
+#### Issue #370: Task Table Heading Hover - ✅ CLOSED
+#### Issue #373: Mini Percentage Piechart - ✅ CLOSED
+#### Issue #375: PPTX Timeline Graphic - ✅ CLOSED
+#### Issue #378: Milestone Table Enhancements - ✅ CLOSED
+#### Issue #380: Timeline Full Width - ✅ CLOSED
+#### Issue #382: Effort Entry Box Width - ✅ CLOSED
+#### Issue #383: Up Next Dates Bug - ✅ CLOSED
+#### Issue #387: RAG Status Descriptions - ✅ CLOSED
+#### Issue #234: Input Validation Limits - ✅ CLOSED
+#### Issue #368/#385: Test Weekend Fixes - ✅ CLOSED
+#### Issue #228: Logging Config Cleanup - ✅ CLOSED
+#### Issue #229: Replace Stderr Debug Output - ✅ CLOSED
+#### Issue #230: Remove Dead Code - ✅ CLOSED
+#### Issue #231: Fix Temp File Leaks - ✅ CLOSED
+#### Issue #232: Specific Exception Types - ✅ CLOSED
+#### Issue #233: Database Error Handling - ✅ CLOSED
+#### Issue #388: PPTX Highlight Formatting - ✅ CLOSED
+#### Issue #399: Donut Chart Report - ✅ CLOSED
+#### Issue #400: PPTX Up Next RAG Fix - ✅ CLOSED
+#### Issue #403: Timeline/Donut Animations - ✅ CLOSED
+#### Issue #405: Subtask Enhancements - ✅ CLOSED
+#### Issue #408: PPTX RAG Text Fix - ✅ CLOSED
+#### Issue #409: Subtask Calculated Dates - ✅ CLOSED
+#### Issue #412: Checkbox Completion Bug - ✅ CLOSED
+#### Issue #414: Percent in Task Name Bug - ✅ CLOSED
+
+**Additional Direct Fixes (not from issues):**
+- [x] Changed piechart colour from purple (#667eea) to green (#28a745) to match completed checkboxes
+- [x] Added confetti burst animation on task completion (16 particles, respects prefers-reduced-motion)
+- [x] Fixed subtask resource picker hidden behind subtask group (position: fixed on document.body)
+- [x] Fixed subtask resource add/remove not working (markPlanDirty() was never defined, replaced with editor event dispatch)
+- [x] Fixed percent in task name bug root cause in format_converter.py (stripped.find('%') found % sign position, not digit start)
+- [x] Added 5 regression tests in TestTaskNameExcludesPercent class
+
+**Status:** ✅ ALL ISSUES COMPLETED - 565 tests passing.
+
