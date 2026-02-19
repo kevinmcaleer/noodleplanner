@@ -4261,22 +4261,16 @@ function renderGanttRows() {
             infoRow.style.color = cfStyle.color;
         }
 
-        // Done checkbox cell (skip for summary tasks)
+        // Done piechart cell (skip for summary tasks)
         const doneCell = document.createElement('td');
         doneCell.classList.add('gantt-done-cell');
         if (!task.is_summary) {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'round-checkbox';
-            checkbox.checked = (parseFloat(task.percent) || 0) >= 100;
-            checkbox.title = checkbox.checked ? 'Mark incomplete' : 'Mark complete';
-            checkbox.addEventListener('change', (e) => {
-                e.stopPropagation();
-                const newPercent = checkbox.checked ? '100%' : '0%';
+            const percent = parseFloat(task.percent) || 0;
+            const piechart = createMiniPiechart(percent, (newPercent) => {
                 task.percent = newPercent;
                 syncGanttPercentToEditor(task, index);
             });
-            doneCell.appendChild(checkbox);
+            doneCell.appendChild(piechart);
         }
         infoRow.appendChild(doneCell);
 
@@ -4829,21 +4823,16 @@ function updateTasksTable(tasks) {
             row.style.color = cfStyle.color;
         }
 
-        // Done checkbox
+        // Done piechart
         const doneCell = document.createElement('td');
         doneCell.classList.add('gantt-done-cell');
         if (!task.is_summary) {
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'round-checkbox';
-            checkbox.checked = (parseFloat(task.percent) || 0) >= 100;
-            checkbox.title = checkbox.checked ? 'Mark incomplete' : 'Mark complete';
-            checkbox.addEventListener('change', () => {
-                const newPercent = checkbox.checked ? '100%' : '0%';
+            const percent = parseFloat(task.percent) || 0;
+            const piechart = createMiniPiechart(percent, (newPercent) => {
                 task.percent = newPercent;
                 syncGanttPercentToEditor(task, index);
             });
-            doneCell.appendChild(checkbox);
+            doneCell.appendChild(piechart);
         }
         row.appendChild(doneCell);
 
@@ -5604,6 +5593,150 @@ function syncGanttFinishDateToEditor(task, taskIndex) {
     if (!found) {
         console.error('Task not found in editor!', { name: task.name, level: task.level });
     }
+}
+
+/**
+ * Creates a mini piechart element that visually represents task completion percentage.
+ * Replaces the traditional checkbox for tasks.
+ * - Click: toggles between 100% and 0%
+ * - Long press: shows a popup to set 0%, 25%, 50%, 75%, or 100%
+ *
+ * @param {number} percent - Current completion percentage (0-100)
+ * @param {function} onPercentChange - Callback when percent changes, receives new percent string like '50%'
+ * @returns {HTMLElement} The piechart div element
+ */
+function createMiniPiechart(percent, onPercentChange) {
+    const piechart = document.createElement('div');
+    piechart.className = 'mini-piechart';
+
+    updatePiechartAppearance(piechart, percent);
+
+    // Click handler: toggle between 100% and 0%
+    let longPressTimer = null;
+    let isLongPress = false;
+
+    piechart.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        isLongPress = false;
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            showPiechartPopup(piechart, percent, (newPercent) => {
+                percent = newPercent;
+                updatePiechartAppearance(piechart, percent);
+                onPercentChange(percent + '%');
+            });
+        }, 500);
+    });
+
+    piechart.addEventListener('mouseup', (e) => {
+        e.stopPropagation();
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        if (!isLongPress) {
+            const newPercent = percent >= 100 ? 0 : 100;
+            percent = newPercent;
+            updatePiechartAppearance(piechart, percent);
+            onPercentChange(percent + '%');
+        }
+    });
+
+    piechart.addEventListener('mouseleave', () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+
+    // Touch support for long press
+    piechart.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        isLongPress = false;
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            showPiechartPopup(piechart, percent, (newPercent) => {
+                percent = newPercent;
+                updatePiechartAppearance(piechart, percent);
+                onPercentChange(percent + '%');
+            });
+        }, 500);
+    });
+
+    piechart.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        if (!isLongPress) {
+            e.preventDefault();
+            const newPercent = percent >= 100 ? 0 : 100;
+            percent = newPercent;
+            updatePiechartAppearance(piechart, percent);
+            onPercentChange(percent + '%');
+        }
+    });
+
+    piechart.addEventListener('touchcancel', () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+
+    return piechart;
+}
+
+function updatePiechartAppearance(element, percent) {
+    if (percent >= 100) {
+        element.classList.add('complete');
+        element.style.removeProperty('--percent');
+        element.style.background = '';
+        element.title = 'Mark incomplete';
+    } else {
+        element.classList.remove('complete');
+        element.style.setProperty('--percent', percent + '%');
+        element.style.background = `conic-gradient(#667eea 0% ${percent}%, #e0e0e0 ${percent}% 100%)`;
+        element.title = percent > 0 ? `${percent}% complete - click to complete` : 'Mark complete';
+    }
+}
+
+function showPiechartPopup(piechartElement, currentPercent, onSelect) {
+    // Remove any existing popup
+    const existingPopup = document.querySelector('.piechart-popup');
+    if (existingPopup) existingPopup.remove();
+
+    const popup = document.createElement('div');
+    popup.className = 'piechart-popup';
+
+    const options = [0, 25, 50, 75, 100];
+    options.forEach(value => {
+        const btn = document.createElement('button');
+        btn.className = 'piechart-popup-btn';
+        btn.textContent = value + '%';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onSelect(value);
+            popup.remove();
+        });
+        popup.appendChild(btn);
+    });
+
+    // Position the popup near the piechart
+    document.body.appendChild(popup);
+    const rect = piechartElement.getBoundingClientRect();
+    popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    popup.style.left = (rect.left + window.scrollX - 60) + 'px';
+
+    // Close on click outside
+    const closeHandler = (e) => {
+        if (!popup.contains(e.target)) {
+            popup.remove();
+            document.removeEventListener('mousedown', closeHandler);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', closeHandler), 10);
 }
 
 function syncGanttPercentToEditor(task, taskIndex) {
@@ -6626,11 +6759,10 @@ function populateSubtasks(parentLineNumber, lines) {
         const item = document.createElement('div');
         item.className = 'subtask-item';
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'subtask-checkbox round-checkbox';
-        checkbox.checked = parseInt(subtask.percent) === 100;
-        checkbox.addEventListener('change', () => toggleSubtaskCompletion(subtask.lineNumber, checkbox.checked));
+        const subtaskPercent = parseInt(subtask.percent) || 0;
+        const piechart = createMiniPiechart(subtaskPercent, (newPercent) => {
+            toggleSubtaskCompletion(subtask.lineNumber, newPercent);
+        });
 
         const label = document.createElement('span');
         label.className = 'subtask-label';
@@ -6640,16 +6772,7 @@ function populateSubtasks(parentLineNumber, lines) {
             openTaskForm(subtask.lineNumber);
         });
 
-        // Show completion percentage if not 0 or 100
-        const percent = parseInt(subtask.percent) || 0;
-        if (percent > 0 && percent < 100) {
-            const percentBadge = document.createElement('span');
-            percentBadge.className = 'subtask-percent';
-            percentBadge.textContent = `${percent}%`;
-            label.appendChild(percentBadge);
-        }
-
-        item.appendChild(checkbox);
+        item.appendChild(piechart);
         item.appendChild(label);
         subtasksList.appendChild(item);
     });
@@ -6681,7 +6804,7 @@ function populateSubtasks(parentLineNumber, lines) {
     return subtasks;
 }
 
-function toggleSubtaskCompletion(lineNumber, isComplete) {
+function toggleSubtaskCompletion(lineNumber, percentOrBool) {
     const editor = document.getElementById('planEditor');
     const lines = editor.value.split('\n');
     const line = lines[lineNumber - 1];
@@ -6689,26 +6812,23 @@ function toggleSubtaskCompletion(lineNumber, isComplete) {
     // Parse the task
     const task = parseTaskLine(line, lineNumber);
 
+    // Support both boolean (legacy) and string percent like '50%'
+    let targetPercent;
+    if (typeof percentOrBool === 'boolean') {
+        targetPercent = percentOrBool ? '100%' : '0%';
+    } else {
+        targetPercent = percentOrBool;
+    }
+
+    const numericPercent = targetPercent.replace('%', '');
+
     // Update or add percent
     let updatedLine = line;
 
-    if (isComplete) {
-        // Set to 100%
-        if (task.percent) {
-            // Replace existing percent
-            updatedLine = updatedLine.replace(/\d+%/, '100%');
-        } else {
-            // Add 100% to the end
-            updatedLine = updatedLine.trimEnd() + ' 100%';
-        }
+    if (task.percent) {
+        updatedLine = updatedLine.replace(/\d+%/, numericPercent + '%');
     } else {
-        // Set to 0%
-        if (task.percent) {
-            updatedLine = updatedLine.replace(/\d+%/, '0%');
-        } else {
-            // Add 0% to the end
-            updatedLine = updatedLine.trimEnd() + ' 0%';
-        }
+        updatedLine = updatedLine.trimEnd() + ' ' + numericPercent + '%';
     }
 
     // Update the line
@@ -6730,10 +6850,12 @@ function addNewSubtask() {
     const item = document.createElement('div');
     item.className = 'subtask-item subtask-item-editing';
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'subtask-checkbox round-checkbox';
-    checkbox.disabled = true;
+    const piechartPlaceholder = document.createElement('div');
+    piechartPlaceholder.className = 'mini-piechart';
+    piechartPlaceholder.style.setProperty('--percent', '0%');
+    piechartPlaceholder.style.background = 'conic-gradient(#667eea 0% 0%, #e0e0e0 0% 100%)';
+    piechartPlaceholder.style.pointerEvents = 'none';
+    piechartPlaceholder.style.opacity = '0.5';
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -6818,7 +6940,7 @@ function addNewSubtask() {
         saveSubtask();
     });
 
-    item.appendChild(checkbox);
+    item.appendChild(piechartPlaceholder);
     item.appendChild(input);
 
     // Remove "No sub tasks" message if present

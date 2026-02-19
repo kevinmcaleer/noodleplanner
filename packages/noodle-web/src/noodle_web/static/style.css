@@ -4617,6 +4617,72 @@ tr:hover .task-inspect-btn {
     transform: scale(1.2);
 }
 
+/* Mini Piechart - replaces checkbox for tasks with percentage */
+.mini-piechart {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: conic-gradient(#667eea 0% var(--percent), #e0e0e0 var(--percent) 100%);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+    position: relative;
+}
+
+.mini-piechart:hover {
+    transform: scale(1.2);
+}
+
+.mini-piechart.complete {
+    background: #28a745;
+}
+
+.mini-piechart.complete::after {
+    content: '\2713';
+    display: block;
+    color: white;
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Piechart percent popup */
+.piechart-popup {
+    position: absolute;
+    z-index: 9999;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+}
+
+.piechart-popup-btn {
+    width: 32px;
+    height: 28px;
+    border: none;
+    background: #f0f0f0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+    padding: 0;
+    line-height: 28px;
+    text-align: center;
+}
+
+.piechart-popup-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+.subtask-item .mini-piechart {
+    margin-right: 10px;
+}
+
 /* Card Title Row (checkbox + title) */
 .kanban-card-title-row {
     display: flex;
