@@ -477,9 +477,9 @@ Press Enter to render..."></textarea>
                             <div class="gantt-content" style="display: none;">
                                 <div class="embedded-timeline-section collapsed">
                                     <div class="embedded-timeline-header">
-                                        <button class="btn btn-sm btn-outline-secondary embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('gantt-view')" title="Toggle timeline">
+                                        <a class="embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('gantt-view')" title="Toggle timeline">
                                             <span class="toggle-icon">&#9654;</span> Timeline
-                                        </button>
+                                        </a>
                                         <button class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     </div>
                                     <div class="embedded-timeline-body">
@@ -557,9 +557,9 @@ Press Enter to render..."></textarea>
                             <div class="tasks-content" style="display: none;">
                                 <div class="embedded-timeline-section collapsed">
                                     <div class="embedded-timeline-header">
-                                        <button class="btn btn-sm btn-outline-secondary embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('tasks-view')" title="Toggle timeline">
+                                        <a class="embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('tasks-view')" title="Toggle timeline">
                                             <span class="toggle-icon">&#9654;</span> Timeline
-                                        </button>
+                                        </a>
                                         <button class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     </div>
                                     <div class="embedded-timeline-body">
@@ -688,7 +688,7 @@ Press Enter to render..."></textarea>
                             <div class="highlights-content" style="display: none;">
                                 <div class="highlights-toolbar">
                                     <h2 class="highlights-title">Project Highlights</h2>
-                                    <button class="btn-primary" onclick="addHighlight()">+ Add Highlight</button>
+                                    <a class="subtle-add-btn" onclick="addHighlight()" title="Add highlight">+ Add Highlight</a>
                                 </div>
                                 <div class="highlights-list" id="highlightsList">
                                     <!-- Highlights will be populated by JavaScript -->
@@ -1006,9 +1006,7 @@ Build
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
-                        <button class="btn-primary" onclick="addRaidItem()">
-                            + Add Item
-                        </button>
+                        <a class="subtle-add-btn" onclick="addRaidItem()" title="Add RAID item">+ Add Item</a>
                         <input type="file" id="raidMdUpload" accept=".md" style="display:none;" onchange="uploadRaidMarkdown(event)">
                         <input type="file" id="raidXlUpload" accept=".xlsx" style="display:none;" onchange="uploadRaidExcel(event)">
                         <div class="raid-toolbar-separator"></div>
