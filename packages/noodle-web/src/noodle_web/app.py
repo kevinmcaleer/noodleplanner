@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import hashlib
 import tempfile
 import logging
@@ -626,8 +627,9 @@ async def parse_plan(data: RenderRequest):
             if not task.get('summary'):
                 rag_status = calculate_rag_status(task)
 
-            # Get task name (description or name)
+            # Get task name (description or name), stripping any percent tokens
             task_name = task.get('description') or task.get('name', '')
+            task_name = re.sub(r'\s*\b\d{1,3}%', '', task_name).strip()
 
             task_data = {
                 'id': idx,

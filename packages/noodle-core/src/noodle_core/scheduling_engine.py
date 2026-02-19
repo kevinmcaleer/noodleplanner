@@ -341,7 +341,10 @@ def extract_metadata(task_str, task_name=None):
 
     desc_match = re.match(r"\*?(.*?)(@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
     if desc_match:
-        meta['description'] = desc_match.group(1).strip()
+        desc = desc_match.group(1).strip()
+        # Safety: strip any percent tokens that slipped into the description
+        desc = re.sub(r'\s*\b\d{1,3}%', '', desc).strip()
+        meta['description'] = desc
     return meta
 
 
@@ -1524,6 +1527,8 @@ def natural_language_to_yaml(text, project_name="Project"):
                 metadata_start = min(metadata_start, duration_match.start())
 
             task_name = stripped[:metadata_start].strip().lstrip('*')
+            # Safety: strip any percent tokens that slipped into the name
+            task_name = re.sub(r'\s*\b\d{1,3}%', '', task_name).strip()
         else:
             # No metadata, entire line is the task name
             task_name = stripped.lstrip('*')
