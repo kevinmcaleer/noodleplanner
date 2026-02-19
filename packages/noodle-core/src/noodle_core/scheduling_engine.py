@@ -3,7 +3,6 @@ import re
 import csv
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parse_date
-import sys
 import logging
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -221,13 +220,9 @@ def extract_metadata(task_str, task_name=None):
         meta['name'] = task_name
     if str(task_str).startswith('*'):
         meta['sequential'] = True
-        import sys
-        sys.stderr.write(f"[SEQUENTIAL] Task '{task_name}' marked as sequential (task_str: '{task_str}')\n")
-        sys.stderr.flush()
+        logger.debug("[SEQUENTIAL] Task '%s' marked as sequential (task_str: '%s')", task_name, task_str)
     else:
-        import sys
-        sys.stderr.write(f"[NOT SEQUENTIAL] Task '{task_name}' not sequential (task_str: '{task_str}')\n")
-        sys.stderr.flush()
+        logger.debug("[NOT SEQUENTIAL] Task '%s' not sequential (task_str: '%s')", task_name, task_str)
     # Extract bucket name from {BucketName} syntax
     bucket_match = re.search(r'\{([^}]+)\}', task_str)
     if bucket_match:
@@ -591,7 +586,7 @@ def schedule_tasks(phases):
         if t.get('summary'):
             continue
 
-        print(f"[SCHEDULE] Task {idx}: {t.get('name')} (sequential: {t.get('sequential')}, depends: {t.get('depends')}, start: {t.get('start')})", flush=True)
+        logger.debug("[SCHEDULE] Task %d: %s (sequential: %s, depends: %s, start: %s)", idx, t.get('name'), t.get('sequential'), t.get('depends'), t.get('start'))
 
         # Apply scheduling logic
         # Priority order: sequential > dependencies > explicit start > default parallel
@@ -603,9 +598,7 @@ def schedule_tasks(phases):
                     prev = all_tasks[j]
                     break
 
-            import sys
-            sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' looking for previous task. Found: {prev.get('name') if prev else 'None'}, has finish: {'finish' in prev if prev else 'N/A'}\n")
-            sys.stderr.flush()
+            logger.debug("[SEQ-LOGIC] Task '%s' looking for previous task. Found: %s, has finish: %s", t.get('name'), prev.get('name') if prev else 'None', 'finish' in prev if prev else 'N/A')
 
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             is_milestone = isinstance(duration, timedelta) and duration.days == 0
@@ -631,12 +624,10 @@ def schedule_tasks(phases):
                     # Predecessor's finish date is exclusive (day after last working day)
                     # So we can use it directly as the start of the next working day
                     t['start'] = get_next_working_day(prev['finish'])
-                sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' scheduled after '{prev.get('name')}' finish={prev['finish']}, new start={t['start']}\n")
-                sys.stderr.flush()
+                logger.debug("[SEQ-LOGIC] Task '%s' scheduled after '%s' finish=%s, new start=%s", t.get('name'), prev.get('name'), prev['finish'], t['start'])
             else:
                 t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
-                sys.stderr.write(f"[SEQ-LOGIC] Task '{t.get('name')}' no predecessor, starting from today: {t['start']}\n")
-                sys.stderr.flush()
+                logger.debug("[SEQ-LOGIC] Task '%s' no predecessor, starting from today: %s", t.get('name'), t['start'])
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
@@ -4109,6 +4100,7 @@ def export_to_csv(text, output_path, is_yaml=True, project_name="Project", origi
 
 
 if __name__ == "__main__":
+    import sys
     from projects.scheduling_engine.cli import main
 
     raise SystemExit(main(sys.argv[1:]))
