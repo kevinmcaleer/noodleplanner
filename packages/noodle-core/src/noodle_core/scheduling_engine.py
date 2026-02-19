@@ -2215,6 +2215,13 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
                 )
                 prog.fill.solid()
                 prog.fill.fore_color.rgb = GREEN
+                # 50% transparency so phase name beneath is readable
+                solidFill = prog.fill._fill
+                srgbClr = solidFill.find(qn('a:srgbClr'))
+                if srgbClr is not None:
+                    alpha = srgbClr.makeelement(qn('a:alpha'), {})
+                    alpha.set('val', '50000')  # 50% opacity
+                    srgbClr.append(alpha)
                 prog.line.fill.background()
                 prog.adjustments[0] = 0.15
 
