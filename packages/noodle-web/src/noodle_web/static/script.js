@@ -7576,10 +7576,17 @@ function updateRagDisplay() {
     }
     // Green: Task hasn't started yet (start date is in the future)
     else if (startDateStr && new Date(startDateStr) > today) {
-        ragStatus = 'Not Started';
-        bgColor = '#4caf50';
-        textColor = 'white';
-        reasoning = 'Task not due to start yet';
+        if (percent > 0) {
+            ragStatus = 'Ahead of Schedule';
+            bgColor = '#4caf50';
+            textColor = 'white';
+            reasoning = 'Ahead of schedule: ' + percent + '% complete before start date';
+        } else {
+            ragStatus = 'Not Started';
+            bgColor = '#4caf50';
+            textColor = 'white';
+            reasoning = 'Task not due to start yet';
+        }
     }
     // Red: Start date is in the past and no progress or 0%
     else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
@@ -12857,6 +12864,7 @@ function ragStatusToColour(rag) {
     const mapping = {
         'not started': 'green',
         'on track': 'green',
+        'ahead of schedule': 'green',
         'complete': 'blue',
         'behind schedule': 'amber',
         'task overdue': 'red',

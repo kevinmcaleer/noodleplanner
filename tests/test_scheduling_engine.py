@@ -10,6 +10,7 @@ from noodle_core import (
     schedule_tasks,
     render_custom_timeline,
     calculate_rag_status,
+    rag_status_to_colour,
     parse_resource_mappings
 )
 
@@ -691,6 +692,79 @@ class TestCalculateRAGStatus:
         }
         result = calculate_rag_status(task, current)
         assert result == 'Not Started'
+
+
+class TestRagStatusNotStartedBug:
+    """Regression tests for issue #416: RAG showing 'not started' when % > 0."""
+
+    def test_task_with_progress_and_future_start_is_ahead_of_schedule(self):
+        """A task with >0% complete and future start date should be 'Ahead of Schedule', not 'Not Started'."""
+        current = datetime(2025, 11, 1)
+        task = {
+            'start': datetime(2025, 11, 5),
+            'finish': datetime(2025, 11, 15),
+            'percent': 50,
+            'duration': timedelta(days=10)
+        }
+        result = calculate_rag_status(task, current)
+        assert result == 'Ahead of Schedule'
+
+    def test_task_with_small_progress_and_future_start_is_ahead_of_schedule(self):
+        """A task with even 1% complete and future start date should be 'Ahead of Schedule'."""
+        current = datetime(2025, 11, 1)
+        task = {
+            'start': datetime(2025, 11, 5),
+            'finish': datetime(2025, 11, 15),
+            'percent': 1,
+            'duration': timedelta(days=10)
+        }
+        result = calculate_rag_status(task, current)
+        assert result == 'Ahead of Schedule'
+
+    def test_task_with_zero_percent_and_future_start_is_not_started(self):
+        """A task with 0% and future start date should still be 'Not Started'."""
+        current = datetime(2025, 11, 1)
+        task = {
+            'start': datetime(2025, 11, 5),
+            'finish': datetime(2025, 11, 15),
+            'percent': 0,
+            'duration': timedelta(days=10)
+        }
+        result = calculate_rag_status(task, current)
+        assert result == 'Not Started'
+
+    def test_task_with_100_percent_and_future_start_is_complete(self):
+        """A task with 100% complete should always be 'Complete', even with future start date."""
+        current = datetime(2025, 11, 1)
+        task = {
+            'start': datetime(2025, 11, 5),
+            'finish': datetime(2025, 11, 15),
+            'percent': 100,
+            'duration': timedelta(days=10)
+        }
+        result = calculate_rag_status(task, current)
+        assert result == 'Complete'
+
+    def test_task_with_50_percent_never_gets_not_started(self):
+        """A task with 50% should never return 'Not Started' regardless of dates."""
+        # Future start date
+        current = datetime(2025, 11, 1)
+        task = {
+            'start': datetime(2025, 11, 5),
+            'finish': datetime(2025, 11, 15),
+            'percent': 50,
+        }
+        result = calculate_rag_status(task, current)
+        assert result != 'Not Started'
+
+        # Past start date
+        current = datetime(2025, 11, 10)
+        result = calculate_rag_status(task, current)
+        assert result != 'Not Started'
+
+    def test_ahead_of_schedule_maps_to_green(self):
+        """'Ahead of Schedule' should map to 'green' colour."""
+        assert rag_status_to_colour('Ahead of Schedule') == 'green'
 
 
 class TestRagStatusMilestoneAlignment:
