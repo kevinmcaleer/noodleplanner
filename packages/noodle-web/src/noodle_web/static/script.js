@@ -5925,12 +5925,33 @@ function createMiniPiechart(percent, onPercentChange) {
     return piechart;
 }
 
+function spawnConfetti(element) {
+    const rect = element.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const colours = ['#28a745', '#ffc107', '#17a2b8', '#ff6b6b', '#6f42c1', '#fd7e14'];
+    for (let i = 0; i < 16; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'confetti-particle';
+        const angle = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5) * 0.4;
+        const dist = 20 + Math.random() * 25;
+        dot.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+        dot.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+        dot.style.left = cx + 'px';
+        dot.style.top = cy + 'px';
+        dot.style.background = colours[Math.floor(Math.random() * colours.length)];
+        document.body.appendChild(dot);
+        dot.addEventListener('animationend', () => dot.remove());
+    }
+}
+
 function updatePiechartAppearance(element, percent) {
     if (percent >= 100) {
         element.classList.add('complete');
         element.style.removeProperty('--percent');
         element.style.background = '';
         element.title = 'Mark incomplete';
+        spawnConfetti(element);
     } else {
         element.classList.remove('complete');
         element.style.setProperty('--percent', percent + '%');

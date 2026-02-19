@@ -1435,6 +1435,9 @@ class KanbanBoard {
         checkboxEl.addEventListener('click', (e) => {
             e.stopPropagation();
             const newPercent = checkboxEl.checked ? 100 : 0;
+            if (newPercent === 100 && typeof spawnConfetti === 'function') {
+                spawnConfetti(checkboxEl);
+            }
             this.quickSetPercent(task, newPercent, cardEl);
         });
         titleRowEl.appendChild(checkboxEl);
