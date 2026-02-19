@@ -239,23 +239,23 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
 
-                                <!-- Timeline Section (full width) -->
-                                <div class="project-report-section">
-                                    <h3>Timeline</h3>
-                                    <div class="timeline-line-wrapper report-timeline-wrapper" style="position: relative;">
-                                        <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-                                        <div class="timeline-line" id="reportTimelineLine"></div>
-                                        <div class="timeline-milestones" id="reportTimelineMilestones">
-                                            <!-- Milestone markers will be populated by JavaScript -->
+                                <!-- Timeline + Donut Chart Row -->
+                                <div class="timeline-donut-row">
+                                    <div class="project-report-section timeline-donut-timeline">
+                                        <h3>Timeline</h3>
+                                        <div class="timeline-line-wrapper report-timeline-wrapper" style="position: relative;">
+                                            <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                            <div class="timeline-line" id="reportTimelineLine"></div>
+                                            <div class="timeline-milestones" id="reportTimelineMilestones">
+                                                <!-- Milestone markers will be populated by JavaScript -->
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                <!-- Task Completion Donut Chart -->
-                                <div class="project-report-section donut-chart-section">
-                                    <h3>Total tasks by completion status</h3>
-                                    <div class="donut-chart-container" id="reportDonutChart">
-                                        <!-- SVG donut chart rendered by JavaScript -->
+                                    <div class="project-report-section donut-chart-section timeline-donut-chart">
+                                        <h3>Total tasks by completion status</h3>
+                                        <div class="donut-chart-container" id="reportDonutChart">
+                                            <!-- SVG donut chart rendered by JavaScript -->
+                                        </div>
                                     </div>
                                 </div>
 
