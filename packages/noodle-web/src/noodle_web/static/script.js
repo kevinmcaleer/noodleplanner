@@ -6400,6 +6400,24 @@ function openTaskFormByName(taskName) {
     }
 }
 
+/**
+ * Reliably set the task form title on the contenteditable h2 element.
+ *
+ * Using innerText (not textContent) because some browsers do not
+ * visually update contenteditable elements when textContent is changed
+ * while the element is inside a hidden (display:none) container.
+ * We also re-apply the title after the detail pane becomes visible to
+ * guard against rendering quirks during CSS transitions.
+ */
+function setTaskFormTitle(title) {
+    const el = document.getElementById('taskFormTitle');
+    if (!el) return;
+    const displayTitle = title || 'Task Name';
+    // Clear any stale child nodes first, then set via innerText
+    el.innerHTML = '';
+    el.innerText = displayTitle;
+}
+
 function openTaskForm(lineNumber) {
     // Parse task name early so it is available for both the form title
     // and the catch-block fallback.
@@ -6421,7 +6439,7 @@ function openTaskForm(lineNumber) {
         // Set the task name and title immediately so they are visible
         // even if later steps (e.g. date calculation) throw an error.
         document.getElementById('taskName').value = parsedTaskName;
-        document.getElementById('taskFormTitle').textContent = parsedTaskName || 'Task Name';
+        setTaskFormTitle(parsedTaskName);
 
         // Track which fields were in the original task (user set)
         const originalStartDate = task.startDate;
@@ -6518,15 +6536,20 @@ function openTaskForm(lineNumber) {
         populateSubtasks(lineNumber, lines);
 
         openDetailPane('taskFormSection');
+        // Re-apply title after the pane is visible to work around browsers
+        // that skip painting text set while the container was display:none.
+        setTaskFormTitle(parsedTaskName);
     } catch (error) {
         console.error('Error opening task form for line', lineNumber, ':', error);
         // Ensure the title is set even when an error occurs during form population
         if (parsedTaskName) {
-            document.getElementById('taskFormTitle').textContent = parsedTaskName;
+            setTaskFormTitle(parsedTaskName);
             document.getElementById('taskName').value = parsedTaskName;
         }
         // Still try to open the pane even if there was an error populating some fields
         openDetailPane('taskFormSection');
+        // Re-apply title after the pane is visible
+        setTaskFormTitle(parsedTaskName);
     }
 }
 
@@ -6898,7 +6921,7 @@ function onDurationChange() {
 }
 
 function updateTaskNameFromTitle() {
-    const title = document.getElementById('taskFormTitle').textContent.trim();
+    const title = document.getElementById('taskFormTitle').innerText.trim();
     document.getElementById('taskName').value = title;
     saveTask();
 }
