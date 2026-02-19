@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
@@ -88,7 +88,7 @@ def get_db():
     try:
         yield db
         db.commit()
-    except Exception:
+    except Exception:  # noqa: broad-except -- cleanup pattern; must rollback for any error then re-raise
         db.rollback()
         raise
     finally:
@@ -103,7 +103,7 @@ def test_connection():
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
             return True
-        except Exception as e:
+        except SQLAlchemyError as e:
             last_error = e
             if attempt < MAX_RETRIES:
                 delay = BASE_RETRY_DELAY * (2 ** (attempt - 1))

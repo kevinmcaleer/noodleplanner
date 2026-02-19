@@ -150,7 +150,7 @@ def parse_duration(s):
             days = int(s.split('P')[1].split('D')[0])
             return timedelta(days=days)
         # Could add more parsing for H/M/S
-    except Exception:
+    except (ValueError, IndexError):
         pass
     return None
 
@@ -2547,7 +2547,7 @@ def export_report_to_powerpoint(output_path, report_data):
                 left=Inches(0.4), top=Inches(1.05),
                 width=Inches(12.533),  # 13.333 - 0.4 - 0.4
             )
-        except Exception:
+        except (ValueError, KeyError, TypeError, IndexError):
             logger.warning("Failed to draw timeline graphic in PPTX report",
                            exc_info=True)
             timeline_height_used = Inches(0)
