@@ -675,12 +675,22 @@ def schedule_tasks(phases):
                     # Milestones (0-duration) align with the end of the dependency.
                     # Dependency finish is exclusive (day after last working day),
                     # so use it directly so the milestone lines up with the task end.
-                    t['start'] = latest_dep_finish
-                    t['finish'] = latest_dep_finish
+                    dep_start = latest_dep_finish
                 else:
                     # Regular tasks start the next working day after dependency finishes
                     # Dependency finish dates are exclusive (day after last working day)
-                    t['start'] = get_next_working_day(latest_dep_finish)
+                    dep_start = get_next_working_day(latest_dep_finish)
+
+                # If the task also has an explicit start date, use the later of
+                # the two -- the explicit date acts as a "not before" constraint.
+                explicit_start = t.get('start')
+                if explicit_start and explicit_start > dep_start:
+                    t['start'] = explicit_start
+                else:
+                    t['start'] = dep_start
+
+                if is_milestone:
+                    t['finish'] = t['start']
             else:
                 if 'start' in t and t['start']:
                     pass  # Keep the explicit start date
