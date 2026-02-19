@@ -2,6 +2,7 @@ let selectedFile = null;
 let renderTimeout = null;
 let globalResourceMap = {}; // Maps shortnames to full names from backend
 let globalResourceDetails = {}; // Maps shortnames to { name, role } from front matter
+let lastRenderedTasks = []; // Cache of backend-calculated tasks from last render
 
 // Track which section the resource form was opened from (for returning to it)
 let resourceFormReturnSection = null;
@@ -1472,9 +1473,10 @@ async function updateProjectSummary(planText, projectName) {
             ragGreenElement.textContent = ragCounts.green;
         }
 
-        // Store resource map globally BEFORE updating tables that need it
+        // Store resource map and tasks globally BEFORE updating tables that need them
         globalResourceMap = result.resource_map || {};
         globalResourceDetails = parseResourceDetails(planText);
+        lastRenderedTasks = result.tasks || [];
 
         // Update Milestones Table
         updateMilestonesTable(result.tasks || []);
@@ -6625,22 +6627,31 @@ function openTaskForm(lineNumber) {
         document.getElementById('taskName').value = parsedTaskName;
         setTaskFormTitle(parsedTaskName);
 
-        // Track which fields were in the original task (user set)
+        // Track which fields were in the original task (user set in markdown)
         const originalStartDate = task.startDate;
         const originalFinishDate = task.finishDate;
         const originalDuration = task.duration;
 
-        // Build a map of all tasks by name for dependency lookup
-        const taskMap = new Map();
-        for (let i = 0; i < lines.length; i++) {
-            const t = parseTaskLine(lines[i], i + 1);
-            if (t.name) {
-                taskMap.set(t.name, t);
+        // Use backend-calculated dates from last render instead of
+        // recalculating in JS (which can diverge from the scheduling engine).
+        const backendTask = lastRenderedTasks.find(bt => bt.name === parsedTaskName);
+        if (backendTask) {
+            task.startDate = backendTask.start || task.startDate;
+            task.finishDate = backendTask.finish || task.finishDate;
+            if (backendTask.duration_days) {
+                task.duration = String(backendTask.duration_days);
             }
+        } else {
+            // Fallback: calculate in JS if backend data not available
+            const taskMap = new Map();
+            for (let i = 0; i < lines.length; i++) {
+                const t = parseTaskLine(lines[i], i + 1);
+                if (t.name) {
+                    taskMap.set(t.name, t);
+                }
+            }
+            calculateTaskDates(task, taskMap, lines);
         }
-
-        // Calculate dates for this task (will recursively calculate dependencies)
-        calculateTaskDates(task, taskMap, lines);
 
         // Mark which fields are user-set vs auto-calculated
         userSetStartDate = !!originalStartDate;
