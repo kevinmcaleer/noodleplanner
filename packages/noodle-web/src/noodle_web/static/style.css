@@ -1127,24 +1127,31 @@ h1 {
 
 /* Embedded Timeline in Tasks/Gantt Views */
 .embedded-timeline-section {
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    background: #fafbfc;
+    border: none;
+    margin-bottom: 4px;
+    background: transparent;
 }
 
 .embedded-timeline-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
+    gap: 6px;
+    padding: 2px 0;
 }
 
 .embedded-timeline-toggle {
-    font-size: 0.85rem;
-    display: flex;
+    font-size: 0.8rem;
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
+    color: #666;
+    cursor: pointer;
+    text-decoration: none;
+    user-select: none;
+}
+
+.embedded-timeline-toggle:hover {
+    color: #333;
 }
 
 .embedded-timeline-toggle .toggle-icon {
@@ -5665,9 +5672,26 @@ tr:hover .task-inspect-btn {
     margin-bottom: 20px;
 }
 
-.highlights-toolbar .btn-primary {
+.highlights-toolbar .btn-primary,
+.highlights-toolbar .subtle-add-btn {
     white-space: nowrap;
     width: auto;
+}
+
+/* Subtle add buttons for RAID, Highlights, etc. */
+.subtle-add-btn {
+    color: #667eea;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 500;
+    text-decoration: none;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.subtle-add-btn:hover {
+    color: #764ba2;
+    text-decoration: underline;
 }
 
 .highlights-title {
