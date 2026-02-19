@@ -7298,7 +7298,7 @@ function updateSubtaskResource(subtask, shortname, action) {
 
     lines[lineIndex] = line;
     editor.value = lines.join('\n');
-    markPlanDirty();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
 
     // Re-populate subtasks to reflect changes
     populateSubtasks(currentTaskLineNumber, lines);
