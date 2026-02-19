@@ -1613,9 +1613,15 @@ function updateMilestonesTable(tasks) {
 
             // RAG cell
             const ragCell = document.createElement('td');
-            ragCell.textContent = task.rag || '-';
-            if (task.rag) {
-                ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
+            const isTaskComplete = (parseFloat(task.percent) || 0) >= 100;
+            if (isTaskComplete) {
+                ragCell.textContent = 'Complete';
+                ragCell.classList.add('rag-complete');
+            } else {
+                ragCell.textContent = task.rag || '-';
+                if (task.rag) {
+                    ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
+                }
             }
             row.appendChild(ragCell);
 
@@ -1861,7 +1867,7 @@ function updateReportMilestones(tasks) {
         // Filter to only milestones (0-duration, non-summary tasks)
         const allMilestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
 
-        // Separate incomplete from complete, sort incomplete by date
+        // Separate incomplete from complete
         const incomplete = allMilestones
             .filter(task => (parseFloat(task.percent) || 0) < 100)
             .sort((a, b) => {
@@ -1870,8 +1876,23 @@ function updateReportMilestones(tasks) {
                 return dateA - dateB;
             });
 
-        // Take next 10 incomplete milestones
-        const displayMilestones = incomplete.slice(0, 10);
+        const complete = allMilestones
+            .filter(task => (parseFloat(task.percent) || 0) >= 100)
+            .sort((a, b) => {
+                const dateA = a.finish ? new Date(a.finish) : new Date('9999-12-31');
+                const dateB = b.finish ? new Date(b.finish) : new Date('9999-12-31');
+                return dateA - dateB;
+            });
+
+        // Include completed milestones when total milestones <= 10
+        let displayMilestones;
+        if (allMilestones.length <= 10) {
+            // Show all milestones: incomplete first, then complete
+            displayMilestones = [...incomplete, ...complete];
+        } else {
+            // Too many milestones: show only next 10 incomplete
+            displayMilestones = incomplete.slice(0, 10);
+        }
 
         if (displayMilestones.length === 0) {
             if (tableEl) tableEl.style.display = 'none';
@@ -1895,10 +1916,16 @@ function updateReportMilestones(tasks) {
             row.appendChild(dateCell);
 
             const ragCell = document.createElement('td');
-            const ragValue = task.rag || '-';
-            ragCell.textContent = ragValue;
-            if (task.rag) {
-                ragCell.classList.add('rag-' + task.rag.toLowerCase());
+            const isComplete = (parseFloat(task.percent) || 0) >= 100;
+            if (isComplete) {
+                ragCell.textContent = 'Complete';
+                ragCell.classList.add('rag-complete');
+            } else {
+                const ragValue = task.rag || '-';
+                ragCell.textContent = ragValue;
+                if (task.rag) {
+                    ragCell.classList.add('rag-' + task.rag.toLowerCase());
+                }
             }
             row.appendChild(ragCell);
 
@@ -12358,6 +12385,7 @@ function getRAGColor(rag) {
         case 'R': case 'RED': return '#d32f2f';
         case 'A': case 'AMBER': return '#f57c00';
         case 'G': case 'GREEN': return '#388e3c';
+        case 'COMPLETE': return '#1976d2';
         default: return '#ccc';
     }
 }
