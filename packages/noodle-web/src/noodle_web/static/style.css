@@ -4160,6 +4160,10 @@ tr:hover .task-inspect-btn {
     display: flex;
     align-items: center;
     gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .subtask-label:hover {
@@ -4174,6 +4178,124 @@ tr:hover .task-inspect-btn {
     border-radius: 3px;
     font-size: 0.85em;
     font-weight: 600;
+}
+
+/* Subtask right section: dates and resource avatars */
+.subtask-right-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.subtask-dates {
+    font-size: 0.8em;
+    color: #888;
+    white-space: nowrap;
+}
+
+.subtask-resources {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: relative;
+    cursor: pointer;
+}
+
+.subtask-resource-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #108BB9 0%, #0d7096 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: -4px;
+    border: 2px solid white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.subtask-resource-avatar:first-child {
+    margin-left: 0;
+}
+
+.subtask-resource-unassigned {
+    background: transparent;
+    border: 2px dashed #ccc;
+    color: transparent;
+}
+
+.subtask-resource-unassigned:hover {
+    border-color: #108bb9;
+}
+
+/* Subtask resource picker dropdown */
+.subtask-resource-picker {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 200px;
+    overflow: hidden;
+}
+
+.subtask-resource-picker-header {
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 0.85em;
+    color: #555;
+    border-bottom: 1px solid #eee;
+    background: #f9f9f9;
+}
+
+.subtask-resource-picker-subheader {
+    padding: 6px 12px 4px;
+    font-size: 0.78em;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.subtask-resource-picker-row {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.subtask-resource-picker-row.available:hover {
+    background: #f0f7fa;
+    color: #108bb9;
+}
+
+.subtask-resource-picker-row.assigned {
+    background: #f0f7fa;
+}
+
+.subtask-resource-remove {
+    color: #cc3333;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.subtask-resource-remove:hover {
+    color: #ff0000;
+}
+
+.subtask-resource-picker-empty {
+    padding: 10px 12px;
+    font-size: 0.85em;
+    color: #999;
+    text-align: center;
 }
 
 /* Add item link style */

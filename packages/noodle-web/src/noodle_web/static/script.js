@@ -7047,6 +7047,10 @@ function populateSubtasks(parentLineNumber, lines) {
         return subtasks;
     }
 
+    // Get resource mappings for displaying full names and initials
+    const editor = document.getElementById('planEditor');
+    const resourceMap = editor ? parseResourceMappings(editor.value) : {};
+
     subtasks.forEach(subtask => {
         const item = document.createElement('div');
         item.className = 'subtask-item';
@@ -7064,8 +7068,60 @@ function populateSubtasks(parentLineNumber, lines) {
             openTaskForm(subtask.lineNumber);
         });
 
+        // Right-side container for dates and resources
+        const rightSection = document.createElement('div');
+        rightSection.className = 'subtask-right-section';
+
+        // Date display
+        if (subtask.startDate || subtask.finishDate) {
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'subtask-dates';
+            const startStr = subtask.startDate ? formatSubtaskDate(subtask.startDate) : '';
+            const finishStr = subtask.finishDate ? formatSubtaskDate(subtask.finishDate) : '';
+            if (startStr && finishStr) {
+                dateSpan.textContent = `${startStr} – ${finishStr}`;
+            } else if (startStr) {
+                dateSpan.textContent = startStr;
+            } else {
+                dateSpan.textContent = finishStr;
+            }
+            rightSection.appendChild(dateSpan);
+        }
+
+        // Resource avatars
+        const resourceContainer = document.createElement('div');
+        resourceContainer.className = 'subtask-resources';
+        const resourceList = subtask.resources
+            ? subtask.resources.split(',').map(r => r.trim()).filter(r => r)
+            : [];
+
+        if (resourceList.length > 0) {
+            resourceList.forEach(shortname => {
+                const fullName = resourceMap[shortname.toLowerCase()] || shortname;
+                const avatar = document.createElement('div');
+                avatar.className = 'subtask-resource-avatar';
+                avatar.title = fullName;
+                avatar.textContent = getResourceInitials(fullName);
+                resourceContainer.appendChild(avatar);
+            });
+        } else {
+            // Empty circle for unassigned
+            const emptyAvatar = document.createElement('div');
+            emptyAvatar.className = 'subtask-resource-avatar subtask-resource-unassigned';
+            emptyAvatar.title = 'Assign a resource';
+            resourceContainer.appendChild(emptyAvatar);
+        }
+
+        // Click handler for resource assignment
+        resourceContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showSubtaskResourcePicker(resourceContainer, subtask, resourceMap);
+        });
+
+        rightSection.appendChild(resourceContainer);
         item.appendChild(piechart);
         item.appendChild(label);
+        item.appendChild(rightSection);
         subtasksList.appendChild(item);
     });
 
@@ -7094,6 +7150,155 @@ function populateSubtasks(parentLineNumber, lines) {
     }
 
     return subtasks;
+}
+
+function getResourceInitials(name) {
+    const words = name.trim().split(/\s+/);
+    if (words.length >= 2) {
+        return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    } else if (words.length === 1 && words[0].length >= 2) {
+        return words[0].substring(0, 2).toUpperCase();
+    }
+    return name.substring(0, 1).toUpperCase();
+}
+
+function formatSubtaskDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        return `${parseInt(parts[2], 10)} ${months[monthIdx]}`;
+    }
+    return dateStr;
+}
+
+function showSubtaskResourcePicker(container, subtask, resourceMap) {
+    // Close any existing picker
+    const existingPicker = document.querySelector('.subtask-resource-picker');
+    if (existingPicker) {
+        existingPicker.remove();
+    }
+
+    const picker = document.createElement('div');
+    picker.className = 'subtask-resource-picker';
+
+    const currentResources = subtask.resources
+        ? subtask.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r)
+        : [];
+
+    const allResources = Object.keys(resourceMap).sort();
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'subtask-resource-picker-header';
+    header.textContent = 'Assign Resources';
+    picker.appendChild(header);
+
+    // List of currently assigned resources with remove button
+    if (currentResources.length > 0) {
+        const assignedSection = document.createElement('div');
+        assignedSection.className = 'subtask-resource-picker-assigned';
+        currentResources.forEach(shortname => {
+            const fullName = resourceMap[shortname] || shortname;
+            const row = document.createElement('div');
+            row.className = 'subtask-resource-picker-row assigned';
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = fullName;
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'subtask-resource-remove';
+            removeBtn.textContent = '\u00D7';
+            removeBtn.title = 'Remove';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                updateSubtaskResource(subtask, shortname, 'remove');
+                picker.remove();
+            });
+            row.appendChild(nameSpan);
+            row.appendChild(removeBtn);
+            assignedSection.appendChild(row);
+        });
+        picker.appendChild(assignedSection);
+    }
+
+    // List of available resources to add
+    const availableResources = allResources.filter(r => !currentResources.includes(r));
+    if (availableResources.length > 0) {
+        const availSection = document.createElement('div');
+        availSection.className = 'subtask-resource-picker-available';
+        const availHeader = document.createElement('div');
+        availHeader.className = 'subtask-resource-picker-subheader';
+        availHeader.textContent = 'Add resource';
+        availSection.appendChild(availHeader);
+        availableResources.forEach(shortname => {
+            const fullName = resourceMap[shortname] || shortname;
+            const row = document.createElement('div');
+            row.className = 'subtask-resource-picker-row available';
+            row.textContent = fullName;
+            row.addEventListener('click', (e) => {
+                e.stopPropagation();
+                updateSubtaskResource(subtask, shortname, 'add');
+                picker.remove();
+            });
+            availSection.appendChild(row);
+        });
+        picker.appendChild(availSection);
+    }
+
+    // If no resources defined in front matter
+    if (allResources.length === 0) {
+        const noResources = document.createElement('div');
+        noResources.className = 'subtask-resource-picker-empty';
+        noResources.textContent = 'No resources defined in plan front matter';
+        picker.appendChild(noResources);
+    }
+
+    container.style.position = 'relative';
+    picker.style.position = 'absolute';
+    picker.style.right = '0';
+    picker.style.top = '100%';
+    picker.style.zIndex = '1000';
+    container.appendChild(picker);
+
+    // Close picker when clicking outside
+    const closeHandler = (e) => {
+        if (!picker.contains(e.target) && !container.contains(e.target)) {
+            picker.remove();
+            document.removeEventListener('click', closeHandler);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler), 0);
+}
+
+function updateSubtaskResource(subtask, shortname, action) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    const lineIndex = subtask.lineNumber - 1;
+    if (lineIndex < 0 || lineIndex >= lines.length) return;
+
+    let line = lines[lineIndex];
+
+    const currentResources = subtask.resources
+        ? subtask.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r)
+        : [];
+
+    if (action === 'add') {
+        // Add @shortname to the line
+        line = line.trimEnd() + ' @' + shortname;
+    } else if (action === 'remove') {
+        // Remove @shortname from the line (case-insensitive)
+        line = line.replace(new RegExp('\\s*@' + shortname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
+    }
+
+    lines[lineIndex] = line;
+    editor.value = lines.join('\n');
+    markPlanDirty();
+
+    // Re-populate subtasks to reflect changes
+    populateSubtasks(currentTaskLineNumber, lines);
 }
 
 function toggleSubtaskCompletion(lineNumber, percentOrBool) {
