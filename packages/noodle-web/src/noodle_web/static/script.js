@@ -1785,8 +1785,8 @@ function updateReportTimeline(tasks, projectName) {
         // Skip if container is hidden
         if (timelineWrapper && timelineWrapper.offsetWidth === 0) return;
 
-        const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200;
-        const timelineWidth = Math.max(800, availableWidth);
+        const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 40 : 1200;
+        const timelineWidth = Math.max(400, availableWidth);
         const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
 
         // Always render the minimal view on the report page
@@ -1819,8 +1819,8 @@ function updateEmbeddedTimeline(viewId) {
         minDate.setDate(minDate.getDate() - 7);
         maxDate.setDate(maxDate.getDate() + 7);
 
-        const availableWidth = wrapper.offsetWidth - 100;
-        const timelineWidth = Math.max(800, availableWidth);
+        const availableWidth = wrapper.offsetWidth - 40;
+        const timelineWidth = Math.max(400, availableWidth);
         const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
 
         const lineId = viewId + '-timeline-line';
@@ -8976,6 +8976,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize gantt splitter
     initGanttSplitter();
+
+    // Re-render timelines on window resize so they fill the available width
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            if (timelineTasks && timelineTasks.length > 0) {
+                updateReportTimeline(timelineTasks, timelineProjectName);
+                updateAllEmbeddedTimelines();
+            }
+        }, 200);
+    });
 
     // Close detail pane when clicking the overlay backdrop
     const detailOverlay = document.getElementById('detailPaneOverlay');
