@@ -2667,7 +2667,7 @@ def export_report_to_powerpoint(output_path, report_data):
             _set_cell_text(un_table.cell(row_idx, 2), item.get('finish', ''),
                            8, False, None, PP_ALIGN.CENTER)
             rag_text = item.get('rag', '')
-            _set_cell_text(un_table.cell(row_idx, 3), rag_text, 8, False,
+            _set_cell_text(un_table.cell(row_idx, 3), rag_text, 8, True,
                            _rag_colour(rag_text), PP_ALIGN.CENTER)
             if row_idx % 2 == 0:
                 for c in range(4):
