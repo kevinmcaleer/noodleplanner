@@ -13163,7 +13163,7 @@ function syncRaidLogToPlanText() {
         if (kanbanEditor) {
             kanbanEditor.value = updatedText;
         }
-        renderText();
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
@@ -13449,6 +13449,7 @@ function deleteHighlight(index) {
     highlightsData.splice(index, 1);
     renderHighlightsList();
     syncHighlightsToPlanText();
+    updateReportHighlight();
 }
 
 /**
@@ -13548,6 +13549,7 @@ function saveHighlightFromForm() {
     closeHighlightForm();
     renderHighlightsList();
     syncHighlightsToPlanText();
+    updateReportHighlight();
 }
 
 /**
@@ -13571,9 +13573,8 @@ async function syncHighlightsToPlanText() {
         if (kanbanEditor) {
             kanbanEditor.value = updatedText;
         }
-        // Trigger a re-render so the backend parses the updated plan text
-        // and all views (including highlights) stay in sync.
-        await renderText();
+        // Fire input event so all views (including debounced auto-render) stay in sync
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
