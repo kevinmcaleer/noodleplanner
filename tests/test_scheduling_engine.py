@@ -628,8 +628,8 @@ class TestRenderCustomTimeline:
 class TestCalculateRAGStatus:
     """Test suite for calculate_rag_status function."""
 
-    def test_green_status_on_track(self):
-        """Test green status for on-track task."""
+    def test_on_track_status(self):
+        """Test 'On Track' status for on-track task."""
         current = datetime(2025, 11, 10)
         task = {
             'start': datetime(2025, 11, 5),
@@ -638,10 +638,10 @@ class TestCalculateRAGStatus:
             'duration': timedelta(days=10)
         }
         result = calculate_rag_status(task, current)
-        assert result == 'Green'  # Function returns capitalized
+        assert result == 'On Track'
 
-    def test_red_status_behind_schedule(self):
-        """Test red status for task behind schedule."""
+    def test_behind_schedule_status(self):
+        """Test 'Behind Schedule' or 'Task Overdue' for task behind schedule."""
         current = datetime(2025, 11, 14)
         task = {
             'start': datetime(2025, 11, 5),
@@ -650,10 +650,10 @@ class TestCalculateRAGStatus:
             'duration': timedelta(days=10)
         }
         result = calculate_rag_status(task, current)
-        assert result in ['Red', 'Amber']  # May be amber depending on thresholds
+        assert result in ['Behind Schedule', 'Task Overdue']
 
-    def test_amber_status_slightly_behind(self):
-        """Test amber status for task slightly behind schedule."""
+    def test_behind_schedule_slightly(self):
+        """Test 'Behind Schedule' for task slightly behind schedule."""
         current = datetime(2025, 11, 12)
         task = {
             'start': datetime(2025, 11, 5),
@@ -662,10 +662,10 @@ class TestCalculateRAGStatus:
             'duration': timedelta(days=10)
         }
         result = calculate_rag_status(task, current)
-        assert result == 'Amber'  # Function returns capitalized
+        assert result == 'Behind Schedule'
 
     def test_completed_task(self):
-        """Test completed task shows green."""
+        """Test completed task shows 'Complete'."""
         current = datetime(2025, 11, 10)
         task = {
             'start': datetime(2025, 11, 5),
@@ -674,7 +674,7 @@ class TestCalculateRAGStatus:
             'duration': timedelta(days=10)
         }
         result = calculate_rag_status(task, current)
-        assert result == 'Green'  # Function returns capitalized
+        assert result == 'Complete'
 
     def test_not_started_task(self):
         """Test not-started task before start date."""
@@ -686,8 +686,7 @@ class TestCalculateRAGStatus:
             'duration': timedelta(days=10)
         }
         result = calculate_rag_status(task, current)
-        # Should be green (not started yet, so on track)
-        assert result in ['Green', 'Grey', 'Gray']  # Depends on implementation
+        assert result == 'Not Started'
 
 
 class TestRagStatusMilestoneAlignment:
@@ -698,52 +697,52 @@ class TestRagStatusMilestoneAlignment:
     tasks without dates.
     """
 
-    def test_completed_milestone_is_green(self):
-        """A 100% complete milestone should be Green regardless of dates."""
+    def test_completed_milestone_is_complete(self):
+        """A 100% complete milestone should be 'Complete' regardless of dates."""
         task = {'start': datetime(2025, 11, 5), 'finish': datetime(2025, 11, 5), 'percent': 100}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Complete'
 
-    def test_completed_task_no_dates_is_green(self):
-        """A 100% complete task with no dates should be Green."""
+    def test_completed_task_no_dates_is_complete(self):
+        """A 100% complete task with no dates should be 'Complete'."""
         task = {'percent': 100}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Complete'
 
-    def test_no_dates_zero_percent_is_red(self):
-        """A task with no dates and 0% should be Red."""
+    def test_no_dates_zero_percent_is_overdue(self):
+        """A task with no dates and 0% should be 'Task Overdue'."""
         task = {'percent': 0}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Task Overdue'
 
-    def test_no_dates_none_percent_is_red(self):
-        """A task with no dates and no percent should be Red."""
+    def test_no_dates_none_percent_is_overdue(self):
+        """A task with no dates and no percent should be 'Task Overdue'."""
         task = {}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Task Overdue'
 
-    def test_no_dates_low_percent_is_red(self):
-        """A task with no dates and <50% should be Red."""
+    def test_no_dates_low_percent_is_overdue(self):
+        """A task with no dates and <50% should be 'Task Overdue'."""
         task = {'percent': 30}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Task Overdue'
 
-    def test_no_dates_mid_percent_is_amber(self):
-        """A task with no dates and 50-79% should be Amber."""
+    def test_no_dates_mid_percent_is_behind_schedule(self):
+        """A task with no dates and 50-79% should be 'Behind Schedule'."""
         task = {'percent': 60}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Amber'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Behind Schedule'
 
-    def test_no_dates_high_percent_is_green(self):
-        """A task with no dates and >=80% should be Green."""
+    def test_no_dates_high_percent_is_on_track(self):
+        """A task with no dates and >=80% should be 'On Track'."""
         task = {'percent': 85}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'On Track'
 
     def test_milestone_zero_duration_overdue(self):
-        """An overdue milestone (0-duration, past date, 0%) should be Red."""
+        """An overdue milestone (0-duration, past date, 0%) should be 'Task Overdue'."""
         past = datetime(2025, 10, 1)
         task = {'start': past, 'finish': past, 'percent': 0}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Red'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Task Overdue'
 
-    def test_milestone_future_is_green(self):
-        """A future milestone should be Green."""
+    def test_milestone_future_is_not_started(self):
+        """A future milestone should be 'Not Started'."""
         future = datetime(2026, 6, 1)
         task = {'start': future, 'finish': future, 'percent': 0}
-        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Green'
+        assert calculate_rag_status(task, datetime(2025, 12, 1)) == 'Not Started'
 
     def test_label_does_not_override_explicit_start_date(self):
         """A task with #label and explicit past start date + 0% should be Red.
@@ -761,7 +760,7 @@ class TestRagStatusMilestoneAlignment:
         tasks = schedule_tasks(phases)
         task = tasks[0]
         assert task['start'] == datetime(2026, 2, 9)
-        assert calculate_rag_status(task, datetime(2026, 2, 15)) == 'Red'
+        assert calculate_rag_status(task, datetime(2026, 2, 15)) == 'Task Overdue'
 
     def test_unresolved_dependency_preserves_explicit_start(self):
         """When a #dependency doesn't resolve, the explicit start date should be kept."""
