@@ -1188,7 +1188,7 @@ async function exportReportPptx() {
                 name: cells[0].textContent.trim(),
                 start: cells[1].textContent.trim(),
                 finish: cells[2].textContent.trim(),
-                status: cells[3].textContent.trim()
+                rag: cells[3].textContent.trim()
             });
         }
     });
@@ -1945,6 +1945,9 @@ function updateReportMilestones(tasks) {
 /**
  * Populate the Up Next quad with late, in-progress, and upcoming tasks
  * for the next 2 weeks. Limited to 10 leaf tasks.
+ *
+ * Uses the same start/finish dates and RAG statuses already computed by
+ * the scheduling engine so values are consistent with the task table.
  */
 function updateReportUpNext(tasks) {
     try {
@@ -1980,17 +1983,22 @@ function updateReportUpNext(tasks) {
             const isInProgress = percent > 0 && percent < 100;
             const isUpcoming = startDate <= twoWeeksFromNow && startDate >= today && percent === 0;
 
+            // Use the RAG status from the scheduling engine for consistency
+            // with the task table, falling back to a derived value only if
+            // the backend did not provide one.
+            const ragStatus = task.rag || '';
+            const ragLower = ragStatus.toLowerCase();
+            let ragClass = '';
+            if (ragLower === 'red') ragClass = 'rag-red';
+            else if (ragLower === 'amber') ragClass = 'rag-amber';
+            else if (ragLower === 'green') ragClass = 'rag-green';
+
             if (isLate) {
-                categorized.push({ task, sortOrder: 0, status: 'Behind schedule', statusClass: 'up-next-late' });
+                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Red', statusClass: ragClass || 'rag-red' });
             } else if (isInProgress) {
-                categorized.push({ task, sortOrder: 1, status: 'In progress', statusClass: 'up-next-in-progress' });
+                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Amber', statusClass: ragClass || 'rag-amber' });
             } else if (isUpcoming) {
-                const daysUntilStart = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
-                if (daysUntilStart <= 3) {
-                    categorized.push({ task, sortOrder: 2, status: 'Starting soon', statusClass: 'up-next-starting-soon' });
-                } else {
-                    categorized.push({ task, sortOrder: 3, status: 'Not started yet', statusClass: 'up-next-not-started' });
-                }
+                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Green', statusClass: ragClass || 'rag-green' });
             }
         });
 

@@ -2344,7 +2344,7 @@ def export_report_to_powerpoint(output_path, report_data):
         report_data: dict with keys:
             project_name, manager, sponsor, budget, date, status,
             milestones (list of dicts with name, date, rag),
-            up_next (list of dicts with name, start, finish, status),
+            up_next (list of dicts with name, start, finish, rag),
             highlight (dict with date, author, content or None),
             risks_issues (list of dicts with type, title, score),
             timeline_tasks (list of dicts with name, start, finish, percent,
@@ -2594,7 +2594,7 @@ def export_report_to_powerpoint(output_path, report_data):
                        PP_ALIGN.CENTER)
         _set_cell_text(un_table.cell(0, 2), "Finish", 9, True, WHITE,
                        PP_ALIGN.CENTER)
-        _set_cell_text(un_table.cell(0, 3), "Status", 9, True, WHITE,
+        _set_cell_text(un_table.cell(0, 3), "RAG", 9, True, WHITE,
                        PP_ALIGN.CENTER)
 
         for i, item in enumerate(up_next[:10]):
@@ -2604,17 +2604,17 @@ def export_report_to_powerpoint(output_path, report_data):
                            8, False, None, PP_ALIGN.CENTER)
             _set_cell_text(un_table.cell(row_idx, 2), item.get('finish', ''),
                            8, False, None, PP_ALIGN.CENTER)
-            status_text = item.get('status', '')
-            status_colour = None
-            lower_status = status_text.lower()
-            if 'behind' in lower_status or 'late' in lower_status:
-                status_colour = RED
-            elif 'in progress' in lower_status:
-                status_colour = AMBER
-            elif 'starting soon' in lower_status:
-                status_colour = MID_BLUE
-            _set_cell_text(un_table.cell(row_idx, 3), status_text, 8, False,
-                           status_colour, PP_ALIGN.CENTER)
+            rag_text = item.get('rag', '')
+            rag_colour = None
+            lower_rag = rag_text.lower()
+            if lower_rag == 'red':
+                rag_colour = RED
+            elif lower_rag == 'amber':
+                rag_colour = AMBER
+            elif lower_rag == 'green':
+                rag_colour = GREEN
+            _set_cell_text(un_table.cell(row_idx, 3), rag_text, 8, False,
+                           rag_colour, PP_ALIGN.CENTER)
             if row_idx % 2 == 0:
                 for c in range(4):
                     un_table.cell(row_idx, c).fill.solid()
