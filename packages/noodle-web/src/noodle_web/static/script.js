@@ -1194,18 +1194,21 @@ async function exportReportPptx() {
         }
     });
 
-    // Collect latest highlight
+    // Collect latest highlight from the data model (not the DOM) to preserve
+    // newlines and bullet formatting for the PPTX export.
     let highlight = null;
-    const hlCard = document.querySelector('.report-highlight-card');
-    if (hlCard) {
-        const dateSp = hlCard.querySelector('.highlight-date');
-        const authorSp = hlCard.querySelector('.highlight-author');
-        const bodySp = hlCard.querySelector('.report-highlight-body');
-        highlight = {
-            date: dateSp ? dateSp.textContent.trim() : null,
-            author: authorSp ? authorSp.textContent.replace(/^@/, '').trim() : null,
-            content: bodySp ? bodySp.textContent.trim() : null
-        };
+    if (highlightsData && highlightsData.length > 0) {
+        const latest = highlightsData.reduce((newest, current) => {
+            if (!newest) return current;
+            return current.date > newest.date ? current : newest;
+        }, null);
+        if (latest) {
+            highlight = {
+                date: latest.date || null,
+                author: latest.author || null,
+                content: latest.content || null
+            };
+        }
     }
 
     // Collect risks & issues from the table
