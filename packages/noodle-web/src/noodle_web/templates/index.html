@@ -267,6 +267,28 @@ Press Enter to render..."></textarea>
 
                     <div class="output-panel">
 
+                        <!-- Plan Sub-Navigation Bar -->
+                        <div class="plan-subnav" id="planSubnav">
+                            <button class="plan-subnav-btn" data-view="tasks" onclick="switchToView('tasks')">
+                                <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
+                            </button>
+                            <button class="plan-subnav-btn" data-view="gantt" onclick="switchToView('gantt')">
+                                <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
+                            </button>
+                            <button class="plan-subnav-btn" data-view="kanban" onclick="switchPlanSubnavToBoard()">
+                                <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
+                            </button>
+                            <button class="plan-subnav-btn" data-view="calendar" onclick="switchToView('calendar')">
+                                <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
+                            </button>
+                            <button class="plan-subnav-btn" data-view="milestones" onclick="switchToView('milestones')">
+                                <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
+                            </button>
+                            <button class="plan-subnav-btn" data-view="timeline" onclick="switchToView('timeline')">
+                                <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
+                            </button>
+                        </div>
+
                         <!-- Project Report View (default) -->
                         <div id="project-report-view" class="output-tab-content active">
                             <div class="project-report-placeholder">

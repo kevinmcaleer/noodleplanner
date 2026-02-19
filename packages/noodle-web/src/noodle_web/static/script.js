@@ -285,6 +285,14 @@ function switchTab(tabName) {
 
     // Close all nav dropdown menus
     closeAllNavMenus();
+
+    // Update plan sub-nav: show with Board active when switching to kanban,
+    // hide for other special tabs (raid, planning, guide, etc.)
+    if (tabName === 'kanban') {
+        updatePlanSubnav('kanban');
+    } else if (tabName !== 'editor') {
+        updatePlanSubnav(tabName);
+    }
 }
 
 // Initialize editor functionality when DOM is ready
@@ -9179,6 +9187,9 @@ function switchToView(viewName) {
 
     // Update nav bar active state
     updateNavActiveState(viewName);
+
+    // Update plan sub-navigation bar
+    updatePlanSubnav(viewName);
 }
 
 // Update the active state in the navigation bar
@@ -9211,6 +9222,30 @@ function updateNavActiveState(viewName) {
         const navTab = document.getElementById(navTabId);
         if (navTab) navTab.classList.add('active');
     }
+}
+
+// Plan sub-navigation: views that belong to the Plan group
+const PLAN_VIEWS = ['tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline'];
+
+// Show or hide the plan sub-nav and highlight the active button
+function updatePlanSubnav(viewName) {
+    const subnav = document.getElementById('planSubnav');
+    if (!subnav) return;
+
+    const isPlanView = PLAN_VIEWS.includes(viewName);
+    subnav.classList.toggle('visible', isPlanView);
+
+    if (isPlanView) {
+        subnav.querySelectorAll('.plan-subnav-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === viewName);
+        });
+    }
+}
+
+// Handle Board button in the plan sub-nav
+function switchPlanSubnavToBoard() {
+    switchTab('kanban');
+    updatePlanSubnav('kanban');
 }
 
 // Switch between output tab content panels (Tasks, Project Report, Milestones, etc.)
