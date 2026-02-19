@@ -200,9 +200,10 @@ async def render_plan(data: RenderRequest):
             # If only one export is requested, return it directly
             if export_count == 1:
                 if data.export_excel:
-                    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-                        tmp_path = tmp.name
+                    tmp_path = None
                     try:
+                        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                            tmp_path = tmp.name
                         export_to_excel(
                             converted_content,
                             tmp_path,
@@ -220,13 +221,14 @@ async def render_plan(data: RenderRequest):
                             }
                         )
                     finally:
-                        if os.path.exists(tmp_path):
+                        if tmp_path and os.path.exists(tmp_path):
                             os.unlink(tmp_path)
 
                 elif data.export_csv:
-                    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
-                        tmp_path = tmp.name
+                    tmp_path = None
                     try:
+                        with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+                            tmp_path = tmp.name
                         export_to_csv(
                             converted_content,
                             tmp_path,
@@ -244,13 +246,14 @@ async def render_plan(data: RenderRequest):
                             }
                         )
                     finally:
-                        if os.path.exists(tmp_path):
+                        if tmp_path and os.path.exists(tmp_path):
                             os.unlink(tmp_path)
 
                 elif data.export_ppt:
-                    with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-                        tmp_path = tmp.name
+                    tmp_path = None
                     try:
+                        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
+                            tmp_path = tmp.name
                         export_timeline_to_powerpoint(
                             converted_content,
                             tmp_path,
@@ -268,13 +271,14 @@ async def render_plan(data: RenderRequest):
                             }
                         )
                     finally:
-                        if os.path.exists(tmp_path):
+                        if tmp_path and os.path.exists(tmp_path):
                             os.unlink(tmp_path)
 
                 elif data.export_pdf:
-                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                        tmp_path = tmp.name
+                    tmp_path = None
                     try:
+                        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                            tmp_path = tmp.name
                         export_to_pdf(
                             converted_content,
                             tmp_path,
@@ -292,7 +296,7 @@ async def render_plan(data: RenderRequest):
                             }
                         )
                     finally:
-                        if os.path.exists(tmp_path):
+                        if tmp_path and os.path.exists(tmp_path):
                             os.unlink(tmp_path)
 
             else:
@@ -360,9 +364,10 @@ def generate_exports(
 
         # Excel export
         if export_excel:
-            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-                tmp_path = tmp.name
+            tmp_path = None
             try:
+                with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                    tmp_path = tmp.name
                 export_to_excel(
                     converted_text,
                     tmp_path,
@@ -373,14 +378,15 @@ def generate_exports(
                 with open(tmp_path, 'rb') as f:
                     zip_file.writestr(f"{project_name}.xlsx", f.read())
             finally:
-                if os.path.exists(tmp_path):
+                if tmp_path and os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
         # CSV export
         if export_csv:
-            with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
-                tmp_path = tmp.name
+            tmp_path = None
             try:
+                with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
+                    tmp_path = tmp.name
                 export_to_csv(
                     converted_text,
                     tmp_path,
@@ -391,14 +397,15 @@ def generate_exports(
                 with open(tmp_path, 'r', encoding='utf-8') as f:
                     zip_file.writestr(f"{project_name}.csv", f.read())
             finally:
-                if os.path.exists(tmp_path):
+                if tmp_path and os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
         # PowerPoint timeline export
         if export_ppt:
-            with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-                tmp_path = tmp.name
+            tmp_path = None
             try:
+                with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
+                    tmp_path = tmp.name
                 export_timeline_to_powerpoint(
                     converted_text,
                     tmp_path,
@@ -409,14 +416,15 @@ def generate_exports(
                 with open(tmp_path, 'rb') as f:
                     zip_file.writestr(f"{project_name}-timeline.pptx", f.read())
             finally:
-                if os.path.exists(tmp_path):
+                if tmp_path and os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
         # PDF export
         if export_pdf:
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                tmp_path = tmp.name
+            tmp_path = None
             try:
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                    tmp_path = tmp.name
                 export_to_pdf(
                     converted_text,
                     tmp_path,
@@ -427,7 +435,7 @@ def generate_exports(
                 with open(tmp_path, 'rb') as f:
                     zip_file.writestr(f"{project_name}.pdf", f.read())
             finally:
-                if os.path.exists(tmp_path):
+                if tmp_path and os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
     # Get the ZIP file bytes
@@ -740,10 +748,11 @@ async def export_report_pptx(data: ReportExportRequest):
     """Export the project report as a PowerPoint file."""
     logger.info(f"Report PPTX export request for: {data.project_name}")
 
-    with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-        tmp_path = tmp.name
-
+    tmp_path = None
     try:
+        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
+            tmp_path = tmp.name
+
         report_data = {
             'project_name': data.project_name,
             'manager': data.manager,
@@ -774,7 +783,7 @@ async def export_report_pptx(data: ReportExportRequest):
         logger.error(f"Error exporting report to PPTX: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to export report: {str(e)}")
     finally:
-        if os.path.exists(tmp_path):
+        if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
 
@@ -849,9 +858,10 @@ async def export_raid_excel(data: RaidExportRequest):
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
-    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-        tmp_path = tmp.name
+    tmp_path = None
     try:
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            tmp_path = tmp.name
         wb.save(tmp_path)
         with open(tmp_path, 'rb') as f:
             file_bytes = f.read()
@@ -864,7 +874,7 @@ async def export_raid_excel(data: RaidExportRequest):
             }
         )
     finally:
-        if os.path.exists(tmp_path):
+        if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
 
