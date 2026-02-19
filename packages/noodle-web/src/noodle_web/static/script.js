@@ -195,6 +195,7 @@ window.addEventListener('load', function() {
     initializeKanbanEditor();
     initializeUploadTab();
     initializeEditorDragDrop();
+    initializeKanbanEditorDragDrop();
 });
 
 function initializeEditor() {
@@ -840,14 +841,20 @@ function initializeEditorDragDrop() {
         if (files.length > 0) {
             const file = files[0];
 
-            // Check if it's a markdown file
-            if (!file.name.match(/\.(md|txt)$/i)) {
-                showMessage('editor', 'error', 'Please drop only Markdown (.md) or text (.txt) files');
+            // Check if it's a supported file type
+            if (!file.name.match(/\.(md|txt|xlsx|xls)$/i)) {
+                showMessage('editor', 'error', 'Please drop Markdown (.md), text (.txt), or Excel (.xlsx) files');
                 return;
             }
 
             if (file.size > 1048576) {
                 showMessage('editor', 'error', 'File size must be less than 1MB');
+                return;
+            }
+
+            // Excel files go through the import wizard
+            if (file.name.match(/\.(xlsx|xls)$/i)) {
+                openExcelImportWizard(file);
                 return;
             }
 
@@ -886,6 +893,57 @@ async function handleEditorFileDrop(file) {
         console.error('Error loading file:', error);
         showMessage('editor', 'error', 'Failed to load file: ' + error.message);
     }
+}
+
+function initializeKanbanEditorDragDrop() {
+    const kanbanEditorPanel = document.getElementById('kanbanEditorPanel');
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+
+    if (!kanbanEditorPanel || !kanbanEditor) {
+        return;
+    }
+
+    kanbanEditorPanel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        kanbanEditorPanel.classList.add('drag-over');
+    });
+
+    kanbanEditorPanel.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!kanbanEditorPanel.contains(e.relatedTarget)) {
+            kanbanEditorPanel.classList.remove('drag-over');
+        }
+    });
+
+    kanbanEditorPanel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        kanbanEditorPanel.classList.remove('drag-over');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+
+            if (!file.name.match(/\.(md|txt|xlsx|xls)$/i)) {
+                showMessage('editor', 'error', 'Please drop Markdown (.md), text (.txt), or Excel (.xlsx) files');
+                return;
+            }
+
+            if (file.size > 1048576) {
+                showMessage('editor', 'error', 'File size must be less than 1MB');
+                return;
+            }
+
+            if (file.name.match(/\.(xlsx|xls)$/i)) {
+                openExcelImportWizard(file);
+                return;
+            }
+
+            handleEditorFileDrop(file);
+        }
+    });
 }
 
 function handleFile(file) {
