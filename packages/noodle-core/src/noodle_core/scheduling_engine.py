@@ -2088,6 +2088,244 @@ def export_timeline_to_powerpoint(text, output_path, is_yaml=True, project_name=
     logger.info(f"Exported timeline to PowerPoint: {output_path}")
 
 
+def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
+    """Draw a minimal timeline graphic on the slide using native shapes.
+
+    Renders phase bars (summary tasks) and milestone diamonds, plus a date
+    scale and a today marker.  Returns the total height consumed (EMU) so the
+    caller can position subsequent content below.
+
+    Args:
+        slide: The python-pptx slide object.
+        timeline_tasks: list of dicts with keys name, start, finish, percent,
+            is_summary, duration_days.
+        left: Left position (EMU).
+        top: Top position (EMU).
+        width: Available width (EMU).
+
+    Returns:
+        Total height used by the timeline graphic (EMU), including spacing.
+    """
+    from pptx.util import Emu
+    from pptx.oxml.ns import qn
+
+    # Separate phases and milestones
+    phases = [t for t in timeline_tasks
+              if t.get('is_summary') and t.get('start') and t.get('finish')]
+    milestones = [t for t in timeline_tasks
+                  if t.get('duration_days', 0) == 0 and not t.get('is_summary')
+                  and t.get('finish')]
+
+    if not phases and not milestones:
+        return Inches(0)
+
+    # Parse all dates to find the range
+    def _parse(d):
+        return datetime.strptime(d, '%Y-%m-%d')
+
+    all_dates = []
+    for t in phases + milestones:
+        if t.get('start'):
+            all_dates.append(_parse(t['start']))
+        if t.get('finish'):
+            all_dates.append(_parse(t['finish']))
+
+    if not all_dates:
+        return Inches(0)
+
+    min_date = min(all_dates) - timedelta(days=7)
+    max_date = max(all_dates) + timedelta(days=7)
+    total_days = (max_date - min_date).days + 1
+
+    if total_days <= 0:
+        return Inches(0)
+
+    # Colour palette
+    BLUE_SHADES = [
+        RGBColor(21, 101, 192),   # #1565c0
+        RGBColor(25, 118, 210),   # #1976d2
+        RGBColor(30, 136, 229),   # #1e88e5
+        RGBColor(33, 150, 243),   # #2196f3
+        RGBColor(66, 165, 245),   # #42a5f5
+        RGBColor(100, 181, 246),  # #64b5f6
+        RGBColor(144, 202, 249),  # #90caf9
+    ]
+    GREEN = RGBColor(76, 175, 80)       # #4caf50
+    MILESTONE_BLUE = RGBColor(25, 118, 210)
+    GREY_LINE = RGBColor(204, 204, 204)
+    DARK_TEXT = RGBColor(100, 100, 100)
+    TODAY_RED = RGBColor(220, 53, 69)
+
+    # Layout constants
+    bar_height = Inches(0.15)
+    row_gap = Inches(0.02)
+    width_emu = int(width)
+
+    # Assign rows to phases (greedy, no overlap)
+    sorted_phases = sorted(phases, key=lambda p: _parse(p['start']))
+    row_ends = []  # tracks the end-day of each row
+    phase_rows = []
+    for phase in sorted_phases:
+        start_day = (_parse(phase['start']) - min_date).days
+        end_day = (_parse(phase['finish']) - min_date).days
+        assigned = -1
+        for r_idx, r_end in enumerate(row_ends):
+            if start_day >= r_end:
+                assigned = r_idx
+                break
+        if assigned == -1:
+            assigned = len(row_ends)
+            row_ends.append(0)
+        row_ends[assigned] = end_day
+        phase_rows.append((phase, assigned))
+
+    num_rows = max(len(row_ends), 1) if phases else 0
+    phase_area_height = int(num_rows * (bar_height + row_gap))
+
+    # Draw phase bars
+    for idx, (phase, row) in enumerate(phase_rows):
+        start_day = (_parse(phase['start']) - min_date).days
+        end_day = (_parse(phase['finish']) - min_date).days
+        x_start = int(left + (start_day / total_days) * width_emu)
+        x_end = int(left + (end_day / total_days) * width_emu)
+        bar_w = max(Inches(0.05), x_end - x_start)
+        y = int(top + row * (bar_height + row_gap))
+
+        percent = float(phase.get('percent', 0))
+        is_complete = percent >= 100
+        bg_color = GREEN if is_complete else BLUE_SHADES[idx % len(BLUE_SHADES)]
+
+        # Background bar
+        bar = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, x_start, y, bar_w, bar_height
+        )
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = bg_color
+        bar.line.fill.background()
+        # Adjust corner rounding
+        bar.adjustments[0] = 0.15
+
+        # Progress overlay for partially complete phases
+        if 0 < percent < 100:
+            progress_w = int(bar_w * (percent / 100))
+            if progress_w > 0:
+                prog = slide.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE, x_start, y,
+                    progress_w, bar_height
+                )
+                prog.fill.solid()
+                prog.fill.fore_color.rgb = GREEN
+                prog.line.fill.background()
+                prog.adjustments[0] = 0.15
+
+        # Phase name label inside the bar
+        if bar_w > Inches(0.5):
+            tf = bar.text_frame
+            tf.word_wrap = False
+            tf.margin_left = Inches(0.05)
+            tf.margin_right = Inches(0.05)
+            tf.margin_top = Inches(0)
+            tf.margin_bottom = Inches(0)
+            p = tf.paragraphs[0]
+            label = phase.get('name', '')
+            if is_complete:
+                label = '\u2713 ' + label
+            p.text = label
+            p.font.size = Pt(7)
+            p.font.color.rgb = RGBColor(255, 255, 255)
+            p.font.bold = False
+
+    # Backbone line (thin grey line across full width)
+    line_y = int(top + phase_area_height + Inches(0.03))
+    backbone = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, int(left), line_y, width_emu, Inches(0.015)
+    )
+    backbone.fill.solid()
+    backbone.fill.fore_color.rgb = GREY_LINE
+    backbone.line.fill.background()
+
+    # Draw milestone diamonds below the backbone line
+    diamond_size = Inches(0.12)
+    milestone_y = line_y + Inches(0.01)
+    for ms in milestones:
+        ms_date = _parse(ms['finish'])
+        day_offset = (ms_date - min_date).days
+        x_pos = int(left + (day_offset / total_days) * width_emu
+                     - diamond_size // 2)
+        percent = float(ms.get('percent', 0))
+        ms_color = GREEN if percent >= 100 else MILESTONE_BLUE
+
+        diamond = slide.shapes.add_shape(
+            MSO_SHAPE.DIAMOND, x_pos, milestone_y,
+            diamond_size, diamond_size
+        )
+        diamond.fill.solid()
+        diamond.fill.fore_color.rgb = ms_color
+        diamond.line.fill.background()
+
+    # Date scale labels along the bottom
+    date_label_y = int(milestone_y + diamond_size + Inches(0.02))
+
+    if total_days <= 60:
+        interval_days = max(2, total_days // 7)
+    elif total_days <= 365:
+        interval_days = max(7, total_days // 12)
+    elif total_days <= 730:
+        interval_days = 30
+    else:
+        interval_days = 90
+
+    d = min_date
+    while d <= max_date:
+        day_offset = (d - min_date).days
+        x_pos = int(left + (day_offset / total_days) * width_emu)
+        if total_days <= 365:
+            label = d.strftime('%-d %b').lower()
+        else:
+            label = d.strftime("%b '%y").lower()
+
+        tb = slide.shapes.add_textbox(x_pos, date_label_y,
+                                      Inches(0.8), Inches(0.15))
+        tf = tb.text_frame
+        tf.word_wrap = False
+        tf.margin_left = 0
+        tf.margin_top = 0
+        p = tf.paragraphs[0]
+        p.text = label
+        p.font.size = Pt(6)
+        p.font.color.rgb = DARK_TEXT
+        d += timedelta(days=interval_days)
+
+    # Today marker (red vertical line)
+    today = datetime.now()
+    if min_date <= today <= max_date:
+        today_offset = (today - min_date).days
+        today_x = int(left + (today_offset / total_days) * width_emu)
+        marker_top = int(top)
+        marker_height = int(date_label_y - top)
+        today_line = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, today_x, marker_top,
+            Inches(0.015), marker_height
+        )
+        today_line.fill.solid()
+        today_line.fill.fore_color.rgb = TODAY_RED
+        today_line.line.fill.background()
+        # Small "Today" label
+        today_tb = slide.shapes.add_textbox(
+            today_x - Inches(0.15), marker_top - Inches(0.12),
+            Inches(0.4), Inches(0.12)
+        )
+        tp = today_tb.text_frame.paragraphs[0]
+        tp.text = "Today"
+        tp.font.size = Pt(5)
+        tp.font.color.rgb = TODAY_RED
+        tp.font.bold = True
+        tp.alignment = PP_ALIGN.CENTER
+
+    total_height = int(date_label_y + Inches(0.2) - top)
+    return total_height
+
+
 def export_report_to_powerpoint(output_path, report_data):
     """Export the weekly project report to a single PowerPoint slide.
 
@@ -2107,7 +2345,8 @@ def export_report_to_powerpoint(output_path, report_data):
             up_next (list of dicts with name, start, finish, status),
             highlight (dict with date, author, content or None),
             risks_issues (list of dicts with type, title, score),
-            timeline_image (base64-encoded PNG string, optional).
+            timeline_tasks (list of dicts with name, start, finish, percent,
+                is_summary, duration_days; optional).
     """
     # -- Colour palette -------------------------------------------------------
     DARK_BLUE = RGBColor(33, 60, 114)
@@ -2231,26 +2470,18 @@ def export_report_to_powerpoint(output_path, report_data):
         sp.alignment = PP_ALIGN.CENTER
 
     # -- Timeline graphic (full width, below title bar) -----------------------
-    timeline_image_b64 = report_data.get('timeline_image')
     timeline_height_used = Inches(0)
-    if timeline_image_b64:
-        import base64
-        import io
+    timeline_tasks = report_data.get('timeline_tasks', [])
+    if timeline_tasks:
         try:
-            img_data = base64.b64decode(timeline_image_b64)
-            img_stream = io.BytesIO(img_data)
-            tl_left = Inches(0.4)
-            tl_top = Inches(1.05)
-            tl_width = Inches(12.533)  # 13.333 - 0.4 - 0.4
-            pic = slide.shapes.add_picture(
-                img_stream, tl_left, tl_top, width=tl_width
+            timeline_height_used = _draw_timeline_graphic(
+                slide, timeline_tasks,
+                left=Inches(0.4), top=Inches(1.05),
+                width=Inches(12.533),  # 13.333 - 0.4 - 0.4
             )
-            # add_picture auto-scales height from aspect ratio;
-            # read the resulting height to position content below.
-            timeline_height_used = pic.height + Inches(0.15)
         except Exception:
-            # If timeline image fails, skip it gracefully
-            logger.warning("Failed to add timeline image to PPTX report")
+            logger.warning("Failed to draw timeline graphic in PPTX report",
+                           exc_info=True)
             timeline_height_used = Inches(0)
 
     # -- Quad grid layout ------------------------------------------------------

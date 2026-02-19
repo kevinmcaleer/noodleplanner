@@ -1221,17 +1221,35 @@ async function exportReportPptx() {
         }
     });
 
-    // Capture timeline as base64 PNG image
-    let timelineImage = null;
-    const timelineWrapper = document.querySelector('.report-timeline-wrapper');
-    if (timelineWrapper && timelineWrapper.offsetWidth > 0 && typeof html2canvas !== 'undefined') {
-        try {
-            const canvas = await html2canvas(timelineWrapper, { backgroundColor: '#ffffff', scale: 2 });
-            // Get base64 without the data:image/png;base64, prefix
-            timelineImage = canvas.toDataURL('image/png').split(',')[1];
-        } catch (err) {
-            console.warn('Could not capture timeline image for PPTX export:', err);
+    // Collect timeline task data for server-side rendering in the PPTX.
+    // We send phase (summary) tasks and milestone (0-duration) tasks so the
+    // backend can draw crisp vector shapes instead of relying on html2canvas
+    // which is unreliable with SVG content.
+    const tlTasks = [];
+    if (timelineTasks && timelineTasks.length > 0) {
+        let tasks = timelineTasks;
+        // Filter out top-level project container (same logic as updateTimeline)
+        if (tasks.length > 0) {
+            const minLevel = Math.min(...tasks.map(t => t.level));
+            const topLevelTasks = tasks.filter(t => t.level === minLevel);
+            if (topLevelTasks.length === 1) {
+                tasks = tasks.filter(t => t.level !== minLevel);
+            }
         }
+        tasks.forEach(t => {
+            const isMilestone = t.duration_days === 0 && !t.is_summary;
+            const isPhase = t.is_summary && t.start && t.finish;
+            if (isMilestone || isPhase) {
+                tlTasks.push({
+                    name: t.name || '',
+                    start: t.start || '',
+                    finish: t.finish || '',
+                    percent: parseFloat(t.percent) || 0,
+                    is_summary: !!t.is_summary,
+                    duration_days: t.duration_days || 0
+                });
+            }
+        });
     }
 
     // Build request payload
@@ -1246,7 +1264,7 @@ async function exportReportPptx() {
         up_next: upNext,
         highlight: highlight,
         risks_issues: risksIssues,
-        timeline_image: timelineImage
+        timeline_tasks: tlTasks
     };
 
     try {
