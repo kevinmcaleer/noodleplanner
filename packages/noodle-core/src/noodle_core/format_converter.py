@@ -112,12 +112,17 @@ def convert_plan_format_to_standard(text: str) -> str:
             if is_sequential:
                 stripped = stripped[1:].lstrip()
 
-            # Find where the metadata starts (@, #, %, number, date)
+            # Find where the metadata starts (@, #, number, date)
             metadata_start = len(stripped)
-            for char in ['@', '%', '#', '!']:
+            for char in ['@', '#', '!']:
                 pos = stripped.find(char)
                 if pos > 0:  # pos > 0 to ensure there's a task name before it
                     metadata_start = min(metadata_start, pos)
+
+            # Check for percent token (digits followed by %) - use start of digits, not %
+            percent_match = re.search(r'\b(\d{1,3})%', stripped)
+            if percent_match and percent_match.start() > 0:
+                metadata_start = min(metadata_start, percent_match.start())
 
             # Also check for dates and durations
             date_match = re.search(r'\d{4}-\d{2}-\d{2}', stripped)

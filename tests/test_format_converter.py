@@ -190,6 +190,45 @@ Phase 1
         assert '!"Important"' in result
 
 
+class TestTaskNameExcludesPercent:
+    """Test that task names never include percentage complete tokens."""
+
+    def test_percent_excluded_from_task_name(self):
+        """Task name should not contain percent like 'build software 100 %'."""
+        text = "*build software 100% @kev"
+        result = convert_plan_format_to_standard(text)
+        assert "build software 100" not in result or "build software 100%" in result
+        # The percent should be a separate token, not merged into the name
+        assert "build software 100 %" not in result
+
+    def test_percent_at_end_excluded(self):
+        """Percent at end of task should not be in the name."""
+        text = "deploy app 50%"
+        result = convert_plan_format_to_standard(text)
+        assert "deploy app 50 %" not in result
+
+    def test_percent_with_duration_excluded(self):
+        """Percent with duration should not appear in name."""
+        text = "  build software 5d 100% @kev"
+        result = convert_plan_format_to_standard(text)
+        assert "build software 100" not in result or "100%" in result
+        assert "build software 5d 100 %" not in result
+
+    def test_sequential_task_percent_excluded(self):
+        """Sequential (*) task percent should not appear in name."""
+        text = "  *build software 100% @kev"
+        result = convert_plan_format_to_standard(text)
+        assert "build software 100 %" not in result
+
+    def test_task_name_preserved_without_percent(self):
+        """Task name should be intact after percent removal."""
+        text = "build software 100% @kev"
+        result = convert_plan_format_to_standard(text)
+        assert "build software" in result
+        assert "100%" in result
+        assert "@kev" in result
+
+
 class TestEdgeCases:
     """Test edge cases and error conditions."""
 
