@@ -721,6 +721,7 @@ class ReportExportRequest(BaseModel):
     up_next: List[ReportUpNextItem] = Field(default_factory=list)
     highlight: Optional[ReportHighlight] = None
     risks_issues: List[ReportRiskIssue] = Field(default_factory=list)
+    timeline_image: Optional[str] = Field(None, description="Base64-encoded PNG of the timeline graphic")
 
 
 @app.post("/api/export-report-pptx")
@@ -743,6 +744,7 @@ async def export_report_pptx(data: ReportExportRequest):
             'up_next': [u.model_dump() for u in data.up_next],
             'highlight': data.highlight.model_dump() if data.highlight else None,
             'risks_issues': [r.model_dump() for r in data.risks_issues],
+            'timeline_image': data.timeline_image,
         }
 
         export_report_to_powerpoint(tmp_path, report_data)
