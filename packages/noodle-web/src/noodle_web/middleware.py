@@ -103,6 +103,6 @@ class ActivityLoggingMiddleware(BaseHTTPMiddleware):
                 db.add(log_entry)
         except Exception as e:
             # Don't let logging errors break the application
-            logger.debug("Failed to log activity: %s", e)
+            logger.warning("Failed to log activity: %s", e)
 
         return response
