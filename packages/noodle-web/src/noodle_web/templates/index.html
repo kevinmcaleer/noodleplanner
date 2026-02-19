@@ -35,9 +35,6 @@
                         <div class="nav-menu-item" onclick="switchToView('text-report'); event.stopPropagation();">
                             📝 Text Report
                         </div>
-                        <div class="nav-menu-item" onclick="switchToView('summary'); event.stopPropagation();">
-                            📋 Summary
-                        </div>
                         <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
                             💎 Milestones
                         </div>
@@ -188,7 +185,6 @@ Press Enter to render..."></textarea>
                             <button class="output-tab active" data-tab="project-report" onclick="switchOutputTab('project-report')">Project Report</button>
                             <button class="output-tab" data-tab="tasks" onclick="switchOutputTab('tasks')">Tasks</button>
                             <button class="output-tab" data-tab="text-report" onclick="switchOutputTab('text-report')">Text Report</button>
-                            <button class="output-tab" data-tab="summary" onclick="switchOutputTab('summary')">Project Summary</button>
                             <button class="output-tab" data-tab="milestones" onclick="switchOutputTab('milestones')">Milestones</button>
                             <button class="output-tab" data-tab="timeline" onclick="switchOutputTab('timeline')">Timeline</button>
                             <button class="output-tab" data-tab="gantt" onclick="switchOutputTab('gantt')">Gantt</button>
@@ -354,56 +350,6 @@ Press Enter to render..."></textarea>
                                         <li>❓ Check the Syntax Guide tab for help</li>
                                     </ul>
                                     <p class="welcome-hint">Press <kbd>Enter</kbd> in the editor to render your plan</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Project Summary View -->
-                        <div id="summary-view" class="output-tab-content">
-                            <div class="summary-placeholder">
-                                <h3>Project Summary</h3>
-                                <p>Render your plan to see project summary information here.</p>
-                            </div>
-                            <div class="summary-content" style="display: none;">
-                                <h2 class="summary-title" id="summaryTitle">Project Title</h2>
-
-                                <div class="summary-layout">
-                                    <!-- Project Details Box -->
-                                    <div class="project-details-box">
-                                        <h3>Project Details</h3>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Project Manager:</span>
-                                            <span class="detail-value" id="summaryManager">-</span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Sponsor:</span>
-                                            <span class="detail-value" id="summarySponsor">-</span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Budget:</span>
-                                            <span class="detail-value" id="summaryBudget">-</span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Status:</span>
-                                            <span class="detail-value" id="summaryStatus">-</span>
-                                        </div>
-                                    </div>
-
-                                    <!-- RAG Status Cards -->
-                                    <div class="rag-cards-container">
-                                        <div class="rag-item rag-red">
-                                            <div class="rag-count" id="ragRedCount">0</div>
-                                            <div class="rag-label">Red Tasks</div>
-                                        </div>
-                                        <div class="rag-item rag-amber">
-                                            <div class="rag-count" id="ragAmberCount">0</div>
-                                            <div class="rag-label">Amber Tasks</div>
-                                        </div>
-                                        <div class="rag-item rag-green">
-                                            <div class="rag-count" id="ragGreenCount">0</div>
-                                            <div class="rag-label">Green Tasks</div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>

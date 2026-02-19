@@ -573,7 +573,7 @@ async def parse_plan(data: RenderRequest):
         # Parse resource mappings from front matter
         resource_map = parse_resource_mappings(data.plan_text)
 
-        # Extract front matter data for Project Summary tab
+        # Extract front matter data for project views
         front_matter = {}
         lines = data.plan_text.split('\n')
         in_front_matter = False
