@@ -6591,9 +6591,10 @@ function setTaskFormTitle(title) {
     const el = document.getElementById('taskFormTitle');
     if (!el) return;
     const displayTitle = title || 'Task Name';
-    // Clear any stale child nodes first, then set via innerText
-    el.innerHTML = '';
-    el.innerText = displayTitle;
+    // Use textContent for reliable rendering on contenteditable elements.
+    // Create a text node explicitly to ensure the browser renders it.
+    while (el.firstChild) el.removeChild(el.firstChild);
+    el.appendChild(document.createTextNode(displayTitle));
 }
 
 function openTaskForm(lineNumber) {
