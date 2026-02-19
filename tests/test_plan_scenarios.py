@@ -352,9 +352,9 @@ Phase 1
 
 
 class TestGreenTask:
-    """Scenario 14: 100% complete task should be Green."""
+    """Scenario 14: 100% complete task should be 'Complete'."""
 
-    def test_completed_task_is_green(self):
+    def test_completed_task_is_complete(self):
         task = {
             "start": datetime(2026, 1, 5),
             "finish": datetime(2026, 1, 16),
@@ -362,9 +362,9 @@ class TestGreenTask:
             "duration": timedelta(days=10),
         }
         result = calculate_rag_status(task, datetime(2026, 2, 1))
-        assert result == "Green"
+        assert result == "Complete"
 
-    def test_future_task_is_green(self):
+    def test_future_task_is_not_started(self):
         task = {
             "start": datetime(2026, 6, 1),
             "finish": datetime(2026, 6, 12),
@@ -373,13 +373,13 @@ class TestGreenTask:
         }
         # Current date before start
         result = calculate_rag_status(task, datetime(2026, 1, 1))
-        assert result == "Green"
+        assert result == "Not Started"
 
 
 class TestRedTask:
-    """Scenario 15: 0% complete task past its start date should be Red."""
+    """Scenario 15: 0% complete task past its start date should be 'Task Overdue'."""
 
-    def test_overdue_no_progress_is_red(self):
+    def test_overdue_no_progress_is_task_overdue(self):
         task = {
             "start": datetime(2026, 1, 5),
             "finish": datetime(2026, 1, 16),
@@ -388,13 +388,13 @@ class TestRedTask:
         }
         # Current date is after start with 0% progress
         result = calculate_rag_status(task, datetime(2026, 1, 12))
-        assert result == "Red"
+        assert result == "Task Overdue"
 
 
 class TestAmberTask:
-    """Scenario 16: Partially complete but behind schedule should be Amber."""
+    """Scenario 16: Partially complete but behind schedule should be 'Behind Schedule'."""
 
-    def test_behind_schedule_is_amber(self):
+    def test_behind_schedule(self):
         task = {
             "start": datetime(2026, 1, 5),
             "finish": datetime(2026, 1, 16),
@@ -403,7 +403,7 @@ class TestAmberTask:
         }
         # 8 out of 11 days elapsed (~73% expected) but only 50% done
         result = calculate_rag_status(task, datetime(2026, 1, 13))
-        assert result == "Amber"
+        assert result == "Behind Schedule"
 
 
 # ===========================================================================

@@ -1615,15 +1615,11 @@ function updateMilestonesTable(tasks) {
 
             // RAG cell
             const ragCell = document.createElement('td');
-            const isTaskComplete = (parseFloat(task.percent) || 0) >= 100;
-            if (isTaskComplete) {
-                ragCell.textContent = 'Complete';
-                ragCell.classList.add('rag-complete');
-            } else {
-                ragCell.textContent = task.rag || '-';
-                if (task.rag) {
-                    ragCell.classList.add(`rag-${task.rag.toLowerCase()}`);
-                }
+            const ragText = task.rag || '-';
+            ragCell.textContent = ragText;
+            const ragColour = ragStatusToColour(ragText);
+            if (ragColour) {
+                ragCell.classList.add('rag-' + ragColour);
             }
             row.appendChild(ragCell);
 
@@ -1729,9 +1725,9 @@ function updateReportPage(tasks, projectName, frontMatter) {
                 statusEl.innerHTML = '';
                 const badge = document.createElement('span');
                 badge.className = 'report-rag-badge';
-                const lower = status.toLowerCase();
-                if (lower === 'red' || lower === 'amber' || lower === 'green') {
-                    badge.classList.add('rag-' + lower);
+                const badgeColour = ragStatusToColour(status);
+                if (badgeColour) {
+                    badge.classList.add('rag-' + badgeColour);
                 }
                 badge.textContent = status;
                 statusEl.appendChild(badge);
@@ -1918,16 +1914,11 @@ function updateReportMilestones(tasks) {
             row.appendChild(dateCell);
 
             const ragCell = document.createElement('td');
-            const isComplete = (parseFloat(task.percent) || 0) >= 100;
-            if (isComplete) {
-                ragCell.textContent = 'Complete';
-                ragCell.classList.add('rag-complete');
-            } else {
-                const ragValue = task.rag || '-';
-                ragCell.textContent = ragValue;
-                if (task.rag) {
-                    ragCell.classList.add('rag-' + task.rag.toLowerCase());
-                }
+            const ragValue = task.rag || '-';
+            ragCell.textContent = ragValue;
+            const ragColourMs = ragStatusToColour(ragValue);
+            if (ragColourMs) {
+                ragCell.classList.add('rag-' + ragColourMs);
             }
             row.appendChild(ragCell);
 
@@ -1989,18 +1980,15 @@ function updateReportUpNext(tasks) {
             // with the task table, falling back to a derived value only if
             // the backend did not provide one.
             const ragStatus = task.rag || '';
-            const ragLower = ragStatus.toLowerCase();
-            let ragClass = '';
-            if (ragLower === 'red') ragClass = 'rag-red';
-            else if (ragLower === 'amber') ragClass = 'rag-amber';
-            else if (ragLower === 'green') ragClass = 'rag-green';
+            const ragColourCat = ragStatusToColour(ragStatus);
+            const ragClass = ragColourCat ? 'rag-' + ragColourCat : '';
 
             if (isLate) {
-                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Red', statusClass: ragClass || 'rag-red' });
+                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Task Overdue', statusClass: ragClass || 'rag-red' });
             } else if (isInProgress) {
-                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Amber', statusClass: ragClass || 'rag-amber' });
+                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Behind Schedule', statusClass: ragClass || 'rag-amber' });
             } else if (isUpcoming) {
-                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Green', statusClass: ragClass || 'rag-green' });
+                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Not Started', statusClass: ragClass || 'rag-green' });
             }
         });
 
@@ -4420,8 +4408,9 @@ function renderGanttRows() {
         const ragCell = document.createElement('td');
         ragCell.classList.add('gantt-rag-cell');
         if (task.rag) {
+            const ganttRagColour = ragStatusToColour(task.rag);
             const ragDot = document.createElement('span');
-            ragDot.className = 'gantt-rag-dot rag-' + task.rag.toLowerCase();
+            ragDot.className = 'gantt-rag-dot' + (ganttRagColour ? ' rag-' + ganttRagColour : '');
             ragDot.title = task.rag;
             ragCell.appendChild(ragDot);
         } else {
@@ -4538,8 +4527,11 @@ function renderGanttRows() {
                 const bar = document.createElement('div');
                 bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
                 // Apply RAG colouring to non-summary task bars
-                if (!task.is_summary && task.rag && task.rag.toLowerCase() !== 'green') {
-                    bar.classList.add('gantt-bar-' + task.rag.toLowerCase());
+                if (!task.is_summary && task.rag) {
+                    const barRagColour = ragStatusToColour(task.rag);
+                    if (barRagColour && barRagColour !== 'green') {
+                        bar.classList.add('gantt-bar-' + barRagColour);
+                    }
                 }
                 const leftPos = daysFromStart * ganttPixelsPerDay;
                 const barWidth = taskCalendarDays * ganttPixelsPerDay;
@@ -4978,8 +4970,9 @@ function updateTasksTable(tasks) {
         const ragCell = document.createElement('td');
         ragCell.classList.add('gantt-rag-cell');
         if (task.rag) {
+            const printRagColour = ragStatusToColour(task.rag);
             const ragDot = document.createElement('span');
-            ragDot.className = 'gantt-rag-dot rag-' + task.rag.toLowerCase();
+            ragDot.className = 'gantt-rag-dot' + (printRagColour ? ' rag-' + printRagColour : '');
             ragDot.title = task.rag;
             ragCell.appendChild(ragDot);
         } else {
@@ -6177,15 +6170,19 @@ function updatePercentInLine(line, newPercent, indent, taskName) {
 }
 
 function calculateRAGCounts(asciiOutput) {
-    // Count occurrences of Red, Amber, Green in the ASCII output
-    const redMatches = asciiOutput.match(/Red/g) || [];
-    const amberMatches = asciiOutput.match(/Amber/g) || [];
-    const greenMatches = asciiOutput.match(/Green/g) || [];
+    // Count occurrences of descriptive RAG statuses in the ASCII output
+    const redMatches = asciiOutput.match(/Task Overdue/g) || [];
+    const amberMatches = asciiOutput.match(/Behind Schedule/g) || [];
+    const greenMatches = [
+        ...(asciiOutput.match(/On Track/g) || []),
+        ...(asciiOutput.match(/Not Started/g) || [])
+    ];
+    const blueMatches = asciiOutput.match(/Complete/g) || [];
 
     return {
         red: redMatches.length,
         amber: amberMatches.length,
-        green: greenMatches.length
+        green: greenMatches.length + blueMatches.length
     };
 }
 
@@ -7124,23 +7121,23 @@ function updateRagDisplay() {
 
     // RAG logic based on backend rules (from calculate_rag_status):
 
-    // Green: Task is 100% complete
+    // Blue: Task is 100% complete
     if (percent === 100) {
-        ragStatus = 'Green';
-        bgColor = '#4caf50';
+        ragStatus = 'Complete';
+        bgColor = '#1976d2';
         textColor = 'white';
         reasoning = 'Task is complete';
     }
     // Green: Task hasn't started yet (start date is in the future)
     else if (startDateStr && new Date(startDateStr) > today) {
-        ragStatus = 'Green';
+        ragStatus = 'Not Started';
         bgColor = '#4caf50';
         textColor = 'white';
         reasoning = 'Task not due to start yet';
     }
     // Red: Start date is in the past and no progress or 0%
     else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
-        ragStatus = 'Red';
+        ragStatus = 'Task Overdue';
         bgColor = '#f44336';
         textColor = 'white';
         reasoning = 'Task overdue - no progress reported';
@@ -7155,13 +7152,13 @@ function updateRagDisplay() {
 
         // Amber: Actual progress is less than expected
         if (percent < expectedPercent) {
-            ragStatus = 'Amber';
+            ragStatus = 'Behind Schedule';
             bgColor = '#ff9800';
             textColor = 'white';
             reasoning = 'Behind schedule: ' + percent + '% complete, expected ' + Math.round(expectedPercent) + '%';
         } else {
             // Green: On track or ahead
-            ragStatus = 'Green';
+            ragStatus = 'On Track';
             bgColor = '#4caf50';
             textColor = 'white';
             reasoning = 'On track or ahead of schedule';
@@ -7169,25 +7166,25 @@ function updateRagDisplay() {
     }
     // Fallback: Use simple percentage thresholds if no dates
     else if (percent === 0) {
-        ragStatus = 'Red';
+        ragStatus = 'Task Overdue';
         bgColor = '#f44336';
         textColor = 'white';
         reasoning = 'No progress made';
     } else if (percent < 50) {
-        ragStatus = 'Red';
+        ragStatus = 'Task Overdue';
         bgColor = '#f44336';
         textColor = 'white';
         reasoning = 'Progress below 50%';
     } else if (percent < 80) {
-        ragStatus = 'Amber';
+        ragStatus = 'Behind Schedule';
         bgColor = '#ff9800';
         textColor = 'white';
         reasoning = 'Progress 50-79%';
     } else {
-        ragStatus = 'Green';
+        ragStatus = 'On Track';
         bgColor = '#4caf50';
         textColor = 'white';
-        reasoning = 'Progress ≥80%';
+        reasoning = 'Progress >=80%';
     }
 
     ragDisplay.textContent = ragStatus;
@@ -12407,14 +12404,33 @@ function formatDateShort(dateStr) {
     return `${date.getDate()} ${months[date.getMonth()]}`;
 }
 
+// Map descriptive RAG status to colour category
+function ragStatusToColour(rag) {
+    if (!rag) return '';
+    const lower = rag.toLowerCase();
+    const mapping = {
+        'not started': 'green',
+        'on track': 'green',
+        'complete': 'blue',
+        'behind schedule': 'amber',
+        'task overdue': 'red',
+        // Legacy values
+        'green': 'green',
+        'amber': 'amber',
+        'red': 'red',
+    };
+    return mapping[lower] || '';
+}
+
 // Helper function to get RAG color
 function getRAGColor(rag) {
     if (!rag) return '#ccc';
-    switch(rag.toUpperCase()) {
-        case 'R': case 'RED': return '#d32f2f';
-        case 'A': case 'AMBER': return '#f57c00';
-        case 'G': case 'GREEN': return '#388e3c';
-        case 'COMPLETE': return '#1976d2';
+    const colour = ragStatusToColour(rag);
+    switch(colour) {
+        case 'red': return '#d32f2f';
+        case 'amber': return '#f57c00';
+        case 'green': return '#388e3c';
+        case 'blue': return '#1976d2';
         default: return '#ccc';
     }
 }
@@ -13293,17 +13309,17 @@ function calculateInspectorRag(task) {
     let status, reasoning, bgClass, expectedPercent = null;
 
     if (percent === 100) {
-        status = 'Green';
-        bgClass = 'rag-green';
+        status = 'Complete';
+        bgClass = 'rag-blue';
         reasoning = 'This task is complete. No further action needed.';
     } else if (startDateStr && new Date(startDateStr) > today) {
-        status = 'Green';
+        status = 'Not Started';
         bgClass = 'rag-green';
         const startDate = new Date(startDateStr);
         const daysUntil = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24));
         reasoning = 'This task is not due to start yet. It begins in ' + daysUntil + ' day' + (daysUntil !== 1 ? 's' : '') + ' on ' + formatInspectorDate(startDateStr) + '.';
     } else if (startDateStr && new Date(startDateStr) <= today && percent === 0) {
-        status = 'Red';
+        status = 'Task Overdue';
         bgClass = 'rag-red';
         const startDate = new Date(startDateStr);
         const daysOverdue = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24));
@@ -13316,34 +13332,34 @@ function calculateInspectorRag(task) {
         expectedPercent = Math.min(100, Math.round((elapsedDays / Math.max(1, totalDuration)) * 100));
 
         if (today > finishDate && percent < 100) {
-            status = 'Red';
+            status = 'Task Overdue';
             bgClass = 'rag-red';
             const daysLate = Math.ceil((today - finishDate) / (1000 * 60 * 60 * 24));
             reasoning = 'This task is ' + daysLate + ' day' + (daysLate !== 1 ? 's' : '') + ' past its finish date with only ' + percent + '% complete. It is overdue and blocking downstream work.';
         } else if (percent < expectedPercent) {
-            status = 'Amber';
+            status = 'Behind Schedule';
             bgClass = 'rag-amber';
             const gap = expectedPercent - percent;
             reasoning = 'This task is behind schedule. Based on elapsed time, it should be around ' + expectedPercent + '% complete but is only at ' + percent + '%. There is a ' + gap + ' percentage point gap to close.';
         } else {
-            status = 'Green';
+            status = 'On Track';
             bgClass = 'rag-green';
             reasoning = 'This task is on track. It is ' + percent + '% complete against an expected ' + expectedPercent + '%.';
         }
     } else if (percent === 0) {
-        status = 'Red';
+        status = 'Task Overdue';
         bgClass = 'rag-red';
         reasoning = 'No progress has been reported for this task and no schedule dates are available.';
     } else if (percent < 50) {
-        status = 'Red';
+        status = 'Task Overdue';
         bgClass = 'rag-red';
         reasoning = 'Progress is below 50% and no schedule dates are available to assess whether this is on track.';
     } else if (percent < 80) {
-        status = 'Amber';
+        status = 'Behind Schedule';
         bgClass = 'rag-amber';
         reasoning = 'Progress is between 50% and 80%. Without schedule dates, it is hard to confirm this is on track.';
     } else {
-        status = 'Green';
+        status = 'On Track';
         bgClass = 'rag-green';
         reasoning = 'Progress is at ' + percent + '%, which indicates the task is nearing completion.';
     }
@@ -13417,7 +13433,7 @@ function generateInspectorHints(task, ragInfo, depDetails) {
     const percent = parseInt(task.percent) || 0;
 
     // Hint for red tasks
-    if (ragInfo.status === 'Red') {
+    if (ragInfo.status === 'Task Overdue') {
         if (percent === 0 && task.startDate) {
             hints.push('This task has not started despite being past its start date. Check with the assigned resource to confirm availability and remove any blockers.');
         }
@@ -13430,7 +13446,7 @@ function generateInspectorHints(task, ragInfo, depDetails) {
     }
 
     // Hint for amber tasks
-    if (ragInfo.status === 'Amber') {
+    if (ragInfo.status === 'Behind Schedule') {
         hints.push('This task is falling behind. A short check-in with the assigned resource may uncover issues early before the situation worsens.');
         if (ragInfo.expectedPercent !== null) {
             const gap = ragInfo.expectedPercent - percent;
@@ -13441,8 +13457,8 @@ function generateInspectorHints(task, ragInfo, depDetails) {
     }
 
     // Hints about dependencies
-    const redDeps = depDetails.filter(d => d.rag === 'Red');
-    const amberDeps = depDetails.filter(d => d.rag === 'Amber');
+    const redDeps = depDetails.filter(d => ragStatusToColour(d.rag) === 'red');
+    const amberDeps = depDetails.filter(d => ragStatusToColour(d.rag) === 'amber');
 
     if (redDeps.length > 0) {
         const names = redDeps.map(d => d.name).join(', ');
@@ -13460,7 +13476,7 @@ function generateInspectorHints(task, ragInfo, depDetails) {
     }
 
     // Hint for completed tasks
-    if (percent === 100 && ragInfo.status === 'Green') {
+    if (percent === 100 && ragInfo.status === 'Complete') {
         hints.push('This task is complete. Well done!');
     }
 
@@ -13495,9 +13511,8 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     const priorityText = task.priority || 'Low';
 
     // Determine progress bar colour
-    let progressColour = 'green';
-    if (ragInfo.status === 'Amber') progressColour = 'amber';
-    if (ragInfo.status === 'Red') progressColour = 'red';
+    let progressColour = ragStatusToColour(ragInfo.status) || 'green';
+    if (progressColour === 'blue') progressColour = 'green'; // Complete tasks use green bar
 
     let html = '';
 
@@ -13581,7 +13596,8 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
             html += '        </span>';
             html += '        <span class="inspector-dep-date">finishes ' + formatInspectorDate(dep.finishDate) + '</span>';
             if (dep.rag) {
-                html += '        <span class="inspector-rag-dot rag-' + dep.rag.toLowerCase() + '" style="width:10px; height:10px;" title="' + escapeHtml(dep.rag) + '"></span>';
+                const depRagCol = ragStatusToColour(dep.rag);
+                html += '        <span class="inspector-rag-dot' + (depRagCol ? ' rag-' + depRagCol : '') + '" style="width:10px; height:10px;" title="' + escapeHtml(dep.rag) + '"></span>';
             }
             html += '      </li>';
         }

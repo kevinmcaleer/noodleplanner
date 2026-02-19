@@ -1629,14 +1629,15 @@ def calculate_resource_allocation(tasks, start_date, finish_date):
     }
 
 def calculate_rag_status(task, current_date=None):
-    """Calculate RAG (Red, Amber, Green) status for a task.
+    """Calculate RAG status for a task with descriptive text.
 
     Args:
         task: Task dictionary with start, finish, percent, duration
         current_date: Current date for comparison (defaults to today)
 
     Returns:
-        String: 'Green', 'Amber', or 'Red'
+        String: 'Complete', 'Not Started', 'On Track', 'Behind Schedule',
+                or 'Task Overdue'
     """
     if current_date is None:
         current_date = datetime.now().date()
@@ -1648,20 +1649,20 @@ def calculate_rag_status(task, current_date=None):
     finish_date = task.get('finish')
     percent_complete = task.get('percent')
 
-    # Green: Task is 100% complete (check first, regardless of dates)
+    # Blue: Task is 100% complete (check first, regardless of dates)
     if percent_complete == 100:
-        return 'Green'
+        return 'Complete'
 
     if not start_date or not finish_date:
         # Fallback when dates are missing: use percentage thresholds
         if percent_complete is None or percent_complete == 0:
-            return 'Red'
+            return 'Task Overdue'
         elif percent_complete < 50:
-            return 'Red'
+            return 'Task Overdue'
         elif percent_complete < 80:
-            return 'Amber'
+            return 'Behind Schedule'
         else:
-            return 'Green'
+            return 'On Track'
 
     # Convert to date objects
     start_date = start_date.date() if hasattr(start_date, 'date') else start_date
@@ -1669,11 +1670,11 @@ def calculate_rag_status(task, current_date=None):
 
     # Green: Task hasn't started yet (start date is in the future)
     if start_date > current_date:
-        return 'Green'
+        return 'Not Started'
 
     # Red: Start date is in the past and no progress or 0%
     if start_date <= current_date and (percent_complete is None or percent_complete == 0):
-        return 'Red'
+        return 'Task Overdue'
 
     # Calculate expected progress
     total_duration = (finish_date - start_date).days
@@ -1688,10 +1689,33 @@ def calculate_rag_status(task, current_date=None):
 
     # Amber: Actual progress is less than expected
     if percent_complete < expected_percent:
-        return 'Amber'
+        return 'Behind Schedule'
 
     # Green: On track or ahead
-    return 'Green'
+    return 'On Track'
+
+
+def rag_status_to_colour(rag_status):
+    """Map a descriptive RAG status to its colour category.
+
+    Args:
+        rag_status: Descriptive status string from calculate_rag_status
+
+    Returns:
+        String: 'green', 'amber', 'red', 'blue', or 'grey'
+    """
+    mapping = {
+        'not started': 'green',
+        'on track': 'green',
+        'complete': 'blue',
+        'behind schedule': 'amber',
+        'task overdue': 'red',
+        # Legacy values for backwards compatibility
+        'green': 'green',
+        'amber': 'amber',
+        'red': 'red',
+    }
+    return mapping.get((rag_status or '').lower(), 'grey')
 
 def parse_resource_mappings(original_text):
     """Parse resource mappings from YAML front matter.
@@ -2364,14 +2388,14 @@ def export_report_to_powerpoint(output_path, report_data):
     COMPLETE_BLUE = RGBColor(25, 118, 210)
 
     def _rag_colour(rag_str):
-        lower = (rag_str or '').lower()
-        if lower == 'red':
+        colour = rag_status_to_colour(rag_str)
+        if colour == 'red':
             return RED
-        if lower in ('amber', 'yellow'):
+        if colour == 'amber':
             return AMBER
-        if lower == 'green':
+        if colour == 'green':
             return GREEN
-        if lower == 'complete':
+        if colour == 'blue':
             return COMPLETE_BLUE
         return BLACK
 
@@ -2605,16 +2629,8 @@ def export_report_to_powerpoint(output_path, report_data):
             _set_cell_text(un_table.cell(row_idx, 2), item.get('finish', ''),
                            8, False, None, PP_ALIGN.CENTER)
             rag_text = item.get('rag', '')
-            rag_colour = None
-            lower_rag = rag_text.lower()
-            if lower_rag == 'red':
-                rag_colour = RED
-            elif lower_rag == 'amber':
-                rag_colour = AMBER
-            elif lower_rag == 'green':
-                rag_colour = GREEN
             _set_cell_text(un_table.cell(row_idx, 3), rag_text, 8, False,
-                           rag_colour, PP_ALIGN.CENTER)
+                           _rag_colour(rag_text), PP_ALIGN.CENTER)
             if row_idx % 2 == 0:
                 for c in range(4):
                     un_table.cell(row_idx, c).fill.solid()
@@ -2874,12 +2890,16 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         if rag_status:
             rag_col_num = 8  # RAG is the 8th column
             rag_cell = ws_tasks.cell(row=task_row_num, column=rag_col_num)
-            if rag_status == 'Green':
+            colour = rag_status_to_colour(rag_status)
+            if colour == 'green':
                 rag_cell.fill = PatternFill(start_color="92D050", end_color="92D050", fill_type="solid")
-            elif rag_status == 'Amber':
+            elif colour == 'amber':
                 rag_cell.fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
-            elif rag_status == 'Red':
+            elif colour == 'red':
                 rag_cell.fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+                rag_cell.font = Font(color="FFFFFF", bold=True)
+            elif colour == 'blue':
+                rag_cell.fill = PatternFill(start_color="1976D2", end_color="1976D2", fill_type="solid")
                 rag_cell.font = Font(color="FFFFFF", bold=True)
 
         task_row_num += 1
