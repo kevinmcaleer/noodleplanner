@@ -2,6 +2,7 @@ import logging
 import os
 import time
 from fastapi import Request
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import BaseHTTPMiddleware
 from .database import ActivityLog, get_db
 
@@ -101,7 +102,7 @@ class ActivityLoggingMiddleware(BaseHTTPMiddleware):
                     response_time_ms=response_time_ms
                 )
                 db.add(log_entry)
-        except Exception as e:
+        except SQLAlchemyError as e:
             # Don't let logging errors break the application
             logger.warning("Failed to log activity: %s", e)
 

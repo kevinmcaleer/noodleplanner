@@ -4,6 +4,7 @@ import io
 import logging
 import math
 import re
+import zipfile
 from datetime import datetime, timedelta
 
 import openpyxl
@@ -165,7 +166,7 @@ def _read_workbook(file_bytes, filename):
 
     try:
         wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
-    except Exception as e:
+    except (zipfile.BadZipFile, KeyError, ValueError) as e:
         raise ValueError(f"Failed to read Excel file: {e}")
     return wb
 
@@ -186,7 +187,7 @@ def _read_xls_workbook(file_bytes):
 
     try:
         xls_book = xlrd.open_workbook(file_contents=file_bytes)
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, xlrd.biffh.XLRDError) as e:
         raise ValueError(f"Failed to read .xls file: {e}")
 
     wb = openpyxl.Workbook()

@@ -332,7 +332,7 @@ async def render_plan(data: RenderRequest):
 
             return {"ascii_output": ascii_output}
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error rendering plan: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to render plan: {str(e)}")
 
@@ -549,7 +549,7 @@ async def parse_plan(data: RenderRequest):
         raid_log_text = extract_raid_log(data.plan_text)
         if raid_log_text:
             raid_items = parse_raid_markdown(raid_log_text)
-    except Exception as e:
+    except (ValueError, KeyError) as e:
         logger.warning(f"Failed to parse RAID log from plan text: {e}")
 
     try:
@@ -675,7 +675,7 @@ async def parse_plan(data: RenderRequest):
             "raid_items": raid_items,
         }
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Error parsing plan: {str(e)}", exc_info=True)
         # Return a partial response with highlights so the frontend can
         # still display them even when task parsing fails.
@@ -779,7 +779,7 @@ async def export_report_pptx(data: ReportExportRequest):
                 "Content-Disposition": f'attachment; filename="{data.project_name}-report.pptx"'
             }
         )
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error exporting report to PPTX: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to export report: {str(e)}")
     finally:
@@ -953,7 +953,7 @@ async def import_raid_excel(file: UploadFile = File(...)):
 
         return {"items": items}
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, IndexError) as e:
         logger.error(f"Error importing RAID Excel: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
@@ -980,7 +980,7 @@ async def excel_analyze(file: UploadFile = File(...)):
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error analyzing Excel file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to analyze file: {e}")
 
@@ -1016,7 +1016,7 @@ async def excel_convert(
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error converting Excel file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to convert file: {e}")
 
@@ -1040,7 +1040,7 @@ async def excel_convert_planner(file: UploadFile = File(...)):
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error converting Planner file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to convert Planner file: {e}")
 
@@ -1174,7 +1174,7 @@ async def parse_outline(data: ParseOutlineRequest):
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except (KeyError, TypeError, IndexError) as e:
         logger.error(f"Unexpected error parsing outline: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to parse outline: {str(e)}")
 
@@ -1217,7 +1217,7 @@ async def generate_plan_from_planning_room(data: GeneratePlanRequest):
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error generating plan: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate plan: {str(e)}")
 
@@ -1269,7 +1269,7 @@ async def get_templates():
                     templates.append(template_data)
                     categories.add(metadata.get("category", "General"))
 
-                except Exception as e:
+                except (yaml.YAMLError, OSError, KeyError, TypeError) as e:
                     logger.error(f"Error loading template {template_path.name}: {e}")
 
     return {
@@ -1321,7 +1321,7 @@ async def get_template(template_id: str):
             "popular": metadata.get("popular", False)
         }
 
-    except Exception as e:
+    except (yaml.YAMLError, OSError, KeyError, TypeError) as e:
         logger.error(f"Error loading template {template_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to load template")
 

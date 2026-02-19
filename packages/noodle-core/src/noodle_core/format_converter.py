@@ -52,7 +52,7 @@ def extract_title_from_frontmatter(text: str) -> str:
                 for key, value in frontmatter.items():
                     if key.lower() == 'title' and value is not None:
                         return str(value)
-        except Exception:
+        except yaml.YAMLError:
             # YAML parsing can fail (e.g. @ symbols in resource lines).
             # Fall back to simple line-by-line parsing.
             for line in frontmatter_lines:
