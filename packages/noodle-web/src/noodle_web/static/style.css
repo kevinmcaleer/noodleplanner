@@ -1193,6 +1193,64 @@ h1 {
     max-width: 100%;
 }
 
+/* Donut Chart */
+.donut-chart-section {
+    margin-bottom: 10px;
+}
+
+.donut-chart-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 20px 0;
+}
+
+.donut-chart-svg {
+    flex-shrink: 0;
+}
+
+.donut-chart-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95em;
+    color: #444;
+}
+
+.donut-legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.donut-legend-swatch.complete {
+    background-color: #90EE90;
+}
+
+.donut-legend-swatch.incomplete {
+    background-color: #D3D3D3;
+}
+
+.donut-legend-count {
+    font-weight: 600;
+    min-width: 24px;
+}
+
+@media (max-width: 768px) {
+    .donut-chart-container {
+        flex-direction: column;
+        gap: 20px;
+    }
+}
+
 /* Quad Grid Layout */
 .quad-grid {
     display: grid;
