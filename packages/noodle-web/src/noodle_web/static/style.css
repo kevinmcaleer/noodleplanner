@@ -101,6 +101,11 @@ svg.icon {
     border-bottom-color: #667eea;
 }
 
+/* Dashboard button styling */
+.nav-dashboard-btn {
+    font-weight: 600;
+}
+
 .nav-export-dropdown {
     margin-left: auto;
     position: relative;
@@ -258,39 +263,7 @@ svg.icon {
     background: white;
 }
 
-/* Output Tabs Styling */
-.output-tabs {
-    display: flex;
-    gap: 5px;
-    padding: 10px 20px;
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
-    flex-shrink: 0;
-}
-
-.output-tab {
-    padding: 8px 16px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    border-bottom: 3px solid transparent;
-    transition: all 0.3s;
-    font-size: 0.95em;
-    color: #666;
-    font-weight: 500;
-}
-
-.output-tab:hover {
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
-}
-
-.output-tab.active {
-    border-bottom-color: #667eea;
-    color: #667eea;
-    font-weight: 600;
-}
-
+/* Output Tab Content Styling */
 .output-tab-content {
     display: none;
     flex: 1;
@@ -2916,28 +2889,6 @@ input[type="checkbox"] {
         height: 24px;
     }
 
-    /* Output tabs: horizontal scroll */
-    .output-tabs {
-        overflow-x: auto;
-        overflow-y: hidden;
-        flex-wrap: nowrap;
-        padding: 8px 10px;
-        gap: 2px;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-
-    .output-tabs::-webkit-scrollbar {
-        display: none;
-    }
-
-    .output-tab {
-        padding: 6px 10px;
-        font-size: 0.85em;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
     .editor-wrapper {
         min-height: 200px;
     }
@@ -3172,11 +3123,6 @@ input[type="checkbox"] {
 
     .tab {
         padding: 6px 10px;
-        font-size: 0.8em;
-    }
-
-    .output-tab {
-        padding: 5px 8px;
         font-size: 0.8em;
     }
 

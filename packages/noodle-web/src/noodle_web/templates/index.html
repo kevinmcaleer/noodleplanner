@@ -107,44 +107,34 @@
         <div class="content">
             <div class="tabs">
                 <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
-                <button class="tab active" onclick="switchTab('editor')">Editor</button>
+                <button class="tab nav-dashboard-btn active" id="dashboardTab" onclick="switchToView('project-report')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
+                </button>
                 <div class="nav-dropdown">
-                    <button class="tab" id="viewsTab" onclick="toggleViewsMenu(event)">
-                        Views ▾
+                    <button class="tab" id="planTab" onclick="togglePlanMenu(event)">
+                        Plan ▾
                     </button>
-                    <div class="nav-menu" id="viewsMenu">
+                    <div class="nav-menu" id="planMenu">
                         <div class="nav-menu-item" onclick="switchToView('tasks'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </div>
-                        <div class="nav-menu-item" onclick="switchToView('project-report'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Project Report
+                        <div class="nav-menu-item" onclick="switchToView('gantt'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
                         </div>
-                        <div class="nav-menu-item" onclick="switchToView('text-report'); event.stopPropagation();">
-                            📝 Text Report
+                        <div class="nav-menu-item" onclick="switchToView('calendar'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
                         </div>
-                        <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
+                        <div class="nav-menu-item" onclick="switchTab('kanban'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
                         </div>
                         <div class="nav-menu-item" onclick="switchToView('timeline'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
                         </div>
-                        <div class="nav-menu-item" onclick="switchToView('gantt'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt Chart
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
-                            🔍 Analysis
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('calendar'); event.stopPropagation();">
-                            📆 Calendar
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
-                            🔮 2-Week Look-Ahead
+                        <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
                         </div>
                     </div>
                 </div>
-                <button class="tab" onclick="switchTab('kanban')"><svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board</button>
-                <button class="tab" onclick="switchTab('planning')">Planning</button>
                 <div class="nav-dropdown">
                     <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)">
                         Tracking ▾
@@ -156,6 +146,12 @@
                         <div class="nav-menu-item" onclick="switchToView('highlights'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
                         </div>
+                        <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
+                            🔮 2-Week Look-Ahead
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
+                            🔍 Analysis
+                        </div>
                     </div>
                 </div>
                 <div class="nav-dropdown">
@@ -164,7 +160,7 @@
                     </button>
                     <div class="nav-menu" id="resourcesMenu">
                         <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resources Table
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
                         </div>
                         <div class="nav-menu-item" onclick="switchToView('timesheet'); event.stopPropagation();">
                             ⏰ Timesheet
@@ -178,53 +174,53 @@
                     </div>
                 </div>
                 <div class="nav-dropdown">
-                    <button class="tab" id="helpTab" onclick="toggleHelpMenu(event)">
-                        Help & Resources ▾
+                    <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)">
+                        Tools ▾
                     </button>
-                    <div class="nav-menu" id="helpMenu">
+                    <div class="nav-menu" id="toolsMenu">
+                        <div class="nav-menu-item" onclick="switchToView('text-report'); event.stopPropagation();">
+                            📝 Text Report
+                        </div>
+                        <div class="nav-menu-item" onclick="switchTab('planning'); event.stopPropagation();">
+                            📋 Planning Room
+                        </div>
+                        <div class="nav-menu-item" onclick="openTemplatesModal(); event.stopPropagation();">
+                            📄 Templates
+                        </div>
                         <div class="nav-menu-item" onclick="switchTab('guide'); event.stopPropagation();">
                             📖 Syntax Guide
                         </div>
-                        <div class="nav-menu-item" onclick="openTemplatesModal(); event.stopPropagation();">
-                            📋 Templates
-                        </div>
-                    </div>
-                </div>
-                <div class="nav-export-dropdown">
-                    <button class="export-btn" onclick="toggleExportMenu(event)">
-                        Import/Export ▾
-                    </button>
-                    <div class="export-menu" id="exportMenu">
-                        <div class="export-menu-item" onclick="triggerExcelUpload(); event.stopPropagation();">
+                        <div class="nav-menu-divider"></div>
+                        <div class="nav-menu-item" onclick="triggerExcelUpload(); event.stopPropagation();">
                             📥 Import from Excel
                         </div>
-                        <div class="export-menu-divider"></div>
-                        <div class="export-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-divider"></div>
+                        <div class="nav-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
                             📊 Export to Excel
                         </div>
-                        <div class="export-menu-item" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-item" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
                             📋 Export to CSV
                         </div>
-                        <div class="export-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
                             📽️ Export to PowerPoint
                         </div>
-                        <div class="export-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
                             📄 Export to PDF
                         </div>
-                        <div class="export-menu-item" onclick="exportReportPptx(); event.stopPropagation();">
+                        <div class="nav-menu-item" onclick="exportReportPptx(); event.stopPropagation();">
                             📊 Export Report to PowerPoint
                         </div>
-                        <div class="export-menu-divider raid-export-item" style="display:none;"></div>
-                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
+                        <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
+                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
                             ⬇ Download RAID Markdown
                         </div>
-                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
                             ⬆ Upload RAID Markdown
                         </div>
-                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
                             📊 Export RAID to Excel
                         </div>
-                        <div class="export-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
                             📊 Upload RAID Excel
                         </div>
                     </div>
@@ -270,18 +266,6 @@ Press Enter to render..."></textarea>
                     </div>
 
                     <div class="output-panel">
-                        <!-- Output Tabs Navigation -->
-                        <div class="output-tabs">
-                            <button class="output-tab active" data-tab="project-report" onclick="switchOutputTab('project-report')">Project Report</button>
-                            <button class="output-tab" data-tab="tasks" onclick="switchOutputTab('tasks')">Tasks</button>
-                            <button class="output-tab" data-tab="text-report" onclick="switchOutputTab('text-report')">Text Report</button>
-                            <button class="output-tab" data-tab="milestones" onclick="switchOutputTab('milestones')">Milestones</button>
-                            <button class="output-tab" data-tab="timeline" onclick="switchOutputTab('timeline')">Timeline</button>
-                            <button class="output-tab" data-tab="gantt" onclick="switchOutputTab('gantt')">Gantt</button>
-                            <button class="output-tab" data-tab="analysis" onclick="switchOutputTab('analysis')">Analysis</button>
-                            <button class="output-tab" data-tab="highlights" onclick="switchOutputTab('highlights')">Highlights</button>
-                            <button class="output-tab" data-tab="calendar" onclick="switchOutputTab('calendar')">Calendar</button>
-                        </div>
 
                         <!-- Project Report View (default) -->
                         <div id="project-report-view" class="output-tab-content active">
