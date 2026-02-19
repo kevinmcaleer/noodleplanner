@@ -242,6 +242,9 @@ class KanbanBoard {
             }
         }
 
+        // Refresh hierarchy references before grouping (task objects are recreated on each parse)
+        this.refreshHierarchyReferences();
+
         // Group tasks by current view mode
         this.groupTasksByViewMode();
     }
@@ -409,6 +412,30 @@ class KanbanBoard {
      */
     getAllTasks() {
         return this.allTasksCache || this.tasks;
+    }
+
+    /**
+     * Refresh hierarchy state after re-parsing
+     * After parse(), task objects are recreated so currentParentTask and breadcrumb
+     * references become stale. This finds the equivalent tasks by name in the new task list.
+     */
+    refreshHierarchyReferences() {
+        if (this.currentParentTask) {
+            const parentName = this.currentParentTask.name;
+            const newParent = this.tasks.find(t => t.name === parentName);
+            if (newParent) {
+                this.currentParentTask = newParent;
+            }
+        }
+
+        // Refresh breadcrumb task references
+        this.hierarchyBreadcrumb = this.hierarchyBreadcrumb.map(crumb => {
+            const newTask = this.tasks.find(t => t.name === crumb.name);
+            return {
+                name: crumb.name,
+                task: newTask || crumb.task
+            };
+        });
     }
 
     /**
@@ -3163,7 +3190,25 @@ class KanbanBoard {
         } else {
             delete this.themeColours[columnTitle];
         }
+
+        // Prevent the debounced editor input handler from triggering a second re-parse
+        if (window.kanbanIsUpdating) {
+            window.kanbanIsUpdating(true);
+        }
+
         this.saveThemeColours();
+
+        // Re-parse and re-render immediately, preserving drill-down state
+        this.parse();
+        this.render();
+        this.renderBreadcrumb();
+
+        // Re-enable editor listener after update
+        setTimeout(() => {
+            if (window.kanbanIsUpdating) {
+                window.kanbanIsUpdating(false);
+            }
+        }, 1100); // Longer than the 1000ms debounce to prevent stale re-parse
     }
 
     /**
@@ -3402,6 +3447,7 @@ function setupKanbanAutoSync() {
                 if (kanbanBoard && document.getElementById('kanban-tab').classList.contains('active')) {
                     kanbanBoard.parse();
                     kanbanBoard.render();
+                    kanbanBoard.renderBreadcrumb();
                 }
             }, 1000);
         });
@@ -3420,6 +3466,7 @@ function setupKanbanAutoSync() {
                 if (document.getElementById('kanban-tab').classList.contains('active') && kanbanBoard) {
                     kanbanBoard.parse();
                     kanbanBoard.render();
+                    kanbanBoard.renderBreadcrumb();
                 }
             }, 500);
         });
