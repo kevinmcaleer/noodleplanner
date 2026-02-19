@@ -703,7 +703,7 @@ class ReportUpNextItem(BaseModel):
     name: str = Field("", max_length=500)
     start: str = Field("", max_length=50)
     finish: str = Field("", max_length=50)
-    status: str = Field("", max_length=50)
+    rag: str = Field("", max_length=50)
 
 
 class ReportHighlight(BaseModel):
