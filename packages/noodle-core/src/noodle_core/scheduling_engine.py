@@ -343,15 +343,6 @@ def extract_metadata(task_str, task_name=None):
     if desc_match:
         meta['description'] = desc_match.group(1).strip()
     return meta
-    # Task number
-    num_match = re.match(r"\s*[\*]?\s*([0-9]+)\. ", task_str)
-    if num_match:
-        meta['number'] = int(num_match.group(1))
-    # Description
-    desc_match = re.match(r"\s*[\*]?\s*\d+\. ([^,]+)", task_str)
-    if desc_match:
-        meta['description'] = desc_match.group(1).strip()
-    return meta
 
 
 def detect_dependency_loops(tasks):
