@@ -136,6 +136,91 @@ function isDetailPaneOpen() {
     return pane && pane.classList.contains('open');
 }
 
+/**
+ * Detect whether the board (kanban) tab is currently active
+ */
+function isBoardViewActive() {
+    const kanbanTab = document.getElementById('kanban-tab');
+    return kanbanTab && kanbanTab.classList.contains('active');
+}
+
+/**
+ * Get the currently active editor element (planEditor or kanbanPlanEditor)
+ */
+function getActiveEditor() {
+    if (isBoardViewActive()) {
+        return document.getElementById('kanbanPlanEditor') || document.getElementById('planEditor');
+    }
+    return document.getElementById('planEditor');
+}
+
+/**
+ * Handle upload button click - opens upload tab from editor view,
+ * or triggers direct file picker from board view
+ */
+function uploadPlanFile() {
+    if (isBoardViewActive()) {
+        // From board view, trigger a file picker directly
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.md,.txt,.xlsx,.xls';
+        input.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (file.name.match(/\.(xlsx|xls)$/i)) {
+                    openExcelImportWizard(file);
+                } else {
+                    handleBoardFileUpload(file);
+                }
+            }
+        });
+        input.click();
+    } else {
+        switchTab('upload');
+    }
+}
+
+/**
+ * Handle file upload directly into the board view editor
+ */
+async function handleBoardFileUpload(file) {
+    if (!file.name.match(/\.(md|txt)$/i)) {
+        showMessage('kanban', 'error', 'Please select a Markdown (.md) or text (.txt) file');
+        return;
+    }
+
+    if (file.size > 1048576) {
+        showMessage('kanban', 'error', 'File size must be less than 1MB');
+        return;
+    }
+
+    try {
+        clearPlanTrackingData();
+
+        const text = await file.text();
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        const mainEditor = document.getElementById('planEditor');
+
+        // Update both editors
+        if (mainEditor) {
+            mainEditor.value = text;
+            mainEditor.dispatchEvent(new Event('input'));
+        }
+        if (kanbanEditor) {
+            kanbanEditor.value = text;
+            kanbanEditor.dispatchEvent(new Event('input'));
+        }
+
+        showMessage('kanban', 'success', `Loaded ${file.name} successfully`);
+
+        // Render the plan in kanban context
+        await render(text, null, false, false, false, false, 'kanban');
+    } catch (error) {
+        console.error('Error loading file:', error);
+        showMessage('kanban', 'error', 'Failed to load file: ' + error.message);
+    }
+}
+
 function switchTab(tabName) {
     // Remove active class from all tabs and content
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -5855,11 +5940,12 @@ function showMessage(prefix, type, text) {
 }
 
 function downloadMarkdown() {
-    const editor = document.getElementById('planEditor');
+    const editor = getActiveEditor();
     const content = editor.value;
+    const messageTarget = isBoardViewActive() ? 'kanban' : 'editor';
 
     if (!content.trim()) {
-        showMessage('editor', 'error', 'Nothing to save - editor is empty');
+        showMessage(messageTarget, 'error', 'Nothing to save - editor is empty');
         return;
     }
 
@@ -5884,7 +5970,7 @@ function downloadMarkdown() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
-    showMessage('editor', 'success', 'Markdown file downloaded!');
+    showMessage(messageTarget, 'success', 'Markdown file downloaded!');
 }
 
 // Task Form Modal Functions
