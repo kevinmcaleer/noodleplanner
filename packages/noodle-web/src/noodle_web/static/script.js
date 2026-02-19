@@ -1996,9 +1996,8 @@ function updateReportUpNext(tasks) {
             }
         });
 
-        // Sort: late first, then in progress, then upcoming (by start date within each group)
+        // Sort by task start date ascending (earliest first)
         categorized.sort((a, b) => {
-            if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
             const dateA = parseLocalDate(a.task.start);
             const dateB = parseLocalDate(b.task.start);
             return dateA - dateB;
