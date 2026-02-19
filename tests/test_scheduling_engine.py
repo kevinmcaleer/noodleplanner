@@ -277,8 +277,10 @@ class TestScheduleTasks:
         ]
         tasks = schedule_tasks(phases)
         assert len(tasks) == 2
-        # Task 2 should start after Task 1 finishes
-        assert tasks[1]['start'] == tasks[0]['finish']
+        # Task 2 should start on the next working day after Task 1 finishes.
+        # The finish date is exclusive (day after last working day), so if it
+        # falls on a weekend, get_next_working_day skips to Monday.
+        assert tasks[1]['start'] == get_next_working_day(tasks[0]['finish'])
 
     def test_schedule_parallel_tasks(self):
         """Test scheduling parallel tasks (same start)."""
@@ -322,8 +324,10 @@ class TestScheduleTasks:
         ]
         tasks = schedule_tasks(phases)
         assert len(tasks) == 2
-        # Task 2 should start after Task 1 finishes
-        assert tasks[1]['start'] == tasks[0]['finish']
+        # Task 2 should start on the next working day after Task 1 finishes.
+        # The finish date is exclusive (day after last working day), so if it
+        # falls on a weekend, get_next_working_day skips to Monday.
+        assert tasks[1]['start'] == get_next_working_day(tasks[0]['finish'])
 
     def test_schedule_summary_task_with_children(self):
         """Test scheduling summary task with children."""
