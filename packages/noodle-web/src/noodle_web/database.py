@@ -1,9 +1,12 @@
+import logging
 import os
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
+
+logger = logging.getLogger(__name__)
 
 # Get database URL from environment variable
 DATABASE_URL = os.getenv(
@@ -66,5 +69,5 @@ def test_connection():
             conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
-        print(f"Database connection failed: {e}")
+        logger.debug("Database connection failed: %s", e)
         return False

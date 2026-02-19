@@ -1,8 +1,11 @@
+import logging
 import os
 import time
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from .database import ActivityLog, get_db
+
+logger = logging.getLogger(__name__)
 
 ENABLE_ACTIVITY_LOGGING = os.getenv("ENABLE_ACTIVITY_LOGGING", "true").lower() == "true"
 
@@ -100,6 +103,6 @@ class ActivityLoggingMiddleware(BaseHTTPMiddleware):
                 db.add(log_entry)
         except Exception as e:
             # Don't let logging errors break the application
-            print(f"Failed to log activity: {e}")
+            logger.debug("Failed to log activity: %s", e)
 
         return response
