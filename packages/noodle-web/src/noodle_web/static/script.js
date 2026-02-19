@@ -2236,24 +2236,38 @@ function updateReportDonutChart(tasks) {
         }
 
         if (completedCount === total) {
-            // All complete - full ring
+            // All complete - full ring with draw animation
+            const ringRadius = (outerRadius + innerRadius) / 2;
+            const circumference = 2 * Math.PI * ringRadius;
             const circle = document.createElementNS(svgNS, 'circle');
             circle.setAttribute('cx', cx);
             circle.setAttribute('cy', cy);
-            circle.setAttribute('r', (outerRadius + innerRadius) / 2);
+            circle.setAttribute('r', ringRadius);
             circle.setAttribute('fill', 'none');
             circle.setAttribute('stroke', completedColor);
             circle.setAttribute('stroke-width', outerRadius - innerRadius);
+            circle.classList.add('donut-ring-animated');
+            circle.style.setProperty('--circumference', circumference);
+            circle.setAttribute('stroke-dasharray', circumference);
+            circle.setAttribute('stroke-dashoffset', '0');
+            circle.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
             svg.appendChild(circle);
         } else if (incompleteCount === total) {
-            // All incomplete - full ring
+            // All incomplete - full ring with draw animation
+            const ringRadius = (outerRadius + innerRadius) / 2;
+            const circumference = 2 * Math.PI * ringRadius;
             const circle = document.createElementNS(svgNS, 'circle');
             circle.setAttribute('cx', cx);
             circle.setAttribute('cy', cy);
-            circle.setAttribute('r', (outerRadius + innerRadius) / 2);
+            circle.setAttribute('r', ringRadius);
             circle.setAttribute('fill', 'none');
             circle.setAttribute('stroke', incompleteColor);
             circle.setAttribute('stroke-width', outerRadius - innerRadius);
+            circle.classList.add('donut-ring-animated');
+            circle.style.setProperty('--circumference', circumference);
+            circle.setAttribute('stroke-dasharray', circumference);
+            circle.setAttribute('stroke-dashoffset', '0');
+            circle.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
             svg.appendChild(circle);
         } else {
             // Draw completed slice first (starts at top)
@@ -2262,12 +2276,16 @@ function updateReportDonutChart(tasks) {
             const completedPath = document.createElementNS(svgNS, 'path');
             completedPath.setAttribute('d', describeArc(cx, cy, outerRadius, innerRadius, 0, completedAngle));
             completedPath.setAttribute('fill', completedColor);
+            completedPath.classList.add('donut-arc');
+            completedPath.style.animationDelay = '0s';
             svg.appendChild(completedPath);
 
             // Draw incomplete slice
             const incompletePath = document.createElementNS(svgNS, 'path');
             incompletePath.setAttribute('d', describeArc(cx, cy, outerRadius, innerRadius, completedAngle, 2 * Math.PI));
             incompletePath.setAttribute('fill', incompleteColor);
+            incompletePath.classList.add('donut-arc');
+            incompletePath.style.animationDelay = '0.1s';
             svg.appendChild(incompletePath);
         }
 
@@ -2280,6 +2298,7 @@ function updateReportDonutChart(tasks) {
         totalText.setAttribute('font-size', '16');
         totalText.setAttribute('font-weight', '700');
         totalText.setAttribute('fill', '#333');
+        totalText.classList.add('donut-center-text');
         totalText.textContent = total;
         svg.appendChild(totalText);
 
@@ -2290,6 +2309,7 @@ function updateReportDonutChart(tasks) {
         totalLabel.setAttribute('dominant-baseline', 'central');
         totalLabel.setAttribute('font-size', '7');
         totalLabel.setAttribute('fill', '#888');
+        totalLabel.classList.add('donut-center-text');
         totalLabel.textContent = 'tasks';
         svg.appendChild(totalLabel);
 
@@ -2968,7 +2988,8 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         bgRect.setAttribute('ry', 3);
         bgRect.setAttribute('fill', bgColor);
         bgRect.setAttribute('opacity', '0.7');
-        bgRect.setAttribute('class', 'timeline-clickable');
+        bgRect.setAttribute('class', 'timeline-clickable timeline-phase-animated');
+        bgRect.style.animationDelay = (index * 0.06) + 's';
         bgRect.style.cursor = 'pointer';
         bgRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
         svg.appendChild(bgRect);
@@ -2986,7 +3007,8 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
             progressRect.setAttribute('ry', 3);
             progressRect.setAttribute('fill', darkerColor);
             progressRect.setAttribute('opacity', '0.9');
-            progressRect.setAttribute('class', 'timeline-clickable');
+            progressRect.setAttribute('class', 'timeline-clickable timeline-phase-animated');
+            progressRect.style.animationDelay = (index * 0.06) + 's';
             progressRect.style.cursor = 'pointer';
             progressRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
             svg.appendChild(progressRect);
@@ -3019,6 +3041,8 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
         text.setAttribute('fill', '#ffffff');
         text.setAttribute('font-weight', '600');
         text.setAttribute('clip-path', 'url(#' + clipId + ')');
+        text.setAttribute('class', 'timeline-phase-animated');
+        text.style.animationDelay = (index * 0.06 + 0.05) + 's';
         text.textContent = isComplete ? '✓ ' + phase.name : phase.name;
         text.style.cursor = 'pointer';
         text.addEventListener('click', () => openMilestoneTaskForm(phase.name));
@@ -3246,7 +3270,8 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
             rect.setAttribute('ry', 2);
             rect.setAttribute('fill', bgColor);
             rect.setAttribute('opacity', isComplete ? '0.9' : '0.7');
-            rect.setAttribute('class', 'timeline-clickable');
+            rect.setAttribute('class', 'timeline-clickable timeline-phase-animated');
+            rect.style.animationDelay = (index * 0.06) + 's';
             rect.style.cursor = 'pointer';
 
             // Add tooltip
@@ -3271,7 +3296,8 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
                 progressRect.setAttribute('ry', 2);
                 progressRect.setAttribute('fill', greenComplete);
                 progressRect.setAttribute('opacity', '0.85');
-                progressRect.setAttribute('class', 'timeline-clickable');
+                progressRect.setAttribute('class', 'timeline-clickable timeline-phase-animated');
+                progressRect.style.animationDelay = (index * 0.06) + 's';
                 progressRect.style.cursor = 'pointer';
                 progressRect.addEventListener('click', () => openMilestoneTaskForm(phase.name));
                 svg.appendChild(progressRect);
@@ -3299,6 +3325,8 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
                 text.setAttribute('fill', '#ffffff'); // White text
                 text.setAttribute('font-weight', '500');
                 text.setAttribute('clip-path', 'url(#' + clipId + ')');
+                text.setAttribute('class', 'timeline-phase-animated');
+                text.style.animationDelay = (index * 0.06 + 0.05) + 's';
                 text.textContent = isComplete ? '✓ ' + phase.name : phase.name;
                 text.style.cursor = 'pointer';
                 text.addEventListener('click', () => openMilestoneTaskForm(phase.name));
@@ -3322,7 +3350,7 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
     timelineLine.style.background = '#ccc';
 
     // Add minimal milestone markers (small dots, no labels)
-    milestones.forEach((task) => {
+    milestones.forEach((task, index) => {
         const milestoneDate = parseLocalDate(task.finish);
         const daysFromStart = Math.floor((milestoneDate - minDate) / (1000 * 60 * 60 * 24));
         const position = (daysFromStart / totalDays) * timelineWidth;
@@ -3331,8 +3359,9 @@ function renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, ti
         const isComplete = percent >= 100;
 
         const milestoneDiv = document.createElement('div');
-        milestoneDiv.className = 'timeline-milestone minimal-milestone';
+        milestoneDiv.className = 'timeline-milestone minimal-milestone timeline-milestone-animated';
         milestoneDiv.style.left = position + 'px';
+        milestoneDiv.style.animationDelay = (index * 0.06) + 's';
 
         const marker = document.createElement('div');
         marker.className = 'minimal-milestone-marker';
@@ -3804,7 +3833,7 @@ function updateTimeline(tasks, projectName) {
 
         // Add progress bar to timeline (always show, even at 0% for debugging)
         const progressBar = document.createElement('div');
-        progressBar.className = 'timeline-progress';
+        progressBar.className = 'timeline-progress timeline-progress-animated';
         progressBar.style.width = overallCompletion + '%';
         timelineLine.appendChild(progressBar);
         console.log('Progress bar added with width:', overallCompletion + '%');
@@ -3872,9 +3901,10 @@ function updateTimeline(tasks, projectName) {
 
             // Create milestone container
             const milestoneDiv = document.createElement('div');
-            milestoneDiv.className = 'timeline-milestone';
+            milestoneDiv.className = 'timeline-milestone timeline-milestone-animated';
             milestoneDiv.style.left = position + 'px';
             milestoneDiv.style.cursor = 'pointer';
+            milestoneDiv.style.animationDelay = (index * 0.06) + 's';
 
             // Make milestone clickable to open task form
             milestoneDiv.addEventListener('click', () => {
