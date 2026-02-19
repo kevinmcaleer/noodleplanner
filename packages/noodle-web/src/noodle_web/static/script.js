@@ -7115,6 +7115,8 @@ function populateSubtasks(parentLineNumber, lines) {
         // Click handler for resource assignment
         resourceContainer.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Don't reopen if picker is already showing
+            if (document.querySelector('.subtask-resource-picker')) return;
             showSubtaskResourcePicker(resourceContainer, subtask, resourceMap);
         });
 
@@ -7254,16 +7256,17 @@ function showSubtaskResourcePicker(container, subtask, resourceMap) {
         picker.appendChild(noResources);
     }
 
-    container.style.position = 'relative';
-    picker.style.position = 'absolute';
-    picker.style.right = '0';
-    picker.style.top = '100%';
-    picker.style.zIndex = '1000';
-    container.appendChild(picker);
+    // Use fixed positioning to avoid overflow clipping from .subtasks-list
+    const rect = container.getBoundingClientRect();
+    picker.style.position = 'fixed';
+    picker.style.right = (window.innerWidth - rect.right) + 'px';
+    picker.style.top = (rect.bottom + 4) + 'px';
+    picker.style.zIndex = '10000';
+    document.body.appendChild(picker);
 
     // Close picker when clicking outside
     const closeHandler = (e) => {
-        if (!picker.contains(e.target) && !container.contains(e.target)) {
+        if (!picker.contains(e.target)) {
             picker.remove();
             document.removeEventListener('click', closeHandler);
         }
