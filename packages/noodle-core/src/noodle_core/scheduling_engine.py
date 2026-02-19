@@ -1,3 +1,4 @@
+import os
 import yaml
 import re
 import csv
@@ -16,6 +17,11 @@ from pptx.enum.text import PP_ALIGN
 from .format_converter import extract_raid_log, parse_raid_markdown
 
 logger = logging.getLogger(__name__)
+
+# Configurable task limits (override via environment variables)
+MAX_TASK_COUNT = int(os.environ.get("NOODLE_MAX_TASK_COUNT", 10000))
+MAX_NESTING_DEPTH = int(os.environ.get("NOODLE_MAX_NESTING_DEPTH", 20))
+MAX_TASK_NAME_LENGTH = int(os.environ.get("NOODLE_MAX_TASK_NAME_LENGTH", 500))
 
 DURATION_REGEX = re.compile(r"P(?:\d+D)?(?:\d+H)?(?:\d+M)?(?:\d+S)?")
 
@@ -487,12 +493,18 @@ def schedule_tasks(phases):
     """
     all_tasks = []
 
-    def traverse_nested_dict(node, parent_name=None, parent_level=-1):
+    def traverse_nested_dict(node, parent_name=None, parent_level=-1, depth=0):
         """Recursively traverse nested dict and extract tasks."""
+        if depth > MAX_NESTING_DEPTH:
+            raise ValueError(
+                f"Task nesting depth exceeds maximum of {MAX_NESTING_DEPTH}. "
+                f"Reduce nesting or set NOODLE_MAX_NESTING_DEPTH environment variable."
+            )
+
         if isinstance(node, list):
             # Handle list of dicts at top level
             for item in node:
-                traverse_nested_dict(item, parent_name, parent_level)
+                traverse_nested_dict(item, parent_name, parent_level, depth)
             return
 
         if not isinstance(node, dict):
@@ -518,11 +530,24 @@ def schedule_tasks(phases):
                 else:
                     task_name = text
 
+            if len(task_name) > MAX_TASK_NAME_LENGTH:
+                raise ValueError(
+                    f"Task name '{task_name[:50]}...' exceeds maximum length of "
+                    f"{MAX_TASK_NAME_LENGTH} characters. "
+                    f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
+                )
+
             meta = extract_metadata(text, task_name)
             meta['level'] = level
             meta['parent'] = parent_name
             meta['phase'] = parent_name or ''
             meta['summary'] = False
+
+            if len(all_tasks) >= MAX_TASK_COUNT:
+                raise ValueError(
+                    f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
+                    f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
+                )
             all_tasks.append(meta)
             return
 
@@ -539,14 +564,31 @@ def schedule_tasks(phases):
             if isinstance(value, dict):
                 if '_text' in value:
                     # Leaf task
+                    if len(key) > MAX_TASK_NAME_LENGTH:
+                        raise ValueError(
+                            f"Task name '{key[:50]}...' exceeds maximum length of "
+                            f"{MAX_TASK_NAME_LENGTH} characters. "
+                            f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
+                        )
                     meta = extract_metadata(value['_text'], key)
                     meta['level'] = value.get('_level', level + 1)
                     meta['parent'] = parent_name
                     meta['phase'] = parent_name or ''
                     meta['summary'] = False
+                    if len(all_tasks) >= MAX_TASK_COUNT:
+                        raise ValueError(
+                            f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
+                            f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
+                        )
                     all_tasks.append(meta)
                 elif '_is_summary' in value or any(isinstance(v, dict) for v in value.values()):
                     # Summary task with children
+                    if len(key) > MAX_TASK_NAME_LENGTH:
+                        raise ValueError(
+                            f"Task name '{key[:50]}...' exceeds maximum length of "
+                            f"{MAX_TASK_NAME_LENGTH} characters. "
+                            f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
+                        )
                     # Extract resources from summary text if present
                     summary_resources = ''
                     summary_text = value.get('_summary_text', '')
@@ -564,12 +606,17 @@ def schedule_tasks(phases):
                         'percent': 0,
                         'comment': ''
                     }
+                    if len(all_tasks) >= MAX_TASK_COUNT:
+                        raise ValueError(
+                            f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
+                            f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
+                        )
                     all_tasks.append(summary_meta)
                     # Recursively process children
-                    traverse_nested_dict(value, parent_name=key, parent_level=value.get('_level', level + 1))
+                    traverse_nested_dict(value, parent_name=key, parent_level=value.get('_level', level + 1), depth=depth + 1)
                 else:
                     # Single key-value that might be a simple dict
-                    traverse_nested_dict(value, parent_name=key, parent_level=level + 1)
+                    traverse_nested_dict(value, parent_name=key, parent_level=level + 1, depth=depth + 1)
 
     # Start traversal
     if isinstance(phases, list):

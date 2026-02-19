@@ -21,6 +21,9 @@ from .scheduling_engine import (
     parse_resource_mappings,
     natural_language_to_yaml,
     inherit_summary_resources,
+    MAX_TASK_COUNT,
+    MAX_NESTING_DEPTH,
+    MAX_TASK_NAME_LENGTH,
 )
 
 from .format_converter import (
