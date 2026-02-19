@@ -1755,6 +1755,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
         updateReportRaid();
         updateReportUpNext(tasks);
         updateReportHighlight();
+        updateReportDonutChart(tasks);
 
     } catch (error) {
         console.error('Error updating report page:', error);
@@ -2171,6 +2172,161 @@ function updateReportHighlight() {
 
     } catch (error) {
         console.error('Error updating report highlight:', error);
+    }
+}
+
+function updateReportDonutChart(tasks) {
+    try {
+        const container = document.getElementById('reportDonutChart');
+        if (!container) return;
+
+        // Filter: exclude summary tasks, include milestones and regular tasks
+        const countableTasks = tasks.filter(t => !t.is_summary);
+
+        const total = countableTasks.length;
+        if (total === 0) {
+            container.innerHTML = '<p class="quad-empty-state">No tasks to display.</p>';
+            return;
+        }
+
+        const completedCount = countableTasks.filter(t => (parseFloat(t.percent) || 0) >= 100).length;
+        const incompleteCount = total - completedCount;
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const size = 200;
+        const cx = size / 2;
+        const cy = size / 2;
+        const outerRadius = 90;
+        const innerRadius = 58;
+
+        const completedColor = '#90EE90';
+        const incompleteColor = '#D3D3D3';
+
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+        svg.classList.add('donut-chart-svg');
+
+        // Helper: create an arc path
+        function describeArc(cx, cy, outerR, innerR, startAngle, endAngle) {
+            // Angles in radians, 0 = top (12 o'clock), clockwise
+            const startOuter = polarToCartesian(cx, cy, outerR, startAngle);
+            const endOuter = polarToCartesian(cx, cy, outerR, endAngle);
+            const startInner = polarToCartesian(cx, cy, innerR, endAngle);
+            const endInner = polarToCartesian(cx, cy, innerR, startAngle);
+
+            const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+
+            return [
+                'M', startOuter.x, startOuter.y,
+                'A', outerR, outerR, 0, largeArc, 1, endOuter.x, endOuter.y,
+                'L', startInner.x, startInner.y,
+                'A', innerR, innerR, 0, largeArc, 0, endInner.x, endInner.y,
+                'Z'
+            ].join(' ');
+        }
+
+        function polarToCartesian(cx, cy, r, angle) {
+            // angle: 0 = top, clockwise
+            return {
+                x: cx + r * Math.sin(angle),
+                y: cy - r * Math.cos(angle)
+            };
+        }
+
+        if (completedCount === total) {
+            // All complete - full ring
+            const circle = document.createElementNS(svgNS, 'circle');
+            circle.setAttribute('cx', cx);
+            circle.setAttribute('cy', cy);
+            circle.setAttribute('r', (outerRadius + innerRadius) / 2);
+            circle.setAttribute('fill', 'none');
+            circle.setAttribute('stroke', completedColor);
+            circle.setAttribute('stroke-width', outerRadius - innerRadius);
+            svg.appendChild(circle);
+        } else if (incompleteCount === total) {
+            // All incomplete - full ring
+            const circle = document.createElementNS(svgNS, 'circle');
+            circle.setAttribute('cx', cx);
+            circle.setAttribute('cy', cy);
+            circle.setAttribute('r', (outerRadius + innerRadius) / 2);
+            circle.setAttribute('fill', 'none');
+            circle.setAttribute('stroke', incompleteColor);
+            circle.setAttribute('stroke-width', outerRadius - innerRadius);
+            svg.appendChild(circle);
+        } else {
+            // Draw completed slice first (starts at top)
+            const completedAngle = (completedCount / total) * 2 * Math.PI;
+
+            const completedPath = document.createElementNS(svgNS, 'path');
+            completedPath.setAttribute('d', describeArc(cx, cy, outerRadius, innerRadius, 0, completedAngle));
+            completedPath.setAttribute('fill', completedColor);
+            svg.appendChild(completedPath);
+
+            // Draw incomplete slice
+            const incompletePath = document.createElementNS(svgNS, 'path');
+            incompletePath.setAttribute('d', describeArc(cx, cy, outerRadius, innerRadius, completedAngle, 2 * Math.PI));
+            incompletePath.setAttribute('fill', incompleteColor);
+            svg.appendChild(incompletePath);
+        }
+
+        // Center text: total number
+        const totalText = document.createElementNS(svgNS, 'text');
+        totalText.setAttribute('x', cx);
+        totalText.setAttribute('y', cy - 6);
+        totalText.setAttribute('text-anchor', 'middle');
+        totalText.setAttribute('dominant-baseline', 'central');
+        totalText.setAttribute('font-size', '32');
+        totalText.setAttribute('font-weight', '700');
+        totalText.setAttribute('fill', '#333');
+        totalText.textContent = total;
+        svg.appendChild(totalText);
+
+        const totalLabel = document.createElementNS(svgNS, 'text');
+        totalLabel.setAttribute('x', cx);
+        totalLabel.setAttribute('y', cy + 20);
+        totalLabel.setAttribute('text-anchor', 'middle');
+        totalLabel.setAttribute('dominant-baseline', 'central');
+        totalLabel.setAttribute('font-size', '12');
+        totalLabel.setAttribute('fill', '#888');
+        totalLabel.textContent = 'tasks';
+        svg.appendChild(totalLabel);
+
+        // Build legend
+        const legend = document.createElement('div');
+        legend.className = 'donut-chart-legend';
+
+        function createLegendItem(label, count, swatchClass) {
+            const item = document.createElement('div');
+            item.className = 'donut-legend-item';
+
+            const swatch = document.createElement('span');
+            swatch.className = 'donut-legend-swatch ' + swatchClass;
+            item.appendChild(swatch);
+
+            const countSpan = document.createElement('span');
+            countSpan.className = 'donut-legend-count';
+            countSpan.textContent = count;
+            item.appendChild(countSpan);
+
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = label;
+            item.appendChild(labelSpan);
+
+            return item;
+        }
+
+        legend.appendChild(createLegendItem('Complete', completedCount, 'complete'));
+        legend.appendChild(createLegendItem('Incomplete', incompleteCount, 'incomplete'));
+
+        // Render
+        container.innerHTML = '';
+        container.appendChild(svg);
+        container.appendChild(legend);
+
+    } catch (error) {
+        console.error('Error updating report donut chart:', error);
     }
 }
 
