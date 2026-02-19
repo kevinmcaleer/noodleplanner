@@ -6362,12 +6362,34 @@ function updatePercentInLine(line, newPercent, indent, taskName) {
 
     // If no percent found, add it after duration (or after task name if no duration)
     if (!foundPercent) {
-        let insertIndex = 1; // Default: after task name
+        // Find the end of the task name tokens.
+        // A token is a "special" (non-name) token if it matches any known pattern:
+        // duration, percent, resource, label, date, effort, priority, quoted, brackets, bucket
+        function isSpecialToken(token) {
+            return /^\d+[dwmy]$/.test(token) ||   // duration: 5d, 2w, 3m
+                   /^\d+%$/.test(token) ||          // percent: 50%
+                   /^@/.test(token) ||              // resource: @kev
+                   /^#/.test(token) ||              // label: #DEV
+                   /^\d{4}-\d{2}-\d{2}$/.test(token) || // date: 2025-01-15
+                   /^~/.test(token) ||              // effort: ~8h/16h
+                   /^!+$/.test(token) ||            // priority: !, !!, !!!
+                   /^"/.test(token) ||              // quoted comment
+                   /^\[/.test(token) ||             // bracket block [depends ...]
+                   /^\{/.test(token);               // bucket {BucketName}
+        }
 
-        // Find duration to insert after it
-        for (let i = 1; i < tokens.length; i++) {
-            if (/^\d+[dwmy]$/.test(tokens[i])) {
-                insertIndex = i + 1; // After duration
+        let insertIndex = tokens.length; // Default: end of tokens
+
+        // Find the first special token - insert before it,
+        // but skip past duration and effort tokens (percent goes after those)
+        for (let i = 0; i < tokens.length; i++) {
+            if (isSpecialToken(tokens[i])) {
+                // Skip past duration and effort tokens - percent comes after them
+                if (/^\d+[dwmy]$/.test(tokens[i]) || /^~/.test(tokens[i])) {
+                    insertIndex = i + 1;
+                    continue;
+                }
+                insertIndex = i;
                 break;
             }
         }
@@ -7330,16 +7352,12 @@ function toggleSubtaskCompletion(lineNumber, percentOrBool) {
         targetPercent = percentOrBool;
     }
 
-    const numericPercent = targetPercent.replace('%', '');
+    // Extract indent from the line
+    const indentMatch = line.match(/^(\s*)/);
+    const indent = indentMatch ? indentMatch[1] : '';
 
-    // Update or add percent
-    let updatedLine = line;
-
-    if (task.percent) {
-        updatedLine = updatedLine.replace(/\d+%/, numericPercent + '%');
-    } else {
-        updatedLine = updatedLine.trimEnd() + ' ' + numericPercent + '%';
-    }
+    // Use updatePercentInLine for consistent percent placement
+    const updatedLine = updatePercentInLine(line, targetPercent, indent, task.name);
 
     // Update the line
     lines[lineNumber - 1] = updatedLine;
