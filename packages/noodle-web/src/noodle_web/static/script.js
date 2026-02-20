@@ -9176,6 +9176,12 @@ async function useTemplate(templateId) {
 
 // Switch to a specific view (from Views or Tracking dropdown)
 function switchToView(viewName) {
+    // Sync editor state from kanban to main if switching away from kanban
+    const kanbanTab = document.getElementById('kanban-tab');
+    if (kanbanTab && kanbanTab.classList.contains('active')) {
+        syncEditorStateToMain();
+    }
+
     // First, switch to editor tab (where all views live)
     switchTab('editor');
 
@@ -9244,8 +9250,53 @@ function updatePlanSubnav(viewName) {
 
 // Handle Board button in the plan sub-nav
 function switchPlanSubnavToBoard() {
+    syncEditorStateToKanban();
     switchTab('kanban');
     updatePlanSubnav('kanban');
+}
+
+// Sync editor panel collapsed/expanded state from main editor to kanban editor
+function syncEditorStateToKanban() {
+    const mainPanel = document.querySelector('.editor-panel');
+    const kanbanPanel = document.getElementById('kanbanEditorPanel');
+    const kanbanSplitter = document.getElementById('kanbanSplitter');
+    const kanbanArrow = document.getElementById('kanbanSplitterArrow');
+
+    if (!mainPanel || !kanbanPanel || !kanbanSplitter || !kanbanArrow) return;
+
+    const mainIsCollapsed = mainPanel.classList.contains('collapsed');
+
+    if (mainIsCollapsed) {
+        kanbanPanel.classList.add('collapsed');
+        kanbanSplitter.classList.add('collapsed');
+        kanbanArrow.textContent = '\u25B6';
+    } else {
+        kanbanPanel.classList.remove('collapsed');
+        kanbanSplitter.classList.remove('collapsed');
+        kanbanArrow.textContent = '\u25C0';
+    }
+}
+
+// Sync editor panel collapsed/expanded state from kanban editor to main editor
+function syncEditorStateToMain() {
+    const mainPanel = document.querySelector('.editor-panel');
+    const mainSplitter = document.getElementById('editorSplitter');
+    const mainArrow = document.getElementById('editorSplitterArrow');
+    const kanbanPanel = document.getElementById('kanbanEditorPanel');
+
+    if (!mainPanel || !mainSplitter || !mainArrow || !kanbanPanel) return;
+
+    const kanbanIsCollapsed = kanbanPanel.classList.contains('collapsed');
+
+    if (kanbanIsCollapsed) {
+        mainPanel.classList.add('collapsed');
+        mainSplitter.classList.add('collapsed');
+        mainArrow.textContent = '\u25B6';
+    } else {
+        mainPanel.classList.remove('collapsed');
+        mainSplitter.classList.remove('collapsed');
+        mainArrow.textContent = '\u25C0';
+    }
 }
 
 // Switch between output tab content panels (Tasks, Project Report, Milestones, etc.)
