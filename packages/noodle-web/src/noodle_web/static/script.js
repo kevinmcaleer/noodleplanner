@@ -9231,7 +9231,7 @@ function updateNavActiveState(viewName) {
 }
 
 // Plan sub-navigation: views that belong to the Plan group
-const PLAN_VIEWS = ['tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline'];
 
 // Show or hide the plan sub-nav and highlight the active button
 function updatePlanSubnav(viewName) {
@@ -9246,6 +9246,15 @@ function updatePlanSubnav(viewName) {
             btn.classList.toggle('active', btn.dataset.view === viewName);
         });
     }
+}
+
+// Handle Dashboard button in the plan sub-nav
+function switchPlanSubnavToDashboard() {
+    switchToView('project-report');
+    // Override nav active state to keep Plan tab active (not Dashboard tab)
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const planTab = document.getElementById('planTab');
+    if (planTab) planTab.classList.add('active');
 }
 
 // Handle Board button in the plan sub-nav
@@ -11543,7 +11552,7 @@ const tourSteps = [
     },
     {
         title: "Plan Menu",
-        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones.",
+        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones. A sub-navigation bar also provides quick access to Dashboard and all Plan views.",
         target: "#planTab",
         position: "bottom"
     },
