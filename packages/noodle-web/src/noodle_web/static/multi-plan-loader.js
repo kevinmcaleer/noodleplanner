@@ -1,0 +1,341 @@
+/**
+ * Multi-Plan Loader
+ * Handles loading, caching, and switching between multiple project plans
+ */
+
+// In-memory cache for loaded projects
+const projectCache = new Map();
+
+/**
+ * Load all projects from local storage into cache
+ */
+function loadAllProjectsIntoCache() {
+    try {
+        const projects = getAllProjects();
+        projectCache.clear();
+
+        Object.values(projects).forEach(project => {
+            projectCache.set(project.id, project);
+        });
+
+        console.log('Loaded', projectCache.size, 'projects into cache');
+        return Array.from(projectCache.values());
+    } catch (error) {
+        console.error('Error loading projects into cache:', error);
+        return [];
+    }
+}
+
+/**
+ * Get a cached project or load it
+ */
+function getCachedProject(projectId) {
+    if (projectCache.has(projectId)) {
+        return projectCache.get(projectId);
+    }
+
+    const project = loadProject(projectId);
+    if (project) {
+        projectCache.set(projectId, project);
+    }
+    return project;
+}
+
+/**
+ * Update cached project
+ */
+function updateCachedProject(projectId, updates) {
+    const project = getCachedProject(projectId);
+    if (project) {
+        const updatedProject = { ...project, ...updates, updatedAt: Date.now() };
+        projectCache.set(projectId, updatedProject);
+        saveProject(projectId, updates);
+        return updatedProject;
+    }
+    return null;
+}
+
+/**
+ * Load project into editor
+ */
+function loadProjectIntoEditor(projectId) {
+    const project = getCachedProject(projectId);
+    if (!project) {
+        console.error('Project not found:', projectId);
+        return false;
+    }
+
+    // Update plan editor
+    const planEditor = document.getElementById('planEditor');
+    if (planEditor) {
+        planEditor.value = project.planText || '';
+        updateLineNumbers();
+    }
+
+    // Update kanban editor
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) {
+        kanbanEditor.value = project.planText || '';
+    }
+
+    // Update current project reference
+    setCurrentProjectId(projectId);
+
+    // Parse and render the plan
+    if (typeof renderText === 'function') {
+        renderText();
+    }
+
+    // Emit project loaded event
+    window.dispatchEvent(new CustomEvent('projectLoaded', {
+        detail: { projectId, projectName: project.name }
+    }));
+
+    console.log('Loaded project:', project.name);
+    return true;
+}
+
+/**
+ * Parse project plan text into structured data
+ */
+function parseProjectPlan(planText) {
+    if (!planText) return null;
+
+    const parsed = {
+        tasks: [],
+        raidItems: [],
+        highlights: [],
+        frontMatter: {},
+        resources: {}
+    };
+
+    try {
+        // Extract RAID log if parseRaidMarkdown exists
+        if (typeof extractRaidItemsFromPlanText === 'function') {
+            parsed.raidItems = extractRaidItemsFromPlanText(planText);
+        }
+
+        // Extract highlights if function exists
+        if (typeof extractHighlights === 'function') {
+            const highlights = extractHighlights(planText);
+            if (highlights && highlights.length > 0) {
+                parsed.highlights = highlights;
+            }
+        }
+
+        // Additional parsing can be added here
+    } catch (error) {
+        console.error('Error parsing project plan:', error);
+    }
+
+    return parsed;
+}
+
+/**
+ * Get all cached projects
+ */
+function getAllCachedProjects() {
+    return Array.from(projectCache.values());
+}
+
+/**
+ * Clear project cache
+ */
+function clearProjectCache() {
+    projectCache.clear();
+}
+
+/**
+ * Preload multiple projects
+ */
+function preloadProjects(projectIds) {
+    const results = {
+        loaded: [],
+        failed: []
+    };
+
+    projectIds.forEach(projectId => {
+        try {
+            const project = getCachedProject(projectId);
+            if (project) {
+                results.loaded.push(projectId);
+            } else {
+                results.failed.push(projectId);
+            }
+        } catch (error) {
+            console.error('Error preloading project:', projectId, error);
+            results.failed.push(projectId);
+        }
+    });
+
+    return results;
+}
+
+/**
+ * Batch load projects for portfolio views
+ */
+function batchLoadProjectsData() {
+    const projects = loadAllProjectsIntoCache();
+    const projectsData = [];
+
+    projects.forEach(project => {
+        const parsedData = parseProjectPlan(project.planText);
+        projectsData.push({
+            id: project.id,
+            name: project.name,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            data: parsedData,
+            stats: {
+                taskCount: parsedData?.tasks?.length || 0,
+                raidCount: parsedData?.raidItems?.length || 0,
+                highlightCount: parsedData?.highlights?.length || 0
+            }
+        });
+    });
+
+    return projectsData;
+}
+
+/**
+ * Validate project data
+ */
+function validateProject(project) {
+    if (!project) return false;
+    if (!project.id) return false;
+    if (!project.name) return false;
+    if (typeof project.planText !== 'string') return false;
+    if (!project.createdAt || !project.updatedAt) return false;
+    return true;
+}
+
+/**
+ * Clean up orphaned or corrupted projects
+ */
+function cleanupProjects() {
+    const projects = getAllProjects();
+    const validProjects = {};
+    const removed = [];
+
+    Object.entries(projects).forEach(([id, project]) => {
+        if (validateProject(project)) {
+            validProjects[id] = project;
+        } else {
+            removed.push(id);
+            console.warn('Removing invalid project:', id);
+        }
+    });
+
+    if (removed.length > 0) {
+        saveAllProjects(validProjects);
+        clearProjectCache();
+        loadAllProjectsIntoCache();
+    }
+
+    return { valid: Object.keys(validProjects).length, removed: removed.length };
+}
+
+/**
+ * Export all projects as JSON
+ */
+function exportAllProjectsAsJSON() {
+    const projects = getAllProjects();
+    const exportData = {
+        version: '1.0',
+        exportedAt: Date.now(),
+        projectCount: Object.keys(projects).length,
+        projects: projects
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+    const exportFileDefaultName = 'noodleplanner-projects-' + new Date().toISOString().split('T')[0] + '.json';
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+
+    return exportData;
+}
+
+/**
+ * Import projects from JSON backup
+ */
+function importProjectsFromJSON(jsonData) {
+    try {
+        const importData = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+
+        if (!importData.projects) {
+            throw new Error('Invalid import format: missing projects');
+        }
+
+        const currentProjects = getAllProjects();
+        let imported = 0;
+        let skipped = 0;
+
+        Object.entries(importData.projects).forEach(([id, project]) => {
+            if (validateProject(project)) {
+                // Generate new ID if conflict exists
+                let newId = project.id;
+                if (currentProjects[newId]) {
+                    newId = 'project-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                    project.id = newId;
+                }
+
+                currentProjects[newId] = project;
+                imported++;
+            } else {
+                skipped++;
+                console.warn('Skipped invalid project during import:', id);
+            }
+        });
+
+        saveAllProjects(currentProjects);
+        clearProjectCache();
+        loadAllProjectsIntoCache();
+
+        return { imported, skipped, total: imported + skipped };
+    } catch (error) {
+        console.error('Error importing projects:', error);
+        return { imported: 0, skipped: 0, error: error.message };
+    }
+}
+
+/**
+ * Get project statistics
+ */
+function getProjectStatistics(projectId) {
+    const project = getCachedProject(projectId);
+    if (!project) return null;
+
+    const parsed = parseProjectPlan(project.planText);
+    const lines = (project.planText || '').split('\n');
+
+    return {
+        projectId: project.id,
+        projectName: project.name,
+        lineCount: lines.length,
+        characterCount: project.planText?.length || 0,
+        taskCount: parsed?.tasks?.length || 0,
+        raidCount: parsed?.raidItems?.length || 0,
+        highlightCount: parsed?.highlights?.length || 0,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        daysSinceUpdate: Math.floor((Date.now() - project.updatedAt) / (1000 * 60 * 60 * 24))
+    };
+}
+
+// Initialize on page load
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        // Load all projects into cache on startup
+        loadAllProjectsIntoCache();
+
+        // Set up periodic cache refresh (every 5 minutes)
+        setInterval(() => {
+            loadAllProjectsIntoCache();
+        }, 5 * 60 * 1000);
+    });
+}
