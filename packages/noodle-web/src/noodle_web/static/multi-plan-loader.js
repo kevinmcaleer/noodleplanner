@@ -183,6 +183,7 @@ function batchLoadProjectsData() {
         projectsData.push({
             id: project.id,
             name: project.name,
+            planText: project.planText,
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
             data: parsedData,
