@@ -7,7 +7,8 @@
  * Initialize portfolio view
  */
 function initPortfolio() {
-    renderProjectsList();
+    // Use table view as default
+    renderProjectsTable();
     switchPortfolioView('projects'); // Default to projects view
 }
 
@@ -53,7 +54,12 @@ function switchPortfolioView(viewName) {
     // Render the specific view
     switch(viewName) {
         case 'projects':
-            renderProjectsList();
+            // Use table view by default (issue #460)
+            if (typeof renderProjectsTable === 'function') {
+                renderProjectsTable();
+            } else {
+                renderProjectsList();
+            }
             break;
         case 'status':
             if (typeof renderPortfolioStatus === 'function') {
@@ -74,7 +80,7 @@ function switchPortfolioView(viewName) {
 }
 
 /**
- * Render the projects list
+ * Render the projects list (grid view - legacy)
  */
 function renderProjectsList() {
     const container = document.getElementById('portfolioProjectsList');
