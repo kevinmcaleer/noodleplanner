@@ -8434,6 +8434,210 @@ tr:hover .task-inspect-btn {
     transform: translateY(-1px);
 }
 
+/* Portfolio Timeline View */
+.portfolio-timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-timeline-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+.timeline-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.timeline-controls label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.timeline-controls select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.timeline-controls select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-timeline-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.portfolio-timeline-container {
+    min-width: 1200px;
+    padding: 20px;
+}
+
+.timeline-scale {
+    display: flex;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.timeline-project-label {
+    width: 200px;
+    padding: 10px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+
+.timeline-scale-track,
+.timeline-project-track {
+    flex: 1;
+    position: relative;
+    min-height: 40px;
+}
+
+.timeline-scale-track {
+    border-left: 1px solid #e0e0e0;
+}
+
+.timeline-scale-item {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-right: 1px solid #e0e0e0;
+    padding: 10px 5px;
+    font-size: 0.85em;
+    color: #6c757d;
+    font-weight: 600;
+    text-align: center;
+}
+
+.timeline-today-marker {
+    position: absolute;
+    top: 0;
+    bottom: -1000px;
+    width: 2px;
+    background: #dc3545;
+    z-index: 10;
+}
+
+.timeline-today-marker::before {
+    content: 'Today';
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    background: #dc3545;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.timeline-project-row {
+    display: flex;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 4px;
+}
+
+.timeline-project-row:hover {
+    background: #f8f9fa;
+}
+
+.timeline-project-row .timeline-project-label {
+    background: #f8f9fa;
+    border-radius: 4px 0 0 4px;
+}
+
+.timeline-project-track {
+    border-left: 1px solid #e0e0e0;
+    padding: 5px 0;
+}
+
+.timeline-task-bar {
+    position: absolute;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+}
+
+.timeline-task-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 5;
+}
+
+.timeline-task-completion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.3);
+    border-right: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Timeline colors */
+.timeline-color-0 { background: #667eea; }
+.timeline-color-1 { background: #17a2b8; }
+.timeline-color-2 { background: #28a745; }
+.timeline-color-3 { background: #ffc107; }
+.timeline-color-4 { background: #6f42c1; }
+
+.timeline-task-bar.completed {
+    opacity: 0.7;
+    border: 2px solid #28a745;
+}
+
+.timeline-task-bar.in-progress {
+    border: 2px solid #ffc107;
+}
+
+.timeline-task-bar.not-started {
+    opacity: 0.5;
+}
+
+.timeline-milestone {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #dc3545;
+    transform: rotate(45deg) translateX(-50%);
+    top: 7px;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 6;
+}
+
+.timeline-milestone:hover {
+    transform: rotate(45deg) translateX(-50%) scale(1.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .portfolio-header {
@@ -8449,5 +8653,20 @@ tr:hover .task-inspect-btn {
     .portfolio-project-actions button {
         font-size: 0.85em;
         padding: 8px 12px;
+    }
+
+    .portfolio-timeline-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .timeline-project-label {
+        width: 150px;
+        font-size: 0.9em;
+    }
+
+    .portfolio-timeline-container {
+        min-width: 800px;
     }
 }
