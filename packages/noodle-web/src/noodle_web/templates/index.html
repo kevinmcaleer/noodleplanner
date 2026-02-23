@@ -1342,8 +1342,37 @@ Build
                         </div>
                     </div>
 
-                    <div id="portfolioProjectsList" class="portfolio-content">
+                    <!-- Portfolio Sub-Navigation -->
+                    <div class="portfolio-subnav">
+                        <button class="portfolio-subnav-btn active" onclick="switchPortfolioView('projects')">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Projects
+                        </button>
+                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('status')">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Status
+                        </button>
+                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('resources')">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resources
+                        </button>
+                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('timeline')">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
+                        </button>
+                    </div>
+
+                    <!-- Portfolio Views -->
+                    <div id="portfolioProjectsList" class="portfolio-content portfolio-view active">
                         <!-- Projects list will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioStatusView" class="portfolio-content portfolio-view">
+                        <!-- Status view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioResourcesView" class="portfolio-content portfolio-view">
+                        <!-- Resources view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioTimelineView" class="portfolio-content portfolio-view">
+                        <!-- Timeline view will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -2277,5 +2306,6 @@ Build
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
+    <script src="/static/portfolio-status.js?v={{ v }}"></script>
 </body>
 </html>

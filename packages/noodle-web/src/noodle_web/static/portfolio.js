@@ -8,6 +8,69 @@
  */
 function initPortfolio() {
     renderProjectsList();
+    switchPortfolioView('projects'); // Default to projects view
+}
+
+/**
+ * Switch between portfolio views
+ */
+function switchPortfolioView(viewName) {
+    // Hide all portfolio views
+    const views = ['portfolioProjectsList', 'portfolioStatusView', 'portfolioResourcesView', 'portfolioTimelineView'];
+    views.forEach(viewId => {
+        const view = document.getElementById(viewId);
+        if (view) {
+            view.style.display = 'none';
+        }
+    });
+
+    // Show selected view
+    let selectedViewId;
+    if (viewName === 'projects') {
+        selectedViewId = 'portfolioProjectsList';
+    } else if (viewName === 'status') {
+        selectedViewId = 'portfolioStatusView';
+    } else if (viewName === 'resources') {
+        selectedViewId = 'portfolioResourcesView';
+    } else if (viewName === 'timeline') {
+        selectedViewId = 'portfolioTimelineView';
+    }
+
+    const selectedView = document.getElementById(selectedViewId);
+    if (selectedView) {
+        selectedView.style.display = 'block';
+    }
+
+    // Update sub-nav buttons
+    document.querySelectorAll('.portfolio-subnav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const selectedBtn = document.querySelector('.portfolio-subnav-btn[onclick*="' + viewName + '"]');
+    if (selectedBtn) {
+        selectedBtn.classList.add('active');
+    }
+
+    // Render the specific view
+    switch(viewName) {
+        case 'projects':
+            renderProjectsList();
+            break;
+        case 'status':
+            if (typeof renderPortfolioStatus === 'function') {
+                renderPortfolioStatus();
+            }
+            break;
+        case 'resources':
+            if (typeof renderPortfolioResources === 'function') {
+                renderPortfolioResources();
+            }
+            break;
+        case 'timeline':
+            if (typeof renderPortfolioTimeline === 'function') {
+                renderPortfolioTimeline();
+            }
+            break;
+    }
 }
 
 /**
