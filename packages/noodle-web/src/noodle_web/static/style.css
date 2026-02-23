@@ -7757,3 +7757,452 @@ tr:hover .task-inspect-btn {
     left: 0;
     right: 0;
 }
+
+/* ==============================================================================
+   ACTIONS TRACKER STYLES
+   ============================================================================== */
+
+.actions-container {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* View Tabs */
+.actions-view-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.actions-view-tab {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: #555;
+    transition: all 0.2s;
+}
+
+.actions-view-tab:hover {
+    color: #667eea;
+}
+
+.actions-view-tab.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+}
+
+/* View Content */
+.actions-view {
+    display: none;
+}
+
+.actions-view.active {
+    display: block;
+}
+
+/* Toolbar */
+.actions-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.actions-toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background: #ddd;
+}
+
+.actions-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.actions-filter-group label {
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9em;
+}
+
+.actions-filter-group select {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+/* Table View */
+.actions-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.actions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.actions-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.actions-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+
+.actions-table th:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.actions-table th .sort-indicator {
+    margin-left: 5px;
+    opacity: 0.7;
+}
+
+.actions-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.actions-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.actions-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.actions-empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: #888;
+}
+
+.actions-empty-state h3 {
+    margin-top: 0;
+    color: #555;
+}
+
+/* Badges */
+.actions-priority-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.actions-priority-high {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.actions-priority-medium {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+
+.actions-priority-low {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.actions-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.actions-status-open {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.actions-status-closed {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+/* Action Buttons */
+.actions-action-btn {
+    padding: 6px 10px;
+    margin: 0 3px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+}
+
+.actions-action-btn:hover {
+    background: #5568d3;
+    transform: translateY(-1px);
+}
+
+.actions-action-btn.delete {
+    background: #ef5350;
+}
+
+.actions-action-btn.delete:hover {
+    background: #d32f2f;
+}
+
+/* Board View */
+.actions-board {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    min-height: 600px;
+}
+
+.actions-board-column {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.actions-board-column-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.actions-board-column-icon {
+    font-size: 1.3em;
+}
+
+.actions-board-count {
+    margin-left: auto;
+    background: #667eea;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.actions-board-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 400px;
+}
+
+.actions-board-card {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: grab;
+    transition: all 0.2s;
+}
+
+.actions-board-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.actions-board-card:active {
+    cursor: grabbing;
+}
+
+.actions-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.actions-card-menu {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.actions-card-menu:hover {
+    background: #f0f0f0;
+}
+
+.actions-card-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.actions-card-description {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.actions-card-footer {
+    display: flex;
+    gap: 10px;
+    font-size: 0.85em;
+    color: #888;
+}
+
+.actions-card-owner,
+.actions-card-date {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Calendar View */
+.actions-calendar {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+.actions-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.actions-calendar-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.actions-calendar-nav {
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.5em;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.actions-calendar-nav:hover {
+    background: #5568d3;
+}
+
+.actions-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+}
+
+.actions-calendar-day-header {
+    text-align: center;
+    font-weight: 600;
+    color: #667eea;
+    padding: 10px;
+    font-size: 0.9em;
+}
+
+.actions-calendar-day {
+    min-height: 100px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px;
+    background: white;
+    position: relative;
+}
+
+.actions-calendar-day.empty {
+    background: #f8f9fa;
+    border-color: transparent;
+}
+
+.actions-calendar-day-number {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.actions-calendar-item {
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.actions-calendar-item:hover {
+    opacity: 0.8;
+    transform: translateX(2px);
+}
+
+.actions-calendar-item.actions-priority-high {
+    background: #ffebee;
+    color: #c62828;
+    border-left: 3px solid #c62828;
+}
+
+.actions-calendar-item.actions-priority-medium {
+    background: #fff3e0;
+    color: #ef6c00;
+    border-left: 3px solid #ef6c00;
+}
+
+.actions-calendar-item.actions-priority-low {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-left: 3px solid #1565c0;
+}
+
+/* Report Section */
+#reportActionsTable {
+    margin-top: 10px;
+}
+
+#reportActionsTable td {
+    padding: 8px 12px;
+}
