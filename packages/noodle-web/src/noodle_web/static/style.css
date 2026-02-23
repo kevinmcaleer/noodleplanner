@@ -8251,3 +8251,203 @@ tr:hover .task-inspect-btn {
 #reportActionsTable td {
     padding: 8px 12px;
 }
+
+/* ==============================================================================
+   PORTFOLIO STYLES
+   ============================================================================== */
+
+.portfolio-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.portfolio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-header h1 {
+    margin: 0;
+    font-size: 2em;
+    color: #333;
+}
+
+.portfolio-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.portfolio-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.portfolio-empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-empty-state h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.5em;
+}
+
+.portfolio-empty-state p {
+    color: #adb5bd;
+    margin-bottom: 25px;
+}
+
+.portfolio-projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.portfolio-project-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.portfolio-project-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.portfolio-project-card.active {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.portfolio-project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-project-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.3em;
+}
+
+.portfolio-active-badge {
+    background: #667eea;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.portfolio-project-meta {
+    margin-bottom: 20px;
+}
+
+.portfolio-meta-item {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.portfolio-project-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.portfolio-project-actions button {
+    flex: 1;
+    min-width: 80px;
+}
+
+/* Button styles (if not already defined) */
+.btn-primary {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    background: #c62828;
+    transform: translateY(-1px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .portfolio-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .portfolio-projects-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .portfolio-project-actions button {
+        font-size: 0.85em;
+        padding: 8px 12px;
+    }
+}
