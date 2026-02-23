@@ -14393,3 +14393,567 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
 }
 
 
+// ==============================================================================
+// ACTIONS TRACKER SYSTEM
+// ==============================================================================
+
+let actionsItems = [];
+let actionsNextId = 1;
+let actionsSortColumn = 'id';
+let actionsSortAsc = true;
+let actionsCurrentMonth = new Date();
+
+/**
+ * Clear actions entries from the UI and global state
+ */
+function clearActionsEntries() {
+    actionsItems = [];
+    actionsNextId = 1;
+    renderActionsTable();
+    renderActionsBoard();
+    renderActionsCalendar();
+    console.log('Cleared actions entries');
+}
+
+/**
+ * Add a new action
+ */
+function addAction() {
+    openActionForm(null);
+}
+
+/**
+ * Open the action form for creating or editing
+ */
+function openActionForm(itemId) {
+    const title = document.getElementById('actionFormTitle');
+    const idField = document.getElementById('actionItemId');
+
+    if (itemId != null) {
+        const item = actionsItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit Action';
+        idField.value = item.id;
+        document.getElementById('actionItemTitle').value = item.title;
+        document.getElementById('actionItemDescription').value = item.description;
+        document.getElementById('actionItemOwner').value = item.owner;
+        document.getElementById('actionItemResource').value = item.resource;
+        document.getElementById('actionItemStatus').value = item.status;
+        document.getElementById('actionItemPriority').value = item.priority;
+        document.getElementById('actionItemTargetDate').value = item.target_date;
+    } else {
+        title.textContent = 'New Action';
+        idField.value = '';
+        document.getElementById('actionItemTitle').value = '';
+        document.getElementById('actionItemDescription').value = '';
+        document.getElementById('actionItemOwner').value = '';
+        document.getElementById('actionItemResource').value = '';
+        document.getElementById('actionItemStatus').value = 'open';
+        document.getElementById('actionItemPriority').value = 'medium';
+        document.getElementById('actionItemTargetDate').value = '';
+    }
+
+    openDetailPane('actionFormSection');
+}
+
+/**
+ * Close the action form
+ */
+function closeActionForm() {
+    closeDetailPane();
+}
+
+/**
+ * Save action from form
+ */
+function saveActionFromForm() {
+    const idField = document.getElementById('actionItemId').value;
+    const title = document.getElementById('actionItemTitle').value.trim();
+
+    if (!title) {
+        alert('Please enter a title for the action.');
+        return;
+    }
+
+    const itemData = {
+        title: title,
+        description: document.getElementById('actionItemDescription').value.trim(),
+        owner: document.getElementById('actionItemOwner').value.trim(),
+        resource: document.getElementById('actionItemResource').value.trim(),
+        status: document.getElementById('actionItemStatus').value,
+        priority: document.getElementById('actionItemPriority').value,
+        target_date: document.getElementById('actionItemTargetDate').value
+    };
+
+    if (idField) {
+        // Update existing
+        const existingId = parseInt(idField);
+        const index = actionsItems.findIndex(i => i.id === existingId);
+        if (index >= 0) {
+            actionsItems[index] = { ...actionsItems[index], ...itemData };
+        }
+    } else {
+        // Create new
+        itemData.id = actionsNextId++;
+        actionsItems.push(itemData);
+    }
+
+    closeActionForm();
+    renderActionsTable();
+    renderActionsBoard();
+    renderActionsCalendar();
+    updateReportActions();
+    updateResourceFilter();
+}
+
+/**
+ * Delete an action
+ */
+function deleteAction(id) {
+    if (!confirm('Are you sure you want to delete this action?')) return;
+    actionsItems = actionsItems.filter(i => i.id !== id);
+    renderActionsTable();
+    renderActionsBoard();
+    renderActionsCalendar();
+    updateReportActions();
+    updateResourceFilter();
+}
+
+/**
+ * Render the actions table view
+ */
+function renderActionsTable() {
+    try {
+        const tbody = document.getElementById('actionsTableBody');
+        const emptyState = document.getElementById('actionsEmptyState');
+        if (!tbody || !emptyState) {
+            console.warn('Actions table elements not found in DOM');
+            return;
+        }
+
+        const filterStatusEl = document.getElementById('actionsFilterStatus');
+        const filterResourceEl = document.getElementById('actionsFilterResource');
+        const filterPriorityEl = document.getElementById('actionsFilterPriority');
+        const filterStatus = filterStatusEl ? filterStatusEl.value : 'all';
+        const filterResource = filterResourceEl ? filterResourceEl.value : 'all';
+        const filterPriority = filterPriorityEl ? filterPriorityEl.value : 'all';
+
+        let filtered = actionsItems.filter(item => {
+            if (filterStatus !== 'all' && item.status !== filterStatus) return false;
+            if (filterResource !== 'all' && item.resource !== filterResource) return false;
+            if (filterPriority !== 'all' && item.priority !== filterPriority) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[actionsSortColumn];
+            let valB = b[actionsSortColumn];
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return actionsSortAsc ? -1 : 1;
+            if (valA > valB) return actionsSortAsc ? 1 : -1;
+            return 0;
+        });
+
+        tbody.innerHTML = '';
+
+        if (actionsItems.length === 0) {
+            emptyState.style.display = 'block';
+            document.getElementById('actionsTable').style.display = 'none';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        document.getElementById('actionsTable').style.display = 'table';
+
+        filtered.forEach(item => {
+            const row = document.createElement('tr');
+
+            const priorityClass = 'actions-priority-' + (item.priority || 'medium');
+            const statusClass = 'actions-status-' + (item.status || 'open');
+
+            row.innerHTML = '<td>' + (item.id || '') + '</td>' +
+                '<td title="' + escapeHtml(item.title) + '">' + escapeHtml(item.title) + '</td>' +
+                '<td title="' + escapeHtml(item.description) + '">' + escapeHtml(item.description) + '</td>' +
+                '<td>' + escapeHtml(item.owner) + '</td>' +
+                '<td>' + escapeHtml(item.resource) + '</td>' +
+                '<td><span class="actions-priority-badge ' + priorityClass + '">' + (item.priority || 'medium') + '</span></td>' +
+                '<td>' + (item.target_date || '') + '</td>' +
+                '<td><span class="actions-status-badge ' + statusClass + '">' + (item.status || 'open') + '</span></td>' +
+                '<td>' +
+                    '<button class="actions-action-btn" onclick="openActionForm(' + item.id + ')" title="Edit">✏️</button>' +
+                    '<button class="actions-action-btn delete" onclick="deleteAction(' + item.id + ')" title="Delete">🗑️</button>' +
+                '</td>';
+            tbody.appendChild(row);
+        });
+
+        updateActionsSortIndicators();
+    } catch (error) {
+        console.error('Error rendering actions table:', error);
+    }
+}
+
+/**
+ * Sort actions table
+ */
+function sortActionsTable(column) {
+    if (actionsSortColumn === column) {
+        actionsSortAsc = !actionsSortAsc;
+    } else {
+        actionsSortColumn = column;
+        actionsSortAsc = true;
+    }
+    renderActionsTable();
+}
+
+/**
+ * Update sort indicators
+ */
+function updateActionsSortIndicators() {
+    const headers = document.querySelectorAll('.actions-table th');
+    headers.forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (indicator) {
+            const onclick = th.getAttribute('onclick');
+            if (onclick && onclick.includes("'" + actionsSortColumn + "'")) {
+                indicator.textContent = actionsSortAsc ? '▲' : '▼';
+            } else {
+                indicator.textContent = '';
+            }
+        }
+    });
+}
+
+/**
+ * Switch actions view (tasks/board/calendar)
+ */
+function switchActionsView(view) {
+    // Update tab buttons
+    document.querySelectorAll('.actions-view-tab').forEach(tab => tab.classList.remove('active'));
+    const viewTab = document.getElementById('actions' + view.charAt(0).toUpperCase() + view.slice(1) + 'ViewTab');
+    if (viewTab) viewTab.classList.add('active');
+
+    // Update view content
+    document.querySelectorAll('.actions-view').forEach(v => v.classList.remove('active'));
+    const viewContent = document.getElementById('actions' + view.charAt(0).toUpperCase() + view.slice(1) + 'View');
+    if (viewContent) viewContent.classList.add('active');
+
+    // Render appropriate view
+    if (view === 'board') {
+        renderActionsBoard();
+    } else if (view === 'calendar') {
+        renderActionsCalendar();
+    }
+}
+
+/**
+ * Render actions board view (Kanban)
+ */
+function renderActionsBoard() {
+    const openCards = document.getElementById('actionsOpenCards');
+    const closedCards = document.getElementById('actionsClosedCards');
+    const openCount = document.getElementById('actionsOpenCount');
+    const closedCount = document.getElementById('actionsClosedCount');
+
+    if (!openCards || !closedCards) return;
+
+    openCards.innerHTML = '';
+    closedCards.innerHTML = '';
+
+    const openActions = actionsItems.filter(a => a.status === 'open');
+    const closedActions = actionsItems.filter(a => a.status === 'closed');
+
+    openCount.textContent = openActions.length;
+    closedCount.textContent = closedActions.length;
+
+    openActions.forEach(action => {
+        openCards.appendChild(createActionCard(action));
+    });
+
+    closedActions.forEach(action => {
+        closedCards.appendChild(createActionCard(action));
+    });
+
+    // Enable drag and drop
+    enableActionsBoardDragDrop();
+}
+
+/**
+ * Create action card element
+ */
+function createActionCard(action) {
+    const card = document.createElement('div');
+    card.className = 'actions-board-card';
+    card.draggable = true;
+    card.dataset.actionId = action.id;
+
+    const priorityClass = 'actions-priority-' + (action.priority || 'medium');
+
+    card.innerHTML = '<div class="actions-card-header">' +
+        '<span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span>' +
+        '<button class="actions-card-menu" onclick="openActionForm(' + action.id + ')">✏️</button>' +
+        '</div>' +
+        '<div class="actions-card-title">' + escapeHtml(action.title) + '</div>' +
+        (action.description ? '<div class="actions-card-description">' + escapeHtml(action.description) + '</div>' : '') +
+        '<div class="actions-card-footer">' +
+        (action.owner ? '<span class="actions-card-owner">👤 ' + escapeHtml(action.owner) + '</span>' : '') +
+        (action.target_date ? '<span class="actions-card-date">📅 ' + action.target_date + '</span>' : '') +
+        '</div>';
+
+    return card;
+}
+
+/**
+ * Enable drag and drop for actions board
+ */
+function enableActionsBoardDragDrop() {
+    const cards = document.querySelectorAll('.actions-board-card');
+    const columns = document.querySelectorAll('.actions-board-cards');
+
+    cards.forEach(card => {
+        card.addEventListener('dragstart', handleActionDragStart);
+        card.addEventListener('dragend', handleActionDragEnd);
+    });
+
+    columns.forEach(column => {
+        column.addEventListener('dragover', handleActionDragOver);
+        column.addEventListener('drop', handleActionDrop);
+    });
+}
+
+let draggedAction = null;
+
+function handleActionDragStart(e) {
+    draggedAction = e.target;
+    e.target.style.opacity = '0.5';
+}
+
+function handleActionDragEnd(e) {
+    e.target.style.opacity = '1';
+    draggedAction = null;
+}
+
+function handleActionDragOver(e) {
+    e.preventDefault();
+}
+
+function handleActionDrop(e) {
+    e.preventDefault();
+    if (!draggedAction) return;
+
+    const targetColumn = e.currentTarget;
+    const newStatus = targetColumn.dataset.status;
+    const actionId = parseInt(draggedAction.dataset.actionId);
+
+    // Update action status
+    const action = actionsItems.find(a => a.id === actionId);
+    if (action && action.status !== newStatus) {
+        action.status = newStatus;
+        renderActionsBoard();
+        renderActionsTable();
+        updateReportActions();
+    }
+}
+
+/**
+ * Render actions calendar view
+ */
+function renderActionsCalendar() {
+    const grid = document.getElementById('actionsCalendarGrid');
+    const title = document.getElementById('actionsCalendarTitle');
+
+    if (!grid || !title) return;
+
+    const year = actionsCurrentMonth.getFullYear();
+    const month = actionsCurrentMonth.getMonth();
+
+    title.textContent = actionsCurrentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    grid.innerHTML = '';
+
+    // Add day headers
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayNames.forEach(name => {
+        const header = document.createElement('div');
+        header.className = 'actions-calendar-day-header';
+        header.textContent = name;
+        grid.appendChild(header);
+    });
+
+    // Add empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'actions-calendar-day empty';
+        grid.appendChild(empty);
+    }
+
+    // Add days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+        const dayActions = actionsItems.filter(a => a.target_date === dateStr);
+
+        const dayCell = document.createElement('div');
+        dayCell.className = 'actions-calendar-day';
+
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'actions-calendar-day-number';
+        dayNumber.textContent = day;
+        dayCell.appendChild(dayNumber);
+
+        if (dayActions.length > 0) {
+            dayActions.forEach(action => {
+                const actionItem = document.createElement('div');
+                actionItem.className = 'actions-calendar-item actions-priority-' + action.priority;
+                actionItem.textContent = action.title;
+                actionItem.title = action.title + (action.description ? '\n' + action.description : '');
+                actionItem.onclick = function() { openActionForm(action.id); };
+                dayCell.appendChild(actionItem);
+            });
+        }
+
+        grid.appendChild(dayCell);
+    }
+}
+
+/**
+ * Change calendar month
+ */
+function changeActionsMonth(delta) {
+    actionsCurrentMonth = new Date(actionsCurrentMonth.getFullYear(), actionsCurrentMonth.getMonth() + delta, 1);
+    renderActionsCalendar();
+}
+
+/**
+ * Update resource filter dropdown
+ */
+function updateResourceFilter() {
+    const filterEl = document.getElementById('actionsFilterResource');
+    if (!filterEl) return;
+
+    const resources = new Set();
+    actionsItems.forEach(item => {
+        if (item.resource) resources.add(item.resource);
+    });
+
+    const currentValue = filterEl.value;
+    filterEl.innerHTML = '<option value="all">All</option>';
+    Array.from(resources).sort().forEach(resource => {
+        const option = document.createElement('option');
+        option.value = resource;
+        option.textContent = resource;
+        filterEl.appendChild(option);
+    });
+    filterEl.value = currentValue;
+}
+
+/**
+ * Update report actions table
+ */
+function updateReportActions() {
+    const tbody = document.getElementById('reportActionsTableBody');
+    const emptyState = document.getElementById('reportActionsEmpty');
+    const table = document.getElementById('reportActionsTable');
+
+    if (!tbody || !emptyState || !table) return;
+
+    const openActions = actionsItems.filter(a => a.status === 'open');
+
+    tbody.innerHTML = '';
+
+    if (openActions.length === 0) {
+        table.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    emptyState.style.display = 'none';
+
+    openActions.forEach(action => {
+        const row = document.createElement('tr');
+        const priorityClass = 'actions-priority-' + (action.priority || 'medium');
+
+        row.innerHTML = '<td>' + escapeHtml(action.title) + '</td>' +
+            '<td>' + escapeHtml(action.owner) + '</td>' +
+            '<td><span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span></td>' +
+            '<td>' + (action.target_date || '') + '</td>';
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Export actions to Excel
+ */
+async function exportActionsExcel() {
+    try {
+        const response = await fetch('/api/actions/export-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: actionsItems,
+                project_name: 'Project'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Export failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'actions.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Error exporting actions:', error);
+        alert('Failed to export actions to Excel');
+    }
+}
+
+/**
+ * Upload actions from Excel
+ */
+async function uploadActionsExcel(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/actions/import-excel', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('Import failed');
+        }
+
+        const data = await response.json();
+        if (data.items) {
+            actionsItems = data.items;
+            actionsNextId = Math.max(...actionsItems.map(i => i.id || 0), 0) + 1;
+            renderActionsTable();
+            renderActionsBoard();
+            renderActionsCalendar();
+            updateReportActions();
+            updateResourceFilter();
+        }
+    } catch (error) {
+        console.error('Error importing actions:', error);
+        alert('Failed to import actions from Excel');
+    }
+
+    // Reset file input
+    event.target.value = '';
+}

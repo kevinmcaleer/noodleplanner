@@ -143,6 +143,9 @@
                         <div class="nav-menu-item" onclick="switchTab('raid'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
                         </div>
+                        <div class="nav-menu-item" onclick="switchTab('actions'); event.stopPropagation();">
+                            ✓ Actions Tracker
+                        </div>
                         <div class="nav-menu-item" onclick="switchToView('highlights'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
                         </div>
@@ -433,6 +436,33 @@ Press Enter to render..."></textarea>
                                             <p class="quad-empty-state" id="reportRaidEmpty" style="display: none;">No open risks or issues.</p>
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- Open Actions Section -->
+                                <div class="report-section" style="margin-top: 20px;">
+                                    <div class="quad-header">
+                                        <h3>Open Actions</h3>
+                                        <button class="quad-add-btn" onclick="addAction()" title="Add new action">+</button>
+                                    </div>
+                                    <div class="actions-table-wrapper">
+                                        <table class="milestones-table" id="reportActionsTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Title</th>
+                                                    <th>Owner</th>
+                                                    <th>Priority</th>
+                                                    <th>Target Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="reportActionsTableBody">
+                                                <!-- Actions rows populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                        <p class="quad-empty-state" id="reportActionsEmpty" style="display: none;">No open actions.</p>
+                                    </div>
+                                </div>
+
+                                <div style="display: none;">
                                 </div>
                             </div>
                         </div>
@@ -1157,6 +1187,120 @@ Build
                 </div>
             </div>
 
+            <!-- Actions Tracker Tab -->
+            <div id="actions-tab" class="tab-content">
+                <div class="actions-container">
+                    <!-- View Selector -->
+                    <div class="actions-view-tabs">
+                        <button class="actions-view-tab active" onclick="switchActionsView('tasks')" id="actionsTasksViewTab">
+                            Tasks
+                        </button>
+                        <button class="actions-view-tab" onclick="switchActionsView('board')" id="actionsBoardViewTab">
+                            Board
+                        </button>
+                        <button class="actions-view-tab" onclick="switchActionsView('calendar')" id="actionsCalendarViewTab">
+                            Calendar
+                        </button>
+                    </div>
+
+                    <!-- Tasks View -->
+                    <div id="actionsTasksView" class="actions-view active">
+                        <!-- Toolbar -->
+                        <div class="actions-toolbar">
+                            <a class="subtle-add-btn" onclick="addAction()" title="Add action">+ Add Action</a>
+                            <input type="file" id="actionsXlUpload" accept=".xlsx" style="display:none;" onchange="uploadActionsExcel(event)">
+                            <div class="actions-toolbar-separator"></div>
+                            <div class="actions-filter-group">
+                                <label for="actionsFilterStatus">Status:</label>
+                                <select id="actionsFilterStatus" onchange="renderActionsTable()">
+                                    <option value="all">All</option>
+                                    <option value="open">Open</option>
+                                    <option value="closed">Closed</option>
+                                </select>
+                            </div>
+                            <div class="actions-filter-group">
+                                <label for="actionsFilterResource">Resource:</label>
+                                <select id="actionsFilterResource" onchange="renderActionsTable()">
+                                    <option value="all">All</option>
+                                </select>
+                            </div>
+                            <div class="actions-filter-group">
+                                <label for="actionsFilterPriority">Priority:</label>
+                                <select id="actionsFilterPriority" onchange="renderActionsTable()">
+                                    <option value="all">All</option>
+                                    <option value="high">High</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Actions Table -->
+                        <div class="actions-table-wrapper">
+                            <table class="actions-table" id="actionsTable">
+                                <thead>
+                                    <tr>
+                                        <th onclick="sortActionsTable('id')">ID <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('title')">Title <span class="sort-indicator"></span></th>
+                                        <th>Description</th>
+                                        <th onclick="sortActionsTable('owner')">Owner <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('resource')">Resource <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('priority')">Priority <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('target_date')">Target Date <span class="sort-indicator"></span></th>
+                                        <th onclick="sortActionsTable('status')">Status <span class="sort-indicator"></span></th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="actionsTableBody">
+                                </tbody>
+                            </table>
+                            <div class="actions-empty-state" id="actionsEmptyState">
+                                <h3>Actions Tracker</h3>
+                                <p>Track action items for resources in your project.</p>
+                                <p>Click <strong>"+ Add Action"</strong> to get started.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Board View -->
+                    <div id="actionsBoardView" class="actions-view">
+                        <div class="actions-board">
+                            <div class="actions-board-column">
+                                <h3 class="actions-board-column-title">
+                                    <span class="actions-board-column-icon">📋</span>
+                                    Open
+                                    <span class="actions-board-count" id="actionsOpenCount">0</span>
+                                </h3>
+                                <div class="actions-board-cards" id="actionsOpenCards" data-status="open">
+                                </div>
+                            </div>
+                            <div class="actions-board-column">
+                                <h3 class="actions-board-column-title">
+                                    <span class="actions-board-column-icon">✅</span>
+                                    Closed
+                                    <span class="actions-board-count" id="actionsClosedCount">0</span>
+                                </h3>
+                                <div class="actions-board-cards" id="actionsClosedCards" data-status="closed">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calendar View -->
+                    <div id="actionsCalendarView" class="actions-view">
+                        <div class="actions-calendar">
+                            <div class="actions-calendar-header">
+                                <button class="actions-calendar-nav" onclick="changeActionsMonth(-1)">‹</button>
+                                <h3 id="actionsCalendarTitle"></h3>
+                                <button class="actions-calendar-nav" onclick="changeActionsMonth(1)">›</button>
+                            </div>
+                            <div class="actions-calendar-grid" id="actionsCalendarGrid">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Planning Room Tab -->
             <div id="planning-tab" class="tab-content">
                 <div class="planning-room-container">
@@ -1575,6 +1719,67 @@ Build
                     <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
                         <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Action Form Section -->
+        <div id="actionFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="actionFormTitle">New Action</h2>
+                <button class="close-btn" onclick="closeActionForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="actionItemId">
+
+                    <div class="form-group">
+                        <label for="actionItemTitle">Title</label>
+                        <input type="text" id="actionItemTitle" class="form-control" placeholder="Brief title for this action" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="actionItemDescription">Description</label>
+                        <textarea id="actionItemDescription" class="form-control" placeholder="Detailed description of the action" rows="3"></textarea>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="actionItemOwner">Owner</label>
+                            <input type="text" id="actionItemOwner" class="form-control" placeholder="Person responsible">
+                        </div>
+                        <div class="form-group">
+                            <label for="actionItemResource">Resource</label>
+                            <input type="text" id="actionItemResource" class="form-control" placeholder="Associated resource">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="actionItemStatus">Status</label>
+                            <select id="actionItemStatus" class="form-control">
+                                <option value="open">Open</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="actionItemPriority">Priority</label>
+                            <select id="actionItemPriority" class="form-control">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="actionItemTargetDate">Target Date</label>
+                            <input type="date" id="actionItemTargetDate" class="form-control">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                        <button type="button" class="btn-secondary" onclick="closeActionForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveActionFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
                 </form>
             </div>

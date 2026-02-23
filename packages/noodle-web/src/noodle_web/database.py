@@ -1,8 +1,8 @@
 import logging
 import os
 import time
-from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
+from datetime import datetime, date
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Date, Text, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -42,6 +42,25 @@ class ActivityLog(Base):
 
     def __repr__(self):
         return f"<ActivityLog {self.id}: {self.method} {self.endpoint} at {self.timestamp}>"
+
+
+class Action(Base):
+    """Model for storing action items in RAID log"""
+    __tablename__ = "actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(500), nullable=False)
+    description = Column(Text, nullable=True)
+    owner = Column(String(200), nullable=True, index=True)
+    status = Column(String(20), nullable=False, default='open', index=True)
+    priority = Column(String(20), nullable=False, default='medium', index=True)
+    target_date = Column(Date, nullable=True, index=True)
+    resource = Column(String(200), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<Action {self.id}: {self.title} ({self.status})>"
 
 
 def init_db():
