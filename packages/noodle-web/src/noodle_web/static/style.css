@@ -8683,6 +8683,321 @@ tr:hover .task-inspect-btn {
     content: '⇅';
 }
 
+/* Portfolio Resources View */
+.portfolio-resources-header {
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-resources-header h2 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+.portfolio-resources-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.resource-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.summary-label {
+    font-size: 0.9em;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.summary-value {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.portfolio-resources-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-resources-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-resources-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-resources-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-resources-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-resources-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-resources-table tbody tr {
+    transition: background 0.2s;
+}
+
+.portfolio-resources-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-resources-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.resource-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.project-count-badge {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 10px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.projects-tooltip {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.in-progress-count {
+    font-weight: 600;
+    color: #ffc107;
+}
+
+/* Workload Badges */
+.workload-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.workload-badge.workload-low {
+    background: #28a745;
+    color: white;
+}
+
+.workload-badge.workload-medium {
+    background: #17a2b8;
+    color: white;
+}
+
+.workload-badge.workload-high {
+    background: #ffc107;
+    color: #333;
+}
+
+.workload-badge.workload-overloaded {
+    background: #dc3545;
+    color: white;
+}
+
+/* Small Button */
+.btn-small {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-small:hover {
+    background: #5568d3;
+    transform: translateY(-1px);
+}
+
+/* Resource Details Modal */
+.resource-details-modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: auto;
+}
+
+.resource-details-content {
+    background: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 900px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.resource-details-content .close-btn {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #adb5bd;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    transition: background 0.2s;
+}
+
+.resource-details-content .close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+#resourceDetailsBody {
+    padding: 30px;
+}
+
+#resourceDetailsBody h2 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+#resourceDetailsBody h3 {
+    margin: 25px 0 15px 0;
+    color: #667eea;
+    font-size: 1.4em;
+}
+
+#resourceDetailsBody h4 {
+    margin: 15px 0 10px 0;
+    color: #667eea;
+    font-size: 1.1em;
+}
+
+.resource-details-summary {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.detail-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.stat-label {
+    font-size: 0.9em;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.stat-value {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.project-assignments {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.assignments-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.assignments-table th {
+    background: #667eea;
+    color: white;
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.assignments-table td {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.assignments-table tr:last-child td {
+    border-bottom: none;
+}
+
+.task-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.task-status-badge.status-completed {
+    background: #28a745;
+    color: white;
+}
+
+.task-status-badge.status-in-progress {
+    background: #ffc107;
+    color: #333;
+}
+
+.task-status-badge.status-not-started {
+    background: #6c757d;
+    color: white;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .portfolio-header {
@@ -8716,5 +9031,28 @@ tr:hover .task-inspect-btn {
 
     .portfolio-status-table {
         min-width: 800px;
+    }
+
+    .portfolio-resources-summary {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .resource-details-summary {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .portfolio-resources-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-resources-table {
+        min-width: 700px;
+    }
+
+    .resource-details-content {
+        width: 95%;
+        margin: 2% auto;
     }
 }
