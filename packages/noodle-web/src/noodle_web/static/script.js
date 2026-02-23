@@ -1551,6 +1551,13 @@ function updateMilestonesTable(tasks) {
             return task.duration_days === 0 && !task.is_summary;
         });
 
+        // Sort milestones by finish date (earliest first)
+        filteredTasks.sort((a, b) => {
+            const dateA = new Date(a.finish || '9999-12-31');
+            const dateB = new Date(b.finish || '9999-12-31');
+            return dateA - dateB;
+        });
+
         // Populate with milestone data
         filteredTasks.forEach(task => {
             const row = document.createElement('tr');
