@@ -8434,6 +8434,255 @@ tr:hover .task-inspect-btn {
     transform: translateY(-1px);
 }
 
+/* Portfolio Sub-Navigation */
+.portfolio-subnav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-subnav-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: transparent;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    color: #6c757d;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.portfolio-subnav-btn:hover {
+    background: #f8f9fa;
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.portfolio-subnav-btn.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+/* Portfolio Status View */
+.portfolio-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-status-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+.portfolio-status-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.portfolio-status-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-status-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-status-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-status-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-status-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-status-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-status-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-status-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-status-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-status-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-status-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-status-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.project-name {
+    font-weight: 600;
+    color: #333;
+}
+
+/* RAG Badges */
+.rag-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rag-badge.rag-red {
+    background: #dc3545;
+    color: white;
+}
+
+.rag-badge.rag-amber {
+    background: #ffc107;
+    color: #333;
+}
+
+.rag-badge.rag-green {
+    background: #28a745;
+    color: white;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.status-badge.status-red {
+    background: #dc3545;
+    color: white;
+}
+
+.status-badge.status-amber {
+    background: #ffc107;
+    color: #333;
+}
+
+.status-badge.status-green {
+    background: #28a745;
+    color: white;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    background: #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 12px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #333;
+    text-shadow: 0 0 3px white;
+}
+
+/* Risk Count */
+.risk-count {
+    font-weight: 600;
+    color: #dc3545;
+}
+
+/* Trend Indicator */
+.trend-indicator {
+    font-size: 1.4em;
+    font-weight: bold;
+}
+
+.trend-indicator.trend-up {
+    color: #28a745;
+}
+
+.trend-indicator.trend-stable {
+    color: #ffc107;
+}
+
+.trend-indicator.trend-down {
+    color: #dc3545;
+}
+
+/* Sort Indicator */
+.sort-indicator {
+    opacity: 0.3;
+    margin-left: 5px;
+}
+
+.sort-indicator::after {
+    content: '⇅';
+}
+
 /* Portfolio Resources View */
 .portfolio-resources-header {
     margin-bottom: 25px;
@@ -8764,6 +9013,24 @@ tr:hover .task-inspect-btn {
     .portfolio-project-actions button {
         font-size: 0.85em;
         padding: 8px 12px;
+    }
+
+    .portfolio-subnav {
+        flex-wrap: wrap;
+    }
+
+    .portfolio-status-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .portfolio-status-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-status-table {
+        min-width: 800px;
     }
 
     .portfolio-resources-summary {
