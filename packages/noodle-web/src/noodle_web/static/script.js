@@ -14992,6 +14992,10 @@ function updateReportActions() {
 
     openActions.forEach(action => {
         const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.title = 'Click to view details';
+        row.addEventListener('click', () => openActionForm(action.id));
+
         const priorityClass = 'actions-priority-' + (action.priority || 'medium');
         const targetDate = action.target_date || action.date || '';
 

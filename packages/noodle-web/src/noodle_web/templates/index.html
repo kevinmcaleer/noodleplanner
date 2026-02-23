@@ -439,13 +439,14 @@ Press Enter to render..."></textarea>
                                 </div>
 
                                 <!-- Open Actions Section -->
-                                <div class="report-section" style="margin-top: 20px;">
+                                <div class="quad-cell" style="margin-top: 20px; grid-column: 1 / -1;">
                                     <div class="quad-header">
                                         <h3>Open Actions</h3>
                                         <button class="quad-add-btn" onclick="addAction()" title="Add new action">+</button>
                                     </div>
-                                    <div class="actions-table-wrapper">
-                                        <table class="milestones-table" id="reportActionsTable">
+                                    <div class="actions-table-wrapper" style="position: relative;">
+                                        <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                        <table class="milestones-table quad-table" id="reportActionsTable">
                                             <thead>
                                                 <tr>
                                                     <th>Title</th>
