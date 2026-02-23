@@ -100,6 +100,13 @@
           <rect x="8" y="10.5" width="10" height="2.5" rx="1"/>
           <rect x="6" y="15" width="6" height="2.5" rx="1"/>
         </symbol>
+        <!-- portfolio -->
+        <symbol id="icon-portfolio" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="7" height="7" rx="1"/>
+          <rect x="3" y="13" width="7" height="7" rx="1"/>
+          <rect x="12" y="4" width="9" height="7" rx="1"/>
+          <rect x="12" y="13" width="9" height="7" rx="1"/>
+        </symbol>
       </defs>
     </svg>
 
@@ -109,6 +116,9 @@
                 <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
                 <button class="tab nav-dashboard-btn active" id="dashboardTab" onclick="switchToView('project-report')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
+                </button>
+                <button class="tab" id="portfolioTab" onclick="switchTab('portfolio')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
                 </button>
                 <div class="nav-dropdown">
                     <button class="tab" id="planTab" onclick="togglePlanMenu(event)">
@@ -1321,6 +1331,23 @@ Build
                 </div>
             </div>
 
+            <!-- Portfolio Tab -->
+            <div id="portfolio-tab" class="tab-content">
+                <div class="portfolio-container">
+                    <div class="portfolio-header">
+                        <h1>Portfolio</h1>
+                        <div class="portfolio-actions">
+                            <button class="btn-primary" onclick="showCreateProjectDialog()">+ New Project</button>
+                            <button class="btn-secondary" onclick="showImportProjectDialog()">Import Project</button>
+                        </div>
+                    </div>
+
+                    <div id="portfolioProjectsList" class="portfolio-content">
+                        <!-- Projects list will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Planning Room Tab -->
             <div id="planning-tab" class="tab-content">
                 <div class="planning-room-container">
@@ -2247,5 +2274,7 @@ Build
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/planning-room.js?v={{ v }}"></script>
+    <script src="/static/project-storage.js?v={{ v }}"></script>
+    <script src="/static/portfolio.js?v={{ v }}"></script>
 </body>
 </html>
