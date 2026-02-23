@@ -8451,3 +8451,175 @@ tr:hover .task-inspect-btn {
         padding: 8px 12px;
     }
 }
+
+/* Portfolio Projects Table View */
+.portfolio-table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.portfolio-projects-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+.portfolio-projects-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.portfolio-projects-table th {
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.portfolio-projects-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-projects-table th.sortable:hover {
+    background: #e9ecef;
+}
+
+.portfolio-projects-table tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.portfolio-projects-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.project-table-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.project-table-row:hover {
+    background: #f8f9fa;
+}
+
+.project-table-row.active-project-row {
+    background: #e7f3ff;
+}
+
+.project-table-row.active-project-row:hover {
+    background: #d0e7ff;
+}
+
+.portfolio-projects-table td {
+    padding: 14px 12px;
+    vertical-align: top;
+}
+
+.project-name-cell {
+    font-weight: 600;
+    color: #212529;
+}
+
+.active-indicator {
+    color: #667eea;
+    font-size: 1.2em;
+    margin-right: 4px;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-badge-green {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge-amber {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-badge-red {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge-blue {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-badge-gray {
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+/* Highlight cell */
+.highlight-cell {
+    max-width: 400px;
+}
+
+.highlight-preview {
+    font-size: 0.9em;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
+.highlight-date {
+    color: #495057;
+    font-weight: 600;
+}
+
+.highlight-author {
+    color: #667eea;
+    font-weight: 500;
+}
+
+/* Responsive table */
+@media (max-width: 1400px) {
+    .highlight-cell {
+        max-width: 300px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .portfolio-projects-table {
+        font-size: 0.9em;
+    }
+
+    .portfolio-projects-table th,
+    .portfolio-projects-table td {
+        padding: 12px 8px;
+    }
+
+    .highlight-cell {
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .portfolio-table-container {
+        overflow-x: auto;
+    }
+
+    .portfolio-projects-table {
+        min-width: 800px;
+        font-size: 0.85em;
+    }
+
+    .portfolio-projects-table th,
+    .portfolio-projects-table td {
+        padding: 10px 6px;
+    }
+}

@@ -7,11 +7,12 @@
  * Initialize portfolio view
  */
 function initPortfolio() {
-    renderProjectsList();
+    // Use table view as default
+    renderProjectsTable();
 }
 
 /**
- * Render the projects list
+ * Render the projects list (grid view - legacy)
  */
 function renderProjectsList() {
     const container = document.getElementById('portfolioProjectsList');

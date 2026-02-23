@@ -264,6 +264,13 @@ function switchTab(tabName) {
         }, 50);
     }
 
+    // If switching to Portfolio tab, initialize portfolio view
+    if (tabName === 'portfolio') {
+        if (typeof initPortfolio === 'function') {
+            initPortfolio();
+        }
+    }
+
     // Update nav bar active state for special tabs
     // Remove active class from all nav tabs first
     document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
