@@ -8206,6 +8206,43 @@ tr:hover .task-inspect-btn {
     border-left: 3px solid #1565c0;
 }
 
+/* Gantt View */
+.actions-gantt-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+.actions-gantt-toolbar {
+    margin-bottom: 20px;
+}
+
+.actions-gantt-toolbar h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.5em;
+}
+
+.actions-gantt-container {
+    min-height: 400px;
+}
+
+.actions-gantt-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #adb5bd;
+}
+
+.actions-gantt-empty-state h3 {
+    color: #667eea;
+    margin-bottom: 10px;
+}
+
+.actions-gantt-timeline table {
+    width: 100%;
+}
+
 /* Report Section */
 #reportActionsTable {
     margin-top: 10px;

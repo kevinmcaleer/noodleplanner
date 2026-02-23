@@ -1195,6 +1195,9 @@ Build
                         <button class="plan-subnav-btn active" data-view="tasks" onclick="switchActionsView('tasks')" id="actionsTasksViewTab">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </button>
+                        <button class="plan-subnav-btn" data-view="gantt" onclick="switchActionsView('gantt')" id="actionsGanttViewTab">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
+                        </button>
                         <button class="plan-subnav-btn" data-view="board" onclick="switchActionsView('board')" id="actionsBoardViewTab">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
                         </button>
@@ -1258,6 +1261,22 @@ Build
                                 <h3>Actions Tracker</h3>
                                 <p>Track action items for resources in your project.</p>
                                 <p>Click <strong>"+ Add Action"</strong> to get started.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gantt View -->
+                    <div id="actionsGanttView" class="actions-view">
+                        <div class="actions-gantt-wrapper">
+                            <div class="actions-gantt-toolbar">
+                                <h2>Actions Gantt Chart</h2>
+                            </div>
+                            <div class="actions-gantt-container" id="actionsGanttContainer">
+                                <div class="actions-gantt-empty-state">
+                                    <h3>Actions Timeline</h3>
+                                    <p>Actions with target dates will appear here as a timeline.</p>
+                                    <p>Click <strong>"+ Add Action"</strong> to get started.</p>
+                                </div>
                             </div>
                         </div>
                     </div>

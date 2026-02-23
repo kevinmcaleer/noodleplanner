@@ -11389,6 +11389,14 @@ function loadRaidItemsFromData(items) {
         raidItems = items;
         raidNextId = Math.max(...items.map(i => i.id || 0)) + 1;
         renderRaidTable();
+
+        // Update action tracker views with actions from RAID log
+        renderActionsTable();
+        renderActionsBoard();
+        renderActionsCalendar();
+        renderActionsGantt();
+        updateReportActions();
+        updateResourceFilter();
     } catch (error) {
         console.error('Error loading RAID items:', error);
     }
@@ -14525,9 +14533,11 @@ function saveActionFromForm() {
     renderActionsTable();
     renderActionsBoard();
     renderActionsCalendar();
+    renderActionsGantt();
     updateReportActions();
     updateResourceFilter();
     renderRaidTable(); // Update RAID table as well
+    syncRaidLogToPlanText(); // Save to plan text
 }
 
 /**
@@ -14539,9 +14549,11 @@ function deleteAction(id) {
     renderActionsTable();
     renderActionsBoard();
     renderActionsCalendar();
+    renderActionsGantt();
     updateReportActions();
     updateResourceFilter();
     renderRaidTable(); // Update RAID table as well
+    syncRaidLogToPlanText(); // Save to plan text
 }
 
 /**
@@ -14675,7 +14687,9 @@ function switchActionsView(view) {
     if (viewContent) viewContent.classList.add('active');
 
     // Render appropriate view
-    if (view === 'board') {
+    if (view === 'gantt') {
+        renderActionsGantt();
+    } else if (view === 'board') {
         renderActionsBoard();
     } else if (view === 'calendar') {
         renderActionsCalendar();
@@ -14713,6 +14727,60 @@ function renderActionsBoard() {
 
     // Enable drag and drop
     enableActionsBoardDragDrop();
+}
+
+/**
+ * Render actions gantt view
+ */
+function renderActionsGantt() {
+    const container = document.getElementById('actionsGanttContainer');
+    const emptyState = container ? container.querySelector('.actions-gantt-empty-state') : null;
+
+    if (!container) return;
+
+    const actionItems = getActionItems();
+    const actionsWithDates = actionItems.filter(a => {
+        const targetDate = a.target_date || a.date;
+        return targetDate && targetDate.trim() !== '';
+    });
+
+    if (actionsWithDates.length === 0) {
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Sort actions by target date
+    actionsWithDates.sort((a, b) => {
+        const dateA = new Date(a.target_date || a.date || '9999-12-31');
+        const dateB = new Date(b.target_date || b.date || '9999-12-31');
+        return dateA - dateB;
+    });
+
+    // Create simple timeline view
+    let html = '<div class="actions-gantt-timeline">';
+    html += '<table class="actions-table" style="margin-top: 20px;">';
+    html += '<thead><tr>';
+    html += '<th>Action</th><th>Owner</th><th>Priority</th><th>Target Date</th><th>Status</th>';
+    html += '</tr></thead><tbody>';
+
+    actionsWithDates.forEach(action => {
+        const priorityClass = 'actions-priority-' + (action.priority || 'medium');
+        const statusClass = 'actions-status-' + (action.status || 'open');
+        const targetDate = action.target_date || action.date || '';
+
+        html += '<tr onclick="openActionForm(' + action.id + ')" style="cursor: pointer;">';
+        html += '<td>' + escapeHtml(action.title || '') + '</td>';
+        html += '<td>' + escapeHtml(action.owner || '') + '</td>';
+        html += '<td><span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span></td>';
+        html += '<td>' + targetDate + '</td>';
+        html += '<td><span class="actions-status-badge ' + statusClass + '">' + (action.status || 'open') + '</span></td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
 }
 
 /**
@@ -14792,6 +14860,7 @@ function handleActionDrop(e) {
         renderActionsTable();
         updateReportActions();
         renderRaidTable(); // Update RAID table as well
+        syncRaidLogToPlanText(); // Save to plan text
     }
 }
 
