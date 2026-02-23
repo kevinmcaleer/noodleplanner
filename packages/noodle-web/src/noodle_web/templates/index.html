@@ -1190,16 +1190,16 @@ Build
             <!-- Actions Tracker Tab -->
             <div id="actions-tab" class="tab-content">
                 <div class="actions-container">
-                    <!-- View Selector -->
-                    <div class="actions-view-tabs">
-                        <button class="actions-view-tab active" onclick="switchActionsView('tasks')" id="actionsTasksViewTab">
-                            Tasks
+                    <!-- View Selector (matching Plan sub-nav style) -->
+                    <div class="plan-subnav">
+                        <button class="plan-subnav-btn active" data-view="tasks" onclick="switchActionsView('tasks')" id="actionsTasksViewTab">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </button>
-                        <button class="actions-view-tab" onclick="switchActionsView('board')" id="actionsBoardViewTab">
-                            Board
+                        <button class="plan-subnav-btn" data-view="board" onclick="switchActionsView('board')" id="actionsBoardViewTab">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
                         </button>
-                        <button class="actions-view-tab" onclick="switchActionsView('calendar')" id="actionsCalendarViewTab">
-                            Calendar
+                        <button class="plan-subnav-btn" data-view="calendar" onclick="switchActionsView('calendar')" id="actionsCalendarViewTab">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
                         </button>
                     </div>
 

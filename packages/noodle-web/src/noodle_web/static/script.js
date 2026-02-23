@@ -14397,21 +14397,28 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
 // ACTIONS TRACKER SYSTEM
 // ==============================================================================
 
-let actionsItems = [];
-let actionsNextId = 1;
+// Note: Actions are stored in the global raidItems array with type='action'
 let actionsSortColumn = 'id';
 let actionsSortAsc = true;
 let actionsCurrentMonth = new Date();
 
 /**
+ * Get all action items from RAID log
+ */
+function getActionItems() {
+    return raidItems.filter(item => item.type === 'action');
+}
+
+/**
  * Clear actions entries from the UI and global state
  */
 function clearActionsEntries() {
-    actionsItems = [];
-    actionsNextId = 1;
+    // Remove all action-type items from raidItems
+    raidItems = raidItems.filter(item => item.type !== 'action');
     renderActionsTable();
     renderActionsBoard();
     renderActionsCalendar();
+    renderRaidTable(); // Update RAID table as well
     console.log('Cleared actions entries');
 }
 
@@ -14430,18 +14437,18 @@ function openActionForm(itemId) {
     const idField = document.getElementById('actionItemId');
 
     if (itemId != null) {
-        const item = actionsItems.find(i => i.id === itemId);
+        const item = raidItems.find(i => i.id === itemId && i.type === 'action');
         if (!item) return;
 
         title.textContent = 'Edit Action';
         idField.value = item.id;
-        document.getElementById('actionItemTitle').value = item.title;
-        document.getElementById('actionItemDescription').value = item.description;
-        document.getElementById('actionItemOwner').value = item.owner;
-        document.getElementById('actionItemResource').value = item.resource;
-        document.getElementById('actionItemStatus').value = item.status;
-        document.getElementById('actionItemPriority').value = item.priority;
-        document.getElementById('actionItemTargetDate').value = item.target_date;
+        document.getElementById('actionItemTitle').value = item.title || '';
+        document.getElementById('actionItemDescription').value = item.description || item.mitigation_actions || '';
+        document.getElementById('actionItemOwner').value = item.owner || '';
+        document.getElementById('actionItemResource').value = item.resource || item.raised_by || '';
+        document.getElementById('actionItemStatus').value = item.status || 'open';
+        document.getElementById('actionItemPriority').value = item.priority || 'medium';
+        document.getElementById('actionItemTargetDate').value = item.target_date || item.date || '';
     } else {
         title.textContent = 'New Action';
         idField.value = '';
@@ -14476,27 +14483,42 @@ function saveActionFromForm() {
         return;
     }
 
+    const description = document.getElementById('actionItemDescription').value.trim();
+    const owner = document.getElementById('actionItemOwner').value.trim();
+    const resource = document.getElementById('actionItemResource').value.trim();
+    const status = document.getElementById('actionItemStatus').value;
+    const priority = document.getElementById('actionItemPriority').value;
+    const targetDate = document.getElementById('actionItemTargetDate').value;
+
+    // Map action fields to RAID item structure
     const itemData = {
+        type: 'action',
         title: title,
-        description: document.getElementById('actionItemDescription').value.trim(),
-        owner: document.getElementById('actionItemOwner').value.trim(),
-        resource: document.getElementById('actionItemResource').value.trim(),
-        status: document.getElementById('actionItemStatus').value,
-        priority: document.getElementById('actionItemPriority').value,
-        target_date: document.getElementById('actionItemTargetDate').value
+        description: description,
+        mitigation_actions: description,  // Store in mitigation_actions for RAID log
+        owner: owner,
+        raised_by: resource,  // Store resource in raised_by for RAID log
+        resource: resource,
+        status: status,
+        priority: priority,
+        target_date: targetDate,
+        date: targetDate,  // Store in date field for RAID log compatibility
+        impact: 1,  // Default values for RAID log compatibility
+        likelihood: 1,
+        score: 1
     };
 
     if (idField) {
         // Update existing
         const existingId = parseInt(idField);
-        const index = actionsItems.findIndex(i => i.id === existingId);
+        const index = raidItems.findIndex(i => i.id === existingId && i.type === 'action');
         if (index >= 0) {
-            actionsItems[index] = { ...actionsItems[index], ...itemData };
+            raidItems[index] = { ...raidItems[index], ...itemData };
         }
     } else {
         // Create new
-        itemData.id = actionsNextId++;
-        actionsItems.push(itemData);
+        itemData.id = raidNextId++;
+        raidItems.push(itemData);
     }
 
     closeActionForm();
@@ -14505,6 +14527,7 @@ function saveActionFromForm() {
     renderActionsCalendar();
     updateReportActions();
     updateResourceFilter();
+    renderRaidTable(); // Update RAID table as well
 }
 
 /**
@@ -14512,12 +14535,13 @@ function saveActionFromForm() {
  */
 function deleteAction(id) {
     if (!confirm('Are you sure you want to delete this action?')) return;
-    actionsItems = actionsItems.filter(i => i.id !== id);
+    raidItems = raidItems.filter(i => !(i.id === id && i.type === 'action'));
     renderActionsTable();
     renderActionsBoard();
     renderActionsCalendar();
     updateReportActions();
     updateResourceFilter();
+    renderRaidTable(); // Update RAID table as well
 }
 
 /**
@@ -14539,9 +14563,12 @@ function renderActionsTable() {
         const filterResource = filterResourceEl ? filterResourceEl.value : 'all';
         const filterPriority = filterPriorityEl ? filterPriorityEl.value : 'all';
 
-        let filtered = actionsItems.filter(item => {
+        const actionItems = getActionItems();
+
+        let filtered = actionItems.filter(item => {
             if (filterStatus !== 'all' && item.status !== filterStatus) return false;
-            if (filterResource !== 'all' && item.resource !== filterResource) return false;
+            const itemResource = item.resource || item.raised_by || '';
+            if (filterResource !== 'all' && itemResource !== filterResource) return false;
             if (filterPriority !== 'all' && item.priority !== filterPriority) return false;
             return true;
         });
@@ -14560,7 +14587,7 @@ function renderActionsTable() {
 
         tbody.innerHTML = '';
 
-        if (actionsItems.length === 0) {
+        if (actionItems.length === 0) {
             emptyState.style.display = 'block';
             document.getElementById('actionsTable').style.display = 'none';
             return;
@@ -14574,14 +14601,17 @@ function renderActionsTable() {
 
             const priorityClass = 'actions-priority-' + (item.priority || 'medium');
             const statusClass = 'actions-status-' + (item.status || 'open');
+            const description = item.description || item.mitigation_actions || '';
+            const resource = item.resource || item.raised_by || '';
+            const targetDate = item.target_date || item.date || '';
 
             row.innerHTML = '<td>' + (item.id || '') + '</td>' +
                 '<td title="' + escapeHtml(item.title) + '">' + escapeHtml(item.title) + '</td>' +
-                '<td title="' + escapeHtml(item.description) + '">' + escapeHtml(item.description) + '</td>' +
-                '<td>' + escapeHtml(item.owner) + '</td>' +
-                '<td>' + escapeHtml(item.resource) + '</td>' +
+                '<td title="' + escapeHtml(description) + '">' + escapeHtml(description) + '</td>' +
+                '<td>' + escapeHtml(item.owner || '') + '</td>' +
+                '<td>' + escapeHtml(resource) + '</td>' +
                 '<td><span class="actions-priority-badge ' + priorityClass + '">' + (item.priority || 'medium') + '</span></td>' +
-                '<td>' + (item.target_date || '') + '</td>' +
+                '<td>' + targetDate + '</td>' +
                 '<td><span class="actions-status-badge ' + statusClass + '">' + (item.status || 'open') + '</span></td>' +
                 '<td>' +
                     '<button class="actions-action-btn" onclick="openActionForm(' + item.id + ')" title="Edit">✏️</button>' +
@@ -14631,10 +14661,13 @@ function updateActionsSortIndicators() {
  * Switch actions view (tasks/board/calendar)
  */
 function switchActionsView(view) {
-    // Update tab buttons
-    document.querySelectorAll('.actions-view-tab').forEach(tab => tab.classList.remove('active'));
-    const viewTab = document.getElementById('actions' + view.charAt(0).toUpperCase() + view.slice(1) + 'ViewTab');
-    if (viewTab) viewTab.classList.add('active');
+    // Update sub-nav buttons (using plan-subnav-btn class to match Plan navigation)
+    const actionsContainer = document.getElementById('actions-tab');
+    if (actionsContainer) {
+        actionsContainer.querySelectorAll('.plan-subnav-btn').forEach(btn => btn.classList.remove('active'));
+        const viewTab = document.getElementById('actions' + view.charAt(0).toUpperCase() + view.slice(1) + 'ViewTab');
+        if (viewTab) viewTab.classList.add('active');
+    }
 
     // Update view content
     document.querySelectorAll('.actions-view').forEach(v => v.classList.remove('active'));
@@ -14663,8 +14696,9 @@ function renderActionsBoard() {
     openCards.innerHTML = '';
     closedCards.innerHTML = '';
 
-    const openActions = actionsItems.filter(a => a.status === 'open');
-    const closedActions = actionsItems.filter(a => a.status === 'closed');
+    const actionItems = getActionItems();
+    const openActions = actionItems.filter(a => a.status === 'open');
+    const closedActions = actionItems.filter(a => a.status === 'closed');
 
     openCount.textContent = openActions.length;
     closedCount.textContent = closedActions.length;
@@ -14691,16 +14725,18 @@ function createActionCard(action) {
     card.dataset.actionId = action.id;
 
     const priorityClass = 'actions-priority-' + (action.priority || 'medium');
+    const description = action.description || action.mitigation_actions || '';
+    const targetDate = action.target_date || action.date || '';
 
     card.innerHTML = '<div class="actions-card-header">' +
         '<span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span>' +
         '<button class="actions-card-menu" onclick="openActionForm(' + action.id + ')">✏️</button>' +
         '</div>' +
-        '<div class="actions-card-title">' + escapeHtml(action.title) + '</div>' +
-        (action.description ? '<div class="actions-card-description">' + escapeHtml(action.description) + '</div>' : '') +
+        '<div class="actions-card-title">' + escapeHtml(action.title || '') + '</div>' +
+        (description ? '<div class="actions-card-description">' + escapeHtml(description) + '</div>' : '') +
         '<div class="actions-card-footer">' +
         (action.owner ? '<span class="actions-card-owner">👤 ' + escapeHtml(action.owner) + '</span>' : '') +
-        (action.target_date ? '<span class="actions-card-date">📅 ' + action.target_date + '</span>' : '') +
+        (targetDate ? '<span class="actions-card-date">📅 ' + targetDate + '</span>' : '') +
         '</div>';
 
     return card;
@@ -14749,12 +14785,13 @@ function handleActionDrop(e) {
     const actionId = parseInt(draggedAction.dataset.actionId);
 
     // Update action status
-    const action = actionsItems.find(a => a.id === actionId);
+    const action = raidItems.find(a => a.id === actionId && a.type === 'action');
     if (action && action.status !== newStatus) {
         action.status = newStatus;
         renderActionsBoard();
         renderActionsTable();
         updateReportActions();
+        renderRaidTable(); // Update RAID table as well
     }
 }
 
@@ -14795,9 +14832,13 @@ function renderActionsCalendar() {
     }
 
     // Add days of month
+    const actionItems = getActionItems();
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-        const dayActions = actionsItems.filter(a => a.target_date === dateStr);
+        const dayActions = actionItems.filter(a => {
+            const targetDate = a.target_date || a.date || '';
+            return targetDate === dateStr;
+        });
 
         const dayCell = document.createElement('div');
         dayCell.className = 'actions-calendar-day';
@@ -14809,10 +14850,11 @@ function renderActionsCalendar() {
 
         if (dayActions.length > 0) {
             dayActions.forEach(action => {
+                const description = action.description || action.mitigation_actions || '';
                 const actionItem = document.createElement('div');
-                actionItem.className = 'actions-calendar-item actions-priority-' + action.priority;
-                actionItem.textContent = action.title;
-                actionItem.title = action.title + (action.description ? '\n' + action.description : '');
+                actionItem.className = 'actions-calendar-item actions-priority-' + (action.priority || 'medium');
+                actionItem.textContent = action.title || '';
+                actionItem.title = (action.title || '') + (description ? '\n' + description : '');
                 actionItem.onclick = function() { openActionForm(action.id); };
                 dayCell.appendChild(actionItem);
             });
@@ -14838,8 +14880,10 @@ function updateResourceFilter() {
     if (!filterEl) return;
 
     const resources = new Set();
-    actionsItems.forEach(item => {
-        if (item.resource) resources.add(item.resource);
+    const actionItems = getActionItems();
+    actionItems.forEach(item => {
+        const resource = item.resource || item.raised_by || '';
+        if (resource) resources.add(resource);
     });
 
     const currentValue = filterEl.value;
@@ -14863,7 +14907,8 @@ function updateReportActions() {
 
     if (!tbody || !emptyState || !table) return;
 
-    const openActions = actionsItems.filter(a => a.status === 'open');
+    const actionItems = getActionItems();
+    const openActions = actionItems.filter(a => a.status === 'open');
 
     tbody.innerHTML = '';
 
@@ -14879,11 +14924,12 @@ function updateReportActions() {
     openActions.forEach(action => {
         const row = document.createElement('tr');
         const priorityClass = 'actions-priority-' + (action.priority || 'medium');
+        const targetDate = action.target_date || action.date || '';
 
-        row.innerHTML = '<td>' + escapeHtml(action.title) + '</td>' +
-            '<td>' + escapeHtml(action.owner) + '</td>' +
+        row.innerHTML = '<td>' + escapeHtml(action.title || '') + '</td>' +
+            '<td>' + escapeHtml(action.owner || '') + '</td>' +
             '<td><span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span></td>' +
-            '<td>' + (action.target_date || '') + '</td>';
+            '<td>' + targetDate + '</td>';
         tbody.appendChild(row);
     });
 }

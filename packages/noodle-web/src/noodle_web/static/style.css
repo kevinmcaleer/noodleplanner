@@ -465,6 +465,14 @@ svg.icon {
     color: #495057;
 }
 
+/* Up Next Table Wrapper - match milestones table styling */
+.up-next-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
 .up-next-row-clickable {
     cursor: pointer;
     transition: background-color 0.15s ease;
