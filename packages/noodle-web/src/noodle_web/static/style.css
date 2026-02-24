@@ -9096,11 +9096,18 @@ tr:hover .task-inspect-btn {
     border-color: #667eea;
 }
 
+#portfolioTimelineView {
+    display: flex;
+    flex-direction: column;
+}
+
 .portfolio-timeline-wrapper {
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    overflow-x: auto;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .portfolio-timeline-container {
