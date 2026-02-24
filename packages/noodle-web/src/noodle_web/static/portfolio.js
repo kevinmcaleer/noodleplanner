@@ -186,40 +186,51 @@ function openProjectDashboard(projectId) {
     // Save current project before switching
     saveCurrentProjectState();
 
-    // Set new current project
-    setCurrentProjectId(projectId);
-
-    // Load the project
+    // Load the project fresh from localStorage (not cache)
     const project = loadProject(projectId);
     if (!project) {
         alert('Error loading project');
         return;
     }
 
-    // Load project into editor (triggers re-render of all views)
-    if (typeof loadProjectIntoEditor === 'function') {
-        loadProjectIntoEditor(projectId);
-    } else {
-        const planEditor = document.getElementById('planEditor');
-        if (planEditor) {
-            planEditor.value = project.planText || '';
-        }
-        const kanbanEditor = document.getElementById('kanbanPlanEditor');
-        if (kanbanEditor) {
-            kanbanEditor.value = project.planText || '';
-        }
+    // Set new current project
+    setCurrentProjectId(projectId);
+
+    // Update editors with the new project's text
+    const planText = project.planText || '';
+    const planEditor = document.getElementById('planEditor');
+    if (planEditor) {
+        planEditor.value = planText;
+    }
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) {
+        kanbanEditor.value = planText;
     }
 
-    // Switch to the dashboard view
+    // Switch to the dashboard view FIRST so it's visible
     if (typeof switchToView === 'function') {
         switchToView('project-report');
     } else {
         switchMainTab('editor');
     }
 
+    // Now trigger updateAllViews to parse and populate the dashboard
+    // with the correct project data
+    if (typeof updateAllViews === 'function') {
+        updateAllViews(planText, project.name);
+    } else if (planEditor) {
+        // Fallback: dispatch input event to trigger rendering pipeline
+        planEditor.dispatchEvent(new Event('input'));
+    }
+
     // Refresh project selectors
     if (typeof refreshProjectSelectors === 'function') {
         refreshProjectSelectors();
+    }
+
+    // Update cache
+    if (typeof projectCache !== 'undefined') {
+        projectCache.set(projectId, project);
     }
 }
 
