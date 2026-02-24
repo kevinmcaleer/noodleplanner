@@ -116,6 +116,14 @@ function loadProjectIntoEditor(projectId) {
         planEditor.dispatchEvent(new Event('input'));
     }
 
+    // If the Kanban tab is currently active, sync the board immediately
+    // so it reflects the newly loaded project without waiting for the
+    // debounced editor-input handler.
+    const kanbanTab = document.getElementById('kanban-tab');
+    if (kanbanTab && kanbanTab.classList.contains('active') && typeof syncKanbanFromEditor === 'function') {
+        syncKanbanFromEditor();
+    }
+
     // Emit project loaded event
     window.dispatchEvent(new CustomEvent('projectLoaded', {
         detail: { projectId, projectName: project.name }

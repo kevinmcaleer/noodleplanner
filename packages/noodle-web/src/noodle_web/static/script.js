@@ -264,6 +264,15 @@ function switchTab(tabName) {
         }, 50);
     }
 
+    // If switching to Kanban tab, sync the board from the editor
+    if (tabName === 'kanban') {
+        setTimeout(() => {
+            if (typeof syncKanbanFromEditor === 'function') {
+                syncKanbanFromEditor();
+            }
+        }, 50);
+    }
+
     // If switching to Portfolio tab, save current project state first, then initialize
     if (tabName === 'portfolio') {
         if (typeof saveCurrentProjectState === 'function') {

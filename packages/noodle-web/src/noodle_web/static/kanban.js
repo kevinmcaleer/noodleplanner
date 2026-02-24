@@ -3419,10 +3419,10 @@ if (document.readyState === 'loading') {
  * Setup auto-sync between editor and Kanban
  */
 function setupKanbanAutoSync() {
-    // Listen for tab switches
-    const kanbanTab = document.querySelector('.tab[onclick*="kanban"]');
-    if (kanbanTab) {
-        kanbanTab.addEventListener('click', () => {
+    // Listen for tab switches via the plan sub-nav Board button
+    const kanbanSubnavBtn = document.querySelector('.plan-subnav-btn[data-view="kanban"]');
+    if (kanbanSubnavBtn) {
+        kanbanSubnavBtn.addEventListener('click', () => {
             // Auto-load Kanban when switching to Kanban tab
             setTimeout(() => {
                 if (document.getElementById('kanban-tab').classList.contains('active')) {

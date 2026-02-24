@@ -213,11 +213,24 @@ function showCreateProjectDialog() {
     const name = prompt('Enter project name:');
     if (!name) return;
 
+    // Save current project state before creating/switching
+    if (typeof saveCurrentProjectState === 'function') {
+        saveCurrentProjectState();
+    }
+
     const project = createProject(name);
     if (project) {
+        // Load the new (empty) project into the editor so old plan text is cleared
+        if (typeof loadProjectIntoEditor === 'function') {
+            loadProjectIntoEditor(project.id);
+        }
+
         renderProjectsList();
         if (typeof refreshProjectSelectors === 'function') {
             refreshProjectSelectors();
+        }
+        if (typeof renderProjectsTable === 'function') {
+            renderProjectsTable();
         }
         showNotification('Project created: ' + project.name);
     }
