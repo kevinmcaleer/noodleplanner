@@ -61,6 +61,11 @@ async function renderPortfolioTimeline() {
 
             if (!projectStart || !projectEnd) return;
 
+            console.log('Timeline: "' + project.name + '" → ' + phases.length + ' phases, ' +
+                milestones.length + ' milestones, range: ' +
+                projectStart.toISOString().slice(0, 10) + ' to ' + projectEnd.toISOString().slice(0, 10));
+            phases.forEach(p => console.log('  Phase: "' + p.name + '" ' + p.start + ' → ' + p.finish + ' (' + (p.percent || 0) + '%)'));
+
             timelines.push({
                 projectId: project.id,
                 projectName: project.name,

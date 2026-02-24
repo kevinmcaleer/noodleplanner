@@ -264,8 +264,11 @@ function switchTab(tabName) {
         }, 50);
     }
 
-    // If switching to Portfolio tab, initialize portfolio view
+    // If switching to Portfolio tab, save current project state first, then initialize
     if (tabName === 'portfolio') {
+        if (typeof saveCurrentProjectState === 'function') {
+            saveCurrentProjectState();
+        }
         if (typeof initPortfolio === 'function') {
             initPortfolio();
         }

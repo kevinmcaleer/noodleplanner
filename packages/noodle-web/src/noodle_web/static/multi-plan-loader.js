@@ -320,16 +320,24 @@ function importProjectsFromJSON(jsonData) {
  * Returns Array<{project, parsedResult}> where parsedResult is the API response
  */
 async function parseAllProjects() {
+    // Save current editor state so localStorage is up to date
+    if (typeof saveCurrentProjectState === 'function') {
+        saveCurrentProjectState();
+    }
+
     const projects = loadAllProjectsIntoCache();
     if (projects.length === 0) return [];
 
     const promises = projects.map(async (project) => {
         try {
+            const planText = project.planText || '';
+            console.log('parseAllProjects: Parsing "' + project.name + '" (' + project.id + '), planText length=' + planText.length);
+
             const response = await fetch('/api/parse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    plan_text: project.planText || '',
+                    plan_text: planText,
                     project_name: project.name || null
                 })
             });
@@ -338,6 +346,9 @@ async function parseAllProjects() {
                 return { project, parsedResult: null };
             }
             const parsedResult = await response.json();
+            const taskCount = parsedResult.tasks ? parsedResult.tasks.length : 0;
+            const phasesWithDates = parsedResult.tasks ? parsedResult.tasks.filter(t => t.is_summary && t.start && t.finish).length : 0;
+            console.log('parseAllProjects: "' + project.name + '" → ' + taskCount + ' tasks, ' + phasesWithDates + ' phases with dates');
             return { project, parsedResult };
         } catch (error) {
             console.error('Error parsing project:', project.name, error);
