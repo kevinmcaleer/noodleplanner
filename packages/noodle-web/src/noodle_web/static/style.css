@@ -9097,7 +9097,7 @@ tr:hover .task-inspect-btn {
 }
 
 #portfolioTimelineView {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
 }
 
@@ -9111,7 +9111,6 @@ tr:hover .task-inspect-btn {
 }
 
 .portfolio-timeline-container {
-    min-width: 1200px;
     padding: 20px;
 }
 
