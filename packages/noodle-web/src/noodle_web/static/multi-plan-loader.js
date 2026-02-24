@@ -456,6 +456,11 @@ function onProjectSelectorChange(projectId) {
 
     // Refresh all selectors to stay in sync
     refreshProjectSelectors();
+
+    // Re-render portfolio table so the active indicator (blue dot) updates
+    if (typeof renderProjectsTable === 'function') {
+        renderProjectsTable();
+    }
 }
 
 // Initialize on page load

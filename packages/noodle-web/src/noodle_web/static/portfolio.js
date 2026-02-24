@@ -144,52 +144,29 @@ function switchToProject(projectId) {
     // Save current project before switching
     saveCurrentProjectState();
 
-    // Bump generation counter so in-flight async responses from the
-    // previous project are discarded when they complete.
-    if (typeof projectSwitchGeneration !== 'undefined') {
-        projectSwitchGeneration++;
-    }
-
-    // Set new current project
-    setCurrentProjectId(projectId);
-
-    // Load the project
-    const project = loadProject(projectId);
-    if (!project) {
-        alert('Error loading project');
-        return;
-    }
-
-    const planText = project.planText || '';
-
-    // Load project into editor
-    const planEditor = document.getElementById('planEditor');
-    if (planEditor) {
-        planEditor.value = planText;
-        updateLineNumbers();
-    }
-
-    // Update kanban editor too
-    const kanbanEditor = document.getElementById('kanbanPlanEditor');
-    if (kanbanEditor) {
-        kanbanEditor.value = planText;
+    // Delegate to loadProjectIntoEditor which handles generation bumping,
+    // editor updates, and the full render pipeline (updateAllViews +
+    // deferred renderText).
+    if (typeof loadProjectIntoEditor === 'function') {
+        loadProjectIntoEditor(projectId);
     }
 
     // Switch to Editor tab
     switchMainTab('editor');
 
-    // Trigger full render pipeline (updates editor output + all views)
-    if (typeof renderText === 'function') {
-        renderText();
-    }
-
-    // Refresh project selectors
+    // Refresh project selectors and portfolio table active indicator
     if (typeof refreshProjectSelectors === 'function') {
         refreshProjectSelectors();
     }
+    if (typeof renderProjectsTable === 'function') {
+        renderProjectsTable();
+    }
 
     // Show notification
-    showNotification('Switched to project: ' + project.name);
+    const project = loadProject(projectId);
+    if (project) {
+        showNotification('Switched to project: ' + project.name);
+    }
 }
 
 /**
@@ -199,31 +176,11 @@ function openProjectDashboard(projectId) {
     // Save current project before switching
     saveCurrentProjectState();
 
-    // Bump generation counter so in-flight async responses from the
-    // previous project are discarded when they complete.
-    if (typeof projectSwitchGeneration !== 'undefined') {
-        projectSwitchGeneration++;
-    }
-
-    // Load the project fresh from localStorage (not cache)
-    const project = loadProject(projectId);
-    if (!project) {
-        alert('Error loading project');
-        return;
-    }
-
-    // Set new current project
-    setCurrentProjectId(projectId);
-
-    // Update editors with the new project's text
-    const planText = project.planText || '';
-    const planEditor = document.getElementById('planEditor');
-    if (planEditor) {
-        planEditor.value = planText;
-    }
-    const kanbanEditor = document.getElementById('kanbanPlanEditor');
-    if (kanbanEditor) {
-        kanbanEditor.value = planText;
+    // Delegate to loadProjectIntoEditor which handles generation bumping,
+    // editor updates, and the full render pipeline (updateAllViews +
+    // deferred renderText).
+    if (typeof loadProjectIntoEditor === 'function') {
+        loadProjectIntoEditor(projectId);
     }
 
     // Switch to the dashboard view FIRST so it's visible
@@ -233,19 +190,12 @@ function openProjectDashboard(projectId) {
         switchMainTab('editor');
     }
 
-    // Trigger full render pipeline (updates editor output + all views)
-    if (typeof renderText === 'function') {
-        renderText();
-    }
-
-    // Refresh project selectors
+    // Refresh project selectors and portfolio table active indicator
     if (typeof refreshProjectSelectors === 'function') {
         refreshProjectSelectors();
     }
-
-    // Update cache
-    if (typeof projectCache !== 'undefined') {
-        projectCache.set(projectId, project);
+    if (typeof renderProjectsTable === 'function') {
+        renderProjectsTable();
     }
 }
 
