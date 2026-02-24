@@ -6,6 +6,10 @@
 // In-memory cache for loaded projects
 const projectCache = new Map();
 
+// Generation counter incremented on every project switch.
+// Async callbacks (updateAllViews, render) check this to discard stale responses.
+let projectSwitchGeneration = 0;
+
 /**
  * Load all projects from local storage into cache
  */
@@ -69,6 +73,10 @@ function loadProjectIntoEditor(projectId) {
     // Update cache with fresh data
     projectCache.set(projectId, project);
 
+    // Bump generation counter so any in-flight async responses from a
+    // previous project are discarded when they complete
+    projectSwitchGeneration++;
+
     // Set current project ID BEFORE touching the editor or dispatching events,
     // so any event handlers that fire (debounced renderText, auto-save, etc.)
     // reference the correct project
@@ -81,21 +89,28 @@ function loadProjectIntoEditor(projectId) {
 
     const planText = project.planText || '';
 
-    // Update plan editor
+    // Update both editors without dispatching input events — we call
+    // render/updateAllViews explicitly below, so the debounced renderText
+    // triggered by 'input' would be redundant and racy.
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
         planEditor.value = planText;
-        planEditor.dispatchEvent(new Event('input'));
     }
 
-    // Update kanban editor
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) {
         kanbanEditor.value = planText;
-        kanbanEditor.dispatchEvent(new Event('input'));
     }
 
-    // Re-render the active view (editor and/or kanban)
+    // Update line numbers if available
+    if (typeof updateLineNumbers === 'function') {
+        updateLineNumbers();
+    }
+
+    // Explicitly trigger a full parse + render for the new project
+    if (typeof updateAllViews === 'function') {
+        updateAllViews(planText, project.name);
+    }
     if (typeof render === 'function') {
         render(planText, null, false, false, false, false, 'editor');
         if (typeof isBoardViewActive === 'function' && isBoardViewActive()) {
@@ -386,7 +401,7 @@ function getProjectStatistics(projectId) {
  * Rebuild all .project-selector-dropdown elements with current project list
  */
 function refreshProjectSelectors() {
-    const projects = listProjects();
+    const projects = listProjects().sort((a, b) => a.name.localeCompare(b.name));
     const currentId = getCurrentProjectId();
     const selectors = document.querySelectorAll('.project-selector-dropdown');
 

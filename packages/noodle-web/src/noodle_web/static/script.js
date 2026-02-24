@@ -1457,6 +1457,10 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
 }
 
 async function updateAllViews(planText, projectName) {
+    // Capture the generation counter so we can detect if the user switched
+    // projects while we were waiting for the /api/parse response.
+    const generation = (typeof projectSwitchGeneration !== 'undefined') ? projectSwitchGeneration : -1;
+
     try {
         const data = {
             plan_text: planText,
@@ -1478,6 +1482,13 @@ async function updateAllViews(planText, projectName) {
         }
 
         const result = await response.json();
+
+        // If the user switched projects while we were waiting, discard this
+        // stale response so we don't overwrite the new project's data.
+        if (generation !== -1 && typeof projectSwitchGeneration !== 'undefined' && projectSwitchGeneration !== generation) {
+            console.log('Discarding stale updateAllViews response (generation', generation, '!=', projectSwitchGeneration + ')');
+            return;
+        }
 
         // Always update highlights first (must be before updateReportPage
         // so highlightsData is populated when the report renders its
@@ -1544,17 +1555,16 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(raidFromText);
         }
 
-        // Update editor with labels if backend found and added them
+        // Update editor with labels if backend found and added them.
+        // Guard against stale responses overwriting a different project's text.
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
-            console.log('Backend returned updated plan text with labels');
-            console.log('Original length:', planText.length);
-            console.log('Updated length:', result.updated_plan_text.length);
-            const editor = document.getElementById('planEditor');
-            if (editor) {
-                // Update editor value without triggering another parse
-                // The current parse already has the updated data
-                editor.value = result.updated_plan_text;
-                updateLineNumbers();
+            const stale = (generation !== -1 && typeof projectSwitchGeneration !== 'undefined' && projectSwitchGeneration !== generation);
+            if (!stale) {
+                const editor = document.getElementById('planEditor');
+                if (editor) {
+                    editor.value = result.updated_plan_text;
+                    updateLineNumbers();
+                }
             }
         }
 
