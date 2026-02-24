@@ -1336,6 +1336,10 @@ Build
                 <div class="portfolio-container">
                     <div class="portfolio-header">
                         <h1>Portfolio</h1>
+                        <div class="project-selector-wrapper">
+                            <label class="project-selector-label">Current Plan:</label>
+                            <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project"></select>
+                        </div>
                         <div class="portfolio-actions">
                             <button class="btn-primary" onclick="showCreateProjectDialog()">+ New Project</button>
                             <button class="btn-secondary" onclick="showImportProjectDialog()">Import Project</button>

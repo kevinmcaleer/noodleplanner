@@ -988,19 +988,39 @@ async function handleEditorFileDrop(file) {
         // Read the file content
         const text = await file.text();
 
-        // Clear the editor and load new content
+        // Save current project before creating a new one
+        saveCurrentProjectState();
+
+        // Create a new project from the uploaded file
+        const projectName = file.name.replace(/\.(md|txt|markdown)$/i, '');
+        const project = createProject(projectName);
+        saveProject(project.id, { planText: text });
+        setCurrentProjectId(project.id);
+
+        // Load content into editor
         planEditor.value = text;
 
         // Trigger input event to update line numbers and syntax highlighting
         planEditor.dispatchEvent(new Event('input'));
 
+        // Update kanban editor too
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = text;
+        }
+
+        // Refresh project selectors
+        if (typeof refreshProjectSelectors === 'function') {
+            refreshProjectSelectors();
+        }
+
         // Show success message
-        showMessage('editor', 'success', `Loaded ${file.name} successfully`);
+        showMessage('editor', 'success', `Created project "${project.name}" from ${file.name}`);
 
         // Auto-render the plan
         await renderText();
 
-        console.log(`Loaded plan from ${file.name}`);
+        console.log(`Created project "${project.name}" from ${file.name}`);
 
     } catch (error) {
         console.error('Error loading file:', error);
@@ -1095,9 +1115,24 @@ async function renderFile() {
 
     const text = await selectedFile.text();
 
+    // Save current project before creating a new one
+    saveCurrentProjectState();
+
+    // Create a new project from the uploaded file
+    const projectName = selectedFile.name.replace(/\.(md|txt|markdown)$/i, '');
+    const project = createProject(projectName);
+    saveProject(project.id, { planText: text });
+    setCurrentProjectId(project.id);
+
     // Populate the editor with the file content
     const editor = document.getElementById('planEditor');
     editor.value = text;
+
+    // Update kanban editor too
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) {
+        kanbanEditor.value = text;
+    }
 
     // Switch to the editor tab
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -1109,6 +1144,11 @@ async function renderFile() {
 
     // Trigger input event to update line numbers and syntax highlighting
     editor.dispatchEvent(new Event('input'));
+
+    // Refresh project selectors
+    if (typeof refreshProjectSelectors === 'function') {
+        refreshProjectSelectors();
+    }
 
     // Render the plan
     await renderText();
@@ -6410,10 +6450,16 @@ function downloadMarkdown() {
     const a = document.createElement('a');
     a.href = url;
 
-    // Generate filename with timestamp
-    const now = new Date();
-    const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
-    a.download = `plan_${timestamp}.md`;
+    // Use project name for filename, falling back to timestamp
+    const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
+    if (currentProject && currentProject.name) {
+        const safeName = currentProject.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        a.download = `${safeName}.md`;
+    } else {
+        const now = new Date();
+        const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
+        a.download = `plan_${timestamp}.md`;
+    }
 
     // Trigger download
     document.body.appendChild(a);

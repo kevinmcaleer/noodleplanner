@@ -163,6 +163,11 @@ function switchToProject(projectId) {
     // Switch to Editor tab
     switchMainTab('editor');
 
+    // Refresh project selectors
+    if (typeof refreshProjectSelectors === 'function') {
+        refreshProjectSelectors();
+    }
+
     // Show notification
     showNotification('Switched to project: ' + project.name);
 }
@@ -177,6 +182,9 @@ function showCreateProjectDialog() {
     const project = createProject(name);
     if (project) {
         renderProjectsList();
+        if (typeof refreshProjectSelectors === 'function') {
+            refreshProjectSelectors();
+        }
         showNotification('Project created: ' + project.name);
     }
 }
@@ -193,6 +201,9 @@ function showRenameProjectDialog(projectId) {
 
     if (renameProject(projectId, newName)) {
         renderProjectsList();
+        if (typeof refreshProjectSelectors === 'function') {
+            refreshProjectSelectors();
+        }
         showNotification('Project renamed to: ' + newName);
     }
 }
@@ -210,6 +221,9 @@ function confirmDeleteProject(projectId) {
 
     if (deleteProject(projectId)) {
         renderProjectsList();
+        if (typeof refreshProjectSelectors === 'function') {
+            refreshProjectSelectors();
+        }
         showNotification('Project deleted: ' + project.name);
     }
 }
@@ -230,6 +244,9 @@ function showImportProjectDialog() {
             const project = importProject(e.target.result);
             if (project) {
                 renderProjectsList();
+                if (typeof refreshProjectSelectors === 'function') {
+                    refreshProjectSelectors();
+                }
                 showNotification('Project imported: ' + project.name);
             } else {
                 alert('Error importing project');

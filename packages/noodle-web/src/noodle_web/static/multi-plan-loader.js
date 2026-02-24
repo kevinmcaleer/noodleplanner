@@ -328,11 +328,72 @@ function getProjectStatistics(projectId) {
     };
 }
 
+/**
+ * Rebuild all .project-selector-dropdown elements with current project list
+ */
+function refreshProjectSelectors() {
+    const projects = listProjects();
+    const currentId = getCurrentProjectId();
+    const selectors = document.querySelectorAll('.project-selector-dropdown');
+
+    selectors.forEach(select => {
+        const previousValue = select.value;
+        select.innerHTML = '';
+
+        if (projects.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No projects';
+            opt.disabled = true;
+            select.appendChild(opt);
+            return;
+        }
+
+        projects.forEach(project => {
+            const opt = document.createElement('option');
+            opt.value = project.id;
+            opt.textContent = project.name;
+            if (project.id === currentId) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+    });
+}
+
+/**
+ * Handle project selector change
+ */
+function onProjectSelectorChange(projectId) {
+    if (!projectId) return;
+
+    const currentId = getCurrentProjectId();
+    if (projectId === currentId) return;
+
+    // Save current project state before switching
+    saveCurrentProjectState();
+
+    // Load selected project into editor
+    loadProjectIntoEditor(projectId);
+
+    // Refresh all selectors to stay in sync
+    refreshProjectSelectors();
+}
+
 // Initialize on page load
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
         // Load all projects into cache on startup
         loadAllProjectsIntoCache();
+
+        // Populate project selectors
+        refreshProjectSelectors();
+
+        // Load current project into editor if one is set
+        const currentId = getCurrentProjectId();
+        if (currentId && loadProject(currentId)) {
+            loadProjectIntoEditor(currentId);
+        }
 
         // Set up periodic cache refresh (every 5 minutes)
         setInterval(() => {
