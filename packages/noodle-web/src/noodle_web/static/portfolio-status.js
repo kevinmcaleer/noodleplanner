@@ -23,7 +23,17 @@ function calculateProjectCompletionFromTasks(tasks) {
 }
 
 /**
- * Extract RAG status from front matter or compute from tasks
+ * Extract RAG status from front matter or compute from tasks.
+ *
+ * Priority order:
+ *   1. Explicit RAG in front matter (rag / rag status / rag_status)
+ *   2. Explicit RAG values on individual tasks (worst-case wins)
+ *   3. Schedule-based heuristic:
+ *        Red   – any leaf task whose finish date is in the past and
+ *                is not yet started (0% complete)
+ *        Amber – any leaf task whose finish date is in the past and
+ *                is not yet complete (> 0% but < 100%)
+ *        Green – everything else (on track or no schedule data)
  */
 function extractRAGStatus(frontMatter, tasks, completion) {
     // Check front matter for explicit RAG
@@ -59,10 +69,39 @@ function extractRAGStatus(frontMatter, tasks, completion) {
         }
     }
 
-    // Fall back to completion-based heuristic
-    if (completion >= 80) return 'green';
-    if (completion >= 40) return 'amber';
-    return 'red';
+    // Schedule-based heuristic: check leaf tasks against today's date
+    if (tasks && tasks.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let hasOverdueNotStarted = false;
+        let hasOverdueBehind = false;
+
+        const leafTasks = tasks.filter(t => !t.is_summary);
+        for (const t of leafTasks) {
+            if (!t.finish) continue;
+            const finish = new Date(t.finish);
+            if (isNaN(finish)) continue;
+            finish.setHours(0, 0, 0, 0);
+
+            if (finish >= today) continue; // not overdue
+
+            const pct = parseFloat(t.percent) || 0;
+            if (pct >= 100) continue; // completed, no concern
+
+            if (pct === 0) {
+                hasOverdueNotStarted = true;
+            } else {
+                hasOverdueBehind = true;
+            }
+        }
+
+        if (hasOverdueNotStarted) return 'red';
+        if (hasOverdueBehind) return 'amber';
+    }
+
+    // No issues detected — project is on track
+    return 'green';
 }
 
 /**
@@ -81,9 +120,9 @@ function extractProjectStatusLabel(frontMatter, completion, ragStatus) {
 
     // Derive from completion and RAG
     if (completion === 100) return 'Complete';
-    if (completion === 0) return 'Not Started';
     if (ragStatus === 'red') return 'At Risk';
-    if (ragStatus === 'amber') return 'In Progress';
+    if (ragStatus === 'amber') return 'Behind Schedule';
+    if (completion === 0) return 'Not Started';
     return 'On Track';
 }
 
