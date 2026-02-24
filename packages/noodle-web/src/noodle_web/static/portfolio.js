@@ -144,6 +144,12 @@ function switchToProject(projectId) {
     // Save current project before switching
     saveCurrentProjectState();
 
+    // Bump generation counter so in-flight async responses from the
+    // previous project are discarded when they complete.
+    if (typeof projectSwitchGeneration !== 'undefined') {
+        projectSwitchGeneration++;
+    }
+
     // Set new current project
     setCurrentProjectId(projectId);
 
@@ -154,21 +160,28 @@ function switchToProject(projectId) {
         return;
     }
 
+    const planText = project.planText || '';
+
     // Load project into editor
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
-        planEditor.value = project.planText || '';
+        planEditor.value = planText;
         updateLineNumbers();
     }
 
     // Update kanban editor too
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) {
-        kanbanEditor.value = project.planText || '';
+        kanbanEditor.value = planText;
     }
 
     // Switch to Editor tab
     switchMainTab('editor');
+
+    // Trigger full render pipeline (updates editor output + all views)
+    if (typeof renderText === 'function') {
+        renderText();
+    }
 
     // Refresh project selectors
     if (typeof refreshProjectSelectors === 'function') {
@@ -185,6 +198,12 @@ function switchToProject(projectId) {
 function openProjectDashboard(projectId) {
     // Save current project before switching
     saveCurrentProjectState();
+
+    // Bump generation counter so in-flight async responses from the
+    // previous project are discarded when they complete.
+    if (typeof projectSwitchGeneration !== 'undefined') {
+        projectSwitchGeneration++;
+    }
 
     // Load the project fresh from localStorage (not cache)
     const project = loadProject(projectId);
@@ -214,13 +233,9 @@ function openProjectDashboard(projectId) {
         switchMainTab('editor');
     }
 
-    // Now trigger updateAllViews to parse and populate the dashboard
-    // with the correct project data
-    if (typeof updateAllViews === 'function') {
-        updateAllViews(planText, project.name);
-    } else if (planEditor) {
-        // Fallback: dispatch input event to trigger rendering pipeline
-        planEditor.dispatchEvent(new Event('input'));
+    // Trigger full render pipeline (updates editor output + all views)
+    if (typeof renderText === 'function') {
+        renderText();
     }
 
     // Refresh project selectors

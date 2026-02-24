@@ -1167,7 +1167,14 @@ async function renderText() {
         return;
     }
 
-    await render(text, null, false, false, false, false, 'editor');
+    // Pass current project name so render and updateAllViews have full context
+    let projectName = null;
+    if (typeof getCurrentProjectId === 'function' && typeof loadProject === 'function') {
+        const project = loadProject(getCurrentProjectId());
+        if (project) projectName = project.name;
+    }
+
+    await render(text, projectName, false, false, false, false, 'editor');
 }
 
 async function exportFile(format, prefix) {
