@@ -89,9 +89,6 @@ function loadProjectIntoEditor(projectId) {
 
     const planText = project.planText || '';
 
-    // Update both editors without dispatching input events — we call
-    // render/updateAllViews explicitly below, so the debounced renderText
-    // triggered by 'input' would be redundant and racy.
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
         planEditor.value = planText;
@@ -107,25 +104,17 @@ function loadProjectIntoEditor(projectId) {
         updateLineNumbers();
     }
 
-    // Capture the generation AFTER incrementing so async callbacks can check
-    // whether the project has changed since this call.
-    const switchGen = projectSwitchGeneration;
-
-    // Explicitly trigger a full parse + render for the new project.
-    // We use a single updateAllViews call (not render()) to avoid multiple
-    // concurrent /api/parse requests that race to overwrite the editor.
+    // Trigger the full render pipeline for the new project.
+    // updateAllViews updates dashboard/table views immediately via /api/parse.
+    // Dispatching an input event on the editor triggers the debounced
+    // renderText → render → /render pipeline which updates the rendered
+    // markdown output.
     if (typeof updateAllViews === 'function') {
         updateAllViews(planText, project.name);
     }
-
-    // Defer the Gantt render so it reads from the editor (which is already
-    // set) and only fires if the project hasn't changed in the meantime.
-    setTimeout(() => {
-        if (projectSwitchGeneration !== switchGen) return;
-        if (typeof renderText === 'function') {
-            renderText();
-        }
-    }, 100);
+    if (planEditor) {
+        planEditor.dispatchEvent(new Event('input'));
+    }
 
     // Emit project loaded event
     window.dispatchEvent(new CustomEvent('projectLoaded', {
