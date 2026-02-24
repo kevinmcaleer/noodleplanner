@@ -9717,6 +9717,218 @@ tr:hover .task-inspect-btn {
 }
 
 /* =========================================
+   Portfolio Risks View
+   ========================================= */
+.portfolio-risks-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.portfolio-risks-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+    flex-shrink: 0;
+}
+
+.portfolio-risks-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.risks-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.risks-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.risks-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #333;
+}
+
+.portfolio-risks-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.portfolio-risks-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-risks-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-risks-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-risks-new {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.portfolio-risks-new select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-risks-new select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.new-risk-btn {
+    padding: 8px 18px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.new-risk-btn:hover {
+    background: #5a6fd6;
+}
+
+.portfolio-risks-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-risks-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-risks-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-risks-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-risks-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-risks-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-risks-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-risks-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-risks-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.risks-project-name {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.risks-title {
+    color: #333;
+    font-weight: 500;
+}
+
+.risks-description {
+    color: #6c757d;
+    font-size: 0.9em;
+    max-width: 250px;
+}
+
+.risks-numeric {
+    text-align: center;
+    font-weight: 600;
+}
+
+.risk-score-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.risk-score-badge.rag-red {
+    background: #dc3545;
+    color: white;
+}
+
+.risk-score-badge.rag-amber {
+    background: #ffc107;
+    color: #333;
+}
+
+.risk-score-badge.rag-green {
+    background: #28a745;
+    color: white;
+}
+
+/* =========================================
    Portfolio Loading State
    ========================================= */
 .portfolio-loading {
