@@ -7,9 +7,10 @@
  * Initialize portfolio view
  */
 function initPortfolio() {
-    // Use table view as default
-    renderProjectsTable();
-    switchPortfolioView('projects'); // Default to projects view
+    // Re-render whichever sub-view was last active, defaulting to projects
+    const activeBtn = document.querySelector('.portfolio-subnav-btn.active');
+    const lastView = activeBtn ? (activeBtn.getAttribute('onclick') || '').replace(/.*'(\w+)'.*/, '$1') : 'projects';
+    switchPortfolioView(lastView || 'projects');
 }
 
 /**
