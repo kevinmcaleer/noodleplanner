@@ -65,25 +65,36 @@ function loadProjectIntoEditor(projectId) {
         return false;
     }
 
+    // Clear RAID log entries and highlights before loading new plan
+    if (typeof clearPlanTrackingData === 'function') {
+        clearPlanTrackingData();
+    }
+
+    const planText = project.planText || '';
+
     // Update plan editor
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
-        planEditor.value = project.planText || '';
-        updateLineNumbers();
+        planEditor.value = planText;
+        planEditor.dispatchEvent(new Event('input'));
     }
 
     // Update kanban editor
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) {
-        kanbanEditor.value = project.planText || '';
+        kanbanEditor.value = planText;
+        kanbanEditor.dispatchEvent(new Event('input'));
     }
 
     // Update current project reference
     setCurrentProjectId(projectId);
 
-    // Parse and render the plan
-    if (typeof renderText === 'function') {
-        renderText();
+    // Re-render the active view (editor and/or kanban)
+    if (typeof render === 'function') {
+        render(planText, null, false, false, false, false, 'editor');
+        if (typeof isBoardViewActive === 'function' && isBoardViewActive()) {
+            render(planText, null, false, false, false, false, 'kanban');
+        }
     }
 
     // Emit project loaded event
