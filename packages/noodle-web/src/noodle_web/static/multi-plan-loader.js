@@ -107,16 +107,25 @@ function loadProjectIntoEditor(projectId) {
         updateLineNumbers();
     }
 
-    // Explicitly trigger a full parse + render for the new project
+    // Capture the generation AFTER incrementing so async callbacks can check
+    // whether the project has changed since this call.
+    const switchGen = projectSwitchGeneration;
+
+    // Explicitly trigger a full parse + render for the new project.
+    // We use a single updateAllViews call (not render()) to avoid multiple
+    // concurrent /api/parse requests that race to overwrite the editor.
     if (typeof updateAllViews === 'function') {
         updateAllViews(planText, project.name);
     }
-    if (typeof render === 'function') {
-        render(planText, null, false, false, false, false, 'editor');
-        if (typeof isBoardViewActive === 'function' && isBoardViewActive()) {
-            render(planText, null, false, false, false, false, 'kanban');
+
+    // Defer the Gantt render so it reads from the editor (which is already
+    // set) and only fires if the project hasn't changed in the meantime.
+    setTimeout(() => {
+        if (projectSwitchGeneration !== switchGen) return;
+        if (typeof renderText === 'function') {
+            renderText();
         }
-    }
+    }, 100);
 
     // Emit project loaded event
     window.dispatchEvent(new CustomEvent('projectLoaded', {

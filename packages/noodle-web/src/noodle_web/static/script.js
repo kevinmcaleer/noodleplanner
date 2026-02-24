@@ -1381,9 +1381,9 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
     const output = document.getElementById(prefix + 'Output');
 
     if (btn) btn.disabled = true;
-    spinner.style.display = 'block';
-    message.style.display = 'none';
-    output.classList.remove('empty');
+    if (spinner) spinner.style.display = 'block';
+    if (message) message.style.display = 'none';
+    if (output) output.classList.remove('empty');
 
     try {
         const data = {
@@ -1453,7 +1453,7 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
         }
     } catch (error) {
         showMessage(prefix, 'error', error.message);
-        output.textContent = 'Error: ' + error.message;
+        if (output) output.textContent = 'Error: ' + error.message;
         // Even when the render fails, try to extract and display highlights
         // from the plan text so the highlights tab is still populated.
         try {
@@ -1463,7 +1463,7 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
         }
     } finally {
         if (btn) btn.disabled = false;
-        spinner.style.display = 'none';
+        if (spinner) spinner.style.display = 'none';
     }
 }
 
