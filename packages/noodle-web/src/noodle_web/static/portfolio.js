@@ -18,7 +18,7 @@ function initPortfolio() {
  */
 function switchPortfolioView(viewName) {
     // Hide all portfolio views and remove timeline flex class
-    const views = ['portfolioProjectsList', 'portfolioStatusView', 'portfolioResourcesView', 'portfolioTimelineView', 'portfolioActionsView'];
+    const views = ['portfolioProjectsList', 'portfolioStatusView', 'portfolioResourcesView', 'portfolioTimelineView', 'portfolioActionsView', 'portfolioRisksView'];
     views.forEach(viewId => {
         const view = document.getElementById(viewId);
         if (view) {
@@ -39,6 +39,8 @@ function switchPortfolioView(viewName) {
         selectedViewId = 'portfolioTimelineView';
     } else if (viewName === 'actions') {
         selectedViewId = 'portfolioActionsView';
+    } else if (viewName === 'risks') {
+        selectedViewId = 'portfolioRisksView';
     }
 
     const selectedView = document.getElementById(selectedViewId);
@@ -89,6 +91,11 @@ function switchPortfolioView(viewName) {
         case 'actions':
             if (typeof renderPortfolioActions === 'function') {
                 renderPortfolioActions();
+            }
+            break;
+        case 'risks':
+            if (typeof renderPortfolioRisks === 'function') {
+                renderPortfolioRisks();
             }
             break;
     }
