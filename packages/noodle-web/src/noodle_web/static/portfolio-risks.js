@@ -24,9 +24,10 @@ function collectOpenRisks(parsedProjects) {
             if (!item.type || item.type.toLowerCase() !== 'risk') return;
             if (item.status && item.status.toLowerCase() === 'closed') return;
 
-            const impact = parseInt(item.impact) || 3;
-            const likelihood = parseInt(item.likelihood) || 3;
-            const score = impact * likelihood;
+            // Use the backend's pre-calculated values directly
+            const impact = item.impact != null ? item.impact : 0;
+            const likelihood = item.likelihood != null ? item.likelihood : 0;
+            const score = item.score != null ? item.score : (impact * likelihood);
 
             risks.push({
                 projectId: project.id,
@@ -334,10 +335,10 @@ function rerenderRisksTable(risks) {
 
 /**
  * Open a specific risk item in the editor RAID form.
- * Saves current state, loads the target project, switches to the RAID view,
- * and opens the RAID form for the given item.
+ * Saves current state, loads the target project, parses it to populate
+ * the raidItems array, then opens the RAID form for the given item.
  */
-function openProjectRisk(projectId, raidItemId) {
+async function openProjectRisk(projectId, raidItemId) {
     // Save current project before switching
     saveCurrentProjectState();
 
@@ -353,7 +354,38 @@ function openProjectRisk(projectId, raidItemId) {
         switchMainTab('editor');
     }
 
-    // Open the RAID form for the specific item
+    // The raidItems array needs to be populated from the API before we
+    // can open the form.  loadProjectIntoEditor triggers updateAllViews
+    // asynchronously, so raidItems may still be empty.  Parse now and
+    // force-load the items so the form can find the target item.
+    try {
+        const project = typeof loadProject === 'function' ? loadProject(projectId) : null;
+        if (project) {
+            const response = await fetch('/api/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plan_text: project.planText || '',
+                    project_name: project.name || null
+                })
+            });
+            if (response.ok) {
+                const result = await response.json();
+                const items = result.raid_items || [];
+                if (items.length > 0 && typeof loadRaidItemsFromData === 'function') {
+                    // Clear existing items so loadRaidItemsFromData accepts the new data
+                    if (typeof clearRaidLogEntries === 'function') {
+                        clearRaidLogEntries();
+                    }
+                    loadRaidItemsFromData(items);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error parsing project for RAID form:', error);
+    }
+
+    // Now open the RAID form for the specific item
     if (typeof openRaidForm === 'function') {
         openRaidForm(raidItemId);
     }
@@ -372,7 +404,7 @@ function openProjectRisk(projectId, raidItemId) {
  * Reads the project from the "New Risk" dropdown, loads that project,
  * switches to the RAID view, and opens a blank RAID form set to type 'risk'.
  */
-function newRiskForProject() {
+async function newRiskForProject() {
     const select = document.getElementById('newRiskProjectSelect');
     if (!select) return;
 
@@ -392,6 +424,34 @@ function newRiskForProject() {
         switchToView('raid');
     } else {
         switchMainTab('editor');
+    }
+
+    // Ensure RAID items are loaded for the new project so the table
+    // renders correctly behind the form
+    try {
+        const project = typeof loadProject === 'function' ? loadProject(projectId) : null;
+        if (project) {
+            const response = await fetch('/api/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plan_text: project.planText || '',
+                    project_name: project.name || null
+                })
+            });
+            if (response.ok) {
+                const result = await response.json();
+                const items = result.raid_items || [];
+                if (items.length > 0 && typeof loadRaidItemsFromData === 'function') {
+                    if (typeof clearRaidLogEntries === 'function') {
+                        clearRaidLogEntries();
+                    }
+                    loadRaidItemsFromData(items);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error parsing project for RAID form:', error);
     }
 
     // Open a blank RAID form and set type to 'risk'
