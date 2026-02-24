@@ -1471,6 +1471,9 @@ async function updateAllViews(planText, projectName) {
     // Capture the generation counter so we can detect if the user switched
     // projects while we were waiting for the /api/parse response.
     const generation = (typeof projectSwitchGeneration !== 'undefined') ? projectSwitchGeneration : -1;
+    // Capture the project ID at call time so the front-matter title sync
+    // targets the correct project even if the user switches mid-request.
+    const callerProjectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : null;
 
     try {
         const data = {
@@ -1501,14 +1504,15 @@ async function updateAllViews(planText, projectName) {
             return;
         }
 
-        // Sync front matter title to stored project name
-        if (result.front_matter && result.front_matter.title) {
+        // Sync front matter title to stored project name.
+        // Use callerProjectId (captured at call time) so a stale response
+        // never renames a different project after a switch.
+        if (result.front_matter && result.front_matter.title && callerProjectId) {
             const fmTitle = String(result.front_matter.title).trim();
-            const currentId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
-            if (currentId && fmTitle) {
-                const project = typeof loadProject === 'function' ? loadProject(currentId) : null;
+            if (fmTitle) {
+                const project = typeof loadProject === 'function' ? loadProject(callerProjectId) : null;
                 if (project && project.name !== fmTitle) {
-                    renameProject(currentId, fmTitle);
+                    renameProject(callerProjectId, fmTitle);
                     if (typeof refreshProjectSelectors === 'function') {
                         refreshProjectSelectors();
                     }
