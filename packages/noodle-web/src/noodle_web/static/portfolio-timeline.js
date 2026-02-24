@@ -213,7 +213,7 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
     const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6'];
     const greenComplete = '#4caf50';
 
-    let html = '<div class="timeline-project-row" onclick="switchToProject(\'' + timeline.projectId + '\')">' +
+    let html = '<div class="timeline-project-row" onclick="openProjectDashboard(\'' + timeline.projectId + '\')">' +
         '<div class="timeline-project-label" title="' + escapeHtml(timeline.projectName) + '">' +
         escapeHtml(timeline.projectName) + '</div>' +
         '<div class="timeline-swimlane-track">' +

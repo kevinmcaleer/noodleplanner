@@ -180,6 +180,50 @@ function switchToProject(projectId) {
 }
 
 /**
+ * Open a project and navigate to its dashboard view
+ */
+function openProjectDashboard(projectId) {
+    // Save current project before switching
+    saveCurrentProjectState();
+
+    // Set new current project
+    setCurrentProjectId(projectId);
+
+    // Load the project
+    const project = loadProject(projectId);
+    if (!project) {
+        alert('Error loading project');
+        return;
+    }
+
+    // Load project into editor (triggers re-render of all views)
+    if (typeof loadProjectIntoEditor === 'function') {
+        loadProjectIntoEditor(projectId);
+    } else {
+        const planEditor = document.getElementById('planEditor');
+        if (planEditor) {
+            planEditor.value = project.planText || '';
+        }
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = project.planText || '';
+        }
+    }
+
+    // Switch to the dashboard view
+    if (typeof switchToView === 'function') {
+        switchToView('project-report');
+    } else {
+        switchMainTab('editor');
+    }
+
+    // Refresh project selectors
+    if (typeof refreshProjectSelectors === 'function') {
+        refreshProjectSelectors();
+    }
+}
+
+/**
  * Show create project dialog
  */
 function showCreateProjectDialog() {

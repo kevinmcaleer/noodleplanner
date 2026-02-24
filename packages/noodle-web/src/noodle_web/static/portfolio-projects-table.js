@@ -466,13 +466,13 @@ function renderSortedTable(tableData) {
 }
 
 /**
- * Open project from table row
+ * Open project from table row and show its dashboard
  */
 function openProjectFromTable(projectId) {
-    if (typeof switchToProject === 'function') {
+    if (typeof openProjectDashboard === 'function') {
+        openProjectDashboard(projectId);
+    } else if (typeof switchToProject === 'function') {
         switchToProject(projectId);
-    } else {
-        console.error('switchToProject function not found');
     }
 }
 

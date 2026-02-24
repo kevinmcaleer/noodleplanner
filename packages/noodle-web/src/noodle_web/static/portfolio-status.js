@@ -187,7 +187,7 @@ async function renderPortfolioStatus() {
             const trendIcon = proj.trend === 'up' ? '↗' : proj.trend === 'down' ? '↘' : '→';
             const trendClass = 'trend-' + proj.trend;
 
-            html += '<tr class="status-row" onclick="switchToProject(\'' + proj.id + '\')" data-rag="' + proj.ragStatus + '">' +
+            html += '<tr class="status-row" onclick="openProjectDashboard(\'' + proj.id + '\')" data-rag="' + proj.ragStatus + '">' +
                 '<td class="project-name">' + escapeHtml(proj.name) + '</td>' +
                 '<td><span class="status-badge status-' + proj.ragStatus + '">' + escapeHtml(proj.statusLabel) + '</span></td>' +
                 '<td>' +
