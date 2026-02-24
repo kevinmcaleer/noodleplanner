@@ -1501,6 +1501,21 @@ async function updateAllViews(planText, projectName) {
             return;
         }
 
+        // Sync front matter title to stored project name
+        if (result.front_matter && result.front_matter.title) {
+            const fmTitle = String(result.front_matter.title).trim();
+            const currentId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+            if (currentId && fmTitle) {
+                const project = typeof loadProject === 'function' ? loadProject(currentId) : null;
+                if (project && project.name !== fmTitle) {
+                    renameProject(currentId, fmTitle);
+                    if (typeof refreshProjectSelectors === 'function') {
+                        refreshProjectSelectors();
+                    }
+                }
+            }
+        }
+
         // Always update highlights first (must be before updateReportPage
         // so highlightsData is populated when the report renders its
         // highlights quad).  Use backend data if available, otherwise

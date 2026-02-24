@@ -302,11 +302,11 @@ function renderProjectsTable() {
         }
 
         html += `<tr class="project-table-row ${rowClass}" onclick="openProjectFromTable('${project.id}')">`;
-        html += `<td class="project-name-cell">`;
+        html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
         if (project.isActive) {
             html += `<span class="active-indicator">●</span> `;
         }
-        html += `${escapeHtml(project.name)}</td>`;
+        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span></td>`;
         html += `<td>${escapeHtml(project.manager)}</td>`;
         html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
         html += `<td>${formatDateForTable(project.startDate)}</td>`;
@@ -435,11 +435,11 @@ function renderSortedTable(tableData) {
         }
 
         html += `<tr class="project-table-row ${rowClass}" onclick="openProjectFromTable('${project.id}')">`;
-        html += `<td class="project-name-cell">`;
+        html += `<td class="project-name-cell" ondblclick="event.stopPropagation(); startInlineRename('${project.id}', this)">`;
         if (project.isActive) {
             html += `<span class="active-indicator">●</span> `;
         }
-        html += `${escapeHtml(project.name)}</td>`;
+        html += `<span class="project-name-editable">${escapeHtml(project.name)}</span></td>`;
         html += `<td>${escapeHtml(project.manager)}</td>`;
         html += `<td><span class="status-badge ${statusBadge}">${escapeHtml(project.status)}</span></td>`;
         html += `<td>${formatDateForTable(project.startDate)}</td>`;
@@ -497,6 +497,82 @@ function confirmDeleteProjectFromTable(projectId, projectName) {
     if (typeof refreshProjectSelectors === 'function') {
         refreshProjectSelectors();
     }
+}
+
+/**
+ * Start inline rename of a project name in the portfolio table.
+ * Replaces the name text with an input field on double-click.
+ */
+function startInlineRename(projectId, cellElement) {
+    // Prevent opening the input twice
+    if (cellElement.querySelector('.project-name-input')) return;
+
+    const nameSpan = cellElement.querySelector('.project-name-editable');
+    if (!nameSpan) return;
+
+    const currentName = nameSpan.textContent;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'project-name-input';
+    input.value = currentName;
+
+    // Replace the span with the input
+    nameSpan.style.display = 'none';
+    cellElement.appendChild(input);
+    input.focus();
+    input.select();
+
+    let committed = false;
+
+    function commit() {
+        if (committed) return;
+        committed = true;
+
+        const newName = input.value.trim();
+        if (newName && newName !== currentName) {
+            if (typeof renameProject === 'function') {
+                renameProject(projectId, newName);
+            }
+            if (typeof refreshProjectSelectors === 'function') {
+                refreshProjectSelectors();
+            }
+            // Re-render the table to reflect the change
+            renderProjectsTable();
+        } else {
+            // Restore original display
+            nameSpan.style.display = '';
+            input.remove();
+        }
+    }
+
+    function cancel() {
+        if (committed) return;
+        committed = true;
+        nameSpan.style.display = '';
+        input.remove();
+    }
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            commit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            cancel();
+        }
+    });
+
+    input.addEventListener('blur', function() {
+        commit();
+    });
+
+    // Prevent the row click from firing while editing
+    input.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
 }
 
 /**
