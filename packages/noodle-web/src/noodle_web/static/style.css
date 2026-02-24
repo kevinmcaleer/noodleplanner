@@ -9504,3 +9504,238 @@ tr:hover .task-inspect-btn {
         padding: 10px 6px;
     }
 }
+
+/* =========================================
+   Portfolio Loading State
+   ========================================= */
+.portfolio-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.portfolio-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e0e0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: portfolio-spin 0.8s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes portfolio-spin {
+    to { transform: rotate(360deg); }
+}
+
+.portfolio-loading p {
+    font-size: 1em;
+    font-weight: 500;
+}
+
+/* =========================================
+   Resource Heatmap
+   ========================================= */
+.resource-heatmap-container {
+    margin-top: 25px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.resource-heatmap-container h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.3em;
+}
+
+.resource-heatmap-grid {
+    display: grid;
+    gap: 2px;
+    overflow-x: auto;
+    font-size: 0.8em;
+}
+
+.resource-heatmap-label {
+    padding: 6px 10px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 3px;
+}
+
+.resource-heatmap-header-cell {
+    padding: 6px 4px;
+    font-weight: 600;
+    color: #6c757d;
+    text-align: center;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.resource-heatmap-cell {
+    width: 100%;
+    min-width: 36px;
+    height: 28px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #333;
+    transition: transform 0.15s;
+}
+
+.resource-heatmap-cell:hover {
+    transform: scale(1.1);
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.resource-heatmap-cell.heatmap-none {
+    background: #f0f0f0;
+    color: #adb5bd;
+}
+
+.resource-heatmap-cell.heatmap-low {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.resource-heatmap-cell.heatmap-medium {
+    background: #fff9c4;
+    color: #f57f17;
+}
+
+.resource-heatmap-cell.heatmap-high {
+    background: #ffe0b2;
+    color: #e65100;
+}
+
+.resource-heatmap-cell.heatmap-overloaded {
+    background: #ffcdd2;
+    color: #c62828;
+    font-weight: 700;
+}
+
+.resource-heatmap-legend {
+    display: flex;
+    gap: 15px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+    font-size: 0.85em;
+    color: #6c757d;
+    flex-wrap: wrap;
+}
+
+.resource-heatmap-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.resource-heatmap-legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* =========================================
+   Resource Detail Mini Timeline
+   ========================================= */
+.resource-task-timeline {
+    position: relative;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+}
+
+.resource-task-bar {
+    position: absolute;
+    top: 2px;
+    height: 16px;
+    border-radius: 3px;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+}
+
+.resource-task-bar:hover {
+    opacity: 1;
+}
+
+/* =========================================
+   Swimlane Timeline (Portfolio Timeline SVG)
+   ========================================= */
+.timeline-swimlane-track {
+    flex: 1;
+    position: relative;
+    min-height: 50px;
+    border-left: 1px solid #e0e0e0;
+}
+
+.portfolio-today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dc3545;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.portfolio-today-line::before {
+    content: 'Today';
+    position: absolute;
+    top: -18px;
+    left: -20px;
+    background: #dc3545;
+    color: white;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Swimlane SVG phase bars */
+.swimlane-phase-bar {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.swimlane-phase-bar:hover {
+    opacity: 1 !important;
+}
+
+.swimlane-milestone-dot {
+    cursor: pointer;
+    transition: r 0.15s;
+}
+
+.swimlane-milestone-dot:hover {
+    r: 7;
+}
+
+@media (max-width: 768px) {
+    .resource-heatmap-container {
+        overflow-x: auto;
+    }
+
+    .resource-heatmap-grid {
+        min-width: 600px;
+    }
+}

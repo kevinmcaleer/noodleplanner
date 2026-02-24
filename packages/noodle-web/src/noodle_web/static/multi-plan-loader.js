@@ -316,6 +316,39 @@ function importProjectsFromJSON(jsonData) {
 }
 
 /**
+ * Parse all projects via /api/parse in parallel
+ * Returns Array<{project, parsedResult}> where parsedResult is the API response
+ */
+async function parseAllProjects() {
+    const projects = loadAllProjectsIntoCache();
+    if (projects.length === 0) return [];
+
+    const promises = projects.map(async (project) => {
+        try {
+            const response = await fetch('/api/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plan_text: project.planText || '',
+                    project_name: project.name || null
+                })
+            });
+            if (!response.ok) {
+                console.warn('Failed to parse project:', project.name);
+                return { project, parsedResult: null };
+            }
+            const parsedResult = await response.json();
+            return { project, parsedResult };
+        } catch (error) {
+            console.error('Error parsing project:', project.name, error);
+            return { project, parsedResult: null };
+        }
+    });
+
+    return Promise.all(promises);
+}
+
+/**
  * Get project statistics
  */
 function getProjectStatistics(projectId) {
