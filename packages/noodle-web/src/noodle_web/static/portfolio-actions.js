@@ -1,13 +1,13 @@
 /**
  * Portfolio Actions View
- * Shows open (incomplete) actions across all projects in a single table
+ * Shows open actions from RAID logs across all projects in a single table
  * with project-name column and project filter.
- * Uses /api/parse data for accurate task status.
+ * Uses /api/parse data for accurate RAID item data.
  */
 
 /**
- * Collect open actions from all parsed projects.
- * An "open action" is a non-summary task with percent < 100 and a finish date.
+ * Collect open actions from RAID logs across all parsed projects.
+ * An "open action" is a RAID item with type='action' and status='open'.
  *
  * @param {Array<{project, parsedResult}>} parsedProjects
  * @returns {Array} flat list of action objects
@@ -16,61 +16,79 @@ function collectOpenActions(parsedProjects) {
     const actions = [];
 
     parsedProjects.forEach(({ project, parsedResult }) => {
-        if (!parsedResult || !parsedResult.success || !parsedResult.tasks) return;
+        if (!parsedResult || !parsedResult.success) return;
 
-        parsedResult.tasks.forEach(task => {
-            if (task.is_summary) return;
-            if (!task.finish) return;
+        const raidItems = parsedResult.raid_items || [];
 
-            const percent = parseFloat(task.percent) || 0;
-            if (percent >= 100) return;
+        raidItems.forEach(item => {
+            if (!item.type || item.type.toLowerCase() !== 'action') return;
+            if (item.status && item.status.toLowerCase() === 'closed') return;
 
             actions.push({
                 projectId: project.id,
                 projectName: project.name,
-                taskName: task.name,
-                start: task.start || null,
-                finish: task.finish,
-                percent: percent,
-                rag: task.rag || null,
-                resources: task.resources || ''
+                title: item.title || item.description || '-',
+                description: item.description || item.mitigation_actions || '',
+                owner: item.owner || '-',
+                targetDate: item.target_date || item.date || null,
+                priority: item.priority || null,
+                status: item.status || 'open',
+                raisedBy: item.raised_by || ''
             });
         });
     });
 
-    // Sort by finish date (soonest first)
-    actions.sort((a, b) => new Date(a.finish) - new Date(b.finish));
+    // Sort by target date (soonest first), items without dates at the end
+    actions.sort((a, b) => {
+        if (!a.targetDate && !b.targetDate) return 0;
+        if (!a.targetDate) return 1;
+        if (!b.targetDate) return -1;
+        return new Date(a.targetDate) - new Date(b.targetDate);
+    });
 
     return actions;
 }
 
 /**
- * Derive a RAG colour string for an action based on its explicit RAG value
- * or, if none, a schedule-based heuristic relative to today.
+ * Derive a status colour for display.
+ * If the action has a target date in the past and is still open, flag it.
  */
-function deriveActionRAG(action) {
-    if (action.rag) {
-        const lower = action.rag.toLowerCase();
-        if (lower.includes('red') || lower === 'r') return 'red';
-        if (lower.includes('amber') || lower.includes('yellow') || lower === 'a') return 'amber';
-        if (lower.includes('green') || lower === 'g') return 'green';
-        if (lower.includes('blue') || lower.includes('complete') || lower === 'b') return 'blue';
-        // Fall back to the global helper if available
-        if (typeof ragStatusToColour === 'function') {
-            const mapped = ragStatusToColour(action.rag);
-            if (mapped) return mapped;
-        }
-    }
+function deriveActionStatus(action) {
+    if (!action.targetDate) return 'blue';
 
-    // Schedule-based heuristic
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const finish = new Date(action.finish);
-    finish.setHours(0, 0, 0, 0);
+    const target = new Date(action.targetDate);
+    target.setHours(0, 0, 0, 0);
 
-    if (finish < today && action.percent === 0) return 'red';
-    if (finish < today) return 'amber';
+    if (target < today) return 'red';
+    // Due within 7 days
+    const weekFromNow = new Date(today);
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    if (target <= weekFromNow) return 'amber';
     return 'green';
+}
+
+/**
+ * Get priority badge class
+ */
+function getPriorityBadgeClass(priority) {
+    if (!priority) return '';
+    const p = priority.toLowerCase();
+    if (p === 'high') return 'actions-priority-high';
+    if (p === 'medium') return 'actions-priority-medium';
+    if (p === 'low') return 'actions-priority-low';
+    return '';
+}
+
+/**
+ * Format a date string for display
+ */
+function formatActionDate(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -102,7 +120,7 @@ async function renderPortfolioActions() {
         if (actions.length === 0) {
             container.innerHTML = '<div class="portfolio-empty-state">' +
                 '<h3>No Open Actions</h3>' +
-                '<p>All tasks across your projects are complete. Nice work!</p>' +
+                '<p>There are no open actions in any project RAID logs.</p>' +
                 '</div>';
             return;
         }
@@ -114,9 +132,10 @@ async function renderPortfolioActions() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const overdueCount = actions.filter(a => {
-            const f = new Date(a.finish);
-            f.setHours(0, 0, 0, 0);
-            return f < today;
+            if (!a.targetDate) return false;
+            const t = new Date(a.targetDate);
+            t.setHours(0, 0, 0, 0);
+            return t < today;
         }).length;
 
         // Header with filter
@@ -155,38 +174,16 @@ async function renderPortfolioActions() {
             '<thead>' +
             '<tr>' +
             '<th onclick="sortPortfolioActions(\'project\')">Project <span class="sort-indicator"></span></th>' +
-            '<th onclick="sortPortfolioActions(\'task\')">Task <span class="sort-indicator"></span></th>' +
-            '<th onclick="sortPortfolioActions(\'finish\')">Finish Date <span class="sort-indicator"></span></th>' +
-            '<th onclick="sortPortfolioActions(\'percent\')">% Complete <span class="sort-indicator"></span></th>' +
-            '<th onclick="sortPortfolioActions(\'rag\')">Status <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioActions(\'title\')">Action <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioActions(\'owner\')">Owner <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioActions(\'priority\')">Priority <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioActions(\'targetDate\')">Target Date <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioActions(\'status\')">Status <span class="sort-indicator"></span></th>' +
             '</tr>' +
             '</thead>' +
             '<tbody id="portfolioActionsTableBody">';
 
-        actions.forEach(action => {
-            const ragColour = deriveActionRAG(action);
-            const finishDate = new Date(action.finish);
-            const finishStr = finishDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-            const isOverdue = (() => {
-                const f = new Date(action.finish);
-                f.setHours(0, 0, 0, 0);
-                return f < today;
-            })();
-
-            html += '<tr class="actions-row" data-project="' + escapeHtml(action.projectName) + '" ' +
-                'onclick="openProjectDashboard(\'' + action.projectId + '\')">' +
-                '<td class="actions-project-name">' + escapeHtml(action.projectName) + '</td>' +
-                '<td class="actions-task-name">' + escapeHtml(action.taskName) + '</td>' +
-                '<td class="actions-finish-date' + (isOverdue ? ' actions-overdue' : '') + '">' + finishStr + '</td>' +
-                '<td class="actions-percent">' +
-                '<div class="progress-bar-container">' +
-                '<div class="progress-bar" style="width: ' + action.percent + '%"></div>' +
-                '<span class="progress-text">' + action.percent + '%</span>' +
-                '</div>' +
-                '</td>' +
-                '<td><span class="rag-badge rag-' + ragColour + '">' + ragColour.toUpperCase() + '</span></td>' +
-                '</tr>';
-        });
+        html += buildActionsTableRows(actions, today);
 
         html += '</tbody></table></div>';
 
@@ -202,6 +199,42 @@ async function renderPortfolioActions() {
             '<p>Failed to load action data. Please try again.</p>' +
             '</div>';
     }
+}
+
+/**
+ * Build table row HTML for actions
+ */
+function buildActionsTableRows(actions, today) {
+    if (!today) {
+        today = new Date();
+        today.setHours(0, 0, 0, 0);
+    }
+
+    let html = '';
+    actions.forEach(action => {
+        const statusColour = deriveActionStatus(action);
+        const isOverdue = action.targetDate && (() => {
+            const t = new Date(action.targetDate);
+            t.setHours(0, 0, 0, 0);
+            return t < today;
+        })();
+
+        const priorityClass = getPriorityBadgeClass(action.priority);
+        const priorityLabel = action.priority ? action.priority.charAt(0).toUpperCase() + action.priority.slice(1) : '-';
+
+        const statusLabel = isOverdue ? 'Overdue' : 'Open';
+
+        html += '<tr class="actions-row" data-project="' + escapeHtml(action.projectName) + '" ' +
+            'onclick="openProjectDashboard(\'' + action.projectId + '\')">' +
+            '<td class="actions-project-name">' + escapeHtml(action.projectName) + '</td>' +
+            '<td class="actions-task-name">' + escapeHtml(action.title) + '</td>' +
+            '<td>' + escapeHtml(action.owner) + '</td>' +
+            '<td>' + (priorityClass ? '<span class="actions-priority-badge ' + priorityClass + '">' + priorityLabel + '</span>' : priorityLabel) + '</td>' +
+            '<td class="actions-finish-date' + (isOverdue ? ' actions-overdue' : '') + '">' + formatActionDate(action.targetDate) + '</td>' +
+            '<td><span class="rag-badge rag-' + statusColour + '">' + statusLabel.toUpperCase() + '</span></td>' +
+            '</tr>';
+    });
+    return html;
 }
 
 /**
@@ -223,7 +256,7 @@ function filterPortfolioActions() {
 /**
  * Sort portfolio actions table
  */
-let portfolioActionsSortColumn = 'finish';
+let portfolioActionsSortColumn = 'targetDate';
 let portfolioActionsSortAsc = true;
 
 function sortPortfolioActions(column) {
@@ -246,23 +279,30 @@ function sortPortfolioActions(column) {
                 valA = a.projectName.toLowerCase();
                 valB = b.projectName.toLowerCase();
                 break;
-            case 'task':
-                valA = a.taskName.toLowerCase();
-                valB = b.taskName.toLowerCase();
+            case 'title':
+                valA = a.title.toLowerCase();
+                valB = b.title.toLowerCase();
                 break;
-            case 'finish':
-                valA = new Date(a.finish).getTime();
-                valB = new Date(b.finish).getTime();
+            case 'owner':
+                valA = (a.owner || '').toLowerCase();
+                valB = (b.owner || '').toLowerCase();
                 break;
-            case 'percent':
-                valA = a.percent;
-                valB = b.percent;
+            case 'priority': {
+                const priorityOrder = { 'high': 0, 'medium': 1, 'low': 2 };
+                valA = priorityOrder[(a.priority || '').toLowerCase()] ?? 3;
+                valB = priorityOrder[(b.priority || '').toLowerCase()] ?? 3;
                 break;
-            case 'rag':
-                const ragOrder = { 'red': 0, 'amber': 1, 'green': 2, 'blue': 3 };
-                valA = ragOrder[deriveActionRAG(a)] ?? 4;
-                valB = ragOrder[deriveActionRAG(b)] ?? 4;
+            }
+            case 'targetDate':
+                valA = a.targetDate ? new Date(a.targetDate).getTime() : Infinity;
+                valB = b.targetDate ? new Date(b.targetDate).getTime() : Infinity;
                 break;
+            case 'status': {
+                const statusOrder = { 'red': 0, 'amber': 1, 'green': 2, 'blue': 3 };
+                valA = statusOrder[deriveActionStatus(a)] ?? 4;
+                valB = statusOrder[deriveActionStatus(b)] ?? 4;
+                break;
+            }
             default:
                 return 0;
         }
@@ -283,37 +323,17 @@ function rerenderActionsTable(actions) {
     const tbody = document.getElementById('portfolioActionsTableBody');
     if (!tbody) return;
 
+    const filter = document.getElementById('portfolioActionsProjectFilter')?.value || 'all';
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const filter = document.getElementById('portfolioActionsProjectFilter')?.value || 'all';
-
-    let html = '';
-    actions.forEach(action => {
-        const ragColour = deriveActionRAG(action);
-        const finishDate = new Date(action.finish);
-        const finishStr = finishDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        const isOverdue = (() => {
-            const f = new Date(action.finish);
-            f.setHours(0, 0, 0, 0);
-            return f < today;
-        })();
-        const hidden = (filter !== 'all' && action.projectName !== filter) ? ' style="display: none;"' : '';
-
-        html += '<tr class="actions-row" data-project="' + escapeHtml(action.projectName) + '" ' +
-            'onclick="openProjectDashboard(\'' + action.projectId + '\')"' + hidden + '>' +
-            '<td class="actions-project-name">' + escapeHtml(action.projectName) + '</td>' +
-            '<td class="actions-task-name">' + escapeHtml(action.taskName) + '</td>' +
-            '<td class="actions-finish-date' + (isOverdue ? ' actions-overdue' : '') + '">' + finishStr + '</td>' +
-            '<td class="actions-percent">' +
-            '<div class="progress-bar-container">' +
-            '<div class="progress-bar" style="width: ' + action.percent + '%"></div>' +
-            '<span class="progress-text">' + action.percent + '%</span>' +
-            '</div>' +
-            '</td>' +
-            '<td><span class="rag-badge rag-' + ragColour + '">' + ragColour.toUpperCase() + '</span></td>' +
-            '</tr>';
-    });
+    let html = buildActionsTableRows(actions, today);
 
     tbody.innerHTML = html;
+
+    // Re-apply filter
+    if (filter !== 'all') {
+        filterPortfolioActions();
+    }
 }
