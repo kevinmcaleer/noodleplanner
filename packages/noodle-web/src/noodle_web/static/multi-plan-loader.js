@@ -59,11 +59,20 @@ function updateCachedProject(projectId, updates) {
  * Load project into editor
  */
 function loadProjectIntoEditor(projectId) {
-    const project = getCachedProject(projectId);
+    // Load fresh from localStorage, not from potentially stale cache
+    const project = loadProject(projectId);
     if (!project) {
         console.error('Project not found:', projectId);
         return false;
     }
+
+    // Update cache with fresh data
+    projectCache.set(projectId, project);
+
+    // Set current project ID BEFORE touching the editor or dispatching events,
+    // so any event handlers that fire (debounced renderText, auto-save, etc.)
+    // reference the correct project
+    setCurrentProjectId(projectId);
 
     // Clear RAID log entries and highlights before loading new plan
     if (typeof clearPlanTrackingData === 'function') {
@@ -86,9 +95,6 @@ function loadProjectIntoEditor(projectId) {
         kanbanEditor.dispatchEvent(new Event('input'));
     }
 
-    // Update current project reference
-    setCurrentProjectId(projectId);
-
     // Re-render the active view (editor and/or kanban)
     if (typeof render === 'function') {
         render(planText, null, false, false, false, false, 'editor');
@@ -102,7 +108,6 @@ function loadProjectIntoEditor(projectId) {
         detail: { projectId, projectName: project.name }
     }));
 
-    console.log('Loaded project:', project.name);
     return true;
 }
 
@@ -330,14 +335,11 @@ async function parseAllProjects() {
 
     const promises = projects.map(async (project) => {
         try {
-            const planText = project.planText || '';
-            console.log('parseAllProjects: Parsing "' + project.name + '" (' + project.id + '), planText length=' + planText.length);
-
             const response = await fetch('/api/parse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    plan_text: planText,
+                    plan_text: project.planText || '',
                     project_name: project.name || null
                 })
             });
@@ -346,9 +348,6 @@ async function parseAllProjects() {
                 return { project, parsedResult: null };
             }
             const parsedResult = await response.json();
-            const taskCount = parsedResult.tasks ? parsedResult.tasks.length : 0;
-            const phasesWithDates = parsedResult.tasks ? parsedResult.tasks.filter(t => t.is_summary && t.start && t.finish).length : 0;
-            console.log('parseAllProjects: "' + project.name + '" → ' + taskCount + ' tasks, ' + phasesWithDates + ' phases with dates');
             return { project, parsedResult };
         } catch (error) {
             console.error('Error parsing project:', project.name, error);
