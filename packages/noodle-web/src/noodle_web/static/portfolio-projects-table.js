@@ -283,6 +283,7 @@ function renderProjectsTable() {
     html += '<th class="sortable" onclick="sortProjectsTable(\'startDate\')">Start Date</th>';
     html += '<th class="sortable" onclick="sortProjectsTable(\'finishDate\')">Finish Date</th>';
     html += '<th>Latest Highlight</th>';
+    html += '<th style="text-align: center;">Actions</th>';
     html += '</tr>';
     html += '</thead>';
     html += '<tbody>';
@@ -311,6 +312,16 @@ function renderProjectsTable() {
         html += `<td>${formatDateForTable(project.startDate)}</td>`;
         html += `<td>${formatDateForTable(project.finishDate)}</td>`;
         html += `<td class="highlight-cell">${highlightText}</td>`;
+        html += `<td class="project-actions-cell" style="text-align: center; white-space: nowrap;">`;
+        html += `<button class="project-action-btn project-action-save" onclick="event.stopPropagation(); exportProject('${project.id}')" title="Download project">` +
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+            `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
+            `</svg></button>`;
+        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeHtml(project.name).replace(/'/g, "\\'")}')" title="Delete project">` +
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+            `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
+            `</svg></button>`;
+        html += `</td>`;
         html += '</tr>';
     });
 
@@ -405,6 +416,7 @@ function renderSortedTable(tableData) {
         }
     });
 
+    html += '<th style="text-align: center;">Actions</th>';
     html += '</tr>';
     html += '</thead>';
     html += '<tbody>';
@@ -433,6 +445,16 @@ function renderSortedTable(tableData) {
         html += `<td>${formatDateForTable(project.startDate)}</td>`;
         html += `<td>${formatDateForTable(project.finishDate)}</td>`;
         html += `<td class="highlight-cell">${highlightText}</td>`;
+        html += `<td class="project-actions-cell" style="text-align: center; white-space: nowrap;">`;
+        html += `<button class="project-action-btn project-action-save" onclick="event.stopPropagation(); exportProject('${project.id}')" title="Download project">` +
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+            `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>` +
+            `</svg></button>`;
+        html += `<button class="project-action-btn project-action-delete" onclick="event.stopPropagation(); confirmDeleteProjectFromTable('${project.id}', '${escapeHtml(project.name).replace(/'/g, "\\'")}')" title="Delete project">` +
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` +
+            `<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>` +
+            `</svg></button>`;
+        html += `</td>`;
         html += '</tr>';
     });
 
@@ -451,6 +473,29 @@ function openProjectFromTable(projectId) {
         switchToProject(projectId);
     } else {
         console.error('switchToProject function not found');
+    }
+}
+
+/**
+ * Delete a project from the table with confirmation dialog
+ */
+function confirmDeleteProjectFromTable(projectId, projectName) {
+    if (!confirm('Are you sure you want to delete "' + projectName + '"?\n\nThis cannot be undone.')) {
+        return;
+    }
+
+    if (typeof deleteProject === 'function') {
+        deleteProject(projectId);
+    }
+
+    // Refresh the table
+    if (typeof renderProjectsTable === 'function') {
+        renderProjectsTable();
+    }
+
+    // Refresh project selectors
+    if (typeof refreshProjectSelectors === 'function') {
+        refreshProjectSelectors();
     }
 }
 

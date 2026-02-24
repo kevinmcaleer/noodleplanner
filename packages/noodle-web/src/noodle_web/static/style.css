@@ -9417,6 +9417,34 @@ tr:hover .task-inspect-btn {
     margin-right: 4px;
 }
 
+/* Project table action buttons */
+.project-action-btn {
+    background: none;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 5px 7px;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.2s;
+    margin: 0 2px;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+.project-action-btn:hover {
+    background: #f8f9fa;
+}
+
+.project-action-btn.project-action-save:hover {
+    color: #667eea;
+    border-color: #667eea;
+}
+
+.project-action-btn.project-action-delete:hover {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
 /* Status badges */
 .status-badge {
     display: inline-block;
