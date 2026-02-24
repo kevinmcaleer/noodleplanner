@@ -16,12 +16,13 @@ function initPortfolio() {
  * Switch between portfolio views
  */
 function switchPortfolioView(viewName) {
-    // Hide all portfolio views
+    // Hide all portfolio views and remove timeline flex class
     const views = ['portfolioProjectsList', 'portfolioStatusView', 'portfolioResourcesView', 'portfolioTimelineView'];
     views.forEach(viewId => {
         const view = document.getElementById(viewId);
         if (view) {
             view.style.display = 'none';
+            view.classList.remove('portfolio-timeline-active');
         }
     });
 
@@ -39,7 +40,13 @@ function switchPortfolioView(viewName) {
 
     const selectedView = document.getElementById(selectedViewId);
     if (selectedView) {
-        selectedView.style.display = 'block';
+        if (viewName === 'timeline') {
+            // Timeline needs flex layout to fill available space
+            selectedView.style.display = 'flex';
+            selectedView.classList.add('portfolio-timeline-active');
+        } else {
+            selectedView.style.display = 'block';
+        }
     }
 
     // Update sub-nav buttons

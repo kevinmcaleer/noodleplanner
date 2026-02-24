@@ -8312,6 +8312,7 @@ tr:hover .task-inspect-btn {
 .portfolio-container {
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
     overflow: hidden;
     padding: 20px;
@@ -9096,7 +9097,7 @@ tr:hover .task-inspect-btn {
     border-color: #667eea;
 }
 
-#portfolioTimelineView {
+#portfolioTimelineView.portfolio-timeline-active {
     display: flex !important;
     flex-direction: column;
 }
