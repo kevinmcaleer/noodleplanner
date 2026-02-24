@@ -9184,7 +9184,7 @@ tr:hover .task-inspect-btn {
     opacity: 0.5;
 }
 
-.timeline-milestone {
+.portfolio-timeline-container .timeline-milestone {
     position: absolute;
     width: 16px;
     height: 16px;
@@ -9197,7 +9197,7 @@ tr:hover .task-inspect-btn {
     z-index: 6;
 }
 
-.timeline-milestone:hover {
+.portfolio-timeline-container .timeline-milestone:hover {
     transform: rotate(45deg) translateX(-50%) scale(1.2);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
