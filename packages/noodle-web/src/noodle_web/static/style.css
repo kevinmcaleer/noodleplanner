@@ -9338,6 +9338,19 @@ tr:hover .task-inspect-btn {
     .portfolio-timeline-container {
         min-width: 800px;
     }
+
+    .portfolio-actions-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .portfolio-actions-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-actions-table {
+        min-width: 700px;
+    }
 }
 
 /* Portfolio Projects Table View */
@@ -9556,6 +9569,151 @@ tr:hover .task-inspect-btn {
     .portfolio-projects-table td {
         padding: 10px 6px;
     }
+}
+
+/* =========================================
+   Portfolio Actions View
+   ========================================= */
+.portfolio-actions-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.portfolio-actions-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+    flex-shrink: 0;
+}
+
+.portfolio-actions-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.actions-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.actions-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.actions-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #333;
+}
+
+.portfolio-actions-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.portfolio-actions-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-actions-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-actions-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-actions-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-actions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-actions-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-actions-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-actions-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-actions-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-actions-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-actions-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-actions-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.actions-project-name {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.actions-task-name {
+    color: #333;
+}
+
+.actions-finish-date {
+    white-space: nowrap;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.actions-finish-date.actions-overdue {
+    color: #dc3545;
+    font-weight: 700;
 }
 
 /* =========================================

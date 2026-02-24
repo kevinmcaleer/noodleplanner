@@ -1360,6 +1360,9 @@ Build
                         <button class="portfolio-subnav-btn" onclick="switchPortfolioView('timeline')">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
                         </button>
+                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('actions')">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
+                        </button>
                     </div>
 
                     <!-- Portfolio Views -->
@@ -1377,6 +1380,10 @@ Build
 
                     <div id="portfolioTimelineView" class="portfolio-content portfolio-view">
                         <!-- Timeline view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioActionsView" class="portfolio-content portfolio-view">
+                        <!-- Actions view will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -2314,5 +2321,6 @@ Build
     <script src="/static/portfolio-resources.js?v={{ v }}"></script>
     <script src="/static/portfolio-timeline.js?v={{ v }}"></script>
     <script src="/static/portfolio-projects-table.js?v={{ v }}"></script>
+    <script src="/static/portfolio-actions.js?v={{ v }}"></script>
 </body>
 </html>
