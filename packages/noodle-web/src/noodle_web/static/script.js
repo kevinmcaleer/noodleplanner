@@ -1371,6 +1371,10 @@ async function exportReportPptx() {
 }
 
 async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix) {
+    // Capture generation so we can bail out if the user switched projects
+    // while waiting for the /render response.
+    const generation = (typeof projectSwitchGeneration !== 'undefined') ? projectSwitchGeneration : -1;
+
     const btn = document.getElementById(prefix + 'Btn');
     const spinner = document.getElementById(prefix + 'Spinner');
     const message = document.getElementById(prefix + 'Message');
@@ -1396,6 +1400,13 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
+
+        // If the user switched projects while we were waiting, discard
+        // this stale response to avoid overwriting the new project.
+        if (generation !== -1 && typeof projectSwitchGeneration !== 'undefined' && projectSwitchGeneration !== generation) {
+            console.log('Discarding stale render response (generation', generation, '!=', projectSwitchGeneration + ')');
+            return;
+        }
 
         if (!response.ok) {
             const errorData = await response.json();
