@@ -1595,7 +1595,7 @@ async function updateAllViews(planText, projectName) {
 
         // Update Mind Map
         if (typeof updateMindmap === 'function') {
-            updateMindmap(result.tasks || []);
+            updateMindmap(result.tasks || [], result.project_name);
         }
 
         // Load RAID items from backend data, with client-side fallback

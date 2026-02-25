@@ -44,7 +44,7 @@ const MM_COLOURS = [
  * Build a tree structure from the flat tasks array returned by /api/parse.
  * Each task has `level` (0-based indent depth) and `is_summary`.
  */
-function mindmapBuildTree(tasks) {
+function mindmapBuildTree(tasks, projectName) {
     if (!tasks || tasks.length === 0) return null;
 
     // Virtual root that holds top-level nodes
@@ -97,7 +97,7 @@ function mindmapBuildTree(tasks) {
     }
 
     // Use project name as root label
-    root.name = 'Project';
+    root.name = projectName || 'Project';
     root._isRoot = true;
     return root;
 }
@@ -632,9 +632,16 @@ function mindmapCreateFirst() {
 }
 
 function mindmapDeleteNode(node) {
-    if (node._isRoot) return; // can't delete root
-
     const parent = mindmapFindParent(mindmapTree, node);
+
+    // Root with no parent: allow delete only if it has no children,
+    // which clears the mindmap entirely.
+    if (node._isRoot) {
+        if (node.children.length > 0) return; // can't delete root that has children
+        mindmapClearToEmpty();
+        return;
+    }
+
     if (!parent) return;
 
     const idx = parent.children.indexOf(node);
@@ -642,6 +649,13 @@ function mindmapDeleteNode(node) {
 
     if (parent.children.length === 0) {
         parent.is_summary = false;
+    }
+
+    // If the tree is now effectively empty (only a childless root remains),
+    // clear the mindmap and show the placeholder.
+    if (mindmapTree.children.length === 0) {
+        mindmapClearToEmpty();
+        return;
     }
 
     mindmapSelectedNode = null;
@@ -657,6 +671,55 @@ function mindmapDeleteNode(node) {
     }
 
     mindmapSyncToEditor();
+}
+
+/**
+ * Clear the mindmap to empty state, sync the cleared plan, and show placeholder.
+ */
+function mindmapClearToEmpty() {
+    mindmapTree = null;
+    mindmapSelectedNode = null;
+    mindmapNodeElements = [];
+    mindmapTasks = [];
+
+    if (mindmapGroup) {
+        while (mindmapGroup.firstChild) {
+            mindmapGroup.removeChild(mindmapGroup.firstChild);
+        }
+    }
+
+    const placeholder = document.querySelector('#mindmap-view .mindmap-placeholder');
+    const content = document.querySelector('#mindmap-view .mindmap-content');
+    if (placeholder) placeholder.style.display = '';
+    if (content) content.style.display = 'none';
+
+    // Clear task lines from the plan text, preserving front matter and RAID log
+    const editor = document.getElementById('planEditor');
+    if (editor) {
+        const currentText = editor.value;
+        let frontMatter = '';
+        let raidLog = '';
+        const lines = currentText.split('\n');
+
+        let inFrontMatter = false;
+        let fmEnd = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim() === '---') {
+                if (!inFrontMatter) { inFrontMatter = true; } else { fmEnd = i; break; }
+            }
+        }
+        if (fmEnd >= 0) {
+            frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n';
+        }
+
+        const raidIdx = currentText.indexOf('---raid log---');
+        if (raidIdx >= 0) {
+            raidLog = '\n' + currentText.substring(raidIdx);
+        }
+
+        editor.value = frontMatter + raidLog;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 }
 
 function mindmapFindParent(root, target) {
@@ -1121,7 +1184,7 @@ function initMindmap() {
 /**
  * Main entry point: called from updateAllViews() with fresh tasks array.
  */
-function updateMindmap(tasks) {
+function updateMindmap(tasks, projectName) {
     // Don't rebuild the tree while the user is actively editing a node —
     // the rebuild would destroy the inline input and discard unsynced nodes.
     if (document.querySelector('.mm-edit-fo')) return;
@@ -1129,7 +1192,7 @@ function updateMindmap(tasks) {
     mindmapTasks = tasks || [];
 
     // Build the tree
-    const newTree = mindmapBuildTree(mindmapTasks);
+    const newTree = mindmapBuildTree(mindmapTasks, projectName);
     if (!newTree) {
         mindmapTree = null;
         mindmapSelectedNode = null;
