@@ -164,7 +164,12 @@ svg.icon {
 
 .tab-content.active {
     display: flex;
+    flex-direction: column;
     width: 100%; /* Ensure full width when active */
+}
+
+#editor-tab.active {
+    flex-direction: row;
 }
 
 #kanban-tab {
@@ -5567,7 +5572,8 @@ tr:hover .task-inspect-btn {
 
 .raid-container {
     padding: 20px;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -6442,7 +6448,8 @@ tr:hover .task-inspect-btn {
 .planning-room-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     background: #f8f9fa;
 }
 
@@ -7832,6 +7839,9 @@ tr:hover .task-inspect-btn {
     padding: 20px;
     max-width: 1400px;
     margin: 0 auto;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
 }
 
 /* View Tabs */
@@ -8318,7 +8328,8 @@ tr:hover .task-inspect-btn {
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     padding: 20px;
     background: #f8f9fa;
