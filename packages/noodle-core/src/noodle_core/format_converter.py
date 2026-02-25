@@ -523,8 +523,8 @@ def generate_raid_log_text(raid_items: list) -> str:
     clean, readable markdown output.
 
     Args:
-        raid_items: List of dicts with keys: type, title, status,
-            score, owner, date.  Missing keys default to empty strings.
+        raid_items: List of dicts with all RAID item fields.
+            Missing keys default to empty strings.
 
     Returns:
         The formatted markdown table string, or empty string if
@@ -533,7 +533,8 @@ def generate_raid_log_text(raid_items: list) -> str:
     if not raid_items:
         return ''
 
-    headers = ['Type', 'Description', 'Status', 'Score', 'Owner', 'Date']
+    headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner',
+               'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status']
 
     def escape_pipe(value):
         return str(value).replace('|', '\\|').replace('\n', ' ')
@@ -541,12 +542,17 @@ def generate_raid_log_text(raid_items: list) -> str:
     rows = []
     for item in raid_items:
         rows.append([
+            escape_pipe(str(item.get('id', ''))),
             escape_pipe(item.get('type', '')),
             escape_pipe(item.get('title', '')),
-            escape_pipe(item.get('status', '')),
-            escape_pipe(str(item.get('score', ''))),
+            escape_pipe(item.get('description', '')),
+            escape_pipe(item.get('raised_by', '')),
             escape_pipe(item.get('owner', '')),
-            escape_pipe(item.get('date', '')),
+            escape_pipe(item.get('mitigation_actions', '')),
+            escape_pipe(str(item.get('impact', ''))),
+            escape_pipe(str(item.get('likelihood', ''))),
+            escape_pipe(str(item.get('score', ''))),
+            escape_pipe(item.get('status', '')),
         ])
 
     # Calculate column widths (minimum of header width)

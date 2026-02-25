@@ -13523,17 +13523,21 @@ const RAID_LOG_START = '---raid log---';
 function generateRaidLogTable() {
     if (raidItems.length === 0) return '';
 
-    const headers = ['Type', 'Description', 'Status', 'Score', 'Owner', 'Date'];
+    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-    const today = new Date().toISOString().slice(0, 10);
     const rows = raidItems.map(item => [
+        String(item.id),
         escPipe(item.type),
         escPipe(item.title),
-        escPipe(item.status),
-        escPipe(String(item.score)),
+        escPipe(item.description),
+        escPipe(item.raised_by),
         escPipe(item.owner),
-        escPipe(item.date || today)
+        escPipe(item.mitigation_actions),
+        String(item.impact),
+        String(item.likelihood),
+        String(item.score),
+        escPipe(item.status)
     ]);
 
     // Calculate column widths
