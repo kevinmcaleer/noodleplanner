@@ -1592,6 +1592,11 @@ async function updateAllViews(planText, projectName) {
         // Update Calendar
         updateCalendar(result.tasks || []);
 
+        // Update Mind Map
+        if (typeof updateMindmap === 'function') {
+            updateMindmap(result.tasks || []);
+        }
+
         // Load RAID items from backend data, with client-side fallback
         const raidFromApi = result.raid_items || [];
         if (raidFromApi.length > 0) {
@@ -9332,6 +9337,7 @@ function updateNavActiveState(viewName) {
         'calendar': 'planTab',
         'timeline': 'planTab',
         'milestones': 'planTab',
+        'mindmap': 'planTab',
         'highlights': 'trackingTab',
         'lookahead': 'trackingTab',
         'analysis': 'trackingTab',
@@ -9350,7 +9356,7 @@ function updateNavActiveState(viewName) {
 }
 
 // Plan sub-navigation: views that belong to the Plan group
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap'];
 
 // Show or hide the plan sub-nav and highlight the active button
 function updatePlanSubnav(viewName) {
@@ -9467,6 +9473,16 @@ function switchOutputTab(tabName) {
     if (tabName === 'calendar' && calendarTasks.length > 0) {
         setTimeout(() => {
             renderCalendarMonth(calendarCurrentYear, calendarCurrentMonth);
+        }, 50);
+    }
+
+    // If switching to mind map view, re-render after layout is ready
+    if (tabName === 'mindmap' && typeof updateMindmap === 'function' && mindmapTasks && mindmapTasks.length > 0) {
+        setTimeout(() => {
+            initMindmap();
+            mindmapLayout(mindmapTree);
+            mindmapRender();
+            mindmapZoomFit();
         }, 50);
     }
 }
