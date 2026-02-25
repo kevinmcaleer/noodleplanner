@@ -539,7 +539,29 @@ function mindmapAddChild(parentNode) {
 
 function mindmapAddSibling(node) {
     // Find parent of this node
-    const parent = mindmapFindParent(mindmapTree, node);
+    let parent = mindmapFindParent(mindmapTree, node);
+
+    // If this is the promoted root (single top-level item promoted to root),
+    // we need to wrap it in a virtual root so it can have siblings (phases).
+    if (!parent && node._isRoot) {
+        const virtualRoot = {
+            id: 0,
+            name: 'Project',
+            children: [node],
+            level: -1,
+            is_summary: true,
+            _task: null,
+            _isRoot: true,
+            x: 0, y: 0,
+            width: 0, height: MM_NODE_HEIGHT,
+            subtreeHeight: 0
+        };
+        node._isRoot = false;
+        node.level = 0;
+        mindmapTree = virtualRoot;
+        parent = virtualRoot;
+    }
+
     if (!parent) return;
 
     const newId = mindmapGetNextId();
@@ -566,6 +588,39 @@ function mindmapAddSibling(node) {
     mindmapSelectNode(newNode);
 
     setTimeout(() => mindmapStartEditing(newNode), 50);
+}
+
+/**
+ * Bootstrap the mind map from an empty plan.
+ * Creates an initial root node and starts editing it.
+ */
+function mindmapCreateFirst() {
+    mindmapTree = {
+        id: 1,
+        name: 'New Project',
+        children: [],
+        level: 0,
+        is_summary: true,
+        _task: null,
+        _isRoot: true,
+        x: 0, y: 0,
+        width: 0, height: MM_NODE_HEIGHT,
+        subtreeHeight: 0
+    };
+
+    // Hide placeholder, show content
+    const placeholder = document.querySelector('#mindmap-view .mindmap-placeholder');
+    const content = document.querySelector('#mindmap-view .mindmap-content');
+    if (placeholder) placeholder.style.display = 'none';
+    if (content) content.style.display = '';
+
+    initMindmap();
+    mindmapLayout(mindmapTree);
+    mindmapRender();
+    mindmapZoomReset();
+    mindmapSelectNode(mindmapTree);
+
+    setTimeout(() => mindmapStartEditing(mindmapTree), 50);
 }
 
 function mindmapDeleteNode(node) {

@@ -44,7 +44,7 @@ h1 {
 }
 
 .content {
-    /* flex: 1; */
+    flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -10332,7 +10332,19 @@ tr:hover .task-inspect-btn {
 }
 
 #mindmap-view .mindmap-placeholder {
+    flex: 1;
     padding: 40px;
+}
+
+#mindmap-view .mindmap-placeholder .mindmap-toolbar-btn {
+    background: #108BB9;
+    border-color: #108BB9;
+    color: #fff;
+}
+
+#mindmap-view .mindmap-placeholder .mindmap-toolbar-btn:hover {
+    background: #0d7aa3;
+    border-color: #0d7aa3;
 }
 
 @media (max-width: 768px) {
