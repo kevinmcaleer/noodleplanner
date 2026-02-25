@@ -107,6 +107,20 @@
           <rect x="12" y="4" width="9" height="7" rx="1"/>
           <rect x="12" y="13" width="9" height="7" rx="1"/>
         </symbol>
+        <!-- mind-map -->
+        <symbol id="icon-mind-map" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <circle cx="4" cy="6" r="2"/>
+          <circle cx="4" cy="18" r="2"/>
+          <circle cx="20" cy="5" r="2"/>
+          <circle cx="20" cy="12" r="2"/>
+          <circle cx="20" cy="19" r="2"/>
+          <line x1="9.5" y1="10.5" x2="5.5" y2="7.5"/>
+          <line x1="9.5" y1="13.5" x2="5.5" y2="16.5"/>
+          <line x1="14.5" y1="10.5" x2="18.5" y2="6.5"/>
+          <line x1="14.5" y1="12" x2="18.5" y2="12"/>
+          <line x1="14.5" y1="13.5" x2="18.5" y2="17.5"/>
+        </symbol>
       </defs>
     </svg>
 
@@ -142,6 +156,9 @@
                         </div>
                         <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
+                        </div>
+                        <div class="nav-menu-item" onclick="switchToView('mindmap'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
                         </div>
                     </div>
                 </div>
@@ -262,6 +279,9 @@
                 </button>
                 <button class="plan-subnav-btn" data-view="timeline" onclick="switchToView('timeline')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
+                </button>
+                <button class="plan-subnav-btn" data-view="mindmap" onclick="switchToView('mindmap')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
                 </button>
             </div>
 
@@ -941,8 +961,38 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
-
-
+                        <!-- Mind Map View -->
+                        <div id="mindmap-view" class="output-tab-content">
+                            <div class="mindmap-placeholder placeholder-view">
+                                <h3>Mind Map</h3>
+                                <p>Render your plan to see it as an interactive mind map.</p>
+                            </div>
+                            <div class="mindmap-content" style="display: none;">
+                                <div class="mindmap-toolbar">
+                                    <div class="mindmap-toolbar-group">
+                                        <button class="mindmap-toolbar-btn" onclick="mindmapZoomIn()" title="Zoom in">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <span class="mindmap-zoom-label" id="mindmapZoomLabel">100%</span>
+                                        <button class="mindmap-toolbar-btn" onclick="mindmapZoomOut()" title="Zoom out">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn" onclick="mindmapZoomFit()" title="Fit all">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn" onclick="mindmapZoomReset()" title="Reset zoom">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="mindmap-toolbar-hint">
+                                        Click to select &middot; Double-click to edit &middot; Enter = add sibling &middot; Arrows = navigate &middot; Del = remove &middot; Scroll to pan &middot; Ctrl+Scroll to zoom
+                                    </div>
+                                </div>
+                                <div class="mindmap-canvas-wrapper" id="mindmapContainer" tabindex="0">
+                                    <!-- SVG mind map rendered by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
 
 
 
@@ -2331,5 +2381,6 @@ Build
     <script src="/static/portfolio-projects-table.js?v={{ v }}"></script>
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
+    <script src="/static/mindmap.js?v={{ v }}"></script>
 </body>
 </html>

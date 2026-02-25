@@ -10162,3 +10162,186 @@ tr:hover .task-inspect-btn {
         min-width: 600px;
     }
 }
+
+/* ── Mind Map View ──────────────────────────────────────────────────── */
+
+.mindmap-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.mindmap-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: #1e1e1e;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+
+.mindmap-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mindmap-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #2a2a2a;
+    color: #ccc;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.mindmap-toolbar-btn:hover {
+    background: #3a3a3a;
+    border-color: #108BB9;
+    color: #fff;
+}
+
+.mindmap-zoom-label {
+    font-size: 12px;
+    color: #999;
+    min-width: 40px;
+    text-align: center;
+    user-select: none;
+}
+
+.mindmap-toolbar-hint {
+    font-size: 11px;
+    color: #666;
+    margin-left: auto;
+    user-select: none;
+}
+
+.mindmap-canvas-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #1a1a1a;
+    position: relative;
+    outline: none;
+    cursor: grab;
+}
+
+.mindmap-canvas-wrapper:focus {
+    outline: none;
+}
+
+.mindmap-canvas-wrapper:active {
+    cursor: grabbing;
+}
+
+.mm-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Node hover effects */
+.mm-node {
+    cursor: pointer;
+}
+
+.mm-node rect:first-of-type {
+    transition: filter 0.15s;
+}
+
+.mm-node:hover rect:first-of-type {
+    filter: brightness(1.2);
+}
+
+/* Plus button: hidden by default, shown on hover */
+.mm-plus-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+}
+
+.mm-node:hover .mm-plus-btn {
+    opacity: 1;
+}
+
+.mm-plus-btn:hover circle {
+    fill: #444 !important;
+}
+
+/* Selection ring */
+.mm-selection {
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+
+/* Link hover */
+.mm-link {
+    transition: opacity 0.15s, stroke-width 0.15s;
+}
+
+.mm-link:hover {
+    opacity: 0.8 !important;
+    stroke-width: 3 !important;
+}
+
+/* Label text */
+.mm-label {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Elastic animation on the root group */
+.mm-root-group {
+    transform-origin: 0 0;
+}
+
+/* Placeholder styling (reuse existing pattern) */
+.mindmap-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    color: #888;
+    text-align: center;
+    padding: 40px;
+}
+
+.mindmap-placeholder h3 {
+    margin-bottom: 8px;
+    color: #aaa;
+}
+
+/* Mind map view should fill the output panel without scrollbar or padding */
+#mindmap-view.active {
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
+#mindmap-view .mindmap-content {
+    flex: 1;
+    min-height: 0;
+}
+
+#mindmap-view .mindmap-placeholder {
+    padding: 40px;
+}
+
+@media (max-width: 768px) {
+    .mindmap-toolbar-hint {
+        display: none;
+    }
+
+    .mindmap-toolbar {
+        gap: 8px;
+        padding: 6px 10px;
+    }
+}
