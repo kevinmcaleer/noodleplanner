@@ -1633,6 +1633,14 @@ async function updateAllViews(planText, projectName) {
         } catch (e) {
             console.error('Failed to extract RAID items as fallback:', e);
         }
+        // Clear mind map so it doesn't show stale data when parsing fails
+        try {
+            if (typeof updateMindmap === 'function') {
+                updateMindmap([]);
+            }
+        } catch (e) {
+            console.error('Failed to clear mind map as fallback:', e);
+        }
     }
 }
 

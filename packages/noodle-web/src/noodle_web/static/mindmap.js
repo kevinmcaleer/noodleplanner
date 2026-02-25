@@ -529,6 +529,10 @@ function mindmapAddChild(parentNode) {
         parentNode.is_summary = true;
     }
 
+    // Sync immediately so the plan text includes this node before any
+    // pending debounced render fires (prevents the node from vanishing).
+    mindmapSyncToEditor();
+
     mindmapLayout(mindmapTree);
     mindmapRender();
     mindmapSelectNode(newNode);
@@ -582,6 +586,10 @@ function mindmapAddSibling(node) {
     // Insert after the current node
     const idx = parent.children.indexOf(node);
     parent.children.splice(idx + 1, 0, newNode);
+
+    // Sync immediately so the plan text includes this node before any
+    // pending debounced render fires (prevents the node from vanishing).
+    mindmapSyncToEditor();
 
     mindmapLayout(mindmapTree);
     mindmapRender();
@@ -1114,12 +1122,24 @@ function initMindmap() {
  * Main entry point: called from updateAllViews() with fresh tasks array.
  */
 function updateMindmap(tasks) {
+    // Don't rebuild the tree while the user is actively editing a node —
+    // the rebuild would destroy the inline input and discard unsynced nodes.
+    if (document.querySelector('.mm-edit-fo')) return;
+
     mindmapTasks = tasks || [];
 
     // Build the tree
     const newTree = mindmapBuildTree(mindmapTasks);
     if (!newTree) {
         mindmapTree = null;
+        mindmapSelectedNode = null;
+        mindmapNodeElements = [];
+        // Clear the SVG so stale nodes don't linger
+        if (mindmapGroup) {
+            while (mindmapGroup.firstChild) {
+                mindmapGroup.removeChild(mindmapGroup.firstChild);
+            }
+        }
         // Show placeholder
         const placeholder = document.querySelector('#mindmap-view .mindmap-placeholder');
         const content = document.querySelector('#mindmap-view .mindmap-content');
