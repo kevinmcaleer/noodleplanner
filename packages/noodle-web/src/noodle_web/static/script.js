@@ -1508,6 +1508,7 @@ async function updateAllViews(planText, projectName) {
             // Even if the API call failed, try to extract highlights
             // from the plan text on the client side as a fallback.
             updateHighlightsView(extractHighlightsFromText(planText));
+            if (typeof updateMindmap === 'function') updateMindmap([]);
             return;
         }
 
@@ -9485,12 +9486,20 @@ function switchOutputTab(tabName) {
     }
 
     // If switching to mind map view, re-render after layout is ready
-    if (tabName === 'mindmap' && typeof updateMindmap === 'function' && mindmapTasks && mindmapTasks.length > 0) {
+    if (tabName === 'mindmap' && typeof updateMindmap === 'function') {
         setTimeout(() => {
-            initMindmap();
-            mindmapLayout(mindmapTree);
-            mindmapRender();
-            mindmapZoomFit();
+            if (mindmapTree) {
+                initMindmap();
+                mindmapLayout(mindmapTree);
+                mindmapRender();
+                mindmapZoomFit();
+            } else {
+                // Ensure placeholder is shown for empty state
+                const placeholder = document.querySelector('#mindmap-view .mindmap-placeholder');
+                const content = document.querySelector('#mindmap-view .mindmap-content');
+                if (placeholder) placeholder.style.display = '';
+                if (content) content.style.display = 'none';
+            }
         }, 50);
     }
 }
