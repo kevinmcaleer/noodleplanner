@@ -20,15 +20,11 @@ body {
 }
 
 .container-fluid {
-    display: flex;
-    flex-direction: column;
     height: 100vh;
     overflow: hidden;
 }
 
 .container {
-    display: flex;
-    flex-direction: column;
     height: 100vh;
     overflow: hidden;
 }
@@ -44,13 +40,11 @@ h1 {
 }
 
 .content {
-    flex: 1;
-    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     padding: 0;
-    outline: 3px solid blue; /* DEBUG - remove after testing */
 }
 
 .tabs {
@@ -157,17 +151,16 @@ svg.icon {
 
 .tab-content {
     display: none !important;
-    flex: 1;
-    min-height: 0;
     overflow: hidden;
-    width: 100%; /* Ensure full width */
+    width: 100%;
 }
 
 .tab-content.active {
     display: flex !important;
+    flex: 1 1 0%;
+    min-height: 0;
     flex-direction: column;
-    width: 100%; /* Ensure full width when active */
-    outline: 3px solid red; /* DEBUG - remove after testing */
+    width: 100%;
 }
 
 #editor-tab.active {
@@ -175,15 +168,13 @@ svg.icon {
 }
 
 #kanban-tab {
-    width: 100%; /* Force Kanban tab to full width */
+    width: 100%;
     padding: 0;
     margin: 0;
 }
 
 #kanban-tab.active {
-    display: flex;
     flex-direction: column;
-    flex: 1; /* Fill available space */
 }
 
 #kanban-tab .kanban-layout {
