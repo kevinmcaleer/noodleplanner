@@ -330,9 +330,10 @@ function mindmapMeasure(node) {
 
 /**
  * Layout the tree with clockwise rotation from the centre.
- * The first item at the top of the plan appears at 3 o'clock (right),
- * then subsequent items fan clockwise: bottom-right, bottom, bottom-left,
- * left, top-left, top, top-right.
+ * The first item at the top of the plan appears at 12 o'clock (top-right),
+ * then subsequent items fan clockwise like a clock face:
+ * top-right -> right -> bottom-right -> bottom -> bottom-left -> left -> top-left.
+ * The last item ends up at ~11 o'clock (top-left).
  *
  * Children are placed radially around the root to achieve the clockwise effect,
  * but then each sub-branch uses the traditional left-to-right or right-to-left
@@ -349,25 +350,26 @@ function mindmapLayout(root) {
 
     const n = visChildren.length;
 
-    // Assign each child to an angular position clockwise starting from the right (0 deg).
-    // First child is at the top of the plan -> right side (angle 0),
-    // then clockwise means increasing angle: right -> bottom -> left -> top.
-    // We distribute children evenly over 360 degrees.
+    // Assign each child to an angular position clockwise starting from 12 o'clock (top).
+    // First child appears at top-right, then items fan clockwise:
+    // top-right -> right -> bottom-right -> bottom -> bottom-left -> left -> top-left.
+    // Last child ends up at top-left (11 o'clock), like reading a clock face.
     const rightChildren = [];
     const leftChildren = [];
 
     for (let i = 0; i < n; i++) {
-        // Angle in radians, starting at -PI/2 (top) but we want to start at 0 (right)
-        // and go clockwise. In SVG, positive Y is down, so clockwise from right means:
-        // angle 0 = right, PI/2 = down, PI = left, 3PI/2 = up
-        const angle = (2 * Math.PI * i) / n;
+        // Start at -PI/2 (12 o'clock / top) and go clockwise.
+        // In SVG, positive Y is down, so clockwise means increasing angle.
+        // Normalize to [0, 2*PI) for consistent classification.
+        let angle = -Math.PI / 2 + (2 * Math.PI * i) / n;
+        if (angle < 0) angle += 2 * Math.PI;
         const child = visChildren[i];
         child._angle = angle;
 
         // Classify children as left or right based on their angular position.
-        // Right side: angle <= PI/2 (right + bottom-right) or angle > 3PI/2 (top-right)
-        // Left side: PI/2 < angle <= 3PI/2
-        if (angle <= Math.PI / 2 || angle > 3 * Math.PI / 2) {
+        // Right side: angle < PI/2 (right + bottom-right) or angle >= 3PI/2 (top-right + top)
+        // Left side: PI/2 <= angle < 3PI/2
+        if (angle < Math.PI / 2 || angle >= 3 * Math.PI / 2) {
             child._direction = 'right';
             rightChildren.push(child);
         } else {
@@ -376,20 +378,20 @@ function mindmapLayout(root) {
         }
     }
 
-    // Sort right children by angle (ascending) so they appear top-to-bottom on the right side
+    // Sort right children so they appear top-to-bottom on the right side.
+    // Angles near 3PI/2 (top) should come before angles near PI/2 (bottom).
+    // Normalize: 3PI/2..2PI -> -PI/2..0, 0..PI/2 -> 0..PI/2
     rightChildren.sort((a, b) => {
-        // Normalize angles so that angles > 3PI/2 (near 2PI) come before angles near 0
-        // This maps: 3PI/2..2PI -> -PI/2..0, and 0..PI/2 -> 0..PI/2
-        const normA = a._angle > 3 * Math.PI / 2 ? a._angle - 2 * Math.PI : a._angle;
-        const normB = b._angle > 3 * Math.PI / 2 ? b._angle - 2 * Math.PI : b._angle;
+        const normA = a._angle >= 3 * Math.PI / 2 ? a._angle - 2 * Math.PI : a._angle;
+        const normB = b._angle >= 3 * Math.PI / 2 ? b._angle - 2 * Math.PI : b._angle;
         return normA - normB;
     });
 
-    // Sort left children by angle (ascending) so they appear top-to-bottom on the left side
-    // Left children go from PI/2 (top) to 3PI/2 (bottom) — but in the left layout,
-    // we want them visually top-to-bottom, which means reverse order of angle
-    // (PI = horizontal left, items with angle closer to PI/2 are above, closer to 3PI/2 are below)
-    leftChildren.sort((a, b) => a._angle - b._angle);
+    // Sort left children descending by angle so they appear top-to-bottom on the left side.
+    // Clockwise flow continues bottom-to-top on the left: the first left child (near PI/2,
+    // ~7 o'clock) goes at the bottom, and the last left child (near 3PI/2, ~11 o'clock)
+    // goes at the top.
+    leftChildren.sort((a, b) => b._angle - a._angle);
 
     // Layout right side children as a vertical branch to the right
     mindmapLayoutBranch(root, rightChildren, 'right');
