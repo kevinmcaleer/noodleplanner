@@ -7811,6 +7811,75 @@ function closeTaskForm() {
 }
 
 /**
+ * Delete the currently open task from the plan.
+ * Shows a confirmation dialog, removes the task line (and any subtask lines
+ * that are more deeply indented beneath it), then refreshes the editor and views.
+ */
+function deleteTask() {
+    if (currentTaskLineNumber === null) return;
+
+    const editor = document.getElementById('planEditor');
+    const lines = editor.value.split('\n');
+    const lineIndex = currentTaskLineNumber - 1;
+
+    if (lineIndex < 0 || lineIndex >= lines.length) {
+        console.error('deleteTask: invalid line number', currentTaskLineNumber);
+        return;
+    }
+
+    const taskLine = lines[lineIndex];
+    const taskName = extractTaskNameFromEditorLine(taskLine) || 'this task';
+
+    // Determine the range of lines to delete (task + subtasks).
+    // Subtasks are consecutive lines with strictly greater indentation.
+    const parentIndent = taskLine.search(/\S/);
+    let endIndex = lineIndex + 1; // exclusive
+    for (let i = lineIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        // Keep blank lines that sit between subtasks
+        if (line.trim() === '') {
+            endIndex = i + 1;
+            continue;
+        }
+        const indent = line.search(/\S/);
+        if (indent > parentIndent) {
+            endIndex = i + 1;
+        } else {
+            break;
+        }
+    }
+
+    // Trim trailing blank lines that were only included speculatively
+    while (endIndex > lineIndex + 1 && lines[endIndex - 1].trim() === '') {
+        endIndex--;
+    }
+
+    const lineCount = endIndex - lineIndex;
+    const hasSubtasks = lineCount > 1;
+
+    // Build confirmation message
+    let message = 'Are you sure you want to delete "' + taskName + '"?';
+    if (hasSubtasks) {
+        message += '\n\nThis will also delete ' + (lineCount - 1) + ' subtask line(s) beneath it.';
+    }
+    message += '\n\nThis cannot be undone.';
+
+    if (!confirm(message)) return;
+
+    // Remove the lines from the editor
+    lines.splice(lineIndex, lineCount);
+    editor.value = lines.join('\n');
+
+    // Close the form and clear state before triggering re-render
+    closeDetailPane();
+    currentTaskLineNumber = null;
+
+    // Trigger re-render of the plan
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => renderText(), 10);
+}
+
+/**
  * Add a new row to the dependencies table
  */
 function addDependencyRow(taskName = '', lagLead = '') {
