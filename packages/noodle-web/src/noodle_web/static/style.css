@@ -50,6 +50,7 @@ h1 {
     flex-direction: column;
     overflow: hidden;
     padding: 0;
+    outline: 3px solid blue; /* DEBUG - remove after testing */
 }
 
 .tabs {
@@ -155,7 +156,7 @@ svg.icon {
 }
 
 .tab-content {
-    display: none;
+    display: none !important;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -163,9 +164,10 @@ svg.icon {
 }
 
 .tab-content.active {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     width: 100%; /* Ensure full width when active */
+    outline: 3px solid red; /* DEBUG - remove after testing */
 }
 
 #editor-tab.active {
