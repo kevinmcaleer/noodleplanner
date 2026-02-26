@@ -2383,5 +2383,34 @@ Build
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
+    <script>
+    /* DEBUG — remove after diagnosing height bug */
+    (function(){
+        var origSwitch = window.switchTab;
+        window.switchTab = function(name) {
+            origSwitch(name);
+            setTimeout(function(){
+                var cf = document.querySelector('.container-fluid');
+                var ct = document.querySelector('.content');
+                var active = document.querySelector('.tab-content.active');
+                var tabs = document.querySelector('.tabs');
+                var visCount = 0;
+                document.querySelectorAll('.tab-content').forEach(function(el){
+                    if(getComputedStyle(el).display !== 'none') visCount++;
+                });
+                var msg = 'switchTab("'+name+'"):\n';
+                msg += 'window.innerHeight: '+window.innerHeight+'px\n';
+                msg += '.container-fluid: h='+cf.offsetHeight+' display='+getComputedStyle(cf).display+' flexDir='+getComputedStyle(cf).flexDirection+'\n';
+                msg += '.content: h='+ct.offsetHeight+' display='+getComputedStyle(ct).display+' flex='+getComputedStyle(ct).flex+'\n';
+                msg += '.tabs: h='+tabs.offsetHeight+'\n';
+                msg += '#'+active.id+': h='+active.offsetHeight+' display='+getComputedStyle(active).display+' flex='+getComputedStyle(active).flex+'\n';
+                msg += 'Visible .tab-content: '+visCount+'\n';
+                var child = active.firstElementChild;
+                if(child) msg += 'First child ('+child.className.split(' ')[0]+'): h='+child.offsetHeight+' display='+getComputedStyle(child).display+'\n';
+                alert(msg);
+            }, 200);
+        };
+    })();
+    </script>
 </body>
 </html>
