@@ -1322,6 +1322,14 @@ svg.icon {
     color: white;
 }
 
+/* Overall project RAG badge next to report date */
+#reportOverallRAG {
+    margin-left: 4px;
+    font-size: 0.8em;
+    padding: 2px 10px;
+    text-transform: none;
+}
+
 /* Report highlight card */
 .report-highlight-content .report-highlight-card {
     padding: 0;

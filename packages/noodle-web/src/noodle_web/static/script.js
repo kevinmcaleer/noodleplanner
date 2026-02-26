@@ -1839,6 +1839,23 @@ function updateReportPage(tasks, projectName, frontMatter) {
             dateEl.textContent = now.toISOString().split('T')[0];
         }
 
+        // Overall project RAG badge (next to date)
+        const overallRAGEl = document.getElementById('reportOverallRAG');
+        if (overallRAGEl) {
+            // Use portfolio-status.js functions to compute RAG from tasks/front matter
+            if (typeof extractRAGStatus === 'function' && typeof extractProjectStatusLabel === 'function') {
+                const completion = (typeof calculateProjectCompletionFromTasks === 'function')
+                    ? calculateProjectCompletionFromTasks(tasks) : 0;
+                const ragStatus = extractRAGStatus(frontMatter, tasks, completion);
+                const statusLabel = extractProjectStatusLabel(frontMatter, completion, ragStatus);
+                overallRAGEl.textContent = statusLabel;
+                overallRAGEl.className = 'report-rag-badge rag-' + ragStatus;
+                overallRAGEl.style.display = '';
+            } else {
+                overallRAGEl.style.display = 'none';
+            }
+        }
+
         // Render simple timeline (no phases, no detailed view)
         updateReportTimeline(tasks, projectName);
 
