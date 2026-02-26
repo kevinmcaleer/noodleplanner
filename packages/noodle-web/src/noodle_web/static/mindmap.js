@@ -756,35 +756,611 @@ function mindmapDrawNodes(node, depth) {
     }
 }
 
+// ── Animation helpers ─────────────────────────────────────────────────
+
+// Track running animation so we can cancel if a new toggle fires mid-flight
+let mindmapAnimationId = null;
+
+/**
+ * Collect {id: {x, y}} for every currently-visible node in the tree.
+ * Call this BEFORE changing collapsed state or re-laying out.
+ */
+function mindmapSnapshotPositions() {
+    const map = {};
+    function walk(node) {
+        map[node.id] = { x: node.x, y: node.y };
+        const vis = mindmapVisibleChildren(node);
+        for (const child of vis) walk(child);
+    }
+    if (mindmapTree) walk(mindmapTree);
+    return map;
+}
+
+/**
+ * Collect the set of node IDs that are currently visible.
+ */
+function mindmapVisibleNodeIds() {
+    const ids = new Set();
+    function walk(node) {
+        ids.add(node.id);
+        const vis = mindmapVisibleChildren(node);
+        for (const child of vis) walk(child);
+    }
+    if (mindmapTree) walk(mindmapTree);
+    return ids;
+}
+
+/**
+ * Spring / elastic easing function.
+ * Attempt a critically-damped spring that overshoots slightly for a bouncy feel.
+ * t goes from 0 to 1.
+ */
+function mindmapSpringEase(t) {
+    // Attempt a spring-like curve: overshoot then settle
+    // Using a modified elastic ease-out
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    const p = 0.4;  // period
+    const s = p / 4;
+    return Math.pow(2, -10 * t) * Math.sin((t - s) * (2 * Math.PI) / p) + 1;
+}
+
+/**
+ * Linearly interpolate between two values.
+ */
+function mindmapLerp(a, b, t) {
+    return a + (b - a) * t;
+}
+
+/**
+ * Render the mindmap with animated transitions from old positions to new.
+ *
+ * @param {Object} oldPositions - Map of nodeId -> {x, y} from before the change
+ * @param {Set} oldVisibleIds  - Set of node IDs visible before the change
+ * @param {Object} toggledNode - The node whose collapse state was toggled (anchor)
+ * @param {boolean} isCollapsing - true if we just collapsed, false if expanding
+ */
+function mindmapAnimatedRender(oldPositions, oldVisibleIds, toggledNode, isCollapsing) {
+    if (!mindmapTree || !mindmapSvg) return;
+
+    // Cancel any in-flight animation
+    if (mindmapAnimationId) {
+        cancelAnimationFrame(mindmapAnimationId);
+        mindmapAnimationId = null;
+    }
+
+    // Collect the new visible IDs and new positions (after layout)
+    const newVisibleIds = mindmapVisibleNodeIds();
+    const newPositions = {};
+    function walkNew(node) {
+        newPositions[node.id] = { x: node.x, y: node.y };
+        const vis = mindmapVisibleChildren(node);
+        for (const child of vis) walkNew(child);
+    }
+    walkNew(mindmapTree);
+
+    // Determine which nodes are appearing, disappearing, or moving
+    const appearingSet = new Set();   // ids in new but not in old (expanding children)
+    const disappearingSet = new Set(); // ids in old but not in new (collapsing children)
+    const persistingSet = new Set();  // ids in both
+
+    for (const id of newVisibleIds) {
+        if (oldVisibleIds.has(id)) {
+            persistingSet.add(id);
+        } else {
+            appearingSet.add(id);
+        }
+    }
+    for (const id of oldVisibleIds) {
+        if (!newVisibleIds.has(id)) {
+            disappearingSet.add(id);
+        }
+    }
+
+    // The anchor point: where disappearing nodes collapse to / appearing nodes emerge from.
+    // Use the toggled node's NEW position (for expand) or OLD position (for collapse).
+    const anchorX = toggledNode ? (newPositions[toggledNode.id] || oldPositions[toggledNode.id] || { x: 0 }).x : 0;
+    const anchorY = toggledNode ? (newPositions[toggledNode.id] || oldPositions[toggledNode.id] || { y: 0 }).y : 0;
+
+    const duration = MM_ANIM_DURATION;
+    const startTime = performance.now();
+
+    // For disappearing nodes we need to hold onto their old node data to draw them.
+    // Collect that from the OLD tree traversal. We'll draw them as fading ghosts.
+    const disappearingNodes = [];
+    function collectDisappearing(node) {
+        if (disappearingSet.has(node.id)) {
+            disappearingNodes.push(node);
+        }
+        // Always recurse into ALL children (not just visible), because the
+        // disappearing nodes are now hidden from mindmapVisibleChildren.
+        for (const child of node.children) {
+            collectDisappearing(child);
+        }
+    }
+    if (mindmapTree) collectDisappearing(mindmapTree);
+
+    // Save disappearing nodes' old positions explicitly
+    for (const dn of disappearingNodes) {
+        if (oldPositions[dn.id]) {
+            dn._animFromX = oldPositions[dn.id].x;
+            dn._animFromY = oldPositions[dn.id].y;
+        }
+    }
+
+    // Helper to restore all visible node positions to their final (post-layout) values
+    function restorePositions() {
+        function restore(node) {
+            if (newPositions[node.id]) {
+                node.x = newPositions[node.id].x;
+                node.y = newPositions[node.id].y;
+            }
+            const vis = mindmapVisibleChildren(node);
+            for (const child of vis) restore(child);
+        }
+        restore(mindmapTree);
+        for (const dn of disappearingNodes) {
+            if (dn._animFromX !== undefined) {
+                dn.x = dn._animFromX;
+                dn.y = dn._animFromY;
+            }
+        }
+    }
+
+    function animationFrame(now) {
+        const elapsed = now - startTime;
+        const rawT = Math.min(elapsed / duration, 1);
+        const t = mindmapSpringEase(rawT);
+
+        // Clear and redraw at interpolated positions
+        while (mindmapGroup.firstChild) {
+            mindmapGroup.removeChild(mindmapGroup.firstChild);
+        }
+        mindmapNodeElements = [];
+
+        // Set node positions to interpolated values for this frame
+        function interpolatePositions(node) {
+            const id = node.id;
+            if (persistingSet.has(id) && oldPositions[id] && newPositions[id]) {
+                node.x = mindmapLerp(oldPositions[id].x, newPositions[id].x, t);
+                node.y = mindmapLerp(oldPositions[id].y, newPositions[id].y, t);
+            } else if (appearingSet.has(id) && newPositions[id]) {
+                node.x = mindmapLerp(anchorX, newPositions[id].x, t);
+                node.y = mindmapLerp(anchorY, newPositions[id].y, t);
+            }
+            const vis = mindmapVisibleChildren(node);
+            for (const child of vis) interpolatePositions(child);
+        }
+        interpolatePositions(mindmapTree);
+
+        // Draw links for visible nodes
+        mindmapDrawLinks(mindmapTree, 0);
+
+        // Draw disappearing nodes and their links (fading out)
+        const disappearOpacity = 1 - t;
+        if (disappearingNodes.length > 0 && disappearOpacity > 0.01) {
+            for (const dn of disappearingNodes) {
+                if (dn._animFromX !== undefined) {
+                    dn.x = mindmapLerp(dn._animFromX, anchorX, t);
+                    dn.y = mindmapLerp(dn._animFromY, anchorY, t);
+                }
+            }
+
+            // Draw disappearing links (parent -> disappearing child)
+            for (const dn of disappearingNodes) {
+                const parent = mindmapFindParent(mindmapTree, dn);
+                if (parent) {
+                    mindmapDrawSingleLink(parent, dn, disappearOpacity);
+                }
+            }
+
+            // Draw disappearing nodes with fading opacity and scale
+            for (const dn of disappearingNodes) {
+                mindmapDrawSingleNode(dn, disappearOpacity, t);
+            }
+        }
+
+        // Draw visible nodes (appearing ones with growing opacity/scale)
+        mindmapDrawNodesAnimated(mindmapTree, 0, appearingSet, t);
+
+        mindmapApplyTransform(false);
+
+        // Restore node positions to their canonical (final) values after drawing
+        restorePositions();
+
+        if (rawT < 1) {
+            mindmapAnimationId = requestAnimationFrame(animationFrame);
+        } else {
+            // Final frame: do a clean full render with all interactions
+            mindmapRender();
+            mindmapAnimationId = null;
+
+            // Clean up animation markers on disappearing nodes
+            for (const dn of disappearingNodes) {
+                delete dn._animFromX;
+                delete dn._animFromY;
+            }
+
+            // Reselect after animation completes
+            if (mindmapSelectedNode) {
+                mindmapSelectNode(mindmapSelectedNode);
+            }
+        }
+    }
+
+    mindmapAnimationId = requestAnimationFrame(animationFrame);
+}
+
+/**
+ * Draw nodes with animated opacity for appearing nodes.
+ * Non-appearing nodes get full opacity; appearing nodes fade/scale in.
+ */
+function mindmapDrawNodesAnimated(node, depth, appearingIds, t) {
+    const isAppearing = appearingIds.has(node.id);
+    const opacity = isAppearing ? t : 1;
+    const scale = isAppearing ? mindmapLerp(0.3, 1, t) : 1;
+
+    if (isAppearing) {
+        mindmapDrawSingleNode(node, opacity, 1 - t, depth);
+    } else {
+        mindmapDrawSingleNodeFull(node, depth);
+    }
+
+    const visChildren = mindmapVisibleChildren(node);
+    for (const child of visChildren) {
+        mindmapDrawNodesAnimated(child, depth + 1, appearingIds, t);
+    }
+}
+
+/**
+ * Draw a single link between parent and child with given opacity.
+ */
+function mindmapDrawSingleLink(parentNode, childNode, opacity) {
+    const depth = 0; // approximate
+    const colour = mindmapColour(childNode, depth + 1);
+    const link = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+    const dir = childNode._direction || 'right';
+    const startX = parentNode.x + (dir === 'right' ? parentNode.width / 2 : -parentNode.width / 2);
+    const startY = parentNode.y;
+    const endX = childNode.x + (dir === 'right' ? -childNode.width / 2 : childNode.width / 2);
+    const endY = childNode.y;
+
+    const cpOffset = Math.abs(endX - startX) * 0.5;
+    const cp1x = startX + (dir === 'right' ? cpOffset : -cpOffset);
+    const cp1y = startY;
+    const cp2x = endX + (dir === 'right' ? -cpOffset : cpOffset);
+    const cp2y = endY;
+
+    link.setAttribute('d', `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`);
+    link.setAttribute('fill', 'none');
+    link.setAttribute('stroke', colour);
+    link.setAttribute('stroke-width', '2');
+    link.setAttribute('opacity', opacity * 0.5);
+    link.classList.add('mm-link');
+
+    mindmapGroup.appendChild(link);
+}
+
+/**
+ * Draw a single node with given opacity and shrink factor (for appearing/disappearing).
+ * shrinkT: 0 = full size, 1 = fully shrunk to center point
+ */
+function mindmapDrawSingleNode(node, opacity, shrinkT, depth) {
+    if (opacity <= 0.01) return;
+
+    depth = depth !== undefined ? depth : 0;
+    const colour = mindmapColour(node, depth);
+    const isRoot = !!node._isRoot;
+    const hasChildren = node.children.length > 0;
+    const isCollapsed = mindmapCollapsedIds.has(node.id);
+    const dir = node._direction || 'right';
+
+    const nodeFill = mindmapCSSVar('--mm-node-fill', '#2a2a2a');
+    const nodeText = mindmapCSSVar('--mm-node-text', '#e0e0e0');
+    const rootText = mindmapCSSVar('--mm-root-text', '#fff');
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.classList.add('mm-node');
+    g.dataset.nodeId = node.id;
+
+    // Apply scale transform from center of node for spring effect
+    const scale = 1 - shrinkT * 0.7;  // shrink to 30% at most
+    g.setAttribute('transform',
+        `translate(${node.x}, ${node.y}) scale(${scale}) translate(${-node.x}, ${-node.y})`);
+    g.setAttribute('opacity', opacity);
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const rx = isRoot ? 24 : 8;
+    rect.setAttribute('x', node.x - node.width / 2);
+    rect.setAttribute('y', node.y - node.height / 2);
+    rect.setAttribute('width', node.width);
+    rect.setAttribute('height', node.height);
+    rect.setAttribute('rx', rx);
+    rect.setAttribute('ry', rx);
+    const computedFill = isRoot ? colour : mindmapShadeColour(colour, 0.3);
+    rect.setAttribute('fill', computedFill);
+    rect.setAttribute('stroke', colour);
+    rect.setAttribute('stroke-width', isRoot ? 2.5 : 1.5);
+    g.appendChild(rect);
+
+    // Text label
+    const triExtra = hasChildren ? (MM_COLLAPSE_TRI_SIZE * 2 + 6) : 0;
+    const textCenterX = hasChildren ? node.x - triExtra / 2 : node.x;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', textCenterX);
+    text.setAttribute('y', node.y + 1);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('fill', isRoot ? rootText : nodeText);
+    text.setAttribute('font-size', isRoot ? '14px' : '13px');
+    text.setAttribute('font-weight', isRoot ? '600' : (node.is_summary ? '600' : '400'));
+    text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    text.classList.add('mm-label');
+
+    let displayName = node.name;
+    const maxTextW = node.width - MM_NODE_PADDING_X * 2 - triExtra;
+    if (mindmapMeasureText(displayName) > maxTextW) {
+        while (displayName.length > 0 && mindmapMeasureText(displayName + '...') > maxTextW) {
+            displayName = displayName.slice(0, -1);
+        }
+        displayName += '...';
+    }
+    text.textContent = displayName;
+    g.appendChild(text);
+
+    mindmapGroup.appendChild(g);
+    mindmapNodeElements.push({ node, gEl: g });
+}
+
+/**
+ * Draw a single node at full opacity and scale (for persisting nodes during animation).
+ * This is essentially the same as the normal mindmapDrawNodes but for a single node, no recursion.
+ */
+function mindmapDrawSingleNodeFull(node, depth) {
+    const colour = mindmapColour(node, depth);
+    const isRoot = !!node._isRoot;
+    const hasChildren = node.children.length > 0;
+    const isCollapsed = mindmapCollapsedIds.has(node.id);
+    const dir = node._direction || 'right';
+
+    const nodeFill = mindmapCSSVar('--mm-node-fill', '#2a2a2a');
+    const nodeText = mindmapCSSVar('--mm-node-text', '#e0e0e0');
+    const rootText = mindmapCSSVar('--mm-root-text', '#fff');
+    const selectionStroke = mindmapCSSVar('--mm-selection-stroke', '#fff');
+    const plusBtnFill = mindmapCSSVar('--mm-plus-btn-fill', '#333');
+    const progressBg = mindmapCSSVar('--mm-progress-bg', '#444');
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.classList.add('mm-node');
+    g.dataset.nodeId = node.id;
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const rx = isRoot ? 24 : 8;
+    rect.setAttribute('x', node.x - node.width / 2);
+    rect.setAttribute('y', node.y - node.height / 2);
+    rect.setAttribute('width', node.width);
+    rect.setAttribute('height', node.height);
+    rect.setAttribute('rx', rx);
+    rect.setAttribute('ry', rx);
+    const computedFill = isRoot ? colour : mindmapShadeColour(colour, 0.3);
+    rect.setAttribute('fill', computedFill);
+    rect.setAttribute('stroke', colour);
+    rect.setAttribute('stroke-width', isRoot ? 2.5 : 1.5);
+    g.appendChild(rect);
+
+    // Text label
+    const triExtra = hasChildren ? (MM_COLLAPSE_TRI_SIZE * 2 + 6) : 0;
+    const textCenterX = hasChildren ? node.x - triExtra / 2 : node.x;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', textCenterX);
+    text.setAttribute('y', node.y + 1);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('fill', isRoot ? rootText : nodeText);
+    text.setAttribute('font-size', isRoot ? '14px' : '13px');
+    text.setAttribute('font-weight', isRoot ? '600' : (node.is_summary ? '600' : '400'));
+    text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    text.classList.add('mm-label');
+
+    let displayName = node.name;
+    const maxTextW = node.width - MM_NODE_PADDING_X * 2 - triExtra;
+    if (mindmapMeasureText(displayName) > maxTextW) {
+        while (displayName.length > 0 && mindmapMeasureText(displayName + '...') > maxTextW) {
+            displayName = displayName.slice(0, -1);
+        }
+        displayName += '...';
+    }
+    text.textContent = displayName;
+    g.appendChild(text);
+
+    // Disclosure triangle
+    if (hasChildren) {
+        const triG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        triG.classList.add('mm-collapse-btn');
+
+        const triX = node.x + node.width / 2 - MM_NODE_PADDING_X - MM_COLLAPSE_TRI_SIZE;
+        const triY = node.y;
+        const s = MM_COLLAPSE_TRI_SIZE;
+
+        const triPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let d;
+        if (isCollapsed) {
+            if (dir === 'left') {
+                d = `M ${triX + s} ${triY - s} L ${triX - s} ${triY} L ${triX + s} ${triY + s} Z`;
+            } else {
+                d = `M ${triX - s} ${triY - s} L ${triX + s} ${triY} L ${triX - s} ${triY + s} Z`;
+            }
+        } else {
+            d = `M ${triX - s} ${triY - s / 2} L ${triX + s} ${triY - s / 2} L ${triX} ${triY + s} Z`;
+        }
+        triPath.setAttribute('d', d);
+        triPath.setAttribute('fill', isRoot ? 'rgba(255,255,255,0.7)' : '#888');
+        triPath.setAttribute('stroke', 'none');
+        triG.appendChild(triPath);
+
+        const hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hitRect.setAttribute('x', triX - s - 4);
+        hitRect.setAttribute('y', triY - s - 4);
+        hitRect.setAttribute('width', (s + 4) * 2);
+        hitRect.setAttribute('height', (s + 4) * 2);
+        hitRect.setAttribute('fill', 'transparent');
+        hitRect.setAttribute('cursor', 'pointer');
+        triG.appendChild(hitRect);
+
+        triG.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mindmapToggleCollapse(node);
+        });
+
+        g.appendChild(triG);
+    }
+
+    // Progress indicator
+    const pct = parseInt(node.percent, 10);
+    if (!isNaN(pct) && pct >= 0) {
+        const barY = node.y + node.height / 2 - 4;
+        const barW = (node.width - 8) * (pct / 100);
+        const bgBar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgBar.setAttribute('x', node.x - node.width / 2 + 4);
+        bgBar.setAttribute('y', barY);
+        bgBar.setAttribute('width', node.width - 8);
+        bgBar.setAttribute('height', 3);
+        bgBar.setAttribute('rx', 1.5);
+        bgBar.setAttribute('fill', progressBg);
+        g.appendChild(bgBar);
+
+        if (barW > 0) {
+            const fgBar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            fgBar.setAttribute('x', node.x - node.width / 2 + 4);
+            fgBar.setAttribute('y', barY);
+            fgBar.setAttribute('width', barW);
+            fgBar.setAttribute('height', 3);
+            fgBar.setAttribute('rx', 1.5);
+            fgBar.setAttribute('fill', pct === 100 ? '#5CB85C' : colour);
+            g.appendChild(fgBar);
+        }
+    }
+
+    // Plus button
+    const plusG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    plusG.classList.add('mm-plus-btn');
+    const plusX = node.x + (dir === 'right' ? node.width / 2 + 14 : -node.width / 2 - 14);
+    const plusY = node.y;
+
+    const plusCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    plusCircle.setAttribute('cx', plusX);
+    plusCircle.setAttribute('cy', plusY);
+    plusCircle.setAttribute('r', 10);
+    plusCircle.setAttribute('fill', plusBtnFill);
+    plusCircle.setAttribute('stroke', colour);
+    plusCircle.setAttribute('stroke-width', '1.5');
+    plusG.appendChild(plusCircle);
+
+    const plusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    plusText.setAttribute('x', plusX);
+    plusText.setAttribute('y', plusY + 1);
+    plusText.setAttribute('text-anchor', 'middle');
+    plusText.setAttribute('dominant-baseline', 'central');
+    plusText.setAttribute('fill', colour);
+    plusText.setAttribute('font-size', '16px');
+    plusText.setAttribute('font-weight', '700');
+    plusText.textContent = '+';
+    plusG.appendChild(plusText);
+
+    plusG.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mindmapAddChild(node);
+    });
+
+    g.appendChild(plusG);
+
+    // Selection highlight
+    const selRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    selRect.setAttribute('x', node.x - node.width / 2 - 3);
+    selRect.setAttribute('y', node.y - node.height / 2 - 3);
+    selRect.setAttribute('width', node.width + 6);
+    selRect.setAttribute('height', node.height + 6);
+    selRect.setAttribute('rx', rx + 2);
+    selRect.setAttribute('ry', rx + 2);
+    selRect.setAttribute('fill', 'none');
+    selRect.setAttribute('stroke', selectionStroke);
+    selRect.setAttribute('stroke-width', '2');
+    selRect.setAttribute('opacity', '0');
+    selRect.classList.add('mm-selection');
+    g.insertBefore(selRect, g.firstChild);
+
+    // Tooltip
+    const titleEl = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    let tooltipText = node.name;
+    if (node._task) {
+        if (node._task.resources) tooltipText += `\nResources: ${node._task.resources}`;
+        if (node._task.start) tooltipText += `\nStart: ${node._task.start}`;
+        if (node._task.finish) tooltipText += `\nFinish: ${node._task.finish}`;
+        if (pct >= 0 && !isNaN(pct)) tooltipText += `\nProgress: ${pct}%`;
+    }
+    if (hasChildren) {
+        tooltipText += `\n${isCollapsed ? 'Click triangle to expand' : 'Click triangle to collapse'} (${node.children.length} ${node.children.length === 1 ? 'child' : 'children'})`;
+    }
+    titleEl.textContent = tooltipText;
+    g.appendChild(titleEl);
+
+    // Click to select
+    g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mindmapSelectNode(node);
+    });
+
+    mindmapGroup.appendChild(g);
+    mindmapNodeElements.push({ node, gEl: g });
+}
+
 // ── Collapse / expand ─────────────────────────────────────────────────
 
 function mindmapToggleCollapse(node) {
     if (node.children.length === 0) return;
+
+    // Snapshot positions before change
+    const oldPositions = mindmapSnapshotPositions();
+    const oldVisibleIds = mindmapVisibleNodeIds();
+    const isCollapsing = !mindmapCollapsedIds.has(node.id);
+
     if (mindmapCollapsedIds.has(node.id)) {
         mindmapCollapsedIds.delete(node.id);
     } else {
         mindmapCollapsedIds.add(node.id);
     }
+
     mindmapLayout(mindmapTree);
-    mindmapRender();
+
+    // Animate the transition
+    mindmapAnimatedRender(oldPositions, oldVisibleIds, node, isCollapsing);
+
     // Reselect the node if it was selected
     if (mindmapSelectedNode === node) {
-        mindmapSelectNode(node);
+        // Selection will be restored at the end of animation
+        mindmapSelectedNode = node;
     }
 }
 
 function mindmapExpandAll() {
-    mindmapCollapsedIds.clear();
     if (!mindmapTree) return;
+
+    const oldPositions = mindmapSnapshotPositions();
+    const oldVisibleIds = mindmapVisibleNodeIds();
+
+    mindmapCollapsedIds.clear();
     mindmapLayout(mindmapTree);
-    mindmapRender();
-    if (mindmapSelectedNode) {
-        mindmapSelectNode(mindmapSelectedNode);
-    }
+
+    mindmapAnimatedRender(oldPositions, oldVisibleIds, mindmapTree, false);
 }
 
 function mindmapCollapseAll() {
     if (!mindmapTree) return;
+
+    const oldPositions = mindmapSnapshotPositions();
+    const oldVisibleIds = mindmapVisibleNodeIds();
+
     // Collapse every node that has children
     function walk(node) {
         if (node.children.length > 0) {
@@ -795,11 +1371,10 @@ function mindmapCollapseAll() {
     walk(mindmapTree);
     // Don't collapse the root itself so it remains visible with its direct branches
     mindmapCollapsedIds.delete(mindmapTree.id);
+
     mindmapLayout(mindmapTree);
-    mindmapRender();
-    if (mindmapSelectedNode) {
-        mindmapSelectNode(mindmapSelectedNode);
-    }
+
+    mindmapAnimatedRender(oldPositions, oldVisibleIds, mindmapTree, true);
 }
 
 // ── Selection ─────────────────────────────────────────────────────────
