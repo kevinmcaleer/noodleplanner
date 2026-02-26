@@ -2391,22 +2391,17 @@ Build
             origSwitch(name);
             setTimeout(function(){
                 var cf = document.querySelector('.container-fluid');
-                var ct = document.querySelector('.content');
-                var target = document.getElementById(name+'-tab');
                 var msg = 'switchTab("'+name+'"):\n';
                 msg += 'viewport: '+window.innerWidth+'x'+window.innerHeight+'\n';
-                msg += '.container-fluid: h='+cf.offsetHeight+' computedH='+getComputedStyle(cf).height+'\n';
-                msg += '.content: h='+ct.offsetHeight+' computedH='+getComputedStyle(ct).height+'\n';
-                if(target){
-                    msg += '#'+target.id+': classes=['+target.className+'] display='+getComputedStyle(target).display+' h='+target.offsetHeight+'\n';
-                } else {
-                    msg += 'TARGET NOT FOUND: #'+name+'-tab\n';
-                }
-                msg += '--- ALL .content children ---\n';
-                Array.from(ct.children).forEach(function(el){
+                msg += '--- .container-fluid children (h='+cf.offsetHeight+') ---\n';
+                Array.from(cf.children).forEach(function(el){
                     var s = getComputedStyle(el);
-                    msg += el.id+' d='+s.display+' h='+el.offsetHeight+'\n';
+                    msg += (el.id||el.tagName)+'.'+el.className.split(' ')[0]+' d='+s.display+' h='+el.offsetHeight+' flex='+s.flex+'\n';
                 });
+                var before = getComputedStyle(cf, '::before');
+                var after = getComputedStyle(cf, '::after');
+                msg += '::before content=['+before.content+'] d='+before.display+'\n';
+                msg += '::after content=['+after.content+'] d='+after.display+'\n';
                 alert(msg);
             }, 200);
         };
