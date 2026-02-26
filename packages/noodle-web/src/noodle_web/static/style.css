@@ -10226,8 +10226,8 @@ tr:hover .task-inspect-btn {
     --mm-hint-text: #888;
     --mm-canvas-bg: #f5f5f5;
     --mm-node-fill: #ffffff;
-    --mm-node-text: #333;
-    --mm-root-text: #fff;
+    --mm-node-text: #fff;
+    --mm-root-text: #333;
     --mm-selection-stroke: #333;
     --mm-plus-btn-fill: #e0e0e0;
     --mm-plus-btn-hover-fill: #ccc;
