@@ -306,8 +306,11 @@ function mindmapVisibleChildren(node) {
 function mindmapMeasure(node) {
     // Add extra width for the disclosure triangle on nodes with children
     const triExtra = node.children.length > 0 ? (MM_COLLAPSE_TRI_SIZE * 2 + 6) : 0;
+    // Add extra width for completed tick icon (green circle with checkmark)
+    const pct = parseInt(node.percent, 10);
+    const tickExtra = (pct === 100) ? 18 : 0;
     const textW = mindmapMeasureText(node.name);
-    node.width = Math.min(MM_NODE_MAX_WIDTH + triExtra, Math.max(MM_NODE_MIN_WIDTH, textW + MM_NODE_PADDING_X * 2 + 8 + triExtra));
+    node.width = Math.min(MM_NODE_MAX_WIDTH + triExtra + tickExtra, Math.max(MM_NODE_MIN_WIDTH, textW + MM_NODE_PADDING_X * 2 + 8 + triExtra + tickExtra));
 
     const visChildren = mindmapVisibleChildren(node);
 
@@ -579,9 +582,13 @@ function mindmapDrawNodes(node, depth) {
     rect.setAttribute('stroke-width', isRoot ? 2.5 : 1.5);
     g.appendChild(rect);
 
-    // Text label (truncated if too long) — shift text slightly left to make room for triangle
+    // Text label (truncated if too long) — shift text slightly left to make room for triangle/tick
     const triExtra = hasChildren ? (MM_COLLAPSE_TRI_SIZE * 2 + 6) : 0;
-    const textCenterX = hasChildren ? node.x - triExtra / 2 : node.x;
+    const pct = parseInt(node.percent, 10);
+    const isComplete = pct === 100;
+    const tickExtra = isComplete ? 18 : 0;  // space for completed tick icon
+    const textOffsetX = (triExtra + tickExtra) / 2;
+    const textCenterX = (hasChildren || isComplete) ? node.x - textOffsetX : node.x;
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', textCenterX);
     text.setAttribute('y', node.y + 1);
@@ -593,9 +600,9 @@ function mindmapDrawNodes(node, depth) {
     text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
     text.classList.add('mm-label');
 
-    // Truncate text to fit node width (minus space for triangle)
+    // Truncate text to fit node width (minus space for triangle and tick)
     let displayName = node.name;
-    const maxTextW = node.width - MM_NODE_PADDING_X * 2 - triExtra;
+    const maxTextW = node.width - MM_NODE_PADDING_X * 2 - triExtra - tickExtra;
     if (mindmapMeasureText(displayName) > maxTextW) {
         while (displayName.length > 0 && mindmapMeasureText(displayName + '...') > maxTextW) {
             displayName = displayName.slice(0, -1);
@@ -604,6 +611,40 @@ function mindmapDrawNodes(node, depth) {
     }
     text.textContent = displayName;
     g.appendChild(text);
+
+    // Completed tick icon (green circle with white checkmark) — to the right of text, before triangle
+    if (isComplete && !isRoot) {
+        const tickG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        tickG.classList.add('mm-complete-tick');
+        // Position the tick between the text area and the disclosure triangle (or right edge)
+        const tickX = hasChildren
+            ? node.x + node.width / 2 - MM_NODE_PADDING_X - (MM_COLLAPSE_TRI_SIZE * 2 + 6) - 8
+            : node.x + node.width / 2 - MM_NODE_PADDING_X - 2;
+        const tickY = node.y;
+        const tickR = 6;  // radius of the tick circle
+
+        const tickCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        tickCircle.setAttribute('cx', tickX);
+        tickCircle.setAttribute('cy', tickY);
+        tickCircle.setAttribute('r', tickR);
+        tickCircle.setAttribute('fill', '#28a745');
+        tickCircle.setAttribute('stroke', 'none');
+        tickG.appendChild(tickCircle);
+
+        // White checkmark path scaled to fit inside the circle
+        const checkPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const cx = tickX;
+        const cy = tickY;
+        checkPath.setAttribute('d', `M ${cx - 3} ${cy} L ${cx - 1} ${cy + 2.5} L ${cx + 3.5} ${cy - 2.5}`);
+        checkPath.setAttribute('stroke', '#fff');
+        checkPath.setAttribute('stroke-width', '1.8');
+        checkPath.setAttribute('fill', 'none');
+        checkPath.setAttribute('stroke-linecap', 'round');
+        checkPath.setAttribute('stroke-linejoin', 'round');
+        tickG.appendChild(checkPath);
+
+        g.appendChild(tickG);
+    }
 
     // Disclosure triangle for nodes with children (to the right of the text)
     if (hasChildren) {
@@ -651,9 +692,8 @@ function mindmapDrawNodes(node, depth) {
         g.appendChild(triG);
     }
 
-    // Progress indicator (small bar at bottom of node)
-    const pct = parseInt(node.percent, 10);
-    if (!isNaN(pct) && pct >= 0) {
+    // Progress indicator (small bar at bottom of node) — skip for 100% complete tasks (they show tick instead)
+    if (!isNaN(pct) && pct >= 0 && pct < 100) {
         const barY = node.y + node.height / 2 - 4;
         const barW = (node.width - 8) * (pct / 100);
         const bgBar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -672,7 +712,7 @@ function mindmapDrawNodes(node, depth) {
             fgBar.setAttribute('width', barW);
             fgBar.setAttribute('height', 3);
             fgBar.setAttribute('rx', 1.5);
-            fgBar.setAttribute('fill', pct === 100 ? '#5CB85C' : colour);
+            fgBar.setAttribute('fill', colour);
             g.appendChild(fgBar);
         }
     }
