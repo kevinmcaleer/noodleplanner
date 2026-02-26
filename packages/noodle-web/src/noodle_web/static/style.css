@@ -10179,6 +10179,58 @@ tr:hover .task-inspect-btn {
 
 /* ── Mind Map View ──────────────────────────────────────────────────── */
 
+/* Theme custom properties — dark (default) */
+#mindmap-view {
+    --mm-toolbar-bg: #1e1e1e;
+    --mm-toolbar-border: #333;
+    --mm-btn-bg: #2a2a2a;
+    --mm-btn-border: #444;
+    --mm-btn-text: #ccc;
+    --mm-btn-hover-bg: #3a3a3a;
+    --mm-btn-hover-text: #fff;
+    --mm-zoom-label-text: #999;
+    --mm-hint-text: #666;
+    --mm-canvas-bg: #1a1a1a;
+    --mm-node-fill: #2a2a2a;
+    --mm-node-text: #e0e0e0;
+    --mm-root-text: #fff;
+    --mm-selection-stroke: #fff;
+    --mm-plus-btn-fill: #333;
+    --mm-plus-btn-hover-fill: #444;
+    --mm-progress-bg: #444;
+    --mm-inline-input-bg: #1e1e1e;
+    --mm-inline-input-text: #e0e0e0;
+    --mm-placeholder-text: #888;
+    --mm-placeholder-heading: #aaa;
+    --mm-link-opacity: 0.5;
+}
+
+/* Theme custom properties — light */
+#mindmap-view.mindmap-light {
+    --mm-toolbar-bg: #f0f0f0;
+    --mm-toolbar-border: #d0d0d0;
+    --mm-btn-bg: #e4e4e4;
+    --mm-btn-border: #c0c0c0;
+    --mm-btn-text: #444;
+    --mm-btn-hover-bg: #d4d4d4;
+    --mm-btn-hover-text: #111;
+    --mm-zoom-label-text: #666;
+    --mm-hint-text: #888;
+    --mm-canvas-bg: #f5f5f5;
+    --mm-node-fill: #ffffff;
+    --mm-node-text: #333;
+    --mm-root-text: #fff;
+    --mm-selection-stroke: #333;
+    --mm-plus-btn-fill: #e0e0e0;
+    --mm-plus-btn-hover-fill: #ccc;
+    --mm-progress-bg: #d0d0d0;
+    --mm-inline-input-bg: #fff;
+    --mm-inline-input-text: #333;
+    --mm-placeholder-text: #777;
+    --mm-placeholder-heading: #555;
+    --mm-link-opacity: 0.45;
+}
+
 .mindmap-content {
     display: flex;
     flex-direction: column;
@@ -10191,8 +10243,8 @@ tr:hover .task-inspect-btn {
     align-items: center;
     gap: 16px;
     padding: 8px 16px;
-    background: #1e1e1e;
-    border-bottom: 1px solid #333;
+    background: var(--mm-toolbar-bg);
+    border-bottom: 1px solid var(--mm-toolbar-border);
     flex-shrink: 0;
 }
 
@@ -10214,23 +10266,23 @@ tr:hover .task-inspect-btn {
     justify-content: center;
     width: 32px;
     height: 32px;
-    border: 1px solid #444;
+    border: 1px solid var(--mm-btn-border);
     border-radius: 6px;
-    background: #2a2a2a;
-    color: #ccc;
+    background: var(--mm-btn-bg);
+    color: var(--mm-btn-text);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
 }
 
 .mindmap-toolbar-btn:hover {
-    background: #3a3a3a;
+    background: var(--mm-btn-hover-bg);
     border-color: #108BB9;
-    color: #fff;
+    color: var(--mm-btn-hover-text);
 }
 
 .mindmap-zoom-label {
     font-size: 12px;
-    color: #999;
+    color: var(--mm-zoom-label-text);
     min-width: 40px;
     text-align: center;
     user-select: none;
@@ -10238,16 +10290,61 @@ tr:hover .task-inspect-btn {
 
 .mindmap-toolbar-hint {
     font-size: 11px;
-    color: #666;
+    color: var(--mm-hint-text);
     margin-left: auto;
     user-select: none;
+}
+
+/* Theme toggle button */
+.mindmap-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--mm-btn-border);
+    border-radius: 6px;
+    background: var(--mm-btn-bg);
+    color: var(--mm-btn-text);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.mindmap-theme-toggle:hover {
+    background: var(--mm-btn-hover-bg);
+    border-color: #108BB9;
+    color: var(--mm-btn-hover-text);
+}
+
+/* Show sun icon in dark mode, moon icon in light mode */
+.mindmap-theme-toggle .mm-icon-sun {
+    display: block;
+}
+
+.mindmap-theme-toggle .mm-icon-moon {
+    display: none;
+}
+
+#mindmap-view.mindmap-light .mindmap-theme-toggle .mm-icon-sun {
+    display: none;
+}
+
+#mindmap-view.mindmap-light .mindmap-theme-toggle .mm-icon-moon {
+    display: block;
+}
+
+.mindmap-toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--mm-btn-border);
+    margin: 0 4px;
 }
 
 .mindmap-canvas-wrapper {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: #1a1a1a;
+    background: var(--mm-canvas-bg);
     position: relative;
     outline: none;
     cursor: grab;
@@ -10292,7 +10389,7 @@ tr:hover .task-inspect-btn {
 }
 
 .mm-plus-btn:hover circle {
-    fill: #444 !important;
+    fill: var(--mm-plus-btn-hover-fill) !important;
 }
 
 /* Selection ring */
@@ -10349,14 +10446,14 @@ tr:hover .task-inspect-btn {
     align-items: center;
     justify-content: center;
     min-height: 300px;
-    color: #888;
+    color: var(--mm-placeholder-text);
     text-align: center;
     padding: 40px;
 }
 
 .mindmap-placeholder h3 {
     margin-bottom: 8px;
-    color: #aaa;
+    color: var(--mm-placeholder-heading);
 }
 
 /* Mind map view should fill the output panel without scrollbar or padding */

@@ -21,6 +21,7 @@ let mindmapDragStartY = 0;
 let mindmapDragStartPanX = 0;
 let mindmapDragStartPanY = 0;
 let mindmapCollapsedIds = new Set();  // set of node IDs that are collapsed
+let mindmapTheme = 'dark';       // 'dark' or 'light'
 
 // Layout constants
 const MM_H_GAP = 180;           // horizontal gap between levels
@@ -253,6 +254,57 @@ function mindmapLayoutBranch(parent, children, direction) {
     }
 }
 
+// ── Theme support ─────────────────────────────────────────────────────
+
+/**
+ * Read a CSS custom property value from the #mindmap-view element.
+ * Falls back to the provided default if the property is not set.
+ */
+function mindmapCSSVar(name, fallback) {
+    const el = document.getElementById('mindmap-view');
+    if (!el) return fallback || '';
+    const val = getComputedStyle(el).getPropertyValue(name).trim();
+    return val || fallback || '';
+}
+
+/**
+ * Toggle between light and dark themes for the mindmap.
+ */
+function mindmapToggleTheme() {
+    const view = document.getElementById('mindmap-view');
+    if (!view) return;
+
+    if (mindmapTheme === 'dark') {
+        mindmapTheme = 'light';
+        view.classList.add('mindmap-light');
+    } else {
+        mindmapTheme = 'dark';
+        view.classList.remove('mindmap-light');
+    }
+
+    localStorage.setItem('mindmapTheme', mindmapTheme);
+
+    // Re-render the SVG nodes to pick up new colours
+    if (mindmapTree) {
+        mindmapRender();
+    }
+}
+
+/**
+ * Restore the saved theme preference on load.
+ */
+function mindmapRestoreTheme() {
+    const saved = localStorage.getItem('mindmapTheme');
+    if (saved === 'light' || saved === 'dark') {
+        mindmapTheme = saved;
+    }
+
+    const view = document.getElementById('mindmap-view');
+    if (view && mindmapTheme === 'light') {
+        view.classList.add('mindmap-light');
+    }
+}
+
 // ── SVG rendering ─────────────────────────────────────────────────────
 
 function mindmapColour(node, depth) {
@@ -286,6 +338,8 @@ function mindmapRender() {
  * Recursively draw curved links between parent and visible children.
  */
 function mindmapDrawLinks(node, depth) {
+    const linkOpacity = mindmapCSSVar('--mm-link-opacity', '0.5');
+
     const visChildren = mindmapVisibleChildren(node);
     for (const child of visChildren) {
         const colour = mindmapColour(child, depth + 1);
@@ -308,7 +362,7 @@ function mindmapDrawLinks(node, depth) {
         link.setAttribute('fill', 'none');
         link.setAttribute('stroke', colour);
         link.setAttribute('stroke-width', Math.max(1.5, 3 - depth * 0.5));
-        link.setAttribute('opacity', '0.5');
+        link.setAttribute('opacity', linkOpacity);
         link.classList.add('mm-link');
 
         mindmapGroup.appendChild(link);
@@ -327,6 +381,14 @@ function mindmapDrawNodes(node, depth) {
     const isCollapsed = mindmapCollapsedIds.has(node.id);
     const dir = node._direction || 'right';
 
+    // Read theme-aware colours from CSS custom properties
+    const nodeFill = mindmapCSSVar('--mm-node-fill', '#2a2a2a');
+    const nodeText = mindmapCSSVar('--mm-node-text', '#e0e0e0');
+    const rootText = mindmapCSSVar('--mm-root-text', '#fff');
+    const selectionStroke = mindmapCSSVar('--mm-selection-stroke', '#fff');
+    const plusBtnFill = mindmapCSSVar('--mm-plus-btn-fill', '#333');
+    const progressBg = mindmapCSSVar('--mm-progress-bg', '#444');
+
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.classList.add('mm-node');
     g.dataset.nodeId = node.id;
@@ -340,7 +402,7 @@ function mindmapDrawNodes(node, depth) {
     rect.setAttribute('height', node.height);
     rect.setAttribute('rx', rx);
     rect.setAttribute('ry', rx);
-    rect.setAttribute('fill', isRoot ? colour : '#2a2a2a');
+    rect.setAttribute('fill', isRoot ? colour : nodeFill);
     rect.setAttribute('stroke', colour);
     rect.setAttribute('stroke-width', isRoot ? 2.5 : 1.5);
     g.appendChild(rect);
@@ -353,7 +415,7 @@ function mindmapDrawNodes(node, depth) {
     text.setAttribute('y', node.y + 1);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'central');
-    text.setAttribute('fill', isRoot ? '#fff' : '#e0e0e0');
+    text.setAttribute('fill', isRoot ? rootText : nodeText);
     text.setAttribute('font-size', isRoot ? '14px' : '13px');
     text.setAttribute('font-weight', isRoot ? '600' : (node.is_summary ? '600' : '400'));
     text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
@@ -428,7 +490,7 @@ function mindmapDrawNodes(node, depth) {
         bgBar.setAttribute('width', node.width - 8);
         bgBar.setAttribute('height', 3);
         bgBar.setAttribute('rx', 1.5);
-        bgBar.setAttribute('fill', '#444');
+        bgBar.setAttribute('fill', progressBg);
         g.appendChild(bgBar);
 
         if (barW > 0) {
@@ -453,7 +515,7 @@ function mindmapDrawNodes(node, depth) {
     plusCircle.setAttribute('cx', plusX);
     plusCircle.setAttribute('cy', plusY);
     plusCircle.setAttribute('r', 10);
-    plusCircle.setAttribute('fill', '#333');
+    plusCircle.setAttribute('fill', plusBtnFill);
     plusCircle.setAttribute('stroke', colour);
     plusCircle.setAttribute('stroke-width', '1.5');
     plusG.appendChild(plusCircle);
@@ -485,7 +547,7 @@ function mindmapDrawNodes(node, depth) {
     selRect.setAttribute('rx', rx + 2);
     selRect.setAttribute('ry', rx + 2);
     selRect.setAttribute('fill', 'none');
-    selRect.setAttribute('stroke', '#fff');
+    selRect.setAttribute('stroke', selectionStroke);
     selRect.setAttribute('stroke-width', '2');
     selRect.setAttribute('opacity', '0');
     selRect.classList.add('mm-selection');
@@ -622,13 +684,16 @@ function mindmapStartEditing(node) {
     fo.setAttribute('height', node.height - 4);
     fo.classList.add('mm-edit-fo');
 
+    const inputBg = mindmapCSSVar('--mm-inline-input-bg', '#1e1e1e');
+    const inputText = mindmapCSSVar('--mm-inline-input-text', '#e0e0e0');
+
     const input = document.createElement('input');
     input.type = 'text';
     input.value = node.name;
     input.className = 'mm-inline-input';
     input.style.cssText = `
         width: 100%; height: 100%; border: none; outline: none;
-        background: #1e1e1e; color: #e0e0e0; font-size: 13px;
+        background: ${inputBg}; color: ${inputText}; font-size: 13px;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         text-align: center; padding: 0 4px; box-sizing: border-box;
         border-radius: 4px;
@@ -1320,6 +1385,9 @@ function mindmapHandleTouchEnd() {
 function initMindmap() {
     const container = document.getElementById('mindmapContainer');
     if (!container) return;
+
+    // Restore theme preference from localStorage on first init
+    mindmapRestoreTheme();
 
     // Create SVG if not already present
     mindmapSvg = container.querySelector('svg.mm-svg');
