@@ -12660,7 +12660,7 @@ function updateCalendar(tasks) {
     const content = document.querySelector('#calendar-view .calendar-content');
     if (placeholder && content) {
         placeholder.style.display = 'none';
-        content.style.display = 'block';
+        content.style.display = 'flex';
     }
 
     renderCalendarMonth(calendarCurrentYear, calendarCurrentMonth);
@@ -12754,6 +12754,10 @@ function buildCalendarGrid(year, month) {
         const cell = createCalendarDayCell(year, month + 1, d, true);
         grid.appendChild(cell);
     }
+
+    // Set grid rows: auto for header row, 1fr for each week row to fill height
+    const weekRows = Math.ceil(cellsRendered / 7);
+    grid.style.gridTemplateRows = `auto repeat(${weekRows}, 1fr)`;
 
     return grid;
 }

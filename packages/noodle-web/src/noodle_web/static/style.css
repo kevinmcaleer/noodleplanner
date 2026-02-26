@@ -7590,9 +7590,15 @@ tr:hover .task-inspect-btn {
    Calendar View
    ============================================================ */
 
+#calendar-view {
+    min-height: 0;
+    overflow: hidden;
+}
+
 .calendar-content {
     padding: 16px;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -7641,6 +7647,7 @@ tr:hover .task-inspect-btn {
 
 .calendar-grid-wrapper {
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
@@ -7654,6 +7661,7 @@ tr:hover .task-inspect-btn {
     border-radius: 6px;
     overflow: hidden;
     position: relative;
+    height: 100%;
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
