@@ -20,6 +20,8 @@ let mindmapDragStartX = 0;
 let mindmapDragStartY = 0;
 let mindmapDragStartPanX = 0;
 let mindmapDragStartPanY = 0;
+let mindmapBranchColours = {};   // { branchNodeName: '#HEX' } persisted in localStorage
+let mindmapThemeColours = {};    // Theme colours from front matter (shared with kanban)
 
 // Layout constants
 const MM_H_GAP = 180;           // horizontal gap between levels
@@ -31,12 +33,180 @@ const MM_NODE_MAX_WIDTH = 220;
 const MM_ROOT_RADIUS = 0;       // extra space around root
 const MM_ANIM_DURATION = 400;   // ms for elastic animation
 
-// Colours
+// Default subtle branch colours — each top-level branch gets one of these
+const MM_BRANCH_COLOURS = [
+    '#4A90D9', '#D97B4A', '#5CB85C', '#D95B5B',
+    '#9B6BBF', '#3DBFA8', '#D9A84A', '#5B8FD9',
+    '#4ABF7F', '#D9534F', '#D9B84A', '#8E5BBF'
+];
+
+// Lighter shades for child nodes (derived from branch colour at render time)
+// Legacy fallback — still used if nothing else applies
 const MM_COLOURS = [
     '#108BB9', '#E8833A', '#5CB85C', '#D9534F',
     '#9B59B6', '#1ABC9C', '#E67E22', '#3498DB',
     '#2ECC71', '#E74C3C', '#F39C12', '#8E44AD'
 ];
+
+// ── Branch colour helpers ────────────────────────────────────────────
+
+/**
+ * Get the localStorage key for branch colours (scoped to current project).
+ */
+function mindmapBranchColourKey() {
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    return 'mindmap_branch_colours_' + projectId;
+}
+
+/**
+ * Load user-chosen branch colours from localStorage.
+ */
+function mindmapLoadBranchColours() {
+    try {
+        const raw = localStorage.getItem(mindmapBranchColourKey());
+        mindmapBranchColours = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+        mindmapBranchColours = {};
+    }
+}
+
+/**
+ * Save user-chosen branch colours to localStorage.
+ */
+function mindmapSaveBranchColours() {
+    try {
+        localStorage.setItem(mindmapBranchColourKey(), JSON.stringify(mindmapBranchColours));
+    } catch (e) {
+        // Silently fail if localStorage is full
+    }
+}
+
+/**
+ * Parse theme colours from front matter (same format as kanban uses).
+ * Format: Theme:\n- Phase Name: #HEX\n
+ */
+function mindmapParseThemeColours() {
+    mindmapThemeColours = {};
+    if (typeof extractFrontMatterSection !== 'function') return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const section = extractFrontMatterSection(editor.value, 'Theme');
+    if (!section) return;
+
+    const lines = section.split('\n');
+    for (const line of lines) {
+        const match = line.match(/^-\s+(.+?):\s*(#[0-9A-Fa-f]{6})\s*$/);
+        if (match) {
+            mindmapThemeColours[match[1].trim()] = match[2].toUpperCase();
+        }
+    }
+}
+
+/**
+ * Given a hex colour, produce a lighter or darker shade.
+ * factor < 1 = darker, factor > 1 = lighter (blended towards white)
+ */
+function mindmapShadeColour(hex, factor) {
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+
+    if (factor > 1) {
+        // Blend towards white
+        const blend = factor - 1; // 0 to ~1
+        r = Math.round(r + (255 - r) * Math.min(blend, 1));
+        g = Math.round(g + (255 - g) * Math.min(blend, 1));
+        b = Math.round(b + (255 - b) * Math.min(blend, 1));
+    } else {
+        r = Math.round(r * factor);
+        g = Math.round(g * factor);
+        b = Math.round(b * factor);
+    }
+
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+
+    return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Determine the colour for a node based on its branch.
+ * Priority:
+ *   1. Theme colour from front matter (matches kanban board colours)
+ *   2. User-selected branch colour (from colour picker, stored in localStorage)
+ *   3. Default branch colour from MM_BRANCH_COLOURS palette
+ * Child nodes get a progressively lighter shade of their branch colour.
+ */
+function mindmapGetBranchColour(node, depth) {
+    if (!mindmapTree) return MM_COLOURS[0];
+
+    // Root node gets a neutral colour
+    if (node._isRoot) return '#108BB9';
+
+    // Find the top-level branch ancestor of this node
+    const branchNode = mindmapFindBranchAncestor(node);
+    if (!branchNode) return MM_COLOURS[depth % MM_COLOURS.length];
+
+    const branchName = branchNode.name;
+    const branchIndex = mindmapTree.children.indexOf(branchNode);
+
+    // Determine base colour for this branch (priority order)
+    let baseColour = null;
+
+    // 1. Theme colour from front matter (kanban board colours)
+    if (mindmapThemeColours[branchName]) {
+        baseColour = mindmapThemeColours[branchName];
+    }
+
+    // 2. User-selected branch colour (localStorage)
+    if (!baseColour && mindmapBranchColours[branchName]) {
+        baseColour = mindmapBranchColours[branchName];
+    }
+
+    // 3. Default palette colour
+    if (!baseColour) {
+        baseColour = MM_BRANCH_COLOURS[branchIndex % MM_BRANCH_COLOURS.length];
+    }
+
+    // For the branch node itself, return the base colour
+    if (node === branchNode) return baseColour;
+
+    // For child nodes, lighten progressively based on depth within the branch
+    // depth 1 = branch node, depth 2 = first child, etc.
+    const branchDepth = depth - 1; // depth relative to branch root
+    const shadeFactor = 1 + branchDepth * 0.25; // lighten by 25% per level
+    return mindmapShadeColour(baseColour, Math.min(shadeFactor, 1.75));
+}
+
+/**
+ * Find the top-level branch ancestor of a node (direct child of root).
+ */
+function mindmapFindBranchAncestor(node) {
+    if (!mindmapTree || !mindmapTree.children) return null;
+
+    // If this node is a direct child of root, it IS the branch
+    if (mindmapTree.children.includes(node)) return node;
+
+    // Walk up the tree to find the branch ancestor
+    for (const branch of mindmapTree.children) {
+        if (mindmapIsDescendant(branch, node)) return branch;
+    }
+    return null;
+}
+
+/**
+ * Check if target is a descendant of ancestor.
+ */
+function mindmapIsDescendant(ancestor, target) {
+    for (const child of ancestor.children) {
+        if (child === target) return true;
+        if (mindmapIsDescendant(child, target)) return true;
+    }
+    return false;
+}
 
 // ── Tree building ─────────────────────────────────────────────────────
 
@@ -194,7 +364,7 @@ function mindmapLayoutBranch(parent, children, direction) {
 // ── SVG rendering ─────────────────────────────────────────────────────
 
 function mindmapColour(node, depth) {
-    return MM_COLOURS[depth % MM_COLOURS.length];
+    return mindmapGetBranchColour(node, depth);
 }
 
 /**
@@ -274,7 +444,16 @@ function mindmapDrawNodes(node, depth) {
     rect.setAttribute('height', node.height);
     rect.setAttribute('rx', rx);
     rect.setAttribute('ry', rx);
-    rect.setAttribute('fill', isRoot ? colour : '#2a2a2a');
+    // Determine node fill: root gets full colour; branch nodes get a subtle tint;
+    // deeper children get progressively lighter tints of the branch colour
+    let nodeFill;
+    if (isRoot) {
+        nodeFill = colour;
+    } else {
+        // Create a subtle background tint: darken the colour and mix with dark bg
+        nodeFill = mindmapShadeColour(colour, 0.3);
+    }
+    rect.setAttribute('fill', nodeFill);
     rect.setAttribute('stroke', colour);
     rect.setAttribute('stroke-width', isRoot ? 2.5 : 1.5);
     g.appendChild(rect);
@@ -426,6 +605,9 @@ function mindmapSelectNode(node) {
         if (sel) sel.setAttribute('opacity', '1');
     }
 
+    // Update colour picker visibility in the toolbar
+    mindmapUpdateColourPicker(node);
+
     // Focus the container so keyboard events work
     const container = document.getElementById('mindmapContainer');
     if (container) container.focus();
@@ -440,6 +622,7 @@ function mindmapDeselectAll() {
         }
     }
     mindmapSelectedNode = null;
+    mindmapUpdateColourPicker(null);
 }
 
 // ── Node editing (inline) ─────────────────────────────────────────────
@@ -1191,6 +1374,10 @@ function updateMindmap(tasks, projectName) {
 
     mindmapTasks = tasks || [];
 
+    // Load colours before building the tree
+    mindmapLoadBranchColours();
+    mindmapParseThemeColours();
+
     // Build the tree
     const newTree = mindmapBuildTree(mindmapTasks, projectName);
     if (!newTree) {
@@ -1235,6 +1422,242 @@ function updateMindmap(tasks, projectName) {
     if (mindmapPanX === 0 && mindmapPanY === 0) {
         mindmapZoomFit();
     }
+}
+
+// ── Colour picker (toolbar) ───────────────────────────────────────────
+
+/**
+ * Update the colour picker UI in the toolbar based on the selected node.
+ * The picker appears only when a node is selected, allowing the user to
+ * set the branch colour for the selected node's top-level branch.
+ */
+function mindmapUpdateColourPicker(node) {
+    const container = document.getElementById('mindmapColourPickerGroup');
+    if (!container) return;
+
+    if (!node || node._isRoot) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'flex';
+
+    // Find the branch ancestor for this node
+    const branchNode = mindmapFindBranchAncestor(node);
+    if (!branchNode) {
+        container.style.display = 'none';
+        return;
+    }
+
+    // Update the colour swatch to show current branch colour
+    const swatch = document.getElementById('mindmapColourSwatch');
+    if (swatch) {
+        const branchName = branchNode.name;
+        const currentColour = mindmapThemeColours[branchName]
+            || mindmapBranchColours[branchName]
+            || MM_BRANCH_COLOURS[mindmapTree.children.indexOf(branchNode) % MM_BRANCH_COLOURS.length];
+        swatch.style.backgroundColor = currentColour;
+        swatch.dataset.branchName = branchName;
+    }
+
+    // Update the label
+    const label = document.getElementById('mindmapColourLabel');
+    if (label) {
+        label.textContent = branchNode.name;
+        // Truncate long names
+        if (label.textContent.length > 20) {
+            label.textContent = label.textContent.slice(0, 18) + '...';
+        }
+    }
+}
+
+/**
+ * Show the colour picker popup anchored to the swatch button.
+ */
+function mindmapShowColourPicker() {
+    mindmapHideColourPicker();
+
+    const swatch = document.getElementById('mindmapColourSwatch');
+    if (!swatch) return;
+
+    const branchName = swatch.dataset.branchName;
+    if (!branchName) return;
+
+    const picker = document.createElement('div');
+    picker.className = 'mm-colour-picker';
+    picker.id = 'mmColourPicker';
+
+    // Pastel colours section
+    const pastelLabel = document.createElement('div');
+    pastelLabel.className = 'mm-colour-picker-label';
+    pastelLabel.textContent = 'Pastel';
+    picker.appendChild(pastelLabel);
+
+    const pastelGrid = document.createElement('div');
+    pastelGrid.className = 'mm-colour-grid';
+    if (typeof CF_PASTEL_COLOURS !== 'undefined') {
+        CF_PASTEL_COLOURS.forEach(colour => {
+            pastelGrid.appendChild(mindmapCreateColourSwatch(colour, branchName));
+        });
+    }
+    picker.appendChild(pastelGrid);
+
+    // Dark colours section
+    const darkLabel = document.createElement('div');
+    darkLabel.className = 'mm-colour-picker-label';
+    darkLabel.textContent = 'Dark';
+    picker.appendChild(darkLabel);
+
+    const darkGrid = document.createElement('div');
+    darkGrid.className = 'mm-colour-grid';
+    if (typeof CF_DARK_COLOURS !== 'undefined') {
+        CF_DARK_COLOURS.forEach(colour => {
+            darkGrid.appendChild(mindmapCreateColourSwatch(colour, branchName));
+        });
+    }
+    picker.appendChild(darkGrid);
+
+    // Branch default colours section
+    const branchLabel = document.createElement('div');
+    branchLabel.className = 'mm-colour-picker-label';
+    branchLabel.textContent = 'Branch Defaults';
+    picker.appendChild(branchLabel);
+
+    const branchGrid = document.createElement('div');
+    branchGrid.className = 'mm-colour-grid';
+    MM_BRANCH_COLOURS.forEach(colour => {
+        branchGrid.appendChild(mindmapCreateColourSwatch(colour, branchName));
+    });
+    picker.appendChild(branchGrid);
+
+    // Clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'mm-colour-clear-btn';
+    clearBtn.textContent = 'Reset to default';
+    clearBtn.addEventListener('click', () => {
+        mindmapSetBranchColour(branchName, null);
+        mindmapHideColourPicker();
+    });
+    picker.appendChild(clearBtn);
+
+    // Position relative to the swatch button
+    const rect = swatch.getBoundingClientRect();
+    picker.style.top = (rect.bottom + 4) + 'px';
+    picker.style.left = rect.left + 'px';
+
+    document.body.appendChild(picker);
+
+    // Close on outside click
+    const closeHandler = (e) => {
+        if (!picker.contains(e.target) && e.target !== swatch) {
+            mindmapHideColourPicker();
+            document.removeEventListener('mousedown', closeHandler);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', closeHandler), 0);
+}
+
+/**
+ * Create a single colour swatch for the picker.
+ */
+function mindmapCreateColourSwatch(colour, branchName) {
+    const el = document.createElement('div');
+    el.className = 'mm-colour-swatch-option';
+    el.style.backgroundColor = colour;
+    el.title = colour;
+
+    // Check if this is the currently selected colour
+    const current = mindmapThemeColours[branchName]
+        || mindmapBranchColours[branchName];
+    if (current && current.toUpperCase() === colour.toUpperCase()) {
+        el.classList.add('selected');
+    }
+
+    el.addEventListener('click', () => {
+        mindmapSetBranchColour(branchName, colour);
+        mindmapHideColourPicker();
+    });
+
+    return el;
+}
+
+/**
+ * Set a branch colour and re-render.
+ */
+function mindmapSetBranchColour(branchName, colour) {
+    if (colour) {
+        mindmapBranchColours[branchName] = colour.toUpperCase();
+    } else {
+        delete mindmapBranchColours[branchName];
+    }
+
+    // Save to localStorage
+    mindmapSaveBranchColours();
+
+    // Also save to front matter Theme section (shared with kanban)
+    mindmapSaveThemeColour(branchName, colour);
+
+    // Re-render the mindmap
+    mindmapRender();
+
+    // Update the swatch colour
+    if (mindmapSelectedNode) {
+        mindmapUpdateColourPicker(mindmapSelectedNode);
+    }
+}
+
+/**
+ * Save a branch colour to the front matter Theme section,
+ * so it is shared with the kanban board view.
+ */
+function mindmapSaveThemeColour(branchName, colour) {
+    if (colour) {
+        mindmapThemeColours[branchName] = colour.toUpperCase();
+    } else {
+        delete mindmapThemeColours[branchName];
+    }
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    let content = editor.value;
+
+    // Build theme section
+    let themeSection = '';
+    const entries = Object.entries(mindmapThemeColours);
+    if (entries.length > 0) {
+        themeSection = 'Theme:\n';
+        for (const [name, col] of entries) {
+            themeSection += `- ${name}: ${col}\n`;
+        }
+    }
+
+    // Replace or add theme section in front matter
+    if (typeof removeFrontMatterSection === 'function') {
+        const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+        if (frontMatterMatch) {
+            const fmContent = removeFrontMatterSection(frontMatterMatch[1], 'Theme');
+            let newContent = fmContent.trimEnd();
+            if (themeSection) {
+                newContent += '\n' + themeSection;
+            }
+            const newFrontMatter = '---\n' + newContent.trim() + '\n---';
+            content = content.replace(/^---\s*\n[\s\S]*?\n---/, newFrontMatter);
+        } else if (themeSection) {
+            content = '---\n' + themeSection + '---\n\n' + content;
+        }
+
+        editor.value = content;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/**
+ * Hide the colour picker popup.
+ */
+function mindmapHideColourPicker() {
+    const existing = document.getElementById('mmColourPicker');
+    if (existing) existing.remove();
 }
 
 // ── Double-click to edit ──────────────────────────────────────────────
