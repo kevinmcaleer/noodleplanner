@@ -2390,16 +2390,22 @@ Build
         window.switchTab = function(name) {
             origSwitch(name);
             setTimeout(function(){
+                var cf = document.querySelector('.container-fluid');
                 var ct = document.querySelector('.content');
+                var target = document.getElementById(name+'-tab');
                 var msg = 'switchTab("'+name+'"):\n';
-                msg += 'innerHeight='+window.innerHeight+'\n';
-                msg += '.content h='+ct.offsetHeight+'\n';
-                msg += '--- .content children ---\n';
+                msg += 'viewport: '+window.innerWidth+'x'+window.innerHeight+'\n';
+                msg += '.container-fluid: h='+cf.offsetHeight+' computedH='+getComputedStyle(cf).height+'\n';
+                msg += '.content: h='+ct.offsetHeight+' computedH='+getComputedStyle(ct).height+'\n';
+                if(target){
+                    msg += '#'+target.id+': classes=['+target.className+'] display='+getComputedStyle(target).display+' h='+target.offsetHeight+'\n';
+                } else {
+                    msg += 'TARGET NOT FOUND: #'+name+'-tab\n';
+                }
+                msg += '--- ALL .content children ---\n';
                 Array.from(ct.children).forEach(function(el){
                     var s = getComputedStyle(el);
-                    if(s.display !== 'none'){
-                        msg += el.tagName+'#'+el.id+'.'+el.className.split(' ')[0]+' h='+el.offsetHeight+' flex='+s.flex+'\n';
-                    }
+                    msg += el.id+' d='+s.display+' h='+el.offsetHeight+'\n';
                 });
                 alert(msg);
             }, 200);
