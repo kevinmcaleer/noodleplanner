@@ -10202,6 +10202,12 @@ tr:hover .task-inspect-btn {
     gap: 4px;
 }
 
+.mindmap-toolbar-group + .mindmap-toolbar-group {
+    margin-left: 4px;
+    padding-left: 8px;
+    border-left: 1px solid #444;
+}
+
 .mindmap-toolbar-btn {
     display: inline-flex;
     align-items: center;
@@ -10309,6 +10315,26 @@ tr:hover .task-inspect-btn {
 .mm-label {
     pointer-events: none;
     user-select: none;
+}
+
+/* Disclosure triangle for collapse/expand */
+.mm-collapse-btn {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+
+.mm-node:hover .mm-collapse-btn,
+.mm-collapse-btn:hover {
+    opacity: 1;
+}
+
+.mm-collapse-btn path:first-of-type {
+    transition: fill 0.15s;
+}
+
+.mm-collapse-btn:hover path:first-of-type {
+    fill: #bbb !important;
 }
 
 /* Elastic animation on the root group */

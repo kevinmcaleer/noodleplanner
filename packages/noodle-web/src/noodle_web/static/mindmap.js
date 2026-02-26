@@ -20,6 +20,7 @@ let mindmapDragStartX = 0;
 let mindmapDragStartY = 0;
 let mindmapDragStartPanX = 0;
 let mindmapDragStartPanY = 0;
+let mindmapCollapsedIds = new Set();  // set of node IDs that are collapsed
 
 // Layout constants
 const MM_H_GAP = 180;           // horizontal gap between levels
@@ -30,6 +31,7 @@ const MM_NODE_MIN_WIDTH = 80;
 const MM_NODE_MAX_WIDTH = 220;
 const MM_ROOT_RADIUS = 0;       // extra space around root
 const MM_ANIM_DURATION = 400;   // ms for elastic animation
+const MM_COLLAPSE_TRI_SIZE = 6; // disclosure triangle size
 
 // Colours
 const MM_COLOURS = [
@@ -118,30 +120,49 @@ function mindmapMeasureText(text) {
 }
 
 /**
+ * Get the visible children of a node (respects collapsed state).
+ */
+function mindmapVisibleChildren(node) {
+    if (mindmapCollapsedIds.has(node.id) && node.children.length > 0) {
+        return [];
+    }
+    return node.children;
+}
+
+/**
  * Recursively calculate the width and subtreeHeight for every node.
  */
 function mindmapMeasure(node) {
+    // Add extra width for the disclosure triangle on nodes with children
+    const triExtra = node.children.length > 0 ? (MM_COLLAPSE_TRI_SIZE * 2 + 6) : 0;
     const textW = mindmapMeasureText(node.name);
-    node.width = Math.min(MM_NODE_MAX_WIDTH, Math.max(MM_NODE_MIN_WIDTH, textW + MM_NODE_PADDING_X * 2 + 8));
+    node.width = Math.min(MM_NODE_MAX_WIDTH + triExtra, Math.max(MM_NODE_MIN_WIDTH, textW + MM_NODE_PADDING_X * 2 + 8 + triExtra));
 
-    if (node.children.length === 0) {
+    const visChildren = mindmapVisibleChildren(node);
+
+    if (visChildren.length === 0) {
         node.subtreeHeight = node.height;
         return;
     }
 
     let totalChildrenHeight = 0;
-    for (const child of node.children) {
+    for (const child of visChildren) {
         mindmapMeasure(child);
         totalChildrenHeight += child.subtreeHeight;
     }
-    totalChildrenHeight += (node.children.length - 1) * MM_V_GAP;
+    totalChildrenHeight += (visChildren.length - 1) * MM_V_GAP;
     node.subtreeHeight = Math.max(node.height, totalChildrenHeight);
 }
 
 /**
- * Layout the tree in a left-to-right fashion starting from a centre point.
- * The root is placed at (0,0). Children fan out to the right by default.
- * For an even split, the first half of root children go left, second half right.
+ * Layout the tree with clockwise rotation from the centre.
+ * The first item at the top of the plan appears at 3 o'clock (right),
+ * then subsequent items fan clockwise: bottom-right, bottom, bottom-left,
+ * left, top-left, top, top-right.
+ *
+ * Children are placed radially around the root to achieve the clockwise effect,
+ * but then each sub-branch uses the traditional left-to-right or right-to-left
+ * tree layout depending on which side of the root the branch falls on.
  */
 function mindmapLayout(root) {
     mindmapMeasure(root);
@@ -149,17 +170,57 @@ function mindmapLayout(root) {
     root.x = 0;
     root.y = 0;
 
-    if (root.children.length === 0) return;
+    const visChildren = mindmapVisibleChildren(root);
+    if (visChildren.length === 0) return;
 
-    // Split root's children: first half to the LEFT, second half to the RIGHT
-    const mid = Math.ceil(root.children.length / 2);
-    const leftChildren = root.children.slice(0, mid);
-    const rightChildren = root.children.slice(mid);
+    const n = visChildren.length;
 
-    // Layout right side
+    // Assign each child to an angular position clockwise starting from the right (0 deg).
+    // First child is at the top of the plan -> right side (angle 0),
+    // then clockwise means increasing angle: right -> bottom -> left -> top.
+    // We distribute children evenly over 360 degrees.
+    const rightChildren = [];
+    const leftChildren = [];
+
+    for (let i = 0; i < n; i++) {
+        // Angle in radians, starting at -PI/2 (top) but we want to start at 0 (right)
+        // and go clockwise. In SVG, positive Y is down, so clockwise from right means:
+        // angle 0 = right, PI/2 = down, PI = left, 3PI/2 = up
+        const angle = (2 * Math.PI * i) / n;
+        const child = visChildren[i];
+        child._angle = angle;
+
+        // Classify children as left or right based on their angular position.
+        // Right side: angle <= PI/2 (right + bottom-right) or angle > 3PI/2 (top-right)
+        // Left side: PI/2 < angle <= 3PI/2
+        if (angle <= Math.PI / 2 || angle > 3 * Math.PI / 2) {
+            child._direction = 'right';
+            rightChildren.push(child);
+        } else {
+            child._direction = 'left';
+            leftChildren.push(child);
+        }
+    }
+
+    // Sort right children by angle (ascending) so they appear top-to-bottom on the right side
+    rightChildren.sort((a, b) => {
+        // Normalize angles so that angles > 3PI/2 (near 2PI) come before angles near 0
+        // This maps: 3PI/2..2PI -> -PI/2..0, and 0..PI/2 -> 0..PI/2
+        const normA = a._angle > 3 * Math.PI / 2 ? a._angle - 2 * Math.PI : a._angle;
+        const normB = b._angle > 3 * Math.PI / 2 ? b._angle - 2 * Math.PI : b._angle;
+        return normA - normB;
+    });
+
+    // Sort left children by angle (ascending) so they appear top-to-bottom on the left side
+    // Left children go from PI/2 (top) to 3PI/2 (bottom) — but in the left layout,
+    // we want them visually top-to-bottom, which means reverse order of angle
+    // (PI = horizontal left, items with angle closer to PI/2 are above, closer to 3PI/2 are below)
+    leftChildren.sort((a, b) => a._angle - b._angle);
+
+    // Layout right side children as a vertical branch to the right
     mindmapLayoutBranch(root, rightChildren, 'right');
 
-    // Layout left side
+    // Layout left side children as a vertical branch to the left
     mindmapLayoutBranch(root, leftChildren, 'left');
 }
 
@@ -184,9 +245,10 @@ function mindmapLayoutBranch(parent, children, direction) {
         child._direction = direction;
         currentY += child.subtreeHeight + MM_V_GAP;
 
-        // Recursively layout grandchildren (always same direction)
-        if (child.children.length > 0) {
-            mindmapLayoutBranch(child, child.children, direction);
+        // Recursively layout visible grandchildren (always same direction)
+        const visGrandchildren = mindmapVisibleChildren(child);
+        if (visGrandchildren.length > 0) {
+            mindmapLayoutBranch(child, visGrandchildren, direction);
         }
     }
 }
@@ -221,10 +283,11 @@ function mindmapRender() {
 }
 
 /**
- * Recursively draw curved links between parent and children.
+ * Recursively draw curved links between parent and visible children.
  */
 function mindmapDrawLinks(node, depth) {
-    for (const child of node.children) {
+    const visChildren = mindmapVisibleChildren(node);
+    for (const child of visChildren) {
         const colour = mindmapColour(child, depth + 1);
         const link = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
@@ -260,6 +323,9 @@ function mindmapDrawLinks(node, depth) {
 function mindmapDrawNodes(node, depth) {
     const colour = mindmapColour(node, depth);
     const isRoot = !!node._isRoot;
+    const hasChildren = node.children.length > 0;
+    const isCollapsed = mindmapCollapsedIds.has(node.id);
+    const dir = node._direction || 'right';
 
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.classList.add('mm-node');
@@ -279,9 +345,11 @@ function mindmapDrawNodes(node, depth) {
     rect.setAttribute('stroke-width', isRoot ? 2.5 : 1.5);
     g.appendChild(rect);
 
-    // Text label (truncated if too long)
+    // Text label (truncated if too long) — shift text slightly left to make room for triangle
+    const triExtra = hasChildren ? (MM_COLLAPSE_TRI_SIZE * 2 + 6) : 0;
+    const textCenterX = hasChildren ? node.x - triExtra / 2 : node.x;
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', node.x);
+    text.setAttribute('x', textCenterX);
     text.setAttribute('y', node.y + 1);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'central');
@@ -291,9 +359,9 @@ function mindmapDrawNodes(node, depth) {
     text.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
     text.classList.add('mm-label');
 
-    // Truncate text to fit node width
+    // Truncate text to fit node width (minus space for triangle)
     let displayName = node.name;
-    const maxTextW = node.width - MM_NODE_PADDING_X * 2;
+    const maxTextW = node.width - MM_NODE_PADDING_X * 2 - triExtra;
     if (mindmapMeasureText(displayName) > maxTextW) {
         while (displayName.length > 0 && mindmapMeasureText(displayName + '...') > maxTextW) {
             displayName = displayName.slice(0, -1);
@@ -302,6 +370,52 @@ function mindmapDrawNodes(node, depth) {
     }
     text.textContent = displayName;
     g.appendChild(text);
+
+    // Disclosure triangle for nodes with children (to the right of the text)
+    if (hasChildren) {
+        const triG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        triG.classList.add('mm-collapse-btn');
+
+        const triX = node.x + node.width / 2 - MM_NODE_PADDING_X - MM_COLLAPSE_TRI_SIZE;
+        const triY = node.y;
+        const s = MM_COLLAPSE_TRI_SIZE;
+
+        const triPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let d;
+        if (isCollapsed) {
+            // Right-pointing triangle (collapsed): indicates children are hidden
+            // For left-direction nodes, point left instead
+            if (dir === 'left') {
+                d = `M ${triX + s} ${triY - s} L ${triX - s} ${triY} L ${triX + s} ${triY + s} Z`;
+            } else {
+                d = `M ${triX - s} ${triY - s} L ${triX + s} ${triY} L ${triX - s} ${triY + s} Z`;
+            }
+        } else {
+            // Down-pointing triangle (expanded): indicates children are visible
+            d = `M ${triX - s} ${triY - s / 2} L ${triX + s} ${triY - s / 2} L ${triX} ${triY + s} Z`;
+        }
+        triPath.setAttribute('d', d);
+        triPath.setAttribute('fill', isRoot ? 'rgba(255,255,255,0.7)' : '#888');
+        triPath.setAttribute('stroke', 'none');
+        triG.appendChild(triPath);
+
+        // Invisible hit area (larger than the triangle for easier clicking)
+        const hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hitRect.setAttribute('x', triX - s - 4);
+        hitRect.setAttribute('y', triY - s - 4);
+        hitRect.setAttribute('width', (s + 4) * 2);
+        hitRect.setAttribute('height', (s + 4) * 2);
+        hitRect.setAttribute('fill', 'transparent');
+        hitRect.setAttribute('cursor', 'pointer');
+        triG.appendChild(hitRect);
+
+        triG.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mindmapToggleCollapse(node);
+        });
+
+        g.appendChild(triG);
+    }
 
     // Progress indicator (small bar at bottom of node)
     const pct = parseInt(node.percent, 10);
@@ -332,7 +446,6 @@ function mindmapDrawNodes(node, depth) {
     // Hover plus button (add child)
     const plusG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     plusG.classList.add('mm-plus-btn');
-    const dir = node._direction || 'right';
     const plusX = node.x + (dir === 'right' ? node.width / 2 + 14 : -node.width / 2 - 14);
     const plusY = node.y;
 
@@ -387,6 +500,9 @@ function mindmapDrawNodes(node, depth) {
         if (node._task.finish) tooltipText += `\nFinish: ${node._task.finish}`;
         if (pct >= 0 && !isNaN(pct)) tooltipText += `\nProgress: ${pct}%`;
     }
+    if (hasChildren) {
+        tooltipText += `\n${isCollapsed ? 'Click triangle to expand' : 'Click triangle to collapse'} (${node.children.length} ${node.children.length === 1 ? 'child' : 'children'})`;
+    }
     titleEl.textContent = tooltipText;
     g.appendChild(titleEl);
 
@@ -399,9 +515,56 @@ function mindmapDrawNodes(node, depth) {
     mindmapGroup.appendChild(g);
     mindmapNodeElements.push({ node, gEl: g });
 
-    // Recurse children
-    for (const child of node.children) {
+    // Recurse only visible children
+    const visChildren = mindmapVisibleChildren(node);
+    for (const child of visChildren) {
         mindmapDrawNodes(child, depth + 1);
+    }
+}
+
+// ── Collapse / expand ─────────────────────────────────────────────────
+
+function mindmapToggleCollapse(node) {
+    if (node.children.length === 0) return;
+    if (mindmapCollapsedIds.has(node.id)) {
+        mindmapCollapsedIds.delete(node.id);
+    } else {
+        mindmapCollapsedIds.add(node.id);
+    }
+    mindmapLayout(mindmapTree);
+    mindmapRender();
+    // Reselect the node if it was selected
+    if (mindmapSelectedNode === node) {
+        mindmapSelectNode(node);
+    }
+}
+
+function mindmapExpandAll() {
+    mindmapCollapsedIds.clear();
+    if (!mindmapTree) return;
+    mindmapLayout(mindmapTree);
+    mindmapRender();
+    if (mindmapSelectedNode) {
+        mindmapSelectNode(mindmapSelectedNode);
+    }
+}
+
+function mindmapCollapseAll() {
+    if (!mindmapTree) return;
+    // Collapse every node that has children
+    function walk(node) {
+        if (node.children.length > 0) {
+            mindmapCollapsedIds.add(node.id);
+        }
+        for (const child of node.children) walk(child);
+    }
+    walk(mindmapTree);
+    // Don't collapse the root itself so it remains visible with its direct branches
+    mindmapCollapsedIds.delete(mindmapTree.id);
+    mindmapLayout(mindmapTree);
+    mindmapRender();
+    if (mindmapSelectedNode) {
+        mindmapSelectNode(mindmapSelectedNode);
     }
 }
 
@@ -528,6 +691,9 @@ function mindmapAddChild(parentNode) {
     if (parentNode.children.length > 0) {
         parentNode.is_summary = true;
     }
+
+    // Auto-expand if the parent was collapsed
+    mindmapCollapsedIds.delete(parentNode.id);
 
     // Sync immediately so the plan text includes this node before any
     // pending debounced render fires (prevents the node from vanishing).
@@ -889,8 +1055,12 @@ function mindmapHandleKeydown(e) {
         case 'ArrowRight':
             e.preventDefault();
             if (node && node.children.length > 0) {
-                // Go to first child
-                mindmapSelectNode(node.children[0]);
+                // If collapsed, expand first; otherwise navigate to first child
+                if (mindmapCollapsedIds.has(node.id)) {
+                    mindmapToggleCollapse(node);
+                } else {
+                    mindmapSelectNode(node.children[0]);
+                }
             }
             break;
 
@@ -905,9 +1075,14 @@ function mindmapHandleKeydown(e) {
         case 'ArrowLeft':
             e.preventDefault();
             if (node) {
-                const parent = mindmapFindParent(mindmapTree, node);
-                if (parent) {
-                    mindmapSelectNode(parent);
+                // If node has children and is expanded, collapse it first
+                if (node.children.length > 0 && !mindmapCollapsedIds.has(node.id)) {
+                    mindmapToggleCollapse(node);
+                } else {
+                    const parent = mindmapFindParent(mindmapTree, node);
+                    if (parent) {
+                        mindmapSelectNode(parent);
+                    }
                 }
             }
             break;
@@ -939,7 +1114,11 @@ function mindmapHandleKeydown(e) {
             break;
 
         case ' ':
-            // Space: toggle collapse (TODO: future feature)
+            // Space: toggle collapse on nodes with children
+            e.preventDefault();
+            if (node && node.children.length > 0) {
+                mindmapToggleCollapse(node);
+            }
             break;
 
         case 'Escape':
@@ -999,7 +1178,7 @@ function mindmapZoomReset() {
 function mindmapZoomFit() {
     if (!mindmapTree || !mindmapSvg) return;
 
-    // Find the bounding box of all nodes
+    // Find the bounding box of all visible nodes
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
     function walk(node) {
@@ -1011,7 +1190,8 @@ function mindmapZoomFit() {
         if (right > maxX) maxX = right;
         if (top < minY) minY = top;
         if (bottom > maxY) maxY = bottom;
-        for (const child of node.children) walk(child);
+        const visChildren = mindmapVisibleChildren(node);
+        for (const child of visChildren) walk(child);
     }
     walk(mindmapTree);
 
