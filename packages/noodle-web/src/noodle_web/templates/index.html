@@ -1011,7 +1011,6 @@ Press Enter to render..."></textarea>
                         <div class="spinner" id="editorSpinner"></div>
                     </div>
                 </div>
-            </div>
 
             <div id="upload-tab" class="tab-content">
                 <div style="width: 100%; margin: 0 auto;">
@@ -2383,29 +2382,5 @@ Build
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
-    <script>
-    /* DEBUG — remove after diagnosing height bug */
-    (function(){
-        var origSwitch = window.switchTab;
-        window.switchTab = function(name) {
-            origSwitch(name);
-            setTimeout(function(){
-                var cf = document.querySelector('.container-fluid');
-                var msg = 'switchTab("'+name+'"):\n';
-                msg += 'viewport: '+window.innerWidth+'x'+window.innerHeight+'\n';
-                msg += '--- .container-fluid children (h='+cf.offsetHeight+') ---\n';
-                Array.from(cf.children).forEach(function(el){
-                    var s = getComputedStyle(el);
-                    msg += (el.id||el.tagName)+'.'+el.className.split(' ')[0]+' d='+s.display+' h='+el.offsetHeight+' flex='+s.flex+'\n';
-                });
-                var before = getComputedStyle(cf, '::before');
-                var after = getComputedStyle(cf, '::after');
-                msg += '::before content=['+before.content+'] d='+before.display+'\n';
-                msg += '::after content=['+after.content+'] d='+after.display+'\n';
-                alert(msg);
-            }, 200);
-        };
-    })();
-    </script>
 </body>
 </html>
