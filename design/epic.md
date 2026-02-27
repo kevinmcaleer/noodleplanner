@@ -362,7 +362,7 @@ The Portfolio Report feature exports a multi-slide PowerPoint deck that combines
 ```
 
 **Frontend:**
-- Export Report button in the Portfolio header nav bar (next to New Project and Import Project)
+- Export Report button in the Portfolio header three-dot (`...`) dropdown menu
 - `exportPortfolioReport()` function in `portfolio-report.js`
 - Parses all projects via `/api/parse`, collects report data from parsed results
 - `buildProjectReportData()` builds each project's report payload from parsed API data (not DOM)
@@ -379,6 +379,29 @@ The Portfolio Report feature exports a multi-slide PowerPoint deck that combines
 - `packages/noodle-web/src/noodle_web/app.py` -- API endpoint
 - `packages/noodle-web/src/noodle_web/static/portfolio-report.js` -- Frontend logic
 - `packages/noodle-web/src/noodle_web/templates/index.html` -- Export button in portfolio header
+
+### Portfolio UI Enhancement (Issue #487)
+
+The Portfolio page header was consolidated to save vertical space and prioritise the timeline view.
+
+**Layout Changes:**
+- The previous two-row layout (header with title/buttons, then separate sub-navigation bar) was merged into a single compact header row
+- The "Portfolio" h1 heading was removed -- the page is already identified by the active tab
+- The plan selector dropdown, tab buttons (Projects, Status, Resources, Timeline, Actions, Risks), and action buttons all sit on the same row
+- The sub-nav tab buttons are now borderless with an underline-style active indicator, taking up less space
+- "Import Project" and "Export Report" were moved into a vertical three-dot (`...`) dropdown menu to reduce clutter
+- The "+ New Project" button remains visible in the header for quick access
+- Overall padding, margins, and font sizes were reduced across the portfolio container, headers, and timeline sections
+
+**Three-dot Menu:**
+- `togglePortfolioMoreMenu(event)` and `closePortfolioMoreMenu()` functions in `portfolio.js`
+- Menu closes automatically when clicking outside (document click listener)
+- `.portfolio-more-menu-wrapper` / `.portfolio-more-menu` CSS classes follow the existing `.export-menu` dropdown pattern
+
+**Files:**
+- `packages/noodle-web/src/noodle_web/templates/index.html` -- Restructured portfolio header HTML
+- `packages/noodle-web/src/noodle_web/static/style.css` -- Updated portfolio styles (header, subnav, more menu, reduced spacing)
+- `packages/noodle-web/src/noodle_web/static/portfolio.js` -- Added toggle/close functions for the more menu
 
 ### CLI Tool
 
