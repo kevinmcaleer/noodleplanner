@@ -2,6 +2,13 @@
 
 ## Completed ✅
 
+### Mindmap Auto-Fit Enhancement (GitHub Issue #488) - ✅ COMPLETED
+- [x] Added `mindmapZoomFit()` call to `mindmapAnimatedRender()` completion handler
+- [x] View auto-resizes to fit all nodes after expand/collapse animations
+- [x] Covers single node toggle, expand all, and collapse all
+- [x] Minimal 3-line change to `mindmap.js`
+- [x] All 593 tests passing
+
 ### Portfolio UI Enhancement (GitHub Issue #487) - ✅ COMPLETED
 - [x] Consolidated header row: plan selector, sub-navigation tabs, and action buttons in one row
 - [x] Replaced bordered pill tabs with borderless bottom-border style
@@ -1149,6 +1156,7 @@
 - #484: Portfolio timeline enhancements (striping, larger bars, today marker fix) - ✅ CLOSED
 - #486: Open Risks showing 0 in Project Status Dashboard (case-insensitive filtering + success gate fix) - ✅ CLOSED
 - #487: Portfolio UI enhancement (consolidated header, borderless tabs, dropdown menu) - ✅ CLOSED
+- #488: Mindmap auto-fit on node expand/collapse - ✅ CLOSED
 
 ---
 
