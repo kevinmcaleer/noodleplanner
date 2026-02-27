@@ -862,3 +862,96 @@ This is not a table row
         assert items[0]['type'] == 'risk'
         assert items[0]['title'] == 'A risk'
         assert items[0]['status'] == 'open'  # default
+
+
+class TestParseRaidMarkdownPriorityTargetDate:
+    """Test suite for priority and target_date fields in parse_raid_markdown."""
+
+    def test_parse_priority_and_target_date(self):
+        """Test parsing table with Priority and Target Date columns."""
+        markdown = """
+| ID | Type   | Title       | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status | Priority | Target Date |
+| -- | ------ | ----------- | ----------- | --------- | ----- | ------------------ | ------ | ---------- | ----- | ------ | -------- | ----------- |
+| 1  | action | Fix bug     | Details     | Bob       | Alice | Review code        | 3      | 2          | 6     | open   | high     | 2026-03-15  |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['priority'] == 'high'
+        assert items[0]['target_date'] == '2026-03-15'
+
+    def test_parse_missing_priority_defaults_empty(self):
+        """Test that missing priority defaults to empty string."""
+        markdown = """
+| Type   | Title       | Status |
+| ------ | ----------- | ------ |
+| action | Do thing    | open   |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['priority'] == ''
+        assert items[0]['target_date'] == ''
+
+    def test_parse_date_column_maps_to_target_date(self):
+        """Test that a 'Date' column maps to target_date."""
+        markdown = """
+| Type   | Description    | Status | Score | Owner | Date       |
+| ------ | -------------- | ------ | ----- | ----- | ---------- |
+| action | Review design  | open   | 6     | Alice | 2026-04-01 |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['target_date'] == '2026-04-01'
+
+
+class TestGenerateRaidLogPriorityTargetDate:
+    """Test suite for priority and target_date in generate_raid_log_text."""
+
+    def test_generate_includes_priority_and_target_date(self):
+        """Test that generated table includes Priority and Target Date."""
+        items = [
+            {'type': 'action', 'title': 'Fix bug', 'status': 'open',
+             'priority': 'high', 'target_date': '2026-03-15',
+             'owner': 'Alice', 'score': 6},
+        ]
+        result = generate_raid_log_text(items)
+        assert '| Priority' in result
+        assert '| Target Date' in result
+        assert 'high' in result
+        assert '2026-03-15' in result
+
+    def test_generate_empty_priority_and_target_date(self):
+        """Test generation when priority/target_date are missing."""
+        items = [
+            {'type': 'risk', 'title': 'A risk', 'status': 'open', 'score': 9},
+        ]
+        result = generate_raid_log_text(items)
+        assert '| Priority' in result
+        assert '| Target Date' in result
+
+    def test_roundtrip_preserves_priority_and_target_date(self):
+        """Test that priority and target_date survive a generate/parse cycle."""
+        original = [
+            {'id': 1, 'type': 'action', 'title': 'Deploy fix',
+             'description': 'Deploy the hotfix', 'raised_by': 'Bob',
+             'owner': 'Alice', 'mitigation_actions': '', 'impact': 3,
+             'likelihood': 2, 'score': 6, 'status': 'open',
+             'priority': 'medium', 'target_date': '2026-04-10'},
+        ]
+        markdown = generate_raid_log_text(original)
+        parsed = parse_raid_markdown(markdown)
+
+        assert len(parsed) == 1
+        assert parsed[0]['priority'] == 'medium'
+        assert parsed[0]['target_date'] == '2026-04-10'
+        assert parsed[0]['type'] == 'action'
+        assert parsed[0]['title'] == 'Deploy fix'
+        assert parsed[0]['owner'] == 'Alice'
+
+    def test_roundtrip_date_field_fallback(self):
+        """Test that 'date' key falls back correctly in generate."""
+        items = [
+            {'type': 'action', 'title': 'Task', 'status': 'open',
+             'date': '2026-05-01', 'score': 1},
+        ]
+        result = generate_raid_log_text(items)
+        assert '2026-05-01' in result

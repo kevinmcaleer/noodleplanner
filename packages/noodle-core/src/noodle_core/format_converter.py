@@ -347,7 +347,8 @@ def parse_raid_markdown(text: str) -> list:
 
     Returns:
         List of dicts with keys: id, type, title, description, raised_by,
-        owner, mitigation_actions, impact, likelihood, score, status
+        owner, mitigation_actions, impact, likelihood, score, status,
+        priority, target_date
 
     Examples:
         Simple format table:
@@ -377,8 +378,13 @@ def parse_raid_markdown(text: str) -> list:
         import re
         # Split on | that isn't preceded by \
         parts = re.split(r'(?<!\\)\|', line)
-        # Remove first and last empty elements (before first | and after last |)
-        cells = [cell.strip() for cell in parts if cell.strip()]
+        # Strip leading/trailing empty parts (before first | and after last |)
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        # Preserve empty cells to maintain column alignment
+        cells = [cell.strip() for cell in parts]
         return cells
 
     headers = [h.lower() for h in parse_row(lines[header_index])]
@@ -395,7 +401,10 @@ def parse_raid_markdown(text: str) -> list:
         'impact': 'impact',
         'likelihood': 'likelihood',
         'score': 'score',
-        'status': 'status'
+        'status': 'status',
+        'priority': 'priority',
+        'target date': 'target_date',
+        'date': 'target_date',
     }
 
     for idx, header in enumerate(headers):
@@ -510,6 +519,8 @@ def parse_raid_markdown(text: str) -> list:
             'likelihood': likelihood,
             'score': score,
             'status': item_status if item_status in valid_statuses else 'open',
+            'priority': get_cell('priority', ''),
+            'target_date': get_cell('target_date', ''),
         }
         items.append(item)
 
@@ -534,7 +545,8 @@ def generate_raid_log_text(raid_items: list) -> str:
         return ''
 
     headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner',
-               'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status']
+               'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status',
+               'Priority', 'Target Date']
 
     def escape_pipe(value):
         return str(value).replace('|', '\\|').replace('\n', ' ')
@@ -553,6 +565,8 @@ def generate_raid_log_text(raid_items: list) -> str:
             escape_pipe(str(item.get('likelihood', ''))),
             escape_pipe(str(item.get('score', ''))),
             escape_pipe(item.get('status', '')),
+            escape_pipe(item.get('priority', '')),
+            escape_pipe(item.get('target_date', item.get('date', ''))),
         ])
 
     # Calculate column widths (minimum of header width)
