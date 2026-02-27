@@ -2328,14 +2328,15 @@ svg.icon {
 
 /* Project selector dropdown — portfolio header (light theme) */
 .portfolio-header .project-selector-dropdown {
-    padding: 8px 15px;
-    border: 2px solid #e0e0e0;
-    border-radius: 6px;
+    padding: 5px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
     background: white;
     color: #333;
-    font-size: 0.95em;
+    font-size: 0.85em;
     cursor: pointer;
     transition: border-color 0.2s;
+    max-width: 180px;
 }
 
 .portfolio-header .project-selector-dropdown:focus {
@@ -2346,14 +2347,15 @@ svg.icon {
 .portfolio-header .project-selector-label {
     font-weight: 600;
     color: #6c757d;
-    margin-right: 8px;
+    margin-right: 6px;
     white-space: nowrap;
+    font-size: 0.85em;
 }
 
 .portfolio-header .project-selector-wrapper {
     display: flex;
     align-items: center;
-    margin-left: 20px;
+    flex-shrink: 0;
 }
 
 .save-btn {
@@ -8345,7 +8347,7 @@ tr:hover .task-inspect-btn {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 20px;
+    padding: 10px 12px;
     background: #f8f9fa;
 }
 
@@ -8353,22 +8355,101 @@ tr:hover .task-inspect-btn {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
-    padding: 20px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.portfolio-header h1 {
-    margin: 0;
-    font-size: 2em;
-    color: #333;
+.portfolio-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
 }
 
 .portfolio-actions {
     display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 0.85em;
+}
+
+/* Portfolio more menu (three-dot dropdown) */
+.portfolio-more-menu-wrapper {
+    position: relative;
+}
+
+.portfolio-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.portfolio-more-btn:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    color: #333;
+}
+
+.portfolio-more-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    min-width: 180px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.portfolio-more-menu.show {
+    display: block;
+}
+
+.portfolio-more-menu-item {
+    display: flex;
+    align-items: center;
     gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    color: #333;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.portfolio-more-menu-item:hover {
+    background: #f0f4ff;
+}
+
+.portfolio-more-menu-item svg {
+    flex-shrink: 0;
+    color: #6c757d;
 }
 
 .portfolio-content {
@@ -8378,10 +8459,10 @@ tr:hover .task-inspect-btn {
 
 .portfolio-empty-state {
     text-align: center;
-    padding: 80px 20px;
+    padding: 60px 20px;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .portfolio-empty-state h3 {
@@ -8518,42 +8599,39 @@ tr:hover .task-inspect-btn {
     transform: translateY(-1px);
 }
 
-/* Portfolio Sub-Navigation */
+/* Portfolio Sub-Navigation (inline in header row) */
 .portfolio-subnav {
     display: flex;
-    gap: 10px;
-    margin-bottom: 25px;
-    padding: 15px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 2px;
+    align-items: center;
 }
 
 .portfolio-subnav-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
+    gap: 5px;
+    padding: 6px 12px;
     background: transparent;
-    border: 2px solid #e0e0e0;
-    border-radius: 6px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
     color: #6c757d;
-    font-size: 0.95em;
-    font-weight: 600;
+    font-size: 0.85em;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .portfolio-subnav-btn:hover {
-    background: #f8f9fa;
-    border-color: #667eea;
     color: #667eea;
+    background: rgba(102, 126, 234, 0.06);
 }
 
 .portfolio-subnav-btn.active {
-    background: #667eea;
-    border-color: #667eea;
-    color: white;
+    color: #667eea;
+    border-bottom-color: #667eea;
+    font-weight: 600;
 }
 
 /* Portfolio Status View */
@@ -9087,17 +9165,17 @@ tr:hover .task-inspect-btn {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
-    padding: 20px;
+    margin-bottom: 10px;
+    padding: 10px 14px;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .portfolio-timeline-header h2 {
     margin: 0;
     color: #333;
-    font-size: 1.8em;
+    font-size: 1.2em;
 }
 
 .timeline-controls {
@@ -9142,7 +9220,7 @@ tr:hover .task-inspect-btn {
 }
 
 .portfolio-timeline-container {
-    padding: 20px;
+    padding: 12px;
 }
 
 .timeline-scale {
@@ -9305,11 +9383,14 @@ tr:hover .task-inspect-btn {
     .portfolio-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 15px;
+        gap: 8px;
     }
 
-    .portfolio-header .project-selector-wrapper {
-        margin-left: 0;
+    .portfolio-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
     }
 
     .portfolio-projects-grid {

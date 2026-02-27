@@ -1403,40 +1403,53 @@ Build
             <!-- Portfolio Tab -->
             <div id="portfolio-tab" class="tab-content">
                 <div class="portfolio-container">
+                    <!-- Consolidated header: plan selector, tab buttons, and actions menu -->
                     <div class="portfolio-header">
-                        <h1>Portfolio</h1>
-                        <div class="project-selector-wrapper">
-                            <label class="project-selector-label">Current Plan:</label>
-                            <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project"></select>
+                        <div class="portfolio-header-left">
+                            <div class="project-selector-wrapper">
+                                <label class="project-selector-label">Plan:</label>
+                                <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project"></select>
+                            </div>
+                            <div class="portfolio-subnav">
+                                <button class="portfolio-subnav-btn active" onclick="switchPortfolioView('projects')">
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-portfolio"/></svg> Projects
+                                </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('status')">
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-project-report"/></svg> Status
+                                </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('resources')">
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-resources"/></svg> Resources
+                                </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('timeline')">
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
+                                </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('actions')">
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
+                                </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('risks')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                    Risks
+                                </button>
+                            </div>
                         </div>
                         <div class="portfolio-actions">
-                            <button class="btn-primary" onclick="showCreateProjectDialog()">+ New Project</button>
-                            <button class="btn-secondary" onclick="showImportProjectDialog()">Import Project</button>
-                            <button id="portfolioExportBtn" class="btn-secondary" onclick="exportPortfolioReport()">Export Report</button>
+                            <button class="btn-primary btn-sm" onclick="showCreateProjectDialog()">+ New Project</button>
+                            <div class="portfolio-more-menu-wrapper">
+                                <button class="portfolio-more-btn" onclick="togglePortfolioMoreMenu(event)" title="More actions">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                                </button>
+                                <div id="portfolioMoreMenu" class="portfolio-more-menu">
+                                    <button class="portfolio-more-menu-item" onclick="showImportProjectDialog(); closePortfolioMoreMenu();">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                        Import Project
+                                    </button>
+                                    <button class="portfolio-more-menu-item" onclick="exportPortfolioReport(); closePortfolioMoreMenu();">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        Export Report
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Portfolio Sub-Navigation -->
-                    <div class="portfolio-subnav">
-                        <button class="portfolio-subnav-btn active" onclick="switchPortfolioView('projects')">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Projects
-                        </button>
-                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('status')">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Status
-                        </button>
-                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('resources')">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resources
-                        </button>
-                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('timeline')">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
-                        </button>
-                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('actions')">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
-                        </button>
-                        <button class="portfolio-subnav-btn" onclick="switchPortfolioView('risks')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                            Risks
-                        </button>
                     </div>
 
                     <!-- Portfolio Views -->
