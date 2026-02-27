@@ -1363,5 +1363,138 @@ class TestTemplateEndpoints:
         assert response.status_code == 400
 
 
+class TestPortfolioExportPptx:
+    """Test suite for /api/portfolio/export-pptx endpoint."""
+
+    def _make_payload(self, **overrides):
+        """Build a minimal valid portfolio export payload."""
+        payload = {
+            'portfolio_name': 'Test Portfolio',
+            'date': '2026-02-27',
+            'projects': [
+                {
+                    'name': 'Project A',
+                    'status': 'On Track',
+                    'rag': 'green',
+                    'completion': 50,
+                    'risk_count': 2,
+                    'start_date': '2026-01-01',
+                    'end_date': '2026-06-30',
+                },
+            ],
+            'project_reports': [
+                {
+                    'project_name': 'Project A',
+                    'manager': 'John',
+                    'sponsor': 'Jane',
+                    'budget': '100k',
+                    'date': '2026-02-27',
+                    'status': 'green',
+                    'milestones': [{'name': 'M1', 'date': '2026-03-01', 'rag': 'green'}],
+                    'up_next': [{'name': 'Task 1', 'start': '2026-02-27', 'finish': '2026-03-05', 'rag': 'green'}],
+                    'highlight': {'date': '2026-02-27', 'author': 'John', 'content': 'All good'},
+                    'risks_issues': [{'type': 'risk', 'title': 'Budget risk', 'score': 9}],
+                    'timeline_tasks': [],
+                },
+            ],
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_portfolio_export_returns_pptx(self, client):
+        """Test that portfolio export returns a valid PowerPoint file."""
+        payload = self._make_payload()
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        content_type = response.headers.get('content-type', '')
+        assert 'presentation' in content_type
+        assert len(response.content) > 0
+
+    def test_portfolio_export_content_disposition(self, client):
+        """Test that response has correct Content-Disposition header."""
+        payload = self._make_payload()
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        disposition = response.headers.get('content-disposition', '')
+        assert 'Test Portfolio-report.pptx' in disposition
+
+    def test_portfolio_export_empty_portfolio(self, client):
+        """Test export with no projects still succeeds (overview only)."""
+        payload = self._make_payload(projects=[], project_reports=[])
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        assert len(response.content) > 0
+
+    def test_portfolio_export_multiple_projects(self, client):
+        """Test export with multiple projects creates a larger file."""
+        payload = self._make_payload()
+        # Add a second project
+        payload['projects'].append({
+            'name': 'Project B',
+            'status': 'At Risk',
+            'rag': 'red',
+            'completion': 25,
+            'risk_count': 5,
+        })
+        payload['project_reports'].append({
+            'project_name': 'Project B',
+            'manager': 'Alice',
+            'sponsor': 'Bob',
+            'budget': '200k',
+            'date': '2026-02-27',
+            'status': 'red',
+            'milestones': [],
+            'up_next': [],
+            'highlight': None,
+            'risks_issues': [],
+            'timeline_tasks': [],
+        })
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        # With 2 project slides + 1 overview, file should be bigger
+        assert len(response.content) > 20000
+
+    def test_portfolio_export_with_timeline_data(self, client):
+        """Test export with timeline tasks in project reports."""
+        payload = self._make_payload()
+        payload['project_reports'][0]['timeline_tasks'] = [
+            {
+                'name': 'Phase 1',
+                'start': '2026-01-01',
+                'finish': '2026-03-31',
+                'percent': 60.0,
+                'is_summary': True,
+                'duration_days': 90,
+            },
+            {
+                'name': 'Milestone 1',
+                'start': '2026-03-31',
+                'finish': '2026-03-31',
+                'percent': 0.0,
+                'is_summary': False,
+                'duration_days': 0,
+            },
+        ]
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        assert len(response.content) > 0
+
+    def test_portfolio_export_default_values(self, client):
+        """Test export with minimal payload uses defaults correctly."""
+        payload = {
+            'project_reports': [],
+        }
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+
+    def test_portfolio_export_is_valid_pptx(self, client):
+        """Test that the response is a valid PPTX file (ZIP with correct magic bytes)."""
+        payload = self._make_payload()
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        # PPTX files are ZIP archives; check for ZIP magic bytes
+        assert response.content[:2] == b'PK'
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

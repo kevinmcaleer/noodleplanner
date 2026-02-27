@@ -1300,5 +1300,141 @@ class TestInheritSummaryResources:
         assert total_hours == pytest.approx(40.0, abs=1.0)
 
 
+class TestExportPortfolioToPowerpoint:
+    """Tests for the export_portfolio_to_powerpoint function."""
+
+    def test_creates_valid_pptx_file(self, tmp_path):
+        """Test that a valid PPTX file is created."""
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "portfolio.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Test Portfolio',
+            'date': '2026-02-27',
+            'projects': [
+                {'name': 'Proj A', 'status': 'On Track', 'rag': 'green',
+                 'completion': 50, 'risk_count': 1},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'Proj A', 'manager': '', 'sponsor': '',
+             'budget': '', 'date': '2026-02-27', 'status': 'green',
+             'milestones': [], 'up_next': [], 'highlight': None,
+             'risks_issues': [], 'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        assert output.exists()
+        # PPTX is a ZIP file
+        content = output.read_bytes()
+        assert content[:2] == b'PK'
+
+    def test_creates_correct_slide_count(self, tmp_path):
+        """Test that the correct number of slides is created."""
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "portfolio.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Portfolio',
+            'date': '2026-02-27',
+            'projects': [
+                {'name': 'A', 'status': 'On Track', 'rag': 'green',
+                 'completion': 50, 'risk_count': 0},
+                {'name': 'B', 'status': 'At Risk', 'rag': 'red',
+                 'completion': 10, 'risk_count': 3},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'A', 'manager': '', 'sponsor': '', 'budget': '',
+             'date': '2026-02-27', 'status': 'green', 'milestones': [],
+             'up_next': [], 'highlight': None, 'risks_issues': [],
+             'timeline_tasks': []},
+            {'project_name': 'B', 'manager': '', 'sponsor': '', 'budget': '',
+             'date': '2026-02-27', 'status': 'red', 'milestones': [],
+             'up_next': [], 'highlight': None, 'risks_issues': [],
+             'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        prs = Presentation(str(output))
+        # 1 overview slide + 2 project slides = 3
+        assert len(prs.slides) == 3
+
+    def test_empty_portfolio(self, tmp_path):
+        """Test export with empty portfolio still produces a valid file."""
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "empty.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Empty',
+            'date': '2026-02-27',
+            'projects': [],
+        }
+        export_portfolio_to_powerpoint(str(output), portfolio_data, [])
+        assert output.exists()
+        content = output.read_bytes()
+        assert content[:2] == b'PK'
+
+    def test_portfolio_with_timeline_data(self, tmp_path):
+        """Test that projects with date ranges produce timeline bars."""
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "timeline.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Timeline Test',
+            'date': '2026-02-27',
+            'projects': [
+                {'name': 'A', 'status': 'On Track', 'rag': 'green',
+                 'completion': 50, 'risk_count': 0,
+                 'start_date': '2026-01-01', 'end_date': '2026-06-30'},
+                {'name': 'B', 'status': 'Behind', 'rag': 'amber',
+                 'completion': 25, 'risk_count': 1,
+                 'start_date': '2026-03-01', 'end_date': '2026-09-30'},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'A', 'manager': '', 'sponsor': '', 'budget': '',
+             'date': '2026-02-27', 'status': 'green', 'milestones': [],
+             'up_next': [], 'highlight': None, 'risks_issues': [],
+             'timeline_tasks': []},
+            {'project_name': 'B', 'manager': '', 'sponsor': '', 'budget': '',
+             'date': '2026-02-27', 'status': 'amber', 'milestones': [],
+             'up_next': [], 'highlight': None, 'risks_issues': [],
+             'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        prs = Presentation(str(output))
+        assert len(prs.slides) == 3
+        # Overview slide should have shapes for timeline bars
+        overview = prs.slides[0]
+        assert len(overview.shapes) > 5  # Title + table + timeline elements
+
+    def test_project_report_slide_has_title(self, tmp_path):
+        """Test that each project report slide contains the project name."""
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "titled.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Titled',
+            'date': '2026-02-27',
+            'projects': [
+                {'name': 'My Project', 'status': 'On Track', 'rag': 'green',
+                 'completion': 75, 'risk_count': 0},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'My Project', 'manager': 'PM', 'sponsor': 'Sponsor',
+             'budget': '50k', 'date': '2026-02-27', 'status': 'green',
+             'milestones': [{'name': 'Launch', 'date': '2026-04-01', 'rag': 'green'}],
+             'up_next': [], 'highlight': None, 'risks_issues': [],
+             'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        prs = Presentation(str(output))
+        # Second slide (index 1) is the project report
+        project_slide = prs.slides[1]
+        all_text = ' '.join(
+            shape.text_frame.text for shape in project_slide.shapes
+            if shape.has_text_frame
+        )
+        assert 'My Project' in all_text
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

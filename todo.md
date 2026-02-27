@@ -2,6 +2,19 @@
 
 ## Completed ✅
 
+### Portfolio Report Export (GitHub Issue #485) - ✅ COMPLETED
+- [x] Explore existing PowerPoint export and portfolio code
+- [x] Create `export_portfolio_to_powerpoint()` in scheduling engine
+- [x] Create shared `_add_report_slide()` helper for individual project slides
+- [x] Create `_add_portfolio_overview_slide()` with status dashboard and timeline
+- [x] Add `POST /api/portfolio/export-pptx` API endpoint
+- [x] Create `portfolio-report.js` frontend with `exportPortfolioReport()` function
+- [x] Add Export Report button to portfolio header nav bar
+- [x] Write 7 API endpoint tests (all passing)
+- [x] Write 5 core function tests (all passing)
+- [x] Update `design/epic.md` with feature documentation
+- [x] All 582 existing tests still passing
+
 ### Testing Suite (GitHub Issue #26) - ✅ CLOSED
 - [x] Create tests directory structure
 - [x] Write tests for format_converter.py (31 test cases)
