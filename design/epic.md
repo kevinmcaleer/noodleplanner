@@ -136,6 +136,18 @@ The Portfolio tab provides cross-project visibility through multiple sub-views:
 - Shows open actions from RAID logs across all projects
 - Filterable by project, owner, and status
 
+**Portfolio Timeline (`portfolio-timeline.js`):**
+- SVG-based Gantt-style timeline showing all projects as horizontal swimlane rows
+- Each project row shows phase bars (summary tasks with start/finish dates) and milestone dots
+- Phase bars use blue shades for in-progress, green for complete, with a green progress overlay for partial completion
+- Overlapping phases within a project are stacked in separate rows using greedy row assignment
+- Date scale header supports months, quarters, and years (user-selectable)
+- A vertical red "Today" marker line spans all swimlanes to show the current date
+- Clicking a project row opens that project's dashboard
+- Alternating row striping (subtle grey background on even rows) improves visual separation
+- Task bar height is 28px with 14px font labels for readable phase names
+- Milestone dots are 7px radius circles with hover expansion to 9px
+
 **Data Flow for RAID Items in Portfolio Views:**
 1. `parseAllProjects()` sends each project's `planText` to `/api/parse`
 2. Backend `extract_raid_log()` extracts the `---raid log---` section

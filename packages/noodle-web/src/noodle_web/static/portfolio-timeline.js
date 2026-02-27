@@ -201,13 +201,13 @@ function renderTimelineScale(startDate, endDate, scale) {
  */
 function renderProjectSwimlane(timeline, globalStart, globalEnd) {
     const totalMs = globalEnd.getTime() - globalStart.getTime();
-    const barHeight = 14;
-    const rowPadding = 4;
+    const barHeight = 28;
+    const rowPadding = 6;
 
     // Assign rows for phases using overlap detection
     const phaseRows = assignSwimlanePhaseRows(timeline.phases, globalStart, totalMs);
     const numRows = phaseRows.length > 0 ? Math.max(...phaseRows.map(p => p.row)) + 1 : 1;
-    const svgHeight = Math.max(30, numRows * (barHeight + rowPadding) + 10);
+    const svgHeight = Math.max(40, numRows * (barHeight + rowPadding) + 10);
 
     // Blue shades for incomplete phases
     const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6'];
@@ -253,7 +253,7 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
         // Phase name text inside bar (only if wide enough)
         // We use a rough heuristic: wPct > 4 means ~40px+ at typical widths
         if (wPct > 4) {
-            const fontSize = Math.min(10, barHeight - 3);
+            const fontSize = Math.min(14, barHeight - 6);
             const textLabel = isComplete ? '\u2713 ' + phase.name : phase.name;
             html += '<text x="' + (xPct + 0.3) + '%" y="' + (y + barHeight / 2) + '" ' +
                 'dominant-baseline="central" font-size="' + fontSize + 'px" fill="#fff" font-weight="500" ' +
@@ -263,7 +263,7 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
         }
     });
 
-    // Render milestones as small colored circles
+    // Render milestones as colored circles
     timeline.milestones.forEach(milestone => {
         const milestoneDate = new Date(milestone.finish);
         const xPct = ((milestoneDate.getTime() - globalStart.getTime()) / totalMs) * 100;
@@ -272,8 +272,8 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
         const color = isComplete ? '#28a745' : '#1976d2';
         const cy = svgHeight / 2;
 
-        html += '<circle cx="' + xPct + '%" cy="' + cy + '" r="5" fill="' + color + '" ' +
-            'stroke="#fff" stroke-width="1.5" class="swimlane-milestone-dot">' +
+        html += '<circle cx="' + xPct + '%" cy="' + cy + '" r="7" fill="' + color + '" ' +
+            'stroke="#fff" stroke-width="2" class="swimlane-milestone-dot">' +
             '<title>' + escapeHtml(milestone.name) + ' (' + milestone.finish + ')</title>' +
             '</circle>';
     });

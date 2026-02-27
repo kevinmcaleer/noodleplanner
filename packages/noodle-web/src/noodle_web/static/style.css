@@ -9216,8 +9216,16 @@ tr:hover .task-inspect-btn {
     border-radius: 4px;
 }
 
-.timeline-project-row:hover {
+.timeline-project-row:nth-child(even) {
     background: #f8f9fa;
+}
+
+.timeline-project-row:nth-child(even) .timeline-project-label {
+    background: #eff1f3;
+}
+
+.timeline-project-row:hover {
+    background: #eef1f6;
 }
 
 .timeline-project-row .timeline-project-label {
@@ -10136,7 +10144,7 @@ tr:hover .task-inspect-btn {
 .timeline-swimlane-track {
     flex: 1;
     position: relative;
-    min-height: 50px;
+    min-height: 60px;
     border-left: 1px solid #e0e0e0;
 }
 
@@ -10153,7 +10161,7 @@ tr:hover .task-inspect-btn {
 .portfolio-today-line::before {
     content: 'Today';
     position: absolute;
-    top: -18px;
+    top: 4px;
     left: -20px;
     background: #dc3545;
     color: white;
@@ -10180,7 +10188,7 @@ tr:hover .task-inspect-btn {
 }
 
 .swimlane-milestone-dot:hover {
-    r: 7;
+    r: 9;
 }
 
 @media (max-width: 768px) {
