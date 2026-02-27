@@ -1301,6 +1301,67 @@ Just random text
         assert "raid_items" in data
         assert data["raid_items"] == []
 
+    def test_parse_raid_items_with_empty_cells(self, client):
+        """Test that RAID items with empty cells are parsed correctly.
+
+        Regression test for #486: empty cells in RAID table rows must
+        not cause column misalignment that would shift type/status values.
+        """
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| ID | Type | Title         | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status |
+|----|------|---------------|-------------|-----------|-------|--------------------|--------|------------|-------|--------|
+| 1  | risk | Security vuln |             |           | Alice |                    | 4      | 3          | 12    | open   |
+| 2  | issue| Build broken  | CI failed   |           |       |                    | 3      | 4          | 12    | open   |
+| 3  | risk | Data loss     |             | Bob       |       | Test backups       | 5      | 2          | 10    | closed |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert len(data["raid_items"]) == 3
+
+        # Verify type and status are correctly parsed despite empty cells
+        assert data["raid_items"][0]["type"] == "risk"
+        assert data["raid_items"][0]["status"] == "open"
+        assert data["raid_items"][0]["title"] == "Security vuln"
+        assert data["raid_items"][0]["owner"] == "Alice"
+
+        assert data["raid_items"][1]["type"] == "issue"
+        assert data["raid_items"][1]["status"] == "open"
+
+        assert data["raid_items"][2]["type"] == "risk"
+        assert data["raid_items"][2]["status"] == "closed"
+
+    def test_parse_raid_items_available_when_task_parsing_fails(self, client):
+        """Test that RAID items are returned even when task parsing fails.
+
+        Regression test for #486: RAID log is parsed independently of tasks,
+        so raid_items should be populated regardless of success status.
+        """
+        # Plan text that will cause task parsing to fail but has valid RAID log
+        plan = """---raid log---
+| Type | Description      | Status | Score | Owner | Date       |
+| ---- | ---------------- | ------ | ----- | ----- | ---------- |
+| risk | Security concern | open   | 12    | Alice | 2024-01-15 |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # RAID items should be present regardless of success status
+        assert "raid_items" in data
+        assert len(data["raid_items"]) == 1
+        assert data["raid_items"][0]["type"] == "risk"
+        assert data["raid_items"][0]["status"] == "open"
+
 
 class TestTemplateEndpoints:
     """Test suite for template API endpoints."""

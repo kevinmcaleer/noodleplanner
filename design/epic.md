@@ -115,6 +115,36 @@ The RAID log is stored as a standard markdown table in a `raid.md` file:
 - `exportRaidExcel()` / `uploadRaidExcel()` — Excel via backend endpoints
 - `openRaidForm()` / `saveRaidItemFromForm()` — Modal form for CRUD
 
+### Portfolio Views
+
+The Portfolio tab provides cross-project visibility through multiple sub-views:
+
+**Status Dashboard (`portfolio-status.js`):**
+- Shows a table of all projects with columns: Project, Status, Progress, RAG, Open Risks, Last Updated, Trend
+- RAG status derived from front matter or schedule-based heuristic (overdue tasks)
+- **Open Risks count**: filters RAID items where `type` is `risk` or `issue` AND `status` is `open`
+- Data sourced from `/api/parse` via `parseAllProjects()` in `multi-plan-loader.js`
+- RAID items are parsed independently of tasks in the backend, so they remain available even when task parsing fails (`success: false`)
+
+**Risk Register (`portfolio-risks.js`):**
+- Aggregates open risks across all projects into a single table
+- Filterable by project and RAG level (High/Medium/Low based on risk score)
+- Clicking a risk navigates to the RAID editor for that project and item
+- Supports adding new risks from the portfolio view
+
+**Actions Chaser (`portfolio-actions.js`):**
+- Shows open actions from RAID logs across all projects
+- Filterable by project, owner, and status
+
+**Data Flow for RAID Items in Portfolio Views:**
+1. `parseAllProjects()` sends each project's `planText` to `/api/parse`
+2. Backend `extract_raid_log()` extracts the `---raid log---` section
+3. Backend `parse_raid_markdown()` parses the markdown table into structured items
+4. Response includes `raid_items` array regardless of `success` status
+5. Frontend portfolio views filter items by type and status for display
+
+**Important:** The RAID log is embedded in the plan text (after the `---raid log---` marker). The backend parser must preserve empty cells in the markdown table to maintain correct column alignment -- otherwise type/status fields can be shifted, causing incorrect filtering.
+
 ### Detail Pane (Slide-Out Panel)
 
 Form dialogs for editing tasks, RAID items, project details, and resources use a slide-out detail pane that appears from the right side of the screen, replacing the previous centered modal dialogs. The Excel Import Wizard remains as a centered modal.

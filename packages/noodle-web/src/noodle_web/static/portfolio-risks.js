@@ -16,8 +16,10 @@ function collectOpenRisks(parsedProjects) {
     const risks = [];
 
     parsedProjects.forEach(({ project, parsedResult }) => {
-        if (!parsedResult || !parsedResult.success) return;
+        if (!parsedResult) return;
 
+        // RAID items are parsed independently of tasks, so use them
+        // even when task parsing fails (success may be false).
         const raidItems = parsedResult.raid_items || [];
 
         raidItems.forEach(item => {

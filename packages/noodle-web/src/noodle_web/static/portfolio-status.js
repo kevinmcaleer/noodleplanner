@@ -165,17 +165,20 @@ async function renderPortfolioStatus() {
         const statusData = parsedProjects.map(({ project, parsedResult }) => {
             const tasks = (parsedResult && parsedResult.success) ? (parsedResult.tasks || []) : [];
             const frontMatter = (parsedResult && parsedResult.success) ? (parsedResult.front_matter || {}) : {};
-            const raidItems = (parsedResult && parsedResult.success) ? (parsedResult.raid_items || []) : [];
+            // RAID items are parsed independently of tasks, so use them
+            // even when task parsing fails (success may be false).
+            const raidItems = (parsedResult) ? (parsedResult.raid_items || []) : [];
 
             const completion = calculateProjectCompletionFromTasks(tasks);
             const ragStatus = extractRAGStatus(frontMatter, tasks, completion);
             const statusLabel = extractProjectStatusLabel(frontMatter, completion, ragStatus);
             const trend = calculateProjectTrend(project);
 
-            const openRisks = raidItems.filter(item =>
-                (item.type === 'risk' || item.type === 'issue') &&
-                item.status === 'open'
-            ).length;
+            const openRisks = raidItems.filter(item => {
+                const type = (item.type || '').toLowerCase();
+                const status = (item.status || '').toLowerCase();
+                return (type === 'risk' || type === 'issue') && status === 'open';
+            }).length;
 
             return {
                 id: project.id,

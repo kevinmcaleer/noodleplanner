@@ -372,6 +372,47 @@ class TestRaidMarkdownParser:
         assert len(items) == 1
         assert items[0]['title'] == 'Test | with pipes'
 
+    def test_parse_raid_table_with_empty_cells(self):
+        """Test that empty cells do not cause column misalignment.
+
+        Regression test for #486: when RAID table rows have blank
+        cells (e.g., no description or owner), the parser must
+        preserve empty cells so type and status map correctly.
+        """
+        markdown = """
+| ID | Type  | Title         | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status |
+|----|-------|---------------|-------------|-----------|-------|--------------------|--------|------------|-------|--------|
+| 1  | risk  | Security vuln |             |           | Alice |                    | 4      | 3          | 12    | open   |
+| 2  | issue | Build broken  | CI failed   |           |       |                    | 3      | 4          | 12    | open   |
+| 3  | risk  | Data loss     |             | Bob       |       | Test backups       | 5      | 2          | 10    | closed |
+"""
+        items = parse_raid_markdown(markdown)
+
+        assert len(items) == 3
+
+        # First item: empty description, raised_by, and mitigation
+        assert items[0]['type'] == 'risk'
+        assert items[0]['title'] == 'Security vuln'
+        assert items[0]['description'] == ''
+        assert items[0]['raised_by'] == ''
+        assert items[0]['owner'] == 'Alice'
+        assert items[0]['status'] == 'open'
+        assert items[0]['impact'] == 4
+        assert items[0]['likelihood'] == 3
+        assert items[0]['score'] == 12
+
+        # Second item: empty raised_by, owner, and mitigation
+        assert items[1]['type'] == 'issue'
+        assert items[1]['title'] == 'Build broken'
+        assert items[1]['description'] == 'CI failed'
+        assert items[1]['status'] == 'open'
+
+        # Third item: empty description and owner
+        assert items[2]['type'] == 'risk'
+        assert items[2]['status'] == 'closed'
+        assert items[2]['raised_by'] == 'Bob'
+        assert items[2]['mitigation_actions'] == 'Test backups'
+
 
 class TestRaidLogRoundTrip:
     """Test suite for RAID Log export/import round-trip consistency."""
