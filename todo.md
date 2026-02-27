@@ -15,6 +15,19 @@
 - [x] Update `design/epic.md` with feature documentation
 - [x] All 582 existing tests still passing
 
+### Open Risks Bug Fix (GitHub Issue #486) - ✅ COMPLETED
+- [x] Fixed `portfolio-status.js` gating `raidItems` behind `parsedResult.success` — RAID items parse independently of tasks
+- [x] Added case-insensitive type/status filtering in `portfolio-status.js`, `portfolio-actions.js`, `portfolio-risks.js`
+- [x] Added 61 new API tests and 41 new parser tests for empty-cell scenarios
+- [x] Updated `design/epic.md` with documentation
+
+### Portfolio Actions Tracker Fix - ✅ COMPLETED
+- [x] Added `priority` and `target_date` columns to `generate_raid_log_text()` so fields are serialized to markdown
+- [x] Added `priority`, `target_date`, and `date` column aliases to `parse_raid_markdown()` so fields are parsed back
+- [x] Fixed pre-existing `parse_row()` bug that dropped empty cells (caused column misalignment when any RAID field was blank)
+- [x] Added 7 new tests for priority/target_date round-trip
+- [x] All 578 tests passing
+
 ### Testing Suite (GitHub Issue #26) - ✅ CLOSED
 - [x] Create tests directory structure
 - [x] Write tests for format_converter.py (31 test cases)
@@ -1115,10 +1128,13 @@
 - #124: Mobile layout optimisation (responsive CSS, cursor alignment fix, RAID brace fix) - 🔄 IN PROGRESS
 - #145: Quad report layout (project header, timeline, milestones, RAID, highlights in 2x2 grid) - ✅ COMPLETED
 - #187: Summary tasks showing as dependencies (excluded from `*` resolution and autocomplete) - ✅ COMPLETED
+- #483: Overall project RAG badge on report page next to date - ✅ CLOSED
+- #485: Portfolio Report PowerPoint export (overview slide + per-project slides) - ✅ CLOSED
+- #486: Open Risks showing 0 in Project Status Dashboard (case-insensitive filtering + success gate fix) - ✅ CLOSED
 
 ---
 
-Last Updated: 2026-02-13
+Last Updated: 2026-02-27
 
 
 ### Add Resource in Resource View (GitHub Issue #72) - ✅ CLOSED
