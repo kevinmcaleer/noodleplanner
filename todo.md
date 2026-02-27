@@ -2,6 +2,22 @@
 
 ## Completed ✅
 
+### Portfolio UI Enhancement (GitHub Issue #487) - ✅ COMPLETED
+- [x] Consolidated header row: plan selector, sub-navigation tabs, and action buttons in one row
+- [x] Replaced bordered pill tabs with borderless bottom-border style
+- [x] Added three-dot dropdown menu for Import Project and Export Report
+- [x] Kept "+ New Project" button visible in header
+- [x] Reduced padding/margins to maximize content space
+- [x] Updated responsive layout for mobile breakpoints
+- [x] All 593 tests passing
+
+### Portfolio Timeline Enhancement (GitHub Issue #484) - ✅ COMPLETED
+- [x] Added alternating row striping to timeline swimlanes
+- [x] Increased bar height from 14px to 28px and font from 10px to 14px
+- [x] Fixed today marker clipping (top offset from -18px to 4px)
+- [x] Increased milestone marker radius from 5px to 7px
+- [x] All tests passing
+
 ### Portfolio Report Export (GitHub Issue #485) - ✅ COMPLETED
 - [x] Explore existing PowerPoint export and portfolio code
 - [x] Create `export_portfolio_to_powerpoint()` in scheduling engine
@@ -1130,7 +1146,9 @@
 - #187: Summary tasks showing as dependencies (excluded from `*` resolution and autocomplete) - ✅ COMPLETED
 - #483: Overall project RAG badge on report page next to date - ✅ CLOSED
 - #485: Portfolio Report PowerPoint export (overview slide + per-project slides) - ✅ CLOSED
+- #484: Portfolio timeline enhancements (striping, larger bars, today marker fix) - ✅ CLOSED
 - #486: Open Risks showing 0 in Project Status Dashboard (case-insensitive filtering + success gate fix) - ✅ CLOSED
+- #487: Portfolio UI enhancement (consolidated header, borderless tabs, dropdown menu) - ✅ CLOSED
 
 ---
 
