@@ -358,6 +358,31 @@ function startAutoSave() {
     }, 30000); // Auto-save every 30 seconds
 }
 
+/**
+ * Toggle portfolio more menu (three-dot dropdown)
+ */
+function togglePortfolioMoreMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('portfolioMoreMenu');
+    if (menu) menu.classList.toggle('show');
+}
+
+/**
+ * Close portfolio more menu
+ */
+function closePortfolioMoreMenu() {
+    const menu = document.getElementById('portfolioMoreMenu');
+    if (menu) menu.classList.remove('show');
+}
+
+// Close portfolio more menu when clicking outside
+document.addEventListener('click', function(e) {
+    const wrapper = document.querySelector('.portfolio-more-menu-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        closePortfolioMoreMenu();
+    }
+});
+
 // Initialize auto-save on page load
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
