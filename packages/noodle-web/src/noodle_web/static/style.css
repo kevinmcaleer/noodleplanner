@@ -8817,6 +8817,26 @@ tr:hover .task-inspect-btn {
     color: #dc3545;
 }
 
+/* RAG History Dots */
+.rag-history {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.rag-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.rag-dot-R { background: #dc3545; }
+.rag-dot-A { background: #ffc107; }
+.rag-dot-G { background: #28a745; }
+
 /* Trend Indicator */
 .trend-indicator {
     font-size: 1.4em;

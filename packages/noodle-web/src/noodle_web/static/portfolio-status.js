@@ -127,14 +127,46 @@ function extractProjectStatusLabel(frontMatter, completion, ragStatus) {
 }
 
 /**
- * Calculate project trend
+ * Update RAG history for a project, appending the current RAG letter
+ * only when it differs from the most recent entry.
+ * Returns the updated history string (max 5 characters).
  */
-function calculateProjectTrend(project) {
-    const daysSinceUpdate = Math.floor((Date.now() - project.updatedAt) / (1000 * 60 * 60 * 24));
+function updateRagHistory(project, currentRag) {
+    const letter = currentRag === 'red' ? 'R' : currentRag === 'amber' ? 'A' : 'G';
+    const history = project.ragHistory || '';
+    const lastLetter = history.length > 0 ? history[history.length - 1] : '';
+    if (letter === lastLetter) return history;
+    const updated = (history + letter).slice(-5);
+    saveProject(project.id, { ragHistory: updated });
+    return updated;
+}
 
-    if (daysSinceUpdate <= 1) return 'up';
-    if (daysSinceUpdate <= 7) return 'stable';
-    return 'down';
+/**
+ * Calculate project trend from RAG history.
+ * Compares first and last letters: improving if last is better,
+ * declining if worse, stable if same or insufficient data.
+ */
+function calculateProjectTrend(ragHistory) {
+    if (!ragHistory || ragHistory.length < 2) return 'stable';
+    const ragRank = { 'R': 0, 'A': 1, 'G': 2 };
+    const first = ragRank[ragHistory[0]];
+    const last = ragRank[ragHistory[ragHistory.length - 1]];
+    if (last > first) return 'up';
+    if (last < first) return 'down';
+    return 'stable';
+}
+
+/**
+ * Render RAG history as coloured dots
+ */
+function renderRagHistoryDots(ragHistory) {
+    if (!ragHistory) return '';
+    let html = '<div class="rag-history">';
+    for (const ch of ragHistory) {
+        html += '<span class="rag-dot rag-dot-' + ch + '"></span>';
+    }
+    html += '</div>';
+    return html;
 }
 
 /**
@@ -172,7 +204,8 @@ async function renderPortfolioStatus() {
             const completion = calculateProjectCompletionFromTasks(tasks);
             const ragStatus = extractRAGStatus(frontMatter, tasks, completion);
             const statusLabel = extractProjectStatusLabel(frontMatter, completion, ragStatus);
-            const trend = calculateProjectTrend(project);
+            const ragHistory = updateRagHistory(project, ragStatus);
+            const trend = calculateProjectTrend(ragHistory);
 
             const openRisks = raidItems.filter(item => {
                 const type = (item.type || '').toLowerCase();
@@ -187,6 +220,7 @@ async function renderPortfolioStatus() {
                 ragStatus: ragStatus,
                 statusLabel: statusLabel,
                 trend: trend,
+                ragHistory: ragHistory,
                 updatedAt: project.updatedAt,
                 riskCount: openRisks
             };
@@ -241,7 +275,8 @@ async function renderPortfolioStatus() {
                 '<td><span class="rag-badge rag-' + proj.ragStatus + '">' + proj.ragStatus.toUpperCase() + '</span></td>' +
                 '<td class="risk-count">' + proj.riskCount + '</td>' +
                 '<td>' + updatedDate + '</td>' +
-                '<td><span class="trend-indicator ' + trendClass + '">' + trendIcon + '</span></td>' +
+                '<td>' + renderRagHistoryDots(proj.ragHistory) +
+                '<span class="trend-indicator ' + trendClass + '">' + trendIcon + '</span></td>' +
                 '</tr>';
         });
 
