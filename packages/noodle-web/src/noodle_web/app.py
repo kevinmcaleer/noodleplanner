@@ -25,6 +25,7 @@ from noodle_core import (
     export_to_csv,
     export_timeline_to_powerpoint,
     export_report_to_powerpoint,
+    export_portfolio_to_powerpoint,
     export_to_pdf,
     convert_plan_format_to_standard,
     extract_title_from_frontmatter,
@@ -784,6 +785,83 @@ async def export_report_pptx(data: ReportExportRequest):
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error exporting report to PPTX: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to export report: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+class PortfolioProjectSummary(BaseModel):
+    """Summary info for a project in the portfolio overview slide."""
+    name: str = Field("", max_length=500)
+    status: str = Field("", max_length=100)
+    rag: str = Field("", max_length=20)
+    completion: int = Field(0, ge=0, le=100)
+    risk_count: int = Field(0, ge=0)
+    start_date: Optional[str] = Field(None, max_length=50)
+    end_date: Optional[str] = Field(None, max_length=50)
+
+
+class PortfolioReportRequest(BaseModel):
+    """Request body for portfolio report PowerPoint export."""
+    portfolio_name: str = Field("Portfolio", max_length=500)
+    date: str = Field("", max_length=50)
+    projects: List[PortfolioProjectSummary] = Field(default_factory=list)
+    project_reports: List[ReportExportRequest] = Field(default_factory=list)
+
+
+@app.post("/api/portfolio/export-pptx")
+async def export_portfolio_pptx(data: PortfolioReportRequest):
+    """Export a portfolio report as a multi-slide PowerPoint file."""
+    logger.info(f"Portfolio PPTX export request: {data.portfolio_name} "
+                f"({len(data.project_reports)} projects)")
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        portfolio_data = {
+            'portfolio_name': data.portfolio_name,
+            'date': data.date,
+            'projects': [p.model_dump() for p in data.projects],
+        }
+
+        project_reports = [
+            {
+                'project_name': r.project_name,
+                'manager': r.manager,
+                'sponsor': r.sponsor,
+                'budget': r.budget,
+                'date': r.date,
+                'status': r.status,
+                'milestones': [m.model_dump() for m in r.milestones],
+                'up_next': [u.model_dump() for u in r.up_next],
+                'highlight': r.highlight.model_dump() if r.highlight else None,
+                'risks_issues': [ri.model_dump() for ri in r.risks_issues],
+                'timeline_tasks': [t.model_dump() for t in r.timeline_tasks],
+            }
+            for r in data.project_reports
+        ]
+
+        export_portfolio_to_powerpoint(tmp_path, portfolio_data, project_reports)
+
+        with open(tmp_path, 'rb') as f:
+            file_bytes = f.read()
+
+        return Response(
+            content=file_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={
+                "Content-Disposition": f'attachment; filename="{data.portfolio_name}-report.pptx"'
+            }
+        )
+    except (ValueError, KeyError, TypeError, OSError) as e:
+        logger.error(f"Error exporting portfolio to PPTX: {str(e)}",
+                     exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to export portfolio report: {str(e)}"
+        )
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)

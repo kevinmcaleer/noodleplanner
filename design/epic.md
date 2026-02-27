@@ -311,6 +311,63 @@ The User Workload view (GitHub Issue #221) breaks down tasks by assigned user/re
 - "No tasks assigned to users" shown when no resources found
 - Individual sections hidden if user has no tasks
 
+### Portfolio Report Export (Issue #485)
+
+The Portfolio Report feature exports a multi-slide PowerPoint deck that combines all projects into a single presentation.
+
+**Slide Structure:**
+
+1. **Portfolio Overview Slide** (always first):
+   - Dark blue title bar with portfolio name and date
+   - Summary counts (total projects, green/amber/red breakdown)
+   - Project Status Dashboard table (name, status, progress %, RAG, open risks)
+   - Portfolio Timeline with Gantt-style bars showing each project's date range
+   - Projects with date ranges show coloured bars (blue for in-progress, green for complete)
+   - Partial completion shown as a green overlay on the left portion of the bar
+
+2. **Individual Project Report Slides** (one per project):
+   - Same layout as the single-project report export (quad layout)
+   - Title bar with project name, PM, sponsor, budget, date, status
+   - Timeline graphic (phases and milestones)
+   - Milestones table (top-left), Up Next table (top-right)
+   - Latest Highlight (bottom-left), Risks and Issues (bottom-right)
+
+**API Endpoint:**
+- `POST /api/portfolio/export-pptx` -- Accepts portfolio overview data and individual project report payloads
+
+**Request Payload:**
+```json
+{
+  "portfolio_name": "My Portfolio",
+  "date": "2026-02-27",
+  "projects": [
+    {"name": "Project A", "status": "On Track", "rag": "green", "completion": 50, "risk_count": 2, "start_date": "2026-01-01", "end_date": "2026-06-30"}
+  ],
+  "project_reports": [
+    {"project_name": "Project A", "manager": "John", ...}
+  ]
+}
+```
+
+**Frontend:**
+- Export Report button in the Portfolio header nav bar (next to New Project and Import Project)
+- `exportPortfolioReport()` function in `portfolio-report.js`
+- Parses all projects via `/api/parse`, collects report data from parsed results
+- `buildProjectReportData()` builds each project's report payload from parsed API data (not DOM)
+
+**Key Functions:**
+- `export_portfolio_to_powerpoint(output_path, portfolio_data, project_reports)` -- Core function in scheduling engine
+- `_add_portfolio_overview_slide(prs, portfolio_data)` -- Builds the overview slide
+- `_add_report_slide(prs, report_data)` -- Shared helper for individual project report slides
+- `exportPortfolioReport()` -- Frontend entry point
+- `buildProjectReportData(project, tasks, frontMatter, raidItems, reportDate)` -- Builds report data from parsed API results
+
+**Files:**
+- `packages/noodle-core/src/noodle_core/scheduling_engine.py` -- Core export functions
+- `packages/noodle-web/src/noodle_web/app.py` -- API endpoint
+- `packages/noodle-web/src/noodle_web/static/portfolio-report.js` -- Frontend logic
+- `packages/noodle-web/src/noodle_web/templates/index.html` -- Export button in portfolio header
+
 ### CLI Tool
 
 The CLI (`packages/noodle-cli/`) provides command-line access to the planning engine.
