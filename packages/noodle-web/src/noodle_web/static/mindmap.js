@@ -1027,6 +1027,9 @@ function mindmapAnimatedRender(oldPositions, oldVisibleIds, toggledNode, isColla
             if (mindmapSelectedNode) {
                 mindmapSelectNode(mindmapSelectedNode);
             }
+
+            // Auto-fit view to show all visible nodes after collapse/expand
+            mindmapZoomFit();
         }
     }
 
