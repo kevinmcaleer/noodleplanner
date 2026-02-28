@@ -11797,6 +11797,12 @@ const tourSteps = [
         position: "bottom"
     },
     {
+        title: "Portfolio",
+        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, and Risks views to get a cross-project overview.",
+        target: "#portfolioTab",
+        position: "bottom"
+    },
+    {
         title: "Plan Menu",
         message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones. A sub-navigation bar also provides quick access to Dashboard and all Plan views.",
         target: "#planTab",

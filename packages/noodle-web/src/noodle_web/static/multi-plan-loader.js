@@ -475,6 +475,11 @@ if (typeof window !== 'undefined') {
             loadProjectIntoEditor(currentId);
         }
 
+        // Default to Dashboard view with the plan sub-navigation bar visible
+        if (typeof switchToView === 'function') {
+            switchToView('project-report');
+        }
+
         // Set up periodic cache refresh (every 5 minutes)
         setInterval(() => {
             loadAllProjectsIntoCache();
