@@ -344,6 +344,8 @@ function buildProjectReportData(project, tasks, frontMatter, raidItems, highligh
             risksIssues.push({
                 type: item.type,
                 title: item.title || item.description || '',
+                description: item.description || '',
+                mitigation: item.mitigation_actions || '',
                 score: item.score || 0
             });
         }

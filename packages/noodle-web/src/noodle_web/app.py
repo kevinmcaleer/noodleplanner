@@ -718,6 +718,8 @@ class ReportHighlight(BaseModel):
 class ReportRiskIssue(BaseModel):
     type: str = Field("", max_length=20)
     title: str = Field("", max_length=500)
+    description: str = Field("", max_length=5000)
+    mitigation: str = Field("", max_length=5000)
     score: int = Field(0)
 
 
