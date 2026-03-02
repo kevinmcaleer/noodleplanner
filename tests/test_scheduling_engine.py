@@ -1354,8 +1354,8 @@ class TestExportPortfolioToPowerpoint:
         ]
         export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
         prs = Presentation(str(output))
-        # 1 overview slide + 2 project slides = 3
-        assert len(prs.slides) == 3
+        # 1 overview + 1 risk register + 2 project slides = 4
+        assert len(prs.slides) == 4
 
     def test_empty_portfolio(self, tmp_path):
         """Test export with empty portfolio still produces a valid file."""
@@ -1400,7 +1400,8 @@ class TestExportPortfolioToPowerpoint:
         ]
         export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
         prs = Presentation(str(output))
-        assert len(prs.slides) == 3
+        # 1 overview + 1 risk register + 2 project slides = 4
+        assert len(prs.slides) == 4
         # Overview slide should have shapes for timeline bars
         overview = prs.slides[0]
         assert len(overview.shapes) > 5  # Title + table + timeline elements
@@ -1427,8 +1428,8 @@ class TestExportPortfolioToPowerpoint:
         ]
         export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
         prs = Presentation(str(output))
-        # Second slide (index 1) is the project report
-        project_slide = prs.slides[1]
+        # After overview (0) and risk register (1), project slide is at index 2
+        project_slide = prs.slides[2]
         all_text = ' '.join(
             shape.text_frame.text for shape in project_slide.shapes
             if shape.has_text_frame
@@ -1704,6 +1705,302 @@ class TestPortfolioBudgetInSlide:
             if shape.has_text_frame
         )
         assert 'Total Budget' not in all_text
+
+
+class TestCollectPortfolioRisks:
+    """Tests for the _collect_portfolio_risks function."""
+
+    def test_filters_low_risks(self):
+        """Test that low-score risks (< 6) are excluded."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'Low risk', 'score': 3},
+                {'type': 'risk', 'title': 'High risk', 'score': 20},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert len(result) == 1
+        assert result[0]['title'] == 'High risk'
+
+    def test_includes_medium_and_high_risks(self):
+        """Test that medium (6-15) and high (>= 16) risks are included."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'Medium risk', 'score': 10},
+                {'type': 'issue', 'title': 'High issue', 'score': 20},
+                {'type': 'risk', 'title': 'Low risk', 'score': 2},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert len(result) == 2
+
+    def test_sorts_high_to_low(self):
+        """Test that risks are sorted from highest score to lowest."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'Medium', 'score': 8},
+                {'type': 'risk', 'title': 'High', 'score': 20},
+                {'type': 'issue', 'title': 'Also medium', 'score': 12},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert result[0]['score'] == 20
+        assert result[1]['score'] == 12
+        assert result[2]['score'] == 8
+
+    def test_assigns_correct_rag(self):
+        """Test that RAG is 'red' for >= 16 and 'amber' for 6-15."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'High', 'score': 16},
+                {'type': 'risk', 'title': 'Medium', 'score': 6},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert result[0]['rag'] == 'red'
+        assert result[1]['rag'] == 'amber'
+
+    def test_includes_project_name(self):
+        """Test that each risk has the correct project_name."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'Project Alpha', 'risks_issues': [
+                {'type': 'risk', 'title': 'Risk 1', 'score': 10},
+            ]},
+            {'project_name': 'Project Beta', 'risks_issues': [
+                {'type': 'issue', 'title': 'Issue 1', 'score': 18},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert result[0]['project_name'] == 'Project Beta'
+        assert result[1]['project_name'] == 'Project Alpha'
+
+    def test_empty_project_reports(self):
+        """Test with no project reports."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        result = _collect_portfolio_risks([])
+        assert result == []
+
+    def test_no_qualifying_risks(self):
+        """Test when all risks are low score."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'Low', 'score': 2},
+                {'type': 'risk', 'title': 'Also low', 'score': 5},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert result == []
+
+
+class TestAddPortfolioRiskSlides:
+    """Tests for the _add_portfolio_risk_slides function."""
+
+    def _make_presentation(self):
+        from pptx import Presentation
+        from pptx.util import Inches
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+        return prs
+
+    def test_adds_single_slide_for_few_risks(self):
+        """Test that a single slide is added when risks fit on one page."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'A', 'type': 'risk', 'title': 'R1',
+             'score': 20, 'rag': 'red'},
+            {'project_name': 'B', 'type': 'issue', 'title': 'I1',
+             'score': 10, 'rag': 'amber'},
+        ]
+        slides = _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        assert len(slides) == 1
+        assert len(prs.slides) == 1
+
+    def test_adds_multiple_slides_for_many_risks(self):
+        """Test that multiple slides are created when risks exceed one page."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        # Create 25 risks (exceeds 18 per page)
+        risks = [
+            {'project_name': f'Proj{i}', 'type': 'risk',
+             'title': f'Risk {i}', 'score': 20 - (i % 10), 'rag': 'red'}
+            for i in range(25)
+        ]
+        slides = _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        assert len(slides) == 2
+        assert len(prs.slides) == 2
+
+    def test_slide_contains_risk_register_title(self):
+        """Test that the slide has the portfolio risk register title."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'My Portfolio', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'A', 'type': 'risk', 'title': 'R1',
+             'score': 16, 'rag': 'red'},
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide = prs.slides[0]
+        all_text = ' '.join(
+            shape.text_frame.text for shape in slide.shapes
+            if shape.has_text_frame
+        )
+        assert 'My Portfolio Risk Register' in all_text
+
+    def test_empty_risks_shows_no_risks_message(self):
+        """Test that empty risks list shows a 'no risks' message."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        slides = _add_portfolio_risk_slides(prs, portfolio_data, [])
+        assert len(slides) == 1
+        slide = prs.slides[0]
+        all_text = ' '.join(
+            shape.text_frame.text for shape in slide.shapes
+            if shape.has_text_frame
+        )
+        assert 'No medium or high' in all_text
+
+    def test_slide_contains_project_names(self):
+        """Test that project names appear in the risk table."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'Alpha Project', 'type': 'risk',
+             'title': 'Risk A', 'score': 20, 'rag': 'red'},
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide = prs.slides[0]
+        # Check table cells for project name
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        assert len(table_shapes) == 1
+        table = table_shapes[0].table
+        # Row 1 (after header) should contain 'Alpha Project'
+        assert table.cell(1, 0).text == 'Alpha Project'
+
+    def test_page_numbering_on_multiple_slides(self):
+        """Test that multi-page risk slides show page numbers."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': f'P{i}', 'type': 'risk',
+             'title': f'R{i}', 'score': 20, 'rag': 'red'}
+            for i in range(20)
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide1 = prs.slides[0]
+        slide2 = prs.slides[1]
+        text1 = ' '.join(
+            s.text_frame.text for s in slide1.shapes if s.has_text_frame
+        )
+        text2 = ' '.join(
+            s.text_frame.text for s in slide2.shapes if s.has_text_frame
+        )
+        assert '(1/2)' in text1
+        assert '(2/2)' in text2
+
+
+class TestPortfolioExportWithRiskSlides:
+    """Integration tests for portfolio export including risk slides."""
+
+    def test_slide_count_includes_risk_slides(self, tmp_path):
+        """Test that the total slide count includes the risk register slide."""
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "portfolio_with_risks.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Portfolio',
+            'date': '2026-03-02',
+            'projects': [
+                {'name': 'A', 'status': 'On Track', 'rag': 'green',
+                 'completion': 50, 'risk_count': 1},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'A', 'manager': '', 'sponsor': '', 'budget': '',
+             'date': '2026-03-02', 'status': 'green', 'milestones': [],
+             'up_next': [], 'highlight': None,
+             'risks_issues': [
+                 {'type': 'risk', 'title': 'High risk', 'score': 20},
+             ],
+             'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        prs = Presentation(str(output))
+        # 1 overview + 1 risk register + 1 project = 3
+        assert len(prs.slides) == 3
+
+    def test_no_high_risks_still_adds_risk_slide(self, tmp_path):
+        """Test that a risk slide is added even with no qualifying risks."""
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "portfolio_no_risks.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Portfolio',
+            'date': '2026-03-02',
+            'projects': [
+                {'name': 'A', 'status': 'On Track', 'rag': 'green',
+                 'completion': 100, 'risk_count': 0},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'A', 'manager': '', 'sponsor': '', 'budget': '',
+             'date': '2026-03-02', 'status': 'green', 'milestones': [],
+             'up_next': [], 'highlight': None, 'risks_issues': [],
+             'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        prs = Presentation(str(output))
+        # 1 overview + 1 risk register (empty message) + 1 project = 3
+        assert len(prs.slides) == 3
+
+    def test_risk_slide_comes_after_overview(self, tmp_path):
+        """Test that the risk slide is placed between overview and projects."""
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "portfolio_order.pptx"
+        portfolio_data = {
+            'portfolio_name': 'Order Test',
+            'date': '2026-03-02',
+            'projects': [
+                {'name': 'Proj X', 'status': 'On Track', 'rag': 'green',
+                 'completion': 50, 'risk_count': 1},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'Proj X', 'manager': '', 'sponsor': '',
+             'budget': '', 'date': '2026-03-02', 'status': 'green',
+             'milestones': [], 'up_next': [], 'highlight': None,
+             'risks_issues': [
+                 {'type': 'risk', 'title': 'Critical bug', 'score': 25},
+             ],
+             'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        prs = Presentation(str(output))
+        # Slide 0: overview, Slide 1: risk register, Slide 2: project
+        risk_slide = prs.slides[1]
+        risk_text = ' '.join(
+            s.text_frame.text for s in risk_slide.shapes if s.has_text_frame
+        )
+        assert 'Risk Register' in risk_text
+
+        project_slide = prs.slides[2]
+        proj_text = ' '.join(
+            s.text_frame.text for s in project_slide.shapes if s.has_text_frame
+        )
+        assert 'Proj X' in proj_text
 
 
 if __name__ == "__main__":
