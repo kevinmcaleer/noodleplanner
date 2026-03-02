@@ -5,74 +5,78 @@
  */
 
 /**
- * Capture a per-project timeline as a PNG image.
- * Creates a temporary offscreen container, renders the timeline into it
- * via renderMinimalTimeline, captures with html2canvas, then cleans up.
+ * Capture a per-project timeline as a PNG image using the swimlane style.
+ * Builds an offscreen container with a date scale header and SVG swimlane
+ * (same visual style as the portfolio overview timeline), captures with
+ * html2canvas, then cleans up.
  *
  * @param {Array} tasks - Parsed tasks for the project
  * @param {string} projectName - Project name (for logging)
  * @returns {string|null} Base64-encoded PNG string, or null on failure
  */
 async function captureProjectTimelineImage(tasks, projectName) {
-    if (typeof html2canvas === 'undefined' || typeof renderMinimalTimeline !== 'function') return null;
-    if (typeof parseLocalDate !== 'function') return null;
+    if (typeof html2canvas === 'undefined') return null;
+    if (typeof renderTimelineScale !== 'function' || typeof assignSwimlanePhaseRows !== 'function') return null;
 
     try {
-        // Filter out single top-level project container (same as updateTimeline)
-        var filteredTasks = tasks;
-        if (filteredTasks.length > 0) {
-            var minLevel = Math.min.apply(null, filteredTasks.map(function(t) { return t.level; }));
-            var topLevelTasks = filteredTasks.filter(function(t) { return t.level === minLevel; });
-            if (topLevelTasks.length === 1) {
-                filteredTasks = filteredTasks.filter(function(t) { return t.level !== minLevel; });
+        var phases = tasks.filter(function(t) { return t.is_summary && t.start && t.finish; });
+        var milestones = tasks.filter(function(t) { return !t.is_summary && t.duration_days === 0 && t.finish; });
+
+        if (phases.length === 0 && milestones.length === 0) return null;
+
+        // Compute date range
+        var projectStart = null;
+        var projectEnd = null;
+        tasks.forEach(function(t) {
+            if (t.start) {
+                var s = new Date(t.start);
+                if (!projectStart || s < projectStart) projectStart = s;
             }
+            if (t.finish) {
+                var f = new Date(t.finish);
+                if (!projectEnd || f > projectEnd) projectEnd = f;
+            }
+        });
+        if (!projectStart || !projectEnd) return null;
+
+        // 7-day padding
+        var padding = 7 * 24 * 60 * 60 * 1000;
+        var globalStart = new Date(projectStart.getTime() - padding);
+        var globalEnd = new Date(projectEnd.getTime() + padding);
+
+        // Build timeline data object matching renderProjectSwimlane expectations
+        var timeline = {
+            projectId: '',
+            projectName: projectName,
+            phases: phases,
+            milestones: milestones,
+            startDate: projectStart,
+            endDate: projectEnd
+        };
+
+        // Build HTML: date scale + swimlane (no project label column for single-project view)
+        var scaleHtml = renderTimelineScale(globalStart, globalEnd, 'months');
+        var swimlaneHtml = renderProjectSwimlane(timeline, globalStart, globalEnd);
+
+        // Today marker
+        var todayHtml = '';
+        var today = new Date();
+        if (today >= globalStart && today <= globalEnd) {
+            var todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
+            todayHtml = '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
+                (todayPct / 100) + ');"></div>';
         }
 
-        const allTasks = filteredTasks.filter(function(t) {
-            return (t.start && t.finish) || (t.finish && t.duration_days === 0);
-        });
-        if (allTasks.length === 0) return null;
-
-        var allDates = [];
-        allTasks.forEach(function(t) {
-            if (t.start) allDates.push(parseLocalDate(t.start));
-            if (t.finish) allDates.push(parseLocalDate(t.finish));
-        });
-        var minDate = new Date(Math.min.apply(null, allDates));
-        var maxDate = new Date(Math.max.apply(null, allDates));
-
-        minDate.setDate(minDate.getDate() - 7);
-        maxDate.setDate(maxDate.getDate() + 7);
-
-        var timelineWidth = 1200;
-        var totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
-
-        var lineId = 'captureTimelineLine-' + Date.now();
-        var milestonesId = 'captureTimelineMilestones-' + Date.now();
-
+        // Create offscreen container
         var container = document.createElement('div');
         container.style.position = 'absolute';
         container.style.left = '-9999px';
-        container.style.width = timelineWidth + 'px';
-        container.className = 'timeline-line-wrapper report-timeline-wrapper';
-
-        var lineDiv = document.createElement('div');
-        lineDiv.className = 'timeline-line';
-        lineDiv.id = lineId;
-        container.appendChild(lineDiv);
-
-        var milestonesDiv = document.createElement('div');
-        milestonesDiv.className = 'timeline-milestones';
-        milestonesDiv.id = milestonesId;
-        container.appendChild(milestonesDiv);
+        container.style.width = '1200px';
+        container.className = 'portfolio-timeline-container';
+        container.style.background = '#ffffff';
+        container.innerHTML = scaleHtml + swimlaneHtml + todayHtml;
 
         document.body.appendChild(container);
-
-        renderMinimalTimeline(container, filteredTasks, minDate, maxDate, totalDays, timelineWidth, {
-            isReport: true,
-            timelineLineId: lineId,
-            milestonesId: milestonesId
-        });
 
         var canvas = await html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
         var dataUrl = canvas.toDataURL('image/png');
