@@ -1457,8 +1457,9 @@ class TestExportPortfolioToPowerpoint:
         ]
         export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
         prs = Presentation(str(output))
-        # Slide 0 is the overview; slide 1 is the project report
-        project_slide = prs.slides[1]
+        # Slide 0 is overview, risk register slides follow, then project reports.
+        # The last slide is the project report for a single-project portfolio.
+        project_slide = prs.slides[-1]
         all_text = ' '.join(
             shape.text_frame.text for shape in project_slide.shapes
             if shape.has_text_frame

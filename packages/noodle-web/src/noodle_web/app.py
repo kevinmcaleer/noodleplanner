@@ -808,6 +808,7 @@ class PortfolioReportRequest(BaseModel):
     date: str = Field("", max_length=50)
     projects: List[PortfolioProjectSummary] = Field(default_factory=list)
     project_reports: List[ReportExportRequest] = Field(default_factory=list)
+    timeline_image: Optional[str] = Field(None, description="Base64-encoded PNG of portfolio timeline")
 
 
 @app.post("/api/portfolio/export-pptx")
@@ -825,6 +826,7 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
             'portfolio_name': data.portfolio_name,
             'date': data.date,
             'projects': [p.model_dump() for p in data.projects],
+            'timeline_image': data.timeline_image,
         }
 
         project_reports = [

@@ -2537,8 +2537,16 @@ def export_report_to_powerpoint(output_path, report_data):
         dp.font.size = Pt(10)
         dp.font.color.rgb = WHITE
 
-    # Status badge (right-aligned)
+    # Status badge (right-aligned) with white background pill
     if status:
+        status_bg = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(11.5), Inches(0.15), Inches(1.6), Inches(0.55)
+        )
+        status_bg.fill.solid()
+        status_bg.fill.fore_color.rgb = WHITE
+        status_bg.line.fill.background()
+
         stb = slide.shapes.add_textbox(Inches(11.5), Inches(0.15),
                                        Inches(1.6), Inches(0.55))
         stf = stb.text_frame
@@ -2928,6 +2936,15 @@ def _add_report_slide(prs, report_data):
         dp.font.color.rgb = WHITE
 
     if status:
+        # White background pill behind the RAG status badge
+        status_bg = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(11.5), Inches(0.15), Inches(1.6), Inches(0.55)
+        )
+        status_bg.fill.solid()
+        status_bg.fill.fore_color.rgb = WHITE
+        status_bg.line.fill.background()
+
         stb = slide.shapes.add_textbox(Inches(11.5), Inches(0.15),
                                        Inches(1.6), Inches(0.55))
         stf = stb.text_frame
@@ -3457,121 +3474,23 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
         timeline_top = Inches(2.0)
 
     # -- Portfolio Timeline ---------------------------------------------------
-    projects_with_dates = [p for p in projects if p.get('start_date') and p.get('end_date')]
-    if projects_with_dates:
-        from datetime import datetime as _dt
-
-        tl_heading = slide.shapes.add_textbox(
-            Inches(0.4), timeline_top, Inches(6), Inches(0.30))
-        tlhf = tl_heading.text_frame
-        tlhf.word_wrap = True
-        tlhp = tlhf.paragraphs[0]
-        tlhp.text = "Portfolio Timeline"
-        tlhp.font.size = Pt(14)
-        tlhp.font.bold = True
-        tlhp.font.color.rgb = MID_BLUE
-
-        bar_top = timeline_top + Inches(0.45)
-        bar_area_left = Inches(3.5)
-        bar_area_width = Inches(9.433)  # 13.333 - 3.5 - 0.4
-
-        # Compute global date range
-        all_starts = []
-        all_ends = []
-        for proj in projects_with_dates:
-            try:
-                all_starts.append(_dt.fromisoformat(str(proj['start_date'])))
-                all_ends.append(_dt.fromisoformat(str(proj['end_date'])))
-            except (ValueError, TypeError):
-                pass
-
-        if all_starts and all_ends:
-            global_start = min(all_starts)
-            global_end = max(all_ends)
-            total_days = max((global_end - global_start).days, 1)
-
-            bar_height = Inches(0.25)
-            row_spacing = Inches(0.35)
-
-            # Date labels for scale
-            scale_y = bar_top
-            scale_box = slide.shapes.add_textbox(
-                bar_area_left, scale_y, bar_area_width, Inches(0.20))
-            scale_tf = scale_box.text_frame
-            scale_tf.word_wrap = False
-            scale_p = scale_tf.paragraphs[0]
-            start_label = global_start.strftime('%b %Y')
-            end_label = global_end.strftime('%b %Y')
-            scale_p.text = f"{start_label}                                                    {end_label}"
-            scale_p.font.size = Pt(7)
-            scale_p.font.color.rgb = RGBColor(128, 128, 128)
-
-            bar_top += Inches(0.25)
-
-            # Blue shades for incomplete phases
-            blue_shades = [
-                RGBColor(21, 101, 192),
-                RGBColor(25, 118, 210),
-                RGBColor(30, 136, 229),
-                RGBColor(33, 150, 243),
-                RGBColor(66, 165, 245),
-                RGBColor(100, 181, 246),
-            ]
-            green_complete = RGBColor(76, 175, 80)
-
-            for idx, proj in enumerate(projects_with_dates[:15]):
-                try:
-                    p_start = _dt.fromisoformat(str(proj['start_date']))
-                    p_end = _dt.fromisoformat(str(proj['end_date']))
-                except (ValueError, TypeError):
-                    continue
-
-                # Project name label
-                label_box = slide.shapes.add_textbox(
-                    Inches(0.4), bar_top, Inches(3.0), bar_height)
-                label_tf = label_box.text_frame
-                label_tf.word_wrap = True
-                label_tf.margin_top = Inches(0)
-                label_tf.margin_bottom = Inches(0)
-                label_p = label_tf.paragraphs[0]
-                label_p.text = _sanitise_text(proj.get('name', ''))
-                label_p.font.size = Pt(8)
-                label_p.font.bold = True
-                label_p.font.color.rgb = BLACK
-
-                # Gantt bar
-                offset_days = (p_start - global_start).days
-                duration_days = max((p_end - p_start).days, 1)
-                x_pct = offset_days / total_days
-                w_pct = duration_days / total_days
-
-                bar_left = int(bar_area_left) + int(bar_area_width * x_pct)
-                bar_w = max(int(bar_area_width * w_pct), Inches(0.1))
-
-                completion = proj.get('completion', 0)
-                is_complete = completion >= 100
-                bar_colour = green_complete if is_complete else blue_shades[idx % len(blue_shades)]
-
-                bar_shape = slide.shapes.add_shape(
-                    MSO_SHAPE.ROUNDED_RECTANGLE,
-                    bar_left, bar_top, bar_w, bar_height
-                )
-                bar_shape.fill.solid()
-                bar_shape.fill.fore_color.rgb = bar_colour
-                bar_shape.line.fill.background()
-
-                # Progress overlay for partial completion
-                if 0 < completion < 100:
-                    progress_w = max(int(bar_w * completion / 100), Inches(0.05))
-                    progress_shape = slide.shapes.add_shape(
-                        MSO_SHAPE.ROUNDED_RECTANGLE,
-                        bar_left, bar_top, progress_w, bar_height
-                    )
-                    progress_shape.fill.solid()
-                    progress_shape.fill.fore_color.rgb = green_complete
-                    progress_shape.line.fill.background()
-
-                bar_top += row_spacing
+    timeline_image_b64 = portfolio_data.get('timeline_image')
+    if timeline_image_b64:
+        # Use the PNG image captured from the browser's SVG-based timeline
+        import base64
+        import io
+        try:
+            img_data = base64.b64decode(timeline_image_b64)
+            img_stream = io.BytesIO(img_data)
+            tl_left = Inches(0.4)
+            tl_top = timeline_top
+            tl_width = Inches(12.533)  # 13.333 - 0.4 - 0.4
+            slide.shapes.add_picture(
+                img_stream, tl_left, tl_top, width=tl_width
+            )
+        except Exception:
+            logger.warning("Failed to embed portfolio timeline image",
+                           exc_info=True)
 
     # -- Footer ---------------------------------------------------------------
     fb = slide.shapes.add_textbox(Inches(0.4), Inches(7.1),

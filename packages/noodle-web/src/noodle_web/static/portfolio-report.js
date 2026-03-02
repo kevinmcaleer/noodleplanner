@@ -88,11 +88,35 @@ async function exportPortfolioReport() {
             return (ragOrder[a.rag] || 2) - (ragOrder[b.rag] || 2);
         });
 
+        // Capture the portfolio timeline as a PNG image using html2canvas
+        // so the PPTX gets a high-fidelity rendering of the SVG-based timeline.
+        let timelineImageB64 = null;
+        const timelineContainer = document.querySelector('#portfolioTimelineView .portfolio-timeline-container');
+        if (timelineContainer && typeof html2canvas !== 'undefined') {
+            try {
+                // Temporarily ensure timeline view is visible for capture
+                const timelineView = document.getElementById('portfolioTimelineView');
+                const wasHidden = timelineView && timelineView.style.display === 'none';
+                if (wasHidden) timelineView.style.display = 'block';
+
+                const canvas = await html2canvas(timelineContainer, { backgroundColor: '#ffffff', scale: 2 });
+
+                if (wasHidden) timelineView.style.display = 'none';
+
+                const dataUrl = canvas.toDataURL('image/png');
+                // Strip the data:image/png;base64, prefix
+                timelineImageB64 = dataUrl.split(',')[1] || null;
+            } catch (err) {
+                console.warn('Could not capture portfolio timeline as image:', err);
+            }
+        }
+
         const payload = {
             portfolio_name: 'Portfolio',
             date: reportDate,
             projects: portfolioProjects,
-            project_reports: projectReports
+            project_reports: projectReports,
+            timeline_image: timelineImageB64
         };
 
         const response = await fetch('/api/portfolio/export-pptx', {
