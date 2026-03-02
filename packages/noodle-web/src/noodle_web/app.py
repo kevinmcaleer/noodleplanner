@@ -797,6 +797,7 @@ class PortfolioProjectSummary(BaseModel):
     rag: str = Field("", max_length=20)
     completion: int = Field(0, ge=0, le=100)
     risk_count: int = Field(0, ge=0)
+    budget: str = Field("", max_length=200)
     start_date: Optional[str] = Field(None, max_length=50)
     end_date: Optional[str] = Field(None, max_length=50)
 

@@ -3147,6 +3147,82 @@ def _add_report_slide(prs, report_data):
     return slide
 
 
+def _parse_budget_value(budget_str):
+    """Parse a budget string into a numeric value.
+
+    Handles formats like: "$50,000", "50000", "50k", "$1.5m", "1,500,000",
+    "100K", "$2M", "2.5M", etc.
+
+    Args:
+        budget_str: A string representing a budget amount.
+
+    Returns:
+        A float representing the parsed value, or None if unparsable.
+    """
+    import re as _re
+    if not budget_str:
+        return None
+    text = str(budget_str).strip()
+    # Remove currency symbols and whitespace
+    text = _re.sub(r'[£$€¥\s,]', '', text)
+    if not text:
+        return None
+    # Check for k/m/b suffixes
+    multiplier = 1
+    if text[-1].lower() == 'k':
+        multiplier = 1_000
+        text = text[:-1]
+    elif text[-1].lower() == 'm':
+        multiplier = 1_000_000
+        text = text[:-1]
+    elif text[-1].lower() == 'b':
+        multiplier = 1_000_000_000
+        text = text[:-1]
+    try:
+        return float(text) * multiplier
+    except ValueError:
+        return None
+
+
+def _format_budget_total(total):
+    """Format a numeric budget total as a human-readable string.
+
+    Args:
+        total: A numeric budget total.
+
+    Returns:
+        A formatted string like "$1,500,000" or "$50,000".
+    """
+    if total >= 1_000_000_000:
+        formatted = f"${total / 1_000_000_000:,.1f}B"
+    elif total >= 1_000_000:
+        formatted = f"${total / 1_000_000:,.1f}M"
+    elif total >= 1_000:
+        formatted = f"${total:,.0f}"
+    else:
+        formatted = f"${total:,.0f}"
+    return formatted
+
+
+def _calculate_total_portfolio_budget(projects):
+    """Calculate the total budget across all projects.
+
+    Args:
+        projects: List of project dicts, each with an optional 'budget' key.
+
+    Returns:
+        Total budget as a float, or None if no projects have parseable budgets.
+    """
+    total = 0
+    has_any = False
+    for proj in projects:
+        value = _parse_budget_value(proj.get('budget', ''))
+        if value is not None:
+            total += value
+            has_any = True
+    return total if has_any else None
+
+
 def _add_portfolio_overview_slide(prs, portfolio_data):
     """Add a portfolio overview slide with status dashboard and timeline.
 
@@ -3230,13 +3306,28 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
     p.font.bold = True
     p.font.color.rgb = WHITE
 
+    # Compute total portfolio budget
+    total_budget = _calculate_total_portfolio_budget(projects)
+
     if report_date:
+        date_text = f"Date: {report_date}"
+        if total_budget is not None:
+            date_text += f"    |    Total Budget: {_format_budget_total(total_budget)}"
         dtb = slide.shapes.add_textbox(Inches(0.4), Inches(0.50),
-                                       Inches(6), Inches(0.30))
+                                       Inches(8), Inches(0.30))
         dtf = dtb.text_frame
         dtf.word_wrap = True
         dp = dtf.paragraphs[0]
-        dp.text = _sanitise_text(f"Date: {report_date}")
+        dp.text = _sanitise_text(date_text)
+        dp.font.size = Pt(10)
+        dp.font.color.rgb = WHITE
+    elif total_budget is not None:
+        dtb = slide.shapes.add_textbox(Inches(0.4), Inches(0.50),
+                                       Inches(8), Inches(0.30))
+        dtf = dtb.text_frame
+        dtf.word_wrap = True
+        dp = dtf.paragraphs[0]
+        dp.text = _sanitise_text(f"Total Budget: {_format_budget_total(total_budget)}")
         dp.font.size = Pt(10)
         dp.font.color.rgb = WHITE
 
@@ -3274,7 +3365,7 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
     if projects:
         table_top = Inches(1.45)
         num_rows = min(len(projects), 20) + 1  # +1 header, cap at 20
-        num_cols = 5  # Name, Status, Progress, RAG, Risks
+        num_cols = 6  # Name, Budget, Status, Progress, RAG, Risks
         table_width = Inches(12.533)
         table_height = Inches(0.28 * num_rows)
 
@@ -3284,31 +3375,40 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
         ).table
 
         # Column widths
-        tbl.columns[0].width = int(table_width * 35 // 100)
-        tbl.columns[1].width = int(table_width * 20 // 100)
-        tbl.columns[2].width = int(table_width * 20 // 100)
-        tbl.columns[3].width = int(table_width * 12 // 100)
-        tbl.columns[4].width = int(table_width) - tbl.columns[0].width - tbl.columns[1].width - tbl.columns[2].width - tbl.columns[3].width
+        tbl.columns[0].width = int(table_width * 28 // 100)
+        tbl.columns[1].width = int(table_width * 12 // 100)
+        tbl.columns[2].width = int(table_width * 18 // 100)
+        tbl.columns[3].width = int(table_width * 18 // 100)
+        tbl.columns[4].width = int(table_width * 10 // 100)
+        tbl.columns[5].width = (int(table_width)
+                                - tbl.columns[0].width
+                                - tbl.columns[1].width
+                                - tbl.columns[2].width
+                                - tbl.columns[3].width
+                                - tbl.columns[4].width)
 
         _shade_header_row(tbl, num_cols)
         _set_cell_text(tbl.cell(0, 0), "Project", 9, True, WHITE)
-        _set_cell_text(tbl.cell(0, 1), "Status", 9, True, WHITE, PP_ALIGN.CENTER)
-        _set_cell_text(tbl.cell(0, 2), "Progress", 9, True, WHITE, PP_ALIGN.CENTER)
-        _set_cell_text(tbl.cell(0, 3), "RAG", 9, True, WHITE, PP_ALIGN.CENTER)
-        _set_cell_text(tbl.cell(0, 4), "Open Risks", 9, True, WHITE, PP_ALIGN.CENTER)
+        _set_cell_text(tbl.cell(0, 1), "Budget", 9, True, WHITE, PP_ALIGN.CENTER)
+        _set_cell_text(tbl.cell(0, 2), "Status", 9, True, WHITE, PP_ALIGN.CENTER)
+        _set_cell_text(tbl.cell(0, 3), "Progress", 9, True, WHITE, PP_ALIGN.CENTER)
+        _set_cell_text(tbl.cell(0, 4), "RAG", 9, True, WHITE, PP_ALIGN.CENTER)
+        _set_cell_text(tbl.cell(0, 5), "Open Risks", 9, True, WHITE, PP_ALIGN.CENTER)
 
         for i, proj in enumerate(projects[:20]):
             row_idx = i + 1
             _set_cell_text(tbl.cell(row_idx, 0), proj.get('name', ''), 9)
-            _set_cell_text(tbl.cell(row_idx, 1), proj.get('status', ''),
+            _set_cell_text(tbl.cell(row_idx, 1), proj.get('budget', ''),
+                           8, False, None, PP_ALIGN.CENTER)
+            _set_cell_text(tbl.cell(row_idx, 2), proj.get('status', ''),
                            8, False, None, PP_ALIGN.CENTER)
             completion = proj.get('completion', 0)
-            _set_cell_text(tbl.cell(row_idx, 2), f"{completion}%",
+            _set_cell_text(tbl.cell(row_idx, 3), f"{completion}%",
                            8, False, None, PP_ALIGN.CENTER)
             rag = proj.get('rag', '')
-            _set_cell_text(tbl.cell(row_idx, 3), rag.upper() if rag else '',
+            _set_cell_text(tbl.cell(row_idx, 4), rag.upper() if rag else '',
                            8, True, _rag_rgb(rag), PP_ALIGN.CENTER)
-            _set_cell_text(tbl.cell(row_idx, 4),
+            _set_cell_text(tbl.cell(row_idx, 5),
                            str(proj.get('risk_count', 0)),
                            8, False, None, PP_ALIGN.CENTER)
             if row_idx % 2 == 0:

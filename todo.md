@@ -10,6 +10,16 @@
 - [x] Added test verifying footer remains on overview slide
 - [x] All 595 tests passing
 
+### Total Portfolio Budget (GitHub Issue #491) - ✅ COMPLETED
+- [x] Add total portfolio budget to the portfolio overview page (right of date)
+- [x] Add individual project budgets to the project status dashboard table (right of name, left of status)
+- [x] Add budget field to PortfolioProjectSummary API model
+- [x] Pass budget from front matter through portfolio-report.js
+- [x] Add _parse_budget_value, _format_budget_total, _calculate_total_portfolio_budget helpers
+- [x] Expand dashboard table from 5 to 6 columns (Name, Budget, Status, Progress, RAG, Risks)
+- [x] Add comprehensive tests (budget parsing, formatting, total calculation, slide content)
+- [x] All 221 tests passing (128 scheduling engine + 93 app)
+
 ### Mindmap Auto-Fit Enhancement (GitHub Issue #488) - ✅ COMPLETED
 - [x] Added `mindmapZoomFit()` call to `mindmapAnimatedRender()` completion handler
 - [x] View auto-resizes to fit all nodes after expand/collapse animations

@@ -61,12 +61,18 @@ async function exportPortfolioReport() {
                 }
             });
 
+            var budget = '';
+            if (frontMatter) {
+                budget = frontMatter['budget'] || '';
+            }
+
             portfolioProjects.push({
                 name: project.name,
                 status: statusLabel,
                 rag: ragStatus,
                 completion: completion,
                 risk_count: openRisks,
+                budget: String(budget),
                 start_date: startDate,
                 end_date: endDate
             });
