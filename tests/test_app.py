@@ -1556,6 +1556,14 @@ class TestPortfolioExportPptx:
         # PPTX files are ZIP archives; check for ZIP magic bytes
         assert response.content[:2] == b'PK'
 
+    def test_portfolio_export_with_budgets(self, client):
+        """Test export with budget fields in projects and project reports."""
+        payload = self._make_payload()
+        payload['projects'][0]['budget'] = '$50,000'
+        response = client.post('/api/portfolio/export-pptx', json=payload)
+        assert response.status_code == 200
+        assert len(response.content) > 0
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
