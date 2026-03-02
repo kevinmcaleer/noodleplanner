@@ -3554,12 +3554,247 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
     return slide
 
 
+def _collect_portfolio_risks(project_reports):
+    """Collect Medium and High open risks/issues across all projects.
+
+    Aggregates risks_issues from each project report, filters to only
+    Medium (score 6-15) and High (score >= 16), and sorts from high to low.
+
+    Args:
+        project_reports: list of dicts, each with 'project_name' and
+            'risks_issues' (list of dicts with type, title, score).
+
+    Returns:
+        list of dicts with project_name, type, title, score, rag.
+    """
+    risks = []
+    for report in project_reports:
+        project_name = report.get('project_name', '')
+        for item in report.get('risks_issues', []):
+            score = item.get('score', 0)
+            if score < 6:
+                continue
+            rag = 'red' if score >= 16 else 'amber'
+            risks.append({
+                'project_name': project_name,
+                'type': item.get('type', ''),
+                'title': item.get('title', ''),
+                'score': score,
+                'rag': rag,
+            })
+    risks.sort(key=lambda r: r['score'], reverse=True)
+    return risks
+
+
+def _add_portfolio_risk_slides(prs, portfolio_data, risks):
+    """Add one or more portfolio risk slides showing Medium and High risks.
+
+    Renders a table of risks with project name, type, title, score, and
+    RAG level. Spills over to additional slides if there are too many items
+    to fit on a single slide.
+
+    Args:
+        prs: A python-pptx Presentation object.
+        portfolio_data: dict with portfolio_name and date.
+        risks: list of risk dicts (from _collect_portfolio_risks).
+
+    Returns:
+        list of slides added.
+    """
+    DARK_BLUE = RGBColor(33, 60, 114)
+    MID_BLUE = RGBColor(54, 96, 146)
+    WHITE = RGBColor(255, 255, 255)
+    BLACK = RGBColor(0, 0, 0)
+    LIGHT_GREY = RGBColor(242, 242, 242)
+    RED = RGBColor(192, 0, 0)
+    AMBER = RGBColor(218, 165, 32)
+    GREEN = RGBColor(0, 128, 0)
+
+    import re as _re
+
+    def _sanitise_text(text):
+        return _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', str(text))
+
+    def _set_cell_text(cell, text, font_size=8, bold=False, colour=None,
+                       alignment=PP_ALIGN.LEFT):
+        cell.text = _sanitise_text(text)
+        for para in cell.text_frame.paragraphs:
+            para.font.size = Pt(font_size)
+            para.font.bold = bold
+            if colour:
+                para.font.color.rgb = colour
+            para.alignment = alignment
+        cell.text_frame.word_wrap = True
+        cell.text_frame.margin_top = Inches(0.02)
+        cell.text_frame.margin_bottom = Inches(0.02)
+        cell.text_frame.margin_left = Inches(0.04)
+        cell.text_frame.margin_right = Inches(0.04)
+
+    def _shade_header_row(table, col_count):
+        for c in range(col_count):
+            cell = table.cell(0, c)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = DARK_BLUE
+
+    def _score_colour(score):
+        if score >= 16:
+            return RED
+        if score >= 6:
+            return AMBER
+        return GREEN
+
+    portfolio_name = portfolio_data.get('portfolio_name', 'Portfolio')
+    report_date = portfolio_data.get('date', '')
+
+    max_rows_per_slide = 18
+    slides = []
+    total_pages = max(1, (len(risks) + max_rows_per_slide - 1) // max_rows_per_slide)
+
+    for page_idx in range(total_pages):
+        page_risks = risks[page_idx * max_rows_per_slide:(page_idx + 1) * max_rows_per_slide]
+
+        slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank
+        slides.append(slide)
+
+        # -- Title bar --
+        title_bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(0), Inches(0),
+            Inches(13.333), Inches(0.85)
+        )
+        title_bar.fill.solid()
+        title_bar.fill.fore_color.rgb = DARK_BLUE
+        title_bar.line.fill.background()
+
+        title_text = f"{portfolio_name} Risk Register"
+        if total_pages > 1:
+            title_text += f" ({page_idx + 1}/{total_pages})"
+
+        tb = slide.shapes.add_textbox(Inches(0.4), Inches(0.08),
+                                      Inches(8), Inches(0.45))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = _sanitise_text(title_text)
+        p.font.size = Pt(22)
+        p.font.bold = True
+        p.font.color.rgb = WHITE
+
+        if report_date:
+            dtb = slide.shapes.add_textbox(Inches(0.4), Inches(0.50),
+                                           Inches(6), Inches(0.30))
+            dtf = dtb.text_frame
+            dtf.word_wrap = True
+            dp = dtf.paragraphs[0]
+            dp.text = _sanitise_text(f"Date: {report_date}")
+            dp.font.size = Pt(10)
+            dp.font.color.rgb = WHITE
+
+        # -- Summary badges (first page only) --
+        if page_idx == 0:
+            high_count = sum(1 for r in risks if r['rag'] == 'red')
+            medium_count = sum(1 for r in risks if r['rag'] == 'amber')
+            summary_text = (f"{len(risks)} Risks/Issues  |  "
+                            f"High: {high_count}  Medium: {medium_count}")
+            stb = slide.shapes.add_textbox(Inches(9), Inches(0.25),
+                                           Inches(4), Inches(0.40))
+            stf = stb.text_frame
+            stf.word_wrap = True
+            sp = stf.paragraphs[0]
+            sp.text = _sanitise_text(summary_text)
+            sp.font.size = Pt(11)
+            sp.font.bold = True
+            sp.font.color.rgb = WHITE
+            sp.alignment = PP_ALIGN.RIGHT
+
+        # -- Section heading --
+        heading_text = "Open Risks & Issues (Medium and High)"
+        heading_box = slide.shapes.add_textbox(
+            Inches(0.4), Inches(1.05), Inches(6), Inches(0.30))
+        hf = heading_box.text_frame
+        hf.word_wrap = True
+        hp = hf.paragraphs[0]
+        hp.text = heading_text
+        hp.font.size = Pt(14)
+        hp.font.bold = True
+        hp.font.color.rgb = MID_BLUE
+
+        # -- Risk table --
+        if page_risks:
+            table_top = Inches(1.45)
+            num_rows = len(page_risks) + 1  # +1 header
+            num_cols = 5  # Project, Type, Title, Score, RAG
+            table_width = Inches(12.533)
+            table_height = Inches(0.28 * num_rows)
+
+            tbl = slide.shapes.add_table(
+                num_rows, num_cols, Inches(0.4), table_top,
+                table_width, table_height
+            ).table
+
+            tbl.columns[0].width = int(table_width * 20 // 100)
+            tbl.columns[1].width = int(table_width * 10 // 100)
+            tbl.columns[2].width = int(table_width * 50 // 100)
+            tbl.columns[3].width = int(table_width * 10 // 100)
+            tbl.columns[4].width = (int(table_width) - tbl.columns[0].width
+                                    - tbl.columns[1].width - tbl.columns[2].width
+                                    - tbl.columns[3].width)
+
+            _shade_header_row(tbl, num_cols)
+            _set_cell_text(tbl.cell(0, 0), "Project", 9, True, WHITE)
+            _set_cell_text(tbl.cell(0, 1), "Type", 9, True, WHITE, PP_ALIGN.CENTER)
+            _set_cell_text(tbl.cell(0, 2), "Title", 9, True, WHITE)
+            _set_cell_text(tbl.cell(0, 3), "Score", 9, True, WHITE, PP_ALIGN.CENTER)
+            _set_cell_text(tbl.cell(0, 4), "RAG", 9, True, WHITE, PP_ALIGN.CENTER)
+
+            for i, risk in enumerate(page_risks):
+                row_idx = i + 1
+                _set_cell_text(tbl.cell(row_idx, 0),
+                               risk.get('project_name', ''), 8)
+                _set_cell_text(tbl.cell(row_idx, 1),
+                               risk.get('type', '').capitalize(),
+                               8, True, None, PP_ALIGN.CENTER)
+                _set_cell_text(tbl.cell(row_idx, 2),
+                               risk.get('title', ''), 8)
+                score = risk.get('score', 0)
+                _set_cell_text(tbl.cell(row_idx, 3), str(score),
+                               8, True, _score_colour(score), PP_ALIGN.CENTER)
+                rag = risk.get('rag', '')
+                rag_label = 'HIGH' if rag == 'red' else 'MEDIUM'
+                rag_colour = RED if rag == 'red' else AMBER
+                _set_cell_text(tbl.cell(row_idx, 4), rag_label,
+                               8, True, rag_colour, PP_ALIGN.CENTER)
+                if row_idx % 2 == 0:
+                    for c in range(num_cols):
+                        tbl.cell(row_idx, c).fill.solid()
+                        tbl.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
+        else:
+            nb = slide.shapes.add_textbox(Inches(0.4), Inches(1.45),
+                                          Inches(6), Inches(0.3))
+            nb.text_frame.text = "No medium or high risks/issues found."
+            nb.text_frame.paragraphs[0].font.size = Pt(9)
+            nb.text_frame.paragraphs[0].font.color.rgb = RGBColor(128, 128, 128)
+
+        # -- Footer --
+        fb = slide.shapes.add_textbox(Inches(0.4), Inches(7.1),
+                                      Inches(4), Inches(0.25))
+        ff = fb.text_frame
+        fp = ff.paragraphs[0]
+        fp.text = f"Generated by Noodle Planner  |  {report_date}"
+        fp.font.size = Pt(7)
+        fp.font.color.rgb = RGBColor(160, 160, 160)
+
+    return slides
+
+
 def export_portfolio_to_powerpoint(output_path, portfolio_data, project_reports):
     """Export a portfolio report as a multi-slide PowerPoint deck.
 
     Creates a presentation with:
       - Slide 1: Portfolio overview (status dashboard + timeline)
-      - Slides 2..N: One slide per project (same layout as single-project report)
+      - Slide 2+: Portfolio risk register (Medium and High risks, may span
+        multiple slides)
+      - Remaining slides: One slide per project (same layout as single-project
+        report)
 
     Args:
         output_path: Path to save the PowerPoint file.
@@ -3577,7 +3812,11 @@ def export_portfolio_to_powerpoint(output_path, portfolio_data, project_reports)
     # Slide 1: Portfolio overview
     _add_portfolio_overview_slide(prs, portfolio_data)
 
-    # Slides 2..N: Individual project reports
+    # Slide 2+: Portfolio risk register
+    portfolio_risks = _collect_portfolio_risks(project_reports)
+    _add_portfolio_risk_slides(prs, portfolio_data, portfolio_risks)
+
+    # Remaining slides: Individual project reports
     for report_data in project_reports:
         _add_report_slide(prs, report_data)
 
