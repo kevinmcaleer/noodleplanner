@@ -102,7 +102,7 @@ struct SchedulingEngine {
         func dfs(_ node: String, _ path: [String]) {
             visited.insert(node)
             recStack.insert(node)
-            var path = path + [node]
+            let path = path + [node]
 
             for neighbor in graph[node] ?? [] {
                 if !visited.contains(neighbor) {

@@ -41,7 +41,7 @@ struct GanttChartView: View {
     // MARK: - Header
 
     private func headerRow(start: Date, totalDays: Int, chartWidth: CGFloat) -> some View {
-        let calendar = Calendar.current
+//        let calendar = Calendar.current
         return HStack(spacing: 0) {
             // Label column
             Text("Task")
