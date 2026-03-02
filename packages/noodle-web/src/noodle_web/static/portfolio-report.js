@@ -38,6 +38,7 @@ async function exportPortfolioReport() {
             const tasks = (parsedResult && parsedResult.success) ? (parsedResult.tasks || []) : [];
             const frontMatter = (parsedResult && parsedResult.success) ? (parsedResult.front_matter || {}) : {};
             const raidItems = (parsedResult && parsedResult.success) ? (parsedResult.raid_items || []) : [];
+            const highlights = (parsedResult && parsedResult.success) ? (parsedResult.highlights || []) : [];
 
             // Calculate status data using existing portfolio-status.js functions
             const completion = calculateProjectCompletionFromTasks(tasks);
@@ -71,7 +72,7 @@ async function exportPortfolioReport() {
             });
 
             // Build individual project report data
-            const reportData = buildProjectReportData(project, tasks, frontMatter, raidItems, reportDate);
+            const reportData = buildProjectReportData(project, tasks, frontMatter, raidItems, highlights, reportDate);
             projectReports.push(reportData);
         }
 
@@ -137,7 +138,7 @@ async function exportPortfolioReport() {
  * @param {string} reportDate - Date string for the report
  * @returns {Object} Report data matching the ReportExportRequest schema
  */
-function buildProjectReportData(project, tasks, frontMatter, raidItems, reportDate) {
+function buildProjectReportData(project, tasks, frontMatter, raidItems, highlights, reportDate) {
     // Extract header info from front matter
     var manager = '';
     var sponsor = '';
@@ -252,7 +253,11 @@ function buildProjectReportData(project, tasks, frontMatter, raidItems, reportDa
         status: status,
         milestones: milestones,
         up_next: upNext,
-        highlight: null,
+        highlight: highlights && highlights.length > 0 ? {
+            date: highlights[0].date || null,
+            author: highlights[0].author || null,
+            content: highlights[0].content || null
+        } : null,
         risks_issues: risksIssues,
         timeline_tasks: timelineTasks
     };
