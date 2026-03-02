@@ -38,6 +38,8 @@ RAID_COLUMN_WIDTHS = {
     'Likelihood': 12,
     'Score': 8,
     'Status': 14,
+    'Priority': 12,
+    'Target Date': 14,
 }
 
 def get_next_working_day(date, holidays=None):
@@ -4189,7 +4191,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
 
                 raid_headers = [
                     'ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner',
-                    'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'
+                    'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status',
+                    'Priority', 'Target Date'
                 ]
 
                 ws_raid.append(raid_headers)
@@ -4227,6 +4230,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                         score_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
 
                     ws_raid.cell(row=row_idx, column=11, value=item.get('status', '').capitalize())
+                    ws_raid.cell(row=row_idx, column=12, value=item.get('priority', ''))
+                    ws_raid.cell(row=row_idx, column=13, value=item.get('target_date', item.get('date', '')))
 
                 # Set column widths using named constants
                 for col_num, header in enumerate(raid_headers, 1):

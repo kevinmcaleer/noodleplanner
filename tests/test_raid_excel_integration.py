@@ -996,3 +996,304 @@ class TestGenerateRaidLogPriorityTargetDate:
         ]
         result = generate_raid_log_text(items)
         assert '2026-05-01' in result
+
+
+class TestRaidExcelExportPriorityTargetDate:
+    """Test suite for Priority and Target Date columns in RAID Log Excel export."""
+
+    def test_export_includes_priority_and_target_date_columns(self):
+        """Test that Excel export RAID Log sheet includes Priority and Target Date headers."""
+        plan_text = """Phase 1
+  Task 1 5d
+
+---raid log---
+| ID | Type   | Title       | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status | Priority | Target Date |
+|----|--------|-------------|-------------|-----------|-------|--------------------|--------|------------|-------|--------|----------|-------------|
+| 1  | action | Fix deploy  | Fix CI/CD   | Bob       | Alice | Review pipeline    | 3      | 2          | 6     | open   | high     | 2026-04-01  |
+"""
+
+        converted_text = convert_plan_format_to_standard(plan_text)
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
+            export_to_excel(
+                converted_text,
+                tmp_path,
+                is_yaml=False,
+                project_name="Test",
+                original_text=plan_text
+            )
+
+            wb = load_workbook(tmp_path)
+            assert "RAID Log" in wb.sheetnames
+
+            ws_raid = wb["RAID Log"]
+            headers = [cell.value for cell in ws_raid[1]]
+
+            # Verify Priority and Target Date columns exist
+            assert "Priority" in headers
+            assert "Target Date" in headers
+
+            # Verify data in those columns
+            priority_idx = headers.index("Priority") + 1
+            target_date_idx = headers.index("Target Date") + 1
+
+            assert ws_raid.cell(row=2, column=priority_idx).value == "high"
+            assert ws_raid.cell(row=2, column=target_date_idx).value == "2026-04-01"
+
+            wb.close()
+
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    def test_export_empty_priority_and_target_date(self):
+        """Test export handles items with no priority or target date."""
+        plan_text = """Phase 1
+  Task 1 5d
+
+---raid log---
+| Type | Description      | Status | Score | Owner | Date       |
+| ---- | ---------------- | ------ | ----- | ----- | ---------- |
+| risk | Security concern | open   | 12    | Alice | 2024-01-15 |
+"""
+
+        converted_text = convert_plan_format_to_standard(plan_text)
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
+            export_to_excel(
+                converted_text,
+                tmp_path,
+                is_yaml=False,
+                project_name="Test",
+                original_text=plan_text
+            )
+
+            wb = load_workbook(tmp_path)
+            ws_raid = wb["RAID Log"]
+            headers = [cell.value for cell in ws_raid[1]]
+
+            # Headers should always be present
+            assert "Priority" in headers
+            assert "Target Date" in headers
+
+            # Values should be empty strings for items without priority/target_date
+            priority_idx = headers.index("Priority") + 1
+            target_date_idx = headers.index("Target Date") + 1
+
+            priority_val = ws_raid.cell(row=2, column=priority_idx).value
+            assert priority_val == "" or priority_val is None
+
+            wb.close()
+
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+
+class TestRaidExcelImportAllFields:
+    """Test suite for importing all RAID fields from Excel."""
+
+    def _make_xlsx_with_full_raid(self):
+        """Helper: create Excel with full RAID Log columns including Priority and Target Date."""
+        from openpyxl import Workbook
+
+        wb = Workbook()
+
+        ws_tasks = wb.active
+        ws_tasks.title = "Tasks"
+        ws_tasks.append(["Task Name", "Duration (days)"])
+        ws_tasks.append(["Phase 1", 0])
+        ws_tasks.append(["  Task 1", 5])
+
+        ws_raid = wb.create_sheet("RAID Log")
+        ws_raid.append([
+            "ID", "Type", "Title", "Description", "Raised By", "Owner",
+            "Mitigation Actions", "Impact", "Likelihood", "Score", "Status",
+            "Priority", "Target Date"
+        ])
+        ws_raid.append([
+            1, "Action", "Fix deploy", "Fix CI/CD pipeline", "Bob", "Alice",
+            "Review pipeline", 3, 2, 6, "Open", "high", "2026-04-01"
+        ])
+        ws_raid.append([
+            2, "Risk", "Data loss", "Backup failures", "Carol", "Dave",
+            "Test backups weekly", 5, 3, 15, "Open", "critical", "2026-03-15"
+        ])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+
+    def test_import_preserves_all_raid_fields(self):
+        """Test that import preserves all RAID fields including description, raised_by, etc."""
+        file_bytes = self._make_xlsx_with_full_raid()
+
+        result = convert_excel_to_markdown(
+            file_bytes,
+            "test.xlsx",
+            "Tasks",
+            {"task_name": "Task Name", "duration": "Duration (days)"}
+        )
+
+        markdown = result["markdown"]
+
+        # Verify RAID log section exists
+        assert "---raid log---" in markdown
+
+        # Parse the RAID items from the generated markdown
+        raid_items = parse_raid_markdown(markdown.split("---raid log---")[1])
+
+        assert len(raid_items) == 2
+
+        # First item
+        assert raid_items[0]['type'] == 'action'
+        assert raid_items[0]['title'] == 'Fix deploy'
+        assert raid_items[0]['description'] == 'Fix CI/CD pipeline'
+        assert raid_items[0]['raised_by'] == 'Bob'
+        assert raid_items[0]['owner'] == 'Alice'
+        assert raid_items[0]['mitigation_actions'] == 'Review pipeline'
+        assert raid_items[0]['impact'] == 3
+        assert raid_items[0]['likelihood'] == 2
+        assert raid_items[0]['score'] == 6
+        assert raid_items[0]['status'] == 'open'
+        assert raid_items[0]['priority'] == 'high'
+        assert raid_items[0]['target_date'] == '2026-04-01'
+
+        # Second item
+        assert raid_items[1]['type'] == 'risk'
+        assert raid_items[1]['title'] == 'Data loss'
+        assert raid_items[1]['owner'] == 'Dave'
+        assert raid_items[1]['score'] == 15
+        assert raid_items[1]['priority'] == 'critical'
+        assert raid_items[1]['target_date'] == '2026-03-15'
+
+    def test_import_priority_and_target_date(self):
+        """Test that import reads Priority and Target Date columns from RAID Log sheet."""
+        file_bytes = self._make_xlsx_with_full_raid()
+
+        result = convert_excel_to_markdown(
+            file_bytes,
+            "test.xlsx",
+            "Tasks",
+            {"task_name": "Task Name", "duration": "Duration (days)"}
+        )
+
+        markdown = result["markdown"]
+
+        # Verify priority and target date appear in the output
+        assert "high" in markdown
+        assert "critical" in markdown
+        assert "2026-04-01" in markdown
+        assert "2026-03-15" in markdown
+
+    def test_full_roundtrip_preserves_priority_and_target_date(self):
+        """Test full export/import roundtrip preserves Priority and Target Date."""
+        original_plan = """Phase 1
+  Task 1 5d
+
+---raid log---
+| ID | Type   | Title       | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status | Priority | Target Date |
+|----|--------|-------------|-------------|-----------|-------|--------------------|--------|------------|-------|--------|----------|-------------|
+| 1  | action | Fix deploy  | Fix CI/CD   | Bob       | Alice | Review pipeline    | 3      | 2          | 6     | open   | high     | 2026-04-01  |
+| 2  | risk   | Data loss   | Backups     | Carol     | Dave  | Test backups       | 5      | 3          | 15    | open   | critical | 2026-03-15  |
+"""
+
+        converted_text = convert_plan_format_to_standard(original_plan)
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_path = tmp.name
+
+            # Export to Excel
+            export_to_excel(
+                converted_text,
+                tmp_path,
+                is_yaml=False,
+                project_name="Test",
+                original_text=original_plan
+            )
+
+            # Import back from Excel
+            with open(tmp_path, 'rb') as f:
+                file_bytes = f.read()
+
+            result = convert_excel_to_markdown(
+                file_bytes,
+                "test.xlsx",
+                "Tasks",
+                {"task_name": "Task Name", "duration": "Duration (days)"}
+            )
+
+            markdown = result["markdown"]
+
+            # Verify RAID items preserved
+            assert "---raid log---" in markdown
+
+            # Parse the imported RAID items
+            raid_items = parse_raid_markdown(markdown.split("---raid log---")[1])
+
+            assert len(raid_items) == 2
+
+            # Verify priority and target_date survived the roundtrip
+            assert raid_items[0]['priority'] == 'high'
+            assert raid_items[0]['target_date'] == '2026-04-01'
+            assert raid_items[0]['type'] == 'action'
+            assert raid_items[0]['title'] == 'Fix deploy'
+            assert raid_items[0]['description'] == 'Fix CI/CD'
+            assert raid_items[0]['raised_by'] == 'Bob'
+            assert raid_items[0]['owner'] == 'Alice'
+            assert raid_items[0]['mitigation_actions'] == 'Review pipeline'
+
+            assert raid_items[1]['priority'] == 'critical'
+            assert raid_items[1]['target_date'] == '2026-03-15'
+            assert raid_items[1]['type'] == 'risk'
+            assert raid_items[1]['title'] == 'Data loss'
+
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    def test_import_description_fallback_to_title(self):
+        """Test that Description column maps to title when Title column is absent."""
+        from openpyxl import Workbook
+
+        wb = Workbook()
+
+        ws_tasks = wb.active
+        ws_tasks.title = "Tasks"
+        ws_tasks.append(["Task Name"])
+        ws_tasks.append(["Task 1"])
+
+        # RAID Log with Description but no Title column (simple format)
+        ws_raid = wb.create_sheet("RAID Log")
+        ws_raid.append(["Type", "Description", "Status", "Score", "Owner"])
+        ws_raid.append(["Risk", "Important risk detail", "Open", 12, "Alice"])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        file_bytes = buf.getvalue()
+
+        result = convert_excel_to_markdown(
+            file_bytes,
+            "test.xlsx",
+            "Tasks",
+            {"task_name": "Task Name"}
+        )
+
+        markdown = result["markdown"]
+        assert "---raid log---" in markdown
+        assert "Important risk detail" in markdown
+
+        # Parse and verify the title field was populated from description
+        raid_items = parse_raid_markdown(markdown.split("---raid log---")[1])
+        assert len(raid_items) == 1
+        assert raid_items[0]['title'] == 'Important risk detail'
