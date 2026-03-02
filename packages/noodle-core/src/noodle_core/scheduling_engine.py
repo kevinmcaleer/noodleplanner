@@ -3338,18 +3338,46 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
         if rag in rag_counts:
             rag_counts[rag] += 1
 
-    summary_text = f"{len(projects)} Projects  |  "
-    summary_text += f"Green: {rag_counts['green']}  Amber: {rag_counts['amber']}  Red: {rag_counts['red']}"
-    stb = slide.shapes.add_textbox(Inches(9), Inches(0.25),
-                                   Inches(4), Inches(0.40))
+    # White rounded rectangle behind RAG summary for readability
+    badge_bg = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.8), Inches(0.15),
+        Inches(4.3), Inches(0.55)
+    )
+    badge_bg.fill.solid()
+    badge_bg.fill.fore_color.rgb = WHITE
+    badge_bg.line.fill.background()
+
+    # Project count in dark text, then coloured RAG counts
+    stb = slide.shapes.add_textbox(Inches(8.9), Inches(0.25),
+                                   Inches(4.1), Inches(0.40))
     stf = stb.text_frame
     stf.word_wrap = True
     sp = stf.paragraphs[0]
-    sp.text = _sanitise_text(summary_text)
-    sp.font.size = Pt(11)
-    sp.font.bold = True
-    sp.font.color.rgb = WHITE
     sp.alignment = PP_ALIGN.RIGHT
+
+    run_proj = sp.add_run()
+    run_proj.text = _sanitise_text(f"{len(projects)} Projects   ")
+    run_proj.font.size = Pt(11)
+    run_proj.font.bold = True
+    run_proj.font.color.rgb = DARK_BLUE
+
+    run_green = sp.add_run()
+    run_green.text = _sanitise_text(f"Green: {rag_counts['green']}  ")
+    run_green.font.size = Pt(11)
+    run_green.font.bold = True
+    run_green.font.color.rgb = GREEN
+
+    run_amber = sp.add_run()
+    run_amber.text = _sanitise_text(f"Amber: {rag_counts['amber']}  ")
+    run_amber.font.size = Pt(11)
+    run_amber.font.bold = True
+    run_amber.font.color.rgb = AMBER
+
+    run_red = sp.add_run()
+    run_red.text = _sanitise_text(f"Red: {rag_counts['red']}")
+    run_red.font.size = Pt(11)
+    run_red.font.bold = True
+    run_red.font.color.rgb = RED
 
     # -- Project Status Dashboard table ---------------------------------------
     dashboard_heading = slide.shapes.add_textbox(
@@ -3415,6 +3443,9 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
                 for c in range(num_cols):
                     tbl.cell(row_idx, c).fill.solid()
                     tbl.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
+            # White background on RAG cell so coloured text is readable
+            tbl.cell(row_idx, 4).fill.solid()
+            tbl.cell(row_idx, 4).fill.fore_color.rgb = WHITE
 
         timeline_top = table_top + table_height + Inches(0.3)
     else:

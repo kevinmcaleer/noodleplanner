@@ -1707,6 +1707,115 @@ class TestPortfolioBudgetInSlide:
         assert 'Total Budget' not in all_text
 
 
+class TestRagBadgeWhiteBackground:
+    """Tests for white backgrounds behind RAG badges on portfolio overview."""
+
+    def _make_portfolio(self, tmp_path):
+        from pptx import Presentation
+        from noodle_core import export_portfolio_to_powerpoint
+        output = tmp_path / "rag_bg.pptx"
+        portfolio_data = {
+            'portfolio_name': 'RAG Background Test',
+            'date': '2026-03-02',
+            'projects': [
+                {'name': 'Proj A', 'status': 'On Track', 'rag': 'green',
+                 'completion': 50, 'risk_count': 1, 'budget': '$50k'},
+                {'name': 'Proj B', 'status': 'At Risk', 'rag': 'amber',
+                 'completion': 25, 'risk_count': 2, 'budget': '$100k'},
+                {'name': 'Proj C', 'status': 'Behind', 'rag': 'red',
+                 'completion': 10, 'risk_count': 3, 'budget': '$75k'},
+            ],
+        }
+        project_reports = [
+            {'project_name': 'Proj A', 'manager': '', 'sponsor': '',
+             'budget': '$50k', 'date': '2026-03-02', 'status': 'green',
+             'milestones': [], 'up_next': [], 'highlight': None,
+             'risks_issues': [], 'timeline_tasks': []},
+            {'project_name': 'Proj B', 'manager': '', 'sponsor': '',
+             'budget': '$100k', 'date': '2026-03-02', 'status': 'amber',
+             'milestones': [], 'up_next': [], 'highlight': None,
+             'risks_issues': [], 'timeline_tasks': []},
+            {'project_name': 'Proj C', 'manager': '', 'sponsor': '',
+             'budget': '$75k', 'date': '2026-03-02', 'status': 'red',
+             'milestones': [], 'up_next': [], 'highlight': None,
+             'risks_issues': [], 'timeline_tasks': []},
+        ]
+        export_portfolio_to_powerpoint(str(output), portfolio_data, project_reports)
+        return Presentation(str(output))
+
+    def test_overview_has_white_badge_background_shape(self, tmp_path):
+        """Test that the overview slide has a white rounded rectangle for RAG badges."""
+        from pptx.dml.color import RGBColor
+        from pptx.enum.shapes import MSO_SHAPE
+        prs = self._make_portfolio(tmp_path)
+        overview = prs.slides[0]
+        white_rounded_rects = []
+        for s in overview.shapes:
+            try:
+                if (s.auto_shape_type == MSO_SHAPE.ROUNDED_RECTANGLE
+                        and s.fill.fore_color.rgb == RGBColor(255, 255, 255)):
+                    white_rounded_rects.append(s)
+            except (ValueError, AttributeError):
+                continue
+        assert len(white_rounded_rects) >= 1, (
+            "Expected at least one white rounded rectangle for RAG badge background"
+        )
+
+    def test_rag_summary_has_coloured_text_runs(self, tmp_path):
+        """Test that RAG summary uses coloured runs, not plain white text."""
+        from pptx.dml.color import RGBColor
+        prs = self._make_portfolio(tmp_path)
+        overview = prs.slides[0]
+        # Find the textbox containing 'Green:' which is the RAG summary
+        rag_textbox = None
+        for shape in overview.shapes:
+            if shape.has_text_frame:
+                full_text = shape.text_frame.text
+                if 'Green:' in full_text and 'Red:' in full_text:
+                    rag_textbox = shape
+                    break
+        assert rag_textbox is not None, "RAG summary textbox not found"
+        para = rag_textbox.text_frame.paragraphs[0]
+        run_colours = [run.font.color.rgb for run in para.runs if run.font.color.rgb]
+        white = RGBColor(255, 255, 255)
+        assert white not in run_colours, (
+            "RAG summary should not use white text; it should use coloured runs"
+        )
+
+    def test_rag_summary_contains_all_counts(self, tmp_path):
+        """Test that the RAG summary text includes project count and RAG counts."""
+        prs = self._make_portfolio(tmp_path)
+        overview = prs.slides[0]
+        all_text = ' '.join(
+            shape.text_frame.text for shape in overview.shapes
+            if shape.has_text_frame
+        )
+        assert '3 Projects' in all_text
+        assert 'Green: 1' in all_text
+        assert 'Amber: 1' in all_text
+        assert 'Red: 1' in all_text
+
+    def test_rag_table_cells_have_white_background(self, tmp_path):
+        """Test that RAG column cells in the dashboard table have white backgrounds."""
+        from pptx.dml.color import RGBColor
+        prs = self._make_portfolio(tmp_path)
+        overview = prs.slides[0]
+        table_shape = None
+        for shape in overview.shapes:
+            if shape.has_table:
+                table_shape = shape
+                break
+        assert table_shape is not None, "No table found on overview slide"
+        tbl = table_shape.table
+        white = RGBColor(255, 255, 255)
+        # Check RAG column (index 4) for all data rows has white background
+        for row_idx in range(1, tbl.rows.__len__()):
+            rag_cell = tbl.cell(row_idx, 4)
+            assert rag_cell.fill.fore_color.rgb == white, (
+                f"RAG cell in row {row_idx} should have white background"
+            )
+
+
 class TestCollectPortfolioRisks:
     """Tests for the _collect_portfolio_risks function."""
 
