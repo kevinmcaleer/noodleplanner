@@ -18,7 +18,17 @@ async function captureProjectTimelineImage(tasks, projectName) {
     if (typeof parseLocalDate !== 'function') return null;
 
     try {
-        const allTasks = tasks.filter(function(t) {
+        // Filter out single top-level project container (same as updateTimeline)
+        var filteredTasks = tasks;
+        if (filteredTasks.length > 0) {
+            var minLevel = Math.min.apply(null, filteredTasks.map(function(t) { return t.level; }));
+            var topLevelTasks = filteredTasks.filter(function(t) { return t.level === minLevel; });
+            if (topLevelTasks.length === 1) {
+                filteredTasks = filteredTasks.filter(function(t) { return t.level !== minLevel; });
+            }
+        }
+
+        const allTasks = filteredTasks.filter(function(t) {
             return (t.start && t.finish) || (t.finish && t.duration_days === 0);
         });
         if (allTasks.length === 0) return null;
@@ -58,7 +68,7 @@ async function captureProjectTimelineImage(tasks, projectName) {
 
         document.body.appendChild(container);
 
-        renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, timelineWidth, {
+        renderMinimalTimeline(container, filteredTasks, minDate, maxDate, totalDays, timelineWidth, {
             isReport: true,
             timelineLineId: lineId,
             milestonesId: milestonesId
