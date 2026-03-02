@@ -953,7 +953,8 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                         'description': 'description', 'raised by': 'raised_by',
                         'owner': 'owner', 'mitigation actions': 'mitigation_actions',
                         'impact': 'impact', 'likelihood': 'likelihood',
-                        'score': 'score', 'status': 'status', 'date': 'date'
+                        'score': 'score', 'status': 'status', 'date': 'date',
+                        'priority': 'priority', 'target date': 'target_date',
                     }
 
                     for idx, header in enumerate(raid_headers):
@@ -961,6 +962,10 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                             if alias in header:
                                 col_map[field] = idx
                                 break
+
+                    # Fallback: if no title column but description exists, use description as title
+                    if 'title' not in col_map and 'description' in col_map:
+                        col_map['title'] = col_map['description']
 
                     # Parse RAID items
                     raid_items = []
@@ -993,22 +998,46 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                             likelihood = 3
                             score = 9
 
-                        # Try to get date from Excel, fallback to current date
-                        date_raw = get_cell('date', '')
-                        if date_raw:
-                            date = normalize_date(date_raw)
-                            if date is None:
-                                date = datetime.now().strftime('%Y-%m-%d')
+                        # Try to get score directly, or calculate from impact/likelihood
+                        score_raw = get_cell('score', '')
+                        if score_raw:
+                            try:
+                                score = int(score_raw)
+                            except (ValueError, TypeError):
+                                score = impact * likelihood
                         else:
-                            date = datetime.now().strftime('%Y-%m-%d')
+                            score = impact * likelihood
+
+                        # Get target_date from target_date column or date column
+                        target_date = get_cell('target_date', '')
+                        if not target_date:
+                            date_raw = get_cell('date', '')
+                            if date_raw:
+                                target_date = normalize_date(date_raw) or ''
+                        else:
+                            target_date = normalize_date(target_date) or target_date
+
+                        # Parse ID if present
+                        id_raw = get_cell('id', '')
+                        try:
+                            item_id = int(id_raw) if id_raw else len(raid_items) + 1
+                        except (ValueError, TypeError):
+                            item_id = len(raid_items) + 1
 
                         raid_items.append({
+                            'id': item_id,
                             'type': item_type if item_type in valid_types else 'risk',
                             'title': get_cell('title', ''),
-                            'status': item_status if item_status in valid_statuses else 'open',
-                            'score': score,
+                            'description': get_cell('description', ''),
+                            'raised_by': get_cell('raised_by', ''),
                             'owner': get_cell('owner', ''),
-                            'date': date,
+                            'mitigation_actions': get_cell('mitigation_actions', ''),
+                            'impact': impact,
+                            'likelihood': likelihood,
+                            'score': score,
+                            'status': item_status if item_status in valid_statuses else 'open',
+                            'priority': get_cell('priority', ''),
+                            'target_date': target_date,
                         })
 
                     # Generate RAID Log markdown section
