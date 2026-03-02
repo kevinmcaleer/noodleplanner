@@ -9251,10 +9251,15 @@ tr:hover .task-inspect-btn {
     padding: 12px 12px 24px 12px;
 }
 
-.timeline-scale {
+.portfolio-timeline-container .timeline-scale {
     display: flex;
     margin-bottom: 10px;
     border-bottom: 2px solid #e0e0e0;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    height: auto;
 }
 
 .timeline-project-label {
