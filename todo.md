@@ -2,7 +2,7 @@
 
 ## In Progress
 
-### Add Submenus to Tracking, Resource, Tools Pages (GitHub Issue #496) - IN PROGRESS
+### Add Submenus to Tracking, Resource, Tools Pages (GitHub Issue #496) - ✅ COMPLETED
 - [x] Explore codebase: understand existing Dashboard/Plan submenu pattern
 - [x] Add Tracking sub-navigation bar HTML (RAID Log, Actions, Highlights, Look-Ahead, Analysis)
 - [x] Add Resources sub-navigation bar HTML (Resource Table, Timesheet, Workload, Resource Sheet)
@@ -12,9 +12,13 @@
 - [x] Add switchTrackingSubnavToTab and switchToolsSubnavToTab helper functions
 - [x] Update switchTab to support 'actions' tab nav mapping
 - [x] Update interface tour descriptions to mention new submenus
-- [ ] Run tests and verify all pass
-- [ ] Commit, push, and create PR
-- [ ] Comment on issue and close
+
+### Fix RAG Status Background on Portfolio Report (GitHub Issue #497) - ✅ COMPLETED
+- [x] Add white rounded rectangle behind RAG summary badges on title bar
+- [x] Change RAG summary text from white to coloured runs (green/amber/red)
+- [x] Set explicit white background on RAG column cells in dashboard table
+- [x] Add 4 tests for white badge background, coloured text runs, counts, and table cells
+- [x] All 149 scheduling engine tests passing
 
 ### Portfolio Risk Page in Report (GitHub Issue #492) - IN PROGRESS
 - [x] Explore codebase: portfolio PowerPoint report generation and risk register
