@@ -2,6 +2,20 @@
 
 ## In Progress
 
+### Add Submenus to Tracking, Resource, Tools Pages (GitHub Issue #496) - IN PROGRESS
+- [x] Explore codebase: understand existing Dashboard/Plan submenu pattern
+- [x] Add Tracking sub-navigation bar HTML (RAID Log, Actions, Highlights, Look-Ahead, Analysis)
+- [x] Add Resources sub-navigation bar HTML (Resource Table, Timesheet, Workload, Resource Sheet)
+- [x] Add Tools sub-navigation bar HTML (Text Report, Planning Room, Syntax Guide)
+- [x] Add JS view group constants (TRACKING_VIEWS, RESOURCES_VIEWS, TOOLS_VIEWS)
+- [x] Refactor updatePlanSubnav to handle all four subnav groups
+- [x] Add switchTrackingSubnavToTab and switchToolsSubnavToTab helper functions
+- [x] Update switchTab to support 'actions' tab nav mapping
+- [x] Update interface tour descriptions to mention new submenus
+- [ ] Run tests and verify all pass
+- [ ] Commit, push, and create PR
+- [ ] Comment on issue and close
+
 ### Portfolio Risk Page in Report (GitHub Issue #492) - IN PROGRESS
 - [x] Explore codebase: portfolio PowerPoint report generation and risk register
 - [x] Implement `_collect_portfolio_risks()` to aggregate Medium/High risks across projects

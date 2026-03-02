@@ -291,6 +291,7 @@ function switchTab(tabName) {
     const tabToNavTab = {
         'kanban': 'planTab',
         'raid': 'trackingTab',
+        'actions': 'trackingTab',
         'planning': 'toolsTab',
         'guide': 'toolsTab',
         'editor': 'dashboardTab'
@@ -305,11 +306,8 @@ function switchTab(tabName) {
     // Close all nav dropdown menus
     closeAllNavMenus();
 
-    // Update plan sub-nav: show with Board active when switching to kanban,
-    // hide for other special tabs (raid, planning, guide, etc.)
-    if (tabName === 'kanban') {
-        updatePlanSubnav('kanban');
-    } else if (tabName !== 'editor') {
+    // Update sub-navigation bars for the current tab
+    if (tabName !== 'editor') {
         updatePlanSubnav(tabName);
     }
 }
@@ -9450,22 +9448,35 @@ function updateNavActiveState(viewName) {
     }
 }
 
-// Plan sub-navigation: views that belong to the Plan group
+// Sub-navigation: views that belong to each group
 const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap'];
+const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis'];
+const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
+const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
 
-// Show or hide the plan sub-nav and highlight the active button
+// Map each subnav group to its element ID
+const SUBNAV_GROUPS = [
+    { id: 'planSubnav', views: PLAN_VIEWS },
+    { id: 'trackingSubnav', views: TRACKING_VIEWS },
+    { id: 'resourcesSubnav', views: RESOURCES_VIEWS },
+    { id: 'toolsSubnav', views: TOOLS_VIEWS }
+];
+
+// Show or hide all sub-navs and highlight the active button
 function updatePlanSubnav(viewName) {
-    const subnav = document.getElementById('planSubnav');
-    if (!subnav) return;
+    SUBNAV_GROUPS.forEach(({ id, views }) => {
+        const subnav = document.getElementById(id);
+        if (!subnav) return;
 
-    const isPlanView = PLAN_VIEWS.includes(viewName);
-    subnav.classList.toggle('visible', isPlanView);
+        const isActive = views.includes(viewName);
+        subnav.classList.toggle('visible', isActive);
 
-    if (isPlanView) {
-        subnav.querySelectorAll('.plan-subnav-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.view === viewName);
-        });
-    }
+        if (isActive) {
+            subnav.querySelectorAll('.plan-subnav-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === viewName);
+            });
+        }
+    });
 }
 
 // Handle Dashboard button in the plan sub-nav
@@ -9482,6 +9493,18 @@ function switchPlanSubnavToBoard() {
     syncEditorStateToKanban();
     switchTab('kanban');
     updatePlanSubnav('kanban');
+}
+
+// Handle Tracking subnav buttons that use switchTab (RAID, Actions)
+function switchTrackingSubnavToTab(tabName) {
+    switchTab(tabName);
+    updatePlanSubnav(tabName);
+}
+
+// Handle Tools subnav buttons that use switchTab (Planning Room, Syntax Guide)
+function switchToolsSubnavToTab(tabName) {
+    switchTab(tabName);
+    updatePlanSubnav(tabName);
 }
 
 // Sync editor panel collapsed/expanded state from main editor to kanban editor
@@ -11810,19 +11833,19 @@ const tourSteps = [
     },
     {
         title: "Tracking Menu",
-        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies), Highlights, 2-Week Look-Ahead, and Analysis.",
+        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies), Highlights, 2-Week Look-Ahead, and Analysis. A sub-navigation bar provides quick switching between all Tracking views.",
         target: "#trackingTab",
         position: "bottom"
     },
     {
         title: "Resources Menu",
-        message: "The Resources dropdown consolidates all resource views: Resource Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource.",
+        message: "The Resources dropdown consolidates all resource views: Resource Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource. A sub-navigation bar provides quick switching between all Resources views.",
         target: "#resourcesTab",
         position: "bottom"
     },
     {
         title: "Tools Menu",
-        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options.",
+        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
         target: "#toolsTab",
         position: "bottom"
     },
