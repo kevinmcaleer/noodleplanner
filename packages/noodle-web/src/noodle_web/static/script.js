@@ -1295,19 +1295,18 @@ async function exportReportPptx() {
         }
     }
 
-    // Collect risks & issues from the table
-    const risksIssues = [];
-    const riRows = document.querySelectorAll('#reportRaidTableBody tr');
-    riRows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length >= 3) {
-            risksIssues.push({
-                type: cells[0].textContent.trim().toLowerCase(),
-                title: cells[1].textContent.trim(),
-                score: parseInt(cells[2].textContent.trim(), 10) || 0
-            });
-        }
-    });
+    // Collect risks & issues from RAID items (open risks and issues, sorted by score)
+    const risksIssues = raidItems
+        .filter(item => (item.type === 'risk' || item.type === 'issue') && item.status === 'open')
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 10)
+        .map(item => ({
+            type: item.type,
+            title: item.title || item.description || '',
+            description: item.description || '',
+            mitigation: item.mitigation_actions || '',
+            score: item.score || 0
+        }));
 
     // Collect timeline task data for server-side rendering in the PPTX.
     // We send phase (summary) tasks and milestone (0-duration) tasks so the

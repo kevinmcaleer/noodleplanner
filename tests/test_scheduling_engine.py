@@ -1907,6 +1907,34 @@ class TestCollectPortfolioRisks:
         result = _collect_portfolio_risks(project_reports)
         assert result == []
 
+    def test_passes_through_description_and_mitigation(self):
+        """Test that description and mitigation fields are included."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'Server risk', 'score': 18,
+                 'description': 'Server may fail',
+                 'mitigation': 'Add redundancy'},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert len(result) == 1
+        assert result[0]['description'] == 'Server may fail'
+        assert result[0]['mitigation'] == 'Add redundancy'
+
+    def test_defaults_empty_description_and_mitigation(self):
+        """Test that missing description/mitigation default to empty strings."""
+        from noodle_core.scheduling_engine import _collect_portfolio_risks
+        project_reports = [
+            {'project_name': 'A', 'risks_issues': [
+                {'type': 'risk', 'title': 'No details', 'score': 10},
+            ]},
+        ]
+        result = _collect_portfolio_risks(project_reports)
+        assert len(result) == 1
+        assert result[0]['description'] == ''
+        assert result[0]['mitigation'] == ''
+
 
 class TestAddPortfolioRiskSlides:
     """Tests for the _add_portfolio_risk_slides function."""
@@ -2019,6 +2047,190 @@ class TestAddPortfolioRiskSlides:
         )
         assert '(1/2)' in text1
         assert '(2/2)' in text2
+
+    def test_table_has_seven_columns(self):
+        """Test that the risk table has 7 columns including Description and Mitigation."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'A', 'type': 'risk', 'title': 'R1',
+             'description': 'Risk desc', 'mitigation': 'Fix it',
+             'score': 20, 'rag': 'red'},
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        assert len(table_shapes) == 1
+        table = table_shapes[0].table
+        assert len(table.columns) == 7
+
+    def test_table_headers_include_description_and_mitigation(self):
+        """Test that the header row includes Description and Mitigation."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'A', 'type': 'risk', 'title': 'R1',
+             'score': 16, 'rag': 'red'},
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        table = table_shapes[0].table
+        headers = [table.cell(0, c).text for c in range(len(table.columns))]
+        assert 'Description' in headers
+        assert 'Mitigation' in headers
+
+    def test_description_and_mitigation_data_in_cells(self):
+        """Test that description and mitigation text appears in table cells."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'A', 'type': 'risk', 'title': 'Server crash',
+             'description': 'Database server may fail under load',
+             'mitigation': 'Add read replicas and load balancing',
+             'score': 20, 'rag': 'red'},
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        table = table_shapes[0].table
+        # Row 1 data: col 3 = Description, col 4 = Mitigation
+        assert table.cell(1, 3).text == 'Database server may fail under load'
+        assert table.cell(1, 4).text == 'Add read replicas and load balancing'
+
+    def test_word_wrap_enabled_on_description_and_mitigation(self):
+        """Test that word wrap is enabled on description and mitigation cells."""
+        from noodle_core.scheduling_engine import _add_portfolio_risk_slides
+        prs = self._make_presentation()
+        portfolio_data = {'portfolio_name': 'Test', 'date': '2026-03-02'}
+        risks = [
+            {'project_name': 'A', 'type': 'risk', 'title': 'R1',
+             'description': 'A long description that should wrap',
+             'mitigation': 'A long mitigation plan that should wrap',
+             'score': 18, 'rag': 'red'},
+        ]
+        _add_portfolio_risk_slides(prs, portfolio_data, risks)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        table = table_shapes[0].table
+        # Check word_wrap on description cell (col 3) and mitigation cell (col 4)
+        assert table.cell(1, 3).text_frame.word_wrap is True
+        assert table.cell(1, 4).text_frame.word_wrap is True
+
+
+class TestAddReportSlideRiskTable:
+    """Tests for the risk table in _add_report_slide."""
+
+    def _make_presentation(self):
+        from pptx import Presentation
+        from pptx.util import Inches
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+        return prs
+
+    def _make_report_data(self, risks_issues=None):
+        return {
+            'project_name': 'Test Project',
+            'manager': 'PM',
+            'sponsor': 'Sponsor',
+            'budget': '',
+            'date': '2026-03-02',
+            'status': 'green',
+            'milestones': [],
+            'up_next': [],
+            'highlight': None,
+            'risks_issues': risks_issues or [],
+            'timeline_tasks': [],
+        }
+
+    def test_risk_table_has_five_columns(self):
+        """Test that the per-project risk table has 5 columns."""
+        from noodle_core.scheduling_engine import _add_report_slide
+        prs = self._make_presentation()
+        report_data = self._make_report_data([
+            {'type': 'risk', 'title': 'Bug', 'description': 'Desc',
+             'mitigation': 'Fix', 'score': 10},
+        ])
+        _add_report_slide(prs, report_data)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        # Find the risk table (it has "Type" in header row)
+        risk_table = None
+        for ts in table_shapes:
+            if ts.table.cell(0, 0).text == 'Type':
+                risk_table = ts.table
+                break
+        assert risk_table is not None
+        assert len(risk_table.columns) == 5
+
+    def test_risk_table_headers_include_description_and_mitigation(self):
+        """Test that per-project risk table headers include Description and Mitigation."""
+        from noodle_core.scheduling_engine import _add_report_slide
+        prs = self._make_presentation()
+        report_data = self._make_report_data([
+            {'type': 'risk', 'title': 'Bug', 'score': 10},
+        ])
+        _add_report_slide(prs, report_data)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        risk_table = None
+        for ts in table_shapes:
+            if ts.table.cell(0, 0).text == 'Type':
+                risk_table = ts.table
+                break
+        assert risk_table is not None
+        headers = [risk_table.cell(0, c).text for c in range(len(risk_table.columns))]
+        assert 'Description' in headers
+        assert 'Mitigation' in headers
+
+    def test_risk_table_description_and_mitigation_data(self):
+        """Test that description and mitigation data appears in risk table cells."""
+        from noodle_core.scheduling_engine import _add_report_slide
+        prs = self._make_presentation()
+        report_data = self._make_report_data([
+            {'type': 'risk', 'title': 'Server crash',
+             'description': 'Server may crash under load',
+             'mitigation': 'Add monitoring and alerts',
+             'score': 18},
+        ])
+        _add_report_slide(prs, report_data)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        risk_table = None
+        for ts in table_shapes:
+            if ts.table.cell(0, 0).text == 'Type':
+                risk_table = ts.table
+                break
+        assert risk_table is not None
+        # Row 1: col 2 = Description, col 3 = Mitigation
+        assert risk_table.cell(1, 2).text == 'Server may crash under load'
+        assert risk_table.cell(1, 3).text == 'Add monitoring and alerts'
+
+    def test_risk_table_word_wrap_on_description_and_mitigation(self):
+        """Test that word wrap is enabled on description and mitigation cells."""
+        from noodle_core.scheduling_engine import _add_report_slide
+        prs = self._make_presentation()
+        report_data = self._make_report_data([
+            {'type': 'risk', 'title': 'Risk',
+             'description': 'Long description text',
+             'mitigation': 'Long mitigation text',
+             'score': 12},
+        ])
+        _add_report_slide(prs, report_data)
+        slide = prs.slides[0]
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        risk_table = None
+        for ts in table_shapes:
+            if ts.table.cell(0, 0).text == 'Type':
+                risk_table = ts.table
+                break
+        assert risk_table is not None
+        assert risk_table.cell(1, 2).text_frame.word_wrap is True
+        assert risk_table.cell(1, 3).text_frame.word_wrap is True
 
 
 class TestPortfolioExportWithRiskSlides:

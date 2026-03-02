@@ -2791,24 +2791,31 @@ def export_report_to_powerpoint(output_path, report_data):
     ri_table_top = bottom_row_top + Inches(0.35)
 
     if risks_issues:
+        ri_cols = 5  # Type, Title, Description, Mitigation, Score
         ri_rows = min(len(risks_issues), 10) + 1
         ri_table = slide.shapes.add_table(
-            ri_rows, 3, right_col_left, ri_table_top,
+            ri_rows, ri_cols, right_col_left, ri_table_top,
             col_width, Inches(0.26 * ri_rows)
         ).table
 
-        w0 = int(col_width * 15 // 100)
-        w1 = int(col_width * 65 // 100)
-        w2 = int(col_width) - w0 - w1  # remainder goes to last col
+        w0 = int(col_width * 10 // 100)   # Type
+        w1 = int(col_width * 20 // 100)   # Title
+        w2 = int(col_width * 28 // 100)   # Description
+        w3 = int(col_width * 28 // 100)   # Mitigation
+        w4 = int(col_width) - w0 - w1 - w2 - w3  # Score
         ri_table.columns[0].width = w0
         ri_table.columns[1].width = w1
         ri_table.columns[2].width = w2
+        ri_table.columns[3].width = w3
+        ri_table.columns[4].width = w4
 
-        _shade_header_row(ri_table, 3)
+        _shade_header_row(ri_table, ri_cols)
         _set_cell_text(ri_table.cell(0, 0), "Type", 9, True, WHITE,
                        PP_ALIGN.CENTER)
         _set_cell_text(ri_table.cell(0, 1), "Title", 9, True, WHITE)
-        _set_cell_text(ri_table.cell(0, 2), "Score", 9, True, WHITE,
+        _set_cell_text(ri_table.cell(0, 2), "Description", 9, True, WHITE)
+        _set_cell_text(ri_table.cell(0, 3), "Mitigation", 9, True, WHITE)
+        _set_cell_text(ri_table.cell(0, 4), "Score", 9, True, WHITE,
                        PP_ALIGN.CENTER)
 
         for i, item in enumerate(risks_issues[:10]):
@@ -2819,13 +2826,17 @@ def export_report_to_powerpoint(output_path, report_data):
                            PP_ALIGN.CENTER)
             _set_cell_text(ri_table.cell(row_idx, 1),
                            item.get('title', ''))
+            _set_cell_text(ri_table.cell(row_idx, 2),
+                           item.get('description', ''))
+            _set_cell_text(ri_table.cell(row_idx, 3),
+                           item.get('mitigation', ''))
             score = item.get('score', 0)
             score_colour = RED if score >= 16 else (
                 AMBER if score >= 6 else GREEN)
-            _set_cell_text(ri_table.cell(row_idx, 2), str(score), 8,
+            _set_cell_text(ri_table.cell(row_idx, 4), str(score), 8,
                            True, score_colour, PP_ALIGN.CENTER)
             if row_idx % 2 == 0:
-                for c in range(3):
+                for c in range(ri_cols):
                     ri_table.cell(row_idx, c).fill.solid()
                     ri_table.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
     else:
@@ -3165,33 +3176,44 @@ def _add_report_slide(prs, report_data):
     ri_table_top = bottom_row_top + Inches(0.35)
 
     if risks_issues:
+        ri_cols = 5  # Type, Title, Description, Mitigation, Score
         ri_rows = min(len(risks_issues), 10) + 1
         ri_table = slide.shapes.add_table(
-            ri_rows, 3, right_col_left, ri_table_top,
+            ri_rows, ri_cols, right_col_left, ri_table_top,
             col_width, Inches(0.26 * ri_rows)
         ).table
-        w0 = int(col_width * 15 // 100)
-        w1 = int(col_width * 65 // 100)
-        w2 = int(col_width) - w0 - w1
+        w0 = int(col_width * 10 // 100)   # Type
+        w1 = int(col_width * 20 // 100)   # Title
+        w2 = int(col_width * 28 // 100)   # Description
+        w3 = int(col_width * 28 // 100)   # Mitigation
+        w4 = int(col_width) - w0 - w1 - w2 - w3  # Score
         ri_table.columns[0].width = w0
         ri_table.columns[1].width = w1
         ri_table.columns[2].width = w2
-        _shade_header_row(ri_table, 3)
+        ri_table.columns[3].width = w3
+        ri_table.columns[4].width = w4
+        _shade_header_row(ri_table, ri_cols)
         _set_cell_text(ri_table.cell(0, 0), "Type", 9, True, WHITE, PP_ALIGN.CENTER)
         _set_cell_text(ri_table.cell(0, 1), "Title", 9, True, WHITE)
-        _set_cell_text(ri_table.cell(0, 2), "Score", 9, True, WHITE, PP_ALIGN.CENTER)
+        _set_cell_text(ri_table.cell(0, 2), "Description", 9, True, WHITE)
+        _set_cell_text(ri_table.cell(0, 3), "Mitigation", 9, True, WHITE)
+        _set_cell_text(ri_table.cell(0, 4), "Score", 9, True, WHITE, PP_ALIGN.CENTER)
         for i, item in enumerate(risks_issues[:10]):
             row_idx = i + 1
             item_type = item.get('type', '')
             _set_cell_text(ri_table.cell(row_idx, 0), item_type.capitalize(),
                            8, True, None, PP_ALIGN.CENTER)
             _set_cell_text(ri_table.cell(row_idx, 1), item.get('title', ''))
+            _set_cell_text(ri_table.cell(row_idx, 2),
+                           item.get('description', ''))
+            _set_cell_text(ri_table.cell(row_idx, 3),
+                           item.get('mitigation', ''))
             score = item.get('score', 0)
             score_colour = RED if score >= 16 else (AMBER if score >= 6 else GREEN)
-            _set_cell_text(ri_table.cell(row_idx, 2), str(score), 8,
+            _set_cell_text(ri_table.cell(row_idx, 4), str(score), 8,
                            True, score_colour, PP_ALIGN.CENTER)
             if row_idx % 2 == 0:
-                for c in range(3):
+                for c in range(ri_cols):
                     ri_table.cell(row_idx, c).fill.solid()
                     ri_table.cell(row_idx, c).fill.fore_color.rgb = LIGHT_GREY
     else:
@@ -3551,10 +3573,12 @@ def _collect_portfolio_risks(project_reports):
 
     Args:
         project_reports: list of dicts, each with 'project_name' and
-            'risks_issues' (list of dicts with type, title, score).
+            'risks_issues' (list of dicts with type, title, description,
+            mitigation, score).
 
     Returns:
-        list of dicts with project_name, type, title, score, rag.
+        list of dicts with project_name, type, title, description,
+        mitigation, score, rag.
     """
     risks = []
     for report in project_reports:
@@ -3568,6 +3592,8 @@ def _collect_portfolio_risks(project_reports):
                 'project_name': project_name,
                 'type': item.get('type', ''),
                 'title': item.get('title', ''),
+                'description': item.get('description', ''),
+                'mitigation': item.get('mitigation', ''),
                 'score': score,
                 'rag': rag,
             })
@@ -3578,9 +3604,9 @@ def _collect_portfolio_risks(project_reports):
 def _add_portfolio_risk_slides(prs, portfolio_data, risks):
     """Add one or more portfolio risk slides showing Medium and High risks.
 
-    Renders a table of risks with project name, type, title, score, and
-    RAG level. Spills over to additional slides if there are too many items
-    to fit on a single slide.
+    Renders a table of risks with project name, type, title, description,
+    mitigation, score, and RAG level. Spills over to additional slides if
+    there are too many items to fit on a single slide.
 
     Args:
         prs: A python-pptx Presentation object.
@@ -3711,7 +3737,7 @@ def _add_portfolio_risk_slides(prs, portfolio_data, risks):
         if page_risks:
             table_top = Inches(1.45)
             num_rows = len(page_risks) + 1  # +1 header
-            num_cols = 5  # Project, Type, Title, Score, RAG
+            num_cols = 7  # Project, Type, Title, Description, Mitigation, Score, RAG
             table_width = Inches(12.533)
             table_height = Inches(0.28 * num_rows)
 
@@ -3720,20 +3746,25 @@ def _add_portfolio_risk_slides(prs, portfolio_data, risks):
                 table_width, table_height
             ).table
 
-            tbl.columns[0].width = int(table_width * 20 // 100)
-            tbl.columns[1].width = int(table_width * 10 // 100)
-            tbl.columns[2].width = int(table_width * 50 // 100)
-            tbl.columns[3].width = int(table_width * 10 // 100)
-            tbl.columns[4].width = (int(table_width) - tbl.columns[0].width
+            tbl.columns[0].width = int(table_width * 12 // 100)  # Project
+            tbl.columns[1].width = int(table_width * 7 // 100)   # Type
+            tbl.columns[2].width = int(table_width * 18 // 100)  # Title
+            tbl.columns[3].width = int(table_width * 24 // 100)  # Description
+            tbl.columns[4].width = int(table_width * 24 // 100)  # Mitigation
+            tbl.columns[5].width = int(table_width * 7 // 100)   # Score
+            tbl.columns[6].width = (int(table_width) - tbl.columns[0].width
                                     - tbl.columns[1].width - tbl.columns[2].width
-                                    - tbl.columns[3].width)
+                                    - tbl.columns[3].width - tbl.columns[4].width
+                                    - tbl.columns[5].width)      # RAG
 
             _shade_header_row(tbl, num_cols)
             _set_cell_text(tbl.cell(0, 0), "Project", 9, True, WHITE)
             _set_cell_text(tbl.cell(0, 1), "Type", 9, True, WHITE, PP_ALIGN.CENTER)
             _set_cell_text(tbl.cell(0, 2), "Title", 9, True, WHITE)
-            _set_cell_text(tbl.cell(0, 3), "Score", 9, True, WHITE, PP_ALIGN.CENTER)
-            _set_cell_text(tbl.cell(0, 4), "RAG", 9, True, WHITE, PP_ALIGN.CENTER)
+            _set_cell_text(tbl.cell(0, 3), "Description", 9, True, WHITE)
+            _set_cell_text(tbl.cell(0, 4), "Mitigation", 9, True, WHITE)
+            _set_cell_text(tbl.cell(0, 5), "Score", 9, True, WHITE, PP_ALIGN.CENTER)
+            _set_cell_text(tbl.cell(0, 6), "RAG", 9, True, WHITE, PP_ALIGN.CENTER)
 
             for i, risk in enumerate(page_risks):
                 row_idx = i + 1
@@ -3744,13 +3775,17 @@ def _add_portfolio_risk_slides(prs, portfolio_data, risks):
                                8, True, None, PP_ALIGN.CENTER)
                 _set_cell_text(tbl.cell(row_idx, 2),
                                risk.get('title', ''), 8)
+                _set_cell_text(tbl.cell(row_idx, 3),
+                               risk.get('description', ''), 8)
+                _set_cell_text(tbl.cell(row_idx, 4),
+                               risk.get('mitigation', ''), 8)
                 score = risk.get('score', 0)
-                _set_cell_text(tbl.cell(row_idx, 3), str(score),
+                _set_cell_text(tbl.cell(row_idx, 5), str(score),
                                8, True, _score_colour(score), PP_ALIGN.CENTER)
                 rag = risk.get('rag', '')
                 rag_label = 'HIGH' if rag == 'red' else 'MEDIUM'
                 rag_colour = RED if rag == 'red' else AMBER
-                _set_cell_text(tbl.cell(row_idx, 4), rag_label,
+                _set_cell_text(tbl.cell(row_idx, 6), rag_label,
                                8, True, rag_colour, PP_ALIGN.CENTER)
                 if row_idx % 2 == 0:
                     for c in range(num_cols):
