@@ -2560,18 +2560,39 @@ def export_report_to_powerpoint(output_path, report_data):
 
     # -- Timeline graphic (full width, below title bar) -----------------------
     timeline_height_used = Inches(0)
-    timeline_tasks = report_data.get('timeline_tasks', [])
-    if timeline_tasks:
+    timeline_image_b64 = report_data.get('timeline_image')
+    if timeline_image_b64:
+        # Use the PNG image captured from the browser's timeline
+        import base64
+        import io
         try:
-            timeline_height_used = _draw_timeline_graphic(
-                slide, timeline_tasks,
-                left=Inches(0.4), top=Inches(1.05),
-                width=Inches(12.533),  # 13.333 - 0.4 - 0.4
+            img_data = base64.b64decode(timeline_image_b64)
+            img_stream = io.BytesIO(img_data)
+            tl_left = Inches(0.4)
+            tl_top = Inches(1.05)
+            tl_width = Inches(12.533)  # 13.333 - 0.4 - 0.4
+            pic = slide.shapes.add_picture(
+                img_stream, tl_left, tl_top, width=tl_width
             )
-        except (ValueError, KeyError, TypeError, IndexError):
-            logger.warning("Failed to draw timeline graphic in PPTX report",
+            timeline_height_used = pic.height + Inches(0.15)
+        except Exception:
+            logger.warning("Failed to embed timeline image in PPTX report",
                            exc_info=True)
             timeline_height_used = Inches(0)
+    else:
+        # Fallback: draw timeline using native shapes
+        timeline_tasks = report_data.get('timeline_tasks', [])
+        if timeline_tasks:
+            try:
+                timeline_height_used = _draw_timeline_graphic(
+                    slide, timeline_tasks,
+                    left=Inches(0.4), top=Inches(1.05),
+                    width=Inches(12.533),  # 13.333 - 0.4 - 0.4
+                )
+            except (ValueError, KeyError, TypeError, IndexError):
+                logger.warning("Failed to draw timeline graphic in PPTX report",
+                               exc_info=True)
+                timeline_height_used = Inches(0)
 
     # -- Quad grid layout ------------------------------------------------------
     # Margins & dimensions
@@ -2958,18 +2979,34 @@ def _add_report_slide(prs, report_data):
 
     # -- Timeline graphic -----------------------------------------------------
     timeline_height_used = Inches(0)
-    timeline_tasks = report_data.get('timeline_tasks', [])
-    if timeline_tasks:
+    timeline_image_b64 = report_data.get('timeline_image')
+    if timeline_image_b64:
+        import base64
+        import io
         try:
-            timeline_height_used = _draw_timeline_graphic(
-                slide, timeline_tasks,
-                left=Inches(0.4), top=Inches(1.05),
-                width=Inches(12.533),
+            img_data = base64.b64decode(timeline_image_b64)
+            img_stream = io.BytesIO(img_data)
+            pic = slide.shapes.add_picture(
+                img_stream, Inches(0.4), Inches(1.05), width=Inches(12.533)
             )
-        except (ValueError, KeyError, TypeError, IndexError):
-            logger.warning("Failed to draw timeline graphic in PPTX report",
+            timeline_height_used = pic.height + Inches(0.15)
+        except Exception:
+            logger.warning("Failed to embed timeline image in PPTX report",
                            exc_info=True)
             timeline_height_used = Inches(0)
+    else:
+        timeline_tasks = report_data.get('timeline_tasks', [])
+        if timeline_tasks:
+            try:
+                timeline_height_used = _draw_timeline_graphic(
+                    slide, timeline_tasks,
+                    left=Inches(0.4), top=Inches(1.05),
+                    width=Inches(12.533),
+                )
+            except (ValueError, KeyError, TypeError, IndexError):
+                logger.warning("Failed to draw timeline graphic in PPTX report",
+                               exc_info=True)
+                timeline_height_used = Inches(0)
 
     # -- Quad grid layout -----------------------------------------------------
     left_margin = Inches(0.4)

@@ -1340,6 +1340,19 @@ async function exportReportPptx() {
         });
     }
 
+    // Capture the report timeline as a PNG image using html2canvas
+    let timelineImageB64 = null;
+    const timelineWrapper = document.querySelector('.report-timeline-wrapper');
+    if (timelineWrapper && typeof html2canvas !== 'undefined') {
+        try {
+            const canvas = await html2canvas(timelineWrapper, { backgroundColor: '#ffffff', scale: 2 });
+            const dataUrl = canvas.toDataURL('image/png');
+            timelineImageB64 = dataUrl.split(',')[1] || null;
+        } catch (err) {
+            console.warn('Could not capture timeline as image:', err);
+        }
+    }
+
     // Build request payload
     const payload = {
         project_name: projectName,
@@ -1352,7 +1365,8 @@ async function exportReportPptx() {
         up_next: upNext,
         highlight: highlight,
         risks_issues: risksIssues,
-        timeline_tasks: tlTasks
+        timeline_tasks: tlTasks,
+        timeline_image: timelineImageB64
     };
 
     try {
