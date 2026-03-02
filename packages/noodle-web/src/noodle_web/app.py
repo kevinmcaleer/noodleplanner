@@ -844,6 +844,7 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
                 'highlight': r.highlight.model_dump() if r.highlight else None,
                 'risks_issues': [ri.model_dump() for ri in r.risks_issues],
                 'timeline_tasks': [t.model_dump() for t in r.timeline_tasks],
+                'timeline_image': r.timeline_image,
             }
             for r in data.project_reports
         ]

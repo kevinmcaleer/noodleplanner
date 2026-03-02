@@ -231,9 +231,6 @@
                         <div class="nav-menu-item" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
                             📋 Export to CSV
                         </div>
-                        <div class="nav-menu-item" onclick="exportFile('ppt', 'editor'); event.stopPropagation();">
-                            📽️ Export to PowerPoint
-                        </div>
                         <div class="nav-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
                             📄 Export to PDF
                         </div>
@@ -330,6 +327,22 @@
                 </button>
                 <button class="plan-subnav-btn" data-view="guide" onclick="switchToolsSubnavToTab('guide')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Syntax Guide
+                </button>
+                <span class="plan-subnav-divider"></span>
+                <button class="plan-subnav-btn" onclick="triggerExcelUpload()">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Import Excel
+                </button>
+                <button class="plan-subnav-btn" onclick="exportFile('excel', 'editor')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Export Excel
+                </button>
+                <button class="plan-subnav-btn" onclick="exportFile('csv', 'editor')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Export CSV
+                </button>
+                <button class="plan-subnav-btn" onclick="exportReportPptx()">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Export Report
+                </button>
+                <button class="plan-subnav-btn" onclick="exportFile('pdf', 'editor')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Export PDF
                 </button>
             </div>
 

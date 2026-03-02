@@ -314,6 +314,14 @@ svg.icon {
     stroke: white;
 }
 
+.plan-subnav-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
+    align-self: center;
+}
+
 /* Output Tab Content Styling */
 .output-tab-content {
     display: none;

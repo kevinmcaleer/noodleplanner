@@ -5,6 +5,78 @@
  */
 
 /**
+ * Capture a per-project timeline as a PNG image.
+ * Creates a temporary offscreen container, renders the timeline into it
+ * via renderMinimalTimeline, captures with html2canvas, then cleans up.
+ *
+ * @param {Array} tasks - Parsed tasks for the project
+ * @param {string} projectName - Project name (for logging)
+ * @returns {string|null} Base64-encoded PNG string, or null on failure
+ */
+async function captureProjectTimelineImage(tasks, projectName) {
+    if (typeof html2canvas === 'undefined' || typeof renderMinimalTimeline !== 'function') return null;
+    if (typeof parseLocalDate !== 'function') return null;
+
+    try {
+        const allTasks = tasks.filter(function(t) {
+            return (t.start && t.finish) || (t.finish && t.duration_days === 0);
+        });
+        if (allTasks.length === 0) return null;
+
+        var allDates = [];
+        allTasks.forEach(function(t) {
+            if (t.start) allDates.push(parseLocalDate(t.start));
+            if (t.finish) allDates.push(parseLocalDate(t.finish));
+        });
+        var minDate = new Date(Math.min.apply(null, allDates));
+        var maxDate = new Date(Math.max.apply(null, allDates));
+
+        minDate.setDate(minDate.getDate() - 7);
+        maxDate.setDate(maxDate.getDate() + 7);
+
+        var timelineWidth = 1200;
+        var totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        var lineId = 'captureTimelineLine-' + Date.now();
+        var milestonesId = 'captureTimelineMilestones-' + Date.now();
+
+        var container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.width = timelineWidth + 'px';
+        container.className = 'timeline-line-wrapper report-timeline-wrapper';
+
+        var lineDiv = document.createElement('div');
+        lineDiv.className = 'timeline-line';
+        lineDiv.id = lineId;
+        container.appendChild(lineDiv);
+
+        var milestonesDiv = document.createElement('div');
+        milestonesDiv.className = 'timeline-milestones';
+        milestonesDiv.id = milestonesId;
+        container.appendChild(milestonesDiv);
+
+        document.body.appendChild(container);
+
+        renderMinimalTimeline(container, tasks, minDate, maxDate, totalDays, timelineWidth, {
+            isReport: true,
+            timelineLineId: lineId,
+            milestonesId: milestonesId
+        });
+
+        var canvas = await html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
+        var dataUrl = canvas.toDataURL('image/png');
+        var base64 = dataUrl.split(',')[1] || null;
+
+        document.body.removeChild(container);
+        return base64;
+    } catch (err) {
+        console.warn('Could not capture project timeline for ' + projectName + ':', err);
+        return null;
+    }
+}
+
+/**
  * Export the portfolio as a PowerPoint report.
  * Parses all projects via /api/parse, collects report data for each,
  * then sends it to /api/portfolio/export-pptx.
@@ -79,6 +151,11 @@ async function exportPortfolioReport() {
 
             // Build individual project report data
             const reportData = buildProjectReportData(project, tasks, frontMatter, raidItems, highlights, reportDate);
+
+            // Capture per-project timeline as a PNG image
+            const timelineImage = await captureProjectTimelineImage(tasks, project.name);
+            if (timelineImage) reportData.timeline_image = timelineImage;
+
             projectReports.push(reportData);
         }
 
@@ -87,6 +164,15 @@ async function exportPortfolioReport() {
         portfolioProjects.sort(function(a, b) {
             return (ragOrder[a.rag] || 2) - (ragOrder[b.rag] || 2);
         });
+
+        // Ensure the portfolio timeline SVG is rendered before capture
+        if (typeof renderPortfolioTimeline === 'function') {
+            const timelineView = document.getElementById('portfolioTimelineView');
+            const wasHiddenPre = timelineView && timelineView.style.display === 'none';
+            if (wasHiddenPre) timelineView.style.display = 'block';
+            await renderPortfolioTimeline();
+            if (wasHiddenPre) timelineView.style.display = 'none';
+        }
 
         // Capture the portfolio timeline as a PNG image using html2canvas
         // so the PPTX gets a high-fidelity rendering of the SVG-based timeline.
