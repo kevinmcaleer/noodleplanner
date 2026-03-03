@@ -841,8 +841,16 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
         if not rows:
             raise ValueError("Worksheet is empty")
 
-        headers = [str(c) if c is not None else "" for c in rows[0]]
-        data_rows = rows[1:]
+        # For Planner exports, skip metadata rows to find actual headers
+        header_row_idx = 0
+        planner_sheet = detect_planner_worksheet(wb)
+        if planner_sheet and sheet_name == planner_sheet:
+            _header_info, task_header_row = parse_planner_header(ws)
+            if task_header_row is not None:
+                header_row_idx = task_header_row
+
+        headers = [str(c) if c is not None else "" for c in rows[header_row_idx]]
+        data_rows = rows[header_row_idx + 1:]
 
         # Build column index map
         col_index = {}

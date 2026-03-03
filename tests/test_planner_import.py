@@ -11,6 +11,7 @@ from noodle_core.excel_importer import (
     detect_planner_worksheet,
     parse_planner_header,
     convert_planner_to_markdown,
+    convert_excel_to_markdown,
     analyze_workbook,
     _read_workbook,
     _is_task_header_row,
@@ -697,3 +698,32 @@ class TestNewPlannerConversion:
         assert "[depends Requirements]" in md
         assert "[depends Design]" in md
         assert "[depends Build Feature]" in md
+
+
+class TestGenericConverterWithPlannerData:
+    """Test that convert_excel_to_markdown (the generic path used by the
+    import wizard) correctly skips Planner metadata header rows."""
+
+    def test_convert_excel_skips_planner_headers_old_format(self):
+        data = _make_planner_xlsx_bytes()
+        mapping = {"task_name": "Task Name", "duration": "Duration",
+                   "start_date": "Start", "end_date": "Finish"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Project tasks", mapping)
+        assert result["task_count"] > 0
+        assert "Planning" in result["markdown"]
+
+    def test_convert_excel_skips_planner_headers_new_format(self):
+        data = _make_new_planner_xlsx_bytes()
+        mapping = {"task_name": "Name", "duration": "Duration",
+                   "start_date": "Start", "end_date": "Finish",
+                   "resources": "Assigned to"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
+        assert result["task_count"] > 0
+        assert "Planning" in result["markdown"]
+
+    def test_convert_excel_finds_name_column(self):
+        """The error 'Task name column Name not found' should not occur."""
+        data = _make_new_planner_xlsx_bytes()
+        mapping = {"task_name": "Name"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
+        assert result["task_count"] > 0
