@@ -898,6 +898,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
 
             # Parse duration
             duration = None
+            duration_suffix = "d"
             if "duration" in col_index and col_index["duration"] < len(row):
                 raw_dur = row[col_index["duration"]]
                 if raw_dur is not None and str(raw_dur).strip():
@@ -909,9 +910,14 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                             )
                             duration = 0
                     except (ValueError, TypeError):
-                        warnings.append(
-                            f"Row {row_num}: Could not parse duration '{raw_dur}'"
-                        )
+                        # Try parsing text durations like "7 days", "2 weeks"
+                        parsed = parse_planner_duration(raw_dur)
+                        if parsed:
+                            duration, duration_suffix = parsed
+                        else:
+                            warnings.append(
+                                f"Row {row_num}: Could not parse duration '{raw_dur}'"
+                            )
 
             # Calculate duration from dates if not explicit
             if duration is None and start_date and end_date:
@@ -977,6 +983,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 "start_date": start_date,
                 "end_date": end_date,
                 "duration": duration,
+                "duration_suffix": duration_suffix,
                 "resources": resources,
                 "percent": percent,
                 "priority": priority,
@@ -1190,7 +1197,8 @@ def _build_task_metadata(task, resource_map):
 
     # Duration
     if task.get("duration") and task["duration"] > 0:
-        parts.append(f"{task['duration']}d")
+        suffix = task.get("duration_suffix", "d")
+        parts.append(f"{task['duration']}{suffix}")
 
     # Start date (only if no duration, as a hint)
     if task.get("start_date") and not task.get("duration"):

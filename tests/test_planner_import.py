@@ -727,3 +727,26 @@ class TestGenericConverterWithPlannerData:
         mapping = {"task_name": "Name"}
         result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
         assert result["task_count"] > 0
+
+    def test_convert_excel_parses_text_durations(self):
+        """Text durations like '7 days' should be parsed, not produce warnings."""
+        data = _make_new_planner_xlsx_bytes()
+        mapping = {"task_name": "Name", "duration": "Duration"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
+        md = result["markdown"]
+        assert "10d" in md
+        assert "5d" in md
+        duration_warnings = [w for w in result["warnings"] if "duration" in w.lower()]
+        assert len(duration_warnings) == 0
+
+    def test_convert_excel_parses_week_durations(self):
+        """Week durations like '2 weeks' should produce '2w'."""
+        task_rows = [
+            [1, "1", "Phase", "", "", "", datetime(2025, 3, 1),
+             datetime(2025, 3, 14), "2 weeks", 0.0, "", "", "", "", "",
+             "", "", False, "", False, "", "", ""],
+        ]
+        data = _make_new_planner_xlsx_bytes(task_rows=task_rows)
+        mapping = {"task_name": "Name", "duration": "Duration"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
+        assert "2w" in result["markdown"]
