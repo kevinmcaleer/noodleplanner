@@ -12,7 +12,7 @@ Noodle Planner is a project planning tool that converts natural language task de
 
 The scheduling engine (`packages/noodle-core/`) parses natural language task definitions and calculates start/finish dates based on:
 
-- **Duration**: `3d` (days), `2w` (weeks), `1m` (months)
+- **Duration**: `3d` (days), `2w` (weeks), `1m` (months), `1y` (years)
 - **Resources**: `@john @jane`
 - **Dependencies**: `#taskname` or `[depends task1 +2d, task2 -1w]`
 - **Sequential tasks**: `*Task Name` (starts after previous task)
@@ -32,7 +32,45 @@ The web application (`packages/noodle-web/`) provides:
 - **Report View**: Quad dashboard with project header, timeline, milestones, RAID, and highlights
 - **2-Week Look-Ahead View**: Focused view of upcoming tasks (next 14 days) and overdue items
 - **User Workload View**: Task breakdown by user with workload statistics and filtering
-- **Export**: Excel, PowerPoint, PDF
+- **Export**: Excel, CSV, PowerPoint, PDF
+
+### CSV Export
+
+The CSV export feature provides a simple tabular export of the project schedule.
+
+**Function:** `export_to_csv()` in `packages/noodle-core/src/noodle_core/scheduling_engine.py` (line 5114)
+
+**API Endpoint:** `POST /render` with `export_csv: true`
+
+**Response:**
+- Content-Type: `text/csv`
+- Content-Disposition header with `{project_name}.csv` filename
+
+**Columns:** ID, Task Name, Start, Finish, Duration (days), Resources, % Complete, RAG, Priority, Bucket, Comment
+
+### Keyboard Shortcuts
+
+Press `?` to open the keyboard shortcuts modal, which lists all available shortcuts.
+
+**Editor Shortcuts:**
+- `Tab` / `Shift+Tab`: Indent/outdent tasks
+- `Ctrl+Enter` / `Cmd+Enter`: Render the plan
+
+**Navigation Shortcuts:**
+- `1`-`9`: Switch between tabs (Editor, Dashboard, Plan views, etc.)
+
+### Drag and Drop File Loading (Issue #244)
+
+Users can drag and drop `.md` or `.txt` files directly onto the editor panel to load them.
+
+**Behaviour:**
+- Visual feedback with drag-over styling on the editor panel
+- File contents replace the current editor text
+- Plan auto-renders after loading
+
+**Key JavaScript Functions:**
+- Editor panel `dragover`, `dragleave`, `drop` event listeners
+- Uses `FileReader` API to read dropped file contents
 
 ### Project Report (Quad Layout)
 
@@ -516,7 +554,7 @@ npm run dev
 | `#taskname` | Dependency | `Task #other_task` |
 | `[depends ...]` | Dependencies with lag/lead | `[depends task1 +2d, task2 -1w]` |
 | `*` | Sequential (after previous) | `*Task Name` |
-| `Nd/Nw/Nm` | Duration | `3d`, `2w`, `1m` |
+| `Nd/Nw/Nm/Ny` | Duration | `3d`, `2w`, `1m`, `1y` |
 | `N%` | Percent complete | `50%` |
 | `YYYY-MM-DD` | Explicit start date | `2025-01-15` |
 | `!"text"` | Comment | `!"important note"` |

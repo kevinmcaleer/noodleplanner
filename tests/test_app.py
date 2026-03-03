@@ -412,6 +412,83 @@ class TestPDFExport:
         assert response.content[:4] == b'%PDF'
 
 
+class TestCSVExport:
+    """Test suite for CSV export functionality."""
+
+    def test_export_csv_returns_file(self, client, sample_plan):
+        """Test that CSV export returns a file."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Test",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+
+    def test_export_csv_has_correct_filename(self, client, sample_plan):
+        """Test that CSV export has correct filename."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "MyProject",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        content_disposition = response.headers.get("content-disposition", "")
+        assert "MyProject.csv" in content_disposition
+
+    def test_export_csv_returns_text_data(self, client, sample_plan):
+        """Test that CSV export returns valid CSV text data."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Test",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        content = response.content.decode("utf-8")
+        assert len(content) > 0
+        import csv
+        import io
+        reader = csv.reader(io.StringIO(content))
+        headers = next(reader)
+        assert "Task Name" in headers
+
+    def test_export_csv_contains_task_data(self, client, sample_plan):
+        """Test that CSV export contains task data from the plan."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Test",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        content = response.content.decode("utf-8")
+        assert "Task 1" in content
+        assert "Task 2" in content
+
+
 class TestMultipleExports:
     """Test suite for multiple export formats."""
 

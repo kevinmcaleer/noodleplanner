@@ -11827,6 +11827,12 @@ const tourSteps = [
         position: "bottom"
     },
     {
+        title: "Drag and Drop",
+        message: "You can drag and drop .md or .txt files directly onto the editor to load them. Press ? at any time to see all keyboard shortcuts.",
+        target: ".editor-panel",
+        position: "right"
+    },
+    {
         title: "Dashboard",
         message: "Click Dashboard to see your Project Report - an overview with timeline, task completion, milestones, highlights, and RAID summary.",
         target: "#dashboardTab",
@@ -11858,7 +11864,7 @@ const tourSteps = [
     },
     {
         title: "Tools Menu",
-        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
+        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options including Excel, CSV, PDF, and PowerPoint. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
         target: "#toolsTab",
         position: "bottom"
     },
