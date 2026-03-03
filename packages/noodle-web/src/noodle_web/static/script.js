@@ -13577,8 +13577,25 @@ function wizardImport() {
     // Clear RAID log entries and highlights BEFORE loading new plan
     clearPlanTrackingData();
 
+    // Save current project before creating a new one
+    saveCurrentProjectState();
+
+    // Create a new project using the imported filename (without extension)
+    const projectName = excelWizardFile
+        ? excelWizardFile.name.replace(/\.(xlsx?|csv)$/i, '')
+        : 'Imported Plan';
+    const project = createProject(projectName);
+    saveProject(project.id, { planText: markdown });
+    setCurrentProjectId(project.id);
+
     const editor = document.getElementById('planEditor');
     editor.value = markdown;
+
+    // Update kanban editor too
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) {
+        kanbanEditor.value = markdown;
+    }
 
     // Switch to editor tab
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -13591,6 +13608,11 @@ function wizardImport() {
     editor.dispatchEvent(new Event('input'));
 
     closeExcelWizard();
+
+    // Refresh project selectors
+    if (typeof refreshProjectSelectors === 'function') {
+        refreshProjectSelectors();
+    }
 
     // Render the imported plan
     renderText();
