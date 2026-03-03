@@ -11834,7 +11834,7 @@ const tourSteps = [
     },
     {
         title: "Portfolio",
-        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, and Risks views to get a cross-project overview.",
+        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
         target: "#portfolioTab",
         position: "bottom"
     },

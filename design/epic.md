@@ -136,6 +136,16 @@ The Portfolio tab provides cross-project visibility through multiple sub-views:
 - Shows open actions from RAID logs across all projects
 - Filterable by project, owner, and status
 
+**2-Week Look-Ahead (`portfolio-lookahead.js`):**
+- Aggregates overdue and upcoming tasks across all projects into a portfolio-level view
+- Two sections: Overdue Tasks (past due, not 100% complete) and Upcoming Tasks (starting or finishing within the next 14 days)
+- Project name shown as the first column in each table
+- Filterable by project using a dropdown
+- Summary header shows counts for overdue tasks, upcoming tasks, and number of projects
+- Sortable columns (project, task name, dates, days late, percent complete)
+- Clicking a task row navigates to the project editor and opens the task details form for that task
+- Data sourced from `/api/parse` via `parseAllProjects()` -- only non-summary tasks are included
+
 **Portfolio Timeline (`portfolio-timeline.js`):**
 - SVG-based Gantt-style timeline showing all projects as horizontal swimlane rows
 - Each project row shows phase bars (summary tasks with start/finish dates) and milestone dots
