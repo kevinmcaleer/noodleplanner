@@ -28,24 +28,36 @@ COLUMN_PATTERNS = {
 # Planner header field names (case-insensitive matching)
 PLANNER_HEADER_FIELDS = {
     "task number",
+    "project name",
     "plan owner",
+    "project start",
     "project start date",
+    "project finish",
     "project finish date",
+    "duration",
     "% complete",
     "exported on",
 }
 
-# Planner task column names (case-insensitive matching)
+# Planner task column names mapped to internal field names.
+# Each field maps to a list of possible column header names (first match wins).
 PLANNER_TASK_COLUMNS = {
-    "task_name": "task name",
-    "start_date": "start",
-    "end_date": "finish",
-    "duration": "duration",
-    "resources": "resource names",
-    "percent_complete": "% complete",
-    "depends_on": "predecessors",
-    "task_number": "id",
-    "outline_level": "outline level",
+    "task_name": ["task name", "name"],
+    "start_date": ["start"],
+    "end_date": ["finish"],
+    "duration": ["duration"],
+    "resources": ["resource names", "assigned to"],
+    "percent_complete": ["% complete"],
+    "depends_on": ["predecessors", "depends on"],
+    "task_number": ["id", "task number"],
+    "outline_level": ["outline level", "outline number"],
+}
+
+# Known Planner task column headers used to identify the column header row
+PLANNER_TASK_HEADER_INDICATORS = {
+    "task name", "name", "assigned to", "resource names",
+    "predecessors", "depends on", "outline level", "outline number",
+    "bucket", "labels", "priority", "milestone", "sprint",
 }
 
 # Excel epoch for serial date conversion (Excel uses Jan 0, 1900 as day 1)
@@ -312,23 +324,53 @@ def parse_planner_dependency(dep_string, task_number_to_name):
 def detect_planner_worksheet(wb):
     """Check if a workbook contains a Microsoft Planner export.
 
-    Planner exports have a 'Project tasks' worksheet with specific header
-    fields in the first few rows before the task data table.
+    Planner exports typically have a worksheet (often called 'Project tasks'
+    or 'Tasks') with metadata header rows followed by a task data table.
+    Detection checks both the sheet name and content pattern.
 
     Returns the worksheet name if detected, None otherwise.
     """
+    # First, check for exact "Project tasks" sheet name
     for sheet_name in wb.sheetnames:
         if sheet_name.lower().strip() == "project tasks":
             return sheet_name
+
+    # Next, check sheets whose content looks like a Planner export:
+    # metadata rows (label-value pairs) with known Planner header fields
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        rows = list(ws.iter_rows(values_only=True, max_row=15))
+        matched_fields = 0
+        for row in rows:
+            if not row or all(c is None for c in row):
+                continue
+            first_cell = str(row[0]).strip().lower() if row[0] is not None else ""
+            if first_cell in PLANNER_HEADER_FIELDS:
+                matched_fields += 1
+        if matched_fields >= 3:
+            return sheet_name
+
     return None
 
 
+def _is_task_header_row(row):
+    """Check if a row looks like the task column header row.
+
+    Task column header rows have many non-empty cells (typically 10+)
+    and contain known Planner column names.
+    """
+    non_empty = [str(c).strip().lower() for c in row if c is not None and str(c).strip()]
+    if len(non_empty) < 4:
+        return False
+    return bool(set(non_empty) & PLANNER_TASK_HEADER_INDICATORS)
+
+
 def parse_planner_header(ws):
-    """Parse the Planner header section from a 'Project tasks' worksheet.
+    """Parse the Planner header section from a worksheet.
 
     The header occupies the first few rows and contains project metadata
-    as label-value pairs. The task data table starts after a blank row
-    or at the row containing task column headers.
+    as label-value pairs (2 columns). The task data table starts at the
+    row containing task column headers (many columns).
 
     Returns dict with parsed header fields and the row index where
     task data headers begin.
@@ -344,30 +386,25 @@ def parse_planner_header(ws):
         if not row or all(cell is None for cell in row):
             continue
 
+        # Check if this row looks like the task column header row
+        # (many columns with known task header names) before checking
+        # metadata fields, since some names overlap (e.g. "Task Number").
+        if _is_task_header_row(row):
+            task_header_row = row_idx
+            break
+
         first_cell = str(row[0]).strip().lower() if row[0] is not None else ""
 
-        # Check if this row is a header field
-        if first_cell == "task number":
+        # Check if this row is a metadata header field
+        if first_cell in ("task number", "project name"):
             header["project_name"] = str(row[1]).strip() if len(row) > 1 and row[1] else ""
         elif first_cell == "plan owner":
             header["plan_owner"] = str(row[1]).strip() if len(row) > 1 and row[1] else ""
-        elif first_cell == "project start date":
+        elif first_cell in ("project start date", "project start"):
             header["start_date"] = normalize_date(row[1]) if len(row) > 1 else None
-        elif first_cell == "project finish date":
-            # Calculated field, can be discarded but store for completeness
+        elif first_cell in PLANNER_HEADER_FIELDS:
+            # Other known metadata fields (project finish, % complete, etc.)
             pass
-        elif first_cell == "% complete":
-            # Calculated field, can be discarded
-            pass
-        elif first_cell == "exported on":
-            # Export timestamp, can be discarded
-            pass
-        else:
-            # Check if this row looks like task column headers
-            row_cells = [str(c).strip().lower() for c in row if c is not None]
-            if "task name" in row_cells or "name" in row_cells:
-                task_header_row = row_idx
-                break
 
     return header, task_header_row
 
@@ -392,7 +429,7 @@ def convert_planner_to_markdown(file_bytes, filename):
     try:
         planner_sheet = detect_planner_worksheet(wb)
         if not planner_sheet:
-            raise ValueError("No 'Project tasks' worksheet found in workbook")
+            raise ValueError("No Planner tasks worksheet found in workbook")
 
         ws = wb[planner_sheet]
         header_info, task_header_row = parse_planner_header(ws)
@@ -407,14 +444,17 @@ def convert_planner_to_markdown(file_bytes, filename):
 
         # Build column index map for Planner columns
         col_index = {}
-        for field, pattern in PLANNER_TASK_COLUMNS.items():
-            for i, h in enumerate(headers):
-                if h == pattern:
-                    col_index[field] = i
+        for field, patterns in PLANNER_TASK_COLUMNS.items():
+            for pattern in patterns:
+                for i, h in enumerate(headers):
+                    if h == pattern:
+                        col_index[field] = i
+                        break
+                if field in col_index:
                     break
 
         if "task_name" not in col_index:
-            raise ValueError("Could not find 'Task Name' column in Planner worksheet")
+            raise ValueError("Could not find task name column (expected 'Task Name' or 'Name') in Planner worksheet")
 
         # First pass: build task number to name mapping for dependencies
         task_number_to_name = {}
@@ -656,7 +696,8 @@ def analyze_workbook(file_bytes, filename):
 
     try:
         # Detect if this is a Planner export
-        is_planner = detect_planner_worksheet(wb) is not None
+        planner_sheet = detect_planner_worksheet(wb)
+        is_planner = planner_sheet is not None
 
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
@@ -671,9 +712,9 @@ def analyze_workbook(file_bytes, filename):
                 })
                 continue
 
-            # For Planner exports, skip metadata rows and find actual headers
+            # For the Planner tasks sheet, skip metadata rows and find actual headers
             header_row_idx = 0
-            if is_planner and sheet_name.lower().strip() == "project tasks":
+            if is_planner and sheet_name == planner_sheet:
                 _header_info, task_header_row = parse_planner_header(ws)
                 if task_header_row is not None:
                     header_row_idx = task_header_row
