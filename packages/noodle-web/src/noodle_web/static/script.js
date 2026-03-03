@@ -9175,9 +9175,6 @@ function toggleExportMenu(event) {
 document.addEventListener('click', function(e) {
     // Close all nav dropdown menus when clicking outside
     const navMenus = [
-        { menu: 'planMenu', tab: 'planTab' },
-        { menu: 'trackingMenu', tab: 'trackingTab' },
-        { menu: 'resourcesMenu', tab: 'resourcesTab' },
         { menu: 'toolsMenu', tab: 'toolsTab' }
     ];
     navMenus.forEach(({ menu: menuId, tab: tabId }) => {
@@ -9191,7 +9188,7 @@ document.addEventListener('click', function(e) {
 
 // Close all nav dropdown menus (optionally except one)
 function closeAllNavMenus(except) {
-    const menuIds = ['planMenu', 'trackingMenu', 'resourcesMenu', 'toolsMenu'];
+    const menuIds = ['toolsMenu'];
     menuIds.forEach(id => {
         if (id !== except) {
             const m = document.getElementById(id);
@@ -9200,25 +9197,31 @@ function closeAllNavMenus(except) {
     });
 }
 
-// Toggle Plan dropdown menu
-function togglePlanMenu(event) {
-    event.stopPropagation();
-    closeAllNavMenus('planMenu');
-    document.getElementById('planMenu').classList.toggle('show');
+// Navigate to Project (Dashboard with plan subnav)
+function switchToProject() {
+    switchToView('project-report');
+    // Override nav active state to show Project tab as active (not Dashboard)
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const planTab = document.getElementById('planTab');
+    if (planTab) planTab.classList.add('active');
 }
 
-// Toggle Tracking dropdown menu
-function toggleTrackingMenu(event) {
-    event.stopPropagation();
-    closeAllNavMenus('trackingMenu');
-    document.getElementById('trackingMenu').classList.toggle('show');
+// Navigate to Tracking (RAID Log with tracking subnav)
+function switchToTracking() {
+    switchTrackingSubnavToTab('raid');
+    // Ensure Tracking tab is active
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const trackingTab = document.getElementById('trackingTab');
+    if (trackingTab) trackingTab.classList.add('active');
 }
 
-// Toggle Resources dropdown menu
-function toggleResourcesMenu(event) {
-    event.stopPropagation();
-    closeAllNavMenus('resourcesMenu');
-    document.getElementById('resourcesMenu').classList.toggle('show');
+// Navigate to Resources (Resource Table with resources subnav)
+function switchToResources() {
+    switchToView('resources');
+    // Ensure Resources tab is active
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const resourcesTab = document.getElementById('resourcesTab');
+    if (resourcesTab) resourcesTab.classList.add('active');
 }
 
 // Toggle Tools dropdown menu
@@ -9495,7 +9498,7 @@ function updatePlanSubnav(viewName) {
 // Handle Dashboard button in the plan sub-nav
 function switchPlanSubnavToDashboard() {
     switchToView('project-report');
-    // Override nav active state to keep Plan tab active (not Dashboard tab)
+    // Override nav active state to keep Project tab active (not Dashboard tab)
     document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
     const planTab = document.getElementById('planTab');
     if (planTab) planTab.classList.add('active');
@@ -11839,20 +11842,20 @@ const tourSteps = [
         position: "bottom"
     },
     {
-        title: "Plan Menu",
-        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones. A sub-navigation bar also provides quick access to Dashboard and all Plan views.",
+        title: "Project",
+        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart, Calendar, Board (Kanban), Timeline, Milestones, and Mind Map.",
         target: "#planTab",
         position: "bottom"
     },
     {
-        title: "Tracking Menu",
-        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies), Highlights, 2-Week Look-Ahead, and Analysis. A sub-navigation bar provides quick switching between all Tracking views.",
+        title: "Tracking",
+        message: "Click Tracking to go straight to the RAID Log (Risks, Actions, Issues, Decisions, Dependencies) with a sub-navigation bar for Highlights, 2-Week Look-Ahead, and Analysis.",
         target: "#trackingTab",
         position: "bottom"
     },
     {
-        title: "Resources Menu",
-        message: "The Resources dropdown consolidates all resource views: Resource Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource. A sub-navigation bar provides quick switching between all Resources views.",
+        title: "Resources",
+        message: "Click Resources to open the Resource Table with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
         target: "#resourcesTab",
         position: "bottom"
     },
@@ -11864,7 +11867,7 @@ const tourSteps = [
     },
     {
         title: "You're Ready! 🚀",
-        message: "That's it! Start by creating your first task in the editor, explore the Plan menu for different views, or check Tools > Syntax Guide to learn more.",
+        message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check Tools > Syntax Guide to learn more.",
         target: null,
         position: "center"
     }

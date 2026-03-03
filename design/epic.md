@@ -34,6 +34,31 @@ The web application (`packages/noodle-web/`) provides:
 - **User Workload View**: Task breakdown by user with workload statistics and filtering
 - **Export**: Excel, PowerPoint, PDF
 
+### Top Navigation (Issue #503)
+
+The top navigation bar uses direct-link buttons instead of dropdown menus for the main sections. Each button navigates to a default view and reveals a sub-navigation bar with all related views.
+
+| Button | Default View | Sub-Navigation Views |
+|--------|-------------|---------------------|
+| Dashboard | Project Report | (shows plan subnav) |
+| Portfolio | Portfolio | (no subnav) |
+| Project | Project Report (Dashboard) | Dashboard, Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map |
+| Tracking | RAID Log | RAID Log, Actions, Highlights, Look-Ahead, Analysis |
+| Resources | Resource Table | Resource Table, Timesheet, Workload, Resource Sheet |
+| Tools | (dropdown menu) | Text Report, Planning Room, Syntax Guide, Import/Export |
+
+**Key functions:**
+- `switchToProject()` -- Navigates to Dashboard with plan subnav, highlights Project tab
+- `switchToTracking()` -- Navigates to RAID Log with tracking subnav, highlights Tracking tab
+- `switchToResources()` -- Navigates to Resource Table with resources subnav, highlights Resources tab
+- `switchToView(viewName)` -- General view switcher that updates nav state and subnav
+- `updatePlanSubnav(viewName)` -- Shows/hides the correct subnav group and highlights the active button
+
+**Design notes:**
+- Only the Tools menu retains its dropdown; Project, Tracking, and Resources are direct links
+- Each section has a persistent sub-navigation bar (`.plan-subnav`) visible when any view in that group is active
+- The Dashboard and Project buttons both navigate to the project report, but Dashboard highlights the Dashboard tab while Project highlights the Project tab
+
 ### Project Report (Quad Layout)
 
 The Project Report tab displays a dashboard-style overview of the project status in a quad layout (GitHub Issue #145).
