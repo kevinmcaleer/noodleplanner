@@ -1440,6 +1440,93 @@ Just random text
         assert data["raid_items"][0]["status"] == "open"
 
 
+class TestParseBaselineItems:
+    """Test suite for /api/parse endpoint baseline items support."""
+
+    def test_parse_returns_baseline_items_from_plan(self, client):
+        """Test that parse returns baseline items from plan text."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "baseline_items" in data
+        assert len(data["baseline_items"]) == 1
+        assert data["baseline_items"][0]["name"] == "Task 1"
+        assert data["baseline_items"][0]["start"] == "2026-03-02"
+        assert data["baseline_items"][0]["finish"] == "2026-03-05"
+        assert data["baseline_items"][0]["duration"] == "3d"
+
+    def test_parse_returns_empty_baseline_items_when_none(self, client):
+        """Test that parse returns empty baseline_items when no baseline."""
+        plan = """Phase 1
+  Task 1 @john 3d
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "baseline_items" in data
+        assert data["baseline_items"] == []
+
+    def test_parse_baseline_with_raid_and_highlights(self, client):
+        """Test baseline returned alongside RAID and highlights."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @john
+- Status update
+
+---raid log---
+| Type  | Description  | Status | Score | Owner | Date       |
+| ----- | ------------ | ------ | ----- | ----- | ---------- |
+| issue | Build broken | open   | 15    | Bob   | 2024-01-15 |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["highlights"]) == 1
+        assert len(data["raid_items"]) == 1
+        assert len(data["baseline_items"]) == 1
+        assert data["baseline_items"][0]["name"] == "Task 1"
+
+    def test_parse_baseline_available_when_task_parsing_fails(self, client):
+        """Test that baseline items are returned even when task parsing fails."""
+        plan = """---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "baseline_items" in data
+        assert len(data["baseline_items"]) == 1
+
+
 class TestTemplateEndpoints:
     """Test suite for template API endpoints."""
 

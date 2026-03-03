@@ -14,7 +14,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
-from .format_converter import extract_raid_log, parse_raid_markdown
+from .format_converter import extract_raid_log, parse_raid_markdown, extract_baseline, parse_baseline_markdown
 
 logger = logging.getLogger(__name__)
 

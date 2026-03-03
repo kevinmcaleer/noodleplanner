@@ -524,11 +524,17 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the milestones table here.</p>
                             </div>
                             <div class="milestones-content" style="display: none;">
+                                <div class="milestones-toolbar">
+                                    <label class="baseline-toggle-label" id="milestonesBaselineToggleLabel" style="display: none;">
+                                        <input type="checkbox" id="milestonesShowBaseline" onchange="toggleMilestonesBaselineDisplay()">
+                                        Show Baseline
+                                    </label>
+                                </div>
                                 <div class="milestones-table-wrapper" style="position: relative;">
                                     <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="milestones-table">
                                         <thead>
-                                            <tr>
+                                            <tr id="milestonesTableHead">
                                                 <th>ID</th>
                                                 <th>Task Name</th>
                                                 <th>Start</th>
@@ -623,6 +629,13 @@ Press Enter to render..."></textarea>
                                             <label>
                                                 <input type="checkbox" id="ganttShowDependencies">
                                                 Show Dependencies
+                                            </label>
+                                        </div>
+                                        <div class="gantt-baseline-controls">
+                                            <button class="btn btn-sm btn-outline-secondary" id="setBaselineBtn" onclick="setBaseline()" title="Save current schedule as baseline">Set Baseline</button>
+                                            <label class="baseline-toggle-label" id="baselineToggleLabel" style="display: none;">
+                                                <input type="checkbox" id="ganttShowBaseline" onchange="toggleBaselineDisplay()">
+                                                Show Baseline
                                             </label>
                                         </div>
                                     </div>
