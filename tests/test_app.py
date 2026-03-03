@@ -575,6 +575,61 @@ class TestStaticFiles:
         assert "detailed-timeline-container" in css_content
         assert "detailed-timeline-svg" in css_content
 
+    def test_script_js_contains_task_context_menu_functions(self, client):
+        """Test that script.js contains the task context menu functions."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        assert "showTaskContextMenu" in js_content
+        assert "closeTaskContextMenu" in js_content
+        assert "createTaskContextButton" in js_content
+        assert "createCompletionSubmenu" in js_content
+        assert "promoteTask" in js_content
+        assert "demoteTask" in js_content
+        assert "insertTaskAbove" in js_content
+        assert "assignResourceToTask" in js_content
+        assert "setTaskCompletion" in js_content
+        assert "findTaskLineNumber" in js_content
+
+    def test_script_js_context_menu_in_tasks_table(self, client):
+        """Test that script.js adds context menu buttons to the tasks table."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        # The updateTasksTable function should create context buttons
+        assert "createTaskContextButton" in js_content
+        # Verify context button is added in tasks table rendering
+        assert "task-context-btn" in js_content
+
+    def test_script_js_context_menu_in_gantt_chart(self, client):
+        """Test that script.js adds context menu buttons to the gantt info table."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        # The renderGanttRows function should include context menu actions cell
+        assert "ganttActionsCell" in js_content
+        assert "ganttContextBtn" in js_content
+
+    def test_style_css_contains_task_context_menu_styles(self, client):
+        """Test that style.css contains the task context menu CSS classes."""
+        response = client.get("/static/style.css")
+        assert response.status_code == 200
+        css_content = response.text
+        assert "task-context-btn" in css_content
+        assert "task-context-menu" in css_content
+        assert "task-context-menu-item" in css_content
+        assert "task-context-submenu" in css_content
+        assert "task-context-menu-separator" in css_content
+        assert "completion-item" in css_content
+
+    def test_gantt_table_header_has_actions_column(self, client):
+        """Test that the gantt info table header includes an empty column for actions."""
+        response = client.get("/")
+        assert response.status_code == 200
+        html = response.text
+        # The gantt info table should have a Predecessors column followed by an empty th
+        assert "ganttInfoBody" in html
+
 
 class TestEdgeCases:
     """Test edge cases and error conditions."""

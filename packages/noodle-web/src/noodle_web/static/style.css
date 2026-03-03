@@ -3812,7 +3812,8 @@ body.detail-pane-open {
 .task-actions-cell {
     text-align: center;
     padding: 2px 4px !important;
-    width: 36px;
+    width: 56px;
+    white-space: nowrap;
 }
 
 .task-inspect-btn {
@@ -3833,6 +3834,125 @@ tr:hover .task-inspect-btn {
 .task-inspect-btn:hover {
     background: rgba(16, 139, 185, 0.1);
     opacity: 1;
+}
+
+/* Task Context Menu */
+.task-context-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+    color: #6c757d;
+    line-height: 1;
+    letter-spacing: 2px;
+}
+
+tr:hover .task-context-btn,
+.gantt-bar-row:hover .task-context-btn {
+    opacity: 1;
+}
+
+.task-context-btn:hover {
+    background: rgba(16, 139, 185, 0.1);
+    opacity: 1;
+}
+
+.task-context-menu {
+    display: none;
+    position: fixed;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    z-index: 10000;
+    overflow: hidden;
+    font-size: 0.9em;
+}
+
+.task-context-menu.show {
+    display: block;
+}
+
+.task-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 14px;
+    background: none;
+    border: none;
+    color: #333;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.task-context-menu-item:hover {
+    background: #f0f4ff;
+}
+
+.task-context-menu-item .menu-icon {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    color: #6c757d;
+}
+
+.task-context-menu-separator {
+    height: 1px;
+    background: #dee2e6;
+    margin: 4px 0;
+}
+
+.task-context-submenu {
+    position: relative;
+}
+
+.task-context-submenu-items {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 120px;
+    z-index: 10001;
+    overflow: hidden;
+}
+
+.task-context-submenu:hover .task-context-submenu-items {
+    display: block;
+}
+
+.task-context-menu-item .menu-arrow {
+    margin-left: auto;
+    color: #adb5bd;
+    font-size: 0.8em;
+}
+
+.task-context-menu-item.completion-item {
+    justify-content: center;
+    padding: 7px 14px;
+    font-weight: 500;
+}
+
+.task-context-menu-item.completion-item:hover {
+    background: #e8f4ff;
+}
+
+.task-context-menu-item.completion-active {
+    background: #e8f4ff;
+    color: #0d6efd;
+    font-weight: 600;
 }
 
 /* Conditional Formatting */

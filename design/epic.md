@@ -618,6 +618,7 @@ npm run dev
 
 ---
 
+<<<<<<< HEAD
 ### Baseline Plan (Issue #504)
 
 The baseline plan feature allows users to capture a snapshot of the current schedule for later comparison. Only one baseline is kept at a time.
@@ -690,3 +691,43 @@ When the baseline toggle is active, three additional columns appear after Finish
 - `update_plan_raid_log()` preserves the baseline section when updating RAID items
 - `update_plan_highlights()` preserves the baseline section when updating highlights
 - `convert_plan_format_to_standard()` strips the baseline section before task parsing
+
+## Task Context Menu (Issue #507)
+
+### Overview
+
+A three-dot (`...`) context menu on every task row in both the Tasks table and the Gantt chart info panel. The menu provides quick access to common task operations without needing to double-click cells or use keyboard shortcuts.
+
+### Menu Actions
+
+| Action | Description |
+|--------|-------------|
+| **Edit** | Opens the task detail form in the editor pane (calls `openMilestoneTaskForm`) |
+| **Promote (Outdent)** | Removes 2 leading spaces from the task line, moving it up one hierarchy level |
+| **Demote (Indent)** | Adds 2 leading spaces to the task line, making it a subtask of the previous task |
+| **Insert Task Above** | Inserts a new task line above the current task with matching indentation, then opens the editor form |
+| **Assign Resource** | Shows a prompt to enter or change the task's resource assignment |
+| **Set Completion** | Submenu with 0%, 25%, 50%, 75%, 100% options to quickly set task progress |
+
+### Implementation Details
+
+- **Shared component**: Both the Tasks table and Gantt chart use the same `createTaskContextButton()` function
+- **Positioning**: Menu appears as a fixed-position overlay near the clicked button, with viewport boundary detection
+- **Close behavior**: Menu closes when clicking outside, or after selecting an action
+- **Editor sync**: All actions modify the plan editor text and trigger `renderText()` to keep views in sync
+- **CSS**: Styles follow the portfolio more-menu pattern (`.task-context-menu`, `.task-context-menu-item`)
+
+### Key Functions
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `showTaskContextMenu()` | `script.js` | Display the context menu near the clicked button |
+| `closeTaskContextMenu()` | `script.js` | Remove the context menu from the DOM |
+| `createTaskContextButton()` | `script.js` | Create the `...` button element for a task row |
+| `createCompletionSubmenu()` | `script.js` | Build the Set Completion submenu with percentage options |
+| `promoteTask()` | `script.js` | Remove 2 spaces of indentation from a task line |
+| `demoteTask()` | `script.js` | Add 2 spaces of indentation to a task line |
+| `insertTaskAbove()` | `script.js` | Insert a blank task line above the target task |
+| `assignResourceToTask()` | `script.js` | Prompt for and apply a resource assignment |
+| `setTaskCompletion()` | `script.js` | Set a task's completion percentage |
+| `findTaskLineNumber()` | `script.js` | Look up a task's line number in the editor by name |
