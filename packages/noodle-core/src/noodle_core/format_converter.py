@@ -5,6 +5,7 @@ import yaml
 
 HIGHLIGHTS_START = '---highlights---'
 HIGHLIGHTS_END = '---end-highlights---'
+BUDGET_START = '---budget---'
 RAID_LOG_START = '---raid log---'
 BASELINE_START = '---baseline---'
 
@@ -167,9 +168,9 @@ def extract_highlights(text: str) -> list:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, raid log section, baseline, or EOF
+    # Find the end: explicit end marker, budget, raid log section, baseline, or EOF
     end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, RAID_LOG_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -231,10 +232,10 @@ def strip_highlights(text: str) -> str:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, raid log section, baseline, or EOF
+    # Find the end: explicit end marker, budget, raid log section, baseline, or EOF
     end_idx = len(text)
     end_len = 0
-    for marker in (HIGHLIGHTS_END, RAID_LOG_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -290,16 +291,21 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve any existing RAID log and baseline that follow highlights
+    # Preserve any existing budget, RAID log, and baseline that follow highlights
+    budget_text = extract_budget(plan_text)
     raid_log_text = extract_raid_log(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_raid_log(strip_highlights(plan_text))).rstrip('\n')
+    base = strip_baseline(strip_raid_log(strip_budget(strip_highlights(plan_text)))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
         result = base
     else:
         result = base + '\n\n---\n\n' + section
+
+    # Re-append the budget if it was present
+    if budget_text:
+        result = result.rstrip('\n') + '\n\n' + BUDGET_START + '\n' + budget_text
 
     # Re-append the RAID log if it was present
     if raid_log_text:
@@ -354,6 +360,162 @@ def strip_raid_log(text: str) -> str:
         return before + '\n\n' + after
 
     return before
+
+
+def extract_budget(text: str) -> str:
+    """Extract the budget section text from plan text.
+
+    Returns the raw text between ``---budget---`` and the next section
+    marker (``---raid log---``, ``---baseline---``) or EOF, or an empty
+    string if no budget section is present.
+    """
+    start_idx = text.find(BUDGET_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(BUDGET_START)
+
+    # Find the end: RAID log, baseline, or EOF
+    end_idx = len(text)
+    for marker in (RAID_LOG_START, BASELINE_START):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_budget(text: str) -> str:
+    """Remove the budget section from plan text.
+
+    Returns the plan text without the ``---budget---`` block.
+    Preserves any RAID log and baseline sections that follow.
+    """
+    start_idx = text.find(BUDGET_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+
+    # Preserve sections that follow the budget
+    for marker in (RAID_LOG_START, BASELINE_START):
+        idx = text.find(marker, start_idx)
+        if idx != -1:
+            after = text[idx:]
+            return before + '\n\n' + after
+
+    return before
+
+
+def parse_budget_markdown(text: str) -> list:
+    """Parse budget markdown table into a list of budget items.
+
+    Args:
+        text: Markdown text containing a budget table
+
+    Returns:
+        List of dicts with keys: id, description, estimate, forecast,
+        type, invoice, po, supplier, total, date_ordered, date_received,
+        category
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Find header row
+    header_index = -1
+    for i, line in enumerate(lines):
+        lower = line.lower()
+        if '|' in lower and any(kw in lower for kw in ['description', 'estimate', 'forecast']):
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        parts = [cell.strip() for cell in line.split('|')]
+        return [p for p in parts if p or parts.index(p) not in (0, len(parts) - 1)][0:]
+
+    # More robust row parsing - split on pipes, drop empty first/last
+    def parse_row(line):
+        parts = line.split('|')
+        cells = []
+        for i, p in enumerate(parts):
+            stripped = p.strip()
+            if i == 0 and not stripped:
+                continue
+            if i == len(parts) - 1 and not stripped:
+                continue
+            cells.append(stripped)
+        return cells
+
+    headers = [h.lower() for h in parse_row(lines[header_index])]
+
+    aliases = {
+        'id': 'id', 'description': 'description', 'estimate': 'estimate',
+        'forecast': 'forecast', 'type': 'type', 'invoice': 'invoice',
+        'po': 'po', 'supplier': 'supplier', 'total': 'total',
+        'ordered': 'date_ordered', 'received': 'date_received',
+        'category': 'category'
+    }
+
+    col_map = {}
+    for idx, h in enumerate(headers):
+        for alias, field in aliases.items():
+            if alias in h:
+                col_map[field] = idx
+                break
+
+    valid_types = ['Capex', 'Opex', 'One-off']
+    valid_categories = ['Consultancy', 'Resource', 'Travel', 'Infrastructure', 'Hardware', 'Software']
+    items = []
+    max_id = 0
+
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        if all(c in '-| ' for c in line):
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        id_str = get_cell('id', '')
+        item_id = int(id_str) if id_str and id_str.isdigit() else max_id + 1
+        max_id = max(max_id, item_id)
+
+        item_type = get_cell('type', 'Capex')
+        item_category = get_cell('category', 'Consultancy')
+
+        def safe_float(val, default=0):
+            try:
+                return float(val) if val else default
+            except (ValueError, TypeError):
+                return default
+
+        items.append({
+            'id': item_id,
+            'description': get_cell('description', ''),
+            'estimate': safe_float(get_cell('estimate', '0')),
+            'forecast': safe_float(get_cell('forecast', '0')),
+            'type': item_type if item_type in valid_types else 'Capex',
+            'invoice': get_cell('invoice', ''),
+            'po': get_cell('po', ''),
+            'supplier': get_cell('supplier', ''),
+            'total': safe_float(get_cell('total', '0')),
+            'date_ordered': get_cell('date_ordered', ''),
+            'date_received': get_cell('date_received', ''),
+            'category': item_category if item_category in valid_categories else 'Consultancy',
+        })
+
+    return items
 
 
 def parse_raid_markdown(text: str) -> list:
