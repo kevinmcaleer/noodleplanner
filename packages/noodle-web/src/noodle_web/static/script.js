@@ -4283,7 +4283,7 @@ let ganttTasks = [];
 let ganttScale = 'days';
 let ganttMinDate = null;
 let ganttMaxDate = null;
-let ganttPixelsPerDay = 30;
+let ganttPixelsPerDay = 14;
 let collapsedSummaryTasks = new Set();
 
 // Helper function to parse date strings consistently as local dates
@@ -4493,19 +4493,19 @@ function renderGanttChart() {
     // Adjust pixels per day based on scale
     switch (ganttScale) {
         case 'days':
-            ganttPixelsPerDay = 60;
+            ganttPixelsPerDay = 28;
             break;
         case 'weeks':
-            ganttPixelsPerDay = 25;
+            ganttPixelsPerDay = 12;
             break;
         case 'months':
-            ganttPixelsPerDay = 10;
-            break;
-        case 'quarters':
             ganttPixelsPerDay = 5;
             break;
+        case 'quarters':
+            ganttPixelsPerDay = 3;
+            break;
         case 'years':
-            ganttPixelsPerDay = 2;
+            ganttPixelsPerDay = 1;
             break;
     }
 

@@ -2087,16 +2087,16 @@ svg.icon {
 
 .gantt-month {
     border-right: 1px solid #dee2e6;
-    padding: 10px 4px;
+    padding: 6px 2px;
     text-align: center;
     font-weight: 600;
     color: #667eea;
-    font-size: 0.9em;
+    font-size: 0.7em;
     box-sizing: border-box;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    min-width: 40px;
+    min-width: 18px;
     flex-shrink: 0;
 }
 
