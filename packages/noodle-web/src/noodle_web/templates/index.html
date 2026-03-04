@@ -332,8 +332,15 @@ Press Enter to render..."></textarea>
                         <div class="message" id="editorMessage"></div>
                     </div>
 
-                    <!-- Splitter with collapse arrow -->
-                    <div class="editor-splitter" id="editorSplitter">
+                    <!-- Splitter with collapse arrow and drag handle -->
+                    <div class="editor-splitter" id="editorSplitter" role="separator" aria-label="Resize editor panel" aria-orientation="vertical">
+                        <div class="splitter-grip" aria-hidden="true">
+                            <span class="splitter-grip-dot"></span>
+                            <span class="splitter-grip-dot"></span>
+                            <span class="splitter-grip-dot"></span>
+                            <span class="splitter-grip-dot"></span>
+                            <span class="splitter-grip-dot"></span>
+                        </div>
                         <button class="splitter-arrow" id="editorSplitterArrow" onclick="toggleMainEditor()" title="Toggle editor panel">
                             ◀
                         </button>
