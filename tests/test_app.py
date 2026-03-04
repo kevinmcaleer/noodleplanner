@@ -412,6 +412,83 @@ class TestPDFExport:
         assert response.content[:4] == b'%PDF'
 
 
+class TestCSVExport:
+    """Test suite for CSV export functionality."""
+
+    def test_export_csv_returns_file(self, client, sample_plan):
+        """Test that CSV export returns a file."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Test",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+
+    def test_export_csv_has_correct_filename(self, client, sample_plan):
+        """Test that CSV export has correct filename."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "MyProject",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        content_disposition = response.headers.get("content-disposition", "")
+        assert "MyProject.csv" in content_disposition
+
+    def test_export_csv_returns_text_data(self, client, sample_plan):
+        """Test that CSV export returns valid CSV text data."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Test",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        content = response.content.decode("utf-8")
+        assert len(content) > 0
+        import csv
+        import io
+        reader = csv.reader(io.StringIO(content))
+        headers = next(reader)
+        assert "Task Name" in headers
+
+    def test_export_csv_contains_task_data(self, client, sample_plan):
+        """Test that CSV export contains task data from the plan."""
+        response = client.post(
+            "/render",
+            json={
+                "plan_text": sample_plan,
+                "project_name": "Test",
+                "export_csv": True,
+                "export_excel": False,
+                "export_ppt": False,
+                "export_pdf": False
+            }
+        )
+        assert response.status_code == 200
+        content = response.content.decode("utf-8")
+        assert "Task 1" in content
+        assert "Task 2" in content
+
+
 class TestMultipleExports:
     """Test suite for multiple export formats."""
 
@@ -497,6 +574,61 @@ class TestStaticFiles:
         css_content = response.text
         assert "detailed-timeline-container" in css_content
         assert "detailed-timeline-svg" in css_content
+
+    def test_script_js_contains_task_context_menu_functions(self, client):
+        """Test that script.js contains the task context menu functions."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        assert "showTaskContextMenu" in js_content
+        assert "closeTaskContextMenu" in js_content
+        assert "createTaskContextButton" in js_content
+        assert "createCompletionSubmenu" in js_content
+        assert "promoteTask" in js_content
+        assert "demoteTask" in js_content
+        assert "insertTaskAbove" in js_content
+        assert "assignResourceToTask" in js_content
+        assert "setTaskCompletion" in js_content
+        assert "findTaskLineNumber" in js_content
+
+    def test_script_js_context_menu_in_tasks_table(self, client):
+        """Test that script.js adds context menu buttons to the tasks table."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        # The updateTasksTable function should create context buttons
+        assert "createTaskContextButton" in js_content
+        # Verify context button is added in tasks table rendering
+        assert "task-context-btn" in js_content
+
+    def test_script_js_context_menu_in_gantt_chart(self, client):
+        """Test that script.js adds context menu buttons to the gantt info table."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        # The renderGanttRows function should include context menu actions cell
+        assert "ganttActionsCell" in js_content
+        assert "ganttContextBtn" in js_content
+
+    def test_style_css_contains_task_context_menu_styles(self, client):
+        """Test that style.css contains the task context menu CSS classes."""
+        response = client.get("/static/style.css")
+        assert response.status_code == 200
+        css_content = response.text
+        assert "task-context-btn" in css_content
+        assert "task-context-menu" in css_content
+        assert "task-context-menu-item" in css_content
+        assert "task-context-submenu" in css_content
+        assert "task-context-menu-separator" in css_content
+        assert "completion-item" in css_content
+
+    def test_gantt_table_header_has_actions_column(self, client):
+        """Test that the gantt info table header includes an empty column for actions."""
+        response = client.get("/")
+        assert response.status_code == 200
+        html = response.text
+        # The gantt info table should have a Predecessors column followed by an empty th
+        assert "ganttInfoBody" in html
 
 
 class TestEdgeCases:
@@ -1361,6 +1493,93 @@ Just random text
         assert len(data["raid_items"]) == 1
         assert data["raid_items"][0]["type"] == "risk"
         assert data["raid_items"][0]["status"] == "open"
+
+
+class TestParseBaselineItems:
+    """Test suite for /api/parse endpoint baseline items support."""
+
+    def test_parse_returns_baseline_items_from_plan(self, client):
+        """Test that parse returns baseline items from plan text."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "baseline_items" in data
+        assert len(data["baseline_items"]) == 1
+        assert data["baseline_items"][0]["name"] == "Task 1"
+        assert data["baseline_items"][0]["start"] == "2026-03-02"
+        assert data["baseline_items"][0]["finish"] == "2026-03-05"
+        assert data["baseline_items"][0]["duration"] == "3d"
+
+    def test_parse_returns_empty_baseline_items_when_none(self, client):
+        """Test that parse returns empty baseline_items when no baseline."""
+        plan = """Phase 1
+  Task 1 @john 3d
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "baseline_items" in data
+        assert data["baseline_items"] == []
+
+    def test_parse_baseline_with_raid_and_highlights(self, client):
+        """Test baseline returned alongside RAID and highlights."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @john
+- Status update
+
+---raid log---
+| Type  | Description  | Status | Score | Owner | Date       |
+| ----- | ------------ | ------ | ----- | ----- | ---------- |
+| issue | Build broken | open   | 15    | Bob   | 2024-01-15 |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["highlights"]) == 1
+        assert len(data["raid_items"]) == 1
+        assert len(data["baseline_items"]) == 1
+        assert data["baseline_items"][0]["name"] == "Task 1"
+
+    def test_parse_baseline_available_when_task_parsing_fails(self, client):
+        """Test that baseline items are returned even when task parsing fails."""
+        plan = """---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+"""
+        response = client.post(
+            "/api/parse",
+            json={"plan_text": plan}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "baseline_items" in data
+        assert len(data["baseline_items"]) == 1
 
 
 class TestTemplateEndpoints:

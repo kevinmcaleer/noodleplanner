@@ -142,78 +142,15 @@
                 <button class="tab" id="portfolioTab" onclick="switchTab('portfolio')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
                 </button>
-                <div class="nav-dropdown">
-                    <button class="tab" id="planTab" onclick="togglePlanMenu(event)">
-                        Plan ▾
-                    </button>
-                    <div class="nav-menu" id="planMenu">
-                        <div class="nav-menu-item" onclick="switchToView('tasks'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('gantt'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('calendar'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
-                        </div>
-                        <div class="nav-menu-item" onclick="switchPlanSubnavToBoard(); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('timeline'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('mindmap'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('stakeholders'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
-                        </div>
-                    </div>
-                </div>
-                <div class="nav-dropdown">
-                    <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)">
-                        Tracking ▾
-                    </button>
-                    <div class="nav-menu" id="trackingMenu">
-                        <div class="nav-menu-item" onclick="switchTab('raid'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
-                        </div>
-                        <div class="nav-menu-item" onclick="switchTab('actions'); event.stopPropagation();">
-                            ✓ Actions Tracker
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('highlights'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
-                            🔮 2-Week Look-Ahead
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
-                            🔍 Analysis
-                        </div>
-                    </div>
-                </div>
-                <div class="nav-dropdown">
-                    <button class="tab" id="resourcesTab" onclick="toggleResourcesMenu(event)">
-                        Resources ▾
-                    </button>
-                    <div class="nav-menu" id="resourcesMenu">
-                        <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('timesheet'); event.stopPropagation();">
-                            ⏰ Timesheet
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('user-workload'); event.stopPropagation();">
-                            👤 User Workload
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('resource-sheet'); event.stopPropagation();">
-                            📋 Resource Sheet
-                        </div>
-                    </div>
-                </div>
+                <button class="tab" id="planTab" onclick="switchToProject()">
+                    Project
+                </button>
+                <button class="tab" id="trackingTab" onclick="switchToTracking()">
+                    Tracking
+                </button>
+                <button class="tab" id="resourcesTab" onclick="switchToResources()">
+                    Resources
+                </button>
                 <div class="nav-dropdown">
                     <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)">
                         Tools ▾
@@ -598,11 +535,17 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the milestones table here.</p>
                             </div>
                             <div class="milestones-content" style="display: none;">
+                                <div class="milestones-toolbar">
+                                    <label class="baseline-toggle-label" id="milestonesBaselineToggleLabel" style="display: none;">
+                                        <input type="checkbox" id="milestonesShowBaseline" onchange="toggleMilestonesBaselineDisplay()">
+                                        Show Baseline
+                                    </label>
+                                </div>
                                 <div class="milestones-table-wrapper" style="position: relative;">
                                     <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="milestones-table">
                                         <thead>
-                                            <tr>
+                                            <tr id="milestonesTableHead">
                                                 <th>ID</th>
                                                 <th>Task Name</th>
                                                 <th>Start</th>
@@ -699,6 +642,13 @@ Press Enter to render..."></textarea>
                                                 Show Dependencies
                                             </label>
                                         </div>
+                                        <div class="gantt-baseline-controls">
+                                            <button class="btn btn-sm btn-outline-secondary" id="setBaselineBtn" onclick="setBaseline()" title="Save current schedule as baseline">Set Baseline</button>
+                                            <label class="baseline-toggle-label" id="baselineToggleLabel" style="display: none;">
+                                                <input type="checkbox" id="ganttShowBaseline" onchange="toggleBaselineDisplay()">
+                                                Show Baseline
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="gantt-wrapper">
@@ -719,6 +669,7 @@ Press Enter to render..."></textarea>
                                                     <th>Bucket</th>
                                                     <th>Comment</th>
                                                     <th>Predecessors</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="ganttInfoBody">
@@ -1541,6 +1492,9 @@ Build
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                                     Risks
                                 </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('lookahead')">
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-timeline"/></svg> Look-Ahead
+                                </button>
                             </div>
                         </div>
                         <div class="portfolio-actions">
@@ -1586,6 +1540,10 @@ Build
 
                     <div id="portfolioRisksView" class="portfolio-content portfolio-view">
                         <!-- Risks view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioLookAheadView" class="portfolio-content portfolio-view">
+                        <!-- Look-Ahead view will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -2571,6 +2529,7 @@ Build
     <script src="/static/portfolio-projects-table.js?v={{ v }}"></script>
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
+    <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
 </body>

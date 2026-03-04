@@ -12,6 +12,11 @@ from noodle_core import (
     strip_raid_log,
     generate_raid_log_text,
     update_plan_raid_log,
+    extract_baseline,
+    strip_baseline,
+    parse_baseline_markdown,
+    generate_baseline_text,
+    update_plan_baseline,
 )
 
 
@@ -1180,6 +1185,360 @@ class TestHighlightsPreserveRaidLog:
         assert result[0]['author'] == 'Alice'
         assert 'Status update' in result[0]['content']
         assert '| Type' not in result[0]['content']
+
+
+class TestExtractBaseline:
+    """Test suite for extract_baseline function."""
+
+    def test_extract_baseline_basic(self):
+        """Test extracting baseline from plan text."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = extract_baseline(text)
+        assert '| Task Name' in result
+        assert '| Task 1' in result
+
+    def test_extract_baseline_not_present(self):
+        """Test when no baseline section exists."""
+        text = """Phase 1
+  Task 1 @john 3d"""
+        result = extract_baseline(text)
+        assert result == ''
+
+    def test_extract_baseline_empty_section(self):
+        """Test with empty baseline section."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---baseline---"""
+        result = extract_baseline(text)
+        assert result == ''
+
+    def test_extract_baseline_after_raid_log(self):
+        """Test baseline extraction when it follows RAID log."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = extract_baseline(text)
+        assert '| Task Name' in result
+        assert '| Task 1' in result
+        assert '| Risk' not in result
+
+    def test_extract_baseline_after_highlights_and_raid(self):
+        """Test baseline extraction after both highlights and RAID log."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---highlights---
+## 2026-02-13 @Alice
+- Status update
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = extract_baseline(text)
+        assert '| Task Name' in result
+        assert '| Task 1' in result
+
+
+class TestStripBaseline:
+    """Test suite for strip_baseline function."""
+
+    def test_strip_baseline_basic(self):
+        """Test removing baseline section from plan text."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = strip_baseline(text)
+        assert '---baseline---' not in result
+        assert '| Task Name' not in result
+        assert 'Task 1 @john 3d' in result
+
+    def test_strip_baseline_not_present(self):
+        """Test stripping when no baseline section exists."""
+        text = """Phase 1
+  Task 1 @john 3d"""
+        result = strip_baseline(text)
+        assert result == text
+
+    def test_strip_baseline_preserves_raid_log(self):
+        """Test that stripping baseline preserves RAID log section."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = strip_baseline(text)
+        assert '---raid log---' in result
+        assert '| Risk' in result
+        assert '---baseline---' not in result
+
+
+class TestParseBaselineMarkdown:
+    """Test suite for parse_baseline_markdown function."""
+
+    def test_parse_baseline_basic(self):
+        """Test parsing a basic baseline table."""
+        text = """| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+| Task 2    | 2026-03-05 | 2026-03-10 | 5d       |"""
+        result = parse_baseline_markdown(text)
+        assert len(result) == 2
+        assert result[0]['name'] == 'Task 1'
+        assert result[0]['start'] == '2026-03-02'
+        assert result[0]['finish'] == '2026-03-05'
+        assert result[0]['duration'] == '3d'
+        assert result[1]['name'] == 'Task 2'
+
+    def test_parse_baseline_empty(self):
+        """Test parsing empty text returns empty list."""
+        result = parse_baseline_markdown('')
+        assert result == []
+
+    def test_parse_baseline_no_header(self):
+        """Test parsing text without proper header returns empty list."""
+        text = """| Some | Other | Columns |
+|------|-------|---------|
+| data | more  | stuff   |"""
+        result = parse_baseline_markdown(text)
+        assert result == []
+
+    def test_parse_baseline_single_item(self):
+        """Test parsing a baseline with a single item."""
+        text = """| Task Name      | Start      | Finish     | Duration |
+|----------------|------------|------------|----------|
+| Design Phase   | 2026-03-01 | 2026-03-05 | 5d       |"""
+        result = parse_baseline_markdown(text)
+        assert len(result) == 1
+        assert result[0]['name'] == 'Design Phase'
+
+    def test_parse_baseline_milestone(self):
+        """Test parsing a baseline milestone (0 duration)."""
+        text = """| Task Name       | Start      | Finish     | Duration |
+|-----------------|------------|------------|----------|
+| Design Complete | 2026-03-05 | 2026-03-05 | 0d       |"""
+        result = parse_baseline_markdown(text)
+        assert len(result) == 1
+        assert result[0]['duration'] == '0d'
+
+
+class TestGenerateBaselineText:
+    """Test suite for generate_baseline_text function."""
+
+    def test_generate_baseline_basic(self):
+        """Test generating a baseline table."""
+        items = [
+            {'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'},
+            {'name': 'Task 2', 'start': '2026-03-05', 'finish': '2026-03-10', 'duration': '5d'},
+        ]
+        result = generate_baseline_text(items)
+        assert '| Task Name' in result
+        assert '| Task 1' in result
+        assert '| Task 2' in result
+        assert '2026-03-02' in result
+        assert '5d' in result
+
+    def test_generate_baseline_empty(self):
+        """Test generating baseline from empty list returns empty string."""
+        result = generate_baseline_text([])
+        assert result == ''
+
+    def test_generate_baseline_columns_aligned(self):
+        """Test that generated table has aligned columns."""
+        items = [
+            {'name': 'Short', 'start': '2026-03-01', 'finish': '2026-03-02', 'duration': '1d'},
+            {'name': 'A Much Longer Task Name', 'start': '2026-03-02', 'finish': '2026-03-10', 'duration': '8d'},
+        ]
+        result = generate_baseline_text(items)
+        lines = result.strip().split('\n')
+        # All lines should have 4 pipe-delimited columns
+        for line in lines:
+            assert line.count('|') == 5  # outer pipes + inner pipes
+
+
+class TestUpdatePlanBaseline:
+    """Test suite for update_plan_baseline function."""
+
+    def test_add_baseline_to_plan(self):
+        """Test adding baseline to a plan without one."""
+        plan = """Phase 1
+  Task 1 @john 3d"""
+        items = [
+            {'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'},
+        ]
+        result = update_plan_baseline(plan, items)
+        assert '---baseline---' in result
+        assert '| Task 1' in result
+        assert 'Task 1 @john 3d' in result
+
+    def test_replace_existing_baseline(self):
+        """Test replacing an existing baseline."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-01 | 2026-03-04 | 3d       |"""
+        items = [
+            {'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'},
+        ]
+        result = update_plan_baseline(plan, items)
+        assert '---baseline---' in result
+        assert '2026-03-02' in result
+        assert '2026-03-01' not in result  # Old date replaced
+
+    def test_remove_baseline_with_empty_list(self):
+        """Test removing baseline by passing empty list."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = update_plan_baseline(plan, [])
+        assert '---baseline---' not in result
+        assert 'Task 1 @john 3d' in result
+
+    def test_baseline_after_raid_log(self):
+        """Test that baseline is placed after RAID log."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |"""
+        items = [
+            {'name': 'Task 1', 'start': '2026-03-02', 'finish': '2026-03-05', 'duration': '3d'},
+        ]
+        result = update_plan_baseline(plan, items)
+        raid_pos = result.find('---raid log---')
+        baseline_pos = result.find('---baseline---')
+        assert raid_pos < baseline_pos
+
+    def test_update_raid_log_preserves_baseline(self):
+        """Test that updating RAID log preserves the baseline section."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| ID | Type   | Title       | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status |
+|----|--------|-------------|-------------|-----------|-------|--------------------| -------|------------|-------|--------|
+| 1  | Risk   | Server fail | Desc        | Alice     | Bob   | Backup             | 3      | 2          | 6     | Open   |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        new_raid_items = [{
+            'id': '1', 'type': 'Risk', 'title': 'Server fail', 'description': 'Desc',
+            'raised_by': 'Alice', 'owner': 'Bob', 'mitigation_actions': 'Backup',
+            'impact': '3', 'likelihood': '2', 'score': '6', 'status': 'Closed'
+        }]
+        result = update_plan_raid_log(plan, new_raid_items)
+        assert '---baseline---' in result
+        assert '| Task 1' in result
+        assert 'Closed' in result
+
+    def test_update_highlights_preserves_baseline(self):
+        """Test that updating highlights preserves the baseline section."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Status update
+
+---raid log---
+| ID | Type | Title | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status |
+|----|------|-------|-------------|-----------|-------|--------------------| -------|------------|-------|--------|
+| 1  | Risk | Fail  | Desc        | Alice     | Bob   | Backup             | 3      | 2          | 6     | Open   |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        new_highlights = [
+            {'date': '2026-02-14', 'author': 'Bob', 'content': 'New update'}
+        ]
+        result = update_plan_highlights(plan, new_highlights)
+        assert '---baseline---' in result
+        assert '| Task 1' in result
+        assert '2026-02-14' in result
+        assert 'Bob' in result
+
+    def test_extract_raid_log_stops_at_baseline(self):
+        """Test that extract_raid_log stops at the baseline section."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---raid log---
+| Type | Description |
+|------|-------------|
+| Risk | Something   |
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        result = extract_raid_log(text)
+        assert '| Type' in result
+        assert '| Risk' in result
+        assert '---baseline---' not in result
+        assert '| Task Name' not in result
+
+    def test_baseline_not_parsed_as_tasks(self):
+        """Test that baseline section is not parsed as tasks."""
+        text = """---
+title: My Project
+---
+Phase 1
+  Task 1 @john 3d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |"""
+        converted = convert_plan_format_to_standard(text)
+        assert '---baseline---' not in converted
+        assert '| Task Name' not in converted
+        assert 'Task 1' in converted
 
 
 if __name__ == "__main__":
