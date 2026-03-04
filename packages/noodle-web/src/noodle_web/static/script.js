@@ -1618,6 +1618,13 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(raidFromText);
         }
 
+        // Load stakeholders from front matter
+        try {
+            loadStakeholdersFromPlanText();
+        } catch (e) {
+            console.error('Failed to load stakeholders:', e);
+        }
+
         // Update editor with labels if backend found and added them.
         // Guard against stale responses overwriting a different project's text.
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
@@ -1644,6 +1651,11 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(extractRaidItemsFromPlanText(planText));
         } catch (e) {
             console.error('Failed to extract RAID items as fallback:', e);
+        }
+        try {
+            loadStakeholdersFromPlanText();
+        } catch (e) {
+            console.error('Failed to load stakeholders as fallback:', e);
         }
         // Clear mind map so it doesn't show stale data when parsing fails
         try {
@@ -9444,6 +9456,7 @@ function updateNavActiveState(viewName) {
         'timeline': 'planTab',
         'milestones': 'planTab',
         'mindmap': 'planTab',
+        'stakeholders': 'planTab',
         'highlights': 'trackingTab',
         'lookahead': 'trackingTab',
         'analysis': 'trackingTab',
@@ -9462,7 +9475,7 @@ function updateNavActiveState(viewName) {
 }
 
 // Sub-navigation: views that belong to each group
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
 const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
@@ -9622,6 +9635,17 @@ function switchOutputTab(tabName) {
                 if (placeholder) placeholder.style.display = '';
                 if (content) content.style.display = 'none';
             }
+        }, 50);
+    }
+
+    // If switching to stakeholders view, load from front matter if needed and render
+    if (tabName === 'stakeholders') {
+        if (stakeholderItems.length === 0) {
+            loadStakeholdersFromPlanText();
+        }
+        setTimeout(() => {
+            renderStakeholderTable();
+            renderStakeholderGrid();
         }, 50);
     }
 }
@@ -11840,7 +11864,7 @@ const tourSteps = [
     },
     {
         title: "Plan Menu",
-        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones. A sub-navigation bar also provides quick access to Dashboard and all Plan views.",
+        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, and Stakeholders (with an Interest/Influence grid). A sub-navigation bar also provides quick access to Dashboard and all Plan views.",
         target: "#planTab",
         position: "bottom"
     },
@@ -13789,6 +13813,495 @@ function updatePlanRaidLogText(planText, items) {
 
 
 /**
+ * Stakeholder Interest/Influence Grid System
+ * Stakeholders stored in front matter YAML Key Stakeholders section.
+ * Format: - @Name: Role, interest:high, influence:low
+ */
+
+let stakeholderItems = [];
+let stakeholderNextId = 1;
+
+/**
+ * Clear stakeholder entries from the UI and global state.
+ */
+function clearStakeholders() {
+    stakeholderItems = [];
+    stakeholderNextId = 1;
+    renderStakeholderTable();
+    renderStakeholderGrid();
+}
+
+/**
+ * Add a new stakeholder (opens the form).
+ */
+function addStakeholder() {
+    openStakeholderForm(null);
+}
+
+/**
+ * Open the stakeholder form for editing or creating.
+ */
+function openStakeholderForm(itemId) {
+    const title = document.getElementById('stakeholderFormTitle');
+    const idField = document.getElementById('stakeholderItemId');
+
+    if (itemId != null) {
+        const item = stakeholderItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit Stakeholder';
+        idField.value = item.id;
+        document.getElementById('stakeholderItemName').value = item.name;
+        document.getElementById('stakeholderItemRole').value = item.role;
+        document.getElementById('stakeholderItemInterest').value = item.interest;
+        document.getElementById('stakeholderItemInfluence').value = item.influence;
+    } else {
+        title.textContent = 'New Stakeholder';
+        idField.value = '';
+        document.getElementById('stakeholderItemName').value = '';
+        document.getElementById('stakeholderItemRole').value = '';
+        document.getElementById('stakeholderItemInterest').value = 'high';
+        document.getElementById('stakeholderItemInfluence').value = 'high';
+    }
+
+    openDetailPane('stakeholderFormSection');
+}
+
+/**
+ * Close the stakeholder form.
+ */
+function closeStakeholderForm() {
+    closeDetailPane();
+}
+
+/**
+ * Save stakeholder from the form.
+ */
+function saveStakeholderFromForm() {
+    const idField = document.getElementById('stakeholderItemId').value;
+    const name = document.getElementById('stakeholderItemName').value.trim();
+
+    if (!name) {
+        alert('Please enter a name for the stakeholder.');
+        return;
+    }
+
+    const itemData = {
+        name: name,
+        role: document.getElementById('stakeholderItemRole').value.trim(),
+        interest: document.getElementById('stakeholderItemInterest').value,
+        influence: document.getElementById('stakeholderItemInfluence').value
+    };
+
+    if (idField) {
+        const existingId = parseInt(idField);
+        const index = stakeholderItems.findIndex(i => i.id === existingId);
+        if (index >= 0) {
+            stakeholderItems[index] = { ...stakeholderItems[index], ...itemData };
+        }
+    } else {
+        itemData.id = stakeholderNextId++;
+        stakeholderItems.push(itemData);
+    }
+
+    closeStakeholderForm();
+    renderStakeholderTable();
+    renderStakeholderGrid();
+    syncStakeholdersToFrontMatter();
+}
+
+/**
+ * Delete a stakeholder by id.
+ */
+function deleteStakeholder(id) {
+    if (!confirm('Are you sure you want to delete this stakeholder?')) return;
+    stakeholderItems = stakeholderItems.filter(i => i.id !== id);
+    renderStakeholderTable();
+    renderStakeholderGrid();
+    syncStakeholdersToFrontMatter();
+}
+
+/**
+ * Render the stakeholders table from the stakeholderItems array.
+ */
+function renderStakeholderTable() {
+    const tbody = document.getElementById('stakeholdersTableBody');
+    const emptyState = document.getElementById('stakeholdersEmptyState');
+    const table = document.getElementById('stakeholdersTable');
+    if (!tbody || !emptyState || !table) return;
+
+    tbody.innerHTML = '';
+
+    if (stakeholderItems.length === 0) {
+        emptyState.style.display = 'block';
+        table.style.display = 'none';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    table.style.display = 'table';
+
+    stakeholderItems.forEach(item => {
+        const row = document.createElement('tr');
+        const interestLabel = item.interest === 'high' ? 'High' : 'Low';
+        const influenceLabel = item.influence === 'high' ? 'High' : 'Low';
+        const interestClass = item.interest === 'high' ? 'stakeholder-level-high' : 'stakeholder-level-low';
+        const influenceClass = item.influence === 'high' ? 'stakeholder-level-high' : 'stakeholder-level-low';
+
+        row.innerHTML = `
+            <td>${escapeHtml(item.name)}</td>
+            <td>${escapeHtml(item.role)}</td>
+            <td><span class="stakeholder-level-badge ${interestClass}">${interestLabel}</span></td>
+            <td><span class="stakeholder-level-badge ${influenceClass}">${influenceLabel}</span></td>
+            <td>
+                <button class="raid-action-btn" onclick="openStakeholderForm(${item.id})" title="Edit">&#9998;&#65039;</button>
+                <button class="raid-action-btn delete" onclick="deleteStakeholder(${item.id})" title="Delete">&#128465;&#65039;</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Render the stakeholder interest/influence grid as SVG.
+ */
+function renderStakeholderGrid() {
+    const svg = document.getElementById('stakeholderGrid');
+    if (!svg) return;
+
+    svg.innerHTML = '';
+
+    const size = 400;
+    const padding = 50;
+    const gridSize = size - 2 * padding;
+    const half = gridSize / 2;
+    const cx = padding;
+    const cy = padding;
+
+    // Background quadrants
+    const quadrants = [
+        { x: cx, y: cy, fill: '#f0f4ff', label: 'Keep Informed', labelX: cx + half / 2, labelY: cy + half / 2 },
+        { x: cx + half, y: cy, fill: '#e8f5e9', label: 'Manage', labelX: cx + half + half / 2, labelY: cy + half / 2 },
+        { x: cx, y: cy + half, fill: '#fff8e1', label: 'Monitor', labelX: cx + half / 2, labelY: cy + half + half / 2 },
+        { x: cx + half, y: cy + half, fill: '#fce4ec', label: 'Watch', labelX: cx + half + half / 2, labelY: cy + half + half / 2 }
+    ];
+
+    quadrants.forEach(q => {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', q.x);
+        rect.setAttribute('y', q.y);
+        rect.setAttribute('width', half);
+        rect.setAttribute('height', half);
+        rect.setAttribute('fill', q.fill);
+        rect.setAttribute('stroke', '#ddd');
+        rect.setAttribute('stroke-width', '1');
+        svg.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', q.labelX);
+        text.setAttribute('y', q.labelY);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', '#bbb');
+        text.setAttribute('font-size', '14');
+        text.setAttribute('font-weight', '500');
+        text.textContent = q.label;
+        svg.appendChild(text);
+    });
+
+    // Grid border
+    const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    border.setAttribute('x', cx);
+    border.setAttribute('y', cy);
+    border.setAttribute('width', gridSize);
+    border.setAttribute('height', gridSize);
+    border.setAttribute('fill', 'none');
+    border.setAttribute('stroke', '#999');
+    border.setAttribute('stroke-width', '2');
+    svg.appendChild(border);
+
+    // Axis labels
+    const axisLabels = [
+        { text: 'Low Interest', x: cx + half / 2, y: size - 10, anchor: 'middle' },
+        { text: 'High Interest', x: cx + half + half / 2, y: size - 10, anchor: 'middle' },
+        { text: 'INTEREST \u2192', x: cx + half, y: size - 25, anchor: 'middle' }
+    ];
+
+    axisLabels.forEach(lbl => {
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', lbl.x);
+        text.setAttribute('y', lbl.y);
+        text.setAttribute('text-anchor', lbl.anchor);
+        text.setAttribute('fill', '#666');
+        text.setAttribute('font-size', '11');
+        text.textContent = lbl.text;
+        svg.appendChild(text);
+    });
+
+    // Vertical axis labels (rotated)
+    const influenceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    influenceLabel.setAttribute('x', 12);
+    influenceLabel.setAttribute('y', cx + half);
+    influenceLabel.setAttribute('text-anchor', 'middle');
+    influenceLabel.setAttribute('fill', '#666');
+    influenceLabel.setAttribute('font-size', '11');
+    influenceLabel.setAttribute('transform', `rotate(-90, 12, ${cx + half})`);
+    influenceLabel.textContent = '\u2190 INFLUENCE \u2192';
+    svg.appendChild(influenceLabel);
+
+    const highInfluenceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    highInfluenceLabel.setAttribute('x', 28);
+    highInfluenceLabel.setAttribute('y', cy + half / 2);
+    highInfluenceLabel.setAttribute('text-anchor', 'middle');
+    highInfluenceLabel.setAttribute('fill', '#666');
+    highInfluenceLabel.setAttribute('font-size', '11');
+    highInfluenceLabel.setAttribute('transform', `rotate(-90, 28, ${cy + half / 2})`);
+    highInfluenceLabel.textContent = 'High Influence';
+    svg.appendChild(highInfluenceLabel);
+
+    const lowInfluenceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lowInfluenceLabel.setAttribute('x', 28);
+    lowInfluenceLabel.setAttribute('y', cy + half + half / 2);
+    lowInfluenceLabel.setAttribute('text-anchor', 'middle');
+    lowInfluenceLabel.setAttribute('fill', '#666');
+    lowInfluenceLabel.setAttribute('font-size', '11');
+    lowInfluenceLabel.setAttribute('transform', `rotate(-90, 28, ${cy + half + half / 2})`);
+    lowInfluenceLabel.textContent = 'Low Influence';
+    svg.appendChild(lowInfluenceLabel);
+
+    // Plot stakeholders
+    const colors = ['#667eea', '#764ba2', '#f97316', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'];
+    const positions = {};
+
+    stakeholderItems.forEach((item, index) => {
+        const isHighInterest = item.interest === 'high';
+        const isHighInfluence = item.influence === 'high';
+
+        // Place dot in the center of the appropriate quadrant with jitter
+        const baseX = isHighInterest ? cx + half + half / 2 : cx + half / 2;
+        const baseY = isHighInfluence ? cy + half / 2 : cy + half + half / 2;
+
+        // Add jitter to avoid overlapping dots
+        const key = `${item.interest}-${item.influence}`;
+        if (!positions[key]) positions[key] = 0;
+        const offset = positions[key];
+        positions[key]++;
+
+        const jitterX = (offset % 3 - 1) * 30;
+        const jitterY = Math.floor(offset / 3) * 25 - 15;
+        const dotX = baseX + jitterX;
+        const dotY = baseY + jitterY;
+
+        const color = colors[index % colors.length];
+
+        // Dot
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', dotX);
+        circle.setAttribute('cy', dotY);
+        circle.setAttribute('r', '8');
+        circle.setAttribute('fill', color);
+        circle.setAttribute('stroke', '#fff');
+        circle.setAttribute('stroke-width', '2');
+        svg.appendChild(circle);
+
+        // Label
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', dotX);
+        label.setAttribute('y', dotY + 20);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('fill', '#333');
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-weight', '500');
+        label.textContent = item.name.replace(/^@/, '');
+        svg.appendChild(label);
+    });
+}
+
+/**
+ * Parse stakeholders from front matter YAML.
+ * Expected format: - @Name: Role, interest:high, influence:low
+ */
+function parseStakeholdersFromFrontMatter(frontMatterStr) {
+    const items = [];
+    if (!frontMatterStr) return items;
+
+    const lines = frontMatterStr.split('\n');
+    let inStakeholders = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.toLowerCase() === 'key stakeholders:' || trimmed.toLowerCase() === 'stakeholders:') {
+            inStakeholders = true;
+            continue;
+        }
+
+        if (inStakeholders && trimmed.match(/^[a-z\s]+:/i) && !trimmed.startsWith('-')) {
+            break;
+        }
+
+        if (inStakeholders && trimmed.startsWith('- @')) {
+            const entry = trimmed.substring(2).trim(); // Remove "- "
+            const item = parseStakeholderEntry(entry);
+            if (item) {
+                item.id = stakeholderNextId++;
+                items.push(item);
+            }
+        }
+    }
+
+    return items;
+}
+
+/**
+ * Parse a single stakeholder entry string.
+ * Format: @Name: Role, interest:high, influence:low
+ */
+function parseStakeholderEntry(entry) {
+    if (!entry || !entry.startsWith('@')) return null;
+
+    // Split on first colon to separate name from rest
+    const colonIndex = entry.indexOf(':');
+    if (colonIndex === -1) {
+        return { name: entry.trim(), role: '', interest: 'low', influence: 'low' };
+    }
+
+    const name = entry.substring(0, colonIndex).trim();
+    const rest = entry.substring(colonIndex + 1).trim();
+
+    // Parse comma-separated values
+    const parts = rest.split(',').map(p => p.trim());
+
+    let role = '';
+    let interest = 'low';
+    let influence = 'low';
+
+    const keyValueParts = [];
+    const roleParts = [];
+
+    for (const part of parts) {
+        const kvMatch = part.match(/^(interest|influence):\s*(high|low)$/i);
+        if (kvMatch) {
+            if (kvMatch[1].toLowerCase() === 'interest') {
+                interest = kvMatch[2].toLowerCase();
+            } else if (kvMatch[1].toLowerCase() === 'influence') {
+                influence = kvMatch[2].toLowerCase();
+            }
+        } else {
+            roleParts.push(part);
+        }
+    }
+
+    role = roleParts.join(', ');
+
+    return { name, role, interest, influence };
+}
+
+/**
+ * Sync stakeholders back to the front matter YAML in the plan editor.
+ */
+function syncStakeholdersToFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const content = editor.value;
+    const updatedContent = updateFrontMatterStakeholders(content, stakeholderItems);
+
+    if (updatedContent !== content) {
+        editor.value = updatedContent;
+        updateLineNumbers();
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedContent;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/**
+ * Update the front matter in plan text with the current stakeholder items.
+ */
+function updateFrontMatterStakeholders(planText, items) {
+    const frontMatterMatch = planText.match(/^(---\s*\n)([\s\S]*?)(\n---)/);
+    if (!frontMatterMatch) {
+        // No front matter exists -- create one with stakeholders
+        if (items.length === 0) return planText;
+        let fm = '---\n';
+        fm += generateStakeholdersFrontMatterSection(items);
+        fm += '---\n';
+        return fm + planText;
+    }
+
+    const prefix = frontMatterMatch[1];
+    const fmContent = frontMatterMatch[2];
+    const suffix = frontMatterMatch[3];
+
+    // Remove existing Key Stakeholders section
+    const lines = fmContent.split('\n');
+    const newLines = [];
+    let inStakeholders = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.toLowerCase() === 'key stakeholders:' || trimmed.toLowerCase() === 'stakeholders:') {
+            inStakeholders = true;
+            continue;
+        }
+        if (inStakeholders) {
+            if (trimmed.startsWith('- @') || trimmed === '') {
+                continue;
+            }
+            inStakeholders = false;
+        }
+        newLines.push(line);
+    }
+
+    // Add updated stakeholders section
+    let newFmContent = newLines.join('\n');
+    if (items.length > 0) {
+        if (!newFmContent.endsWith('\n')) newFmContent += '\n';
+        newFmContent += generateStakeholdersFrontMatterSection(items);
+    }
+
+    return prefix + newFmContent + suffix + planText.substring(frontMatterMatch[0].length);
+}
+
+/**
+ * Generate the Key Stakeholders front matter section string.
+ */
+function generateStakeholdersFrontMatterSection(items) {
+    if (items.length === 0) return '';
+
+    let section = 'Key Stakeholders:\n';
+    items.forEach(item => {
+        let line = `- ${item.name}: ${item.role}`;
+        line += `, interest:${item.interest}`;
+        line += `, influence:${item.influence}`;
+        section += line + '\n';
+    });
+    return section;
+}
+
+/**
+ * Load stakeholders from the plan text front matter.
+ */
+function loadStakeholdersFromPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !editor.value) return;
+
+    const frontMatterMatch = editor.value.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) return;
+
+    const parsed = parseStakeholdersFromFrontMatter(frontMatterMatch[1]);
+    if (parsed.length > 0) {
+        stakeholderItems = parsed;
+        renderStakeholderTable();
+        renderStakeholderGrid();
+    }
+}
+
+
+/**
  * Highlights System
  * Project highlights / reporting entries stored in the plan text.
  */
@@ -13816,6 +14329,7 @@ function clearHighlights() {
 function clearPlanTrackingData() {
     clearRaidLogEntries();
     clearHighlights();
+    clearStakeholders();
 }
 
 /**

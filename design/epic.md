@@ -542,3 +542,78 @@ npm run dev
 | `extractMetadata()` | `metadata-extractor.ts` | Parse task line metadata |
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
+
+---
+
+### Stakeholder Interest/Influence Grid (Issue #509)
+
+The Stakeholders view provides a way to track project stakeholders with their interest and influence levels, displayed alongside an Interest/Influence grid.
+
+**Navigation:**
+- Accessible via the Plan dropdown menu (Plan > Stakeholders)
+- Also available in the Plan sub-navigation bar
+- Part of the PLAN_VIEWS group, mapped to the Plan tab
+
+**Data Storage:**
+Stakeholders are stored in the plan's YAML front matter under `Key Stakeholders:`:
+```yaml
+---
+title: My Project
+Key Stakeholders:
+- @CEO: Chief Executive Officer, interest:high, influence:high
+- @PM: Project Manager, interest:high, influence:low
+- @User: End User, interest:low, influence:low
+---
+```
+
+Each entry follows the format: `- @Name: Role, interest:high|low, influence:high|low`
+
+**Layout:**
+- Left side: Table of stakeholders with Name, Role, Interest, Influence columns
+- Right side: SVG Interest/Influence grid (400x400 viewBox, maintains square aspect ratio)
+- Responsive: Stacks vertically on screens narrower than 900px
+
+**Interest/Influence Grid Quadrants:**
+| | Low Interest | High Interest |
+|---|---|---|
+| **High Influence** | Watch | Manage |
+| **Low Influence** | Monitor | Keep Informed |
+
+Each quadrant has a subtle background colour and label. Stakeholders appear as coloured dots with name labels, positioned in their respective quadrant.
+
+**CRUD Operations:**
+- `addStakeholder()` - Opens the detail pane form to create a new stakeholder
+- `openStakeholderForm(id)` - Opens the form pre-populated for editing
+- `saveStakeholderFromForm()` - Saves the form data and syncs to front matter
+- `deleteStakeholder(id)` - Removes a stakeholder after confirmation
+- `closeStakeholderForm()` - Closes the detail pane
+
+**Parsing and Sync:**
+- `parseStakeholdersFromFrontMatter(str)` - Parses the Key Stakeholders YAML section
+- `parseStakeholderEntry(entry)` - Parses a single `@Name: Role, interest:X, influence:Y` line
+- `syncStakeholdersToFrontMatter()` - Writes stakeholder state back to the plan editor
+- `updateFrontMatterStakeholders(planText, items)` - Updates the front matter text
+- `generateStakeholdersFrontMatterSection(items)` - Generates the YAML section string
+- `loadStakeholdersFromPlanText()` - Loads stakeholders when the plan is parsed
+
+**Copy to Clipboard:**
+- Uses the existing `copyElementAsImage()` function with html2canvas
+- Captures the grid wrapper as a PNG image
+
+**Lifecycle:**
+- Stakeholders are loaded from front matter when the plan is parsed (in `updateViews`)
+- Stakeholders are cleared when switching plans (via `clearPlanTrackingData`)
+- The grid is rendered on demand when switching to the stakeholders view
+
+**Global State:**
+- `stakeholderItems[]` - Array of stakeholder objects `{id, name, role, interest, influence}`
+- `stakeholderNextId` - Auto-incrementing ID counter
+
+**Tests:**
+- 54 tests in `tests/test_stakeholders.py` covering:
+  - Navigation elements (3 tests)
+  - View container elements (11 tests)
+  - Form elements (8 tests)
+  - JavaScript functions (19 tests)
+  - CSS classes (11 tests)
+  - SVG grid properties (2 tests)
