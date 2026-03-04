@@ -39,6 +39,8 @@ from noodle_core import (
     extract_highlights,
     extract_raid_log,
     parse_raid_markdown,
+    extract_baseline,
+    parse_baseline_markdown,
 )
 from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
@@ -543,8 +545,8 @@ async def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
     logger.info(f"Parse request received")
 
-    # Extract highlights and RAID log early so they are always available,
-    # even if the task parsing pipeline fails.
+    # Extract highlights, RAID log, and baseline early so they are always
+    # available, even if the task parsing pipeline fails.
     highlights = extract_highlights(data.plan_text)
     raid_items = []
     try:
@@ -553,6 +555,14 @@ async def parse_plan(data: RenderRequest):
             raid_items = parse_raid_markdown(raid_log_text)
     except (ValueError, KeyError) as e:
         logger.warning(f"Failed to parse RAID log from plan text: {e}")
+
+    baseline_items = []
+    try:
+        baseline_text = extract_baseline(data.plan_text)
+        if baseline_text:
+            baseline_items = parse_baseline_markdown(baseline_text)
+    except (ValueError, KeyError) as e:
+        logger.warning(f"Failed to parse baseline from plan text: {e}")
 
     try:
         # Extract title from front matter if present
@@ -676,6 +686,7 @@ async def parse_plan(data: RenderRequest):
             "updated_plan_text": updated_plan_text if labels else None,
             "highlights": highlights,
             "raid_items": raid_items,
+            "baseline_items": baseline_items,
         }
 
     except (ValueError, KeyError, TypeError) as e:
@@ -693,6 +704,7 @@ async def parse_plan(data: RenderRequest):
             "updated_plan_text": None,
             "highlights": highlights,
             "raid_items": raid_items,
+            "baseline_items": baseline_items,
         }
 
 

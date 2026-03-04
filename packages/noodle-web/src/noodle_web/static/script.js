@@ -357,6 +357,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inFrontMatter = false;
         let inHighlights = false;
         let inRaidLog = false;
+        let inBaseline = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
             if (trimmed === '---') {
@@ -366,7 +367,8 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (trimmed === '---highlights---') { inHighlights = true; continue; }
             if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+            if (trimmed === '---baseline---') { inBaseline = true; continue; }
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
             let taskText = trimmed;
@@ -402,6 +404,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
         let inHighlightsSection = false;
         let inRaidLogSection = false;
+        let inBaselineSection = false;
         return allLines.map(line => {
             // Track highlights section boundaries
             if (line.trim() === '---highlights---') {
@@ -428,6 +431,21 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
             // Dim lines inside RAID log section
             if (inRaidLogSection) {
+                // Check if we've entered the baseline section
+                if (line.trim() === '---baseline---') {
+                    inRaidLogSection = false;
+                    inBaselineSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Track baseline section
+            if (line.trim() === '---baseline---') {
+                inBaselineSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside baseline section
+            if (inBaselineSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
 
@@ -1618,6 +1636,15 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(raidFromText);
         }
 
+        // Load baseline items from backend data, with client-side fallback
+        const baselineFromApi = result.baseline_items || [];
+        if (baselineFromApi.length > 0) {
+            loadBaselineFromData(baselineFromApi);
+        } else {
+            const baselineFromText = extractBaselineFromPlanText(planText);
+            loadBaselineFromData(baselineFromText);
+        }
+
         // Update editor with labels if backend found and added them.
         // Guard against stale responses overwriting a different project's text.
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
@@ -1667,8 +1694,9 @@ function updateMilestonesTable(tasks) {
             content.style.display = 'block';
         }
 
-        // Get table body
+        // Get table body and header
         const tbody = document.getElementById('milestonesTableBody');
+        const thead = document.getElementById('milestonesTableHead');
         if (!tbody) {
             console.error('Milestones table body not found');
             return;
@@ -1676,6 +1704,29 @@ function updateMilestonesTable(tasks) {
 
         // Clear existing rows
         tbody.innerHTML = '';
+
+        // Check if baseline columns should be shown
+        const msToggle = document.getElementById('milestonesShowBaseline');
+        const showBaseline = msToggle && msToggle.checked && baselineItems.length > 0;
+        const baselineLookup = showBaseline ? getBaselineLookup() : {};
+
+        // Update table header to include/exclude baseline columns
+        if (thead) {
+            thead.innerHTML = '';
+            const headers = ['ID', 'Task Name', 'Start', 'Finish'];
+            if (showBaseline) {
+                headers.push('BL Start', 'BL Finish', 'Variance');
+            }
+            headers.push('%', 'RAG', 'Priority', 'Bucket', 'Comment');
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.textContent = h;
+                if (h.startsWith('BL') || h === 'Variance') {
+                    th.classList.add('baseline-col');
+                }
+                thead.appendChild(th);
+            });
+        }
 
         // Filter to only show actual milestones (0-duration, non-summary tasks)
         const filteredTasks = tasks.filter(task => {
@@ -1713,6 +1764,46 @@ function updateMilestonesTable(tasks) {
             const finishCell = document.createElement('td');
             finishCell.textContent = task.finish || '-';
             row.appendChild(finishCell);
+
+            // Baseline columns (if toggled on)
+            if (showBaseline) {
+                const bl = baselineLookup[task.name];
+                const blStartCell = document.createElement('td');
+                blStartCell.classList.add('baseline-col');
+                blStartCell.textContent = bl ? (bl.start || '-') : '-';
+                row.appendChild(blStartCell);
+
+                const blFinishCell = document.createElement('td');
+                blFinishCell.classList.add('baseline-col');
+                blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
+                row.appendChild(blFinishCell);
+
+                const varianceCell = document.createElement('td');
+                varianceCell.classList.add('baseline-col');
+                if (bl && bl.finish && task.finish) {
+                    const currentDate = parseLocalDate(task.finish);
+                    const baselineDate = parseLocalDate(bl.finish);
+                    if (currentDate && baselineDate) {
+                        const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
+                        if (diffDays > 0) {
+                            varianceCell.textContent = '+' + diffDays + 'd';
+                            varianceCell.classList.add('baseline-late');
+                        } else if (diffDays < 0) {
+                            varianceCell.textContent = diffDays + 'd';
+                            varianceCell.classList.add('baseline-early');
+                        } else {
+                            varianceCell.textContent = 'On track';
+                            varianceCell.classList.add('baseline-ontrack');
+                        }
+                    } else {
+                        varianceCell.textContent = '-';
+                    }
+                } else {
+                    varianceCell.textContent = bl ? '-' : 'New';
+                    if (!bl) varianceCell.classList.add('baseline-new');
+                }
+                row.appendChild(varianceCell);
+            }
 
             // Percent cell
             const percentCell = document.createElement('td');
@@ -4878,12 +4969,75 @@ function renderGanttRows() {
 
                 barRow.appendChild(bar);
             }
+
+            // Render baseline bar if baseline is visible
+            renderBaselineBar(barRow, task, minDate);
         }
 
         ganttInfoBody.appendChild(infoRow);
         ganttBody.appendChild(barRow);
     });
 
+}
+
+/**
+ * Render a baseline bar behind the current task bar in the Gantt chart.
+ * The baseline bar is semi-transparent and shows the original schedule.
+ */
+function renderBaselineBar(barRow, task, minDate) {
+    const ganttToggle = document.getElementById('ganttShowBaseline');
+    if (!ganttToggle || !ganttToggle.checked) return;
+    if (baselineItems.length === 0) return;
+
+    const baselineLookup = getBaselineLookup();
+    const baselineItem = baselineLookup[task.name];
+    if (!baselineItem || !baselineItem.start || !baselineItem.finish) return;
+
+    const blStart = parseLocalDate(baselineItem.start);
+    const blFinish = parseLocalDate(baselineItem.finish);
+    if (!blStart || !blFinish) return;
+
+    blStart.setHours(0, 0, 0, 0);
+    blFinish.setHours(0, 0, 0, 0);
+
+    // Calculate position
+    let daysFromStart = 0;
+    let tempDate = new Date(minDate);
+    tempDate.setHours(0, 0, 0, 0);
+    while (tempDate < blStart) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        daysFromStart++;
+    }
+
+    const blDuration = baselineItem.duration ? parseInt(baselineItem.duration) : 0;
+
+    // Milestone baseline (0 duration)
+    if (blDuration === 0 && !task.is_summary) {
+        const diamond = document.createElement('div');
+        diamond.className = 'gantt-bar gantt-milestone gantt-baseline-milestone';
+        const leftPos = daysFromStart * ganttPixelsPerDay - 9;
+        diamond.style.left = leftPos + 'px';
+        diamond.title = `Baseline: ${task.name}\nMilestone: ${baselineItem.finish}`;
+        barRow.appendChild(diamond);
+    } else {
+        // Regular baseline bar
+        let blCalendarDays = 0;
+        tempDate = new Date(blStart);
+        while (tempDate < blFinish) {
+            tempDate.setDate(tempDate.getDate() + 1);
+            blCalendarDays++;
+        }
+        if (blCalendarDays < 1) blCalendarDays = 1;
+
+        const blBar = document.createElement('div');
+        blBar.className = 'gantt-bar gantt-baseline-bar';
+        const leftPos = daysFromStart * ganttPixelsPerDay;
+        const barWidth = blCalendarDays * ganttPixelsPerDay;
+        blBar.style.left = leftPos + 'px';
+        blBar.style.width = barWidth + 'px';
+        blBar.title = `Baseline: ${task.name}\n${baselineItem.start} to ${baselineItem.finish}\nDuration: ${baselineItem.duration || blCalendarDays + 'd'}`;
+        barRow.appendChild(blBar);
+    }
 }
 
 function setupBarClickToOpenTask(element, task) {
@@ -8569,6 +8723,7 @@ function getAllTaskNames() {
     let inFrontMatter = false;
     let inHighlights = false;
     let inRaidLog = false;
+    let inBaseline = false;
 
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
@@ -8578,9 +8733,10 @@ function getAllTaskNames() {
         if (trimmed === '---highlights---') { inHighlights = true; continue; }
         if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
         if (trimmed === '---raid log---') { inRaidLog = true; continue; }
+        if (trimmed === '---baseline---') { inBaseline = true; continue; }
 
         // Skip non-task content
-        if (inFrontMatter || inHighlights || inRaidLog) continue;
+        if (inFrontMatter || inHighlights || inRaidLog || inBaseline) continue;
         if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
         const task = parseTaskLine(lines[i], i + 1);
@@ -11640,7 +11796,14 @@ function extractRaidLogFromPlanText(planText) {
     const marker = '---raid log---';
     const idx = planText.indexOf(marker);
     if (idx === -1) return '';
-    return planText.substring(idx + marker.length).trim();
+    const afterMarker = idx + marker.length;
+
+    // Stop at baseline section if present
+    const blIdx = planText.indexOf(BASELINE_START, afterMarker);
+    if (blIdx !== -1) {
+        return planText.substring(afterMarker, blIdx).trim();
+    }
+    return planText.substring(afterMarker).trim();
 }
 
 /**
@@ -11849,7 +12012,7 @@ const tourSteps = [
     },
     {
         title: "Project",
-        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart, Calendar, Board (Kanban), Timeline, Milestones, and Mind Map.",
+        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, and Mind Map. Use Set Baseline in the Gantt toolbar to snapshot your schedule.",
         target: "#planTab",
         position: "bottom"
     },
@@ -13782,18 +13945,304 @@ function syncRaidLogToPlanText() {
  * JavaScript equivalent of the Python update_plan_raid_log function.
  */
 function updatePlanRaidLogText(planText, items) {
-    // Strip existing RAID log section
+    // Preserve the baseline section if present
+    let baselineSection = '';
+    const blIdx = planText.indexOf(BASELINE_START);
+    if (blIdx !== -1) {
+        baselineSection = planText.substring(blIdx);
+    }
+
+    // Strip existing RAID log section (and baseline after it)
     let base = planText;
     const startIdx = base.indexOf(RAID_LOG_START);
+    if (startIdx !== -1) {
+        base = base.substring(0, startIdx).replace(/\n+$/, '');
+    } else if (blIdx !== -1) {
+        // No RAID log but baseline exists - strip baseline too
+        base = base.substring(0, blIdx).replace(/\n+$/, '');
+    }
+    base = base.replace(/\n+$/, '');
+
+    const table = generateRaidLogTable();
+    let result = base;
+    if (table) {
+        result = result + '\n\n' + RAID_LOG_START + '\n' + table;
+    }
+
+    // Re-append the baseline section
+    if (baselineSection) {
+        result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
+    }
+
+    return result;
+}
+
+
+/**
+ * Show a brief toast notification at the top of the screen.
+ */
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'baseline-toast baseline-toast-' + (type || 'info');
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Trigger animation
+    requestAnimationFrame(() => { toast.classList.add('show'); });
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+
+/**
+ * Baseline Plan System
+ * Stores a snapshot of the current schedule as a baseline for comparison.
+ * Only one baseline is kept at a time. Stored as a ---baseline--- section
+ * at the bottom of the plan text with a markdown table.
+ */
+
+const BASELINE_START = '---baseline---';
+let baselineItems = [];
+
+/**
+ * Set (or replace) the baseline from the current scheduled tasks.
+ * Captures name, start, finish, and duration for each task.
+ */
+function setBaseline() {
+    if (!lastRenderedTasks || lastRenderedTasks.length === 0) {
+        showToast('No tasks to baseline. Render your plan first.', 'warning');
+        return;
+    }
+
+    const hasExisting = baselineItems.length > 0;
+    const message = hasExisting
+        ? 'Replace the existing baseline with the current schedule?'
+        : 'Set the current schedule as the baseline?';
+
+    if (!confirm(message)) return;
+
+    // Build baseline items from current tasks
+    baselineItems = lastRenderedTasks
+        .filter(t => t.start && t.finish)
+        .map(t => ({
+            name: t.name,
+            start: t.start,
+            finish: t.finish,
+            duration: t.duration_days != null ? t.duration_days + 'd' : ''
+        }));
+
+    // Sync baseline to plan text
+    syncBaselineToPlanText();
+
+    // Show the baseline toggle
+    showBaselineToggle(true);
+
+    showToast('Baseline set successfully.', 'success');
+
+    // Re-render views if baseline is visible
+    const ganttToggle = document.getElementById('ganttShowBaseline');
+    if (ganttToggle && ganttToggle.checked) {
+        renderGanttChart();
+    }
+    const msToggle = document.getElementById('milestonesShowBaseline');
+    if (msToggle && msToggle.checked) {
+        updateMilestonesTable(lastRenderedTasks);
+    }
+}
+
+/**
+ * Clear the baseline from the plan.
+ */
+function clearBaseline() {
+    if (!confirm('Remove the baseline from this plan?')) return;
+
+    baselineItems = [];
+    syncBaselineToPlanText();
+    showBaselineToggle(false);
+
+    // Re-render views
+    renderGanttChart();
+    updateMilestonesTable(lastRenderedTasks || []);
+
+    showToast('Baseline removed.', 'success');
+}
+
+/**
+ * Show or hide the baseline toggle controls in Gantt and Milestones views.
+ */
+function showBaselineToggle(show) {
+    const ganttLabel = document.getElementById('baselineToggleLabel');
+    const msLabel = document.getElementById('milestonesBaselineToggleLabel');
+    if (ganttLabel) ganttLabel.style.display = show ? '' : 'none';
+    if (msLabel) msLabel.style.display = show ? '' : 'none';
+}
+
+/**
+ * Toggle baseline display in the Gantt chart.
+ */
+function toggleBaselineDisplay() {
+    renderGanttChart();
+}
+
+/**
+ * Toggle baseline display in the Milestones table.
+ */
+function toggleMilestonesBaselineDisplay() {
+    updateMilestonesTable(lastRenderedTasks || []);
+}
+
+/**
+ * Load baseline items from the API response or plan text.
+ */
+function loadBaselineFromData(items) {
+    if (!items || items.length === 0) {
+        baselineItems = [];
+        showBaselineToggle(false);
+        return;
+    }
+    baselineItems = items;
+    showBaselineToggle(true);
+}
+
+/**
+ * Extract baseline items from plan text (client-side fallback).
+ */
+function extractBaselineFromPlanText(planText) {
+    const marker = BASELINE_START;
+    const idx = planText.indexOf(marker);
+    if (idx === -1) return [];
+
+    const section = planText.substring(idx + marker.length).trim();
+    return parseBaselineMarkdown(section);
+}
+
+/**
+ * Parse a baseline markdown table into an array of items.
+ */
+function parseBaselineMarkdown(text) {
+    const items = [];
+    const lines = text.trim().split('\n');
+
+    // Find header row
+    let headerIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('|') && lines[i].toLowerCase().includes('task name')) {
+            headerIdx = i;
+            break;
+        }
+    }
+    if (headerIdx === -1) return items;
+
+    // Parse headers
+    const headers = lines[headerIdx].replace(/^\||\|$/g, '').split('|').map(h => h.trim().toLowerCase());
+
+    // Data rows start after separator
+    const dataStart = headerIdx + 2;
+
+    for (let i = dataStart; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || !line.startsWith('|')) continue;
+
+        const cells = line.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        if (cells.length < headers.length) continue;
+
+        const item = {};
+        headers.forEach((h, idx) => {
+            const val = cells[idx] || '';
+            if (h === 'task name') item.name = val;
+            else if (h === 'start') item.start = val;
+            else if (h === 'finish') item.finish = val;
+            else if (h === 'duration') item.duration = val;
+        });
+
+        if (item.name) items.push(item);
+    }
+
+    return items;
+}
+
+/**
+ * Generate a markdown table from baseline items.
+ */
+function generateBaselineTable() {
+    if (baselineItems.length === 0) return '';
+
+    const headers = ['Task Name', 'Start', 'Finish', 'Duration'];
+    const rows = baselineItems.map(item => [
+        String(item.name || ''),
+        String(item.start || ''),
+        String(item.finish || ''),
+        String(item.duration || '')
+    ]);
+
+    // Calculate column widths
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => {
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Sync baseline data into the plan editor text.
+ */
+function syncBaselineToPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const planText = editor.value;
+    const updatedText = updatePlanBaselineText(planText, baselineItems);
+
+    if (updatedText !== planText) {
+        editor.value = updatedText;
+        updateLineNumbers();
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedText;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/**
+ * Update plan text with baseline section.
+ */
+function updatePlanBaselineText(planText, items) {
+    // Strip existing baseline section
+    let base = planText;
+    const startIdx = base.indexOf(BASELINE_START);
     if (startIdx !== -1) {
         base = base.substring(0, startIdx).replace(/\n+$/, '');
     }
     base = base.replace(/\n+$/, '');
 
-    const table = generateRaidLogTable();
+    const table = generateBaselineTable();
     if (!table) return base;
 
-    return base + '\n\n' + RAID_LOG_START + '\n' + table;
+    return base + '\n\n' + BASELINE_START + '\n' + table;
+}
+
+/**
+ * Build a lookup map from baseline items for quick name-based access.
+ */
+function getBaselineLookup() {
+    const lookup = {};
+    baselineItems.forEach(item => {
+        lookup[item.name] = item;
+    });
+    return lookup;
 }
 
 
@@ -13825,6 +14274,8 @@ function clearHighlights() {
 function clearPlanTrackingData() {
     clearRaidLogEntries();
     clearHighlights();
+    baselineItems = [];
+    showBaselineToggle(false);
 }
 
 /**

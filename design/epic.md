@@ -615,3 +615,78 @@ npm run dev
 | `extractMetadata()` | `metadata-extractor.ts` | Parse task line metadata |
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
+
+---
+
+### Baseline Plan (Issue #504)
+
+The baseline plan feature allows users to capture a snapshot of the current schedule for later comparison. Only one baseline is kept at a time.
+
+**Storage Format:**
+
+The baseline is stored as a `---baseline---` section at the bottom of the plan text (after the RAID log section), containing a markdown table with the following columns:
+
+```
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+| Task 2    | 2026-03-05 | 2026-03-10 | 5d       |
+```
+
+**Section ordering in plan text:** Tasks -> Highlights -> RAID Log -> Baseline
+
+**Backend (Python):**
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `extract_baseline()` | `format_converter.py` | Extract baseline section text from plan |
+| `strip_baseline()` | `format_converter.py` | Remove baseline section from plan text |
+| `parse_baseline_markdown()` | `format_converter.py` | Parse baseline markdown table to list of dicts |
+| `generate_baseline_text()` | `format_converter.py` | Generate aligned markdown table from baseline items |
+| `update_plan_baseline()` | `format_converter.py` | Update plan text with new baseline data |
+
+The `/api/parse` endpoint returns `baseline_items` in its response alongside tasks, highlights, and RAID items.
+
+**Frontend (JavaScript):**
+
+| Function | Purpose |
+|----------|---------|
+| `setBaseline()` | Capture current schedule as baseline |
+| `clearBaseline()` | Remove baseline from plan |
+| `loadBaselineFromData()` | Load baseline items from API response |
+| `extractBaselineFromPlanText()` | Client-side fallback for baseline extraction |
+| `parseBaselineMarkdown()` | Parse baseline markdown table in JS |
+| `generateBaselineTable()` | Generate markdown table from baseline items |
+| `syncBaselineToPlanText()` | Write baseline to plan editor text |
+| `updatePlanBaselineText()` | Update plan text with baseline section |
+| `renderBaselineBar()` | Render semi-transparent baseline bar in Gantt chart |
+| `toggleBaselineDisplay()` | Toggle baseline visibility in Gantt |
+| `toggleMilestonesBaselineDisplay()` | Toggle baseline columns in Milestones |
+
+**UI Controls:**
+
+- **Set Baseline button**: Located in the Gantt toolbar, captures the current schedule
+- **Show Baseline toggle (Gantt)**: Shows/hides semi-transparent baseline bars behind current bars
+- **Show Baseline toggle (Milestones)**: Shows/hides BL Start, BL Finish, and Variance columns
+
+**Gantt Chart Baseline Rendering:**
+
+- Baseline bars are rendered as semi-transparent grey bars (dashed border) positioned below the current task bars
+- Baseline milestones are rendered as smaller, semi-transparent diamonds below current milestone diamonds
+- Baseline bars are non-interactive (pointer-events: none)
+
+**Milestone Table Baseline Columns:**
+
+When the baseline toggle is active, three additional columns appear after Finish:
+- **BL Start**: Baseline start date
+- **BL Finish**: Baseline finish date
+- **Variance**: Days difference between current and baseline finish (color-coded: red for late, green for early, grey for on-track, italic "New" for tasks not in baseline)
+
+**Section Interactions:**
+
+- `extract_raid_log()` stops at `---baseline---` to avoid including baseline data in RAID items
+- `strip_raid_log()` preserves the baseline section
+- `update_plan_raid_log()` preserves the baseline section when updating RAID items
+- `update_plan_highlights()` preserves the baseline section when updating highlights
+- `convert_plan_format_to_standard()` strips the baseline section before task parsing
