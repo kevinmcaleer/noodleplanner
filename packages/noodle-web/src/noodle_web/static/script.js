@@ -1948,7 +1948,12 @@ function updateReportPage(tasks, projectName, frontMatter) {
         // Populate project info header
         const titleEl = document.getElementById('reportProjectTitle');
         if (titleEl) {
-            titleEl.textContent = projectName || 'Untitled Project';
+            const ribbonSpan = titleEl.querySelector('.ribbon-banner');
+            if (ribbonSpan) {
+                ribbonSpan.textContent = projectName || 'Untitled Project';
+            } else {
+                titleEl.textContent = projectName || 'Untitled Project';
+            }
         }
 
         // Project manager
