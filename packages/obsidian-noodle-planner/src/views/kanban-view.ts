@@ -47,11 +47,8 @@ export class KanbanView extends BaseView {
     this.container.empty();
     this.container.addClass('noodle-kanban-view');
 
-    if (this.tasks.length === 0) {
-      const empty = this.container.createDiv({ cls: 'noodle-empty-message' });
-      empty.setText('No tasks to display');
-      return;
-    }
+    // Always render the UI structure, even if no tasks yet
+    // This ensures the view is properly initialized on first load
 
     // Toolbar
     this.renderToolbar();
@@ -64,6 +61,20 @@ export class KanbanView extends BaseView {
 
     // Group tasks by view mode
     this.columns = this.groupTasksByViewMode();
+
+    // If no columns or tasks, show a helpful message
+    if (this.columns.length === 0 && this.tasks.length === 0) {
+      const empty = this.boardContainer.createDiv({ cls: 'noodle-empty-message' });
+      empty.setText('No tasks to display. Add tasks in the editor to see them here.');
+      return;
+    }
+
+    // If we have columns but they're all empty, still render the columns
+    // (this handles the case where tasks exist but none match the current filter)
+    if (this.columns.length === 0) {
+      // For this case, create a default "Unassigned" column
+      this.columns = [{ id: 'all', title: 'Tasks', tasks: this.tasks.filter(t => t.level <= 1) }];
+    }
 
     // Render columns
     for (const column of this.columns) {
@@ -188,6 +199,11 @@ export class KanbanView extends BaseView {
    * Group tasks by phase
    */
   private groupByPhase(tasks: NoodleTask[]): KanbanColumn[] {
+    if (tasks.length === 0) {
+      // Return a default column even with no tasks
+      return [{ id: 'all', title: 'All Phases', tasks: [] }];
+    }
+
     const phaseMap = new Map<string, NoodleTask[]>();
 
     for (const task of tasks) {

@@ -39,6 +39,11 @@ from .format_converter import (
     parse_raid_markdown,
     generate_raid_log_text,
     update_plan_raid_log,
+    extract_baseline,
+    strip_baseline,
+    parse_baseline_markdown,
+    generate_baseline_text,
+    update_plan_baseline,
 )
 
 from .excel_importer import (
@@ -90,6 +95,11 @@ __all__ = [
     "parse_raid_markdown",
     "generate_raid_log_text",
     "update_plan_raid_log",
+    "extract_baseline",
+    "strip_baseline",
+    "parse_baseline_markdown",
+    "generate_baseline_text",
+    "update_plan_baseline",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",
