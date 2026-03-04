@@ -251,6 +251,9 @@
                 <button class="plan-subnav-btn" data-view="analysis" onclick="switchToView('analysis')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Analysis
                 </button>
+                <button class="plan-subnav-btn" data-view="budget" onclick="switchTrackingSubnavToTab('budget')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Budget
+                </button>
             </div>
 
             <!-- Resources Sub-Navigation Bar (shared across all Resources views) -->
@@ -478,6 +481,33 @@ Press Enter to render..."></textarea>
                                                 </tbody>
                                             </table>
                                             <p class="quad-empty-state" id="reportRaidEmpty" style="display: none;">No open risks or issues.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Budget Summary Widget -->
+                                <div class="quad-cell budget-widget" id="reportBudgetWidget" style="margin-top: 20px; grid-column: 1 / -1; display: none;">
+                                    <div class="quad-header">
+                                        <h3>Budget Summary</h3>
+                                        <button class="quad-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+</button>
+                                    </div>
+                                    <div class="budget-widget-content">
+                                        <div class="budget-widget-cards">
+                                            <div class="budget-widget-card">
+                                                <span class="budget-widget-label">Forecast</span>
+                                                <span class="budget-widget-value" id="reportBudgetForecast">0.00</span>
+                                            </div>
+                                            <div class="budget-widget-card">
+                                                <span class="budget-widget-label">Spend to Date</span>
+                                                <span class="budget-widget-value" id="reportBudgetSpend">0.00</span>
+                                            </div>
+                                            <div class="budget-widget-card">
+                                                <span class="budget-widget-label">Remaining</span>
+                                                <span class="budget-widget-value" id="reportBudgetRemaining">0.00</span>
+                                            </div>
+                                        </div>
+                                        <div class="budget-widget-bar-wrapper">
+                                            <div class="budget-widget-bar" id="reportBudgetBar" style="width: 0%;"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -1330,6 +1360,83 @@ Build
                 </div>
             </div>
 
+            <!-- Budget Tracker Tab -->
+            <div id="budget-tab" class="tab-content">
+                <div class="budget-container">
+                    <!-- Toolbar -->
+                    <div class="budget-toolbar">
+                        <a class="subtle-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+ Add Item</a>
+                        <div class="budget-toolbar-separator"></div>
+                        <div class="budget-filter-group">
+                            <label for="budgetCategoryFilter">Category:</label>
+                            <select id="budgetCategoryFilter" onchange="renderBudgetTable()">
+                                <option value="all">All</option>
+                                <option value="Consultancy">Consultancy</option>
+                                <option value="Resource">Resource</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Infrastructure">Infrastructure</option>
+                                <option value="Hardware">Hardware</option>
+                                <option value="Software">Software</option>
+                            </select>
+                        </div>
+                        <div class="budget-filter-group">
+                            <label for="budgetTypeFilter">Type:</label>
+                            <select id="budgetTypeFilter" onchange="renderBudgetTable()">
+                                <option value="all">All</option>
+                                <option value="Capex">Capex</option>
+                                <option value="Opex">Opex</option>
+                                <option value="One-off">One-off</option>
+                            </select>
+                        </div>
+                        <div class="budget-filter-group">
+                            <label for="budgetSupplierFilter">Supplier:</label>
+                            <input type="text" id="budgetSupplierFilter" class="form-control" placeholder="Filter supplier..." oninput="renderBudgetTable()" style="width: 150px; padding: 6px 12px; border: 2px solid #667eea; border-radius: 4px; font-size: 0.85em;">
+                        </div>
+                    </div>
+
+                    <!-- Budget Table -->
+                    <div class="budget-table-wrapper">
+                        <table class="budget-table" id="budgetTable">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortBudgetTable('id')">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('description')">Description <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('estimate')">Estimate <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('forecast')">Forecast <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('type')">Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('category')">Category <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('supplier')">Supplier <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('total')">Total <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('date_ordered')">Ordered <span class="sort-indicator"></span></th>
+                                    <th onclick="sortBudgetTable('date_received')">Received <span class="sort-indicator"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="budgetTableBody">
+                            </tbody>
+                            <tfoot id="budgetTableFoot">
+                            </tfoot>
+                        </table>
+                        <div class="budget-empty-state" id="budgetEmptyState">
+                            <h3>Budget Tracker</h3>
+                            <p>Track project costs, forecasts, and spending.</p>
+                            <p>Click <strong>"+ Add Item"</strong> to get started.</p>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Budget Markdown Editor -->
+                    <div class="budget-editor-section" id="budgetEditorSection">
+                        <div class="budget-editor-header" onclick="toggleBudgetEditor()">
+                            <span class="budget-editor-toggle" id="budgetEditorToggle">&#9654;</span>
+                            <span class="budget-editor-title">Budget Markdown</span>
+                        </div>
+                        <div class="budget-editor-body collapsed" id="budgetEditorBody">
+                            <textarea id="budgetMarkdownEditor" class="budget-markdown-textarea" placeholder="Budget markdown will appear here..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Actions Tracker Tab -->
             <div id="actions-tab" class="tab-content">
                 <div class="actions-container">
@@ -1979,6 +2086,99 @@ Build
             </div>
         </div>
 
+        <!-- Budget Item Form Section -->
+        <div id="budgetFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="budgetFormTitle">New Budget Item</h2>
+                <button class="close-btn" onclick="closeBudgetForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="budgetItemId">
+
+                    <div class="form-group">
+                        <label for="budgetItemDescription">Description</label>
+                        <input type="text" id="budgetItemDescription" class="form-control" placeholder="Cost item description">
+                    </div>
+
+                    <div class="form-grid-3col">
+                        <div class="form-group">
+                            <label for="budgetItemEstimate">Estimate</label>
+                            <input type="number" id="budgetItemEstimate" class="form-control" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="budgetItemForecast">Forecast</label>
+                            <input type="number" id="budgetItemForecast" class="form-control" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="budgetItemTotal">Total</label>
+                            <input type="number" id="budgetItemTotal" class="form-control" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="budgetItemType">Type</label>
+                            <select id="budgetItemType" class="form-control">
+                                <option value="Capex">Capex</option>
+                                <option value="Opex">Opex</option>
+                                <option value="One-off">One-off</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="budgetItemCategory">Category</label>
+                            <select id="budgetItemCategory" class="form-control">
+                                <option value="Consultancy">Consultancy</option>
+                                <option value="Resource">Resource</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Infrastructure">Infrastructure</option>
+                                <option value="Hardware">Hardware</option>
+                                <option value="Software">Software</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="budgetItemInvoice">Invoice Number</label>
+                            <input type="text" id="budgetItemInvoice" class="form-control" placeholder="INV-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="budgetItemPO">PO Number</label>
+                            <input type="text" id="budgetItemPO" class="form-control" placeholder="PO-001">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="budgetItemSupplier">Supplier</label>
+                        <input type="text" id="budgetItemSupplier" class="form-control" placeholder="Vendor/supplier name">
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="budgetItemDateOrdered">Date Ordered</label>
+                            <input type="date" id="budgetItemDateOrdered" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="budgetItemDateReceived">Date Received</label>
+                            <input type="date" id="budgetItemDateReceived" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeBudgetForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveBudgetItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+
+                    <div id="budgetDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn-danger" onclick="confirmDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this budget item">
+                            &#128465; Delete Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Stakeholder Form Section -->
         <div id="stakeholderFormSection" class="detail-pane-section">
             <div class="modal-header">
@@ -2590,6 +2790,23 @@ Build
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button type="button" class="btn-secondary" onclick="cancelDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
                     <button type="button" class="btn-danger" onclick="executeDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget Delete Confirmation Modal -->
+    <div id="budgetDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteBudgetItem()" role="dialog" aria-modal="true" aria-label="Confirm delete budget item">
+        <div class="task-form-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Delete Budget Item</h2>
+                <button class="close-btn" onclick="cancelDeleteBudgetItem()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="budgetDeleteConfirmMessage">Are you sure you want to delete this budget item? This action cannot be undone.</p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-secondary" onclick="cancelDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
+                    <button type="button" class="btn-danger" onclick="executeDeleteBudgetItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
                 </div>
             </div>
         </div>

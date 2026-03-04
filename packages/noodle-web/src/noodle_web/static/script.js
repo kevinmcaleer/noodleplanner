@@ -303,6 +303,21 @@ function switchTab(tabName) {
         }
     }
 
+    // If switching to Budget tab, load items from plan text if empty
+    if (tabName === 'budget' && budgetItems.length === 0) {
+        try {
+            const editor = document.getElementById('planEditor');
+            if (editor && editor.value) {
+                const items = extractBudgetItemsFromPlanText(editor.value);
+                if (items.length > 0) {
+                    loadBudgetItemsFromData(items);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading budget items on tab switch:', error);
+        }
+    }
+
     // If switching to Gantt tab, re-render the chart
     if (tabName === 'gantt') {
         setTimeout(() => {
@@ -342,6 +357,7 @@ function switchTab(tabName) {
         'kanban': 'planTab',
         'raid': 'trackingTab',
         'actions': 'trackingTab',
+        'budget': 'trackingTab',
         'planning': 'toolsTab',
         'guide': 'toolsTab',
         'editor': 'dashboardTab'
@@ -408,6 +424,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inHighlights = false;
         let inRaidLog = false;
         let inBaseline = false;
+        let inBudget = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
             if (trimmed === '---') {
@@ -415,10 +432,12 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 continue;
             }
             if (trimmed === '---highlights---') { inHighlights = true; continue; }
-            if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
+            if (trimmed === '---end-highlights---' || (inHighlights && (trimmed === '---raid log---' || trimmed === '---budget---'))) { inHighlights = false; }
+            if (trimmed === '---budget---') { inBudget = true; continue; }
+            if (inBudget && (trimmed === '---raid log---')) { inBudget = false; }
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
             if (trimmed === '---baseline---') { inBaseline = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
             let taskText = trimmed;
@@ -453,6 +472,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         }
 
         let inHighlightsSection = false;
+        let inBudgetSection = false;
         let inRaidLogSection = false;
         let inBaselineSection = false;
         return allLines.map(line => {
@@ -461,9 +481,12 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 inHighlightsSection = true;
                 return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
-            if (line.trim() === '---end-highlights---' || (inHighlightsSection && line.trim() === '---raid log---')) {
+            if (line.trim() === '---end-highlights---' || (inHighlightsSection && (line.trim() === '---raid log---' || line.trim() === '---budget---'))) {
                 inHighlightsSection = false;
-                // If it was the raid log marker, also enter raid log section
+                if (line.trim() === '---budget---') {
+                    inBudgetSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
                 if (line.trim() === '---raid log---') {
                     inRaidLogSection = true;
                     return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
@@ -472,6 +495,25 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
             // Dim lines inside highlights section
             if (inHighlightsSection) {
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Track budget section
+            if (line.trim() === '---budget---') {
+                inBudgetSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside budget section
+            if (inBudgetSection) {
+                if (line.trim() === '---raid log---') {
+                    inBudgetSection = false;
+                    inRaidLogSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
+                if (line.trim() === '---baseline---') {
+                    inBudgetSection = false;
+                    inBaselineSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
             // Track RAID log section
@@ -1701,6 +1743,14 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(raidFromText);
         }
 
+        // Load budget items from plan text
+        try {
+            const budgetFromText = extractBudgetItemsFromPlanText(planText);
+            loadBudgetItemsFromData(budgetFromText);
+        } catch (e) {
+            console.error('Failed to load budget items:', e);
+        }
+
         // Load stakeholders from front matter
         try {
             loadStakeholdersFromPlanText();
@@ -1743,6 +1793,11 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(extractRaidItemsFromPlanText(planText));
         } catch (e) {
             console.error('Failed to extract RAID items as fallback:', e);
+        }
+        try {
+            loadBudgetItemsFromData(extractBudgetItemsFromPlanText(planText));
+        } catch (e) {
+            console.error('Failed to extract budget items as fallback:', e);
         }
         try {
             loadStakeholdersFromPlanText();
@@ -9117,6 +9172,7 @@ function getAllTaskNames() {
     let inHighlights = false;
     let inRaidLog = false;
     let inBaseline = false;
+    let inBudgetSec = false;
 
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
@@ -9124,12 +9180,14 @@ function getAllTaskNames() {
         // Track section boundaries
         if (trimmed === '---') { inFrontMatter = !inFrontMatter; continue; }
         if (trimmed === '---highlights---') { inHighlights = true; continue; }
-        if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
+        if (trimmed === '---end-highlights---' || (inHighlights && (trimmed === '---raid log---' || trimmed === '---budget---'))) { inHighlights = false; }
+        if (trimmed === '---budget---') { inBudgetSec = true; continue; }
+        if (inBudgetSec && trimmed === '---raid log---') { inBudgetSec = false; }
         if (trimmed === '---raid log---') { inRaidLog = true; continue; }
         if (trimmed === '---baseline---') { inBaseline = true; continue; }
 
         // Skip non-task content
-        if (inFrontMatter || inHighlights || inRaidLog || inBaseline) continue;
+        if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudgetSec) continue;
         if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
         const task = parseTaskLine(lines[i], i + 1);
@@ -10016,7 +10074,7 @@ function updateNavActiveState(viewName) {
 
 // Sub-navigation: views that belong to each group
 const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders'];
-const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis'];
+const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
 const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
 
@@ -14403,6 +14461,723 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 /*
+ * Budget Tracker System
+ * Tracks project costs, forecasts, and spending.
+ */
+
+let budgetItems = [];
+let budgetNextId = 1;
+let budgetSortColumn = 'id';
+let budgetSortAsc = true;
+let budgetEditorIsUpdating = false;
+let budgetEditorDebounceTimer = null;
+
+const BUDGET_START = '---budget---';
+const BUDGET_TYPES = ['Capex', 'Opex', 'One-off'];
+const BUDGET_CATEGORIES = ['Consultancy', 'Resource', 'Travel', 'Infrastructure', 'Hardware', 'Software'];
+
+function clearBudgetEntries() {
+    budgetItems = [];
+    budgetNextId = 1;
+    renderBudgetTable();
+    console.log('Cleared budget entries');
+}
+
+function openBudgetForm(itemId) {
+    const title = document.getElementById('budgetFormTitle');
+    const idField = document.getElementById('budgetItemId');
+    const deleteRow = document.getElementById('budgetDeleteButtonRow');
+
+    if (itemId != null) {
+        const item = budgetItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit Budget Item';
+        idField.value = item.id;
+        document.getElementById('budgetItemDescription').value = item.description || '';
+        document.getElementById('budgetItemEstimate').value = item.estimate || '';
+        document.getElementById('budgetItemForecast').value = item.forecast || '';
+        document.getElementById('budgetItemType').value = item.type || 'Capex';
+        document.getElementById('budgetItemInvoice').value = item.invoice || '';
+        document.getElementById('budgetItemPO').value = item.po || '';
+        document.getElementById('budgetItemSupplier').value = item.supplier || '';
+        document.getElementById('budgetItemTotal').value = item.total || '';
+        document.getElementById('budgetItemDateOrdered').value = item.date_ordered || '';
+        document.getElementById('budgetItemDateReceived').value = item.date_received || '';
+        document.getElementById('budgetItemCategory').value = item.category || 'Consultancy';
+        if (deleteRow) deleteRow.style.display = 'block';
+    } else {
+        title.textContent = 'New Budget Item';
+        idField.value = '';
+        document.getElementById('budgetItemDescription').value = '';
+        document.getElementById('budgetItemEstimate').value = '';
+        document.getElementById('budgetItemForecast').value = '';
+        document.getElementById('budgetItemType').value = 'Capex';
+        document.getElementById('budgetItemInvoice').value = '';
+        document.getElementById('budgetItemPO').value = '';
+        document.getElementById('budgetItemSupplier').value = '';
+        document.getElementById('budgetItemTotal').value = '';
+        document.getElementById('budgetItemDateOrdered').value = '';
+        document.getElementById('budgetItemDateReceived').value = '';
+        document.getElementById('budgetItemCategory').value = 'Consultancy';
+        if (deleteRow) deleteRow.style.display = 'none';
+    }
+
+    openDetailPane('budgetFormSection');
+}
+
+function closeBudgetForm() {
+    closeDetailPane();
+}
+
+function saveBudgetItemFromForm() {
+    const idField = document.getElementById('budgetItemId').value;
+    const description = document.getElementById('budgetItemDescription').value.trim();
+
+    if (!description) {
+        alert('Please enter a description for the budget item.');
+        return;
+    }
+
+    const itemData = {
+        description: description,
+        estimate: parseFloat(document.getElementById('budgetItemEstimate').value) || 0,
+        forecast: parseFloat(document.getElementById('budgetItemForecast').value) || 0,
+        type: document.getElementById('budgetItemType').value,
+        invoice: document.getElementById('budgetItemInvoice').value.trim(),
+        po: document.getElementById('budgetItemPO').value.trim(),
+        supplier: document.getElementById('budgetItemSupplier').value.trim(),
+        total: parseFloat(document.getElementById('budgetItemTotal').value) || 0,
+        date_ordered: document.getElementById('budgetItemDateOrdered').value,
+        date_received: document.getElementById('budgetItemDateReceived').value,
+        category: document.getElementById('budgetItemCategory').value
+    };
+
+    if (idField) {
+        const existingId = parseInt(idField);
+        const index = budgetItems.findIndex(i => i.id === existingId);
+        if (index >= 0) {
+            budgetItems[index] = { ...budgetItems[index], ...itemData };
+        }
+    } else {
+        itemData.id = budgetNextId++;
+        budgetItems.push(itemData);
+    }
+
+    closeBudgetForm();
+    renderBudgetTable();
+    syncBudgetToPlanText();
+    updateReportBudgetWidget();
+}
+
+let budgetItemPendingDeleteId = null;
+
+function confirmDeleteBudgetItem() {
+    const idField = document.getElementById('budgetItemId').value;
+    if (!idField) return;
+
+    budgetItemPendingDeleteId = parseInt(idField);
+    const item = budgetItems.find(i => i.id === budgetItemPendingDeleteId);
+    const itemDesc = item ? item.description : 'this item';
+
+    const msg = document.getElementById('budgetDeleteConfirmMessage');
+    if (msg) {
+        msg.textContent = 'Are you sure you want to delete "' + itemDesc + '"? This action cannot be undone.';
+    }
+
+    const overlay = document.getElementById('budgetDeleteConfirmOverlay');
+    if (overlay) overlay.classList.add('active');
+}
+
+function cancelDeleteBudgetItem() {
+    budgetItemPendingDeleteId = null;
+    const overlay = document.getElementById('budgetDeleteConfirmOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+function executeDeleteBudgetItem() {
+    if (budgetItemPendingDeleteId == null) return;
+
+    budgetItems = budgetItems.filter(i => i.id !== budgetItemPendingDeleteId);
+    budgetItemPendingDeleteId = null;
+
+    const overlay = document.getElementById('budgetDeleteConfirmOverlay');
+    if (overlay) overlay.classList.remove('active');
+
+    closeBudgetForm();
+    renderBudgetTable();
+    syncBudgetToPlanText();
+    updateReportBudgetWidget();
+}
+
+function deleteBudgetItem(id) {
+    if (!confirm('Are you sure you want to delete this budget item?')) return;
+    budgetItems = budgetItems.filter(i => i.id !== id);
+    renderBudgetTable();
+    syncBudgetToPlanText();
+    updateReportBudgetWidget();
+}
+
+function renderBudgetTable() {
+    try {
+        const tbody = document.getElementById('budgetTableBody');
+        const tfoot = document.getElementById('budgetTableFoot');
+        const emptyState = document.getElementById('budgetEmptyState');
+        const table = document.getElementById('budgetTable');
+        if (!tbody || !emptyState) {
+            console.warn('Budget table elements not found in DOM');
+            return;
+        }
+
+        const filterCategoryEl = document.getElementById('budgetCategoryFilter');
+        const filterTypeEl = document.getElementById('budgetTypeFilter');
+        const filterSupplierEl = document.getElementById('budgetSupplierFilter');
+        const filterCategory = filterCategoryEl ? filterCategoryEl.value : 'all';
+        const filterType = filterTypeEl ? filterTypeEl.value : 'all';
+        const filterSupplier = filterSupplierEl ? filterSupplierEl.value.toLowerCase().trim() : '';
+
+        let filtered = budgetItems.filter(item => {
+            if (filterCategory !== 'all' && item.category !== filterCategory) return false;
+            if (filterType !== 'all' && item.type !== filterType) return false;
+            if (filterSupplier && !(item.supplier || '').toLowerCase().includes(filterSupplier)) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[budgetSortColumn];
+            let valB = b[budgetSortColumn];
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (typeof valA === 'number' || typeof valB === 'number') {
+                valA = Number(valA) || 0;
+                valB = Number(valB) || 0;
+            }
+
+            if (valA < valB) return budgetSortAsc ? -1 : 1;
+            if (valA > valB) return budgetSortAsc ? 1 : -1;
+            return 0;
+        });
+
+        tbody.innerHTML = '';
+
+        if (budgetItems.length === 0) {
+            emptyState.style.display = 'block';
+            if (table) table.style.display = 'none';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        if (table) table.style.display = 'table';
+
+        let totalEstimate = 0;
+        let totalForecast = 0;
+        let totalSpend = 0;
+
+        filtered.forEach(item => {
+            try {
+                const row = document.createElement('tr');
+                const typeClass = 'budget-type-' + (item.type || 'Capex').toLowerCase().replace(/[^a-z]/g, '-');
+
+                row.innerHTML =
+                    '<td>' + (item.id || '') + '</td>' +
+                    '<td title="' + escapeHtml(item.description) + '">' + escapeHtml(item.description) + '</td>' +
+                    '<td>' + formatCurrency(item.estimate) + '</td>' +
+                    '<td>' + formatCurrency(item.forecast) + '</td>' +
+                    '<td><span class="budget-type-badge ' + typeClass + '">' + escapeHtml(item.type) + '</span></td>' +
+                    '<td><span class="budget-category-badge">' + escapeHtml(item.category) + '</span></td>' +
+                    '<td>' + escapeHtml(item.supplier) + '</td>' +
+                    '<td>' + formatCurrency(item.total) + '</td>' +
+                    '<td>' + escapeHtml(item.date_ordered) + '</td>' +
+                    '<td>' + escapeHtml(item.date_received) + '</td>' +
+                    '<td>' +
+                        '<button class="budget-action-btn" onclick="openBudgetForm(' + item.id + ')" title="Edit">&#9998;&#65039;</button>' +
+                        '<button class="budget-action-btn delete" onclick="deleteBudgetItem(' + item.id + ')" title="Delete">&#128465;&#65039;</button>' +
+                    '</td>';
+                tbody.appendChild(row);
+
+                totalEstimate += item.estimate || 0;
+                totalForecast += item.forecast || 0;
+                totalSpend += item.total || 0;
+            } catch (itemError) {
+                console.warn('Skipping malformed budget item during render:', item, itemError);
+            }
+        });
+
+        // Summary footer
+        if (tfoot) {
+            tfoot.innerHTML =
+                '<tr>' +
+                '<td></td>' +
+                '<td><strong>Totals</strong></td>' +
+                '<td><strong>' + formatCurrency(totalEstimate) + '</strong></td>' +
+                '<td><strong>' + formatCurrency(totalForecast) + '</strong></td>' +
+                '<td></td><td></td><td></td>' +
+                '<td><strong>' + formatCurrency(totalSpend) + '</strong></td>' +
+                '<td></td><td></td><td></td>' +
+                '</tr>';
+        }
+
+        updateBudgetSortIndicators();
+        updateBudgetMarkdownEditor();
+    } catch (error) {
+        console.error('Error rendering budget table:', error);
+    }
+}
+
+function formatCurrency(value) {
+    if (value === null || value === undefined || value === '' || value === 0) return '';
+    return Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function sortBudgetTable(column) {
+    if (budgetSortColumn === column) {
+        budgetSortAsc = !budgetSortAsc;
+    } else {
+        budgetSortColumn = column;
+        budgetSortAsc = true;
+    }
+    renderBudgetTable();
+}
+
+function updateBudgetSortIndicators() {
+    const headers = document.querySelectorAll('.budget-table th');
+    headers.forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (indicator) {
+            const onclick = th.getAttribute('onclick');
+            if (onclick && onclick.includes("'" + budgetSortColumn + "'")) {
+                indicator.textContent = budgetSortAsc ? '\u25B2' : '\u25BC';
+            } else {
+                indicator.textContent = '';
+            }
+        }
+    });
+}
+
+function generateBudgetMarkdown() {
+    if (budgetItems.length === 0) return '# Budget\n\n*No items.*\n';
+
+    const headers = ['ID', 'Description', 'Estimate', 'Forecast', 'Type', 'Invoice', 'PO', 'Supplier', 'Total', 'Ordered', 'Received', 'Category'];
+
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const rows = budgetItems.map(item => [
+        String(item.id),
+        escPipe(item.description),
+        String(item.estimate || 0),
+        String(item.forecast || 0),
+        escPipe(item.type),
+        escPipe(item.invoice),
+        escPipe(item.po),
+        escPipe(item.supplier),
+        String(item.total || 0),
+        escPipe(item.date_ordered),
+        escPipe(item.date_received),
+        escPipe(item.category)
+    ]);
+
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => {
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    let md = '# Budget\n\n';
+    md += formatRow(headers) + '\n';
+    md += separator + '\n';
+    rows.forEach(row => {
+        md += formatRow(row) + '\n';
+    });
+
+    return md;
+}
+
+function generateBudgetTable() {
+    if (budgetItems.length === 0) return '';
+
+    const headers = ['ID', 'Description', 'Estimate', 'Forecast', 'Type', 'Invoice', 'PO', 'Supplier', 'Total', 'Ordered', 'Received', 'Category'];
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const rows = budgetItems.map(item => [
+        String(item.id),
+        escPipe(item.description),
+        String(item.estimate || 0),
+        String(item.forecast || 0),
+        escPipe(item.type),
+        escPipe(item.invoice),
+        escPipe(item.po),
+        escPipe(item.supplier),
+        String(item.total || 0),
+        escPipe(item.date_ordered),
+        escPipe(item.date_received),
+        escPipe(item.category)
+    ]);
+
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => {
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+function parseBudgetMarkdown(text) {
+    try {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        // Find header row containing budget-specific keywords
+        let headerIndex = -1;
+        const headerKeywords = ['id', 'description', 'estimate', 'forecast'];
+        for (let i = 0; i < lines.length; i++) {
+            const lower = lines[i].toLowerCase();
+            if (lower.includes('|') && headerKeywords.some(kw => lower.includes(kw))) {
+                headerIndex = i;
+                break;
+            }
+        }
+
+        if (headerIndex === -1) return [];
+
+        const parseRow = (line) => {
+            const parts = line.split(/(?<!\\)\|/).map(cell => cell.trim());
+            return parts.filter((cell, idx, arr) => idx > 0 && idx < arr.length - 1 || (cell.length > 0 && idx > 0));
+        };
+
+        const headers = parseRow(lines[headerIndex]).map(h => h.toLowerCase());
+
+        const colMap = {};
+        const aliases = {
+            'id': 'id', 'description': 'description', 'estimate': 'estimate',
+            'forecast': 'forecast', 'type': 'type', 'invoice': 'invoice',
+            'po': 'po', 'supplier': 'supplier', 'total': 'total',
+            'ordered': 'date_ordered', 'received': 'date_received',
+            'category': 'category'
+        };
+
+        headers.forEach((h, idx) => {
+            for (const [alias, field] of Object.entries(aliases)) {
+                if (h.includes(alias)) {
+                    colMap[field] = idx;
+                    break;
+                }
+            }
+        });
+
+        const items = [];
+        let maxIdSeen = 0;
+
+        for (let i = headerIndex + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line.includes('|')) continue;
+            if (line.replace(/[|\-\s]/g, '').length === 0) continue;
+
+            try {
+                const cells = parseRow(line);
+                if (cells.length === 0) continue;
+
+                const getCell = (field, def) => {
+                    const idx = colMap[field];
+                    if (idx !== undefined && idx < cells.length) {
+                        return cells[idx].replace(/\\\|/g, '|');
+                    }
+                    return def;
+                };
+
+                const idStr = getCell('id', '');
+                let itemId;
+                if (idStr) {
+                    itemId = parseInt(idStr);
+                    if (isNaN(itemId)) itemId = maxIdSeen + 1;
+                } else {
+                    itemId = maxIdSeen + 1;
+                }
+                maxIdSeen = Math.max(maxIdSeen, itemId);
+
+                const itemType = getCell('type', 'Capex');
+                const itemCategory = getCell('category', 'Consultancy');
+
+                items.push({
+                    id: itemId,
+                    description: getCell('description', ''),
+                    estimate: parseFloat(getCell('estimate', '0')) || 0,
+                    forecast: parseFloat(getCell('forecast', '0')) || 0,
+                    type: BUDGET_TYPES.includes(itemType) ? itemType : 'Capex',
+                    invoice: getCell('invoice', ''),
+                    po: getCell('po', ''),
+                    supplier: getCell('supplier', ''),
+                    total: parseFloat(getCell('total', '0')) || 0,
+                    date_ordered: getCell('date_ordered', ''),
+                    date_received: getCell('date_received', ''),
+                    category: BUDGET_CATEGORIES.includes(itemCategory) ? itemCategory : 'Consultancy'
+                });
+            } catch (rowError) {
+                console.warn('Skipping malformed budget row:', line, rowError);
+                continue;
+            }
+        }
+
+        return items;
+    } catch (error) {
+        console.error('Error parsing budget markdown:', error);
+        return [];
+    }
+}
+
+function extractBudgetFromPlanText(planText) {
+    if (!planText) return '';
+    const marker = BUDGET_START;
+    const idx = planText.indexOf(marker);
+    if (idx === -1) return '';
+    const afterMarker = idx + marker.length;
+
+    // Budget section ends at the RAID log marker or EOF
+    const raidIdx = planText.indexOf('---raid log---', afterMarker);
+    if (raidIdx !== -1) {
+        return planText.substring(afterMarker, raidIdx).trim();
+    }
+    // Also stop at baseline
+    const blIdx = planText.indexOf('---baseline---', afterMarker);
+    if (blIdx !== -1) {
+        return planText.substring(afterMarker, blIdx).trim();
+    }
+    return planText.substring(afterMarker).trim();
+}
+
+function extractBudgetItemsFromPlanText(planText) {
+    try {
+        const budgetText = extractBudgetFromPlanText(planText);
+        if (!budgetText) return [];
+        return parseBudgetMarkdown(budgetText);
+    } catch (error) {
+        console.error('Error extracting budget items from plan text:', error);
+        return [];
+    }
+}
+
+function loadBudgetItemsFromData(items) {
+    try {
+        if (!items || items.length === 0) return;
+        if (budgetItems.length > 0) return;
+
+        budgetItems = items;
+        budgetNextId = Math.max(...items.map(i => i.id || 0)) + 1;
+        renderBudgetTable();
+        updateReportBudgetWidget();
+    } catch (error) {
+        console.error('Error loading budget items:', error);
+    }
+}
+
+function syncBudgetToPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const planText = editor.value;
+    const updatedText = updatePlanBudgetText(planText, budgetItems);
+
+    if (updatedText !== planText) {
+        setEditorValuePreservingCursor(editor, updatedText);
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedText;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+function updatePlanBudgetText(planText, items) {
+    // Preserve RAID log section and baseline
+    let raidSection = '';
+    const raidIdx = planText.indexOf('---raid log---');
+    if (raidIdx !== -1) {
+        raidSection = planText.substring(raidIdx);
+    }
+
+    let baselineSection = '';
+    const blIdx = planText.indexOf('---baseline---');
+    if (blIdx !== -1) {
+        // If baseline is inside RAID section, it's already in raidSection
+        if (raidIdx === -1 || blIdx < raidIdx) {
+            baselineSection = planText.substring(blIdx);
+            raidSection = ''; // Don't double-include
+        }
+    }
+
+    // Strip existing budget section
+    let base = planText;
+    const budgetIdx = base.indexOf(BUDGET_START);
+    if (budgetIdx !== -1) {
+        // Remove budget section up to RAID log or baseline or EOF
+        let endIdx = base.length;
+        if (raidIdx !== -1 && raidIdx > budgetIdx) endIdx = raidIdx;
+        else if (blIdx !== -1 && blIdx > budgetIdx) endIdx = blIdx;
+        base = base.substring(0, budgetIdx) + base.substring(endIdx);
+    }
+
+    // Also strip RAID and baseline from base (we'll re-append them)
+    const newRaidIdx = base.indexOf('---raid log---');
+    if (newRaidIdx !== -1) {
+        if (!raidSection) raidSection = base.substring(newRaidIdx);
+        base = base.substring(0, newRaidIdx);
+    }
+    const newBlIdx = base.indexOf('---baseline---');
+    if (newBlIdx !== -1) {
+        if (!baselineSection) baselineSection = base.substring(newBlIdx);
+        base = base.substring(0, newBlIdx);
+    }
+
+    base = base.replace(/\n+$/, '');
+
+    // Build the budget section
+    const table = generateBudgetTable();
+    let result = base;
+    if (table) {
+        result = result + '\n\n' + BUDGET_START + '\n' + table;
+    }
+
+    // Re-append RAID section
+    if (raidSection) {
+        result = result.replace(/\n+$/, '') + '\n\n' + raidSection;
+    }
+
+    // Re-append baseline if it was separate
+    if (baselineSection && !raidSection.includes('---baseline---')) {
+        result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
+    }
+
+    return result;
+}
+
+function updateReportBudgetWidget() {
+    try {
+        const widget = document.getElementById('reportBudgetWidget');
+        if (!widget) return;
+
+        if (budgetItems.length === 0) {
+            widget.style.display = 'none';
+            return;
+        }
+
+        widget.style.display = '';
+
+        let totalForecast = 0;
+        let totalSpend = 0;
+        budgetItems.forEach(item => {
+            totalForecast += item.forecast || 0;
+            totalSpend += item.total || 0;
+        });
+
+        const remaining = totalForecast - totalSpend;
+        const spendPercent = totalForecast > 0 ? (totalSpend / totalForecast) * 100 : 0;
+
+        const forecastEl = document.getElementById('reportBudgetForecast');
+        const spendEl = document.getElementById('reportBudgetSpend');
+        const remainingEl = document.getElementById('reportBudgetRemaining');
+        const barEl = document.getElementById('reportBudgetBar');
+
+        if (forecastEl) forecastEl.textContent = formatCurrency(totalForecast);
+        if (spendEl) spendEl.textContent = formatCurrency(totalSpend);
+        if (remainingEl) {
+            remainingEl.textContent = formatCurrency(remaining);
+            remainingEl.className = 'budget-widget-value';
+            if (remaining < 0) {
+                remainingEl.classList.add('budget-over');
+            } else if (spendPercent > 80) {
+                remainingEl.classList.add('budget-warn');
+            } else {
+                remainingEl.classList.add('budget-under');
+            }
+        }
+
+        if (barEl) {
+            barEl.style.width = Math.min(100, spendPercent) + '%';
+            barEl.className = 'budget-widget-bar';
+            if (spendPercent > 100) {
+                barEl.classList.add('budget-over');
+            } else if (spendPercent > 80) {
+                barEl.classList.add('budget-warn');
+            }
+        }
+    } catch (error) {
+        console.error('Error updating report budget widget:', error);
+    }
+}
+
+function toggleBudgetEditor() {
+    const body = document.getElementById('budgetEditorBody');
+    const toggle = document.getElementById('budgetEditorToggle');
+
+    if (body && toggle) {
+        const isCollapsed = body.classList.contains('collapsed');
+        if (isCollapsed) {
+            body.classList.remove('collapsed');
+            toggle.textContent = '\u25BC';
+            updateBudgetMarkdownEditor();
+        } else {
+            body.classList.add('collapsed');
+            toggle.textContent = '\u25B6';
+        }
+    }
+}
+
+function updateBudgetMarkdownEditor() {
+    if (budgetEditorIsUpdating) return;
+
+    const editor = document.getElementById('budgetMarkdownEditor');
+    const body = document.getElementById('budgetEditorBody');
+    if (!editor || !body || body.classList.contains('collapsed')) return;
+
+    budgetEditorIsUpdating = true;
+    editor.value = generateBudgetMarkdown();
+    budgetEditorIsUpdating = false;
+}
+
+function onBudgetMarkdownEdit() {
+    if (budgetEditorIsUpdating) return;
+
+    clearTimeout(budgetEditorDebounceTimer);
+    budgetEditorDebounceTimer = setTimeout(function() {
+        const editor = document.getElementById('budgetMarkdownEditor');
+        if (!editor) return;
+
+        budgetEditorIsUpdating = true;
+        const items = parseBudgetMarkdown(editor.value);
+        if (items.length > 0) {
+            budgetItems = items;
+            budgetNextId = Math.max(...items.map(i => i.id)) + 1;
+            renderBudgetTable();
+            syncBudgetToPlanText();
+            updateReportBudgetWidget();
+        }
+        editor.value = generateBudgetMarkdown();
+        budgetEditorIsUpdating = false;
+    }, 500);
+}
+
+// Wire up budget markdown editor input event
+document.addEventListener('DOMContentLoaded', function() {
+    const budgetEditor = document.getElementById('budgetMarkdownEditor');
+    if (budgetEditor) {
+        budgetEditor.addEventListener('input', onBudgetMarkdownEdit);
+    }
+});
+
+
+/*
  * RAID Log Plan Sync
  * Persists RAID items as a markdown table at the bottom of the plan text.
  */
@@ -14485,25 +15260,51 @@ function updatePlanRaidLogText(planText, items) {
         baselineSection = planText.substring(blIdx);
     }
 
-    // Strip existing RAID log section (and baseline after it)
-    let base = planText;
-    const startIdx = base.indexOf(RAID_LOG_START);
-    if (startIdx !== -1) {
-        base = base.substring(0, startIdx).replace(/\n+$/, '');
-    } else if (blIdx !== -1) {
-        // No RAID log but baseline exists - strip baseline too
-        base = base.substring(0, blIdx).replace(/\n+$/, '');
+    // Preserve the budget section if present
+    let budgetSection = '';
+    const budgetIdx = planText.indexOf(BUDGET_START);
+    if (budgetIdx !== -1) {
+        const raidAfterBudget = planText.indexOf(RAID_LOG_START, budgetIdx);
+        if (raidAfterBudget !== -1) {
+            budgetSection = planText.substring(budgetIdx, raidAfterBudget).replace(/\n+$/, '');
+        } else {
+            const blAfterBudget = planText.indexOf(BASELINE_START, budgetIdx);
+            if (blAfterBudget !== -1) {
+                budgetSection = planText.substring(budgetIdx, blAfterBudget).replace(/\n+$/, '');
+            } else {
+                budgetSection = planText.substring(budgetIdx).replace(/\n+$/, '');
+            }
+        }
     }
-    base = base.replace(/\n+$/, '');
+
+    // Strip existing RAID log section, budget section, and baseline
+    let base = planText;
+    // Find the earliest section marker to strip
+    const budgetStart = base.indexOf(BUDGET_START);
+    const raidStart = base.indexOf(RAID_LOG_START);
+    const baselineStart = base.indexOf(BASELINE_START);
+
+    let cutIdx = base.length;
+    if (budgetStart !== -1 && budgetStart < cutIdx) cutIdx = budgetStart;
+    if (raidStart !== -1 && raidStart < cutIdx) cutIdx = raidStart;
+    if (baselineStart !== -1 && baselineStart < cutIdx) cutIdx = baselineStart;
+
+    base = base.substring(0, cutIdx).replace(/\n+$/, '');
+
+    // Rebuild: base + budget + raid + baseline
+    let result = base;
+
+    if (budgetSection) {
+        result = result + '\n\n' + budgetSection;
+    }
 
     const table = generateRaidLogTable();
-    let result = base;
     if (table) {
-        result = result + '\n\n' + RAID_LOG_START + '\n' + table;
+        result = result.replace(/\n+$/, '') + '\n\n' + RAID_LOG_START + '\n' + table;
     }
 
-    // Re-append the baseline section
-    if (baselineSection) {
+    // Re-append the baseline section (strip any RAID/budget content already captured)
+    if (baselineSection && !result.includes(BASELINE_START)) {
         result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
     }
 
@@ -15351,6 +16152,7 @@ function clearHighlights() {
  */
 function clearPlanTrackingData() {
     clearRaidLogEntries();
+    clearBudgetEntries();
     clearHighlights();
     clearStakeholders();
     baselineItems = [];
@@ -15373,15 +16175,16 @@ function extractHighlightsFromText(text) {
     const HIGHLIGHTS_START = '---highlights---';
     const HIGHLIGHTS_END = '---end-highlights---';
     const RAID_LOG_START_MARKER = '---raid log---';
+    const BUDGET_START_MARKER = '---budget---';
 
     const startIdx = text.indexOf(HIGHLIGHTS_START);
     if (startIdx === -1) return [];
 
     const afterStart = startIdx + HIGHLIGHTS_START.length;
 
-    // Find the end: explicit end marker, raid log section, or EOF
+    // Find the end: explicit end marker, budget section, raid log section, or EOF
     let endIdx = text.length;
-    for (const marker of [HIGHLIGHTS_END, RAID_LOG_START_MARKER]) {
+    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER]) {
         const idx = text.indexOf(marker, afterStart);
         if (idx !== -1 && idx < endIdx) {
             endIdx = idx;
