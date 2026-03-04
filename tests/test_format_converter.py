@@ -1541,5 +1541,62 @@ Phase 1
         assert 'Task 1' in converted
 
 
+class TestConvertPlanFormatStripsBudget:
+    """Test that convert_plan_format_to_standard strips budget section."""
+
+    def test_budget_not_parsed_as_tasks(self):
+        """Budget section should be stripped before task parsing."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---budget---
+| ID | Description | Estimate | Forecast | Actual | Variance | Status |
+|----|-------------|----------|----------|--------|----------|--------|
+| 1  | Dev work    | 5000     | 5000     | 0      | 5000     | Open   |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---budget---' not in result
+        assert 'Dev work' not in result
+        assert 'Estimate' not in result
+        assert 'Task 1' in result
+
+    def test_budget_with_raid_log_after(self):
+        """Budget should be stripped but RAID log marker preserved for its own stripper."""
+        text = """Phase 1
+  Task 1 @john 3d
+
+---budget---
+| ID | Description | Estimate |
+|----|-------------|----------|
+| 1  | Dev work    | 5000     |
+
+---raid log---
+| ID | Type | Title |
+|----|------|-------|
+| R1 | Risk | Test  |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---budget---' not in result
+        assert 'Dev work' not in result
+        assert '---raid log---' not in result
+        assert 'Task 1' in result
+
+    def test_budget_with_frontmatter(self):
+        """Both frontmatter and budget should be stripped."""
+        text = """---
+title: My Project
+---
+Phase 1
+  Task 1 @john 3d
+
+---budget---
+| ID | Description | Estimate |
+|----|-------------|----------|
+| 1  | Dev work    | 5000     |"""
+        result = convert_plan_format_to_standard(text)
+        assert 'title:' not in result
+        assert '---budget---' not in result
+        assert 'Dev work' not in result
+        assert 'Task 1' in result
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
