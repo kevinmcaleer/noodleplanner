@@ -39,6 +39,8 @@ RUN mkdir -p packages/noodle-core/src/noodle_core && \
     touch packages/noodle-core/src/noodle_core/__init__.py && \
     mkdir -p packages/noodle-web/src/noodle_web && \
     touch packages/noodle-web/src/noodle_web/__init__.py && \
+    mkdir -p packages/noodle-web/src/noodle_web/static && \
+    mkdir -p packages/noodle-web/src/noodle_web/templates && \
     mkdir -p packages/noodle-cli/src/noodle_cli && \
     touch packages/noodle-cli/src/noodle_cli/__init__.py
 
