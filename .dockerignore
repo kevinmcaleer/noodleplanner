@@ -6,16 +6,19 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 env.bak/
 venv.bak/
 cli_venv/
+*.egg-info/
 
-# Testing
+# Testing artifacts (tests themselves are copied explicitly)
 .pytest_cache/
 .coverage
 htmlcov/
 *.cover
+.coveragerc
 
 # IDE
 .vscode/
@@ -28,27 +31,39 @@ htmlcov/
 .git/
 .gitignore
 
-# Docker
+# Docker (avoid recursive context)
 Dockerfile
 docker-compose.yml
 .dockerignore
 
-# Environment files
+# Environment files (we copy .env.example explicitly)
 .env
 .env.local
 .env.*.local
 
-# Documentation
+# Documentation (not needed at runtime)
 *.md
-!requirements.txt
-!templates/**/*.md
+design/
+docs/
+archive/
 
-# OS
+# Packages not needed in the Docker image
+packages/noodle-ios/
+packages/obsidian-noodle-planner/
+
+# OS files
 .DS_Store
 Thumbs.db
 
-# Temporary files
+# Temporary and build files
 *.tmp
 *.log
-test_timeline.md
-test_timeline2.md
+.sesskey
+
+# Other non-runtime files
+.claude/
+create_database.py
+plan.md
+requirements-webapp.txt
+noodleplanner-icons-integration.md
+noodleplanner-icons.html

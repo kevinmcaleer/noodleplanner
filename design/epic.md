@@ -542,3 +542,64 @@ npm run dev
 | `extractMetadata()` | `metadata-extractor.ts` | Parse task line metadata |
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
+
+---
+
+## Docker
+
+### Overview
+
+The application is containerized using Docker for deployment. The Dockerfile is optimized for fast development rebuild cycles by ordering layers from least to most frequently changed.
+
+### Layer Strategy
+
+The build uses five layers ordered by change frequency:
+
+| Layer | Contents | Changes When |
+|-------|----------|--------------|
+| 1 - System deps | `gcc`, `curl`, apt packages | Rarely (new system-level library needed) |
+| 2 - uv installer | uv package manager | Rarely (uv version update) |
+| 3 - Dependencies | `pyproject.toml` + `uv.lock` files, `uv sync` | Dependencies added/removed/updated |
+| 4 - App source | Python source, templates, tests, alembic | Any code change (most common) |
+| 5 - Runtime config | `.env`, non-root user, EXPOSE | Rarely |
+
+### Key Optimizations
+
+- **Dependency caching**: Only `pyproject.toml` and `uv.lock` files are copied before `uv sync`. Minimal package stubs are created so uv can resolve workspace members without the full source tree. This means code-only changes skip the expensive dependency install entirely.
+- **Cache mounts**: `--mount=type=cache,target=/root/.cache/uv` persists the uv download cache across builds. Even when the dependency layer is invalidated (e.g., a new package is added), previously downloaded packages are reused from the cache mount.
+- **Selective package copying**: Only `noodle-core`, `noodle-web`, and `noodle-cli` packages are copied. `noodle-ios` and `obsidian-noodle-planner` are excluded since they are not needed at runtime.
+- **No manual CACHEBUST**: The layer ordering handles cache invalidation naturally. Code changes only invalidate layers 4-5, not the dependency install.
+
+### .dockerignore
+
+The `.dockerignore` excludes non-runtime files from the build context: Python cache files, test artifacts, IDE config, git history, documentation, iOS/Obsidian packages, and OS metadata files. This reduces the context size sent to the Docker daemon and prevents unnecessary cache invalidation.
+
+### Development Workflow
+
+```bash
+# Build and start (deps cached when only code changes)
+docker compose up --build
+
+# Rebuild from scratch (e.g., after Dockerfile changes)
+docker compose build --no-cache
+
+# Development mode: mount packages as a volume for live code changes
+# (already configured in docker-compose.yml)
+docker compose up
+```
+
+### docker-compose.yml
+
+The compose file configures:
+- Port mapping: `8007:8007`
+- Environment variables: `HOST`, `PORT`, `MAX_FILE_SIZE`, `RELOAD`, `DATABASE_URL`, `ENABLE_ACTIVITY_LOGGING`
+- Volume mount: `./packages:/app/packages` for live code reloading during development
+- Health check: HTTP probe on `/health` endpoint
+- Restart policy: `unless-stopped`
+
+### Files
+
+- `Dockerfile` -- Multi-layer build optimized for development
+- `docker-compose.yml` -- Service configuration
+- `.dockerignore` -- Build context exclusions
+- `.env.example` -- Template for environment variables
