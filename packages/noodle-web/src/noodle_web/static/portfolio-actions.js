@@ -142,7 +142,7 @@ async function renderPortfolioActions() {
 
         // Header with filter
         let html = '<div class="portfolio-actions-header">' +
-            '<h2>Action Chaser</h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--orange">Action Chaser</span></h2>' +
             '<div class="portfolio-actions-summary">' +
             '<div class="actions-summary-item">' +
             '<span class="summary-label">Open Actions</span>' +

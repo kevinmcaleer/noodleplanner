@@ -112,7 +112,7 @@ async function renderPortfolioRisks() {
 
         // Header with filters and summary
         let html = '<div class="portfolio-risks-header">' +
-            '<h2>Risk Register</h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--red">Risk Register</span></h2>' +
             '<div class="portfolio-risks-summary">' +
             '<div class="risks-summary-item">' +
             '<span class="summary-label">Open Risks</span>' +
