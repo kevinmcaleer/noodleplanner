@@ -9817,7 +9817,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close detail pane when pressing Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            // First check if any autocomplete dropdown is open - close it instead
+            // First check if keyboard shortcuts modal is open - close it
+            const kbOverlay = document.getElementById('keyboardShortcutsOverlay');
+            if (kbOverlay && kbOverlay.classList.contains('active')) {
+                closeKeyboardShortcuts();
+                return;
+            }
+
+            // Check if any autocomplete dropdown is open - close it instead
             const depDropdown = document.getElementById('dependencyAutocomplete');
             if (depDropdown && depDropdown.style.display === 'block') {
                 depDropdown.style.display = 'none';
@@ -9848,6 +9855,76 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } else {
                     closeDetailPane();
+                }
+            }
+        }
+    });
+
+    // Global keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Skip shortcuts when typing in text inputs, textareas, or contenteditable elements
+        if (isTypingInInput(e.target)) {
+            return;
+        }
+
+        // ? key (without modifiers) - show keyboard shortcuts help
+        if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            e.preventDefault();
+            showKeyboardShortcuts();
+            return;
+        }
+
+        // Alt-based shortcuts
+        if (e.altKey && !e.ctrlKey && !e.metaKey) {
+            // Alt+Shift combinations
+            if (e.shiftKey) {
+                switch (e.key) {
+                    case 'R':  // Alt+Shift+R - New Resource
+                        e.preventDefault();
+                        openResourceForm();
+                        return;
+                    case 'P':  // Alt+Shift+P - Export Portfolio to PowerPoint
+                        e.preventDefault();
+                        if (typeof exportPortfolioReport === 'function') {
+                            exportPortfolioReport();
+                        }
+                        return;
+                }
+            }
+
+            // Alt (no Shift) combinations
+            if (!e.shiftKey) {
+                switch (e.key) {
+                    case 'd':  // Alt+D - Go to Project Dashboard
+                        e.preventDefault();
+                        switchToView('project-report');
+                        return;
+                    case 'p':  // Alt+P - Go to Portfolio
+                        e.preventDefault();
+                        switchTab('portfolio');
+                        return;
+                    case 'n':  // Alt+N - New Project
+                        e.preventDefault();
+                        if (typeof showCreateProjectDialog === 'function') {
+                            showCreateProjectDialog();
+                        }
+                        return;
+                    case 't':  // Alt+T - New Task
+                        e.preventDefault();
+                        addNewTaskViaShortcut();
+                        return;
+                    case 'r':  // Alt+R - New Risk
+                        e.preventDefault();
+                        openRaidFormWithType('risk');
+                        return;
+                    case 'i':  // Alt+I - New Issue
+                        e.preventDefault();
+                        openRaidFormWithType('issue');
+                        return;
+                    case 'e':  // Alt+E - Export to Excel
+                        e.preventDefault();
+                        exportFile('excel', 'editor');
+                        return;
                 }
             }
         }
@@ -11861,6 +11938,12 @@ const tourSteps = [
         message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
         target: "#toolsTab",
         position: "bottom"
+    },
+    {
+        title: "Keyboard Shortcuts",
+        message: "Press ? at any time to see all available keyboard shortcuts. Use Alt+T to quickly add a task, Alt+R for a new risk, Alt+P to jump to the portfolio, and more.",
+        target: null,
+        position: "center"
     },
     {
         title: "You're Ready! 🚀",
@@ -15378,4 +15461,82 @@ async function uploadActionsExcel(event) {
 
     // Reset file input
     event.target.value = '';
+}
+
+// ============================================================================
+// KEYBOARD SHORTCUTS
+// ============================================================================
+
+/**
+ * Check if the user is currently typing in a text input, textarea, or
+ * contenteditable element. Keyboard shortcuts should not fire in these cases.
+ */
+function isTypingInInput(element) {
+    if (!element) return false;
+    const tagName = element.tagName.toLowerCase();
+    if (tagName === 'input' && element.type !== 'checkbox' && element.type !== 'radio') {
+        return true;
+    }
+    if (tagName === 'textarea') {
+        return true;
+    }
+    if (element.isContentEditable) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Show the keyboard shortcuts help modal.
+ */
+function showKeyboardShortcuts() {
+    const overlay = document.getElementById('keyboardShortcutsOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+    }
+}
+
+/**
+ * Close the keyboard shortcuts help modal.
+ */
+function closeKeyboardShortcuts() {
+    const overlay = document.getElementById('keyboardShortcutsOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
+/**
+ * Open the RAID form pre-set to a specific type (risk, issue, action, decision, dependency).
+ */
+function openRaidFormWithType(type) {
+    openRaidForm(null);
+    const typeField = document.getElementById('raidItemType');
+    if (typeField) {
+        typeField.value = type;
+    }
+}
+
+/**
+ * Add a new task line to the plan editor and open the task form for editing.
+ * Appends a placeholder task line at the end of the editor content.
+ */
+function addNewTaskViaShortcut() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const taskLine = '  New Task 1d';
+    const text = editor.value;
+    const newText = text.endsWith('\n') ? text + taskLine + '\n' : text + '\n' + taskLine + '\n';
+    editor.value = newText;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Find the line number of the newly added task and open the task form
+    const lines = editor.value.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim() === 'New Task 1d') {
+            openTaskForm(i + 1);
+            return;
+        }
+    }
 }

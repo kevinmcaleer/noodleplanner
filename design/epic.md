@@ -542,3 +542,50 @@ npm run dev
 | `extractMetadata()` | `metadata-extractor.ts` | Parse task line metadata |
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
+
+---
+
+### Keyboard Shortcuts (#511)
+
+Global keyboard shortcuts provide quick access to common actions without using the mouse. Shortcuts are disabled when the user is typing in a text input, textarea, or contenteditable element.
+
+**Navigation**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+D` | Go to Project Dashboard |
+| `Alt+P` | Go to Portfolio |
+
+**Create Items**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+N` | New Project (opens create project dialog) |
+| `Alt+T` | New Task (appends task line and opens task form) |
+| `Alt+R` | New Risk (opens RAID form with type set to Risk) |
+| `Alt+I` | New Issue (opens RAID form with type set to Issue) |
+| `Alt+Shift+R` | New Resource (opens resource form) |
+
+**Export**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+E` | Export project to Excel |
+| `Alt+Shift+P` | Export portfolio report to PowerPoint |
+
+**General**
+
+| Shortcut | Action |
+|----------|--------|
+| `?` | Show keyboard shortcuts help modal |
+| `Esc` | Close open panel, modal, or autocomplete dropdown |
+
+#### Implementation Details
+
+- **Input guard**: The `isTypingInInput()` function checks if the focused element is a text input, textarea, or contenteditable element. Shortcuts are suppressed in these contexts to avoid interfering with typing.
+- **Help modal**: A `keyboardShortcutsOverlay` modal in `index.html` lists all available shortcuts. Triggered by pressing `?` or accessible from the UI.
+- **Helper functions**:
+  - `showKeyboardShortcuts()` / `closeKeyboardShortcuts()` - toggle the help modal
+  - `openRaidFormWithType(type)` - opens a new RAID form pre-set to a specific type
+  - `addNewTaskViaShortcut()` - appends a new task line to the editor and opens the task form for editing
+- **Event listener**: A single `keydown` listener on `document` handles all Alt-based shortcuts, routing to the appropriate existing functions (`switchToView`, `switchTab`, `showCreateProjectDialog`, `exportFile`, `exportPortfolioReport`, `openResourceForm`).

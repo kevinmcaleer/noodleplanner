@@ -499,6 +499,104 @@ class TestStaticFiles:
         assert "detailed-timeline-svg" in css_content
 
 
+class TestKeyboardShortcuts:
+    """Test suite for keyboard shortcuts feature (#511)."""
+
+    def test_html_contains_keyboard_shortcuts_modal(self, client):
+        """Test that the HTML page contains the keyboard shortcuts modal."""
+        response = client.get("/")
+        assert response.status_code == 200
+        html_content = response.text
+        assert "keyboardShortcutsOverlay" in html_content
+        assert "Keyboard Shortcuts" in html_content
+
+    def test_html_shortcuts_modal_lists_all_shortcuts(self, client):
+        """Test that the shortcuts modal lists all expected shortcuts."""
+        response = client.get("/")
+        html_content = response.text
+        assert "Alt+D" in html_content
+        assert "Alt+P" in html_content
+        assert "Alt+N" in html_content
+        assert "Alt+T" in html_content
+        assert "Alt+R" in html_content
+        assert "Alt+I" in html_content
+        assert "Alt+Shift+R" in html_content
+        assert "Alt+E" in html_content
+        assert "Alt+Shift+P" in html_content
+
+    def test_html_shortcuts_modal_lists_actions(self, client):
+        """Test that the shortcuts modal describes the actions correctly."""
+        response = client.get("/")
+        html_content = response.text
+        assert "Go to Project Dashboard" in html_content
+        assert "Go to Portfolio" in html_content
+        assert "New Project" in html_content
+        assert "New Task" in html_content
+        assert "New Risk" in html_content
+        assert "New Issue" in html_content
+        assert "New Resource" in html_content
+        assert "Export Project to Excel" in html_content
+        assert "Export Portfolio Report to PowerPoint" in html_content
+
+    def test_script_contains_keyboard_shortcut_functions(self, client):
+        """Test that script.js contains the keyboard shortcut helper functions."""
+        response = client.get("/static/script.js")
+        assert response.status_code == 200
+        js_content = response.text
+        assert "function isTypingInInput" in js_content
+        assert "function showKeyboardShortcuts" in js_content
+        assert "function closeKeyboardShortcuts" in js_content
+        assert "function openRaidFormWithType" in js_content
+        assert "function addNewTaskViaShortcut" in js_content
+
+    def test_script_contains_keyboard_event_listener(self, client):
+        """Test that script.js registers a global keydown listener for shortcuts."""
+        response = client.get("/static/script.js")
+        js_content = response.text
+        assert "Global keyboard shortcuts" in js_content
+        assert "isTypingInInput(e.target)" in js_content
+
+    def test_script_shortcuts_check_alt_key(self, client):
+        """Test that Alt-based shortcuts check for the Alt modifier."""
+        response = client.get("/static/script.js")
+        js_content = response.text
+        assert "e.altKey" in js_content
+        assert "Alt+D - Go to Project Dashboard" in js_content
+        assert "Alt+P - Go to Portfolio" in js_content
+        assert "Alt+N - New Project" in js_content
+        assert "Alt+T - New Task" in js_content
+        assert "Alt+R - New Risk" in js_content
+        assert "Alt+I - New Issue" in js_content
+        assert "Alt+E - Export to Excel" in js_content
+
+    def test_script_shortcuts_check_alt_shift(self, client):
+        """Test that Alt+Shift shortcuts are handled."""
+        response = client.get("/static/script.js")
+        js_content = response.text
+        assert "Alt+Shift+R - New Resource" in js_content
+        assert "Alt+Shift+P - Export Portfolio to PowerPoint" in js_content
+
+    def test_script_question_mark_shows_help(self, client):
+        """Test that ? key triggers the shortcuts help modal."""
+        response = client.get("/static/script.js")
+        js_content = response.text
+        assert "showKeyboardShortcuts()" in js_content
+
+    def test_escape_closes_keyboard_shortcuts_modal(self, client):
+        """Test that Escape key handler closes the keyboard shortcuts modal."""
+        response = client.get("/static/script.js")
+        js_content = response.text
+        assert "closeKeyboardShortcuts()" in js_content
+        assert "keyboardShortcutsOverlay" in js_content
+
+    def test_tour_mentions_keyboard_shortcuts(self, client):
+        """Test that the interface tour includes a keyboard shortcuts step."""
+        response = client.get("/static/script.js")
+        js_content = response.text
+        assert "Keyboard Shortcuts" in js_content
+        assert "Press ? at any time" in js_content
+
+
 class TestEdgeCases:
     """Test edge cases and error conditions."""
 
