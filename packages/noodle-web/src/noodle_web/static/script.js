@@ -11859,6 +11859,8 @@ function openRaidForm(itemId) {
     const title = document.getElementById('raidFormTitle');
     const idField = document.getElementById('raidItemId');
 
+    const deleteRow = document.getElementById('raidDeleteButtonRow');
+
     if (itemId != null) {
         const item = raidItems.find(i => i.id === itemId);
         if (!item) return;
@@ -11874,6 +11876,7 @@ function openRaidForm(itemId) {
         document.getElementById('raidItemMitigation').value = item.mitigation_actions;
         document.getElementById('raidItemImpact').value = item.impact;
         document.getElementById('raidItemLikelihood').value = item.likelihood;
+        if (deleteRow) deleteRow.style.display = 'block';
     } else {
         title.textContent = 'New RAID Item';
         idField.value = '';
@@ -11886,6 +11889,7 @@ function openRaidForm(itemId) {
         document.getElementById('raidItemMitigation').value = '';
         document.getElementById('raidItemImpact').value = '3';
         document.getElementById('raidItemLikelihood').value = '3';
+        if (deleteRow) deleteRow.style.display = 'none';
     }
 
     updateRaidFormScore();
@@ -11959,6 +11963,46 @@ function saveRaidItemFromForm() {
 function deleteRaidItem(id) {
     if (!confirm('Are you sure you want to delete this RAID item?')) return;
     raidItems = raidItems.filter(i => i.id !== id);
+    renderRaidTable();
+    syncRaidLogToPlanText();
+    updateReportRaid();
+}
+
+let raidItemPendingDeleteId = null;
+
+function confirmDeleteRaidItem() {
+    const idField = document.getElementById('raidItemId').value;
+    if (!idField) return;
+
+    raidItemPendingDeleteId = parseInt(idField);
+    const item = raidItems.find(i => i.id === raidItemPendingDeleteId);
+    const itemTitle = item ? item.title : 'this item';
+
+    const msg = document.getElementById('raidDeleteConfirmMessage');
+    if (msg) {
+        msg.textContent = 'Are you sure you want to delete "' + itemTitle + '"? This action cannot be undone.';
+    }
+
+    const overlay = document.getElementById('raidDeleteConfirmOverlay');
+    if (overlay) overlay.classList.add('active');
+}
+
+function cancelDeleteRaidItem() {
+    raidItemPendingDeleteId = null;
+    const overlay = document.getElementById('raidDeleteConfirmOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+function executeDeleteRaidItem() {
+    if (raidItemPendingDeleteId == null) return;
+
+    raidItems = raidItems.filter(i => i.id !== raidItemPendingDeleteId);
+    raidItemPendingDeleteId = null;
+
+    const overlay = document.getElementById('raidDeleteConfirmOverlay');
+    if (overlay) overlay.classList.remove('active');
+
+    closeRaidForm();
     renderRaidTable();
     syncRaidLogToPlanText();
     updateReportRaid();

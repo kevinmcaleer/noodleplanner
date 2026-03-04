@@ -1968,6 +1968,12 @@ Build
                         <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
+
+                    <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn-danger" onclick="confirmDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this RAID item">
+                            &#128465; Delete Item
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -2570,6 +2576,23 @@ Build
     <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
+
+    <!-- RAID Delete Confirmation Modal -->
+    <div id="raidDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteRaidItem()" role="dialog" aria-modal="true" aria-label="Confirm delete RAID item">
+        <div class="task-form-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Delete RAID Item</h2>
+                <button class="close-btn" onclick="cancelDeleteRaidItem()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="raidDeleteConfirmMessage">Are you sure you want to delete this RAID item? This action cannot be undone.</p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-secondary" onclick="cancelDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
+                    <button type="button" class="btn-danger" onclick="executeDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Keyboard Shortcuts Modal -->
     <div id="shortcutsOverlay" class="shortcuts-modal-overlay" onclick="if(event.target===this) closeShortcutsModal()" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
