@@ -13189,6 +13189,7 @@ function buildMappingGrid(columns) {
         { key: 'priority', label: 'Priority' },
         { key: 'bucket', label: 'Bucket' },
         { key: 'comment', label: 'Comment' },
+        { key: 'depends_on', label: 'Dependencies' },
     ];
 
     // Auto-detection patterns
@@ -13202,6 +13203,7 @@ function buildMappingGrid(columns) {
         priority: ['priority', 'urgency', 'importance'],
         bucket: ['bucket', 'category', 'group', 'board column'],
         comment: ['comment', 'comments', 'notes', 'note', 'description'],
+        depends_on: ['predecessors', 'depends on', 'dependencies', 'depends'],
     };
 
     let html = '';
@@ -14164,7 +14166,7 @@ function getRAGColor(rag) {
 }
 
 function getColumnMapping() {
-    const fields = ['task_name', 'start_date', 'end_date', 'duration', 'resources', 'percent_complete', 'priority', 'bucket', 'comment'];
+    const fields = ['task_name', 'start_date', 'end_date', 'duration', 'resources', 'percent_complete', 'priority', 'bucket', 'comment', 'depends_on'];
     const mapping = {};
     fields.forEach(f => {
         const el = document.getElementById('wizardMap_' + f);

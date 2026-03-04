@@ -204,6 +204,37 @@ class TestParsePlannerDependency:
         deps, warnings = parse_planner_dependency("2FS, 5FS", task_map)
         assert deps == ["Design", "Build"]
 
+    def test_lag_positive_days(self):
+        task_map = {2: "Design"}
+        deps, warnings = parse_planner_dependency("2FS+3d", task_map)
+        assert deps == ["Design"]
+        assert any("Lag/lead" in w for w in warnings)
+
+    def test_lag_negative(self):
+        task_map = {2: "Design"}
+        deps, warnings = parse_planner_dependency("2FS-2", task_map)
+        assert deps == ["Design"]
+        assert any("Lag/lead" in w for w in warnings)
+
+    def test_lag_with_weeks(self):
+        task_map = {2: "Design"}
+        deps, warnings = parse_planner_dependency("2FS+1w", task_map)
+        assert deps == ["Design"]
+        assert any("Lag/lead" in w for w in warnings)
+
+    def test_implicit_fs_with_lag(self):
+        task_map = {2: "Design"}
+        deps, warnings = parse_planner_dependency("2+3d", task_map)
+        assert deps == ["Design"]
+        assert any("Lag/lead" in w for w in warnings)
+
+    def test_multiple_with_lag(self):
+        task_map = {2: "Design", 5: "Build"}
+        deps, warnings = parse_planner_dependency("2FS+1d,5FS-2d", task_map)
+        assert deps == ["Design", "Build"]
+        lag_warnings = [w for w in warnings if "Lag/lead" in w]
+        assert len(lag_warnings) == 2
+
 
 # ---------- TestDetectPlannerWorksheet ----------
 
@@ -750,3 +781,31 @@ class TestGenericConverterWithPlannerData:
         mapping = {"task_name": "Name", "duration": "Duration"}
         result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
         assert "2w" in result["markdown"]
+
+    def test_convert_excel_parses_dependencies_new_format(self):
+        """Dependencies in 'Depends on' column should produce [depends ...] tags."""
+        data = _make_new_planner_xlsx_bytes()
+        mapping = {"task_name": "Name", "duration": "Duration",
+                   "depends_on": "Depends on"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
+        md = result["markdown"]
+        assert "[depends Requirements]" in md
+        assert "[depends Design]" in md
+        assert "[depends Build Feature]" in md
+
+    def test_convert_excel_parses_dependencies_old_format(self):
+        """Dependencies in 'Predecessors' column with FS suffix should work."""
+        data = _make_planner_xlsx_bytes()
+        mapping = {"task_name": "Task Name", "duration": "Duration",
+                   "depends_on": "Predecessors"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Project tasks", mapping)
+        md = result["markdown"]
+        assert "[depends Requirements]" in md
+        assert "[depends Design]" in md
+
+    def test_convert_excel_no_depends_without_mapping(self):
+        """Without depends_on in mapping, no [depends] tags should appear."""
+        data = _make_new_planner_xlsx_bytes()
+        mapping = {"task_name": "Name", "duration": "Duration"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
+        assert "[depends" not in result["markdown"]

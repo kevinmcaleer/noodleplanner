@@ -23,6 +23,7 @@ COLUMN_PATTERNS = {
     "resources": ["resources", "resource", "assigned to", "owner"],
     "percent_complete": ["% complete", "percent complete", "complete", "progress", "% done"],
     "comment": ["comment", "comments", "notes", "note", "description"],
+    "depends_on": ["predecessors", "depends on", "dependencies", "depends"],
 }
 
 # Planner header field names (case-insensitive matching)
@@ -297,19 +298,26 @@ def parse_planner_dependency(dep_string, task_number_to_name):
         if not part:
             continue
 
-        # Match: optional number + optional dependency type (FS, SS, FF, SF)
-        match = re.match(r"(\d+)\s*(FS|SS|FF|SF)?", part, re.IGNORECASE)
+        # Match: number + optional dependency type (FS, SS, FF, SF) + optional lag/lead
+        match = re.match(r"(\d+)\s*(FS|SS|FF|SF)?\s*([+-]\d+[dwm]?)?", part, re.IGNORECASE)
         if not match:
             warnings.append(f"Could not parse dependency '{part}'")
             continue
 
         task_num = int(match.group(1))
         dep_type = (match.group(2) or "FS").upper()
+        lag_lead = match.group(3)  # e.g. "+3d", "-2", "+1w"
 
         if dep_type != "FS":
             warnings.append(
                 f"Dependency type '{dep_type}' on task {task_num} "
                 f"not supported, treating as finish-to-start (FS)"
+            )
+
+        if lag_lead:
+            warnings.append(
+                f"Lag/lead '{lag_lead}' on task {task_num} ignored "
+                f"(not supported by NoodlePlanner)"
             )
 
         task_name = task_number_to_name.get(task_num)
@@ -863,6 +871,17 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 f"Task name column '{column_mapping['task_name']}' not found in sheet headers"
             )
 
+        # Build task number-to-name map for dependency resolution
+        task_number_to_name = {}
+        if "depends_on" in col_index:
+            for row_idx, row in enumerate(data_rows, start=1):
+                if not row or all(c is None for c in row):
+                    continue
+                name_val = row[col_index["task_name"]] if col_index["task_name"] < len(row) else None
+                if name_val is None or str(name_val).strip() == "":
+                    continue
+                task_number_to_name[row_idx] = str(name_val).strip()
+
         # Extract task data
         tasks = []
         all_resources = set()
@@ -978,6 +997,15 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 if raw_comment is not None and str(raw_comment).strip():
                     comment = str(raw_comment).strip()
 
+            # Parse dependencies
+            dep_names = []
+            if "depends_on" in col_index and col_index["depends_on"] < len(row):
+                raw_dep = row[col_index["depends_on"]]
+                dep_names, dep_warnings = parse_planner_dependency(
+                    raw_dep, task_number_to_name
+                )
+                warnings.extend(f"Row {row_num}: {w}" for w in dep_warnings)
+
             tasks.append({
                 "name": task_name,
                 "start_date": start_date,
@@ -989,6 +1017,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 "priority": priority,
                 "bucket": bucket,
                 "comment": comment,
+                "depends": dep_names,
             })
 
         # Check if there's a RAID Log sheet and parse it before closing workbook
@@ -1218,6 +1247,11 @@ def _build_task_metadata(task, resource_map):
     # Bucket
     if task.get("bucket"):
         parts.append(f"{{{task['bucket']}}}")
+
+    # Dependencies
+    if task.get("depends"):
+        dep_str = ", ".join(task["depends"])
+        parts.append(f"[depends {dep_str}]")
 
     # Comment
     if task.get("comment"):
