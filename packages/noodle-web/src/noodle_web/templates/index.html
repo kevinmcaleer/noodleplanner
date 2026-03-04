@@ -132,9 +132,10 @@
       </defs>
     </svg>
 
+    <a href="#main-content" class="skip-to-content">Skip to content</a>
     <div class="container-fluid m-0 p-0">
-        <div class="content">
-            <div class="tabs">
+        <div class="content" id="main-content" role="main">
+            <div class="tabs" role="navigation" aria-label="Main navigation">
                 <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
                 <button class="tab nav-dashboard-btn active" id="dashboardTab" onclick="switchToView('project-report')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
@@ -156,46 +157,46 @@
                         Tools ▾
                     </button>
                     <div class="nav-menu" id="toolsMenu" role="menu" aria-label="Tools">
-                        <div class="nav-menu-item" onclick="switchToView('text-report'); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="switchToView('text-report'); event.stopPropagation();">
                             📝 Text Report
                         </div>
-                        <div class="nav-menu-item" onclick="switchTab('planning'); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="switchTab('planning'); event.stopPropagation();">
                             📋 Planning Room
                         </div>
-                        <div class="nav-menu-item" onclick="openTemplatesModal(); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openTemplatesModal(); event.stopPropagation();">
                             📄 Templates
                         </div>
-                        <div class="nav-menu-item" onclick="switchTab('guide'); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="switchTab('guide'); event.stopPropagation();">
                             📖 Syntax Guide
                         </div>
                         <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" onclick="triggerExcelUpload(); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerExcelUpload(); event.stopPropagation();">
                             📥 Import from Excel
                         </div>
                         <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
                             📊 Export to Excel
                         </div>
-                        <div class="nav-menu-item" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
                             📋 Export to CSV
                         </div>
-                        <div class="nav-menu-item" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
                             📄 Export to PDF
                         </div>
-                        <div class="nav-menu-item" onclick="exportReportPptx(); event.stopPropagation();">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportReportPptx(); event.stopPropagation();">
                             📊 Export Report to PowerPoint
                         </div>
                         <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
-                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
                             ⬇ Download RAID Markdown
                         </div>
-                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
                             ⬆ Upload RAID Markdown
                         </div>
-                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
                             📊 Export RAID to Excel
                         </div>
-                        <div class="nav-menu-item raid-export-item" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
                             📊 Upload RAID Excel
                         </div>
                     </div>
@@ -203,7 +204,7 @@
             </div>
 
             <!-- Plan Sub-Navigation Bar (shared across all Plan views) -->
-            <div class="plan-subnav" id="planSubnav">
+            <div class="plan-subnav" id="planSubnav" role="navigation" aria-label="Project views">
                 <button class="plan-subnav-btn" data-view="project-report" onclick="switchPlanSubnavToDashboard()">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
                 </button>
@@ -234,7 +235,7 @@
             </div>
 
             <!-- Tracking Sub-Navigation Bar (shared across all Tracking views) -->
-            <div class="plan-subnav" id="trackingSubnav">
+            <div class="plan-subnav" id="trackingSubnav" role="navigation" aria-label="Tracking views">
                 <button class="plan-subnav-btn" data-view="raid" onclick="switchTrackingSubnavToTab('raid')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
                 </button>
@@ -253,7 +254,7 @@
             </div>
 
             <!-- Resources Sub-Navigation Bar (shared across all Resources views) -->
-            <div class="plan-subnav" id="resourcesSubnav">
+            <div class="plan-subnav" id="resourcesSubnav" role="navigation" aria-label="Resource views">
                 <button class="plan-subnav-btn" data-view="resources" onclick="switchToView('resources')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
                 </button>
@@ -269,7 +270,7 @@
             </div>
 
             <!-- Tools Sub-Navigation Bar (shared across all Tools views) -->
-            <div class="plan-subnav" id="toolsSubnav">
+            <div class="plan-subnav" id="toolsSubnav" role="navigation" aria-label="Tool views">
                 <button class="plan-subnav-btn" data-view="text-report" onclick="switchToView('text-report')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Text Report
                 </button>
@@ -1964,7 +1965,7 @@ Build
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="closeRaidForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveRaidItemFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
@@ -1998,7 +1999,7 @@ Build
                         <input type="text" id="stakeholderItemRole" class="form-control" placeholder="Role or title">
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="stakeholderItemInterest">Interest</label>
                             <select id="stakeholderItemInterest" class="form-control">
@@ -2015,7 +2016,7 @@ Build
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="closeStakeholderForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveStakeholderFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
@@ -2076,7 +2077,7 @@ Build
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="closeActionForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveActionFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
@@ -2113,7 +2114,7 @@ Build
                         <small>Supports bullet lists, bold, italic, strikethrough, headings (h1-h3), horizontal rules, and numbered lists.</small>
                     </div>
 
-                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <div class="form-actions">
                         <button type="button" class="btn-secondary" onclick="closeHighlightForm()" style="padding: 8px 20px;">Cancel</button>
                         <button type="button" class="btn-primary" onclick="saveHighlightFromForm()" style="padding: 8px 20px;">Save</button>
                     </div>
