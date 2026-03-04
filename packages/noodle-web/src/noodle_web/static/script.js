@@ -2214,6 +2214,29 @@ function updateReportMilestones(tasks) {
 
         tbody.innerHTML = '';
 
+        // Check if a baseline plan exists
+        const hasBaseline = baselineItems.length > 0;
+        const baselineLookup = hasBaseline ? getBaselineLookup() : {};
+
+        // Update the table header to include baseline columns when baseline exists
+        const thead = tableEl ? tableEl.querySelector('thead tr') : null;
+        if (thead) {
+            thead.innerHTML = '';
+            const headers = ['Milestone', 'Date'];
+            if (hasBaseline) {
+                headers.push('BL Finish', 'Variance');
+            }
+            headers.push('RAG');
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.textContent = h;
+                if (h === 'BL Finish' || h === 'Variance') {
+                    th.classList.add('baseline-col');
+                }
+                thead.appendChild(th);
+            });
+        }
+
         // Filter to only milestones (0-duration, non-summary tasks)
         const allMilestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
 
@@ -2264,6 +2287,42 @@ function updateReportMilestones(tasks) {
             const dateCell = document.createElement('td');
             dateCell.textContent = task.finish || '-';
             row.appendChild(dateCell);
+
+            // Baseline columns (shown automatically when baseline exists)
+            if (hasBaseline) {
+                const bl = baselineLookup[task.name];
+
+                const blFinishCell = document.createElement('td');
+                blFinishCell.classList.add('baseline-col');
+                blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
+                row.appendChild(blFinishCell);
+
+                const varianceCell = document.createElement('td');
+                varianceCell.classList.add('baseline-col');
+                if (bl && bl.finish && task.finish) {
+                    const currentDate = parseLocalDate(task.finish);
+                    const baselineDate = parseLocalDate(bl.finish);
+                    if (currentDate && baselineDate) {
+                        const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
+                        if (diffDays > 0) {
+                            varianceCell.textContent = '+' + diffDays + 'd';
+                            varianceCell.classList.add('baseline-late');
+                        } else if (diffDays < 0) {
+                            varianceCell.textContent = diffDays + 'd';
+                            varianceCell.classList.add('baseline-early');
+                        } else {
+                            varianceCell.textContent = 'On track';
+                            varianceCell.classList.add('baseline-ontrack');
+                        }
+                    } else {
+                        varianceCell.textContent = '-';
+                    }
+                } else {
+                    varianceCell.textContent = bl ? '-' : 'New';
+                    if (!bl) varianceCell.classList.add('baseline-new');
+                }
+                row.appendChild(varianceCell);
+            }
 
             const ragCell = document.createElement('td');
             const ragValue = task.rag || '-';

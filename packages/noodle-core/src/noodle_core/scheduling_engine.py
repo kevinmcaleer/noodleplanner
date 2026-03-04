@@ -3864,8 +3864,14 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     """
     # Parse resource mappings from original text if provided
     resource_map = {}
+    baseline_lookup = {}
     if original_text:
         resource_map = parse_resource_mappings(original_text)
+        # Extract baseline items for milestone comparison
+        baseline_text = extract_baseline(original_text)
+        if baseline_text:
+            baseline_items_list = parse_baseline_markdown(baseline_text)
+            baseline_lookup = {item['name']: item for item in baseline_items_list}
 
     # Parse the text to get tasks and project info
     if is_yaml:
@@ -4000,7 +4006,10 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
 
     # Create Milestones sheet
     ws_milestones = wb.create_sheet("Milestones")
+    has_baseline = len(baseline_lookup) > 0
     milestone_headers = ['Milestone', 'Type', 'Date']
+    if has_baseline:
+        milestone_headers.extend(['Baseline Finish', 'Variance (days)'])
     ws_milestones.append(milestone_headers)
 
     # Style header row
@@ -4069,6 +4078,27 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             milestone['type'],
             milestone['date'].strftime('%Y-%m-%d') if milestone['date'] else ''
         ]
+        if has_baseline:
+            bl = baseline_lookup.get(milestone['name'])
+            bl_finish = bl.get('finish', '') if bl else ''
+            row.append(bl_finish)
+            # Calculate variance in days
+            if bl_finish and milestone['date']:
+                try:
+                    from datetime import date as date_type
+                    bl_date = datetime.strptime(bl_finish, '%Y-%m-%d').date() if isinstance(bl_finish, str) else bl_finish
+                    current_date = milestone['date'].date() if isinstance(milestone['date'], datetime) else milestone['date']
+                    diff = (current_date - bl_date).days
+                    if diff > 0:
+                        row.append(f'+{diff}')
+                    elif diff < 0:
+                        row.append(str(diff))
+                    else:
+                        row.append('0')
+                except (ValueError, TypeError):
+                    row.append('')
+            else:
+                row.append('New' if not bl else '')
         ws_milestones.append(row)
 
     # Auto-adjust column widths
