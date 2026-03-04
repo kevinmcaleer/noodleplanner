@@ -134,75 +134,15 @@
                 <button class="tab" id="portfolioTab" onclick="switchTab('portfolio')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
                 </button>
-                <div class="nav-dropdown">
-                    <button class="tab" id="planTab" onclick="togglePlanMenu(event)">
-                        Plan ▾
-                    </button>
-                    <div class="nav-menu" id="planMenu">
-                        <div class="nav-menu-item" onclick="switchToView('tasks'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('gantt'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('calendar'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
-                        </div>
-                        <div class="nav-menu-item" onclick="switchPlanSubnavToBoard(); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('timeline'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('milestones'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('mindmap'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
-                        </div>
-                    </div>
-                </div>
-                <div class="nav-dropdown">
-                    <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)">
-                        Tracking ▾
-                    </button>
-                    <div class="nav-menu" id="trackingMenu">
-                        <div class="nav-menu-item" onclick="switchTab('raid'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
-                        </div>
-                        <div class="nav-menu-item" onclick="switchTab('actions'); event.stopPropagation();">
-                            ✓ Actions Tracker
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('highlights'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('lookahead'); event.stopPropagation();">
-                            🔮 2-Week Look-Ahead
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('analysis'); event.stopPropagation();">
-                            🔍 Analysis
-                        </div>
-                    </div>
-                </div>
-                <div class="nav-dropdown">
-                    <button class="tab" id="resourcesTab" onclick="toggleResourcesMenu(event)">
-                        Resources ▾
-                    </button>
-                    <div class="nav-menu" id="resourcesMenu">
-                        <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('timesheet'); event.stopPropagation();">
-                            ⏰ Timesheet
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('user-workload'); event.stopPropagation();">
-                            👤 User Workload
-                        </div>
-                        <div class="nav-menu-item" onclick="switchToView('resource-sheet'); event.stopPropagation();">
-                            📋 Resource Sheet
-                        </div>
-                    </div>
-                </div>
+                <button class="tab" id="planTab" onclick="switchToProject()">
+                    Project
+                </button>
+                <button class="tab" id="trackingTab" onclick="switchToTracking()">
+                    Tracking
+                </button>
+                <button class="tab" id="resourcesTab" onclick="switchToResources()">
+                    Resources
+                </button>
                 <div class="nav-dropdown">
                     <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)">
                         Tools ▾
