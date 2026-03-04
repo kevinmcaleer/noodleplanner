@@ -12,7 +12,7 @@ Noodle Planner is a project planning tool that converts natural language task de
 
 The scheduling engine (`packages/noodle-core/`) parses natural language task definitions and calculates start/finish dates based on:
 
-- **Duration**: `3d` (days), `2w` (weeks), `1m` (months)
+- **Duration**: `3d` (days), `2w` (weeks), `1m` (months), `1y` (years)
 - **Resources**: `@john @jane`
 - **Dependencies**: `#taskname` or `[depends task1 +2d, task2 -1w]`
 - **Sequential tasks**: `*Task Name` (starts after previous task)
@@ -32,7 +32,70 @@ The web application (`packages/noodle-web/`) provides:
 - **Report View**: Quad dashboard with project header, timeline, milestones, RAID, and highlights
 - **2-Week Look-Ahead View**: Focused view of upcoming tasks (next 14 days) and overdue items
 - **User Workload View**: Task breakdown by user with workload statistics and filtering
-- **Export**: Excel, PowerPoint, PDF
+- **Export**: Excel, CSV, PowerPoint, PDF
+
+### CSV Export
+
+The CSV export feature provides a simple tabular export of the project schedule.
+
+**Function:** `export_to_csv()` in `packages/noodle-core/src/noodle_core/scheduling_engine.py` (line 5114)
+
+**API Endpoint:** `POST /render` with `export_csv: true`
+
+**Response:**
+- Content-Type: `text/csv`
+- Content-Disposition header with `{project_name}.csv` filename
+
+**Columns:** ID, Task Name, Start, Finish, Duration (days), Resources, % Complete, RAG, Priority, Bucket, Comment
+
+### Keyboard Shortcuts
+
+Press `?` to open the keyboard shortcuts modal, which lists all available shortcuts.
+
+**Editor Shortcuts:**
+- `Tab` / `Shift+Tab`: Indent/outdent tasks
+- `Ctrl+Enter` / `Cmd+Enter`: Render the plan
+
+**Navigation Shortcuts:**
+- `1`-`9`: Switch between tabs (Editor, Dashboard, Plan views, etc.)
+
+### Drag and Drop File Loading (Issue #244)
+
+Users can drag and drop `.md` or `.txt` files directly onto the editor panel to load them.
+
+**Behaviour:**
+- Visual feedback with drag-over styling on the editor panel
+- File contents replace the current editor text
+- Plan auto-renders after loading
+
+**Key JavaScript Functions:**
+- Editor panel `dragover`, `dragleave`, `drop` event listeners
+- Uses `FileReader` API to read dropped file contents
+
+### Top Navigation (Issue #503)
+
+The top navigation bar uses direct-link buttons instead of dropdown menus for the main sections. Each button navigates to a default view and reveals a sub-navigation bar with all related views.
+
+| Button | Default View | Sub-Navigation Views |
+|--------|-------------|---------------------|
+| Dashboard | Project Report | (shows plan subnav) |
+| Portfolio | Portfolio | (no subnav) |
+| Project | Project Report (Dashboard) | Dashboard, Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map |
+| Tracking | RAID Log | RAID Log, Actions, Highlights, Look-Ahead, Analysis |
+| Resources | Resource Table | Resource Table, Timesheet, Workload, Resource Sheet |
+| Tools | (dropdown menu) | Text Report, Planning Room, Syntax Guide, Import/Export |
+
+**Key functions:**
+- `switchToProject()` -- Navigates to Dashboard with plan subnav, highlights Project tab
+- `switchToTracking()` -- Navigates to RAID Log with tracking subnav, highlights Tracking tab
+- `switchToResources()` -- Navigates to Resource Table with resources subnav, highlights Resources tab
+- `switchToView(viewName)` -- General view switcher that updates nav state and subnav
+- `updatePlanSubnav(viewName)` -- Shows/hides the correct subnav group and highlights the active button
+
+**Design notes:**
+- Only the Tools menu retains its dropdown; Project, Tracking, and Resources are direct links
+- Each section has a persistent sub-navigation bar (`.plan-subnav`) visible when any view in that group is active
+- The Dashboard and Project buttons both navigate to the project report, but Dashboard highlights the Dashboard tab while Project highlights the Project tab
 
 ### Project Report (Quad Layout)
 
@@ -135,6 +198,16 @@ The Portfolio tab provides cross-project visibility through multiple sub-views:
 **Actions Chaser (`portfolio-actions.js`):**
 - Shows open actions from RAID logs across all projects
 - Filterable by project, owner, and status
+
+**2-Week Look-Ahead (`portfolio-lookahead.js`):**
+- Aggregates overdue and upcoming tasks across all projects into a portfolio-level view
+- Two sections: Overdue Tasks (past due, not 100% complete) and Upcoming Tasks (starting or finishing within the next 14 days)
+- Project name shown as the first column in each table
+- Filterable by project using a dropdown
+- Summary header shows counts for overdue tasks, upcoming tasks, and number of projects
+- Sortable columns (project, task name, dates, days late, percent complete)
+- Clicking a task row navigates to the project editor and opens the task details form for that task
+- Data sourced from `/api/parse` via `parseAllProjects()` -- only non-summary tasks are included
 
 **Portfolio Timeline (`portfolio-timeline.js`):**
 - SVG-based Gantt-style timeline showing all projects as horizontal swimlane rows
@@ -516,7 +589,7 @@ npm run dev
 | `#taskname` | Dependency | `Task #other_task` |
 | `[depends ...]` | Dependencies with lag/lead | `[depends task1 +2d, task2 -1w]` |
 | `*` | Sequential (after previous) | `*Task Name` |
-| `Nd/Nw/Nm` | Duration | `3d`, `2w`, `1m` |
+| `Nd/Nw/Nm/Ny` | Duration | `3d`, `2w`, `1m`, `1y` |
 | `N%` | Percent complete | `50%` |
 | `YYYY-MM-DD` | Explicit start date | `2025-01-15` |
 | `!"text"` | Comment | `!"important note"` |
@@ -603,3 +676,368 @@ Pressing the `?` key (outside of text inputs) opens a modal listing all keyboard
 - Menu items are keyboard-navigable with Arrow Up/Down, Enter to select, and Escape to close.
 - Focus-visible outlines are styled for keyboard users on tabs, menu items, and sub-navigation buttons.
 - The `aria-expanded` state is synced automatically via a MutationObserver when menus open or close.
+### Security Hardening (Issue #235)
+
+Security middleware and configuration to protect the NoodlePlanner web application in production deployments.
+
+**Security Headers:**
+All responses include the following headers via `SecurityHeadersMiddleware`:
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Frame-Options` | `DENY` | Prevents clickjacking by blocking iframe embedding |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing attacks |
+| `X-XSS-Protection` | `1; mode=block` | Enables browser XSS filtering |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Enforces HTTPS connections |
+| `Content-Security-Policy` | (configured for self + CDN) | Controls resource loading sources |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referrer information leakage |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disables unnecessary browser APIs |
+
+**Rate Limiting:**
+- In-memory per-IP rate limiting via `RateLimitMiddleware`
+- Configurable via `RATE_LIMIT_REQUESTS` (default: 100) and `RATE_LIMIT_WINDOW` (default: 60 seconds)
+- Returns HTTP 429 with `Retry-After` header when limit is exceeded
+- Each IP address has an independent request counter
+
+**CORS Configuration:**
+- `CORS_ORIGINS` environment variable (comma-separated list of allowed origins)
+- Defaults to `["*"]` when not set (development convenience)
+- Example production config: `CORS_ORIGINS=https://app.example.com,https://staging.example.com`
+
+**Request Body Size Limit:**
+- `BodySizeLimitMiddleware` rejects requests with `Content-Length` exceeding `MAX_BODY_SIZE`
+- Configurable via `MAX_BODY_SIZE` environment variable (default: 10 MB)
+- Returns HTTP 413 when exceeded
+
+**Error Message Sanitization:**
+- `ENVIRONMENT` environment variable controls error detail level (`development` or `production`)
+- In production: generic error messages returned to clients; full details logged server-side
+- In development: full error details included in responses for debugging
+- `ErrorSanitizationMiddleware` catches unhandled exceptions
+- `_sanitized_detail()` helper used by all endpoint error handlers
+
+**API Key Authentication:**
+- Optional authentication via `APIKeyAuthMiddleware`
+- Controlled by `API_KEY` environment variable
+- When `API_KEY` is set: requires `Authorization: Bearer <key>` header on all requests
+- When `API_KEY` is empty/unset: all requests allowed (current default behaviour)
+- Public paths always accessible without auth: `/health`, `/healthz`, `/favicon.png`, `/logo.png`, `/static/*`
+
+**File Upload Validation:**
+- All upload endpoints validate file extension (`.xlsx`, `.xls` only for Excel endpoints)
+- File size checked against `MAX_FILE_SIZE` environment variable (default: 1 MB)
+- Content-Type verification on upload endpoints
+
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENVIRONMENT` | `development` | Set to `production` for sanitized errors |
+| `API_KEY` | (empty) | When set, requires Bearer token auth |
+| `CORS_ORIGINS` | (empty = `*`) | Comma-separated allowed CORS origins |
+| `RATE_LIMIT_REQUESTS` | `100` | Max requests per window per IP |
+| `RATE_LIMIT_WINDOW` | `60` | Rate limit window in seconds |
+| `MAX_BODY_SIZE` | `10485760` | Max request body size in bytes (10 MB) |
+| `MAX_FILE_SIZE` | `1048576` | Max uploaded file size in bytes (1 MB) |
+
+**Middleware Stack (applied outermost to innermost):**
+1. `APIKeyAuthMiddleware` -- authentication gate
+2. `ErrorSanitizationMiddleware` -- exception catching
+3. `RateLimitMiddleware` -- request throttling
+4. `BodySizeLimitMiddleware` -- payload size check
+5. `SecurityHeadersMiddleware` -- response header injection
+6. `CORSMiddleware` -- cross-origin request handling
+7. `ActivityLoggingMiddleware` -- request logging
+
+**Files:**
+- `packages/noodle-web/src/noodle_web/security.py` -- All security middleware and helpers
+- `packages/noodle-web/src/noodle_web/app.py` -- Middleware registration and error sanitization
+- `tests/test_security.py` -- Comprehensive tests (42 tests)
+---
+
+## Docker
+
+### Overview
+
+The application is containerized using Docker for deployment. The Dockerfile is optimized for fast development rebuild cycles by ordering layers from least to most frequently changed.
+
+### Layer Strategy
+
+The build uses five layers ordered by change frequency:
+
+| Layer | Contents | Changes When |
+|-------|----------|--------------|
+| 1 - System deps | `gcc`, `curl`, apt packages | Rarely (new system-level library needed) |
+| 2 - uv installer | uv package manager | Rarely (uv version update) |
+| 3 - Dependencies | `pyproject.toml` + `uv.lock` files, `uv sync` | Dependencies added/removed/updated |
+| 4 - App source | Python source, templates, tests, alembic | Any code change (most common) |
+| 5 - Runtime config | `.env`, non-root user, EXPOSE | Rarely |
+
+### Key Optimizations
+
+- **Dependency caching**: Only `pyproject.toml` and `uv.lock` files are copied before `uv sync`. Minimal package stubs are created so uv can resolve workspace members without the full source tree. This means code-only changes skip the expensive dependency install entirely.
+- **Cache mounts**: `--mount=type=cache,target=/root/.cache/uv` persists the uv download cache across builds. Even when the dependency layer is invalidated (e.g., a new package is added), previously downloaded packages are reused from the cache mount.
+- **Selective package copying**: Only `noodle-core`, `noodle-web`, and `noodle-cli` packages are copied. `noodle-ios` and `obsidian-noodle-planner` are excluded since they are not needed at runtime.
+- **No manual CACHEBUST**: The layer ordering handles cache invalidation naturally. Code changes only invalidate layers 4-5, not the dependency install.
+
+### .dockerignore
+
+The `.dockerignore` excludes non-runtime files from the build context: Python cache files, test artifacts, IDE config, git history, documentation, iOS/Obsidian packages, and OS metadata files. This reduces the context size sent to the Docker daemon and prevents unnecessary cache invalidation.
+
+### Development Workflow
+
+```bash
+# Build and start (deps cached when only code changes)
+docker compose up --build
+
+# Rebuild from scratch (e.g., after Dockerfile changes)
+docker compose build --no-cache
+
+# Development mode: mount packages as a volume for live code changes
+# (already configured in docker-compose.yml)
+docker compose up
+```
+
+### docker-compose.yml
+
+The compose file configures:
+- Port mapping: `8007:8007`
+- Environment variables: `HOST`, `PORT`, `MAX_FILE_SIZE`, `RELOAD`, `DATABASE_URL`, `ENABLE_ACTIVITY_LOGGING`
+- Volume mount: `./packages:/app/packages` for live code reloading during development
+- Health check: HTTP probe on `/health` endpoint
+- Restart policy: `unless-stopped`
+
+### Files
+
+- `Dockerfile` -- Multi-layer build optimized for development
+- `docker-compose.yml` -- Service configuration
+- `.dockerignore` -- Build context exclusions
+- `.env.example` -- Template for environment variables
+### Keyboard Shortcuts (#511)
+
+Global keyboard shortcuts provide quick access to common actions without using the mouse. Shortcuts are disabled when the user is typing in a text input, textarea, or contenteditable element.
+
+**Navigation**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+D` | Go to Project Dashboard |
+| `Alt+P` | Go to Portfolio |
+
+**Create Items**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+N` | New Project (opens create project dialog) |
+| `Alt+T` | New Task (appends task line and opens task form) |
+| `Alt+R` | New Risk (opens RAID form with type set to Risk) |
+| `Alt+I` | New Issue (opens RAID form with type set to Issue) |
+| `Alt+Shift+R` | New Resource (opens resource form) |
+
+**Export**
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt+E` | Export project to Excel |
+| `Alt+Shift+P` | Export portfolio report to PowerPoint |
+
+**General**
+
+| Shortcut | Action |
+|----------|--------|
+| `?` | Show keyboard shortcuts help modal |
+| `Esc` | Close open panel, modal, or autocomplete dropdown |
+
+#### Implementation Details
+
+- **Input guard**: The `isTypingInInput()` function checks if the focused element is a text input, textarea, or contenteditable element. Shortcuts are suppressed in these contexts to avoid interfering with typing.
+- **Help modal**: A `keyboardShortcutsOverlay` modal in `index.html` lists all available shortcuts. Triggered by pressing `?` or accessible from the UI.
+- **Helper functions**:
+  - `showKeyboardShortcuts()` / `closeKeyboardShortcuts()` - toggle the help modal
+  - `openRaidFormWithType(type)` - opens a new RAID form pre-set to a specific type
+  - `addNewTaskViaShortcut()` - appends a new task line to the editor and opens the task form for editing
+- **Event listener**: A single `keydown` listener on `document` handles all Alt-based shortcuts, routing to the appropriate existing functions (`switchToView`, `switchTab`, `showCreateProjectDialog`, `exportFile`, `exportPortfolioReport`, `openResourceForm`).
+### Stakeholder Interest/Influence Grid (Issue #509)
+
+The Stakeholders view provides a way to track project stakeholders with their interest and influence levels, displayed alongside an Interest/Influence grid.
+
+**Navigation:**
+- Accessible via the Plan dropdown menu (Plan > Stakeholders)
+- Also available in the Plan sub-navigation bar
+- Part of the PLAN_VIEWS group, mapped to the Plan tab
+
+**Data Storage:**
+Stakeholders are stored in the plan's YAML front matter under `Key Stakeholders:`:
+```yaml
+---
+title: My Project
+Key Stakeholders:
+- @CEO: Chief Executive Officer, interest:high, influence:high
+- @PM: Project Manager, interest:high, influence:low
+- @User: End User, interest:low, influence:low
+---
+```
+
+Each entry follows the format: `- @Name: Role, interest:high|low, influence:high|low`
+
+**Layout:**
+- Left side: Table of stakeholders with Name, Role, Interest, Influence columns
+- Right side: SVG Interest/Influence grid (400x400 viewBox, maintains square aspect ratio)
+- Responsive: Stacks vertically on screens narrower than 900px
+
+**Interest/Influence Grid Quadrants:**
+| | Low Interest | High Interest |
+|---|---|---|
+| **High Influence** | Watch | Manage |
+| **Low Influence** | Monitor | Keep Informed |
+
+Each quadrant has a subtle background colour and label. Stakeholders appear as coloured dots with name labels, positioned in their respective quadrant.
+
+**CRUD Operations:**
+- `addStakeholder()` - Opens the detail pane form to create a new stakeholder
+- `openStakeholderForm(id)` - Opens the form pre-populated for editing
+- `saveStakeholderFromForm()` - Saves the form data and syncs to front matter
+- `deleteStakeholder(id)` - Removes a stakeholder after confirmation
+- `closeStakeholderForm()` - Closes the detail pane
+
+**Parsing and Sync:**
+- `parseStakeholdersFromFrontMatter(str)` - Parses the Key Stakeholders YAML section
+- `parseStakeholderEntry(entry)` - Parses a single `@Name: Role, interest:X, influence:Y` line
+- `syncStakeholdersToFrontMatter()` - Writes stakeholder state back to the plan editor
+- `updateFrontMatterStakeholders(planText, items)` - Updates the front matter text
+- `generateStakeholdersFrontMatterSection(items)` - Generates the YAML section string
+- `loadStakeholdersFromPlanText()` - Loads stakeholders when the plan is parsed
+
+**Copy to Clipboard:**
+- Uses the existing `copyElementAsImage()` function with html2canvas
+- Captures the grid wrapper as a PNG image
+
+**Lifecycle:**
+- Stakeholders are loaded from front matter when the plan is parsed (in `updateViews`)
+- Stakeholders are cleared when switching plans (via `clearPlanTrackingData`)
+- The grid is rendered on demand when switching to the stakeholders view
+
+**Global State:**
+- `stakeholderItems[]` - Array of stakeholder objects `{id, name, role, interest, influence}`
+- `stakeholderNextId` - Auto-incrementing ID counter
+
+**Tests:**
+- 54 tests in `tests/test_stakeholders.py` covering:
+  - Navigation elements (3 tests)
+  - View container elements (11 tests)
+  - Form elements (8 tests)
+  - JavaScript functions (19 tests)
+  - CSS classes (11 tests)
+  - SVG grid properties (2 tests)
+### Baseline Plan (Issue #504)
+
+The baseline plan feature allows users to capture a snapshot of the current schedule for later comparison. Only one baseline is kept at a time.
+
+**Storage Format:**
+
+The baseline is stored as a `---baseline---` section at the bottom of the plan text (after the RAID log section), containing a markdown table with the following columns:
+
+```
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+| Task 2    | 2026-03-05 | 2026-03-10 | 5d       |
+```
+
+**Section ordering in plan text:** Tasks -> Highlights -> RAID Log -> Baseline
+
+**Backend (Python):**
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `extract_baseline()` | `format_converter.py` | Extract baseline section text from plan |
+| `strip_baseline()` | `format_converter.py` | Remove baseline section from plan text |
+| `parse_baseline_markdown()` | `format_converter.py` | Parse baseline markdown table to list of dicts |
+| `generate_baseline_text()` | `format_converter.py` | Generate aligned markdown table from baseline items |
+| `update_plan_baseline()` | `format_converter.py` | Update plan text with new baseline data |
+
+The `/api/parse` endpoint returns `baseline_items` in its response alongside tasks, highlights, and RAID items.
+
+**Frontend (JavaScript):**
+
+| Function | Purpose |
+|----------|---------|
+| `setBaseline()` | Capture current schedule as baseline |
+| `clearBaseline()` | Remove baseline from plan |
+| `loadBaselineFromData()` | Load baseline items from API response |
+| `extractBaselineFromPlanText()` | Client-side fallback for baseline extraction |
+| `parseBaselineMarkdown()` | Parse baseline markdown table in JS |
+| `generateBaselineTable()` | Generate markdown table from baseline items |
+| `syncBaselineToPlanText()` | Write baseline to plan editor text |
+| `updatePlanBaselineText()` | Update plan text with baseline section |
+| `renderBaselineBar()` | Render semi-transparent baseline bar in Gantt chart |
+| `toggleBaselineDisplay()` | Toggle baseline visibility in Gantt |
+| `toggleMilestonesBaselineDisplay()` | Toggle baseline columns in Milestones |
+
+**UI Controls:**
+
+- **Set Baseline button**: Located in the Gantt toolbar, captures the current schedule
+- **Show Baseline toggle (Gantt)**: Shows/hides semi-transparent baseline bars behind current bars
+- **Show Baseline toggle (Milestones)**: Shows/hides BL Start, BL Finish, and Variance columns
+
+**Gantt Chart Baseline Rendering:**
+
+- Baseline bars are rendered as semi-transparent grey bars (dashed border) positioned below the current task bars
+- Baseline milestones are rendered as smaller, semi-transparent diamonds below current milestone diamonds
+- Baseline bars are non-interactive (pointer-events: none)
+
+**Milestone Table Baseline Columns:**
+
+When the baseline toggle is active, three additional columns appear after Finish:
+- **BL Start**: Baseline start date
+- **BL Finish**: Baseline finish date
+- **Variance**: Days difference between current and baseline finish (color-coded: red for late, green for early, grey for on-track, italic "New" for tasks not in baseline)
+
+**Section Interactions:**
+
+- `extract_raid_log()` stops at `---baseline---` to avoid including baseline data in RAID items
+- `strip_raid_log()` preserves the baseline section
+- `update_plan_raid_log()` preserves the baseline section when updating RAID items
+- `update_plan_highlights()` preserves the baseline section when updating highlights
+- `convert_plan_format_to_standard()` strips the baseline section before task parsing
+
+## Task Context Menu (Issue #507)
+
+### Overview
+
+A three-dot (`...`) context menu on every task row in both the Tasks table and the Gantt chart info panel. The menu provides quick access to common task operations without needing to double-click cells or use keyboard shortcuts.
+
+### Menu Actions
+
+| Action | Description |
+|--------|-------------|
+| **Edit** | Opens the task detail form in the editor pane (calls `openMilestoneTaskForm`) |
+| **Promote (Outdent)** | Removes 2 leading spaces from the task line, moving it up one hierarchy level |
+| **Demote (Indent)** | Adds 2 leading spaces to the task line, making it a subtask of the previous task |
+| **Insert Task Above** | Inserts a new task line above the current task with matching indentation, then opens the editor form |
+| **Assign Resource** | Shows a prompt to enter or change the task's resource assignment |
+| **Set Completion** | Submenu with 0%, 25%, 50%, 75%, 100% options to quickly set task progress |
+
+### Implementation Details
+
+- **Shared component**: Both the Tasks table and Gantt chart use the same `createTaskContextButton()` function
+- **Positioning**: Menu appears as a fixed-position overlay near the clicked button, with viewport boundary detection
+- **Close behavior**: Menu closes when clicking outside, or after selecting an action
+- **Editor sync**: All actions modify the plan editor text and trigger `renderText()` to keep views in sync
+- **CSS**: Styles follow the portfolio more-menu pattern (`.task-context-menu`, `.task-context-menu-item`)
+
+### Key Functions
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `showTaskContextMenu()` | `script.js` | Display the context menu near the clicked button |
+| `closeTaskContextMenu()` | `script.js` | Remove the context menu from the DOM |
+| `createTaskContextButton()` | `script.js` | Create the `...` button element for a task row |
+| `createCompletionSubmenu()` | `script.js` | Build the Set Completion submenu with percentage options |
+| `promoteTask()` | `script.js` | Remove 2 spaces of indentation from a task line |
+| `demoteTask()` | `script.js` | Add 2 spaces of indentation to a task line |
+| `insertTaskAbove()` | `script.js` | Insert a blank task line above the target task |
+| `assignResourceToTask()` | `script.js` | Prompt for and apply a resource assignment |
+| `setTaskCompletion()` | `script.js` | Set a task's completion percentage |
+| `findTaskLineNumber()` | `script.js` | Look up a task's line number in the editor by name |
