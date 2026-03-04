@@ -6,6 +6,7 @@ import yaml
 HIGHLIGHTS_START = '---highlights---'
 HIGHLIGHTS_END = '---end-highlights---'
 RAID_LOG_START = '---raid log---'
+BASELINE_START = '---baseline---'
 
 
 def _is_valid_yaml_value(value: str) -> bool:
@@ -79,9 +80,10 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights and RAID log sections before processing
+    # Strip highlights, RAID log, and baseline sections before processing
     text = strip_highlights(text)
     text = strip_raid_log(text)
+    text = strip_baseline(text)
     lines = text.split('\n')
     output_lines = []
     in_frontmatter = False
@@ -165,9 +167,9 @@ def extract_highlights(text: str) -> list:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, raid log section, or EOF
+    # Find the end: explicit end marker, raid log section, baseline, or EOF
     end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, RAID_LOG_START):
+    for marker in (HIGHLIGHTS_END, RAID_LOG_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -229,15 +231,15 @@ def strip_highlights(text: str) -> str:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, raid log section, or EOF
+    # Find the end: explicit end marker, raid log section, baseline, or EOF
     end_idx = len(text)
     end_len = 0
-    for marker in (HIGHLIGHTS_END, RAID_LOG_START):
+    for marker in (HIGHLIGHTS_END, RAID_LOG_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
-            # Only consume the end-highlights marker, not the raid log marker
-            # so strip_raid_log can still find it
+            # Only consume the end-highlights marker, not the raid log or
+            # baseline markers so their strippers can still find them
             end_len = len(marker) if marker == HIGHLIGHTS_END else 0
 
     before = text[:start_idx].rstrip('\n')
@@ -288,9 +290,10 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve any existing RAID log that follows highlights
+    # Preserve any existing RAID log and baseline that follow highlights
     raid_log_text = extract_raid_log(plan_text)
-    base = strip_raid_log(strip_highlights(plan_text)).rstrip('\n')
+    baseline_text = extract_baseline(plan_text)
+    base = strip_baseline(strip_raid_log(strip_highlights(plan_text))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
@@ -301,34 +304,55 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     # Re-append the RAID log if it was present
     if raid_log_text:
         result = result.rstrip('\n') + '\n\n' + RAID_LOG_START + '\n' + raid_log_text
+
+    # Re-append the baseline if it was present
+    if baseline_text:
+        result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
+
     return result
 
 
 def extract_raid_log(text: str) -> str:
     """Extract the RAID log section text from plan text.
 
-    Returns the raw text between ``---raid log---`` and EOF,
-    or an empty string if no RAID log section is present.
+    Returns the raw text between ``---raid log---`` and the next section
+    marker (``---baseline---``) or EOF, or an empty string if no RAID log
+    section is present.
     """
     start_idx = text.find(RAID_LOG_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(RAID_LOG_START)
-    return text[after_start:].strip()
+
+    # Find the end: baseline section or EOF
+    end_idx = len(text)
+    baseline_idx = text.find(BASELINE_START, after_start)
+    if baseline_idx != -1 and baseline_idx < end_idx:
+        end_idx = baseline_idx
+
+    return text[after_start:end_idx].strip()
 
 
 def strip_raid_log(text: str) -> str:
     """Remove the RAID log section from plan text.
 
     Returns the plan text without the ``---raid log---`` block,
-    suitable for passing to the task parser.
+    suitable for passing to the task parser.  Preserves any baseline
+    section that follows the RAID log.
     """
     start_idx = text.find(RAID_LOG_START)
     if start_idx == -1:
         return text
 
     before = text[:start_idx].rstrip('\n')
+
+    # Preserve the baseline section if it follows the RAID log
+    baseline_idx = text.find(BASELINE_START, start_idx)
+    if baseline_idx != -1:
+        after = text[baseline_idx:]
+        return before + '\n\n' + after
+
     return before
 
 
@@ -593,7 +617,8 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
 
     Replaces the existing ``---raid log---`` section or appends a new
     one after the highlights section.  If *raid_items* is empty, any
-    existing RAID log section is removed.
+    existing RAID log section is removed.  Preserves any baseline
+    section that follows.
 
     Args:
         plan_text: The full plan text.
@@ -602,10 +627,174 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    base = strip_raid_log(plan_text).rstrip('\n')
+    # Preserve the baseline section
+    baseline_text = extract_baseline(plan_text)
+    base = strip_baseline(strip_raid_log(plan_text)).rstrip('\n')
     table = generate_raid_log_text(raid_items)
+
+    result = base
+    if table:
+        result = result + '\n\n' + RAID_LOG_START + '\n' + table
+
+    # Re-append the baseline if it was present
+    if baseline_text:
+        result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
+
+    return result
+
+
+def extract_baseline(text: str) -> str:
+    """Extract the baseline section text from plan text.
+
+    Returns the raw text between ``---baseline---`` and EOF,
+    or an empty string if no baseline section is present.
+    """
+    start_idx = text.find(BASELINE_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(BASELINE_START)
+    return text[after_start:].strip()
+
+
+def strip_baseline(text: str) -> str:
+    """Remove the baseline section from plan text.
+
+    Returns the plan text without the ``---baseline---`` block.
+    """
+    start_idx = text.find(BASELINE_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+    return before
+
+
+def parse_baseline_markdown(text: str) -> list:
+    """Parse baseline markdown table into a list of baseline items.
+
+    Expects a markdown table with columns: Task Name | Start | Finish | Duration
+
+    Args:
+        text: Markdown text containing a baseline table
+
+    Returns:
+        List of dicts with keys: name, start, finish, duration
+    """
+    items = []
+    lines = text.strip().split('\n')
+
+    # Find the header row to determine column mapping
+    header_line = None
+    header_idx = -1
+    for i, line in enumerate(lines):
+        if '|' in line and 'task name' in line.lower():
+            header_line = line
+            header_idx = i
+            break
+
+    if header_line is None:
+        return items
+
+    # Parse header columns
+    headers = [h.strip().lower() for h in header_line.strip('| ').split('|')]
+
+    # Skip separator row (the line after headers with dashes)
+    data_start = header_idx + 2
+
+    for line in lines[data_start:]:
+        line = line.strip()
+        if not line or not line.startswith('|'):
+            continue
+
+        cells = [c.strip() for c in line.strip('| ').split('|')]
+
+        if len(cells) < len(headers):
+            continue
+
+        item = {}
+        for col_idx, header in enumerate(headers):
+            value = cells[col_idx].strip() if col_idx < len(cells) else ''
+            if header == 'task name':
+                item['name'] = value
+            elif header == 'start':
+                item['start'] = value
+            elif header == 'finish':
+                item['finish'] = value
+            elif header == 'duration':
+                item['duration'] = value
+
+        if item.get('name'):
+            items.append(item)
+
+    return items
+
+
+def generate_baseline_text(baseline_items: list) -> str:
+    """Generate a formatted markdown table from baseline items.
+
+    Each column is padded to the width of its widest entry for
+    clean, readable markdown output.
+
+    Args:
+        baseline_items: List of dicts with keys: name, start, finish, duration
+
+    Returns:
+        Markdown table string.
+    """
+    if not baseline_items:
+        return ''
+
+    headers = ['Task Name', 'Start', 'Finish', 'Duration']
+
+    rows = []
+    for item in baseline_items:
+        rows.append([
+            str(item.get('name', '')),
+            str(item.get('start', '')),
+            str(item.get('finish', '')),
+            str(item.get('duration', '')),
+        ])
+
+    # Calculate column widths
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def pad(s, width):
+        return s + ' ' * max(0, width - len(s))
+
+    def format_row(cells):
+        return '| ' + ' | '.join(pad(c, widths[i]) for i, c in enumerate(cells)) + ' |'
+
+    separator = '|' + '|'.join('-' * (w + 2) for w in widths) + '|'
+
+    lines = [format_row(headers), separator]
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)
+
+
+def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
+    """Update plan text with the given baseline table.
+
+    Replaces the existing ``---baseline---`` section or appends a new
+    one at the end of the plan text (after RAID log).  If
+    *baseline_items* is empty, any existing baseline section is removed.
+
+    Args:
+        plan_text: The full plan text.
+        baseline_items: List of baseline item dicts.
+
+    Returns:
+        Updated plan text.
+    """
+    base = strip_baseline(plan_text).rstrip('\n')
+    table = generate_baseline_text(baseline_items)
 
     if not table:
         return base
 
-    return base + '\n\n' + RAID_LOG_START + '\n' + table
+    return base + '\n\n' + BASELINE_START + '\n' + table

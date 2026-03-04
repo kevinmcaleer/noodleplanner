@@ -273,9 +273,25 @@ export class GanttView extends BaseView {
     const row = body.createDiv({ cls: 'noodle-gantt-row' });
     row.setAttribute('data-task-id', task.id);
 
-    // Calculate position and width
-    const startOffset = Math.ceil((task.start.getTime() - this.minDate.getTime()) / (1000 * 60 * 60 * 24));
-    const duration = Math.max(1, Math.ceil((task.finish.getTime() - task.start.getTime()) / (1000 * 60 * 60 * 24)));
+    // For year scale, we need to handle tasks that span multiple years differently
+    // We should render them as multiple bars or adjust the proportions correctly
+    
+    // Calculate the actual task start and finish, clamped to visible range
+    let displayStart = new Date(task.start);
+    let displayFinish = new Date(task.finish);
+    
+    // Ensure they're within the visible range
+    if (displayStart < this.minDate) {
+      displayStart = new Date(this.minDate);
+    }
+    if (displayFinish > this.maxDate) {
+      displayFinish = new Date(this.maxDate);
+    }
+    
+    // Calculate position and width based on ACTUAL display dates
+    const startOffset = Math.ceil((displayStart.getTime() - this.minDate.getTime()) / (1000 * 60 * 60 * 24));
+    const durationDays = Math.ceil((displayFinish.getTime() - displayStart.getTime()) / (1000 * 60 * 60 * 24));
+    const duration = Math.max(1, durationDays);
 
     const left = startOffset * this.pixelsPerDay;
     const width = duration * this.pixelsPerDay;
