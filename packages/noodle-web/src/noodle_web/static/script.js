@@ -15120,16 +15120,19 @@ function updateReportBudgetWidget() {
 function toggleBudgetEditor() {
     const body = document.getElementById('budgetEditorBody');
     const toggle = document.getElementById('budgetEditorToggle');
+    const actions = document.getElementById('budgetEditorActions');
 
     if (body && toggle) {
         const isCollapsed = body.classList.contains('collapsed');
         if (isCollapsed) {
             body.classList.remove('collapsed');
             toggle.textContent = '\u25BC';
+            if (actions) actions.style.display = '';
             updateBudgetMarkdownEditor();
         } else {
             body.classList.add('collapsed');
             toggle.textContent = '\u25B6';
+            if (actions) actions.style.display = 'none';
         }
     }
 }
@@ -15175,6 +15178,142 @@ document.addEventListener('DOMContentLoaded', function() {
         budgetEditor.addEventListener('input', onBudgetMarkdownEdit);
     }
 });
+
+/*
+ * Budget Excel Export/Import
+ */
+
+async function exportBudgetExcel() {
+    if (budgetItems.length === 0) {
+        alert('No budget items to export. Add some items first.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/budget/export-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: budgetItems,
+                project_name: 'Budget'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Export failed');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'budget.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (error) {
+        alert('Failed to export to Excel: ' + error.message);
+    }
+}
+
+async function uploadBudgetExcel(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xlsx')) {
+        alert('Please select an Excel (.xlsx) file.');
+        event.target.value = '';
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/budget/import-excel', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Import failed');
+        }
+
+        const result = await response.json();
+        if (result.items && result.items.length > 0) {
+            budgetItems = result.items;
+            budgetNextId = Math.max(...result.items.map(i => i.id)) + 1;
+            renderBudgetTable();
+            syncBudgetToPlanText();
+            updateReportBudgetWidget();
+            alert('Imported ' + result.items.length + ' budget items.');
+        } else {
+            alert('No budget items found in the file.');
+        }
+    } catch (error) {
+        alert('Failed to import Excel: ' + error.message);
+    }
+
+    event.target.value = '';
+}
+
+function downloadBudgetMarkdown() {
+    const content = generateBudgetMarkdown();
+
+    if (budgetItems.length === 0) {
+        alert('No budget items to download. Add some items first.');
+        return;
+    }
+
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'budget.md';
+    document.body.appendChild(a);
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function uploadBudgetMarkdown(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.match(/\.(md|txt)$/i)) {
+        alert('Please select a Markdown (.md) or text (.txt) file.');
+        event.target.value = '';
+        return;
+    }
+
+    file.text().then(text => {
+        const items = parseBudgetMarkdown(text);
+        if (items.length === 0) {
+            alert('No budget items found in the file. Please check the format.');
+        } else {
+            budgetItems = items;
+            budgetNextId = Math.max(...items.map(i => i.id)) + 1;
+            renderBudgetTable();
+            syncBudgetToPlanText();
+            updateReportBudgetWidget();
+        }
+        event.target.value = '';
+    });
+}
+
+function uploadBudgetMarkdownFromEditor() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,.txt';
+    input.onchange = function(event) {
+        uploadBudgetMarkdown(event);
+    };
+    input.click();
+}
 
 
 /*

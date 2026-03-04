@@ -1366,6 +1366,8 @@ Build
                     <!-- Toolbar -->
                     <div class="budget-toolbar">
                         <a class="subtle-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+ Add Item</a>
+                        <input type="file" id="budgetMdUpload" accept=".md" style="display:none;" onchange="uploadBudgetMarkdown(event)">
+                        <input type="file" id="budgetXlUpload" accept=".xlsx" style="display:none;" onchange="uploadBudgetExcel(event)">
                         <div class="budget-toolbar-separator"></div>
                         <div class="budget-filter-group">
                             <label for="budgetCategoryFilter">Category:</label>
@@ -1429,6 +1431,20 @@ Build
                         <div class="budget-editor-header" onclick="toggleBudgetEditor()">
                             <span class="budget-editor-toggle" id="budgetEditorToggle">&#9654;</span>
                             <span class="budget-editor-title">Budget Markdown</span>
+                            <div class="budget-editor-actions" id="budgetEditorActions" style="display:none;">
+                                <button class="toolbar-btn" onclick="event.stopPropagation(); uploadBudgetMarkdownFromEditor()" title="Upload Markdown">
+                                    &#128193;
+                                </button>
+                                <button class="toolbar-btn" onclick="event.stopPropagation(); downloadBudgetMarkdown()" title="Download as Markdown">
+                                    &#128190;
+                                </button>
+                                <button class="toolbar-btn" onclick="event.stopPropagation(); exportBudgetExcel()" title="Export to Excel">
+                                    &#128196;
+                                </button>
+                                <button class="toolbar-btn" onclick="event.stopPropagation(); document.getElementById('budgetXlUpload').click()" title="Import from Excel">
+                                    &#128228;
+                                </button>
+                            </div>
                         </div>
                         <div class="budget-editor-body collapsed" id="budgetEditorBody">
                             <textarea id="budgetMarkdownEditor" class="budget-markdown-textarea" placeholder="Budget markdown will appear here..."></textarea>

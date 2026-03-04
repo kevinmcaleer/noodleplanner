@@ -14,7 +14,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
-from .format_converter import extract_raid_log, parse_raid_markdown, extract_baseline, parse_baseline_markdown
+from .format_converter import extract_raid_log, parse_raid_markdown, extract_baseline, parse_baseline_markdown, extract_budget, parse_budget_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -4219,6 +4219,71 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                     cell_value = str(row[col_num-1].value) if row[col_num-1].value else ''
                     max_length = max(max_length, len(cell_value))
                 ws_resources.column_dimensions[column_letter].width = min(max_length + 2, 50)
+
+    # Create Budget sheet if original_text contains budget items (outside 'if tasks' block)
+    if original_text:
+        budget_text = extract_budget(original_text)
+        if budget_text:
+            budget_items = parse_budget_markdown(budget_text)
+            if budget_items:
+                ws_budget = wb.create_sheet("Budget")
+
+                budget_headers = [
+                    'ID', 'Description', 'Estimate', 'Forecast', 'Type',
+                    'Invoice', 'PO', 'Supplier', 'Total', 'Ordered',
+                    'Received', 'Category'
+                ]
+
+                ws_budget.append(budget_headers)
+
+                # Style header row
+                budget_header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+                budget_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+                for col_num, header in enumerate(budget_headers, 1):
+                    cell = ws_budget.cell(row=1, column=col_num)
+                    cell.fill = budget_header_fill
+                    cell.font = budget_header_font
+                    cell.alignment = Alignment(horizontal='center')
+
+                # Number format for currency columns
+                currency_cols = {3, 4, 9}  # Estimate, Forecast, Total
+
+                # Add budget data
+                for row_idx, item in enumerate(budget_items, 2):
+                    ws_budget.cell(row=row_idx, column=1, value=item.get('id', ''))
+                    ws_budget.cell(row=row_idx, column=2, value=item.get('description', ''))
+
+                    for col_num in currency_cols:
+                        field = budget_headers[col_num - 1].lower()
+                        val = item.get(field, 0)
+                        cell = ws_budget.cell(row=row_idx, column=col_num, value=val)
+                        cell.number_format = '#,##0.00'
+
+                    ws_budget.cell(row=row_idx, column=5, value=item.get('type', ''))
+                    ws_budget.cell(row=row_idx, column=6, value=item.get('invoice', ''))
+                    ws_budget.cell(row=row_idx, column=7, value=item.get('po', ''))
+                    ws_budget.cell(row=row_idx, column=8, value=item.get('supplier', ''))
+                    ws_budget.cell(row=row_idx, column=10, value=item.get('date_ordered', ''))
+                    ws_budget.cell(row=row_idx, column=11, value=item.get('date_received', ''))
+                    ws_budget.cell(row=row_idx, column=12, value=item.get('category', ''))
+
+                # Summary row
+                last_row = len(budget_items) + 2
+                total_estimate = sum(item.get('estimate', 0) for item in budget_items)
+                total_forecast = sum(item.get('forecast', 0) for item in budget_items)
+                total_spend = sum(item.get('total', 0) for item in budget_items)
+
+                ws_budget.cell(row=last_row, column=2, value='TOTALS').font = Font(bold=True)
+                for col_num, val in [(3, total_estimate), (4, total_forecast), (9, total_spend)]:
+                    cell = ws_budget.cell(row=last_row, column=col_num, value=val)
+                    cell.font = Font(bold=True)
+                    cell.number_format = '#,##0.00'
+
+                # Set column widths
+                budget_col_widths = [6, 30, 12, 12, 10, 15, 12, 20, 12, 12, 12, 18]
+                for col_num, width in enumerate(budget_col_widths, 1):
+                    ws_budget.column_dimensions[get_column_letter(col_num)].width = width
 
     # Create RAID Log sheet if original_text contains RAID items (outside 'if tasks' block)
     if original_text:

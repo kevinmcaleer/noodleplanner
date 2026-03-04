@@ -499,9 +499,10 @@ def collect_labels_from_plan(plan_text: str) -> set:
     Labels use hashtag syntax like #High #test #Risk
     """
     import re
-    from noodle_core import strip_highlights, strip_raid_log
-    # Strip highlights and RAID log sections so their content is not treated as labels
+    from noodle_core import strip_highlights, strip_raid_log, strip_budget
+    # Strip highlights, budget, and RAID log sections so their content is not treated as labels
     plan_text = strip_highlights(plan_text)
+    plan_text = strip_budget(plan_text)
     plan_text = strip_raid_log(plan_text)
 
     labels = set()
@@ -1101,6 +1102,205 @@ async def import_raid_excel(file: UploadFile = File(...)):
 
     except (ValueError, KeyError, TypeError, IndexError) as e:
         logger.error(f"Error importing RAID Excel: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=400,
+            detail=_sanitized_detail("Failed to parse Excel file", e)
+        )
+
+
+# ==============================================================================
+# BUDGET API ENDPOINTS
+# ==============================================================================
+
+
+class BudgetItem(BaseModel):
+    """A single budget item."""
+    id: int
+    description: str = Field("", max_length=500)
+    estimate: float = Field(0, ge=0)
+    forecast: float = Field(0, ge=0)
+    type: str = Field("Capex", max_length=50)
+    invoice: str = Field("", max_length=200)
+    po: str = Field("", max_length=200)
+    supplier: str = Field("", max_length=200)
+    total: float = Field(0, ge=0)
+    date_ordered: str = Field("", max_length=20)
+    date_received: str = Field("", max_length=20)
+    category: str = Field("Consultancy", max_length=50)
+
+
+class BudgetExportRequest(BaseModel):
+    """Request body for budget Excel export."""
+    items: List[BudgetItem]
+    project_name: Optional[str] = Field("Project", max_length=200)
+
+
+@app.post("/api/budget/export-excel")
+async def export_budget_excel(data: BudgetExportRequest):
+    """Export budget items to an Excel file."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Budget"
+
+    headers = [
+        'ID', 'Description', 'Estimate', 'Forecast', 'Type',
+        'Invoice', 'PO', 'Supplier', 'Total', 'Ordered',
+        'Received', 'Category'
+    ]
+
+    header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    currency_cols = {3, 4, 9}  # Estimate, Forecast, Total
+
+    for row_idx, item in enumerate(data.items, 2):
+        ws.cell(row=row_idx, column=1, value=item.id)
+        ws.cell(row=row_idx, column=2, value=item.description)
+
+        for col_num, field in [(3, 'estimate'), (4, 'forecast'), (9, 'total')]:
+            val = getattr(item, field, 0)
+            cell = ws.cell(row=row_idx, column=col_num, value=val)
+            cell.number_format = '#,##0.00'
+
+        ws.cell(row=row_idx, column=5, value=item.type)
+        ws.cell(row=row_idx, column=6, value=item.invoice)
+        ws.cell(row=row_idx, column=7, value=item.po)
+        ws.cell(row=row_idx, column=8, value=item.supplier)
+        ws.cell(row=row_idx, column=10, value=item.date_ordered)
+        ws.cell(row=row_idx, column=11, value=item.date_received)
+        ws.cell(row=row_idx, column=12, value=item.category)
+
+    # Summary row
+    if data.items:
+        last_row = len(data.items) + 2
+        ws.cell(row=last_row, column=2, value='TOTALS').font = Font(bold=True)
+        for col_num, field in [(3, 'estimate'), (4, 'forecast'), (9, 'total')]:
+            total_val = sum(getattr(item, field, 0) for item in data.items)
+            cell = ws.cell(row=last_row, column=col_num, value=total_val)
+            cell.font = Font(bold=True)
+            cell.number_format = '#,##0.00'
+
+    column_widths = [6, 30, 12, 12, 10, 15, 12, 20, 12, 12, 12, 18]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            tmp_path = tmp.name
+        wb.save(tmp_path)
+        with open(tmp_path, 'rb') as f:
+            file_bytes = f.read()
+        project_name = data.project_name or "Project"
+        return Response(
+            content=file_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f'attachment; filename="{project_name}-budget.xlsx"'
+            }
+        )
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.post("/api/budget/import-excel")
+async def import_budget_excel(file: UploadFile = File(...)):
+    """Import budget items from an Excel file."""
+    from openpyxl import load_workbook
+
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="File must be .xlsx format")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large")
+
+    try:
+        wb = load_workbook(filename=io.BytesIO(content))
+        ws = wb.active
+
+        headers = [
+            str(cell.value).lower().strip() if cell.value else ''
+            for cell in ws[1]
+        ]
+
+        field_names = {
+            'id': 'id', 'description': 'description', 'estimate': 'estimate',
+            'forecast': 'forecast', 'type': 'type', 'invoice': 'invoice',
+            'po': 'po', 'supplier': 'supplier', 'total': 'total',
+            'ordered': 'date_ordered', 'received': 'date_received',
+            'category': 'category'
+        }
+
+        col_map = {}
+        for idx, header in enumerate(headers):
+            for key, field in field_names.items():
+                if key in header:
+                    col_map[field] = idx
+                    break
+
+        valid_types = {'Capex', 'Opex', 'One-off'}
+        valid_categories = {
+            'Consultancy', 'Resource', 'Travel',
+            'Infrastructure', 'Hardware', 'Software'
+        }
+
+        items = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not any(row):
+                continue
+
+            def get_cell(field, default=''):
+                idx = col_map.get(field)
+                if idx is not None and idx < len(row) and row[idx] is not None:
+                    return row[idx]
+                return default
+
+            def safe_float(val, default=0):
+                try:
+                    return float(val) if val else default
+                except (ValueError, TypeError):
+                    return default
+
+            description = str(get_cell('description', ''))
+            # Skip summary/totals rows
+            if description.upper() in ('TOTALS', 'TOTAL', ''):
+                continue
+
+            item_type = str(get_cell('type', 'Capex'))
+            item_category = str(get_cell('category', 'Consultancy'))
+
+            item = {
+                'id': int(get_cell('id', len(items) + 1)),
+                'description': description,
+                'estimate': safe_float(get_cell('estimate', 0)),
+                'forecast': safe_float(get_cell('forecast', 0)),
+                'type': item_type if item_type in valid_types else 'Capex',
+                'invoice': str(get_cell('invoice', '')),
+                'po': str(get_cell('po', '')),
+                'supplier': str(get_cell('supplier', '')),
+                'total': safe_float(get_cell('total', 0)),
+                'date_ordered': str(get_cell('date_ordered', '')),
+                'date_received': str(get_cell('date_received', '')),
+                'category': item_category if item_category in valid_categories else 'Consultancy',
+            }
+            items.append(item)
+
+        return {"items": items}
+
+    except (ValueError, KeyError, TypeError, IndexError) as e:
+        logger.error(f"Error importing budget Excel: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
             detail=_sanitized_detail("Failed to parse Excel file", e)
