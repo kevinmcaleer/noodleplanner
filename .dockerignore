@@ -13,7 +13,9 @@ venv.bak/
 cli_venv/
 *.egg-info/
 
-# Testing artifacts (tests themselves are copied explicitly)
+# Testing (not needed in production image)
+tests/
+pytest.ini
 .pytest_cache/
 .coverage
 htmlcov/
