@@ -1,29 +1,37 @@
 /**
- * Portfolio Risks View
- * Shows open risks from RAID logs across all projects in a single table
- * with project-name column, RAG score filter, and project filter.
+ * Portfolio Risks & Issues View
+ * Shows open risks and issues from RAID logs across all projects in a single
+ * table with project-name column, RAG score filter, type filter, and project filter.
  * Uses /api/parse data for accurate RAID item data.
  */
 
 /**
- * Collect open risks from RAID logs across all parsed projects.
- * An "open risk" is a RAID item with type='risk' and status!='closed'.
+ * Collect open risks and issues from RAID logs across all parsed projects.
+ * An "open" item is a RAID item with type='risk' or type='issue' and status!='closed'.
  *
  * @param {Array<{project, parsedResult}>} parsedProjects
- * @returns {Array} flat list of risk objects with calculated score
+ * @param {string} typeFilter - 'all', 'risk', or 'issue'
+ * @returns {Array} flat list of risk/issue objects with calculated score
  */
-function collectOpenRisks(parsedProjects) {
-    const risks = [];
+function collectOpenRisksAndIssues(parsedProjects, typeFilter) {
+    const items = [];
 
     parsedProjects.forEach(({ project, parsedResult }) => {
         if (!parsedResult) return;
 
-        // RAID items are parsed independently of tasks, so use them
-        // even when task parsing fails (success may be false).
         const raidItems = parsedResult.raid_items || [];
 
         raidItems.forEach(item => {
-            if (!item.type || item.type.toLowerCase() !== 'risk') return;
+            if (!item.type) return;
+            const itemType = item.type.toLowerCase();
+
+            // Only collect risks and issues
+            if (itemType !== 'risk' && itemType !== 'issue') return;
+
+            // Apply type filter
+            if (typeFilter && typeFilter !== 'all' && itemType !== typeFilter) return;
+
+            // Skip closed items
             if (item.status && item.status.toLowerCase() === 'closed') return;
 
             // Use the backend's pre-calculated values directly
@@ -31,10 +39,11 @@ function collectOpenRisks(parsedProjects) {
             const likelihood = item.likelihood != null ? item.likelihood : 0;
             const score = item.score != null ? item.score : (impact * likelihood);
 
-            risks.push({
+            items.push({
                 projectId: project.id,
                 projectName: project.name,
                 raidItemId: item.id,
+                type: itemType,
                 title: item.title || item.description || '-',
                 description: item.description || '',
                 owner: item.owner || '-',
@@ -48,9 +57,9 @@ function collectOpenRisks(parsedProjects) {
     });
 
     // Sort by score (highest first)
-    risks.sort((a, b) => b.score - a.score);
+    items.sort((a, b) => b.score - a.score);
 
-    return risks;
+    return items;
 }
 
 /**
@@ -66,7 +75,7 @@ function deriveRiskRAG(score) {
 }
 
 /**
- * Render portfolio risks view (async -- uses /api/parse via parseAllProjects)
+ * Render portfolio risks & issues view (async -- uses /api/parse via parseAllProjects)
  */
 async function renderPortfolioRisks() {
     const container = document.getElementById('portfolioRisksView');
@@ -75,7 +84,7 @@ async function renderPortfolioRisks() {
     // Show loading state
     container.innerHTML = '<div class="portfolio-loading">' +
         '<div class="portfolio-loading-spinner"></div>' +
-        '<p>Loading risks across all projects...</p>' +
+        '<p>Loading risks and issues across all projects...</p>' +
         '</div>';
 
     try {
@@ -84,39 +93,59 @@ async function renderPortfolioRisks() {
         if (parsedProjects.length === 0) {
             container.innerHTML = '<div class="portfolio-empty-state">' +
                 '<h3>No Projects</h3>' +
-                '<p>Create projects to see open risks here.</p>' +
+                '<p>Create projects to see open risks and issues here.</p>' +
                 '</div>';
             return;
         }
 
-        const risks = collectOpenRisks(parsedProjects);
+        // Store parsed projects for re-filtering
+        window.portfolioRisksParsedProjects = parsedProjects;
 
-        if (risks.length === 0) {
+        // Default: show red and amber only
+        window.portfolioRisksRAGDefault = 'red-amber';
+
+        // Collect all items (no type filter initially)
+        const allItems = collectOpenRisksAndIssues(parsedProjects, 'all');
+
+        if (allItems.length === 0) {
             container.innerHTML = '<div class="portfolio-empty-state">' +
-                '<h3>No Open Risks</h3>' +
-                '<p>There are no open risks in any project RAID logs.</p>' +
+                '<h3>No Open Risks or Issues</h3>' +
+                '<p>There are no open risks or issues in any project RAID logs.</p>' +
                 '</div>';
             return;
         }
 
-        // Build unique project names for filter dropdown
-        const projectNames = [...new Set(risks.map(r => r.projectName))].sort((a, b) => a.localeCompare(b));
+        // Filter to red and amber by default
+        const items = allItems.filter(item => item.rag === 'red' || item.rag === 'amber');
 
-        // Summary counts
-        const highCount = risks.filter(r => r.rag === 'red').length;
-        const mediumCount = risks.filter(r => r.rag === 'amber').length;
-        const lowCount = risks.filter(r => r.rag === 'green').length;
+        // Build unique project names for filter dropdown (from all items)
+        const projectNames = [...new Set(allItems.map(r => r.projectName))].sort((a, b) => a.localeCompare(b));
+
+        // Summary counts (from all items, unfiltered)
+        const highCount = allItems.filter(r => r.rag === 'red').length;
+        const mediumCount = allItems.filter(r => r.rag === 'amber').length;
+        const lowCount = allItems.filter(r => r.rag === 'green').length;
+        const riskCount = allItems.filter(r => r.type === 'risk').length;
+        const issueCount = allItems.filter(r => r.type === 'issue').length;
 
         // Build project options for "New Risk" dropdown
         const allProjects = parsedProjects.map(pp => pp.project).sort((a, b) => a.name.localeCompare(b.name));
 
         // Header with filters and summary
         let html = '<div class="portfolio-risks-header">' +
-            '<h2><span class="ribbon-banner ribbon-banner--red">Risk Register</span></h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--red">Risk and Issues Register</span></h2>' +
             '<div class="portfolio-risks-summary">' +
             '<div class="risks-summary-item">' +
-            '<span class="summary-label">Open Risks</span>' +
-            '<span class="summary-value">' + risks.length + '</span>' +
+            '<span class="summary-label">Open Items</span>' +
+            '<span class="summary-value">' + allItems.length + '</span>' +
+            '</div>' +
+            '<div class="risks-summary-item">' +
+            '<span class="summary-label">Risks</span>' +
+            '<span class="summary-value">' + riskCount + '</span>' +
+            '</div>' +
+            '<div class="risks-summary-item">' +
+            '<span class="summary-label">Issues</span>' +
+            '<span class="summary-value">' + issueCount + '</span>' +
             '</div>' +
             '<div class="risks-summary-item">' +
             '<span class="summary-label">High</span>' +
@@ -132,7 +161,13 @@ async function renderPortfolioRisks() {
             '</div>' +
             '</div>' +
             '<div class="portfolio-risks-filters">' +
-            '<label>Project: </label>' +
+            '<label for="portfolioRisksTypeFilter">Type: </label>' +
+            '<select id="portfolioRisksTypeFilter" onchange="filterPortfolioRisks()">' +
+            '<option value="all">Risks &amp; Issues</option>' +
+            '<option value="risk">Risks Only</option>' +
+            '<option value="issue">Issues Only</option>' +
+            '</select>' +
+            '<label for="portfolioRisksProjectFilter">Project: </label>' +
             '<select id="portfolioRisksProjectFilter" onchange="filterPortfolioRisks()">' +
             '<option value="all">All Projects</option>';
 
@@ -141,8 +176,9 @@ async function renderPortfolioRisks() {
         });
 
         html += '</select>' +
-            '<label>RAG: </label>' +
+            '<label for="portfolioRisksRAGFilter">RAG: </label>' +
             '<select id="portfolioRisksRAGFilter" onchange="filterPortfolioRisks()">' +
+            '<option value="red-amber" selected>Red &amp; Amber</option>' +
             '<option value="all">All Levels</option>' +
             '<option value="red">High (Red)</option>' +
             '<option value="amber">Medium (Amber)</option>' +
@@ -150,7 +186,7 @@ async function renderPortfolioRisks() {
             '</select>' +
             '</div>' +
             '<div class="portfolio-risks-new">' +
-            '<select id="newRiskProjectSelect">';
+            '<select id="newRiskProjectSelect" aria-label="Select project for new risk">';
 
         allProjects.forEach(proj => {
             html += '<option value="' + escapeHtml(proj.id) + '">' + escapeHtml(proj.name) + '</option>';
@@ -167,6 +203,7 @@ async function renderPortfolioRisks() {
             '<thead>' +
             '<tr>' +
             '<th onclick="sortPortfolioRisks(\'project\')">Project <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioRisks(\'type\')">Type <span class="sort-indicator"></span></th>' +
             '<th onclick="sortPortfolioRisks(\'title\')">Title <span class="sort-indicator"></span></th>' +
             '<th onclick="sortPortfolioRisks(\'description\')">Description <span class="sort-indicator"></span></th>' +
             '<th onclick="sortPortfolioRisks(\'owner\')">Owner <span class="sort-indicator"></span></th>' +
@@ -178,70 +215,84 @@ async function renderPortfolioRisks() {
             '</thead>' +
             '<tbody id="portfolioRisksTableBody">';
 
-        html += buildRisksTableRows(risks);
+        html += buildRisksTableRows(items);
 
         html += '</tbody></table></div>';
 
         container.innerHTML = html;
 
         // Store data for sorting / filtering
-        window.portfolioRisksData = risks;
+        window.portfolioRisksData = allItems;
+        window.portfolioRisksFilteredData = items;
 
     } catch (error) {
         console.error('Error rendering portfolio risks:', error);
         container.innerHTML = '<div class="portfolio-empty-state">' +
-            '<h3>Error Loading Risks</h3>' +
-            '<p>Failed to load risk data. Please try again.</p>' +
+            '<h3>Error Loading Risks &amp; Issues</h3>' +
+            '<p>Failed to load risk and issue data. Please try again.</p>' +
             '</div>';
     }
 }
 
 /**
- * Build table row HTML for risks
+ * Build table row HTML for risks and issues
  */
-function buildRisksTableRows(risks) {
+function buildRisksTableRows(items) {
     let html = '';
-    risks.forEach(risk => {
-        const ragClass = 'rag-' + risk.rag;
-        const ragLabel = risk.rag === 'red' ? 'HIGH' : (risk.rag === 'amber' ? 'MEDIUM' : 'LOW');
+    items.forEach(item => {
+        const ragClass = 'rag-' + item.rag;
+        const ragLabel = item.rag === 'red' ? 'HIGH' : (item.rag === 'amber' ? 'MEDIUM' : 'LOW');
 
-        const statusLabel = risk.status.charAt(0).toUpperCase() + risk.status.slice(1);
+        const statusLabel = item.status.charAt(0).toUpperCase() + item.status.slice(1);
+        const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+        const typeClass = 'raid-type-' + item.type;
 
         // Truncate description for table display
-        const descTruncated = risk.description.length > 80
-            ? risk.description.substring(0, 80) + '...'
-            : risk.description;
+        const descTruncated = item.description.length > 80
+            ? item.description.substring(0, 80) + '...'
+            : item.description;
 
         html += '<tr class="risks-row" ' +
-            'data-project="' + escapeHtml(risk.projectName) + '" ' +
-            'data-rag="' + risk.rag + '" ' +
-            'onclick="openProjectRisk(\'' + risk.projectId + '\', ' + risk.raidItemId + ')">' +
-            '<td class="risks-project-name">' + escapeHtml(risk.projectName) + '</td>' +
-            '<td class="risks-title">' + escapeHtml(risk.title) + '</td>' +
+            'data-project="' + escapeHtml(item.projectName) + '" ' +
+            'data-rag="' + item.rag + '" ' +
+            'data-type="' + item.type + '" ' +
+            'onclick="openProjectRisk(\'' + item.projectId + '\', ' + item.raidItemId + ')">' +
+            '<td class="risks-project-name">' + escapeHtml(item.projectName) + '</td>' +
+            '<td><span class="raid-type-badge ' + typeClass + '">' + escapeHtml(typeLabel) + '</span></td>' +
+            '<td class="risks-title">' + escapeHtml(item.title) + '</td>' +
             '<td class="risks-description">' + escapeHtml(descTruncated) + '</td>' +
-            '<td>' + escapeHtml(risk.owner) + '</td>' +
-            '<td class="risks-numeric">' + risk.impact + '</td>' +
-            '<td class="risks-numeric">' + risk.likelihood + '</td>' +
-            '<td><span class="risk-score-badge ' + ragClass + '">' + risk.score + ' ' + ragLabel + '</span></td>' +
-            '<td><span class="status-badge status-' + risk.status.toLowerCase() + '">' + escapeHtml(statusLabel) + '</span></td>' +
+            '<td>' + escapeHtml(item.owner) + '</td>' +
+            '<td class="risks-numeric">' + item.impact + '</td>' +
+            '<td class="risks-numeric">' + item.likelihood + '</td>' +
+            '<td><span class="risk-score-badge ' + ragClass + '">' + item.score + ' ' + ragLabel + '</span></td>' +
+            '<td><span class="status-badge status-' + item.status.toLowerCase() + '">' + escapeHtml(statusLabel) + '</span></td>' +
             '</tr>';
     });
     return html;
 }
 
 /**
- * Filter risks table by project name and/or RAG level
+ * Filter risks/issues table by type, project name, and/or RAG level
  */
 function filterPortfolioRisks() {
+    const typeFilter = document.getElementById('portfolioRisksTypeFilter')?.value || 'all';
     const projectFilter = document.getElementById('portfolioRisksProjectFilter')?.value || 'all';
-    const ragFilter = document.getElementById('portfolioRisksRAGFilter')?.value || 'all';
+    const ragFilter = document.getElementById('portfolioRisksRAGFilter')?.value || 'red-amber';
     const rows = document.querySelectorAll('.risks-row');
 
     rows.forEach(row => {
+        const matchType = (typeFilter === 'all' || row.dataset.type === typeFilter);
         const matchProject = (projectFilter === 'all' || row.dataset.project === projectFilter);
-        const matchRag = (ragFilter === 'all' || row.dataset.rag === ragFilter);
+        let matchRag;
+        if (ragFilter === 'all') {
+            matchRag = true;
+        } else if (ragFilter === 'red-amber') {
+            matchRag = (row.dataset.rag === 'red' || row.dataset.rag === 'amber');
+        } else {
+            matchRag = (row.dataset.rag === ragFilter);
+        }
 
-        if (matchProject && matchRag) {
+        if (matchType && matchProject && matchRag) {
             row.style.display = '';
         } else {
             row.style.display = 'none';
@@ -275,6 +326,10 @@ function sortPortfolioRisks(column) {
             case 'project':
                 valA = a.projectName.toLowerCase();
                 valB = b.projectName.toLowerCase();
+                break;
+            case 'type':
+                valA = a.type.toLowerCase();
+                valB = b.type.toLowerCase();
                 break;
             case 'title':
                 valA = a.title.toLowerCase();
@@ -320,23 +375,19 @@ function sortPortfolioRisks(column) {
 /**
  * Re-render just the risks table body from in-memory data (for sorting)
  */
-function rerenderRisksTable(risks) {
+function rerenderRisksTable(items) {
     const tbody = document.getElementById('portfolioRisksTableBody');
     if (!tbody) return;
 
-    let html = buildRisksTableRows(risks);
+    let html = buildRisksTableRows(items);
     tbody.innerHTML = html;
 
     // Re-apply filters
-    const projectFilter = document.getElementById('portfolioRisksProjectFilter')?.value || 'all';
-    const ragFilter = document.getElementById('portfolioRisksRAGFilter')?.value || 'all';
-    if (projectFilter !== 'all' || ragFilter !== 'all') {
-        filterPortfolioRisks();
-    }
+    filterPortfolioRisks();
 }
 
 /**
- * Open a specific risk item in the editor RAID form.
+ * Open a specific risk/issue item in the editor RAID form.
  * Saves current state, loads the target project, parses it to populate
  * the raidItems array, then opens the RAID form for the given item.
  */
