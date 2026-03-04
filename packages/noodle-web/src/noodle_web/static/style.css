@@ -2907,6 +2907,32 @@ input[type="checkbox"] {
 }
 
 /* ========================================
+   Global Focus Indicator (Accessibility)
+   ======================================== */
+*:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 2px;
+}
+
+/* ========================================
+   Tablet Responsive Styles (1024px)
+   ======================================== */
+@media (max-width: 1024px) {
+    .editor-panel {
+        max-width: 450px;
+    }
+
+    .plan-subnav-btn {
+        padding: 5px 8px;
+        font-size: 0.82em;
+    }
+
+    .gantt-table-side {
+        width: 280px;
+    }
+}
+
+/* ========================================
    Mobile Responsive Styles (768px)
    ======================================== */
 @media (max-width: 768px) {
@@ -3213,6 +3239,40 @@ input[type="checkbox"] {
         flex-direction: column;
     }
 
+    /* Form grids: stack to single column on mobile */
+    .form-grid-2col,
+    .form-grid-3col {
+        grid-template-columns: 1fr;
+    }
+
+    /* Touch target minimum sizes (44x44px) */
+    .close-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .copy-image-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+    }
+
+    .quad-add-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px 12px;
+    }
+
+    .plan-subnav-btn {
+        min-height: 44px;
+        padding: 8px 12px;
+    }
+
+    .tab {
+        min-height: 44px;
+        padding: 10px 14px;
+    }
+
     /* Tour popup: constrain width */
     .tour-popup {
         max-width: calc(100vw - 40px);
@@ -3382,7 +3442,7 @@ input[type="checkbox"] {
     position: fixed;
     top: 0;
     right: 0;
-    width: 600px;
+    width: min(600px, 90vw);
     height: 100%;
     background: white;
     z-index: 1020;
@@ -3892,6 +3952,26 @@ tr:hover .task-inspect-btn {
     padding: 30px;
 }
 
+/* ========================================
+   Responsive Form Grid Classes
+   ======================================== */
+.form-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.form-grid-3col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+}
+
+.form-grid-2col > .form-group,
+.form-grid-3col > .form-group {
+    margin-bottom: 0;
+}
+
 .form-group {
     margin-bottom: 20px;
 }
@@ -3935,6 +4015,13 @@ tr:hover .task-inspect-btn {
 .form-group select:focus {
     outline: none;
     border-color: #108BB9;
+}
+
+.form-group input:focus-visible,
+.form-group textarea:focus-visible,
+.form-group select:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
 }
 
 .form-group textarea {

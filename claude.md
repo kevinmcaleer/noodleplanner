@@ -31,3 +31,18 @@
 - always update an issue with progress when a subagent is working on it over leaving the issue without updates
 - when an issue is completed, update the issue with a comment summarizing the changes made and close the issue over leaving it open without a summary
 - when an issue is completed, also update the todo.md with progress and next steps over leaving the todo.md outdated
+
+## UI/UX Rules
+
+- minimum touch target size of 44x44px on mobile devices over smaller targets
+- use CSS classes for layout (e.g. form-grid-2col, form-grid-3col) over inline style attributes for grid/flex layouts
+- responsive breakpoints at 480px, 768px, and 1024px over using only one or two breakpoints
+- use focus-visible outlines (2px solid #108BB9) over outline:none on interactive elements
+- all interactive elements must be keyboard accessible over mouse-only interactions
+- use ARIA attributes (role, aria-label, aria-expanded, etc.) on custom widgets over no accessibility markup
+- colour contrast ratio of at least 4.5:1 for normal text and 3:1 for large text (WCAG AA) over lower contrast
+- form layouts should stack to single column on mobile (< 768px) over maintaining multi-column on small screens
+- detail pane width should use min(600px, 90vw) over fixed pixel widths
+- provide visible loading states and feedback for async operations over no feedback
+- use semantic HTML elements (nav, main, aside, button) over generic div elements
+- provide skip-to-content links for keyboard navigation over no bypass mechanism

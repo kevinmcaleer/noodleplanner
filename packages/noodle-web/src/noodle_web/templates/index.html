@@ -1701,7 +1701,7 @@ Build
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="taskName">
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="taskDuration">Duration (days)</label>
                             <input type="number" id="taskDuration" placeholder="e.g., 5, 10" min="0" oninput="onDurationChange()">
@@ -1717,7 +1717,7 @@ Build
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="taskStartDate">Start Date</label>
                             <input type="date" id="taskStartDate" class="form-control" onchange="onDateChange('start')">
@@ -1746,7 +1746,7 @@ Build
                         <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-3col">
                         <div class="form-group">
                             <label for="taskEffortCompleted">Effort Completed</label>
                             <div style="display: flex; gap: 5px; align-items: center;">
@@ -1780,7 +1780,7 @@ Build
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="taskResources">Resources</label>
                             <div class="autocomplete-container">
@@ -1839,7 +1839,7 @@ Build
                         <small style="display: block; margin-top: 5px;">Child tasks that belong to this task</small>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="taskPriority">Priority</label>
                             <select id="taskPriority" onchange="saveTask()" style="background: white; color: black;">
@@ -1880,7 +1880,7 @@ Build
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="raidItemId">
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="raidItemType">Type</label>
                             <select id="raidItemType" class="form-control">
@@ -1911,7 +1911,7 @@ Build
                         <textarea id="raidItemDescription" class="form-control" placeholder="Detailed description" rows="3"></textarea>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="raidItemRaisedBy">Raised By</label>
                             <input type="text" id="raidItemRaisedBy" class="form-control" placeholder="Person who raised this">
@@ -1927,7 +1927,7 @@ Build
                         <textarea id="raidItemMitigation" class="form-control" placeholder="Steps to mitigate or resolve" rows="2"></textarea>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-3col">
                         <div class="form-group">
                             <label for="raidItemImpact">Impact (1-5)</label>
                             <select id="raidItemImpact" class="form-control" onchange="updateRaidFormScore()">
@@ -1984,7 +1984,7 @@ Build
                         <textarea id="actionItemDescription" class="form-control" placeholder="Detailed description of the action" rows="3"></textarea>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="actionItemOwner">Owner</label>
                             <input type="text" id="actionItemOwner" class="form-control" placeholder="Person responsible">
@@ -1995,7 +1995,7 @@ Build
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-3col">
                         <div class="form-group">
                             <label for="actionItemStatus">Status</label>
                             <select id="actionItemStatus" class="form-control">
@@ -2035,7 +2035,7 @@ Build
                 <form onsubmit="event.preventDefault();">
                     <input type="hidden" id="highlightItemIndex" value="">
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="highlightDate">Date</label>
                             <input type="date" id="highlightDate" class="form-control">

@@ -542,3 +542,60 @@ npm run dev
 | `extractMetadata()` | `metadata-extractor.ts` | Parse task line metadata |
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
+
+---
+
+## UX Standards and Guidelines
+
+### Design Standards Applied
+
+The following standards and heuristics are used to evaluate and guide UI/UX decisions:
+
+1. **WCAG 2.1 AA**: Accessibility compliance
+   - Colour contrast: 4.5:1 for normal text, 3:1 for large text
+   - Keyboard navigation: all interactive elements must be keyboard accessible
+   - Focus indicators: visible focus rings using `focus-visible` (2px solid #108BB9)
+   - Screen reader support: ARIA attributes on custom widgets
+   - Skip-to-content links for bypass mechanism
+
+2. **Touch Target Sizes** (Apple HIG / Material Design)
+   - Minimum 44x44px on mobile devices
+   - Adequate spacing between adjacent targets (8px minimum)
+
+3. **Nielsen's Usability Heuristics**
+   - Visibility of system status (loading states, save confirmation)
+   - Match between system and real world (clear labels, familiar patterns)
+   - User control and freedom (undo, cancel, escape to close)
+   - Consistency and standards (uniform button sizing, colour usage)
+   - Error prevention (form validation, confirmation for destructive actions)
+   - Recognition rather than recall (visible navigation, clear affordances)
+
+4. **Responsive Design**
+   - Mobile-first approach with breakpoints at 480px, 768px, 1024px
+   - Forms stack to single column below 768px
+   - Navigation adapts for touch on mobile
+   - Detail pane uses `min(600px, 90vw)` for responsive width
+
+### CSS Architecture
+
+- **Form grid classes**: `.form-grid-2col`, `.form-grid-3col` for responsive form layouts
+- **No inline styles for layout**: Use CSS classes that can be overridden by media queries
+- **Focus indicator**: Global `*:focus-visible` rule with `outline: 2px solid #108BB9`
+- **Touch targets**: Mobile override at 768px ensures minimum 44x44px
+- **Reduced motion**: `@media (prefers-reduced-motion: reduce)` for animation-sensitive users
+
+### Related GitHub Issues
+
+- #514: Form layouts break on mobile due to inline grid styles
+- #515: Focus indicators removed with outline:none
+- #516: Missing ARIA attributes and semantic HTML
+- #517: Touch targets too small on mobile
+- #518: No keyboard navigation for modals/dropdowns
+- #519: Colour contrast issues
+- #520: No loading states or feedback for async operations
+- #521: Missing tablet breakpoint (1024px)
+- #522: Inline styles should be moved to CSS classes
+- #523: Detail pane width not responsive
+- #525: Inconsistent button styling and sizing
+- #526: No skip-to-content link or landmark regions
+- #527: Navigation overflow on mobile
