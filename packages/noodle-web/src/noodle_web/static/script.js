@@ -4859,6 +4859,13 @@ function renderGanttRows() {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         infoRow.appendChild(predCell);
 
+        // Actions cell with context menu button
+        const ganttActionsCell = document.createElement('td');
+        ganttActionsCell.classList.add('task-actions-cell');
+        const ganttContextBtn = createTaskContextButton(task, index);
+        ganttActionsCell.appendChild(ganttContextBtn);
+        infoRow.appendChild(ganttActionsCell);
+
         ganttInfoBody.appendChild(infoRow);
 
         // Gantt bar row
@@ -5479,9 +5486,11 @@ function updateTasksTable(tasks) {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         row.appendChild(predCell);
 
-        // Actions column with inspect button
+        // Actions column with context menu and inspect button
         const actionsCell = document.createElement('td');
         actionsCell.classList.add('task-actions-cell');
+        const contextBtn = createTaskContextButton(task, index);
+        actionsCell.appendChild(contextBtn);
         if (!task.is_summary) {
             const inspectBtn = document.createElement('button');
             inspectBtn.className = 'task-inspect-btn';
@@ -7266,6 +7275,308 @@ function openMilestoneTaskForm(taskName) {
     }
 
     console.error('Task not found in editor:', taskName);
+}
+
+/**
+ * Find the editor line number (1-based) for a task by name and level.
+ */
+function findTaskLineNumber(task) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return -1;
+
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const parsed = parseTaskLine(lines[i], i + 1);
+        if (parsed.name && parsed.name === task.name) {
+            return i + 1;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Show the task context menu near the clicked button.
+ */
+function showTaskContextMenu(event, task, taskIndex) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    closeTaskContextMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'task-context-menu show';
+    menu.id = 'activeTaskContextMenu';
+
+    const items = [];
+
+    // Edit
+    items.push(createContextMenuItem('Edit', '\u270E', () => {
+        openMilestoneTaskForm(task.name);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Promote (outdent)
+    items.push(createContextMenuItem('Promote (Outdent)', '\u2B05', () => {
+        promoteTask(task, taskIndex);
+    }));
+
+    // Demote (indent)
+    items.push(createContextMenuItem('Demote (Indent)', '\u27A1', () => {
+        demoteTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Insert Above
+    items.push(createContextMenuItem('Insert Task Above', '\u2795', () => {
+        insertTaskAbove(task, taskIndex);
+    }));
+
+    // Assign Resource
+    items.push(createContextMenuItem('Assign Resource', '\uD83D\uDC64', () => {
+        assignResourceToTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Set Completion (submenu)
+    const completionSubmenu = createCompletionSubmenu(task, taskIndex);
+    items.push(completionSubmenu);
+
+    items.forEach(item => menu.appendChild(item));
+
+    document.body.appendChild(menu);
+
+    // Position menu near the button
+    const btnRect = event.currentTarget.getBoundingClientRect();
+    let left = btnRect.right + 4;
+    let top = btnRect.top;
+
+    // Ensure menu doesn't overflow the viewport
+    const menuRect = menu.getBoundingClientRect();
+    if (left + menuRect.width > window.innerWidth) {
+        left = btnRect.left - menuRect.width - 4;
+    }
+    if (top + menuRect.height > window.innerHeight) {
+        top = window.innerHeight - menuRect.height - 8;
+    }
+    if (top < 0) top = 8;
+
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    // Close when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closeTaskContextMenuOnOutsideClick);
+    }, 0);
+}
+
+function closeTaskContextMenuOnOutsideClick(e) {
+    const menu = document.getElementById('activeTaskContextMenu');
+    if (menu && !menu.contains(e.target)) {
+        closeTaskContextMenu();
+    }
+}
+
+function closeTaskContextMenu() {
+    const menu = document.getElementById('activeTaskContextMenu');
+    if (menu) {
+        menu.remove();
+    }
+    document.removeEventListener('click', closeTaskContextMenuOnOutsideClick);
+}
+
+function createContextMenuItem(label, icon, onClick) {
+    const item = document.createElement('button');
+    item.className = 'task-context-menu-item';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'menu-icon';
+    iconSpan.textContent = icon;
+    item.appendChild(iconSpan);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = label;
+    item.appendChild(labelSpan);
+
+    item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeTaskContextMenu();
+        onClick();
+    });
+
+    return item;
+}
+
+function createContextMenuSeparator() {
+    const sep = document.createElement('div');
+    sep.className = 'task-context-menu-separator';
+    return sep;
+}
+
+function createCompletionSubmenu(task, taskIndex) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'task-context-submenu';
+
+    const trigger = document.createElement('button');
+    trigger.className = 'task-context-menu-item';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'menu-icon';
+    iconSpan.textContent = '\u2714';
+    trigger.appendChild(iconSpan);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Set Completion';
+    trigger.appendChild(labelSpan);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'menu-arrow';
+    arrow.textContent = '\u25B6';
+    trigger.appendChild(arrow);
+
+    wrapper.appendChild(trigger);
+
+    const submenu = document.createElement('div');
+    submenu.className = 'task-context-submenu-items';
+
+    const currentPercent = parseInt(String(task.percent || '0').replace('%', '')) || 0;
+
+    [0, 25, 50, 75, 100].forEach(pct => {
+        const item = document.createElement('button');
+        item.className = 'task-context-menu-item completion-item';
+        if (currentPercent === pct) {
+            item.classList.add('completion-active');
+        }
+        item.textContent = pct + '%';
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTaskContextMenu();
+            setTaskCompletion(task, taskIndex, pct);
+        });
+        submenu.appendChild(item);
+    });
+
+    wrapper.appendChild(submenu);
+    return wrapper;
+}
+
+/**
+ * Promote (outdent) a task: remove 2 leading spaces from its line in the editor.
+ */
+function promoteTask(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNumber = findTaskLineNumber(task);
+    if (lineNumber < 1) return;
+
+    const lines = editor.value.split('\n');
+    const lineIdx = lineNumber - 1;
+    const line = lines[lineIdx];
+
+    // Remove up to 2 leading spaces
+    if (line.startsWith('  ')) {
+        lines[lineIdx] = line.substring(2);
+    } else if (line.startsWith(' ')) {
+        lines[lineIdx] = line.substring(1);
+    } else {
+        return; // Already at root level
+    }
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Demote (indent) a task: add 2 leading spaces to its line in the editor.
+ */
+function demoteTask(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNumber = findTaskLineNumber(task);
+    if (lineNumber < 1) return;
+
+    const lines = editor.value.split('\n');
+    const lineIdx = lineNumber - 1;
+    lines[lineIdx] = '  ' + lines[lineIdx];
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Insert a blank task line above the given task and open the editor form.
+ */
+function insertTaskAbove(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNumber = findTaskLineNumber(task);
+    if (lineNumber < 1) return;
+
+    const lines = editor.value.split('\n');
+    const lineIdx = lineNumber - 1;
+
+    // Match the indentation of the current task
+    const currentLine = lines[lineIdx];
+    const indentMatch = currentLine.match(/^(\s*)/);
+    const indent = indentMatch ? indentMatch[1] : '';
+
+    // Insert a new task line with the same indent
+    const newTaskName = 'New Task';
+    lines.splice(lineIdx, 0, indent + newTaskName);
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Open the task form for the new line
+    setTimeout(() => {
+        openTaskForm(lineNumber);
+    }, 100);
+}
+
+/**
+ * Show a prompt to assign a resource to a task.
+ */
+function assignResourceToTask(task, taskIndex) {
+    const currentResource = task.resources || '';
+    const resource = prompt('Assign resource:', currentResource);
+    if (resource === null) return; // Cancelled
+
+    task.resources = resource;
+    ganttTasks[taskIndex].resources = resource;
+    syncGanttEditToEditor(task, taskIndex, 'resources', resource);
+    renderGanttRows();
+    if (ganttTasks === window._lastTasksTableTasks) {
+        updateTasksTable(ganttTasks);
+    }
+}
+
+/**
+ * Set the completion percentage for a task.
+ */
+function setTaskCompletion(task, taskIndex, percent) {
+    const newPercent = percent + '%';
+    task.percent = newPercent;
+    ganttTasks[taskIndex].percent = newPercent;
+    syncGanttPercentToEditor(task, taskIndex);
+}
+
+/**
+ * Create a three-dot context menu button for a task row.
+ */
+function createTaskContextButton(task, taskIndex) {
+    const btn = document.createElement('button');
+    btn.className = 'task-context-btn';
+    btn.title = 'More actions';
+    btn.textContent = '\u22EF';
+    btn.addEventListener('click', (e) => {
+        showTaskContextMenu(e, task, taskIndex);
+    });
+    return btn;
 }
 
 function populateSubtasks(parentLineNumber, lines) {
@@ -12012,7 +12323,7 @@ const tourSteps = [
     },
     {
         title: "Project",
-        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, and Mind Map. Use Set Baseline in the Gantt toolbar to snapshot your schedule.",
+        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, and Mind Map. Use the three-dot menu on each task row for quick actions like Edit, Promote/Demote, Insert, Assign Resource, and Set Completion.",
         target: "#planTab",
         position: "bottom"
     },
