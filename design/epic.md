@@ -542,3 +542,81 @@ npm run dev
 | `extractMetadata()` | `metadata-extractor.ts` | Parse task line metadata |
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
+
+### Security Hardening (Issue #235)
+
+Security middleware and configuration to protect the NoodlePlanner web application in production deployments.
+
+**Security Headers:**
+All responses include the following headers via `SecurityHeadersMiddleware`:
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Frame-Options` | `DENY` | Prevents clickjacking by blocking iframe embedding |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing attacks |
+| `X-XSS-Protection` | `1; mode=block` | Enables browser XSS filtering |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Enforces HTTPS connections |
+| `Content-Security-Policy` | (configured for self + CDN) | Controls resource loading sources |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referrer information leakage |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Disables unnecessary browser APIs |
+
+**Rate Limiting:**
+- In-memory per-IP rate limiting via `RateLimitMiddleware`
+- Configurable via `RATE_LIMIT_REQUESTS` (default: 100) and `RATE_LIMIT_WINDOW` (default: 60 seconds)
+- Returns HTTP 429 with `Retry-After` header when limit is exceeded
+- Each IP address has an independent request counter
+
+**CORS Configuration:**
+- `CORS_ORIGINS` environment variable (comma-separated list of allowed origins)
+- Defaults to `["*"]` when not set (development convenience)
+- Example production config: `CORS_ORIGINS=https://app.example.com,https://staging.example.com`
+
+**Request Body Size Limit:**
+- `BodySizeLimitMiddleware` rejects requests with `Content-Length` exceeding `MAX_BODY_SIZE`
+- Configurable via `MAX_BODY_SIZE` environment variable (default: 10 MB)
+- Returns HTTP 413 when exceeded
+
+**Error Message Sanitization:**
+- `ENVIRONMENT` environment variable controls error detail level (`development` or `production`)
+- In production: generic error messages returned to clients; full details logged server-side
+- In development: full error details included in responses for debugging
+- `ErrorSanitizationMiddleware` catches unhandled exceptions
+- `_sanitized_detail()` helper used by all endpoint error handlers
+
+**API Key Authentication:**
+- Optional authentication via `APIKeyAuthMiddleware`
+- Controlled by `API_KEY` environment variable
+- When `API_KEY` is set: requires `Authorization: Bearer <key>` header on all requests
+- When `API_KEY` is empty/unset: all requests allowed (current default behaviour)
+- Public paths always accessible without auth: `/health`, `/healthz`, `/favicon.png`, `/logo.png`, `/static/*`
+
+**File Upload Validation:**
+- All upload endpoints validate file extension (`.xlsx`, `.xls` only for Excel endpoints)
+- File size checked against `MAX_FILE_SIZE` environment variable (default: 1 MB)
+- Content-Type verification on upload endpoints
+
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENVIRONMENT` | `development` | Set to `production` for sanitized errors |
+| `API_KEY` | (empty) | When set, requires Bearer token auth |
+| `CORS_ORIGINS` | (empty = `*`) | Comma-separated allowed CORS origins |
+| `RATE_LIMIT_REQUESTS` | `100` | Max requests per window per IP |
+| `RATE_LIMIT_WINDOW` | `60` | Rate limit window in seconds |
+| `MAX_BODY_SIZE` | `10485760` | Max request body size in bytes (10 MB) |
+| `MAX_FILE_SIZE` | `1048576` | Max uploaded file size in bytes (1 MB) |
+
+**Middleware Stack (applied outermost to innermost):**
+1. `APIKeyAuthMiddleware` -- authentication gate
+2. `ErrorSanitizationMiddleware` -- exception catching
+3. `RateLimitMiddleware` -- request throttling
+4. `BodySizeLimitMiddleware` -- payload size check
+5. `SecurityHeadersMiddleware` -- response header injection
+6. `CORSMiddleware` -- cross-origin request handling
+7. `ActivityLoggingMiddleware` -- request logging
+
+**Files:**
+- `packages/noodle-web/src/noodle_web/security.py` -- All security middleware and helpers
+- `packages/noodle-web/src/noodle_web/app.py` -- Middleware registration and error sanitization
+- `tests/test_security.py` -- Comprehensive tests (42 tests)
