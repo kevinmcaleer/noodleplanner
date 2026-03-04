@@ -2602,6 +2602,9 @@ svg.icon {
     background: transparent !important;
     color: transparent !important;
     caret-color: #d4d4d4;
+    overflow: auto;
+    resize: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 .editor-textarea::selection {
@@ -3474,18 +3477,20 @@ input[type="checkbox"] {
 
     .editor-highlight-layer,
     .editor-textarea {
-        font-size: 12px;
+        /* Use 16px minimum on mobile to prevent iOS Safari auto-zoom on focus,
+           which shifts the viewport and causes cursor/overlay misalignment */
+        font-size: 16px;
     }
 
     .line-numbers {
-        font-size: 12px;
+        /* Must match .editor-textarea font-size so line heights stay in sync */
+        font-size: 16px;
         min-width: 35px;
         padding: 15px 5px;
     }
 
-    .editor-highlight-layer {
-        left: 35px;
-    }
+    /* highlight layer must stay at left:0 to match the textarea position;
+       the line-numbers gutter is a sibling outside .editor-area */
 
     .output-container {
         font-size: 11px;

@@ -8,6 +8,56 @@ let lastRenderedTasks = []; // Cache of backend-calculated tasks from last rende
 let resourceFormReturnSection = null;
 
 /**
+ * Update the plan editor value while preserving cursor position and scroll state.
+ * Use this whenever programmatically changing editor.value to prevent cursor drift.
+ * The cursor position is clamped to the new content length and adjusted so it stays
+ * on the same logical line when content before the cursor changes length.
+ */
+function setEditorValuePreservingCursor(editor, newValue) {
+    if (!editor) return;
+
+    const oldValue = editor.value;
+    if (newValue === oldValue) return;
+
+    // Save cursor and scroll state
+    const prevStart = editor.selectionStart;
+    const prevEnd = editor.selectionEnd;
+    const prevScrollTop = editor.scrollTop;
+    const prevScrollLeft = editor.scrollLeft;
+
+    // Determine which line the cursor was on and the offset within that line
+    const textBeforeCursor = oldValue.substring(0, prevStart);
+    const lineIndex = textBeforeCursor.split('\n').length - 1;
+    const lastNewline = textBeforeCursor.lastIndexOf('\n');
+    const colOffset = prevStart - (lastNewline + 1);
+
+    // Apply new value
+    editor.value = newValue;
+
+    // Try to restore cursor to the same line and column
+    const newLines = newValue.split('\n');
+    const targetLine = Math.min(lineIndex, newLines.length - 1);
+    let newPos = 0;
+    for (let i = 0; i < targetLine; i++) {
+        newPos += newLines[i].length + 1; // +1 for newline
+    }
+    newPos += Math.min(colOffset, newLines[targetLine].length);
+
+    // Clamp to content length
+    newPos = Math.min(newPos, newValue.length);
+    const selLen = prevEnd - prevStart;
+    const newEnd = Math.min(newPos + selLen, newValue.length);
+
+    editor.setSelectionRange(newPos, newEnd);
+
+    // Restore scroll position (use requestAnimationFrame to ensure it takes effect after browser layout)
+    requestAnimationFrame(() => {
+        editor.scrollTop = prevScrollTop;
+        editor.scrollLeft = prevScrollLeft;
+    });
+}
+
+/**
  * Copy a DOM element as a PNG image to the clipboard using html2canvas.
  * Shows brief visual feedback on the button.
  */
@@ -624,14 +674,24 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         }
     }
 
-    // Sync scroll
+    // Sync scroll between textarea, line numbers, and highlight overlay.
+    // Uses requestAnimationFrame to batch updates and avoid layout thrashing.
+    let scrollSyncPending = false;
     function syncScroll() {
-        lineNumbers.scrollTop = editor.scrollTop;
-        if (highlightLayer) {
-            highlightLayer.scrollTop = editor.scrollTop;
-            highlightLayer.scrollLeft = editor.scrollLeft;
-        }
+        if (scrollSyncPending) return;
+        scrollSyncPending = true;
+        requestAnimationFrame(() => {
+            lineNumbers.scrollTop = editor.scrollTop;
+            if (highlightLayer) {
+                highlightLayer.scrollTop = editor.scrollTop;
+                highlightLayer.scrollLeft = editor.scrollLeft;
+            }
+            scrollSyncPending = false;
+        });
     }
+
+    // Expose updateLineNumbers on the editor element so external code can call it
+    editor._updateLineNumbers = updateLineNumbers;
 
     // Initialize
     updateLineNumbers();
@@ -658,13 +718,15 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         }
     });
 
-    // Sync scroll
-    editor.addEventListener('scroll', syncScroll);
+    // Sync scroll on all scroll-related events including touch momentum
+    editor.addEventListener('scroll', syncScroll, { passive: true });
+    editor.addEventListener('touchmove', syncScroll, { passive: true });
 
     // Track cursor position for active line indicator
     editor.addEventListener('click', updateActiveLine);
     editor.addEventListener('keyup', updateActiveLine);
     editor.addEventListener('focus', updateActiveLine);
+    editor.addEventListener('touchend', updateActiveLine);
 
     // Keyboard shortcuts
     editor.addEventListener('keydown', function(e) {
@@ -1662,8 +1724,8 @@ async function updateAllViews(planText, projectName) {
             if (!stale) {
                 const editor = document.getElementById('planEditor');
                 if (editor) {
-                    editor.value = result.updated_plan_text;
-                    updateLineNumbers();
+                    setEditorValuePreservingCursor(editor, result.updated_plan_text);
+                    if (editor._updateLineNumbers) editor._updateLineNumbers();
                 }
             }
         }
@@ -14351,8 +14413,7 @@ function syncRaidLogToPlanText() {
     const updatedText = updatePlanRaidLogText(planText, raidItems);
 
     if (updatedText !== planText) {
-        editor.value = updatedText;
-        updateLineNumbers();
+        setEditorValuePreservingCursor(editor, updatedText);
         const kanbanEditor = document.getElementById('kanbanPlanEditor');
         if (kanbanEditor) {
             kanbanEditor.value = updatedText;
@@ -14627,8 +14688,7 @@ function syncBaselineToPlanText() {
     const updatedText = updatePlanBaselineText(planText, baselineItems);
 
     if (updatedText !== planText) {
-        editor.value = updatedText;
-        updateLineNumbers();
+        setEditorValuePreservingCursor(editor, updatedText);
         const kanbanEditor = document.getElementById('kanbanPlanEditor');
         if (kanbanEditor) {
             kanbanEditor.value = updatedText;
@@ -15063,8 +15123,7 @@ function syncStakeholdersToFrontMatter() {
     const updatedContent = updateFrontMatterStakeholders(content, stakeholderItems);
 
     if (updatedContent !== content) {
-        editor.value = updatedContent;
-        updateLineNumbers();
+        setEditorValuePreservingCursor(editor, updatedContent);
         const kanbanEditor = document.getElementById('kanbanPlanEditor');
         if (kanbanEditor) {
             kanbanEditor.value = updatedContent;
@@ -15538,8 +15597,7 @@ async function syncHighlightsToPlanText() {
     const updatedText = updatePlanHighlightsText(planText, highlightsData);
 
     if (updatedText !== planText) {
-        editor.value = updatedText;
-        updateLineNumbers();
+        setEditorValuePreservingCursor(editor, updatedText);
         // Sync to kanban editor if it exists
         const kanbanEditor = document.getElementById('kanbanPlanEditor');
         if (kanbanEditor) {
