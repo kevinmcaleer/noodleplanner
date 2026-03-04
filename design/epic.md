@@ -616,6 +616,66 @@ npm run dev
 | `getNextWorkingDay()` | `working-days.ts` | Skip weekends/holidays |
 | `addWorkingDays()` | `working-days.ts` | Calculate finish dates |
 
+---
+
+### UI Embellishments (Issue #510)
+
+Visual polish and accessibility improvements across the interface.
+
+**Colour Palette**
+
+CSS custom properties define a consistent palette available application-wide:
+
+| Token                | Hex       | Usage                      |
+|----------------------|-----------|----------------------------|
+| `--np-red`           | `#c21d1d` | Alerts, risk indicators    |
+| `--np-orange`        | `#ff7b01` | Warnings, task ribbons     |
+| `--np-yellow`        | `#ffd641` | Highlights                 |
+| `--np-green`         | `#1c9e41` | Success, on-track items    |
+| `--np-blue`          | `#108bb9` | Primary accent, links      |
+| `--np-light-grey`    | `#dbdbdb` | Borders, dividers          |
+| `--np-dark-blue`     | `#02384d` | Headers, dark backgrounds  |
+
+Each colour has a `-subtle` variant (e.g. `--np-blue-subtle: #d0eaf5`) for use as light backgrounds in ribbon banners and highlighted sections.
+
+**Ribbon Banners**
+
+Flat-style vertical hanging ribbons with a notched pointed tip. Applied sparingly beside key page titles using the `.ribbon-banner` class with colour modifiers (e.g. `.ribbon-banner--blue`). Built entirely with CSS pseudo-elements -- no extra images required.
+
+**Page-load Animations**
+
+Elements with the `.np-fade-in` class fade in and slide up when they become visible. Animation timing uses `--np-anim-duration` (0.4s) and `--np-anim-easing`. Staggered delays are available via `.np-fade-in-delay-1` through `.np-fade-in-delay-4`.
+
+**Disabling Animations**
+
+Animations can be disabled in three ways:
+1. **OS preference**: The `prefers-reduced-motion: reduce` media query is respected automatically.
+2. **Front matter toggle**: Adding `animations: false` to the plan's YAML front matter applies the `.no-animations` class to `<body>`, disabling all CSS animations and transitions.
+3. **Programmatic**: Any code can add/remove `document.body.classList.add('no-animations')`.
+
+**Keyboard Shortcuts**
+
+Pressing the `?` key (outside of text inputs) opens a modal listing all keyboard shortcuts. Shortcuts include:
+
+| Shortcut           | Action                |
+|--------------------|-----------------------|
+| `?`                | Show shortcuts help   |
+| `Esc`              | Close modal / menu    |
+| `g` then `d`       | Go to Dashboard       |
+| `g` then `t`       | Go to Tasks           |
+| `g` then `g`       | Go to Gantt           |
+| `g` then `c`       | Go to Calendar        |
+| `g` then `b`       | Go to Board (Kanban)  |
+| `g` then `l`       | Go to Timeline        |
+| `Cmd+]` / `Ctrl+]` | Indent line (editor)  |
+| `Cmd+[` / `Ctrl+[` | Outdent line (editor) |
+
+**Accessibility**
+
+- Navigation dropdown menus have ARIA attributes (`role="menu"`, `aria-haspopup`, `aria-expanded`, `aria-controls`, `role="menuitem"`).
+- Menu items are keyboard-navigable with Arrow Up/Down, Enter to select, and Escape to close.
+- Focus-visible outlines are styled for keyboard users on tabs, menu items, and sub-navigation buttons.
+- The `aria-expanded` state is synced automatically via a MutationObserver when menus open or close.
 ### Security Hardening (Issue #235)
 
 Security middleware and configuration to protect the NoodlePlanner web application in production deployments.

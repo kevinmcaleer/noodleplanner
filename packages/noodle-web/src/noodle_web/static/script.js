@@ -1601,6 +1601,9 @@ async function updateAllViews(planText, projectName) {
         // Load conditional formatting rules before rendering
         loadConditionalFormattingRulesFromFrontMatter();
 
+        // Check animations front matter toggle
+        checkAnimationsFrontMatter();
+
         // Update Gantt Chart
         updateGantt(result.tasks || []);
 
@@ -12454,6 +12457,7 @@ const tourSteps = [
     },
     {
         title: "You're Ready! 🚀",
+        message: "That's it! Start by creating your first task in the editor, explore the Plan menu for different views, or check Tools > Syntax Guide to learn more. Press '?' at any time to see keyboard shortcuts.",
         message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check Tools > Syntax Guide to learn more.",
         target: null,
         position: "center"
@@ -16748,6 +16752,22 @@ async function uploadActionsExcel(event) {
     event.target.value = '';
 }
 
+/* ========================================
+ * Keyboard Shortcuts Modal
+ * ======================================== */
+
+function openShortcutsModal() {
+    const overlay = document.getElementById('shortcutsOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        // Focus the close button for screen readers
+        const closeBtn = overlay.querySelector('.close-btn');
+        if (closeBtn) closeBtn.focus();
+    }
+}
+
+function closeShortcutsModal() {
+    const overlay = document.getElementById('shortcutsOverlay');
 // ============================================================================
 // KEYBOARD SHORTCUTS
 // ============================================================================
@@ -16791,6 +16811,196 @@ function closeKeyboardShortcuts() {
     }
 }
 
+/* ========================================
+ * Global Keyboard Shortcuts
+ * ======================================== */
+
+let pendingGoKey = false;
+let goKeyTimeout = null;
+
+document.addEventListener('keydown', function(e) {
+    // Don't trigger shortcuts when typing in inputs/textareas
+    const tag = (e.target.tagName || '').toLowerCase();
+    const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+
+    // '?' key opens shortcuts modal (only from non-input contexts)
+    if (e.key === '?' && !isEditable) {
+        e.preventDefault();
+        const overlay = document.getElementById('shortcutsOverlay');
+        if (overlay && overlay.classList.contains('active')) {
+            closeShortcutsModal();
+        } else {
+            openShortcutsModal();
+        }
+        return;
+    }
+
+    // Escape closes shortcuts modal
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('shortcutsOverlay');
+        if (overlay && overlay.classList.contains('active')) {
+            closeShortcutsModal();
+            return;
+        }
+    }
+
+    // 'g' then letter navigation (only from non-input contexts)
+    if (!isEditable && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === 'g' && !pendingGoKey) {
+            pendingGoKey = true;
+            clearTimeout(goKeyTimeout);
+            goKeyTimeout = setTimeout(() => { pendingGoKey = false; }, 800);
+            return;
+        }
+
+        if (pendingGoKey) {
+            pendingGoKey = false;
+            clearTimeout(goKeyTimeout);
+
+            switch (e.key) {
+                case 'd': switchToView('project-report'); break;
+                case 't': switchToView('tasks'); break;
+                case 'g': switchToView('gantt'); break;
+                case 'c': switchToView('calendar'); break;
+                case 'b': switchPlanSubnavToBoard(); break;
+                case 'l': switchToView('timeline'); break;
+            }
+            return;
+        }
+    }
+});
+
+/* ========================================
+ * Navigation Menu Keyboard Support
+ * Arrow keys, Enter, Escape within dropdown menus.
+ * ======================================== */
+
+function initMenuKeyboardNav() {
+    const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+    dropdowns.forEach(dropdown => {
+        const trigger = dropdown.querySelector('.tab');
+        const menu = dropdown.querySelector('.nav-menu');
+        if (!trigger || !menu) return;
+
+        // Set role and tabindex on menu items
+        const items = menu.querySelectorAll('.nav-menu-item');
+        items.forEach(item => {
+            item.setAttribute('role', 'menuitem');
+            item.setAttribute('tabindex', '-1');
+        });
+
+        // Open menu on Enter/Space and arrow-down when trigger is focused
+        trigger.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                trigger.click();
+                // Focus the first menu item after the menu opens
+                setTimeout(() => {
+                    const firstItem = menu.querySelector('.nav-menu-item');
+                    if (firstItem) firstItem.focus();
+                }, 50);
+            }
+        });
+
+        // Arrow key navigation within menu
+        menu.addEventListener('keydown', function(e) {
+            const visibleItems = Array.from(menu.querySelectorAll('.nav-menu-item')).filter(
+                item => item.offsetParent !== null && !item.classList.contains('nav-menu-divider')
+            );
+            const currentIndex = visibleItems.indexOf(document.activeElement);
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const next = currentIndex < visibleItems.length - 1 ? currentIndex + 1 : 0;
+                visibleItems[next].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const prev = currentIndex > 0 ? currentIndex - 1 : visibleItems.length - 1;
+                visibleItems[prev].focus();
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (document.activeElement && document.activeElement.classList.contains('nav-menu-item')) {
+                    document.activeElement.click();
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                menu.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+                trigger.focus();
+            } else if (e.key === 'Tab') {
+                menu.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+}
+
+/* ========================================
+ * Sync aria-expanded on menu toggle
+ * ======================================== */
+
+function syncAriaExpanded() {
+    const menus = [
+        { btn: 'planTab', menu: 'planMenu' },
+        { btn: 'trackingTab', menu: 'trackingMenu' },
+        { btn: 'resourcesTab', menu: 'resourcesMenu' },
+        { btn: 'toolsTab', menu: 'toolsMenu' }
+    ];
+
+    const observer = new MutationObserver(function() {
+        menus.forEach(({ btn, menu }) => {
+            const button = document.getElementById(btn);
+            const menuEl = document.getElementById(menu);
+            if (button && menuEl) {
+                button.setAttribute('aria-expanded', menuEl.classList.contains('show') ? 'true' : 'false');
+            }
+        });
+    });
+
+    menus.forEach(({ menu }) => {
+        const menuEl = document.getElementById(menu);
+        if (menuEl) {
+            observer.observe(menuEl, { attributes: true, attributeFilter: ['class'] });
+        }
+    });
+}
+
+/* ========================================
+ * Animations: front-matter toggle
+ * If the plan front matter includes
+ * `animations: false`, add .no-animations
+ * to the body element.
+ * ======================================== */
+
+function checkAnimationsFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const content = editor.value || '';
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) return;
+
+    const fmLines = frontMatterMatch[1].split('\n');
+    for (const line of fmLines) {
+        const match = line.match(/^\s*animations\s*:\s*(false|off|no|0)\s*$/i);
+        if (match) {
+            document.body.classList.add('no-animations');
+            return;
+        }
+    }
+    document.body.classList.remove('no-animations');
+}
+
+/* ========================================
+ * Initialise UI embellishments on load
+ * ======================================== */
+
+document.addEventListener('DOMContentLoaded', function() {
+    initMenuKeyboardNav();
+    syncAriaExpanded();
+    checkAnimationsFrontMatter();
+});
 /**
  * Open the RAID form pre-set to a specific type (risk, issue, action, decision, dependency).
  */
