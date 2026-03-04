@@ -10114,6 +10114,11 @@ function syncEditorStateToMain() {
         mainPanel.classList.remove('collapsed');
         mainSplitter.classList.remove('collapsed');
         mainArrow.textContent = '\u25C0';
+        // Restore saved width
+        const savedWidth = localStorage.getItem('editorPanelWidth');
+        if (savedWidth) {
+            mainPanel.style.width = savedWidth + 'px';
+        }
     }
 }
 
@@ -10237,6 +10242,161 @@ let isGanttResizing = false;
 let ganttStartX = 0;
 let ganttStartWidth = 0;
 
+// Editor splitter drag state
+let isEditorResizing = false;
+let editorStartX = 0;
+let editorStartWidth = 0;
+const EDITOR_DEFAULT_WIDTH_PERCENT = 35;
+const EDITOR_MIN_WIDTH = 200;
+
+/**
+ * Initialize the draggable editor splitter for resizing the editor panel.
+ */
+function initEditorSplitter() {
+    const splitter = document.getElementById('editorSplitter');
+    const panel = document.querySelector('.editor-panel');
+    const layout = document.querySelector('.editor-layout');
+
+    if (!splitter || !panel || !layout) return;
+
+    // Restore saved width from localStorage
+    const savedWidth = localStorage.getItem('editorPanelWidth');
+    if (savedWidth) {
+        panel.style.width = savedWidth + 'px';
+    }
+
+    // Mouse events for drag
+    splitter.addEventListener('mousedown', handleEditorSplitterStart);
+    document.addEventListener('mousemove', handleEditorSplitterMove);
+    document.addEventListener('mouseup', handleEditorSplitterEnd);
+
+    // Touch events for mobile drag
+    splitter.addEventListener('touchstart', handleEditorSplitterTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleEditorSplitterTouchMove, { passive: false });
+    document.addEventListener('touchend', handleEditorSplitterTouchEnd);
+
+    // Handle window resize to keep panel within bounds
+    window.addEventListener('resize', constrainEditorPanelWidth);
+}
+
+function handleEditorSplitterStart(e) {
+    const panel = document.querySelector('.editor-panel');
+    const splitter = document.getElementById('editorSplitter');
+    // Do not start drag if editor is collapsed or if clicking the arrow button
+    if (!panel || panel.classList.contains('collapsed') || e.target.closest('.splitter-arrow')) return;
+
+    isEditorResizing = true;
+    editorStartX = e.clientX;
+    editorStartWidth = panel.offsetWidth;
+    panel.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+}
+
+function handleEditorSplitterMove(e) {
+    if (!isEditorResizing) return;
+
+    const panel = document.querySelector('.editor-panel');
+    const layout = document.querySelector('.editor-layout');
+    if (!panel || !layout) return;
+
+    const delta = e.clientX - editorStartX;
+    const newWidth = editorStartWidth + delta;
+    const maxWidth = layout.offsetWidth * 0.7;
+
+    if (newWidth >= EDITOR_MIN_WIDTH && newWidth <= maxWidth) {
+        panel.style.width = newWidth + 'px';
+    }
+}
+
+function handleEditorSplitterEnd() {
+    if (!isEditorResizing) return;
+
+    isEditorResizing = false;
+    const panel = document.querySelector('.editor-panel');
+    if (panel) {
+        panel.classList.remove('dragging');
+        localStorage.setItem('editorPanelWidth', panel.offsetWidth);
+    }
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    // Re-render timeline and gantt after width change
+    refreshVisualsAfterResize();
+}
+
+function handleEditorSplitterTouchStart(e) {
+    const panel = document.querySelector('.editor-panel');
+    if (!panel || panel.classList.contains('collapsed') || e.target.closest('.splitter-arrow')) return;
+
+    isEditorResizing = true;
+    editorStartX = e.touches[0].clientX;
+    editorStartWidth = panel.offsetWidth;
+    panel.classList.add('dragging');
+    e.preventDefault();
+}
+
+function handleEditorSplitterTouchMove(e) {
+    if (!isEditorResizing) return;
+
+    const panel = document.querySelector('.editor-panel');
+    const layout = document.querySelector('.editor-layout');
+    if (!panel || !layout) return;
+
+    const delta = e.touches[0].clientX - editorStartX;
+    const newWidth = editorStartWidth + delta;
+    const maxWidth = layout.offsetWidth * 0.7;
+
+    if (newWidth >= EDITOR_MIN_WIDTH && newWidth <= maxWidth) {
+        panel.style.width = newWidth + 'px';
+    }
+}
+
+function handleEditorSplitterTouchEnd() {
+    if (!isEditorResizing) return;
+
+    isEditorResizing = false;
+    const panel = document.querySelector('.editor-panel');
+    if (panel) {
+        panel.classList.remove('dragging');
+        localStorage.setItem('editorPanelWidth', panel.offsetWidth);
+    }
+
+    refreshVisualsAfterResize();
+}
+
+/**
+ * Constrain editor panel width when the window is resized.
+ */
+function constrainEditorPanelWidth() {
+    const panel = document.querySelector('.editor-panel');
+    const layout = document.querySelector('.editor-layout');
+    if (!panel || !layout || panel.classList.contains('collapsed')) return;
+
+    const maxWidth = layout.offsetWidth * 0.7;
+    if (panel.offsetWidth > maxWidth) {
+        panel.style.width = maxWidth + 'px';
+    }
+}
+
+/**
+ * Re-render timeline and gantt charts after a resize operation.
+ */
+function refreshVisualsAfterResize() {
+    setTimeout(() => {
+        if (typeof timelineTasks !== 'undefined' && timelineTasks.length > 0) {
+            updateTimeline(timelineTasks, timelineProjectName);
+        }
+        if (typeof ganttTasks !== 'undefined' && ganttTasks && ganttTasks.length > 0) {
+            renderGanttChart();
+        }
+        if (typeof updateAllEmbeddedTimelines === 'function') {
+            updateAllEmbeddedTimelines();
+        }
+    }, 50);
+}
+
 function initGanttSplitter() {
     const splitter = document.getElementById('ganttSplitter');
     const tableSide = document.querySelector('.gantt-table-side');
@@ -10340,6 +10500,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize gantt splitter
     initGanttSplitter();
+
+    // Initialize editor splitter for drag-to-resize
+    initEditorSplitter();
 
     // Re-render timelines on window resize so they fill the available width
     let resizeTimer;
@@ -11228,15 +11391,22 @@ function toggleMainEditor() {
         const isCollapsed = panel.classList.contains('collapsed');
 
         if (isCollapsed) {
-            // Expand
+            // Expand to saved width or default
             panel.classList.remove('collapsed');
             splitter.classList.remove('collapsed');
-            arrow.textContent = '◀';
+            const savedWidth = localStorage.getItem('editorPanelWidth');
+            if (savedWidth) {
+                panel.style.width = savedWidth + 'px';
+            } else {
+                panel.style.width = EDITOR_DEFAULT_WIDTH_PERCENT + '%';
+            }
+            arrow.textContent = '\u25C0';
         } else {
-            // Collapse
+            // Collapse - save current width first
+            localStorage.setItem('editorPanelWidth', panel.offsetWidth);
             panel.classList.add('collapsed');
             splitter.classList.add('collapsed');
-            arrow.textContent = '▶';
+            arrow.textContent = '\u25B6';
         }
 
         // Re-render timeline and gantt after width change
@@ -12523,6 +12693,12 @@ const tourSteps = [
         message: "You can drag and drop .md or .txt files directly onto the editor to load them. Press ? at any time to see all keyboard shortcuts.",
         target: ".editor-panel",
         position: "right"
+    },
+    {
+        title: "Resizable Editor",
+        message: "Drag the splitter bar between the editor and content pane to resize the editor to your preferred width. Click the arrow button to collapse or expand the editor panel.",
+        target: "#editorSplitter",
+        position: "left"
     },
     {
         title: "Dashboard",
