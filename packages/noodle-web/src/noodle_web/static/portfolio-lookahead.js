@@ -197,7 +197,7 @@ async function renderPortfolioLookAhead() {
 
         // Header with summary and filter
         let html = '<div class="portfolio-lookahead-header">' +
-            '<h2>2-Week Look-Ahead</h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--orange">Portfolio 2-Week Look-Ahead</span></h2>' +
             '<div class="portfolio-lookahead-summary">' +
             '<div class="lookahead-summary-item">' +
             '<span class="summary-label">Overdue</span>' +
