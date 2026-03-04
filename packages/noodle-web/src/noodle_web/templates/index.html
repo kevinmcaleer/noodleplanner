@@ -2446,6 +2446,44 @@ Build
         </div>
     </div>
 
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="keyboardShortcutsOverlay" class="modal-overlay" onclick="if(event.target===this) closeKeyboardShortcuts()">
+        <div class="task-form-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Keyboard Shortcuts</h2>
+                <button class="close-btn" onclick="closeKeyboardShortcuts()">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                <h3>Navigation</h3>
+                <table class="help-table">
+                    <tr><td><kbd>Alt+D</kbd></td><td>Go to Project Dashboard</td></tr>
+                    <tr><td><kbd>Alt+P</kbd></td><td>Go to Portfolio</td></tr>
+                </table>
+
+                <h3>Create Items</h3>
+                <table class="help-table">
+                    <tr><td><kbd>Alt+N</kbd></td><td>New Project</td></tr>
+                    <tr><td><kbd>Alt+T</kbd></td><td>New Task</td></tr>
+                    <tr><td><kbd>Alt+R</kbd></td><td>New Risk</td></tr>
+                    <tr><td><kbd>Alt+I</kbd></td><td>New Issue</td></tr>
+                    <tr><td><kbd>Alt+Shift+R</kbd></td><td>New Resource</td></tr>
+                </table>
+
+                <h3>Export</h3>
+                <table class="help-table">
+                    <tr><td><kbd>Alt+E</kbd></td><td>Export Project to Excel</td></tr>
+                    <tr><td><kbd>Alt+Shift+P</kbd></td><td>Export Portfolio Report to PowerPoint</td></tr>
+                </table>
+
+                <h3>General</h3>
+                <table class="help-table">
+                    <tr><td><kbd>?</kbd></td><td>Show this help dialog</td></tr>
+                    <tr><td><kbd>Esc</kbd></td><td>Close open panel or modal</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Templates Modal -->
     <div id="templatesModalOverlay" class="modal-overlay templates-overlay">
         <div class="templates-modal">
