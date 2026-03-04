@@ -7385,9 +7385,16 @@ function showTaskContextMenu(event, task, taskIndex) {
 
     closeTaskContextMenu();
 
+    // Track the trigger button for aria-expanded
+    const triggerBtn = event.currentTarget;
+    triggerBtn.setAttribute('aria-expanded', 'true');
+
     const menu = document.createElement('div');
     menu.className = 'task-context-menu show';
     menu.id = 'activeTaskContextMenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Task actions');
+    menu._triggerBtn = triggerBtn;
 
     const items = [];
 
@@ -7431,7 +7438,7 @@ function showTaskContextMenu(event, task, taskIndex) {
     document.body.appendChild(menu);
 
     // Position menu near the button
-    const btnRect = event.currentTarget.getBoundingClientRect();
+    const btnRect = triggerBtn.getBoundingClientRect();
     let left = btnRect.right + 4;
     let top = btnRect.top;
 
@@ -7448,10 +7455,63 @@ function showTaskContextMenu(event, task, taskIndex) {
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
 
+    // Focus the first menu item for keyboard navigation
+    const firstItem = menu.querySelector('button[role="menuitem"]');
+    if (firstItem) firstItem.focus();
+
+    // Keyboard navigation within the menu
+    menu.addEventListener('keydown', handleContextMenuKeydown);
+
     // Close when clicking outside
     setTimeout(() => {
         document.addEventListener('click', closeTaskContextMenuOnOutsideClick);
     }, 0);
+}
+
+/**
+ * Handle keyboard navigation within the task context menu.
+ */
+function handleContextMenuKeydown(e) {
+    const menu = document.getElementById('activeTaskContextMenu');
+    if (!menu) return;
+
+    const menuItems = Array.from(menu.querySelectorAll('button[role="menuitem"]'));
+    const currentIndex = menuItems.indexOf(document.activeElement);
+
+    switch (e.key) {
+        case 'Escape':
+            e.preventDefault();
+            closeTaskContextMenu();
+            break;
+        case 'ArrowDown':
+            e.preventDefault();
+            if (currentIndex < menuItems.length - 1) {
+                menuItems[currentIndex + 1].focus();
+            } else {
+                menuItems[0].focus();
+            }
+            break;
+        case 'ArrowUp':
+            e.preventDefault();
+            if (currentIndex > 0) {
+                menuItems[currentIndex - 1].focus();
+            } else {
+                menuItems[menuItems.length - 1].focus();
+            }
+            break;
+        case 'Home':
+            e.preventDefault();
+            menuItems[0].focus();
+            break;
+        case 'End':
+            e.preventDefault();
+            menuItems[menuItems.length - 1].focus();
+            break;
+        case 'Tab':
+            e.preventDefault();
+            closeTaskContextMenu();
+            break;
+    }
 }
 
 function closeTaskContextMenuOnOutsideClick(e) {
@@ -7464,6 +7524,12 @@ function closeTaskContextMenuOnOutsideClick(e) {
 function closeTaskContextMenu() {
     const menu = document.getElementById('activeTaskContextMenu');
     if (menu) {
+        // Reset aria-expanded on the trigger button
+        if (menu._triggerBtn) {
+            menu._triggerBtn.setAttribute('aria-expanded', 'false');
+            menu._triggerBtn.focus();
+        }
+        menu.removeEventListener('keydown', handleContextMenuKeydown);
         menu.remove();
     }
     document.removeEventListener('click', closeTaskContextMenuOnOutsideClick);
@@ -7472,9 +7538,11 @@ function closeTaskContextMenu() {
 function createContextMenuItem(label, icon, onClick) {
     const item = document.createElement('button');
     item.className = 'task-context-menu-item';
+    item.setAttribute('role', 'menuitem');
 
     const iconSpan = document.createElement('span');
     iconSpan.className = 'menu-icon';
+    iconSpan.setAttribute('aria-hidden', 'true');
     iconSpan.textContent = icon;
     item.appendChild(iconSpan);
 
@@ -7494,6 +7562,7 @@ function createContextMenuItem(label, icon, onClick) {
 function createContextMenuSeparator() {
     const sep = document.createElement('div');
     sep.className = 'task-context-menu-separator';
+    sep.setAttribute('role', 'separator');
     return sep;
 }
 
@@ -7503,9 +7572,13 @@ function createCompletionSubmenu(task, taskIndex) {
 
     const trigger = document.createElement('button');
     trigger.className = 'task-context-menu-item';
+    trigger.setAttribute('role', 'menuitem');
+    trigger.setAttribute('aria-haspopup', 'true');
+    trigger.setAttribute('aria-expanded', 'false');
 
     const iconSpan = document.createElement('span');
     iconSpan.className = 'menu-icon';
+    iconSpan.setAttribute('aria-hidden', 'true');
     iconSpan.textContent = '\u2714';
     trigger.appendChild(iconSpan);
 
@@ -7515,6 +7588,7 @@ function createCompletionSubmenu(task, taskIndex) {
 
     const arrow = document.createElement('span');
     arrow.className = 'menu-arrow';
+    arrow.setAttribute('aria-hidden', 'true');
     arrow.textContent = '\u25B6';
     trigger.appendChild(arrow);
 
@@ -7522,14 +7596,18 @@ function createCompletionSubmenu(task, taskIndex) {
 
     const submenu = document.createElement('div');
     submenu.className = 'task-context-submenu-items';
+    submenu.setAttribute('role', 'menu');
+    submenu.setAttribute('aria-label', 'Completion options');
 
     const currentPercent = parseInt(String(task.percent || '0').replace('%', '')) || 0;
 
     [0, 25, 50, 75, 100].forEach(pct => {
         const item = document.createElement('button');
         item.className = 'task-context-menu-item completion-item';
+        item.setAttribute('role', 'menuitem');
         if (currentPercent === pct) {
             item.classList.add('completion-active');
+            item.setAttribute('aria-current', 'true');
         }
         item.textContent = pct + '%';
         item.addEventListener('click', (e) => {
@@ -7538,6 +7616,14 @@ function createCompletionSubmenu(task, taskIndex) {
             setTaskCompletion(task, taskIndex, pct);
         });
         submenu.appendChild(item);
+    });
+
+    // Show submenu on hover and update aria-expanded
+    wrapper.addEventListener('mouseenter', () => {
+        trigger.setAttribute('aria-expanded', 'true');
+    });
+    wrapper.addEventListener('mouseleave', () => {
+        trigger.setAttribute('aria-expanded', 'false');
     });
 
     wrapper.appendChild(submenu);
@@ -7654,6 +7740,9 @@ function createTaskContextButton(task, taskIndex) {
     const btn = document.createElement('button');
     btn.className = 'task-context-btn';
     btn.title = 'More actions';
+    btn.setAttribute('aria-label', 'More actions for ' + (task.name || 'task'));
+    btn.setAttribute('aria-haspopup', 'menu');
+    btn.setAttribute('aria-expanded', 'false');
     btn.textContent = '\u22EF';
     btn.addEventListener('click', (e) => {
         showTaskContextMenu(e, task, taskIndex);

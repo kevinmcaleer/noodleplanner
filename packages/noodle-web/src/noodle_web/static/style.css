@@ -3976,6 +3976,8 @@ tr:hover .task-inspect-btn {
     color: #6c757d;
     line-height: 1;
     letter-spacing: 2px;
+    min-width: 32px;
+    min-height: 32px;
 }
 
 tr:hover .task-context-btn,
@@ -3986,6 +3988,19 @@ tr:hover .task-context-btn,
 .task-context-btn:hover {
     background: rgba(16, 139, 185, 0.1);
     opacity: 1;
+}
+
+.task-context-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .task-context-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
 }
 
 .task-context-menu {
@@ -4023,6 +4038,19 @@ tr:hover .task-context-btn,
 
 .task-context-menu-item:hover {
     background: #f0f4ff;
+}
+
+.task-context-menu-item:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+    background: #f0f4ff;
+}
+
+@media (max-width: 768px) {
+    .task-context-menu-item {
+        min-height: 44px;
+        padding: 12px 14px;
+    }
 }
 
 .task-context-menu-item .menu-icon {
