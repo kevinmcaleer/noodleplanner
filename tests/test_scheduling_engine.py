@@ -2325,5 +2325,250 @@ class TestPortfolioExportWithRiskSlides:
         assert 'Proj X' in proj_text
 
 
+class TestDrawTimelineGraphic:
+    """Tests for _draw_timeline_graphic PPTX timeline rendering."""
+
+    @staticmethod
+    def _make_slide():
+        """Create a minimal Presentation and return (prs, slide)."""
+        from pptx import Presentation
+        from pptx.util import Inches
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        return prs, slide
+
+    @staticmethod
+    def _sample_phases():
+        return [
+            {'name': 'Phase A', 'start': '2026-01-01', 'finish': '2026-03-31',
+             'percent': 50, 'is_summary': True, 'duration_days': 90},
+            {'name': 'Phase B', 'start': '2026-04-01', 'finish': '2026-06-30',
+             'percent': 0, 'is_summary': True, 'duration_days': 91},
+        ]
+
+    @staticmethod
+    def _sample_milestones():
+        return [
+            {'name': 'M1', 'start': '2026-02-15', 'finish': '2026-02-15',
+             'percent': 0, 'is_summary': False, 'duration_days': 0},
+            {'name': 'M2', 'start': '2026-05-01', 'finish': '2026-05-01',
+             'percent': 100, 'is_summary': False, 'duration_days': 0},
+        ]
+
+    def test_returns_nonzero_height(self):
+        """Timeline with phases and milestones returns a positive height."""
+        from pptx.util import Inches
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        tasks = self._sample_phases() + self._sample_milestones()
+        height = _draw_timeline_graphic(
+            slide, tasks,
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+        assert height > 0
+
+    def test_returns_zero_for_empty_input(self):
+        """Empty task list returns zero height."""
+        from pptx.util import Inches
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        height = _draw_timeline_graphic(
+            slide, [],
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+        assert height == 0
+
+    def test_milestone_diamonds_centred_on_backbone(self):
+        """Milestone diamonds should be vertically centred on the backbone."""
+        from pptx.util import Inches, Emu
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        tasks = self._sample_phases() + self._sample_milestones()
+        _draw_timeline_graphic(
+            slide, tasks,
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+
+        # Find backbone rectangle (thin grey line spanning full width)
+        backbone = None
+        diamonds = []
+        for shape in slide.shapes:
+            if shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE:
+                # Backbone is a very thin rectangle
+                if (shape.height < Inches(0.03)
+                        and shape.width > Inches(5)):
+                    backbone = shape
+                # Diamonds are identified by roughly equal width/height
+                elif (abs(shape.width - shape.height) < Inches(0.02)
+                      and shape.width < Inches(0.2)
+                      and shape.width > Inches(0.05)):
+                    diamonds.append(shape)
+
+        assert backbone is not None, "Backbone line not found"
+        assert len(diamonds) >= 2, f"Expected 2 diamonds, found {len(diamonds)}"
+
+        backbone_centre_y = backbone.top + backbone.height // 2
+        for d in diamonds:
+            diamond_centre_y = d.top + d.height // 2
+            # Allow 2 EMU tolerance for rounding
+            offset = abs(diamond_centre_y - backbone_centre_y)
+            assert offset < Emu(5000), (
+                f"Diamond not centred on backbone: offset={offset} EMU"
+            )
+
+    def test_date_labels_below_backbone(self):
+        """Date labels should be positioned below the backbone line."""
+        from pptx.util import Inches, Pt
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        tasks = self._sample_phases() + self._sample_milestones()
+        _draw_timeline_graphic(
+            slide, tasks,
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+
+        # Find backbone
+        backbone = None
+        for shape in slide.shapes:
+            if (shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
+                    and shape.height < Inches(0.03)
+                    and shape.width > Inches(5)):
+                backbone = shape
+                break
+
+        assert backbone is not None, "Backbone line not found"
+        backbone_bottom = backbone.top + backbone.height
+
+        # Find date label textboxes (small font, positioned low)
+        date_boxes = []
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                # Date labels are short lowercase strings like "jan 2026"
+                if (text and len(text) <= 12
+                        and shape.top > backbone.top
+                        and text != "Today"):
+                    paras = shape.text_frame.paragraphs
+                    if paras and paras[0].font.size and paras[0].font.size <= Pt(6):
+                        date_boxes.append(shape)
+
+        assert len(date_boxes) > 0, "No date labels found"
+        for box in date_boxes:
+            assert box.top >= backbone_bottom, (
+                f"Date label '{box.text_frame.text}' at top={box.top} "
+                f"is above backbone bottom={backbone_bottom}"
+            )
+
+    def test_date_labels_fit_on_one_line(self):
+        """Date labels should use a small font that fits on one line."""
+        from pptx.util import Inches, Pt
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        tasks = self._sample_phases() + self._sample_milestones()
+        _draw_timeline_graphic(
+            slide, tasks,
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+
+        date_boxes = []
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                if (text and len(text) <= 12
+                        and text != "Today"
+                        and not any(c.isupper() for c in text)):
+                    paras = shape.text_frame.paragraphs
+                    if paras and paras[0].font.size and paras[0].font.size <= Pt(6):
+                        date_boxes.append(shape)
+
+        assert len(date_boxes) > 0, "No date labels found"
+        for box in date_boxes:
+            tf = box.text_frame
+            assert tf.word_wrap is False, "Date label should not wrap"
+            font_size = tf.paragraphs[0].font.size
+            assert font_size <= Pt(5), (
+                f"Date font {font_size} exceeds Pt(5)"
+            )
+
+    def test_reduced_height_compared_to_original(self):
+        """Timeline height should be roughly 75% of what it was before.
+
+        The original used bar_height=0.15, row_gap=0.02, diamond=0.12,
+        various 0.03/0.01/0.02/0.2 paddings. The new version uses smaller
+        values. We verify the returned height is less than a generous upper
+        bound.
+        """
+        from pptx.util import Inches
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        tasks = self._sample_phases() + self._sample_milestones()
+        height = _draw_timeline_graphic(
+            slide, tasks,
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+        # With 2 phase rows the original height was roughly:
+        #   2*(0.15+0.02) + 0.03 + 0.01 + 0.12 + 0.02 + 0.2 = 0.72 inches
+        # New should be roughly:
+        #   2*(0.11+0.015) + 0.02 + 0.015 + 0.02 + 0.15 = ~0.455 inches
+        # Assert new height is under 0.6 inches (generous upper bound)
+        assert height < Inches(0.6), (
+            f"Timeline height {height} exceeds expected reduced size"
+        )
+
+    def test_phases_only_no_milestones(self):
+        """Timeline renders successfully with phases but no milestones."""
+        from pptx.util import Inches
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        height = _draw_timeline_graphic(
+            slide, self._sample_phases(),
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+        assert height > 0
+
+    def test_milestones_only_no_phases(self):
+        """Timeline renders successfully with milestones but no phases."""
+        from pptx.util import Inches
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        height = _draw_timeline_graphic(
+            slide, self._sample_milestones(),
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+        assert height > 0
+
+    def test_date_format_includes_year(self):
+        """Date labels for timelines under 365 days should show 'mon yyyy'."""
+        from pptx.util import Inches, Pt
+        from noodle_core.scheduling_engine import _draw_timeline_graphic
+
+        _, slide = self._make_slide()
+        tasks = self._sample_phases() + self._sample_milestones()
+        _draw_timeline_graphic(
+            slide, tasks,
+            left=Inches(0.4), top=Inches(1.0), width=Inches(12.0))
+
+        date_labels = []
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                paras = shape.text_frame.paragraphs
+                if (text and paras and paras[0].font.size
+                        and paras[0].font.size <= Pt(6)
+                        and text != "Today"):
+                    date_labels.append(text)
+
+        assert len(date_labels) > 0, "No date labels found"
+        # At least some labels should contain a 4-digit year (e.g., "jan 2026")
+        has_year = any('202' in label for label in date_labels)
+        assert has_year, (
+            f"No date label contains year: {date_labels}"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

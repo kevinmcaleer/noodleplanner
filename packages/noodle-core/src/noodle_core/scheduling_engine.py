@@ -2233,9 +2233,9 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
     DARK_TEXT = RGBColor(100, 100, 100)
     TODAY_RED = RGBColor(220, 53, 69)
 
-    # Layout constants
-    bar_height = Inches(0.15)
-    row_gap = Inches(0.02)
+    # Layout constants (reduced to ~75% of original height)
+    bar_height = Inches(0.11)
+    row_gap = Inches(0.015)
     width_emu = int(width)
 
     # Assign rows to phases (greedy, no overlap)
@@ -2301,8 +2301,8 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
         if bar_w > Inches(0.5):
             tf = bar.text_frame
             tf.word_wrap = False
-            tf.margin_left = Inches(0.05)
-            tf.margin_right = Inches(0.05)
+            tf.margin_left = Inches(0.04)
+            tf.margin_right = Inches(0.04)
             tf.margin_top = Inches(0)
             tf.margin_bottom = Inches(0)
             p = tf.paragraphs[0]
@@ -2310,22 +2310,24 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
             if is_complete:
                 label = '\u2713 ' + label
             p.text = label
-            p.font.size = Pt(7)
+            p.font.size = Pt(6)
             p.font.color.rgb = RGBColor(255, 255, 255)
             p.font.bold = False
 
     # Backbone line (thin grey line across full width)
-    line_y = int(top + phase_area_height + Inches(0.03))
+    backbone_thickness = Inches(0.015)
+    line_y = int(top + phase_area_height + Inches(0.02))
     backbone = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE, int(left), line_y, width_emu, Inches(0.015)
+        MSO_SHAPE.RECTANGLE, int(left), line_y, width_emu, backbone_thickness
     )
     backbone.fill.solid()
     backbone.fill.fore_color.rgb = GREY_LINE
     backbone.line.fill.background()
 
-    # Draw milestone diamonds below the backbone line
-    diamond_size = Inches(0.12)
-    milestone_y = line_y + Inches(0.01)
+    # Draw milestone diamonds centred on the backbone line
+    diamond_size = Inches(0.10)
+    backbone_centre = int(line_y + backbone_thickness // 2)
+    milestone_y = int(backbone_centre - diamond_size // 2)
     for ms in milestones:
         ms_date = _parse(ms['finish'])
         day_offset = (ms_date - min_date).days
@@ -2342,8 +2344,8 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
         diamond.fill.fore_color.rgb = ms_color
         diamond.line.fill.background()
 
-    # Date scale labels along the bottom
-    date_label_y = int(milestone_y + diamond_size + Inches(0.02))
+    # Date scale labels beneath the backbone line
+    date_label_y = int(line_y + backbone_thickness + Inches(0.02))
 
     if total_days <= 60:
         interval_days = max(2, total_days // 7)
@@ -2359,19 +2361,21 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
         day_offset = (d - min_date).days
         x_pos = int(left + (day_offset / total_days) * width_emu)
         if total_days <= 365:
-            label = d.strftime('%-d %b').lower()
+            label = d.strftime('%b %Y').lower()
         else:
             label = d.strftime("%b '%y").lower()
 
         tb = slide.shapes.add_textbox(x_pos, date_label_y,
-                                      Inches(0.8), Inches(0.15))
+                                      Inches(0.6), Inches(0.12))
         tf = tb.text_frame
         tf.word_wrap = False
         tf.margin_left = 0
         tf.margin_top = 0
+        tf.margin_bottom = 0
+        tf.margin_right = 0
         p = tf.paragraphs[0]
         p.text = label
-        p.font.size = Pt(6)
+        p.font.size = Pt(5)
         p.font.color.rgb = DARK_TEXT
         d += timedelta(days=interval_days)
 
@@ -2401,7 +2405,7 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
         tp.font.bold = True
         tp.alignment = PP_ALIGN.CENTER
 
-    total_height = int(date_label_y + Inches(0.2) - top)
+    total_height = int(date_label_y + Inches(0.15) - top)
     return total_height
 
 
