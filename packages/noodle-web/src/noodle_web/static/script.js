@@ -12457,8 +12457,7 @@ const tourSteps = [
     },
     {
         title: "You're Ready! 🚀",
-        message: "That's it! Start by creating your first task in the editor, explore the Plan menu for different views, or check Tools > Syntax Guide to learn more. Press '?' at any time to see keyboard shortcuts.",
-        message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check Tools > Syntax Guide to learn more.",
+        message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check Tools > Syntax Guide to learn more. Press '?' at any time to see keyboard shortcuts.",
         target: null,
         position: "center"
     }
@@ -16768,6 +16767,11 @@ function openShortcutsModal() {
 
 function closeShortcutsModal() {
     const overlay = document.getElementById('shortcutsOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
 // ============================================================================
 // KEYBOARD SHORTCUTS
 // ============================================================================
