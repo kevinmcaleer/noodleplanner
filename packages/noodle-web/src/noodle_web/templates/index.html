@@ -135,10 +135,10 @@
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
                 </button>
                 <div class="nav-dropdown">
-                    <button class="tab" id="planTab" onclick="togglePlanMenu(event)">
+                    <button class="tab" id="planTab" onclick="togglePlanMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="planMenu">
                         Plan ▾
                     </button>
-                    <div class="nav-menu" id="planMenu">
+                    <div class="nav-menu" id="planMenu" role="menu" aria-label="Plan views">
                         <div class="nav-menu-item" onclick="switchToView('tasks'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </div>
@@ -163,10 +163,10 @@
                     </div>
                 </div>
                 <div class="nav-dropdown">
-                    <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)">
+                    <button class="tab" id="trackingTab" onclick="toggleTrackingMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="trackingMenu">
                         Tracking ▾
                     </button>
-                    <div class="nav-menu" id="trackingMenu">
+                    <div class="nav-menu" id="trackingMenu" role="menu" aria-label="Tracking views">
                         <div class="nav-menu-item" onclick="switchTab('raid'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
                         </div>
@@ -185,10 +185,10 @@
                     </div>
                 </div>
                 <div class="nav-dropdown">
-                    <button class="tab" id="resourcesTab" onclick="toggleResourcesMenu(event)">
+                    <button class="tab" id="resourcesTab" onclick="toggleResourcesMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="resourcesMenu">
                         Resources ▾
                     </button>
-                    <div class="nav-menu" id="resourcesMenu">
+                    <div class="nav-menu" id="resourcesMenu" role="menu" aria-label="Resources views">
                         <div class="nav-menu-item" onclick="switchToView('resources'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
                         </div>
@@ -204,10 +204,10 @@
                     </div>
                 </div>
                 <div class="nav-dropdown">
-                    <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)">
+                    <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="toolsMenu">
                         Tools ▾
                     </button>
-                    <div class="nav-menu" id="toolsMenu">
+                    <div class="nav-menu" id="toolsMenu" role="menu" aria-label="Tools">
                         <div class="nav-menu-item" onclick="switchToView('text-report'); event.stopPropagation();">
                             📝 Text Report
                         </div>
@@ -401,10 +401,10 @@ Press Enter to render..."></textarea>
                                     <p class="welcome-hint">Press <kbd>Enter</kbd> in the editor to render your plan</p>
                                 </div>
                             </div>
-                            <div class="project-report-content" style="display: none;">
+                            <div class="project-report-content np-fade-in" style="display: none;">
                                 <!-- Project Info Header -->
                                 <div class="project-report-header">
-                                    <h2 class="project-report-title" id="reportProjectTitle">Project Title</h2>
+                                    <h2 class="project-report-title" id="reportProjectTitle"><span class="ribbon-banner ribbon-banner--blue" aria-hidden="true"></span>Project Title</h2>
                                     <div class="project-report-details">
                                         <div class="project-report-detail" id="reportManagerDetail" style="display: none;">
                                             <span class="project-report-detail-label">Project Manager:</span>
@@ -583,7 +583,7 @@ Press Enter to render..."></textarea>
                                 <h3>Milestones Table</h3>
                                 <p>Render your plan to see the milestones table here.</p>
                             </div>
-                            <div class="milestones-content" style="display: none;">
+                            <div class="milestones-content np-fade-in" style="display: none;">
                                 <div class="milestones-table-wrapper" style="position: relative;">
                                     <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
                                     <table class="milestones-table">
@@ -614,7 +614,7 @@ Press Enter to render..."></textarea>
                                 <h3>📅 Timeline View</h3>
                                 <p>Coming soon: Interactive timeline visualization</p>
                             </div>
-                            <div class="timeline-content" style="display: none;">
+                            <div class="timeline-content np-fade-in" style="display: none;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                                     <h2 class="timeline-title" id="timelineTitle" style="margin: 0;">Project Timeline</h2>
                                     <div style="display: flex; align-items: center; gap: 16px;">
@@ -651,7 +651,7 @@ Press Enter to render..."></textarea>
                                 <h3>📊 Gantt Chart View</h3>
                                 <p>Render your plan to see the interactive Gantt chart</p>
                             </div>
-                            <div class="gantt-content" style="display: none;">
+                            <div class="gantt-content np-fade-in" style="display: none;">
                                 <div class="embedded-timeline-section">
                                     <div class="embedded-timeline-header">
                                         <a class="embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('gantt-view')" title="Toggle timeline">
@@ -667,7 +667,7 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
                                 <div class="gantt-toolbar">
-                                    <h2 class="gantt-title">Gantt Chart</h2>
+                                    <h2 class="gantt-title"><span class="ribbon-banner ribbon-banner--green" aria-hidden="true"></span>Gantt Chart</h2>
                                     <div class="gantt-toolbar-controls">
                                         <div class="gantt-scale-selector">
                                             <label for="ganttScale">Scale:</label>
@@ -731,7 +731,7 @@ Press Enter to render..."></textarea>
                                 <h3>Tasks</h3>
                                 <p>Render your plan to see the tasks table</p>
                             </div>
-                            <div class="tasks-content" style="display: none;">
+                            <div class="tasks-content np-fade-in" style="display: none;">
                                 <div class="embedded-timeline-section">
                                     <div class="embedded-timeline-header">
                                         <a class="embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('tasks-view')" title="Toggle timeline">
@@ -747,7 +747,7 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
                                 <div class="tasks-toolbar">
-                                    <h2 class="tasks-title">Tasks</h2>
+                                    <h2 class="tasks-title"><span class="ribbon-banner ribbon-banner--orange" aria-hidden="true"></span>Tasks</h2>
                                 </div>
                                 <div class="tasks-table-wrapper">
                                     <table class="gantt-info-table tasks-table">
@@ -784,9 +784,9 @@ Press Enter to render..."></textarea>
                                 <h3>Resources</h3>
                                 <p>Render your plan to see resource allocation here.</p>
                             </div>
-                            <div class="resources-content" style="display: none;">
+                            <div class="resources-content np-fade-in" style="display: none;">
                                 <div class="resources-toolbar">
-                                    <h2 class="resources-title">Resource Allocation</h2>
+                                    <h2 class="resources-title"><span class="ribbon-banner ribbon-banner--dark" aria-hidden="true"></span>Resource Allocation</h2>
                                     <a class="subtle-add-btn" onclick="fixResourceNames()" title="Capitalise first letter of all resource shortnames">Fix Resource Names</a>
                                 </div>
                                 <div class="resources-table-wrapper" style="position: relative;">
@@ -849,7 +849,7 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see actionable insights and health checks here.</p>
                             </div>
                             <div class="analysis-content" style="display: none;">
-                                <h2 class="analysis-title">Project Health Check & Analysis</h2>
+                                <h2 class="analysis-title"><span class="ribbon-banner ribbon-banner--red" aria-hidden="true"></span>Project Health Check & Analysis</h2>
                                 <div id="analysisInsights" class="analysis-insights">
                                     <!-- Insights will be populated by JavaScript -->
                                 </div>
@@ -864,7 +864,7 @@ Press Enter to render..."></textarea>
                             </div>
                             <div class="highlights-content" style="display: none;">
                                 <div class="highlights-toolbar">
-                                    <h2 class="highlights-title">Project Highlights</h2>
+                                    <h2 class="highlights-title"><span class="ribbon-banner ribbon-banner--yellow" aria-hidden="true"></span>Project Highlights</h2>
                                     <a class="subtle-add-btn" onclick="addHighlight()" title="Add highlight">+ Add Highlight</a>
                                 </div>
                                 <div class="highlights-list" id="highlightsList">
@@ -2478,5 +2478,81 @@ Build
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsOverlay" class="shortcuts-modal-overlay" onclick="if(event.target===this) closeShortcutsModal()" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+        <div class="shortcuts-modal">
+            <div class="shortcuts-modal-header">
+                <h2>Keyboard Shortcuts</h2>
+                <button class="close-btn" onclick="closeShortcutsModal()" aria-label="Close shortcuts">&times;</button>
+            </div>
+            <div class="shortcuts-modal-body">
+                <div class="shortcuts-section">
+                    <h3>General</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Show this help</span>
+                        <span class="shortcut-keys"><kbd>?</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Close modal / menu</span>
+                        <span class="shortcut-keys"><kbd>Esc</kbd></span>
+                    </div>
+                </div>
+                <div class="shortcuts-section">
+                    <h3>Navigation</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Dashboard</span>
+                        <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>d</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Tasks</span>
+                        <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>t</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Gantt chart</span>
+                        <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>g</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Calendar</span>
+                        <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>c</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Board (Kanban)</span>
+                        <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>b</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Timeline</span>
+                        <span class="shortcut-keys"><kbd>g</kbd> <span class="shortcut-plus">then</span> <kbd>l</kbd></span>
+                    </div>
+                </div>
+                <div class="shortcuts-section">
+                    <h3>Editor</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Indent line</span>
+                        <span class="shortcut-keys"><kbd>Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>]</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Outdent line</span>
+                        <span class="shortcut-keys"><kbd>Cmd</kbd> <span class="shortcut-plus">+</span> <kbd>[</kbd></span>
+                    </div>
+                </div>
+                <div class="shortcuts-section">
+                    <h3>Menus</h3>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Navigate menu items</span>
+                        <span class="shortcut-keys"><kbd>&uarr;</kbd> <kbd>&darr;</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Select menu item</span>
+                        <span class="shortcut-keys"><kbd>Enter</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-desc">Close menu</span>
+                        <span class="shortcut-keys"><kbd>Esc</kbd></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
