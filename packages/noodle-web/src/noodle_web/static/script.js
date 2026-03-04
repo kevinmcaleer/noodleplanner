@@ -14878,6 +14878,40 @@ function renderStakeholderTable() {
 }
 
 /**
+ * Choose the shortest unique display name for stakeholders in a quadrant.
+ * Returns full name if few items, first name if unique, or initials if needed.
+ */
+function getQuadrantDisplayNames(items) {
+    if (items.length <= 3) {
+        return items.map(item => item.name.replace(/^@/, ''));
+    }
+
+    const fullNames = items.map(item => item.name.replace(/^@/, ''));
+    const firstNames = fullNames.map(n => n.split(/[\s.]+/)[0]);
+
+    const firstNameCounts = {};
+    firstNames.forEach(fn => { firstNameCounts[fn] = (firstNameCounts[fn] || 0) + 1; });
+
+    const allFirstNamesUnique = Object.values(firstNameCounts).every(c => c === 1);
+
+    if (items.length <= 6 && allFirstNamesUnique) {
+        return firstNames;
+    }
+
+    // Use initials, falling back to first name if initials collide
+    const initialsMap = {};
+    const displayNames = fullNames.map((name, i) => {
+        const initials = name.split(/[\s.]+/).map(w => w[0]).join('').toUpperCase();
+        if (!initialsMap[initials]) {
+            initialsMap[initials] = true;
+            return initials;
+        }
+        return firstNames[i];
+    });
+    return displayNames;
+}
+
+/**
  * Render the stakeholder interest/influence grid as SVG.
  */
 function renderStakeholderGrid() {
@@ -14893,12 +14927,12 @@ function renderStakeholderGrid() {
     const cx = padding;
     const cy = padding;
 
-    // Background quadrants
+    // Background quadrants with titles at bottom-middle of each quadrant
     const quadrants = [
-        { x: cx, y: cy, fill: '#f0f4ff', label: 'Keep Informed', labelX: cx + half / 2, labelY: cy + half / 2 },
-        { x: cx + half, y: cy, fill: '#e8f5e9', label: 'Manage', labelX: cx + half + half / 2, labelY: cy + half / 2 },
-        { x: cx, y: cy + half, fill: '#fff8e1', label: 'Monitor', labelX: cx + half / 2, labelY: cy + half + half / 2 },
-        { x: cx + half, y: cy + half, fill: '#fce4ec', label: 'Watch', labelX: cx + half + half / 2, labelY: cy + half + half / 2 }
+        { x: cx, y: cy, fill: '#f0f4ff', label: 'Keep Informed', labelX: cx + half / 2, labelY: cy + half - 10 },
+        { x: cx + half, y: cy, fill: '#e8f5e9', label: 'Manage', labelX: cx + half + half / 2, labelY: cy + half - 10 },
+        { x: cx, y: cy + half, fill: '#fff8e1', label: 'Monitor', labelX: cx + half / 2, labelY: cy + half + half - 10 },
+        { x: cx + half, y: cy + half, fill: '#fce4ec', label: 'Watch', labelX: cx + half + half / 2, labelY: cy + half + half - 10 }
     ];
 
     quadrants.forEach(q => {
@@ -14916,7 +14950,7 @@ function renderStakeholderGrid() {
         text.setAttribute('x', q.labelX);
         text.setAttribute('y', q.labelY);
         text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('dominant-baseline', 'auto');
         text.setAttribute('fill', '#bbb');
         text.setAttribute('font-size', '14');
         text.setAttribute('font-weight', '500');
@@ -14984,7 +15018,23 @@ function renderStakeholderGrid() {
     lowInfluenceLabel.textContent = 'Low Influence';
     svg.appendChild(lowInfluenceLabel);
 
-    // Plot stakeholders
+    // Group stakeholders by quadrant for display name shortening
+    const quadrantGroups = {};
+    stakeholderItems.forEach(item => {
+        const key = `${item.interest}-${item.influence}`;
+        if (!quadrantGroups[key]) quadrantGroups[key] = [];
+        quadrantGroups[key].push(item);
+    });
+
+    // Compute display names per quadrant
+    const displayNameMap = {};
+    Object.keys(quadrantGroups).forEach(key => {
+        const group = quadrantGroups[key];
+        const names = getQuadrantDisplayNames(group);
+        group.forEach((item, i) => { displayNameMap[item.id] = names[i]; });
+    });
+
+    // Plot stakeholders with grid layout to prevent overlap
     const colors = ['#667eea', '#764ba2', '#f97316', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'];
     const positions = {};
 
@@ -14992,20 +15042,27 @@ function renderStakeholderGrid() {
         const isHighInterest = item.interest === 'high';
         const isHighInfluence = item.influence === 'high';
 
-        // Place dot in the center of the appropriate quadrant with jitter
-        const baseX = isHighInterest ? cx + half + half / 2 : cx + half / 2;
-        const baseY = isHighInfluence ? cy + half / 2 : cy + half + half / 2;
+        const quadrantX = isHighInterest ? cx + half : cx;
+        const quadrantY = isHighInfluence ? cy : cy + half;
 
-        // Add jitter to avoid overlapping dots
         const key = `${item.interest}-${item.influence}`;
         if (!positions[key]) positions[key] = 0;
-        const offset = positions[key];
+        const posIndex = positions[key];
         positions[key]++;
 
-        const jitterX = (offset % 3 - 1) * 30;
-        const jitterY = Math.floor(offset / 3) * 25 - 15;
-        const dotX = baseX + jitterX;
-        const dotY = baseY + jitterY;
+        const count = quadrantGroups[key].length;
+        // Arrange items in columns of up to 3 rows, centered in the quadrant
+        const cols = Math.ceil(count / 3);
+        const col = Math.floor(posIndex / 3);
+        const row = posIndex % 3;
+        const colSpacing = Math.min(50, (half - 20) / Math.max(cols, 1));
+        const rowSpacing = Math.min(30, (half - 40) / 3);
+
+        const startX = quadrantX + half / 2 - ((cols - 1) * colSpacing) / 2;
+        const startY = quadrantY + 20 + row * rowSpacing;
+
+        const dotX = startX + col * colSpacing;
+        const dotY = startY;
 
         const color = colors[index % colors.length];
 
@@ -15019,15 +15076,16 @@ function renderStakeholderGrid() {
         circle.setAttribute('stroke-width', '2');
         svg.appendChild(circle);
 
-        // Label
+        // Label using potentially shortened display name
+        const displayName = displayNameMap[item.id] || item.name.replace(/^@/, '');
         const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         label.setAttribute('x', dotX);
-        label.setAttribute('y', dotY + 20);
+        label.setAttribute('y', dotY + 18);
         label.setAttribute('text-anchor', 'middle');
         label.setAttribute('fill', '#333');
-        label.setAttribute('font-size', '11');
+        label.setAttribute('font-size', count > 6 ? '9' : '11');
         label.setAttribute('font-weight', '500');
-        label.textContent = item.name.replace(/^@/, '');
+        label.textContent = displayName;
         svg.appendChild(label);
     });
 }
