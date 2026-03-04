@@ -357,6 +357,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inFrontMatter = false;
         let inHighlights = false;
         let inRaidLog = false;
+        let inBaseline = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
             if (trimmed === '---') {
@@ -366,7 +367,8 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (trimmed === '---highlights---') { inHighlights = true; continue; }
             if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+            if (trimmed === '---baseline---') { inBaseline = true; continue; }
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
             let taskText = trimmed;
@@ -402,6 +404,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
         let inHighlightsSection = false;
         let inRaidLogSection = false;
+        let inBaselineSection = false;
         return allLines.map(line => {
             // Track highlights section boundaries
             if (line.trim() === '---highlights---') {
@@ -428,6 +431,21 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
             // Dim lines inside RAID log section
             if (inRaidLogSection) {
+                // Check if we've entered the baseline section
+                if (line.trim() === '---baseline---') {
+                    inRaidLogSection = false;
+                    inBaselineSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Track baseline section
+            if (line.trim() === '---baseline---') {
+                inBaselineSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside baseline section
+            if (inBaselineSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
 
@@ -1583,6 +1601,9 @@ async function updateAllViews(planText, projectName) {
         // Load conditional formatting rules before rendering
         loadConditionalFormattingRulesFromFrontMatter();
 
+        // Check animations front matter toggle
+        checkAnimationsFrontMatter();
+
         // Update Gantt Chart
         updateGantt(result.tasks || []);
 
@@ -1618,6 +1639,22 @@ async function updateAllViews(planText, projectName) {
             loadRaidItemsFromData(raidFromText);
         }
 
+        // Load stakeholders from front matter
+        try {
+            loadStakeholdersFromPlanText();
+        } catch (e) {
+            console.error('Failed to load stakeholders:', e);
+        }
+
+        // Load baseline items from backend data, with client-side fallback
+        const baselineFromApi = result.baseline_items || [];
+        if (baselineFromApi.length > 0) {
+            loadBaselineFromData(baselineFromApi);
+        } else {
+            const baselineFromText = extractBaselineFromPlanText(planText);
+            loadBaselineFromData(baselineFromText);
+        }
+
         // Update editor with labels if backend found and added them.
         // Guard against stale responses overwriting a different project's text.
         if (result.updated_plan_text && result.updated_plan_text !== planText) {
@@ -1645,6 +1682,11 @@ async function updateAllViews(planText, projectName) {
         } catch (e) {
             console.error('Failed to extract RAID items as fallback:', e);
         }
+        try {
+            loadStakeholdersFromPlanText();
+        } catch (e) {
+            console.error('Failed to load stakeholders as fallback:', e);
+        }
         // Clear mind map so it doesn't show stale data when parsing fails
         try {
             if (typeof updateMindmap === 'function') {
@@ -1667,8 +1709,9 @@ function updateMilestonesTable(tasks) {
             content.style.display = 'block';
         }
 
-        // Get table body
+        // Get table body and header
         const tbody = document.getElementById('milestonesTableBody');
+        const thead = document.getElementById('milestonesTableHead');
         if (!tbody) {
             console.error('Milestones table body not found');
             return;
@@ -1676,6 +1719,29 @@ function updateMilestonesTable(tasks) {
 
         // Clear existing rows
         tbody.innerHTML = '';
+
+        // Check if baseline columns should be shown
+        const msToggle = document.getElementById('milestonesShowBaseline');
+        const showBaseline = msToggle && msToggle.checked && baselineItems.length > 0;
+        const baselineLookup = showBaseline ? getBaselineLookup() : {};
+
+        // Update table header to include/exclude baseline columns
+        if (thead) {
+            thead.innerHTML = '';
+            const headers = ['ID', 'Task Name', 'Start', 'Finish'];
+            if (showBaseline) {
+                headers.push('BL Start', 'BL Finish', 'Variance');
+            }
+            headers.push('%', 'RAG', 'Priority', 'Bucket', 'Comment');
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.textContent = h;
+                if (h.startsWith('BL') || h === 'Variance') {
+                    th.classList.add('baseline-col');
+                }
+                thead.appendChild(th);
+            });
+        }
 
         // Filter to only show actual milestones (0-duration, non-summary tasks)
         const filteredTasks = tasks.filter(task => {
@@ -1713,6 +1779,46 @@ function updateMilestonesTable(tasks) {
             const finishCell = document.createElement('td');
             finishCell.textContent = task.finish || '-';
             row.appendChild(finishCell);
+
+            // Baseline columns (if toggled on)
+            if (showBaseline) {
+                const bl = baselineLookup[task.name];
+                const blStartCell = document.createElement('td');
+                blStartCell.classList.add('baseline-col');
+                blStartCell.textContent = bl ? (bl.start || '-') : '-';
+                row.appendChild(blStartCell);
+
+                const blFinishCell = document.createElement('td');
+                blFinishCell.classList.add('baseline-col');
+                blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
+                row.appendChild(blFinishCell);
+
+                const varianceCell = document.createElement('td');
+                varianceCell.classList.add('baseline-col');
+                if (bl && bl.finish && task.finish) {
+                    const currentDate = parseLocalDate(task.finish);
+                    const baselineDate = parseLocalDate(bl.finish);
+                    if (currentDate && baselineDate) {
+                        const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
+                        if (diffDays > 0) {
+                            varianceCell.textContent = '+' + diffDays + 'd';
+                            varianceCell.classList.add('baseline-late');
+                        } else if (diffDays < 0) {
+                            varianceCell.textContent = diffDays + 'd';
+                            varianceCell.classList.add('baseline-early');
+                        } else {
+                            varianceCell.textContent = 'On track';
+                            varianceCell.classList.add('baseline-ontrack');
+                        }
+                    } else {
+                        varianceCell.textContent = '-';
+                    }
+                } else {
+                    varianceCell.textContent = bl ? '-' : 'New';
+                    if (!bl) varianceCell.classList.add('baseline-new');
+                }
+                row.appendChild(varianceCell);
+            }
 
             // Percent cell
             const percentCell = document.createElement('td');
@@ -4768,6 +4874,13 @@ function renderGanttRows() {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         infoRow.appendChild(predCell);
 
+        // Actions cell with context menu button
+        const ganttActionsCell = document.createElement('td');
+        ganttActionsCell.classList.add('task-actions-cell');
+        const ganttContextBtn = createTaskContextButton(task, index);
+        ganttActionsCell.appendChild(ganttContextBtn);
+        infoRow.appendChild(ganttActionsCell);
+
         ganttInfoBody.appendChild(infoRow);
 
         // Gantt bar row
@@ -4878,12 +4991,75 @@ function renderGanttRows() {
 
                 barRow.appendChild(bar);
             }
+
+            // Render baseline bar if baseline is visible
+            renderBaselineBar(barRow, task, minDate);
         }
 
         ganttInfoBody.appendChild(infoRow);
         ganttBody.appendChild(barRow);
     });
 
+}
+
+/**
+ * Render a baseline bar behind the current task bar in the Gantt chart.
+ * The baseline bar is semi-transparent and shows the original schedule.
+ */
+function renderBaselineBar(barRow, task, minDate) {
+    const ganttToggle = document.getElementById('ganttShowBaseline');
+    if (!ganttToggle || !ganttToggle.checked) return;
+    if (baselineItems.length === 0) return;
+
+    const baselineLookup = getBaselineLookup();
+    const baselineItem = baselineLookup[task.name];
+    if (!baselineItem || !baselineItem.start || !baselineItem.finish) return;
+
+    const blStart = parseLocalDate(baselineItem.start);
+    const blFinish = parseLocalDate(baselineItem.finish);
+    if (!blStart || !blFinish) return;
+
+    blStart.setHours(0, 0, 0, 0);
+    blFinish.setHours(0, 0, 0, 0);
+
+    // Calculate position
+    let daysFromStart = 0;
+    let tempDate = new Date(minDate);
+    tempDate.setHours(0, 0, 0, 0);
+    while (tempDate < blStart) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        daysFromStart++;
+    }
+
+    const blDuration = baselineItem.duration ? parseInt(baselineItem.duration) : 0;
+
+    // Milestone baseline (0 duration)
+    if (blDuration === 0 && !task.is_summary) {
+        const diamond = document.createElement('div');
+        diamond.className = 'gantt-bar gantt-milestone gantt-baseline-milestone';
+        const leftPos = daysFromStart * ganttPixelsPerDay - 9;
+        diamond.style.left = leftPos + 'px';
+        diamond.title = `Baseline: ${task.name}\nMilestone: ${baselineItem.finish}`;
+        barRow.appendChild(diamond);
+    } else {
+        // Regular baseline bar
+        let blCalendarDays = 0;
+        tempDate = new Date(blStart);
+        while (tempDate < blFinish) {
+            tempDate.setDate(tempDate.getDate() + 1);
+            blCalendarDays++;
+        }
+        if (blCalendarDays < 1) blCalendarDays = 1;
+
+        const blBar = document.createElement('div');
+        blBar.className = 'gantt-bar gantt-baseline-bar';
+        const leftPos = daysFromStart * ganttPixelsPerDay;
+        const barWidth = blCalendarDays * ganttPixelsPerDay;
+        blBar.style.left = leftPos + 'px';
+        blBar.style.width = barWidth + 'px';
+        blBar.title = `Baseline: ${task.name}\n${baselineItem.start} to ${baselineItem.finish}\nDuration: ${baselineItem.duration || blCalendarDays + 'd'}`;
+        barRow.appendChild(blBar);
+    }
 }
 
 function setupBarClickToOpenTask(element, task) {
@@ -5325,9 +5501,11 @@ function updateTasksTable(tasks) {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         row.appendChild(predCell);
 
-        // Actions column with inspect button
+        // Actions column with context menu and inspect button
         const actionsCell = document.createElement('td');
         actionsCell.classList.add('task-actions-cell');
+        const contextBtn = createTaskContextButton(task, index);
+        actionsCell.appendChild(contextBtn);
         if (!task.is_summary) {
             const inspectBtn = document.createElement('button');
             inspectBtn.className = 'task-inspect-btn';
@@ -7114,6 +7292,308 @@ function openMilestoneTaskForm(taskName) {
     console.error('Task not found in editor:', taskName);
 }
 
+/**
+ * Find the editor line number (1-based) for a task by name and level.
+ */
+function findTaskLineNumber(task) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return -1;
+
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const parsed = parseTaskLine(lines[i], i + 1);
+        if (parsed.name && parsed.name === task.name) {
+            return i + 1;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Show the task context menu near the clicked button.
+ */
+function showTaskContextMenu(event, task, taskIndex) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    closeTaskContextMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'task-context-menu show';
+    menu.id = 'activeTaskContextMenu';
+
+    const items = [];
+
+    // Edit
+    items.push(createContextMenuItem('Edit', '\u270E', () => {
+        openMilestoneTaskForm(task.name);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Promote (outdent)
+    items.push(createContextMenuItem('Promote (Outdent)', '\u2B05', () => {
+        promoteTask(task, taskIndex);
+    }));
+
+    // Demote (indent)
+    items.push(createContextMenuItem('Demote (Indent)', '\u27A1', () => {
+        demoteTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Insert Above
+    items.push(createContextMenuItem('Insert Task Above', '\u2795', () => {
+        insertTaskAbove(task, taskIndex);
+    }));
+
+    // Assign Resource
+    items.push(createContextMenuItem('Assign Resource', '\uD83D\uDC64', () => {
+        assignResourceToTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Set Completion (submenu)
+    const completionSubmenu = createCompletionSubmenu(task, taskIndex);
+    items.push(completionSubmenu);
+
+    items.forEach(item => menu.appendChild(item));
+
+    document.body.appendChild(menu);
+
+    // Position menu near the button
+    const btnRect = event.currentTarget.getBoundingClientRect();
+    let left = btnRect.right + 4;
+    let top = btnRect.top;
+
+    // Ensure menu doesn't overflow the viewport
+    const menuRect = menu.getBoundingClientRect();
+    if (left + menuRect.width > window.innerWidth) {
+        left = btnRect.left - menuRect.width - 4;
+    }
+    if (top + menuRect.height > window.innerHeight) {
+        top = window.innerHeight - menuRect.height - 8;
+    }
+    if (top < 0) top = 8;
+
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    // Close when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closeTaskContextMenuOnOutsideClick);
+    }, 0);
+}
+
+function closeTaskContextMenuOnOutsideClick(e) {
+    const menu = document.getElementById('activeTaskContextMenu');
+    if (menu && !menu.contains(e.target)) {
+        closeTaskContextMenu();
+    }
+}
+
+function closeTaskContextMenu() {
+    const menu = document.getElementById('activeTaskContextMenu');
+    if (menu) {
+        menu.remove();
+    }
+    document.removeEventListener('click', closeTaskContextMenuOnOutsideClick);
+}
+
+function createContextMenuItem(label, icon, onClick) {
+    const item = document.createElement('button');
+    item.className = 'task-context-menu-item';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'menu-icon';
+    iconSpan.textContent = icon;
+    item.appendChild(iconSpan);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = label;
+    item.appendChild(labelSpan);
+
+    item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeTaskContextMenu();
+        onClick();
+    });
+
+    return item;
+}
+
+function createContextMenuSeparator() {
+    const sep = document.createElement('div');
+    sep.className = 'task-context-menu-separator';
+    return sep;
+}
+
+function createCompletionSubmenu(task, taskIndex) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'task-context-submenu';
+
+    const trigger = document.createElement('button');
+    trigger.className = 'task-context-menu-item';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'menu-icon';
+    iconSpan.textContent = '\u2714';
+    trigger.appendChild(iconSpan);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Set Completion';
+    trigger.appendChild(labelSpan);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'menu-arrow';
+    arrow.textContent = '\u25B6';
+    trigger.appendChild(arrow);
+
+    wrapper.appendChild(trigger);
+
+    const submenu = document.createElement('div');
+    submenu.className = 'task-context-submenu-items';
+
+    const currentPercent = parseInt(String(task.percent || '0').replace('%', '')) || 0;
+
+    [0, 25, 50, 75, 100].forEach(pct => {
+        const item = document.createElement('button');
+        item.className = 'task-context-menu-item completion-item';
+        if (currentPercent === pct) {
+            item.classList.add('completion-active');
+        }
+        item.textContent = pct + '%';
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTaskContextMenu();
+            setTaskCompletion(task, taskIndex, pct);
+        });
+        submenu.appendChild(item);
+    });
+
+    wrapper.appendChild(submenu);
+    return wrapper;
+}
+
+/**
+ * Promote (outdent) a task: remove 2 leading spaces from its line in the editor.
+ */
+function promoteTask(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNumber = findTaskLineNumber(task);
+    if (lineNumber < 1) return;
+
+    const lines = editor.value.split('\n');
+    const lineIdx = lineNumber - 1;
+    const line = lines[lineIdx];
+
+    // Remove up to 2 leading spaces
+    if (line.startsWith('  ')) {
+        lines[lineIdx] = line.substring(2);
+    } else if (line.startsWith(' ')) {
+        lines[lineIdx] = line.substring(1);
+    } else {
+        return; // Already at root level
+    }
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Demote (indent) a task: add 2 leading spaces to its line in the editor.
+ */
+function demoteTask(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNumber = findTaskLineNumber(task);
+    if (lineNumber < 1) return;
+
+    const lines = editor.value.split('\n');
+    const lineIdx = lineNumber - 1;
+    lines[lineIdx] = '  ' + lines[lineIdx];
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Insert a blank task line above the given task and open the editor form.
+ */
+function insertTaskAbove(task, taskIndex) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNumber = findTaskLineNumber(task);
+    if (lineNumber < 1) return;
+
+    const lines = editor.value.split('\n');
+    const lineIdx = lineNumber - 1;
+
+    // Match the indentation of the current task
+    const currentLine = lines[lineIdx];
+    const indentMatch = currentLine.match(/^(\s*)/);
+    const indent = indentMatch ? indentMatch[1] : '';
+
+    // Insert a new task line with the same indent
+    const newTaskName = 'New Task';
+    lines.splice(lineIdx, 0, indent + newTaskName);
+
+    editor.value = lines.join('\n');
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Open the task form for the new line
+    setTimeout(() => {
+        openTaskForm(lineNumber);
+    }, 100);
+}
+
+/**
+ * Show a prompt to assign a resource to a task.
+ */
+function assignResourceToTask(task, taskIndex) {
+    const currentResource = task.resources || '';
+    const resource = prompt('Assign resource:', currentResource);
+    if (resource === null) return; // Cancelled
+
+    task.resources = resource;
+    ganttTasks[taskIndex].resources = resource;
+    syncGanttEditToEditor(task, taskIndex, 'resources', resource);
+    renderGanttRows();
+    if (ganttTasks === window._lastTasksTableTasks) {
+        updateTasksTable(ganttTasks);
+    }
+}
+
+/**
+ * Set the completion percentage for a task.
+ */
+function setTaskCompletion(task, taskIndex, percent) {
+    const newPercent = percent + '%';
+    task.percent = newPercent;
+    ganttTasks[taskIndex].percent = newPercent;
+    syncGanttPercentToEditor(task, taskIndex);
+}
+
+/**
+ * Create a three-dot context menu button for a task row.
+ */
+function createTaskContextButton(task, taskIndex) {
+    const btn = document.createElement('button');
+    btn.className = 'task-context-btn';
+    btn.title = 'More actions';
+    btn.textContent = '\u22EF';
+    btn.addEventListener('click', (e) => {
+        showTaskContextMenu(e, task, taskIndex);
+    });
+    return btn;
+}
+
 function populateSubtasks(parentLineNumber, lines) {
     const subtasksList = document.getElementById('subtasksList');
     if (!subtasksList) return;
@@ -8569,6 +9049,7 @@ function getAllTaskNames() {
     let inFrontMatter = false;
     let inHighlights = false;
     let inRaidLog = false;
+    let inBaseline = false;
 
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
@@ -8578,9 +9059,10 @@ function getAllTaskNames() {
         if (trimmed === '---highlights---') { inHighlights = true; continue; }
         if (trimmed === '---end-highlights---' || (inHighlights && trimmed === '---raid log---')) { inHighlights = false; }
         if (trimmed === '---raid log---') { inRaidLog = true; continue; }
+        if (trimmed === '---baseline---') { inBaseline = true; continue; }
 
         // Skip non-task content
-        if (inFrontMatter || inHighlights || inRaidLog) continue;
+        if (inFrontMatter || inHighlights || inRaidLog || inBaseline) continue;
         if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
         const task = parseTaskLine(lines[i], i + 1);
@@ -9175,9 +9657,6 @@ function toggleExportMenu(event) {
 document.addEventListener('click', function(e) {
     // Close all nav dropdown menus when clicking outside
     const navMenus = [
-        { menu: 'planMenu', tab: 'planTab' },
-        { menu: 'trackingMenu', tab: 'trackingTab' },
-        { menu: 'resourcesMenu', tab: 'resourcesTab' },
         { menu: 'toolsMenu', tab: 'toolsTab' }
     ];
     navMenus.forEach(({ menu: menuId, tab: tabId }) => {
@@ -9191,7 +9670,7 @@ document.addEventListener('click', function(e) {
 
 // Close all nav dropdown menus (optionally except one)
 function closeAllNavMenus(except) {
-    const menuIds = ['planMenu', 'trackingMenu', 'resourcesMenu', 'toolsMenu'];
+    const menuIds = ['toolsMenu'];
     menuIds.forEach(id => {
         if (id !== except) {
             const m = document.getElementById(id);
@@ -9200,25 +9679,31 @@ function closeAllNavMenus(except) {
     });
 }
 
-// Toggle Plan dropdown menu
-function togglePlanMenu(event) {
-    event.stopPropagation();
-    closeAllNavMenus('planMenu');
-    document.getElementById('planMenu').classList.toggle('show');
+// Navigate to Project (Dashboard with plan subnav)
+function switchToProject() {
+    switchToView('project-report');
+    // Override nav active state to show Project tab as active (not Dashboard)
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const planTab = document.getElementById('planTab');
+    if (planTab) planTab.classList.add('active');
 }
 
-// Toggle Tracking dropdown menu
-function toggleTrackingMenu(event) {
-    event.stopPropagation();
-    closeAllNavMenus('trackingMenu');
-    document.getElementById('trackingMenu').classList.toggle('show');
+// Navigate to Tracking (RAID Log with tracking subnav)
+function switchToTracking() {
+    switchTrackingSubnavToTab('raid');
+    // Ensure Tracking tab is active
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const trackingTab = document.getElementById('trackingTab');
+    if (trackingTab) trackingTab.classList.add('active');
 }
 
-// Toggle Resources dropdown menu
-function toggleResourcesMenu(event) {
-    event.stopPropagation();
-    closeAllNavMenus('resourcesMenu');
-    document.getElementById('resourcesMenu').classList.toggle('show');
+// Navigate to Resources (Resource Table with resources subnav)
+function switchToResources() {
+    switchToView('resources');
+    // Ensure Resources tab is active
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    const resourcesTab = document.getElementById('resourcesTab');
+    if (resourcesTab) resourcesTab.classList.add('active');
 }
 
 // Toggle Tools dropdown menu
@@ -9444,6 +9929,7 @@ function updateNavActiveState(viewName) {
         'timeline': 'planTab',
         'milestones': 'planTab',
         'mindmap': 'planTab',
+        'stakeholders': 'planTab',
         'highlights': 'trackingTab',
         'lookahead': 'trackingTab',
         'analysis': 'trackingTab',
@@ -9462,7 +9948,7 @@ function updateNavActiveState(viewName) {
 }
 
 // Sub-navigation: views that belong to each group
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
 const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
@@ -9495,7 +9981,7 @@ function updatePlanSubnav(viewName) {
 // Handle Dashboard button in the plan sub-nav
 function switchPlanSubnavToDashboard() {
     switchToView('project-report');
-    // Override nav active state to keep Plan tab active (not Dashboard tab)
+    // Override nav active state to keep Project tab active (not Dashboard tab)
     document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
     const planTab = document.getElementById('planTab');
     if (planTab) planTab.classList.add('active');
@@ -9622,6 +10108,17 @@ function switchOutputTab(tabName) {
                 if (placeholder) placeholder.style.display = '';
                 if (content) content.style.display = 'none';
             }
+        }, 50);
+    }
+
+    // If switching to stakeholders view, load from front matter if needed and render
+    if (tabName === 'stakeholders') {
+        if (stakeholderItems.length === 0) {
+            loadStakeholdersFromPlanText();
+        }
+        setTimeout(() => {
+            renderStakeholderTable();
+            renderStakeholderGrid();
         }, 50);
     }
 }
@@ -9817,7 +10314,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close detail pane when pressing Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            // First check if any autocomplete dropdown is open - close it instead
+            // First check if keyboard shortcuts modal is open - close it
+            const kbOverlay = document.getElementById('keyboardShortcutsOverlay');
+            if (kbOverlay && kbOverlay.classList.contains('active')) {
+                closeKeyboardShortcuts();
+                return;
+            }
+
+            // Check if any autocomplete dropdown is open - close it instead
             const depDropdown = document.getElementById('dependencyAutocomplete');
             if (depDropdown && depDropdown.style.display === 'block') {
                 depDropdown.style.display = 'none';
@@ -9848,6 +10352,76 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } else {
                     closeDetailPane();
+                }
+            }
+        }
+    });
+
+    // Global keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Skip shortcuts when typing in text inputs, textareas, or contenteditable elements
+        if (isTypingInInput(e.target)) {
+            return;
+        }
+
+        // ? key (without modifiers) - show keyboard shortcuts help
+        if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            e.preventDefault();
+            showKeyboardShortcuts();
+            return;
+        }
+
+        // Alt-based shortcuts
+        if (e.altKey && !e.ctrlKey && !e.metaKey) {
+            // Alt+Shift combinations
+            if (e.shiftKey) {
+                switch (e.key) {
+                    case 'R':  // Alt+Shift+R - New Resource
+                        e.preventDefault();
+                        openResourceForm();
+                        return;
+                    case 'P':  // Alt+Shift+P - Export Portfolio to PowerPoint
+                        e.preventDefault();
+                        if (typeof exportPortfolioReport === 'function') {
+                            exportPortfolioReport();
+                        }
+                        return;
+                }
+            }
+
+            // Alt (no Shift) combinations
+            if (!e.shiftKey) {
+                switch (e.key) {
+                    case 'd':  // Alt+D - Go to Project Dashboard
+                        e.preventDefault();
+                        switchToView('project-report');
+                        return;
+                    case 'p':  // Alt+P - Go to Portfolio
+                        e.preventDefault();
+                        switchTab('portfolio');
+                        return;
+                    case 'n':  // Alt+N - New Project
+                        e.preventDefault();
+                        if (typeof showCreateProjectDialog === 'function') {
+                            showCreateProjectDialog();
+                        }
+                        return;
+                    case 't':  // Alt+T - New Task
+                        e.preventDefault();
+                        addNewTaskViaShortcut();
+                        return;
+                    case 'r':  // Alt+R - New Risk
+                        e.preventDefault();
+                        openRaidFormWithType('risk');
+                        return;
+                    case 'i':  // Alt+I - New Issue
+                        e.preventDefault();
+                        openRaidFormWithType('issue');
+                        return;
+                    case 'e':  // Alt+E - Export to Excel
+                        e.preventDefault();
+                        exportFile('excel', 'editor');
+                        return;
                 }
             }
         }
@@ -11637,7 +12211,14 @@ function extractRaidLogFromPlanText(planText) {
     const marker = '---raid log---';
     const idx = planText.indexOf(marker);
     if (idx === -1) return '';
-    return planText.substring(idx + marker.length).trim();
+    const afterMarker = idx + marker.length;
+
+    // Stop at baseline section if present
+    const blIdx = planText.indexOf(BASELINE_START, afterMarker);
+    if (blIdx !== -1) {
+        return planText.substring(afterMarker, blIdx).trim();
+    }
+    return planText.substring(afterMarker).trim();
 }
 
 /**
@@ -11827,6 +12408,12 @@ const tourSteps = [
         position: "bottom"
     },
     {
+        title: "Drag and Drop",
+        message: "You can drag and drop .md or .txt files directly onto the editor to load them. Press ? at any time to see all keyboard shortcuts.",
+        target: ".editor-panel",
+        position: "right"
+    },
+    {
         title: "Dashboard",
         message: "Click Dashboard to see your Project Report - an overview with timeline, task completion, milestones, highlights, and RAID summary.",
         target: "#dashboardTab",
@@ -11834,37 +12421,44 @@ const tourSteps = [
     },
     {
         title: "Portfolio",
-        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, and Risks views to get a cross-project overview.",
+        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
         target: "#portfolioTab",
         position: "bottom"
     },
     {
-        title: "Plan Menu",
-        message: "The Plan dropdown gives you different ways to view your tasks: Tasks table, Gantt chart (with dependency lines), Calendar, Board (Kanban), Timeline, and Milestones. A sub-navigation bar also provides quick access to Dashboard and all Plan views.",
+        title: "Project",
+        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, and Stakeholders (with an Interest/Influence grid). Use the three-dot menu on each task row for quick actions.",
         target: "#planTab",
         position: "bottom"
     },
     {
-        title: "Tracking Menu",
-        message: "The Tracking dropdown gives you access to RAID Log (for tracking Risks, Actions, Issues, Decisions, Dependencies), Highlights, 2-Week Look-Ahead, and Analysis. A sub-navigation bar provides quick switching between all Tracking views.",
+        title: "Tracking",
+        message: "Click Tracking to go straight to the RAID Log (Risks, Actions, Issues, Decisions, Dependencies) with a sub-navigation bar for Highlights, 2-Week Look-Ahead, and Analysis.",
         target: "#trackingTab",
         position: "bottom"
     },
     {
-        title: "Resources Menu",
-        message: "The Resources dropdown consolidates all resource views: Resource Table (with inline editing), Timesheet, User Workload, and the Resource Sheet for a timeline view of tasks by resource. A sub-navigation bar provides quick switching between all Resources views.",
+        title: "Resources",
+        message: "Click Resources to open the Resource Table with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
         target: "#resourcesTab",
         position: "bottom"
     },
     {
         title: "Tools Menu",
-        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
+        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options including Excel, CSV, PDF, and PowerPoint. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
         target: "#toolsTab",
         position: "bottom"
     },
     {
+        title: "Keyboard Shortcuts",
+        message: "Press ? at any time to see all available keyboard shortcuts. Use Alt+T to quickly add a task, Alt+R for a new risk, Alt+P to jump to the portfolio, and more.",
+        target: null,
+        position: "center"
+    },
+    {
         title: "You're Ready! 🚀",
-        message: "That's it! Start by creating your first task in the editor, explore the Plan menu for different views, or check Tools > Syntax Guide to learn more.",
+        message: "That's it! Start by creating your first task in the editor, explore the Plan menu for different views, or check Tools > Syntax Guide to learn more. Press '?' at any time to see keyboard shortcuts.",
+        message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check Tools > Syntax Guide to learn more.",
         target: null,
         position: "center"
     }
@@ -13773,18 +14367,793 @@ function syncRaidLogToPlanText() {
  * JavaScript equivalent of the Python update_plan_raid_log function.
  */
 function updatePlanRaidLogText(planText, items) {
-    // Strip existing RAID log section
+    // Preserve the baseline section if present
+    let baselineSection = '';
+    const blIdx = planText.indexOf(BASELINE_START);
+    if (blIdx !== -1) {
+        baselineSection = planText.substring(blIdx);
+    }
+
+    // Strip existing RAID log section (and baseline after it)
     let base = planText;
     const startIdx = base.indexOf(RAID_LOG_START);
+    if (startIdx !== -1) {
+        base = base.substring(0, startIdx).replace(/\n+$/, '');
+    } else if (blIdx !== -1) {
+        // No RAID log but baseline exists - strip baseline too
+        base = base.substring(0, blIdx).replace(/\n+$/, '');
+    }
+    base = base.replace(/\n+$/, '');
+
+    const table = generateRaidLogTable();
+    let result = base;
+    if (table) {
+        result = result + '\n\n' + RAID_LOG_START + '\n' + table;
+    }
+
+    // Re-append the baseline section
+    if (baselineSection) {
+        result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
+    }
+
+    return result;
+}
+
+
+/**
+ * Show a brief toast notification at the top of the screen.
+ */
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'baseline-toast baseline-toast-' + (type || 'info');
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Trigger animation
+    requestAnimationFrame(() => { toast.classList.add('show'); });
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+
+/**
+ * Baseline Plan System
+ * Stores a snapshot of the current schedule as a baseline for comparison.
+ * Only one baseline is kept at a time. Stored as a ---baseline--- section
+ * at the bottom of the plan text with a markdown table.
+ */
+
+const BASELINE_START = '---baseline---';
+let baselineItems = [];
+
+/**
+ * Set (or replace) the baseline from the current scheduled tasks.
+ * Captures name, start, finish, and duration for each task.
+ */
+function setBaseline() {
+    if (!lastRenderedTasks || lastRenderedTasks.length === 0) {
+        showToast('No tasks to baseline. Render your plan first.', 'warning');
+        return;
+    }
+
+    const hasExisting = baselineItems.length > 0;
+    const message = hasExisting
+        ? 'Replace the existing baseline with the current schedule?'
+        : 'Set the current schedule as the baseline?';
+
+    if (!confirm(message)) return;
+
+    // Build baseline items from current tasks
+    baselineItems = lastRenderedTasks
+        .filter(t => t.start && t.finish)
+        .map(t => ({
+            name: t.name,
+            start: t.start,
+            finish: t.finish,
+            duration: t.duration_days != null ? t.duration_days + 'd' : ''
+        }));
+
+    // Sync baseline to plan text
+    syncBaselineToPlanText();
+
+    // Show the baseline toggle
+    showBaselineToggle(true);
+
+    showToast('Baseline set successfully.', 'success');
+
+    // Re-render views if baseline is visible
+    const ganttToggle = document.getElementById('ganttShowBaseline');
+    if (ganttToggle && ganttToggle.checked) {
+        renderGanttChart();
+    }
+    const msToggle = document.getElementById('milestonesShowBaseline');
+    if (msToggle && msToggle.checked) {
+        updateMilestonesTable(lastRenderedTasks);
+    }
+}
+
+/**
+ * Clear the baseline from the plan.
+ */
+function clearBaseline() {
+    if (!confirm('Remove the baseline from this plan?')) return;
+
+    baselineItems = [];
+    syncBaselineToPlanText();
+    showBaselineToggle(false);
+
+    // Re-render views
+    renderGanttChart();
+    updateMilestonesTable(lastRenderedTasks || []);
+
+    showToast('Baseline removed.', 'success');
+}
+
+/**
+ * Show or hide the baseline toggle controls in Gantt and Milestones views.
+ */
+function showBaselineToggle(show) {
+    const ganttLabel = document.getElementById('baselineToggleLabel');
+    const msLabel = document.getElementById('milestonesBaselineToggleLabel');
+    if (ganttLabel) ganttLabel.style.display = show ? '' : 'none';
+    if (msLabel) msLabel.style.display = show ? '' : 'none';
+}
+
+/**
+ * Toggle baseline display in the Gantt chart.
+ */
+function toggleBaselineDisplay() {
+    renderGanttChart();
+}
+
+/**
+ * Toggle baseline display in the Milestones table.
+ */
+function toggleMilestonesBaselineDisplay() {
+    updateMilestonesTable(lastRenderedTasks || []);
+}
+
+/**
+ * Load baseline items from the API response or plan text.
+ */
+function loadBaselineFromData(items) {
+    if (!items || items.length === 0) {
+        baselineItems = [];
+        showBaselineToggle(false);
+        return;
+    }
+    baselineItems = items;
+    showBaselineToggle(true);
+}
+
+/**
+ * Extract baseline items from plan text (client-side fallback).
+ */
+function extractBaselineFromPlanText(planText) {
+    const marker = BASELINE_START;
+    const idx = planText.indexOf(marker);
+    if (idx === -1) return [];
+
+    const section = planText.substring(idx + marker.length).trim();
+    return parseBaselineMarkdown(section);
+}
+
+/**
+ * Parse a baseline markdown table into an array of items.
+ */
+function parseBaselineMarkdown(text) {
+    const items = [];
+    const lines = text.trim().split('\n');
+
+    // Find header row
+    let headerIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('|') && lines[i].toLowerCase().includes('task name')) {
+            headerIdx = i;
+            break;
+        }
+    }
+    if (headerIdx === -1) return items;
+
+    // Parse headers
+    const headers = lines[headerIdx].replace(/^\||\|$/g, '').split('|').map(h => h.trim().toLowerCase());
+
+    // Data rows start after separator
+    const dataStart = headerIdx + 2;
+
+    for (let i = dataStart; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || !line.startsWith('|')) continue;
+
+        const cells = line.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        if (cells.length < headers.length) continue;
+
+        const item = {};
+        headers.forEach((h, idx) => {
+            const val = cells[idx] || '';
+            if (h === 'task name') item.name = val;
+            else if (h === 'start') item.start = val;
+            else if (h === 'finish') item.finish = val;
+            else if (h === 'duration') item.duration = val;
+        });
+
+        if (item.name) items.push(item);
+    }
+
+    return items;
+}
+
+/**
+ * Generate a markdown table from baseline items.
+ */
+function generateBaselineTable() {
+    if (baselineItems.length === 0) return '';
+
+    const headers = ['Task Name', 'Start', 'Finish', 'Duration'];
+    const rows = baselineItems.map(item => [
+        String(item.name || ''),
+        String(item.start || ''),
+        String(item.finish || ''),
+        String(item.duration || '')
+    ]);
+
+    // Calculate column widths
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => {
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Sync baseline data into the plan editor text.
+ */
+function syncBaselineToPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const planText = editor.value;
+    const updatedText = updatePlanBaselineText(planText, baselineItems);
+
+    if (updatedText !== planText) {
+        editor.value = updatedText;
+        updateLineNumbers();
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedText;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/**
+ * Update plan text with baseline section.
+ */
+function updatePlanBaselineText(planText, items) {
+    // Strip existing baseline section
+    let base = planText;
+    const startIdx = base.indexOf(BASELINE_START);
     if (startIdx !== -1) {
         base = base.substring(0, startIdx).replace(/\n+$/, '');
     }
     base = base.replace(/\n+$/, '');
 
-    const table = generateRaidLogTable();
+    const table = generateBaselineTable();
     if (!table) return base;
 
-    return base + '\n\n' + RAID_LOG_START + '\n' + table;
+    return base + '\n\n' + BASELINE_START + '\n' + table;
+}
+
+/**
+ * Build a lookup map from baseline items for quick name-based access.
+ */
+function getBaselineLookup() {
+    const lookup = {};
+    baselineItems.forEach(item => {
+        lookup[item.name] = item;
+    });
+    return lookup;
+}
+
+
+/**
+ * Stakeholder Interest/Influence Grid System
+ * Stakeholders stored in front matter YAML Key Stakeholders section.
+ * Format: - @Name: Role, interest:high, influence:low
+ */
+
+let stakeholderItems = [];
+let stakeholderNextId = 1;
+
+/**
+ * Clear stakeholder entries from the UI and global state.
+ */
+function clearStakeholders() {
+    stakeholderItems = [];
+    stakeholderNextId = 1;
+    renderStakeholderTable();
+    renderStakeholderGrid();
+}
+
+/**
+ * Add a new stakeholder (opens the form).
+ */
+function addStakeholder() {
+    openStakeholderForm(null);
+}
+
+/**
+ * Open the stakeholder form for editing or creating.
+ */
+function openStakeholderForm(itemId) {
+    const title = document.getElementById('stakeholderFormTitle');
+    const idField = document.getElementById('stakeholderItemId');
+
+    if (itemId != null) {
+        const item = stakeholderItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit Stakeholder';
+        idField.value = item.id;
+        document.getElementById('stakeholderItemName').value = item.name;
+        document.getElementById('stakeholderItemRole').value = item.role;
+        document.getElementById('stakeholderItemInterest').value = item.interest;
+        document.getElementById('stakeholderItemInfluence').value = item.influence;
+    } else {
+        title.textContent = 'New Stakeholder';
+        idField.value = '';
+        document.getElementById('stakeholderItemName').value = '';
+        document.getElementById('stakeholderItemRole').value = '';
+        document.getElementById('stakeholderItemInterest').value = 'high';
+        document.getElementById('stakeholderItemInfluence').value = 'high';
+    }
+
+    openDetailPane('stakeholderFormSection');
+}
+
+/**
+ * Close the stakeholder form.
+ */
+function closeStakeholderForm() {
+    closeDetailPane();
+}
+
+/**
+ * Save stakeholder from the form.
+ */
+function saveStakeholderFromForm() {
+    const idField = document.getElementById('stakeholderItemId').value;
+    const name = document.getElementById('stakeholderItemName').value.trim();
+
+    if (!name) {
+        alert('Please enter a name for the stakeholder.');
+        return;
+    }
+
+    const itemData = {
+        name: name,
+        role: document.getElementById('stakeholderItemRole').value.trim(),
+        interest: document.getElementById('stakeholderItemInterest').value,
+        influence: document.getElementById('stakeholderItemInfluence').value
+    };
+
+    if (idField) {
+        const existingId = parseInt(idField);
+        const index = stakeholderItems.findIndex(i => i.id === existingId);
+        if (index >= 0) {
+            stakeholderItems[index] = { ...stakeholderItems[index], ...itemData };
+        }
+    } else {
+        itemData.id = stakeholderNextId++;
+        stakeholderItems.push(itemData);
+    }
+
+    closeStakeholderForm();
+    renderStakeholderTable();
+    renderStakeholderGrid();
+    syncStakeholdersToFrontMatter();
+}
+
+/**
+ * Delete a stakeholder by id.
+ */
+function deleteStakeholder(id) {
+    if (!confirm('Are you sure you want to delete this stakeholder?')) return;
+    stakeholderItems = stakeholderItems.filter(i => i.id !== id);
+    renderStakeholderTable();
+    renderStakeholderGrid();
+    syncStakeholdersToFrontMatter();
+}
+
+/**
+ * Render the stakeholders table from the stakeholderItems array.
+ */
+function renderStakeholderTable() {
+    const tbody = document.getElementById('stakeholdersTableBody');
+    const emptyState = document.getElementById('stakeholdersEmptyState');
+    const table = document.getElementById('stakeholdersTable');
+    if (!tbody || !emptyState || !table) return;
+
+    tbody.innerHTML = '';
+
+    if (stakeholderItems.length === 0) {
+        emptyState.style.display = 'block';
+        table.style.display = 'none';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    table.style.display = 'table';
+
+    stakeholderItems.forEach(item => {
+        const row = document.createElement('tr');
+        const interestLabel = item.interest === 'high' ? 'High' : 'Low';
+        const influenceLabel = item.influence === 'high' ? 'High' : 'Low';
+        const interestClass = item.interest === 'high' ? 'stakeholder-level-high' : 'stakeholder-level-low';
+        const influenceClass = item.influence === 'high' ? 'stakeholder-level-high' : 'stakeholder-level-low';
+
+        row.innerHTML = `
+            <td>${escapeHtml(item.name)}</td>
+            <td>${escapeHtml(item.role)}</td>
+            <td><span class="stakeholder-level-badge ${interestClass}">${interestLabel}</span></td>
+            <td><span class="stakeholder-level-badge ${influenceClass}">${influenceLabel}</span></td>
+            <td>
+                <button class="raid-action-btn" onclick="openStakeholderForm(${item.id})" title="Edit">&#9998;&#65039;</button>
+                <button class="raid-action-btn delete" onclick="deleteStakeholder(${item.id})" title="Delete">&#128465;&#65039;</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Render the stakeholder interest/influence grid as SVG.
+ */
+function renderStakeholderGrid() {
+    const svg = document.getElementById('stakeholderGrid');
+    if (!svg) return;
+
+    svg.innerHTML = '';
+
+    const size = 400;
+    const padding = 50;
+    const gridSize = size - 2 * padding;
+    const half = gridSize / 2;
+    const cx = padding;
+    const cy = padding;
+
+    // Background quadrants
+    const quadrants = [
+        { x: cx, y: cy, fill: '#f0f4ff', label: 'Keep Informed', labelX: cx + half / 2, labelY: cy + half / 2 },
+        { x: cx + half, y: cy, fill: '#e8f5e9', label: 'Manage', labelX: cx + half + half / 2, labelY: cy + half / 2 },
+        { x: cx, y: cy + half, fill: '#fff8e1', label: 'Monitor', labelX: cx + half / 2, labelY: cy + half + half / 2 },
+        { x: cx + half, y: cy + half, fill: '#fce4ec', label: 'Watch', labelX: cx + half + half / 2, labelY: cy + half + half / 2 }
+    ];
+
+    quadrants.forEach(q => {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', q.x);
+        rect.setAttribute('y', q.y);
+        rect.setAttribute('width', half);
+        rect.setAttribute('height', half);
+        rect.setAttribute('fill', q.fill);
+        rect.setAttribute('stroke', '#ddd');
+        rect.setAttribute('stroke-width', '1');
+        svg.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', q.labelX);
+        text.setAttribute('y', q.labelY);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', '#bbb');
+        text.setAttribute('font-size', '14');
+        text.setAttribute('font-weight', '500');
+        text.textContent = q.label;
+        svg.appendChild(text);
+    });
+
+    // Grid border
+    const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    border.setAttribute('x', cx);
+    border.setAttribute('y', cy);
+    border.setAttribute('width', gridSize);
+    border.setAttribute('height', gridSize);
+    border.setAttribute('fill', 'none');
+    border.setAttribute('stroke', '#999');
+    border.setAttribute('stroke-width', '2');
+    svg.appendChild(border);
+
+    // Axis labels
+    const axisLabels = [
+        { text: 'Low Interest', x: cx + half / 2, y: size - 10, anchor: 'middle' },
+        { text: 'High Interest', x: cx + half + half / 2, y: size - 10, anchor: 'middle' },
+        { text: 'INTEREST \u2192', x: cx + half, y: size - 25, anchor: 'middle' }
+    ];
+
+    axisLabels.forEach(lbl => {
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', lbl.x);
+        text.setAttribute('y', lbl.y);
+        text.setAttribute('text-anchor', lbl.anchor);
+        text.setAttribute('fill', '#666');
+        text.setAttribute('font-size', '11');
+        text.textContent = lbl.text;
+        svg.appendChild(text);
+    });
+
+    // Vertical axis labels (rotated)
+    const influenceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    influenceLabel.setAttribute('x', 12);
+    influenceLabel.setAttribute('y', cx + half);
+    influenceLabel.setAttribute('text-anchor', 'middle');
+    influenceLabel.setAttribute('fill', '#666');
+    influenceLabel.setAttribute('font-size', '11');
+    influenceLabel.setAttribute('transform', `rotate(-90, 12, ${cx + half})`);
+    influenceLabel.textContent = '\u2190 INFLUENCE \u2192';
+    svg.appendChild(influenceLabel);
+
+    const highInfluenceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    highInfluenceLabel.setAttribute('x', 28);
+    highInfluenceLabel.setAttribute('y', cy + half / 2);
+    highInfluenceLabel.setAttribute('text-anchor', 'middle');
+    highInfluenceLabel.setAttribute('fill', '#666');
+    highInfluenceLabel.setAttribute('font-size', '11');
+    highInfluenceLabel.setAttribute('transform', `rotate(-90, 28, ${cy + half / 2})`);
+    highInfluenceLabel.textContent = 'High Influence';
+    svg.appendChild(highInfluenceLabel);
+
+    const lowInfluenceLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lowInfluenceLabel.setAttribute('x', 28);
+    lowInfluenceLabel.setAttribute('y', cy + half + half / 2);
+    lowInfluenceLabel.setAttribute('text-anchor', 'middle');
+    lowInfluenceLabel.setAttribute('fill', '#666');
+    lowInfluenceLabel.setAttribute('font-size', '11');
+    lowInfluenceLabel.setAttribute('transform', `rotate(-90, 28, ${cy + half + half / 2})`);
+    lowInfluenceLabel.textContent = 'Low Influence';
+    svg.appendChild(lowInfluenceLabel);
+
+    // Plot stakeholders
+    const colors = ['#667eea', '#764ba2', '#f97316', '#10b981', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'];
+    const positions = {};
+
+    stakeholderItems.forEach((item, index) => {
+        const isHighInterest = item.interest === 'high';
+        const isHighInfluence = item.influence === 'high';
+
+        // Place dot in the center of the appropriate quadrant with jitter
+        const baseX = isHighInterest ? cx + half + half / 2 : cx + half / 2;
+        const baseY = isHighInfluence ? cy + half / 2 : cy + half + half / 2;
+
+        // Add jitter to avoid overlapping dots
+        const key = `${item.interest}-${item.influence}`;
+        if (!positions[key]) positions[key] = 0;
+        const offset = positions[key];
+        positions[key]++;
+
+        const jitterX = (offset % 3 - 1) * 30;
+        const jitterY = Math.floor(offset / 3) * 25 - 15;
+        const dotX = baseX + jitterX;
+        const dotY = baseY + jitterY;
+
+        const color = colors[index % colors.length];
+
+        // Dot
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', dotX);
+        circle.setAttribute('cy', dotY);
+        circle.setAttribute('r', '8');
+        circle.setAttribute('fill', color);
+        circle.setAttribute('stroke', '#fff');
+        circle.setAttribute('stroke-width', '2');
+        svg.appendChild(circle);
+
+        // Label
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', dotX);
+        label.setAttribute('y', dotY + 20);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('fill', '#333');
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-weight', '500');
+        label.textContent = item.name.replace(/^@/, '');
+        svg.appendChild(label);
+    });
+}
+
+/**
+ * Parse stakeholders from front matter YAML.
+ * Expected format: - @Name: Role, interest:high, influence:low
+ */
+function parseStakeholdersFromFrontMatter(frontMatterStr) {
+    const items = [];
+    if (!frontMatterStr) return items;
+
+    const lines = frontMatterStr.split('\n');
+    let inStakeholders = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.toLowerCase() === 'key stakeholders:' || trimmed.toLowerCase() === 'stakeholders:') {
+            inStakeholders = true;
+            continue;
+        }
+
+        if (inStakeholders && trimmed.match(/^[a-z\s]+:/i) && !trimmed.startsWith('-')) {
+            break;
+        }
+
+        if (inStakeholders && trimmed.startsWith('- @')) {
+            const entry = trimmed.substring(2).trim(); // Remove "- "
+            const item = parseStakeholderEntry(entry);
+            if (item) {
+                item.id = stakeholderNextId++;
+                items.push(item);
+            }
+        }
+    }
+
+    return items;
+}
+
+/**
+ * Parse a single stakeholder entry string.
+ * Format: @Name: Role, interest:high, influence:low
+ */
+function parseStakeholderEntry(entry) {
+    if (!entry || !entry.startsWith('@')) return null;
+
+    // Split on first colon to separate name from rest
+    const colonIndex = entry.indexOf(':');
+    if (colonIndex === -1) {
+        return { name: entry.trim(), role: '', interest: 'low', influence: 'low' };
+    }
+
+    const name = entry.substring(0, colonIndex).trim();
+    const rest = entry.substring(colonIndex + 1).trim();
+
+    // Parse comma-separated values
+    const parts = rest.split(',').map(p => p.trim());
+
+    let role = '';
+    let interest = 'low';
+    let influence = 'low';
+
+    const keyValueParts = [];
+    const roleParts = [];
+
+    for (const part of parts) {
+        const kvMatch = part.match(/^(interest|influence):\s*(high|low)$/i);
+        if (kvMatch) {
+            if (kvMatch[1].toLowerCase() === 'interest') {
+                interest = kvMatch[2].toLowerCase();
+            } else if (kvMatch[1].toLowerCase() === 'influence') {
+                influence = kvMatch[2].toLowerCase();
+            }
+        } else {
+            roleParts.push(part);
+        }
+    }
+
+    role = roleParts.join(', ');
+
+    return { name, role, interest, influence };
+}
+
+/**
+ * Sync stakeholders back to the front matter YAML in the plan editor.
+ */
+function syncStakeholdersToFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const content = editor.value;
+    const updatedContent = updateFrontMatterStakeholders(content, stakeholderItems);
+
+    if (updatedContent !== content) {
+        editor.value = updatedContent;
+        updateLineNumbers();
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedContent;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/**
+ * Update the front matter in plan text with the current stakeholder items.
+ */
+function updateFrontMatterStakeholders(planText, items) {
+    const frontMatterMatch = planText.match(/^(---\s*\n)([\s\S]*?)(\n---)/);
+    if (!frontMatterMatch) {
+        // No front matter exists -- create one with stakeholders
+        if (items.length === 0) return planText;
+        let fm = '---\n';
+        fm += generateStakeholdersFrontMatterSection(items);
+        fm += '---\n';
+        return fm + planText;
+    }
+
+    const prefix = frontMatterMatch[1];
+    const fmContent = frontMatterMatch[2];
+    const suffix = frontMatterMatch[3];
+
+    // Remove existing Key Stakeholders section
+    const lines = fmContent.split('\n');
+    const newLines = [];
+    let inStakeholders = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.toLowerCase() === 'key stakeholders:' || trimmed.toLowerCase() === 'stakeholders:') {
+            inStakeholders = true;
+            continue;
+        }
+        if (inStakeholders) {
+            if (trimmed.startsWith('- @') || trimmed === '') {
+                continue;
+            }
+            inStakeholders = false;
+        }
+        newLines.push(line);
+    }
+
+    // Add updated stakeholders section
+    let newFmContent = newLines.join('\n');
+    if (items.length > 0) {
+        if (!newFmContent.endsWith('\n')) newFmContent += '\n';
+        newFmContent += generateStakeholdersFrontMatterSection(items);
+    }
+
+    return prefix + newFmContent + suffix + planText.substring(frontMatterMatch[0].length);
+}
+
+/**
+ * Generate the Key Stakeholders front matter section string.
+ */
+function generateStakeholdersFrontMatterSection(items) {
+    if (items.length === 0) return '';
+
+    let section = 'Key Stakeholders:\n';
+    items.forEach(item => {
+        let line = `- ${item.name}: ${item.role}`;
+        line += `, interest:${item.interest}`;
+        line += `, influence:${item.influence}`;
+        section += line + '\n';
+    });
+    return section;
+}
+
+/**
+ * Load stakeholders from the plan text front matter.
+ */
+function loadStakeholdersFromPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !editor.value) return;
+
+    const frontMatterMatch = editor.value.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) return;
+
+    const parsed = parseStakeholdersFromFrontMatter(frontMatterMatch[1]);
+    if (parsed.length > 0) {
+        stakeholderItems = parsed;
+        renderStakeholderTable();
+        renderStakeholderGrid();
+    }
 }
 
 
@@ -13816,6 +15185,9 @@ function clearHighlights() {
 function clearPlanTrackingData() {
     clearRaidLogEntries();
     clearHighlights();
+    clearStakeholders();
+    baselineItems = [];
+    showBaselineToggle(false);
 }
 
 /**
@@ -15378,4 +16750,288 @@ async function uploadActionsExcel(event) {
 
     // Reset file input
     event.target.value = '';
+}
+
+/* ========================================
+ * Keyboard Shortcuts Modal
+ * ======================================== */
+
+function openShortcutsModal() {
+    const overlay = document.getElementById('shortcutsOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        // Focus the close button for screen readers
+        const closeBtn = overlay.querySelector('.close-btn');
+        if (closeBtn) closeBtn.focus();
+    }
+}
+
+function closeShortcutsModal() {
+    const overlay = document.getElementById('shortcutsOverlay');
+// ============================================================================
+// KEYBOARD SHORTCUTS
+// ============================================================================
+
+/**
+ * Check if the user is currently typing in a text input, textarea, or
+ * contenteditable element. Keyboard shortcuts should not fire in these cases.
+ */
+function isTypingInInput(element) {
+    if (!element) return false;
+    const tagName = element.tagName.toLowerCase();
+    if (tagName === 'input' && element.type !== 'checkbox' && element.type !== 'radio') {
+        return true;
+    }
+    if (tagName === 'textarea') {
+        return true;
+    }
+    if (element.isContentEditable) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Show the keyboard shortcuts help modal.
+ */
+function showKeyboardShortcuts() {
+    const overlay = document.getElementById('keyboardShortcutsOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+    }
+}
+
+/**
+ * Close the keyboard shortcuts help modal.
+ */
+function closeKeyboardShortcuts() {
+    const overlay = document.getElementById('keyboardShortcutsOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
+/* ========================================
+ * Global Keyboard Shortcuts
+ * ======================================== */
+
+let pendingGoKey = false;
+let goKeyTimeout = null;
+
+document.addEventListener('keydown', function(e) {
+    // Don't trigger shortcuts when typing in inputs/textareas
+    const tag = (e.target.tagName || '').toLowerCase();
+    const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+
+    // '?' key opens shortcuts modal (only from non-input contexts)
+    if (e.key === '?' && !isEditable) {
+        e.preventDefault();
+        const overlay = document.getElementById('shortcutsOverlay');
+        if (overlay && overlay.classList.contains('active')) {
+            closeShortcutsModal();
+        } else {
+            openShortcutsModal();
+        }
+        return;
+    }
+
+    // Escape closes shortcuts modal
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('shortcutsOverlay');
+        if (overlay && overlay.classList.contains('active')) {
+            closeShortcutsModal();
+            return;
+        }
+    }
+
+    // 'g' then letter navigation (only from non-input contexts)
+    if (!isEditable && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === 'g' && !pendingGoKey) {
+            pendingGoKey = true;
+            clearTimeout(goKeyTimeout);
+            goKeyTimeout = setTimeout(() => { pendingGoKey = false; }, 800);
+            return;
+        }
+
+        if (pendingGoKey) {
+            pendingGoKey = false;
+            clearTimeout(goKeyTimeout);
+
+            switch (e.key) {
+                case 'd': switchToView('project-report'); break;
+                case 't': switchToView('tasks'); break;
+                case 'g': switchToView('gantt'); break;
+                case 'c': switchToView('calendar'); break;
+                case 'b': switchPlanSubnavToBoard(); break;
+                case 'l': switchToView('timeline'); break;
+            }
+            return;
+        }
+    }
+});
+
+/* ========================================
+ * Navigation Menu Keyboard Support
+ * Arrow keys, Enter, Escape within dropdown menus.
+ * ======================================== */
+
+function initMenuKeyboardNav() {
+    const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+    dropdowns.forEach(dropdown => {
+        const trigger = dropdown.querySelector('.tab');
+        const menu = dropdown.querySelector('.nav-menu');
+        if (!trigger || !menu) return;
+
+        // Set role and tabindex on menu items
+        const items = menu.querySelectorAll('.nav-menu-item');
+        items.forEach(item => {
+            item.setAttribute('role', 'menuitem');
+            item.setAttribute('tabindex', '-1');
+        });
+
+        // Open menu on Enter/Space and arrow-down when trigger is focused
+        trigger.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                trigger.click();
+                // Focus the first menu item after the menu opens
+                setTimeout(() => {
+                    const firstItem = menu.querySelector('.nav-menu-item');
+                    if (firstItem) firstItem.focus();
+                }, 50);
+            }
+        });
+
+        // Arrow key navigation within menu
+        menu.addEventListener('keydown', function(e) {
+            const visibleItems = Array.from(menu.querySelectorAll('.nav-menu-item')).filter(
+                item => item.offsetParent !== null && !item.classList.contains('nav-menu-divider')
+            );
+            const currentIndex = visibleItems.indexOf(document.activeElement);
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const next = currentIndex < visibleItems.length - 1 ? currentIndex + 1 : 0;
+                visibleItems[next].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const prev = currentIndex > 0 ? currentIndex - 1 : visibleItems.length - 1;
+                visibleItems[prev].focus();
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (document.activeElement && document.activeElement.classList.contains('nav-menu-item')) {
+                    document.activeElement.click();
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                menu.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+                trigger.focus();
+            } else if (e.key === 'Tab') {
+                menu.classList.remove('show');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+}
+
+/* ========================================
+ * Sync aria-expanded on menu toggle
+ * ======================================== */
+
+function syncAriaExpanded() {
+    const menus = [
+        { btn: 'planTab', menu: 'planMenu' },
+        { btn: 'trackingTab', menu: 'trackingMenu' },
+        { btn: 'resourcesTab', menu: 'resourcesMenu' },
+        { btn: 'toolsTab', menu: 'toolsMenu' }
+    ];
+
+    const observer = new MutationObserver(function() {
+        menus.forEach(({ btn, menu }) => {
+            const button = document.getElementById(btn);
+            const menuEl = document.getElementById(menu);
+            if (button && menuEl) {
+                button.setAttribute('aria-expanded', menuEl.classList.contains('show') ? 'true' : 'false');
+            }
+        });
+    });
+
+    menus.forEach(({ menu }) => {
+        const menuEl = document.getElementById(menu);
+        if (menuEl) {
+            observer.observe(menuEl, { attributes: true, attributeFilter: ['class'] });
+        }
+    });
+}
+
+/* ========================================
+ * Animations: front-matter toggle
+ * If the plan front matter includes
+ * `animations: false`, add .no-animations
+ * to the body element.
+ * ======================================== */
+
+function checkAnimationsFrontMatter() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const content = editor.value || '';
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) return;
+
+    const fmLines = frontMatterMatch[1].split('\n');
+    for (const line of fmLines) {
+        const match = line.match(/^\s*animations\s*:\s*(false|off|no|0)\s*$/i);
+        if (match) {
+            document.body.classList.add('no-animations');
+            return;
+        }
+    }
+    document.body.classList.remove('no-animations');
+}
+
+/* ========================================
+ * Initialise UI embellishments on load
+ * ======================================== */
+
+document.addEventListener('DOMContentLoaded', function() {
+    initMenuKeyboardNav();
+    syncAriaExpanded();
+    checkAnimationsFrontMatter();
+});
+/**
+ * Open the RAID form pre-set to a specific type (risk, issue, action, decision, dependency).
+ */
+function openRaidFormWithType(type) {
+    openRaidForm(null);
+    const typeField = document.getElementById('raidItemType');
+    if (typeField) {
+        typeField.value = type;
+    }
+}
+
+/**
+ * Add a new task line to the plan editor and open the task form for editing.
+ * Appends a placeholder task line at the end of the editor content.
+ */
+function addNewTaskViaShortcut() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const taskLine = '  New Task 1d';
+    const text = editor.value;
+    const newText = text.endsWith('\n') ? text + taskLine + '\n' : text + '\n' + taskLine + '\n';
+    editor.value = newText;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Find the line number of the newly added task and open the task form
+    const lines = editor.value.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim() === 'New Task 1d') {
+            openTaskForm(i + 1);
+            return;
+        }
+    }
 }

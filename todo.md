@@ -2,6 +2,18 @@
 
 ## In Progress
 
+### Fix CLAUDE.md Violations from Issues #244, #443, #123 - ✅ COMPLETED
+- [x] Cherry-pick `tests/conftest.py` shared fixtures from branch #443
+- [x] Cherry-pick Obsidian Gantt year-view fix (#210) from branch
+- [x] Cherry-pick Obsidian Kanban first-load fix (#471) from branch
+- [x] Copy user manual docs (`USER_MANUAL.md`, `QUICK_REFERENCE.md`) to `design/`
+- [x] Add `TestCSVExport` API endpoint tests to `tests/test_app.py` (4 tests)
+- [x] Update interface tour: add Drag and Drop step, update Tools Menu to mention CSV
+- [x] Update `design/epic.md`: add CSV export, keyboard shortcuts, drag-and-drop, years duration
+- [x] Update `todo.md` with cleanup progress
+- [x] Delete redundant remote branches (`feature/244-*`, `feature/443-*`, `feature/123-*`)
+- [x] Comment on and close issues #244, #443, #123
+
 ### Add Submenus to Tracking, Resource, Tools Pages (GitHub Issue #496) - ✅ COMPLETED
 - [x] Explore codebase: understand existing Dashboard/Plan submenu pattern
 - [x] Add Tracking sub-navigation bar HTML (RAID Log, Actions, Highlights, Look-Ahead, Analysis)

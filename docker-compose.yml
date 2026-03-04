@@ -3,10 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        # Change this value to force rebuild of app code layer
-        # Example: CACHEBUST=2, CACHEBUST=3, or use date +%s
-        CACHEBUST: 64
     container_name: noodleplanner
     ports:
       - "8007:8007"
