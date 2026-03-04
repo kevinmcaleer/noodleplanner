@@ -46,6 +46,14 @@ from noodle_core.planning_room import generate_plan_from_planning_room as genera
 import json
 from .middleware import ActivityLoggingMiddleware
 from .database import init_db, test_connection
+from .security import (
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+    BodySizeLimitMiddleware,
+    ErrorSanitizationMiddleware,
+    APIKeyAuthMiddleware,
+    is_production,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -105,16 +113,54 @@ def _static_version():
 
 STATIC_VERSION = _static_version()
 
-# Add activity logging middleware
+
+def _sanitized_detail(message: str, error: Exception) -> str:
+    """Return a user-facing error detail string.
+
+    In production the raw error is hidden to avoid leaking implementation
+    details. In development the full message is returned for debugging.
+    """
+    if is_production():
+        return message
+    return f"{message}: {error}"
+
+# ---------------------------------------------------------------------------
+# Middleware stack (applied in reverse order; last added = outermost)
+# ---------------------------------------------------------------------------
+
+# Activity logging (innermost -- runs closest to the route handler)
 app.add_middleware(ActivityLoggingMiddleware)
 
+# CORS -- configurable via CORS_ORIGINS env var (comma-separated).
+# Defaults to ["*"] in development for convenience.
+_cors_env = os.getenv("CORS_ORIGINS", "")
+_cors_origins: list[str] = (
+    [o.strip() for o in _cors_env.split(",") if o.strip()]
+    if _cors_env
+    else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request body size limit
+app.add_middleware(BodySizeLimitMiddleware)
+
+# Rate limiting (per-IP)
+app.add_middleware(RateLimitMiddleware)
+
+# Error sanitization (generic messages in production)
+app.add_middleware(ErrorSanitizationMiddleware)
+
+# API key auth (outermost -- checked first)
+app.add_middleware(APIKeyAuthMiddleware)
 
 
 @app.on_event("startup")
@@ -338,7 +384,7 @@ async def render_plan(data: RenderRequest):
 
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error rendering plan: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to render plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to render plan", e))
 
 
 def generate_exports(
@@ -800,7 +846,7 @@ async def export_report_pptx(data: ReportExportRequest):
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error exporting report to PPTX: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to export report: {str(e)}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to export report", e))
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -880,7 +926,7 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
                      exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to export portfolio report: {str(e)}"
+            detail=_sanitized_detail("Failed to export portfolio report", e)
         )
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -1057,7 +1103,7 @@ async def import_raid_excel(file: UploadFile = File(...)):
         logger.error(f"Error importing RAID Excel: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
-            detail=f"Failed to parse Excel file: {str(e)}"
+            detail=_sanitized_detail("Failed to parse Excel file", e)
         )
 
 
@@ -1087,7 +1133,7 @@ async def excel_analyze(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
     except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error analyzing Excel file: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to analyze file: {e}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to analyze file", e))
 
 
 @app.post("/api/excel/convert")
@@ -1123,7 +1169,7 @@ async def excel_convert(
         raise HTTPException(status_code=400, detail=str(e))
     except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error converting Excel file: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to convert file: {e}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to convert file", e))
 
 
 @app.post("/api/excel/convert-planner")
@@ -1147,7 +1193,7 @@ async def excel_convert_planner(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
     except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error converting Planner file: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to convert Planner file: {e}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to convert Planner file", e))
 
 
 # ==============================================================================
@@ -1281,7 +1327,7 @@ async def parse_outline(data: ParseOutlineRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except (KeyError, TypeError, IndexError) as e:
         logger.error(f"Unexpected error parsing outline: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to parse outline: {str(e)}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to parse outline", e))
 
 
 @app.post("/api/planning-room/generate-plan")
@@ -1324,7 +1370,7 @@ async def generate_plan_from_planning_room(data: GeneratePlanRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error generating plan: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to generate plan", e))
 
 
 # ==============================================================================
