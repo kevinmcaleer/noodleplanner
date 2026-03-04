@@ -81,8 +81,9 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights, RAID log, and baseline sections before processing
+    # Strip highlights, budget, RAID log, and baseline sections before processing
     text = strip_highlights(text)
+    text = strip_budget(text)
     text = strip_raid_log(text)
     text = strip_baseline(text)
     lines = text.split('\n')
