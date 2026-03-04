@@ -2577,9 +2577,14 @@ def export_report_to_powerpoint(output_path, report_data):
             tl_left = Inches(0.4)
             tl_top = Inches(1.05)
             tl_width = Inches(12.533)  # 13.333 - 0.4 - 0.4
+            max_tl_height = Inches(1.8)  # Cap height to match native graphic
             pic = slide.shapes.add_picture(
                 img_stream, tl_left, tl_top, width=tl_width
             )
+            if pic.height > max_tl_height:
+                aspect = pic.width / pic.height
+                pic.height = max_tl_height
+                pic.width = int(max_tl_height * aspect)
             timeline_height_used = pic.height + Inches(0.15)
         except Exception:
             logger.warning("Failed to embed timeline image in PPTX report",
@@ -3003,9 +3008,15 @@ def _add_report_slide(prs, report_data):
         try:
             img_data = base64.b64decode(timeline_image_b64)
             img_stream = io.BytesIO(img_data)
+            tl_width = Inches(12.533)
+            max_tl_height = Inches(1.8)  # Cap height to match native graphic
             pic = slide.shapes.add_picture(
-                img_stream, Inches(0.4), Inches(1.05), width=Inches(12.533)
+                img_stream, Inches(0.4), Inches(1.05), width=tl_width
             )
+            if pic.height > max_tl_height:
+                aspect = pic.width / pic.height
+                pic.height = max_tl_height
+                pic.width = int(max_tl_height * aspect)
             timeline_height_used = pic.height + Inches(0.15)
         except Exception:
             logger.warning("Failed to embed timeline image in PPTX report",
@@ -3550,9 +3561,14 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
             tl_left = Inches(0.4)
             tl_top = timeline_top
             tl_width = Inches(12.533)  # 13.333 - 0.4 - 0.4
-            slide.shapes.add_picture(
+            max_tl_height = Inches(1.8)  # Cap height to match native graphic
+            pic = slide.shapes.add_picture(
                 img_stream, tl_left, tl_top, width=tl_width
             )
+            if pic.height > max_tl_height:
+                aspect = pic.width / pic.height
+                pic.height = max_tl_height
+                pic.width = int(max_tl_height * aspect)
         except Exception:
             logger.warning("Failed to embed portfolio timeline image",
                            exc_info=True)
