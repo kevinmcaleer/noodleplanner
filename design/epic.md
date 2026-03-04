@@ -12,7 +12,7 @@ Noodle Planner is a project planning tool that converts natural language task de
 
 The scheduling engine (`packages/noodle-core/`) parses natural language task definitions and calculates start/finish dates based on:
 
-- **Duration**: `3d` (days), `2w` (weeks), `1m` (months)
+- **Duration**: `3d` (days), `2w` (weeks), `1m` (months), `1y` (years)
 - **Resources**: `@john @jane`
 - **Dependencies**: `#taskname` or `[depends task1 +2d, task2 -1w]`
 - **Sequential tasks**: `*Task Name` (starts after previous task)
@@ -32,7 +32,70 @@ The web application (`packages/noodle-web/`) provides:
 - **Report View**: Quad dashboard with project header, timeline, milestones, RAID, and highlights
 - **2-Week Look-Ahead View**: Focused view of upcoming tasks (next 14 days) and overdue items
 - **User Workload View**: Task breakdown by user with workload statistics and filtering
-- **Export**: Excel, PowerPoint, PDF
+- **Export**: Excel, CSV, PowerPoint, PDF
+
+### CSV Export
+
+The CSV export feature provides a simple tabular export of the project schedule.
+
+**Function:** `export_to_csv()` in `packages/noodle-core/src/noodle_core/scheduling_engine.py` (line 5114)
+
+**API Endpoint:** `POST /render` with `export_csv: true`
+
+**Response:**
+- Content-Type: `text/csv`
+- Content-Disposition header with `{project_name}.csv` filename
+
+**Columns:** ID, Task Name, Start, Finish, Duration (days), Resources, % Complete, RAG, Priority, Bucket, Comment
+
+### Keyboard Shortcuts
+
+Press `?` to open the keyboard shortcuts modal, which lists all available shortcuts.
+
+**Editor Shortcuts:**
+- `Tab` / `Shift+Tab`: Indent/outdent tasks
+- `Ctrl+Enter` / `Cmd+Enter`: Render the plan
+
+**Navigation Shortcuts:**
+- `1`-`9`: Switch between tabs (Editor, Dashboard, Plan views, etc.)
+
+### Drag and Drop File Loading (Issue #244)
+
+Users can drag and drop `.md` or `.txt` files directly onto the editor panel to load them.
+
+**Behaviour:**
+- Visual feedback with drag-over styling on the editor panel
+- File contents replace the current editor text
+- Plan auto-renders after loading
+
+**Key JavaScript Functions:**
+- Editor panel `dragover`, `dragleave`, `drop` event listeners
+- Uses `FileReader` API to read dropped file contents
+
+### Top Navigation (Issue #503)
+
+The top navigation bar uses direct-link buttons instead of dropdown menus for the main sections. Each button navigates to a default view and reveals a sub-navigation bar with all related views.
+
+| Button | Default View | Sub-Navigation Views |
+|--------|-------------|---------------------|
+| Dashboard | Project Report | (shows plan subnav) |
+| Portfolio | Portfolio | (no subnav) |
+| Project | Project Report (Dashboard) | Dashboard, Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map |
+| Tracking | RAID Log | RAID Log, Actions, Highlights, Look-Ahead, Analysis |
+| Resources | Resource Table | Resource Table, Timesheet, Workload, Resource Sheet |
+| Tools | (dropdown menu) | Text Report, Planning Room, Syntax Guide, Import/Export |
+
+**Key functions:**
+- `switchToProject()` -- Navigates to Dashboard with plan subnav, highlights Project tab
+- `switchToTracking()` -- Navigates to RAID Log with tracking subnav, highlights Tracking tab
+- `switchToResources()` -- Navigates to Resource Table with resources subnav, highlights Resources tab
+- `switchToView(viewName)` -- General view switcher that updates nav state and subnav
+- `updatePlanSubnav(viewName)` -- Shows/hides the correct subnav group and highlights the active button
+
+**Design notes:**
+- Only the Tools menu retains its dropdown; Project, Tracking, and Resources are direct links
+- Each section has a persistent sub-navigation bar (`.plan-subnav`) visible when any view in that group is active
+- The Dashboard and Project buttons both navigate to the project report, but Dashboard highlights the Dashboard tab while Project highlights the Project tab
 
 ### Project Report (Quad Layout)
 
@@ -135,6 +198,16 @@ The Portfolio tab provides cross-project visibility through multiple sub-views:
 **Actions Chaser (`portfolio-actions.js`):**
 - Shows open actions from RAID logs across all projects
 - Filterable by project, owner, and status
+
+**2-Week Look-Ahead (`portfolio-lookahead.js`):**
+- Aggregates overdue and upcoming tasks across all projects into a portfolio-level view
+- Two sections: Overdue Tasks (past due, not 100% complete) and Upcoming Tasks (starting or finishing within the next 14 days)
+- Project name shown as the first column in each table
+- Filterable by project using a dropdown
+- Summary header shows counts for overdue tasks, upcoming tasks, and number of projects
+- Sortable columns (project, task name, dates, days late, percent complete)
+- Clicking a task row navigates to the project editor and opens the task details form for that task
+- Data sourced from `/api/parse` via `parseAllProjects()` -- only non-summary tasks are included
 
 **Portfolio Timeline (`portfolio-timeline.js`):**
 - SVG-based Gantt-style timeline showing all projects as horizontal swimlane rows
@@ -516,7 +589,7 @@ npm run dev
 | `#taskname` | Dependency | `Task #other_task` |
 | `[depends ...]` | Dependencies with lag/lead | `[depends task1 +2d, task2 -1w]` |
 | `*` | Sequential (after previous) | `*Task Name` |
-| `Nd/Nw/Nm` | Duration | `3d`, `2w`, `1m` |
+| `Nd/Nw/Nm/Ny` | Duration | `3d`, `2w`, `1m`, `1y` |
 | `N%` | Percent complete | `50%` |
 | `YYYY-MM-DD` | Explicit start date | `2025-01-15` |
 | `!"text"` | Comment | `!"important note"` |
@@ -589,3 +662,187 @@ Global keyboard shortcuts provide quick access to common actions without using t
   - `openRaidFormWithType(type)` - opens a new RAID form pre-set to a specific type
   - `addNewTaskViaShortcut()` - appends a new task line to the editor and opens the task form for editing
 - **Event listener**: A single `keydown` listener on `document` handles all Alt-based shortcuts, routing to the appropriate existing functions (`switchToView`, `switchTab`, `showCreateProjectDialog`, `exportFile`, `exportPortfolioReport`, `openResourceForm`).
+### Stakeholder Interest/Influence Grid (Issue #509)
+
+The Stakeholders view provides a way to track project stakeholders with their interest and influence levels, displayed alongside an Interest/Influence grid.
+
+**Navigation:**
+- Accessible via the Plan dropdown menu (Plan > Stakeholders)
+- Also available in the Plan sub-navigation bar
+- Part of the PLAN_VIEWS group, mapped to the Plan tab
+
+**Data Storage:**
+Stakeholders are stored in the plan's YAML front matter under `Key Stakeholders:`:
+```yaml
+---
+title: My Project
+Key Stakeholders:
+- @CEO: Chief Executive Officer, interest:high, influence:high
+- @PM: Project Manager, interest:high, influence:low
+- @User: End User, interest:low, influence:low
+---
+```
+
+Each entry follows the format: `- @Name: Role, interest:high|low, influence:high|low`
+
+**Layout:**
+- Left side: Table of stakeholders with Name, Role, Interest, Influence columns
+- Right side: SVG Interest/Influence grid (400x400 viewBox, maintains square aspect ratio)
+- Responsive: Stacks vertically on screens narrower than 900px
+
+**Interest/Influence Grid Quadrants:**
+| | Low Interest | High Interest |
+|---|---|---|
+| **High Influence** | Watch | Manage |
+| **Low Influence** | Monitor | Keep Informed |
+
+Each quadrant has a subtle background colour and label. Stakeholders appear as coloured dots with name labels, positioned in their respective quadrant.
+
+**CRUD Operations:**
+- `addStakeholder()` - Opens the detail pane form to create a new stakeholder
+- `openStakeholderForm(id)` - Opens the form pre-populated for editing
+- `saveStakeholderFromForm()` - Saves the form data and syncs to front matter
+- `deleteStakeholder(id)` - Removes a stakeholder after confirmation
+- `closeStakeholderForm()` - Closes the detail pane
+
+**Parsing and Sync:**
+- `parseStakeholdersFromFrontMatter(str)` - Parses the Key Stakeholders YAML section
+- `parseStakeholderEntry(entry)` - Parses a single `@Name: Role, interest:X, influence:Y` line
+- `syncStakeholdersToFrontMatter()` - Writes stakeholder state back to the plan editor
+- `updateFrontMatterStakeholders(planText, items)` - Updates the front matter text
+- `generateStakeholdersFrontMatterSection(items)` - Generates the YAML section string
+- `loadStakeholdersFromPlanText()` - Loads stakeholders when the plan is parsed
+
+**Copy to Clipboard:**
+- Uses the existing `copyElementAsImage()` function with html2canvas
+- Captures the grid wrapper as a PNG image
+
+**Lifecycle:**
+- Stakeholders are loaded from front matter when the plan is parsed (in `updateViews`)
+- Stakeholders are cleared when switching plans (via `clearPlanTrackingData`)
+- The grid is rendered on demand when switching to the stakeholders view
+
+**Global State:**
+- `stakeholderItems[]` - Array of stakeholder objects `{id, name, role, interest, influence}`
+- `stakeholderNextId` - Auto-incrementing ID counter
+
+**Tests:**
+- 54 tests in `tests/test_stakeholders.py` covering:
+  - Navigation elements (3 tests)
+  - View container elements (11 tests)
+  - Form elements (8 tests)
+  - JavaScript functions (19 tests)
+  - CSS classes (11 tests)
+  - SVG grid properties (2 tests)
+### Baseline Plan (Issue #504)
+
+The baseline plan feature allows users to capture a snapshot of the current schedule for later comparison. Only one baseline is kept at a time.
+
+**Storage Format:**
+
+The baseline is stored as a `---baseline---` section at the bottom of the plan text (after the RAID log section), containing a markdown table with the following columns:
+
+```
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task 1    | 2026-03-02 | 2026-03-05 | 3d       |
+| Task 2    | 2026-03-05 | 2026-03-10 | 5d       |
+```
+
+**Section ordering in plan text:** Tasks -> Highlights -> RAID Log -> Baseline
+
+**Backend (Python):**
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `extract_baseline()` | `format_converter.py` | Extract baseline section text from plan |
+| `strip_baseline()` | `format_converter.py` | Remove baseline section from plan text |
+| `parse_baseline_markdown()` | `format_converter.py` | Parse baseline markdown table to list of dicts |
+| `generate_baseline_text()` | `format_converter.py` | Generate aligned markdown table from baseline items |
+| `update_plan_baseline()` | `format_converter.py` | Update plan text with new baseline data |
+
+The `/api/parse` endpoint returns `baseline_items` in its response alongside tasks, highlights, and RAID items.
+
+**Frontend (JavaScript):**
+
+| Function | Purpose |
+|----------|---------|
+| `setBaseline()` | Capture current schedule as baseline |
+| `clearBaseline()` | Remove baseline from plan |
+| `loadBaselineFromData()` | Load baseline items from API response |
+| `extractBaselineFromPlanText()` | Client-side fallback for baseline extraction |
+| `parseBaselineMarkdown()` | Parse baseline markdown table in JS |
+| `generateBaselineTable()` | Generate markdown table from baseline items |
+| `syncBaselineToPlanText()` | Write baseline to plan editor text |
+| `updatePlanBaselineText()` | Update plan text with baseline section |
+| `renderBaselineBar()` | Render semi-transparent baseline bar in Gantt chart |
+| `toggleBaselineDisplay()` | Toggle baseline visibility in Gantt |
+| `toggleMilestonesBaselineDisplay()` | Toggle baseline columns in Milestones |
+
+**UI Controls:**
+
+- **Set Baseline button**: Located in the Gantt toolbar, captures the current schedule
+- **Show Baseline toggle (Gantt)**: Shows/hides semi-transparent baseline bars behind current bars
+- **Show Baseline toggle (Milestones)**: Shows/hides BL Start, BL Finish, and Variance columns
+
+**Gantt Chart Baseline Rendering:**
+
+- Baseline bars are rendered as semi-transparent grey bars (dashed border) positioned below the current task bars
+- Baseline milestones are rendered as smaller, semi-transparent diamonds below current milestone diamonds
+- Baseline bars are non-interactive (pointer-events: none)
+
+**Milestone Table Baseline Columns:**
+
+When the baseline toggle is active, three additional columns appear after Finish:
+- **BL Start**: Baseline start date
+- **BL Finish**: Baseline finish date
+- **Variance**: Days difference between current and baseline finish (color-coded: red for late, green for early, grey for on-track, italic "New" for tasks not in baseline)
+
+**Section Interactions:**
+
+- `extract_raid_log()` stops at `---baseline---` to avoid including baseline data in RAID items
+- `strip_raid_log()` preserves the baseline section
+- `update_plan_raid_log()` preserves the baseline section when updating RAID items
+- `update_plan_highlights()` preserves the baseline section when updating highlights
+- `convert_plan_format_to_standard()` strips the baseline section before task parsing
+
+## Task Context Menu (Issue #507)
+
+### Overview
+
+A three-dot (`...`) context menu on every task row in both the Tasks table and the Gantt chart info panel. The menu provides quick access to common task operations without needing to double-click cells or use keyboard shortcuts.
+
+### Menu Actions
+
+| Action | Description |
+|--------|-------------|
+| **Edit** | Opens the task detail form in the editor pane (calls `openMilestoneTaskForm`) |
+| **Promote (Outdent)** | Removes 2 leading spaces from the task line, moving it up one hierarchy level |
+| **Demote (Indent)** | Adds 2 leading spaces to the task line, making it a subtask of the previous task |
+| **Insert Task Above** | Inserts a new task line above the current task with matching indentation, then opens the editor form |
+| **Assign Resource** | Shows a prompt to enter or change the task's resource assignment |
+| **Set Completion** | Submenu with 0%, 25%, 50%, 75%, 100% options to quickly set task progress |
+
+### Implementation Details
+
+- **Shared component**: Both the Tasks table and Gantt chart use the same `createTaskContextButton()` function
+- **Positioning**: Menu appears as a fixed-position overlay near the clicked button, with viewport boundary detection
+- **Close behavior**: Menu closes when clicking outside, or after selecting an action
+- **Editor sync**: All actions modify the plan editor text and trigger `renderText()` to keep views in sync
+- **CSS**: Styles follow the portfolio more-menu pattern (`.task-context-menu`, `.task-context-menu-item`)
+
+### Key Functions
+
+| Function | File | Purpose |
+|----------|------|---------|
+| `showTaskContextMenu()` | `script.js` | Display the context menu near the clicked button |
+| `closeTaskContextMenu()` | `script.js` | Remove the context menu from the DOM |
+| `createTaskContextButton()` | `script.js` | Create the `...` button element for a task row |
+| `createCompletionSubmenu()` | `script.js` | Build the Set Completion submenu with percentage options |
+| `promoteTask()` | `script.js` | Remove 2 spaces of indentation from a task line |
+| `demoteTask()` | `script.js` | Add 2 spaces of indentation to a task line |
+| `insertTaskAbove()` | `script.js` | Insert a blank task line above the target task |
+| `assignResourceToTask()` | `script.js` | Prompt for and apply a resource assignment |
+| `setTaskCompletion()` | `script.js` | Set a task's completion percentage |
+| `findTaskLineNumber()` | `script.js` | Look up a task's line number in the editor by name |
