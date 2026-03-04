@@ -10081,6 +10081,190 @@ tr:hover .task-inspect-btn {
 }
 
 /* =========================================
+   Portfolio Look-Ahead
+   ========================================= */
+.portfolio-lookahead-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.portfolio-lookahead-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+    flex-shrink: 0;
+}
+
+.portfolio-lookahead-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.lookahead-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.lookahead-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.lookahead-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #333;
+}
+
+.portfolio-lookahead-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.portfolio-lookahead-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-lookahead-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-lookahead-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-lookahead-daterange {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.portfolio-lookahead-section {
+    margin-bottom: 25px;
+}
+
+.portfolio-lookahead-section-title {
+    margin: 0 0 10px 0;
+    padding: 10px 15px;
+    border-radius: 6px 6px 0 0;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.portfolio-lookahead-section-title.overdue {
+    background: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.portfolio-lookahead-section-title.upcoming {
+    background: #d4edda;
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.portfolio-lookahead-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-lookahead-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-lookahead-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-lookahead-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-lookahead-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-lookahead-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-lookahead-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-lookahead-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-lookahead-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.lookahead-project-name {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.lookahead-task-name {
+    color: #333;
+}
+
+.lookahead-days-late {
+    color: #dc3545;
+    font-weight: 700;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .portfolio-lookahead-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .portfolio-lookahead-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-lookahead-table {
+        min-width: 700px;
+    }
+}
+
+/* =========================================
    Portfolio Loading State
    ========================================= */
 .portfolio-loading {
