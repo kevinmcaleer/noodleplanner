@@ -276,7 +276,7 @@ async function renderPortfolioResources() {
 
         // Summary header
         let html = '<div class="portfolio-resources-header">' +
-            '<h2>Resource Allocation Dashboard</h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--dark">Resource Allocation Dashboard</span></h2>' +
             '<div class="portfolio-resources-summary">' +
             '<div class="resource-summary-item">' +
             '<span class="summary-label">Total Resources</span>' +

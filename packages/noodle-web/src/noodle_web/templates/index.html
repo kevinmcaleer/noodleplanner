@@ -611,7 +611,7 @@ Press Enter to render..."></textarea>
                             </div>
                             <div class="timeline-content np-fade-in" style="display: none;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                    <h2 class="timeline-title" id="timelineTitle" style="margin: 0;">Project Timeline</h2>
+                                    <h2 class="timeline-title" id="timelineTitle" style="margin: 0;"><span class="ribbon-banner ribbon-banner--blue">Project Timeline</span></h2>
                                     <div style="display: flex; align-items: center; gap: 16px;">
                                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                             <input type="checkbox" id="showPhasesToggle" onchange="toggleTimelinePhases()">
@@ -820,7 +820,7 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see the resource timesheet here.</p>
                             </div>
                             <div class="timesheet-content" style="display: none;">
-                                <h2 class="timesheet-title">Resource Timesheet</h2>
+                                <h2 class="timesheet-title"><span class="ribbon-banner ribbon-banner--dark">Resource Timesheet</span></h2>
                                 <div class="timesheet-wrapper">
                                     <div class="timesheet-scroll-container">
                                         <table class="timesheet-table">
@@ -886,7 +886,7 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see upcoming tasks and overdue items here.</p>
                             </div>
                             <div class="lookahead-content" style="display: none;">
-                                <h2 class="lookahead-title">2-Week Look-Ahead</h2>
+                                <h2 class="lookahead-title"><span class="ribbon-banner ribbon-banner--orange">2-Week Look-Ahead</span></h2>
                                 <div class="lookahead-info">
                                     <p id="lookaheadDateRange"></p>
                                 </div>
@@ -947,7 +947,7 @@ Press Enter to render..."></textarea>
                                 <p>Render your plan to see tasks broken down by user here.</p>
                             </div>
                             <div class="user-workload-content" style="display: none;">
-                                <h2 class="user-workload-title">User Workload Breakdown</h2>
+                                <h2 class="user-workload-title"><span class="ribbon-banner ribbon-banner--dark">User Workload Breakdown</span></h2>
                                 <div class="user-filter">
                                     <label for="userFilter">Filter by user:</label>
                                     <select id="userFilter" onchange="filterUserWorkload()">
@@ -971,7 +971,7 @@ Press Enter to render..."></textarea>
                             </div>
                             <div class="resource-sheet-content" style="display: none;">
                                 <div class="resource-sheet-toolbar">
-                                    <h2 class="resource-sheet-title">Resource Sheet</h2>
+                                    <h2 class="resource-sheet-title"><span class="ribbon-banner ribbon-banner--dark">Resource Sheet</span></h2>
                                     <div class="resource-sheet-filter">
                                         <label for="resourceSheetFilter">Filter:</label>
                                         <select id="resourceSheetFilter" onchange="filterResourceSheet()">
@@ -1016,7 +1016,7 @@ Press Enter to render..."></textarea>
                                         <button class="calendar-nav-btn calendar-today-btn" id="calendarToday" onclick="navigateCalendarToday()" title="Go to today">Today</button>
                                         <button class="calendar-nav-btn" id="calendarNext" onclick="navigateCalendar(1)" title="Next month">&gt;</button>
                                     </div>
-                                    <h2 class="calendar-title" id="calendarTitle"></h2>
+                                    <h2 class="calendar-title" id="calendarTitle"><span class="ribbon-banner ribbon-banner--dark"></span></h2>
                                 </div>
                                 <div class="calendar-grid-wrapper" id="calendarGridWrapper">
                                     <div class="calendar-grid" id="calendarGrid">

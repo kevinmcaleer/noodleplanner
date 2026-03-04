@@ -231,7 +231,7 @@ async function renderPortfolioStatus() {
         statusData.sort((a, b) => ragOrder[a.ragStatus] - ragOrder[b.ragStatus]);
 
         let html = '<div class="portfolio-status-header">' +
-            '<h2>Project Status Dashboard</h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--blue">Project Status Dashboard</span></h2>' +
             '<div class="portfolio-status-filters">' +
             '<label>Filter by: </label>' +
             '<select id="portfolioStatusFilter" onchange="filterPortfolioStatus()">' +

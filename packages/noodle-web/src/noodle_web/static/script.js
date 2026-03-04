@@ -4033,7 +4033,12 @@ function updateTimeline(tasks, projectName) {
         const titleElement = document.getElementById('timelineTitle');
         if (titleElement) {
             const displayName = projectName || 'Project';
-            titleElement.textContent = `${displayName} Timeline`;
+            const ribbonSpan = titleElement.querySelector('.ribbon-banner');
+            if (ribbonSpan) {
+                ribbonSpan.textContent = `${displayName} Timeline`;
+            } else {
+                titleElement.textContent = `${displayName} Timeline`;
+            }
         }
 
         // Calculate total timeline width - scale to available screen width
@@ -13788,7 +13793,12 @@ function renderCalendarMonth(year, month, animation) {
 
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
-    title.textContent = `${monthNames[month]} ${year}`;
+    const ribbonSpan = title.querySelector('.ribbon-banner');
+    if (ribbonSpan) {
+        ribbonSpan.textContent = `${monthNames[month]} ${year}`;
+    } else {
+        title.textContent = `${monthNames[month]} ${year}`;
+    }
 
     const newGrid = buildCalendarGrid(year, month);
     newGrid.id = 'calendarGrid';

@@ -90,7 +90,7 @@ async function renderPortfolioTimeline() {
 
         // Build HTML
         let html = '<div class="portfolio-timeline-header">' +
-            '<h2>Portfolio Timeline</h2>' +
+            '<h2><span class="ribbon-banner ribbon-banner--green">Portfolio Timeline</span></h2>' +
             '<div class="timeline-controls">' +
             '<label>Scale: </label>' +
             '<select id="timelineScaleSelect" onchange="changeTimelineScale(this.value)">' +

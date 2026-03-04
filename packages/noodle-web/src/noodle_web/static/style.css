@@ -583,17 +583,15 @@ svg.icon {
 
 /* Resources Table Styling */
 .resources-content {
-    padding: 30px;
-    max-width: 1200px;
-    margin: 0 auto;
+    padding: 20px;
+    max-width: 100%;
 }
 
 .resources-title {
     font-size: 1.8em;
     font-weight: 600;
     color: #333;
-    margin-bottom: 25px;
-    text-align: center;
+    margin-bottom: 20px;
 }
 
 .resources-table-wrapper {
@@ -3332,7 +3330,7 @@ input[type="checkbox"] {
 
     /* Resources table scroll */
     .resources-content {
-        padding: 15px;
+        padding: 10px;
     }
 
     .resources-table-wrapper {
@@ -6766,8 +6764,10 @@ tr:hover .task-context-btn,
 }
 
 .user-workload-title {
-    margin: 0 0 20px 0;
+    font-size: 1.8em;
+    font-weight: 600;
     color: #333;
+    margin-bottom: 20px;
 }
 
 .user-filter {
