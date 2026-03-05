@@ -842,7 +842,7 @@ async def export_report_pptx(data: ReportExportRequest):
             content=file_bytes,
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             headers={
-                "Content-Disposition": f'attachment; filename="{data.project_name}-report.pptx"'
+                "Content-Disposition": f'attachment; filename="{data.project_name} - Report - {datetime.now().strftime("%d-%m-%Y")}.pptx"'
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
