@@ -1368,6 +1368,14 @@ async function exportReportPptx() {
         status = badge ? badge.textContent : statusEl.textContent;
     }
 
+    // Fall back to the computed overall RAG status if no explicit status was set
+    if (!status) {
+        const overallRAGEl = document.getElementById('reportOverallRAG');
+        if (overallRAGEl && overallRAGEl.style.display !== 'none') {
+            status = overallRAGEl.textContent.trim();
+        }
+    }
+
     const dateEl = document.getElementById('reportDate');
     const reportDate = dateEl ? dateEl.textContent : new Date().toISOString().split('T')[0];
 
