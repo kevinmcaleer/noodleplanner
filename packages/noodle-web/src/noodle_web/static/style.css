@@ -10580,12 +10580,20 @@ tr:hover .task-context-btn,
 .portfolio-lookahead-filters {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.lookahead-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .portfolio-lookahead-filters label {
     font-weight: 600;
     color: #6c757d;
+    white-space: nowrap;
 }
 
 .portfolio-lookahead-filters select {
@@ -10597,11 +10605,12 @@ tr:hover .task-context-btn,
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
+    min-height: 44px;
 }
 
-.portfolio-lookahead-filters select:focus {
-    outline: none;
-    border-color: #667eea;
+.portfolio-lookahead-filters select:focus-visible {
+    outline: 2px solid #108BB9;
+    border-color: #108BB9;
 }
 
 .portfolio-lookahead-daterange {
@@ -10701,6 +10710,21 @@ tr:hover .task-context-btn,
     .portfolio-lookahead-header {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .portfolio-lookahead-filters {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .lookahead-filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .portfolio-lookahead-filters select {
+        width: 100%;
     }
 
     .portfolio-lookahead-table-wrapper {
