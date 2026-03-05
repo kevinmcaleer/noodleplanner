@@ -325,6 +325,152 @@
             document.body.removeChild(container);
         })();
 
+        // ── Extended Formula Tests (MIN, MAX, IF) ────────────────
+
+        (function testExtendedFormulas() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Extended Formulas (MIN, MAX, IF)</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test { value number\n label text }`,
+                    markdown: `| Value | Label |\n|-------|-------|\n| 10 | A |\n| 20 | B |\n| 30 | C |`
+                }]
+            });
+
+            assertEq(sheet.evaluateFormula('=MIN(A1:A3)'), 10, 'MIN(A1:A3) = 10');
+            assertEq(sheet.evaluateFormula('=MAX(A1:A3)'), 30, 'MAX(A1:A3) = 30');
+            assertEq(sheet.evaluateFormula('=IF(A1>5,100,0)'), 100, 'IF(A1>5,100,0) = 100 (true)');
+            assertEq(sheet.evaluateFormula('=IF(A1>50,100,0)'), 0, 'IF(A1>50,100,0) = 0 (false)');
+            assertEq(sheet.evaluateFormula('=IF(A1=10,1,2)'), 1, 'IF(A1=10,1,2) = 1 (equal)');
+            assertEq(sheet.evaluateFormula('=IF(A1<>10,1,2)'), 2, 'IF(A1<>10,1,2) = 2 (not equal)');
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Undo/Redo Tests ─────────────────────────────────────
+
+        (function testUndoRedo() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Undo/Redo</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test { name text }`,
+                    markdown: `| Name |\n|------|\n| Alpha |`
+                }]
+            });
+
+            assertEq(sheet.getRows(0)[0].name, 'Alpha', 'Initial value is Alpha');
+
+            // Modify
+            sheet.setCellValue(0, 0, 'Beta');
+            assertEq(sheet.getRows(0)[0].name, 'Beta', 'After edit: Beta');
+
+            // Undo
+            sheet.undo();
+            assertEq(sheet.getRows(0)[0].name, 'Alpha', 'After undo: Alpha');
+
+            // Redo
+            sheet.redo();
+            assertEq(sheet.getRows(0)[0].name, 'Beta', 'After redo: Beta');
+
+            // Undo add row
+            sheet.addRow({ name: 'Gamma' });
+            assertEq(sheet.getRows(0).length, 2, 'After addRow: 2 rows');
+            sheet.undo();
+            assertEq(sheet.getRows(0).length, 1, 'After undo addRow: 1 row');
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Sort Tests ──────────────────────────────────────────
+
+        (function testSort() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Column Sorting</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test { name text\n amount number }`,
+                    markdown: `| Name | Amount |\n|------|--------|\n| Charlie | 30 |\n| Alpha | 10 |\n| Bravo | 20 |`
+                }]
+            });
+
+            // Sort by name ascending
+            sheet.sortByColumn(0);
+            assertEq(sheet.getRows(0)[0].name, 'Alpha', 'Sort text asc: first is Alpha');
+            assertEq(sheet.getRows(0)[2].name, 'Charlie', 'Sort text asc: last is Charlie');
+
+            // Sort by name descending (click again)
+            sheet.sortByColumn(0);
+            assertEq(sheet.getRows(0)[0].name, 'Charlie', 'Sort text desc: first is Charlie');
+
+            // Sort by amount ascending
+            sheet.sortByColumn(1);
+            assertEq(sheet.getRows(0)[0].amount, '10', 'Sort number asc: first is 10');
+            assertEq(sheet.getRows(0)[2].amount, '30', 'Sort number asc: last is 30');
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Selection Range Tests ───────────────────────────────
+
+        (function testSelectionRange() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Selection Range</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test { a text\n b text\n c text }`,
+                    markdown: `| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |\n| 7 | 8 | 9 |`
+                }]
+            });
+
+            sheet._selectCell(0, 0);
+            sheet._extendSelection(1, 1);
+
+            assert(sheet._isCellInSelection(0, 0), 'Cell 0,0 is in range');
+            assert(sheet._isCellInSelection(0, 1), 'Cell 0,1 is in range');
+            assert(sheet._isCellInSelection(1, 0), 'Cell 1,0 is in range');
+            assert(sheet._isCellInSelection(1, 1), 'Cell 1,1 is in range');
+            assert(!sheet._isCellInSelection(2, 2), 'Cell 2,2 is NOT in range');
+
+            // Select all
+            sheet._selectAll();
+            assert(sheet._isCellInSelection(2, 2), 'After selectAll: 2,2 in range');
+
+            document.body.removeChild(container);
+        })();
+
         // ── Insert Row Tests ─────────────────────────────────────
 
         (function testInsertRow() {

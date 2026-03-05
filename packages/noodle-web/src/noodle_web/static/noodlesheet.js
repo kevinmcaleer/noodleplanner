@@ -17,8 +17,17 @@ class NoodleSheet {
         this.sheets = [];
         this.activeSheetIndex = 0;
         this.selection = { row: -1, col: -1 };
+        this.selectionEnd = null; // for range selection: { row, col }
         this.editing = false;
         this.editCell = null;
+        this.sortColumn = -1;
+        this.sortAsc = true;
+        this.sortedIndices = null; // maps display index to data index
+        this.undoStack = [];
+        this.redoStack = [];
+        this.maxUndo = 50;
+        this.showTotals = options.showTotals !== false;
+        this._resizing = null;
 
         if (options.sheets) {
             options.sheets.forEach(s => this.addSheet(s.name, s.dbml, s.markdown));
@@ -156,8 +165,19 @@ class NoodleSheet {
     }
 
     _evalExpression(expr, sheet) {
-        // Handle SUM, COUNT, AVERAGE functions
-        const funcMatch = expr.match(/^(SUM|COUNT|AVERAGE)\((.+)\)$/);
+        // Handle IF(condition, true_val, false_val)
+        const ifMatch = expr.match(/^IF\((.+),(.+),(.+)\)$/);
+        if (ifMatch) {
+            const condition = this._evalCondition(ifMatch[1].trim(), sheet);
+            const trueExpr = ifMatch[2].trim();
+            const falseExpr = ifMatch[3].trim();
+            return condition
+                ? this._evalExpression(trueExpr, sheet)
+                : this._evalExpression(falseExpr, sheet);
+        }
+
+        // Handle aggregate functions
+        const funcMatch = expr.match(/^(SUM|COUNT|AVERAGE|MIN|MAX)\((.+)\)$/);
         if (funcMatch) {
             const func = funcMatch[1];
             const rangeValues = this._resolveRange(funcMatch[2], sheet);
@@ -167,6 +187,8 @@ class NoodleSheet {
                 case 'SUM': return nums.reduce((a, b) => a + b, 0);
                 case 'COUNT': return rangeValues.filter(v => v !== '' && v !== undefined).length;
                 case 'AVERAGE': return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+                case 'MIN': return nums.length ? Math.min(...nums) : 0;
+                case 'MAX': return nums.length ? Math.max(...nums) : 0;
             }
         }
 
@@ -183,6 +205,34 @@ class NoodleSheet {
         }
 
         return '#ERR';
+    }
+
+    _evalCondition(condExpr, sheet) {
+        // Support simple comparisons: A1>100, A1=B1, A1<>0
+        const compMatch = condExpr.match(/^(.+?)\s*(>=|<=|<>|!=|>|<|=)\s*(.+)$/);
+        if (!compMatch) return false;
+
+        let left = compMatch[1].trim();
+        const op = compMatch[2];
+        let right = compMatch[3].trim();
+
+        // Resolve cell references
+        if (/^[A-Z]+\d+$/.test(left)) left = String(this._getCellValue(left, sheet));
+        if (/^[A-Z]+\d+$/.test(right)) right = String(this._getCellValue(right, sheet));
+
+        const lNum = parseFloat(left);
+        const rNum = parseFloat(right);
+        const useNum = !isNaN(lNum) && !isNaN(rNum);
+
+        switch (op) {
+            case '>': return useNum ? lNum > rNum : left > right;
+            case '<': return useNum ? lNum < rNum : left < right;
+            case '>=': return useNum ? lNum >= rNum : left >= right;
+            case '<=': return useNum ? lNum <= rNum : left <= right;
+            case '=': return useNum ? lNum === rNum : left === right;
+            case '<>': case '!=': return useNum ? lNum !== rNum : left !== right;
+            default: return false;
+        }
     }
 
     _resolveRange(rangeExpr, sheet) {
@@ -272,11 +322,45 @@ class NoodleSheet {
         this.renderFormulaBar();
     }
 
+    // ── Undo/Redo ──────────────────────────────────────────────────────
+
+    _saveSnapshot() {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+        const snapshot = JSON.stringify(sheet.rows);
+        // Avoid duplicate consecutive snapshots
+        if (this.undoStack.length > 0 && this.undoStack[this.undoStack.length - 1] === snapshot) return;
+        this.undoStack.push(snapshot);
+        if (this.undoStack.length > this.maxUndo) this.undoStack.shift();
+        this.redoStack = [];
+    }
+
+    undo() {
+        const sheet = this.getActiveSheet();
+        if (!sheet || this.undoStack.length === 0) return;
+        this.redoStack.push(JSON.stringify(sheet.rows));
+        sheet.rows = JSON.parse(this.undoStack.pop());
+        this.renderGrid();
+        this.renderFormulaBar();
+        this._fireChange();
+    }
+
+    redo() {
+        const sheet = this.getActiveSheet();
+        if (!sheet || this.redoStack.length === 0) return;
+        this.undoStack.push(JSON.stringify(sheet.rows));
+        sheet.rows = JSON.parse(this.redoStack.pop());
+        this.renderGrid();
+        this.renderFormulaBar();
+        this._fireChange();
+    }
+
     // ── Data Operations ───────────────────────────────────────────────
 
     addRow(data) {
         const sheet = this.getActiveSheet();
         if (!sheet) return;
+        this._saveSnapshot();
         const row = {};
         sheet.columns.forEach(c => { row[c.name] = (data && data[c.name]) || ''; });
         sheet.rows.push(row);
@@ -287,6 +371,7 @@ class NoodleSheet {
     deleteRow(rowIndex) {
         const sheet = this.getActiveSheet();
         if (!sheet || rowIndex < 0 || rowIndex >= sheet.rows.length) return;
+        this._saveSnapshot();
         sheet.rows.splice(rowIndex, 1);
         if (this.selection.row >= sheet.rows.length) {
             this.selection.row = sheet.rows.length - 1;
@@ -299,6 +384,7 @@ class NoodleSheet {
         const sheet = this.getActiveSheet();
         if (!sheet || row < 0 || row >= sheet.rows.length) return;
         if (col < 0 || col >= sheet.columns.length) return;
+        this._saveSnapshot();
         sheet.rows[row][sheet.columns[col].name] = value;
         this.renderGrid();
         this._fireChange();
@@ -329,10 +415,14 @@ class NoodleSheet {
         this.toolbar = document.createElement('div');
         this.toolbar.className = 'ns-toolbar';
         this.toolbar.innerHTML = `
+            <button class="ns-toolbar-btn" data-action="undo" title="Undo (Ctrl+Z)" aria-label="Undo">&#x21A9;</button>
+            <button class="ns-toolbar-btn" data-action="redo" title="Redo (Ctrl+Y)" aria-label="Redo">&#x21AA;</button>
+            <span class="ns-toolbar-sep"></span>
             <button class="ns-toolbar-btn" data-action="add-row" title="Add row" aria-label="Add row">+ Row</button>
             <button class="ns-toolbar-btn" data-action="delete-row" title="Delete selected row" aria-label="Delete row">- Row</button>
             <span class="ns-toolbar-sep"></span>
             <button class="ns-toolbar-btn" data-action="copy" title="Copy table to clipboard" aria-label="Copy table">Copy</button>
+            <button class="ns-toolbar-btn" data-action="paste" title="Paste from clipboard (Ctrl+V)" aria-label="Paste">Paste</button>
         `;
         this.toolbar.addEventListener('click', e => {
             const btn = e.target.closest('[data-action]');
@@ -341,6 +431,9 @@ class NoodleSheet {
             if (action === 'add-row') this.addRow();
             else if (action === 'delete-row' && this.selection.row >= 0) this.deleteRow(this.selection.row);
             else if (action === 'copy') this._copyToClipboard();
+            else if (action === 'paste') this._pasteFromClipboard();
+            else if (action === 'undo') this.undo();
+            else if (action === 'redo') this.redo();
         });
         this.container.appendChild(this.toolbar);
 
@@ -424,6 +517,11 @@ class NoodleSheet {
             const th = document.createElement('th');
             th.className = 'ns-col-header';
             th.setAttribute('scope', 'col');
+            if (col.width) {
+                th.style.width = col.width + 'px';
+                th.style.minWidth = col.width + 'px';
+                th.style.maxWidth = col.width + 'px';
+            }
 
             const letterSpan = document.createElement('div');
             letterSpan.className = 'ns-col-letter';
@@ -434,10 +532,34 @@ class NoodleSheet {
             nameSpan.textContent = col.displayName;
             nameSpan.title = col.displayName;
 
+            // Sort indicator
+            if (this.sortColumn === i) {
+                const sortSpan = document.createElement('span');
+                sortSpan.className = 'ns-sort-indicator';
+                sortSpan.textContent = this.sortAsc ? ' \u25B2' : ' \u25BC';
+                nameSpan.appendChild(sortSpan);
+            }
+
             th.appendChild(letterSpan);
             th.appendChild(nameSpan);
 
-            if (this.selection.col === i) th.classList.add('ns-selected-col');
+            // Click to sort
+            th.addEventListener('click', (e) => {
+                if (!e.target.closest('.ns-resize-handle')) {
+                    this.sortByColumn(i);
+                }
+            });
+            th.style.cursor = 'pointer';
+
+            // Resize handle
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'ns-resize-handle';
+            resizeHandle.addEventListener('mousedown', (e) => this._initResize(e, i));
+            th.appendChild(resizeHandle);
+
+            if (this._isCellInSelection(-1, i) || this.selection.col === i) {
+                th.classList.add('ns-selected-col');
+            }
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -486,10 +608,17 @@ class NoodleSheet {
                 if (this.selection.row === r && this.selection.col === c) {
                     td.classList.add('ns-selected');
                 }
+                if (this._isCellInSelection(r, c) && !(this.selection.row === r && this.selection.col === c)) {
+                    td.classList.add('ns-in-range');
+                }
 
                 td.addEventListener('mousedown', e => {
                     e.preventDefault();
-                    this._selectCell(r, c);
+                    if (e.shiftKey) {
+                        this._extendSelection(r, c);
+                    } else {
+                        this._selectCell(r, c);
+                    }
                 });
                 td.addEventListener('dblclick', () => this._startEdit(r, c));
 
@@ -536,6 +665,40 @@ class NoodleSheet {
 
         table.appendChild(tbody);
 
+        // Totals row
+        if (this.showTotals && sheet.rows.length > 0) {
+            const hasNumberCol = sheet.columns.some(c => c.type === 'number');
+            if (hasNumberCol) {
+                const tfoot = document.createElement('tfoot');
+                const footRow = document.createElement('tr');
+                footRow.className = 'ns-totals-row';
+
+                const footLabel = document.createElement('td');
+                footLabel.className = 'ns-row-num ns-totals-label';
+                footLabel.textContent = '\u03A3';
+                footLabel.title = 'Totals';
+                footRow.appendChild(footLabel);
+
+                sheet.columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = 'ns-cell ns-totals-cell';
+                    if (col.type === 'number') {
+                        td.classList.add('ns-num');
+                        const sum = sheet.rows.reduce((acc, r) => {
+                            const val = parseFloat(r[col.name]);
+                            return acc + (isNaN(val) ? 0 : val);
+                        }, 0);
+                        td.textContent = this._formatNumber(sum, 'number');
+                        td.title = `Sum of ${col.displayName}`;
+                    }
+                    footRow.appendChild(td);
+                });
+
+                tfoot.appendChild(footRow);
+                table.appendChild(tfoot);
+            }
+        }
+
         this.gridContainer.innerHTML = '';
         this.gridContainer.appendChild(table);
     }
@@ -568,6 +731,7 @@ class NoodleSheet {
     _selectCell(row, col) {
         if (this.editing) this._commitEdit();
         this.selection = { row, col };
+        this.selectionEnd = null;
         this.renderGrid();
         this.renderFormulaBar();
         this.gridContainer.focus();
@@ -655,6 +819,7 @@ class NoodleSheet {
         const { row, col } = this.editCell;
         const sheet = this.getActiveSheet();
         if (value !== undefined) {
+            this._saveSnapshot();
             sheet.rows[row][sheet.columns[col].name] = value;
         }
         this.editing = false;
@@ -705,23 +870,73 @@ class NoodleSheet {
         const sheet = this.getActiveSheet();
         if (!sheet) return;
 
+        // Ctrl/Cmd shortcuts
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'z' || e.key === 'Z') {
+                e.preventDefault();
+                if (e.shiftKey) this.redo(); else this.undo();
+                return;
+            }
+            if (e.key === 'y' || e.key === 'Y') {
+                e.preventDefault();
+                this.redo();
+                return;
+            }
+            if (e.key === 'c' || e.key === 'C') {
+                e.preventDefault();
+                this._copySelection();
+                return;
+            }
+            if (e.key === 'v' || e.key === 'V') {
+                e.preventDefault();
+                this._pasteFromClipboard();
+                return;
+            }
+            if (e.key === 'a' || e.key === 'A') {
+                e.preventDefault();
+                this._selectAll();
+                return;
+            }
+        }
+
         switch (e.key) {
             case 'ArrowUp':
                 e.preventDefault();
-                if (this.selection.row > 0) this._selectCell(this.selection.row - 1, this.selection.col);
+                if (e.shiftKey) {
+                    this._extendSelection(this.selection.row - 1, this.selection.col);
+                } else if (this.selection.row > 0) {
+                    this._selectCell(this.selection.row - 1, this.selection.col);
+                }
                 break;
             case 'ArrowDown':
                 e.preventDefault();
-                this._selectCell(Math.min(this.selection.row + 1, sheet.rows.length - 1), this.selection.col);
+                if (e.shiftKey) {
+                    this._extendSelection(
+                        Math.min((this.selectionEnd?.row ?? this.selection.row) + 1, sheet.rows.length - 1),
+                        this.selection.col
+                    );
+                } else {
+                    this._selectCell(Math.min(this.selection.row + 1, sheet.rows.length - 1), this.selection.col);
+                }
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                if (this.selection.col > 0) this._selectCell(this.selection.row, this.selection.col - 1);
+                if (e.shiftKey) {
+                    this._extendSelection(this.selection.row, (this.selectionEnd?.col ?? this.selection.col) - 1);
+                } else if (this.selection.col > 0) {
+                    this._selectCell(this.selection.row, this.selection.col - 1);
+                }
                 break;
             case 'ArrowRight':
                 e.preventDefault();
-                if (this.selection.col < sheet.columns.length - 1)
+                if (e.shiftKey) {
+                    this._extendSelection(
+                        this.selection.row,
+                        Math.min((this.selectionEnd?.col ?? this.selection.col) + 1, sheet.columns.length - 1)
+                    );
+                } else if (this.selection.col < sheet.columns.length - 1) {
                     this._selectCell(this.selection.row, this.selection.col + 1);
+                }
                 break;
             case 'Enter':
                 e.preventDefault();
@@ -736,9 +951,7 @@ class NoodleSheet {
             case 'Delete':
             case 'Backspace':
                 e.preventDefault();
-                if (this.selection.row >= 0 && this.selection.col >= 0) {
-                    this.setCellValue(this.selection.row, this.selection.col, '');
-                }
+                this._clearSelection();
                 break;
             default:
                 // Start editing on any printable key
@@ -796,6 +1009,202 @@ class NoodleSheet {
         this.addSheet(name, dbml || `Table sheet {\n  column1 text\n}`, '');
         this.activateSheet(this.sheets.length - 1);
         this.renderTabs();
+    }
+
+    // ── Range Selection ───────────────────────────────────────────────
+
+    _extendSelection(row, col) {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+        row = Math.max(0, Math.min(row, sheet.rows.length - 1));
+        col = Math.max(0, Math.min(col, sheet.columns.length - 1));
+        this.selectionEnd = { row, col };
+        this.renderGrid();
+        this.renderFormulaBar();
+    }
+
+    _getSelectionRange() {
+        if (!this.selectionEnd) {
+            return {
+                startRow: this.selection.row, endRow: this.selection.row,
+                startCol: this.selection.col, endCol: this.selection.col
+            };
+        }
+        return {
+            startRow: Math.min(this.selection.row, this.selectionEnd.row),
+            endRow: Math.max(this.selection.row, this.selectionEnd.row),
+            startCol: Math.min(this.selection.col, this.selectionEnd.col),
+            endCol: Math.max(this.selection.col, this.selectionEnd.col)
+        };
+    }
+
+    _isCellInSelection(row, col) {
+        if (this.selection.row < 0) return false;
+        const range = this._getSelectionRange();
+        return row >= range.startRow && row <= range.endRow
+            && col >= range.startCol && col <= range.endCol;
+    }
+
+    _selectAll() {
+        const sheet = this.getActiveSheet();
+        if (!sheet || sheet.rows.length === 0) return;
+        this.selection = { row: 0, col: 0 };
+        this.selectionEnd = { row: sheet.rows.length - 1, col: sheet.columns.length - 1 };
+        this.renderGrid();
+        this.renderFormulaBar();
+    }
+
+    _clearSelection() {
+        const sheet = this.getActiveSheet();
+        if (!sheet || this.selection.row < 0) return;
+        this._saveSnapshot();
+        const range = this._getSelectionRange();
+        for (let r = range.startRow; r <= range.endRow; r++) {
+            for (let c = range.startCol; c <= range.endCol; c++) {
+                if (r < sheet.rows.length && c < sheet.columns.length) {
+                    sheet.rows[r][sheet.columns[c].name] = '';
+                }
+            }
+        }
+        this.renderGrid();
+        this._fireChange();
+    }
+
+    _copySelection() {
+        const sheet = this.getActiveSheet();
+        if (!sheet || this.selection.row < 0) return;
+        const range = this._getSelectionRange();
+        const lines = [];
+        for (let r = range.startRow; r <= range.endRow; r++) {
+            const cells = [];
+            for (let c = range.startCol; c <= range.endCol; c++) {
+                cells.push(r < sheet.rows.length ? (sheet.rows[r][sheet.columns[c].name] || '') : '');
+            }
+            lines.push(cells.join('\t'));
+        }
+        navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
+    }
+
+    _pasteFromClipboard() {
+        const sheet = this.getActiveSheet();
+        if (!sheet || this.selection.row < 0 || this.selection.col < 0) return;
+
+        navigator.clipboard.readText().then(text => {
+            if (!text) return;
+            this._saveSnapshot();
+            const lines = text.split('\n').filter(l => l.length > 0);
+            const startRow = this.selection.row;
+            const startCol = this.selection.col;
+
+            lines.forEach((line, ri) => {
+                const cells = line.split('\t');
+                const rowIdx = startRow + ri;
+
+                // Auto-expand rows
+                while (rowIdx >= sheet.rows.length) {
+                    const newRow = {};
+                    sheet.columns.forEach(c => { newRow[c.name] = ''; });
+                    sheet.rows.push(newRow);
+                }
+
+                cells.forEach((val, ci) => {
+                    const colIdx = startCol + ci;
+                    if (colIdx < sheet.columns.length) {
+                        sheet.rows[rowIdx][sheet.columns[colIdx].name] = val.trim();
+                    }
+                });
+            });
+
+            this.renderGrid();
+            this._fireChange();
+        }).catch(() => {});
+    }
+
+    // ── Column Sorting ────────────────────────────────────────────────
+
+    sortByColumn(colIndex) {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        if (this.sortColumn === colIndex) {
+            this.sortAsc = !this.sortAsc;
+        } else {
+            this.sortColumn = colIndex;
+            this.sortAsc = true;
+        }
+
+        const colName = sheet.columns[colIndex].name;
+        const colType = sheet.columns[colIndex].type;
+
+        this._saveSnapshot();
+        sheet.rows.sort((a, b) => {
+            let va = a[colName] || '';
+            let vb = b[colName] || '';
+
+            // Empty values always sort to the bottom
+            if (va === '' && vb === '') return 0;
+            if (va === '') return 1;
+            if (vb === '') return -1;
+
+            if (colType === 'number') {
+                va = parseFloat(va) || 0;
+                vb = parseFloat(vb) || 0;
+            } else if (colType === 'date') {
+                va = new Date(va).getTime() || 0;
+                vb = new Date(vb).getTime() || 0;
+            } else {
+                va = va.toLowerCase();
+                vb = vb.toLowerCase();
+            }
+
+            if (va < vb) return this.sortAsc ? -1 : 1;
+            if (va > vb) return this.sortAsc ? 1 : -1;
+            return 0;
+        });
+
+        this.renderGrid();
+        this._fireChange();
+    }
+
+    // ── Column Resizing ───────────────────────────────────────────────
+
+    _initResize(e, colIndex) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        const th = e.target.closest('th');
+        const startX = e.clientX;
+        const startWidth = th.offsetWidth;
+
+        const onMouseMove = (moveEvt) => {
+            const delta = moveEvt.clientX - startX;
+            const newWidth = Math.max(40, startWidth + delta);
+            sheet.columns[colIndex].width = newWidth;
+            th.style.width = newWidth + 'px';
+            th.style.minWidth = newWidth + 'px';
+            th.style.maxWidth = newWidth + 'px';
+
+            // Apply to all cells in the column
+            const cells = this.gridContainer.querySelectorAll(`td[data-col="${colIndex}"]`);
+            cells.forEach(td => {
+                td.style.width = newWidth + 'px';
+                td.style.minWidth = newWidth + 'px';
+                td.style.maxWidth = newWidth + 'px';
+            });
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.style.cursor = '';
+        };
+
+        document.body.style.cursor = 'col-resize';
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     }
 
     // ── Public API ────────────────────────────────────────────────────
@@ -897,6 +1306,7 @@ class NoodleSheet {
     _insertRow(atIndex) {
         const sheet = this.getActiveSheet();
         if (!sheet) return;
+        this._saveSnapshot();
         const newRow = {};
         sheet.columns.forEach(c => { newRow[c.name] = ''; });
 

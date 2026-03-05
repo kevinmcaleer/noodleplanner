@@ -257,9 +257,62 @@
     position: relative;
 }
 
+.ns-cell.ns-in-range {
+    background: #d6eadf;
+    z-index: 1;
+    position: relative;
+}
+
 .ns-cell.ns-editing {
     padding: 0;
     overflow: visible;
+}
+
+/* ── Sort Indicator ────────────────────────────────────────────── */
+
+.ns-sort-indicator {
+    font-size: 9px;
+    color: #555;
+    margin-left: 2px;
+}
+
+/* ── Resize Handle ─────────────────────────────────────────────── */
+
+.ns-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    z-index: 5;
+}
+
+.ns-resize-handle:hover {
+    background: rgba(33, 115, 70, 0.3);
+}
+
+/* ── Totals Row ────────────────────────────────────────────────── */
+
+.ns-totals-row {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+}
+
+.ns-totals-cell {
+    background: #f0f4e8 !important;
+    font-weight: 700;
+    color: #333;
+    border-top: 2px solid #a0a0a0;
+    border-bottom: none;
+}
+
+.ns-totals-label {
+    background: linear-gradient(90deg, #e8ecdf 0%, #dfe3d5 100%) !important;
+    font-weight: 700;
+    color: #555;
+    border-top: 2px solid #a0a0a0;
 }
 
 /* ── Alternating Rows ──────────────────────────────────────────── */
