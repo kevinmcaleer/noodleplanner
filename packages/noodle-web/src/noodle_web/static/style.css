@@ -1887,10 +1887,6 @@ svg.icon {
     bottom: -14px;
 }
 
-/* Report page minimal timeline compact padding */
-.report-timeline-wrapper.minimal-timeline-mode {
-    padding: 10px 0 30px 0 !important;
-}
 
 /* Gantt Chart Styling */
 .gantt-content {
