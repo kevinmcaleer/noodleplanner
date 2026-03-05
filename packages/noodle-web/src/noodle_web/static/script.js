@@ -15661,13 +15661,13 @@ function uploadBudgetMarkdownFromEditor() {
 
 const BUDGET_DBML = `Table budget_items {
   description text
-  estimate number
-  forecast number
+  estimate number [format: currency]
+  forecast number [format: currency]
   type enum('Capex','Opex','One-off')
   invoice_number text
   po_number text
   supplier text
-  total number
+  total number [format: currency]
   date_ordered date
   date_received date
   category enum('Consultancy','Resource','Travel','Infrastructure','Hardware','Software')

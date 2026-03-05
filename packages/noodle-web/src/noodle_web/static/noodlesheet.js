@@ -52,7 +52,7 @@ class NoodleSheet {
         const lines = body.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
 
         for (const line of lines) {
-            const match = line.match(/^(\w+)\s+(text|number|date|enum)\s*(?:\(([^)]*)\))?/i);
+            const match = line.match(/^(\w+)\s+(text|number|date|enum)\s*(?:\(([^)]*)\))?\s*(?:\[([^\]]*)\])?/i);
             if (!match) continue;
 
             const name = match[1];
@@ -61,11 +61,25 @@ class NoodleSheet {
                 ? match[3].split(',').map(v => v.trim().replace(/^['"]|['"]$/g, ''))
                 : [];
 
+            // Parse annotations like [format: currency, min: 0, max: 100]
+            const annotations = {};
+            if (match[4]) {
+                match[4].split(',').forEach(pair => {
+                    const [key, ...valParts] = pair.split(':');
+                    if (key && valParts.length > 0) {
+                        annotations[key.trim().toLowerCase()] = valParts.join(':').trim().replace(/^['"]|['"]$/g, '');
+                    }
+                });
+            }
+
             columns.push({
                 name,
                 displayName: name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 type,
                 enumValues,
+                format: annotations.format || null,
+                min: annotations.min !== undefined ? parseFloat(annotations.min) : null,
+                max: annotations.max !== undefined ? parseFloat(annotations.max) : null,
                 width: type === 'date' ? 120 : type === 'number' ? 100 : 150
             });
         }
@@ -423,6 +437,8 @@ class NoodleSheet {
             <span class="ns-toolbar-sep"></span>
             <button class="ns-toolbar-btn" data-action="copy" title="Copy table to clipboard" aria-label="Copy table">Copy</button>
             <button class="ns-toolbar-btn" data-action="paste" title="Paste from clipboard (Ctrl+V)" aria-label="Paste">Paste</button>
+            <span class="ns-toolbar-sep"></span>
+            <button class="ns-toolbar-btn" data-action="find" title="Find & Replace (Ctrl+F)" aria-label="Find and Replace">Find</button>
         `;
         this.toolbar.addEventListener('click', e => {
             const btn = e.target.closest('[data-action]');
@@ -434,8 +450,51 @@ class NoodleSheet {
             else if (action === 'paste') this._pasteFromClipboard();
             else if (action === 'undo') this.undo();
             else if (action === 'redo') this.redo();
+            else if (action === 'find') this._toggleFindBar();
         });
         this.container.appendChild(this.toolbar);
+
+        // Find bar (hidden by default)
+        this.findBar = document.createElement('div');
+        this.findBar.className = 'ns-find-bar';
+        this.findBar.style.display = 'none';
+        this.findBar.innerHTML = `
+            <input type="text" class="ns-find-input" placeholder="Find..." aria-label="Find text">
+            <input type="text" class="ns-replace-input" placeholder="Replace..." aria-label="Replace text">
+            <button class="ns-toolbar-btn ns-find-btn" data-find="prev" title="Previous" aria-label="Find previous">&#x25B2;</button>
+            <button class="ns-toolbar-btn ns-find-btn" data-find="next" title="Next" aria-label="Find next">&#x25BC;</button>
+            <button class="ns-toolbar-btn ns-find-btn" data-find="replace" title="Replace" aria-label="Replace">Replace</button>
+            <button class="ns-toolbar-btn ns-find-btn" data-find="replace-all" title="Replace All" aria-label="Replace all">All</button>
+            <span class="ns-find-count"></span>
+            <button class="ns-toolbar-btn ns-find-btn" data-find="close" title="Close" aria-label="Close find bar">&#x2715;</button>
+        `;
+        this.container.appendChild(this.findBar);
+
+        this.findInput = this.findBar.querySelector('.ns-find-input');
+        this.replaceInput = this.findBar.querySelector('.ns-replace-input');
+        this.findCountEl = this.findBar.querySelector('.ns-find-count');
+        this._findMatches = [];
+        this._findMatchIndex = -1;
+
+        this.findInput.addEventListener('input', () => this._findAll());
+        this.findInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); this._findNext(); }
+            if (e.key === 'Escape') { e.preventDefault(); this._closeFindBar(); }
+        });
+        this.replaceInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); this._replaceOne(); }
+            if (e.key === 'Escape') { e.preventDefault(); this._closeFindBar(); }
+        });
+        this.findBar.addEventListener('click', e => {
+            const btn = e.target.closest('[data-find]');
+            if (!btn) return;
+            const action = btn.dataset.find;
+            if (action === 'next') this._findNext();
+            else if (action === 'prev') this._findPrev();
+            else if (action === 'replace') this._replaceOne();
+            else if (action === 'replace-all') this._replaceAll();
+            else if (action === 'close') this._closeFindBar();
+        });
 
         // Formula bar
         this.formulaBar = document.createElement('div');
@@ -592,17 +651,31 @@ class NoodleSheet {
                     if (typeof rawVal === 'string' && rawVal.startsWith('=')) {
                         const computed = this.evaluateFormula(rawVal, sheet);
                         td.textContent = typeof computed === 'number'
-                            ? this._formatNumber(computed, col.type)
+                            ? this._formatNumber(computed, col.type, col.format)
                             : computed;
                         td.classList.add('ns-formula-cell');
                         td.title = rawVal;
                     } else {
                         td.textContent = col.type === 'number' && rawVal !== ''
-                            ? this._formatNumber(parseFloat(rawVal), col.type)
+                            ? this._formatNumber(parseFloat(rawVal), col.type, col.format)
                             : rawVal;
                     }
 
                     if (col.type === 'number') td.classList.add('ns-num');
+
+                    // Conditional formatting for numbers with min/max
+                    if (col.type === 'number' && rawVal !== '') {
+                        const numVal = parseFloat(rawVal);
+                        if (!isNaN(numVal)) {
+                            if (col.min !== null && numVal < col.min) td.classList.add('ns-val-low');
+                            if (col.max !== null && numVal > col.max) td.classList.add('ns-val-high');
+                        }
+                    }
+
+                    // Find match highlighting
+                    if (this._isFindMatch(r, c)) {
+                        td.classList.add('ns-find-match');
+                    }
                 }
 
                 if (this.selection.row === r && this.selection.col === c) {
@@ -688,7 +761,7 @@ class NoodleSheet {
                             const val = parseFloat(r[col.name]);
                             return acc + (isNaN(val) ? 0 : val);
                         }, 0);
-                        td.textContent = this._formatNumber(sum, 'number');
+                        td.textContent = this._formatNumber(sum, 'number', col.format);
                         td.title = `Sum of ${col.displayName}`;
                     }
                     footRow.appendChild(td);
@@ -897,6 +970,11 @@ class NoodleSheet {
                 this._selectAll();
                 return;
             }
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                this._toggleFindBar();
+                return;
+            }
         }
 
         switch (e.key) {
@@ -986,10 +1064,16 @@ class NoodleSheet {
 
     // ── Helpers ───────────────────────────────────────────────────────
 
-    _formatNumber(num, type) {
+    _formatNumber(num, type, format) {
         if (isNaN(num)) return '';
+        if (format === 'currency') {
+            return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (format === 'percentage') {
+            return (num * 100).toFixed(1) + '%';
+        }
         if (type === 'number') {
-            return num % 1 === 0 ? String(num) : num.toFixed(2);
+            return num % 1 === 0 ? num.toLocaleString() : num.toLocaleString(undefined, { maximumFractionDigits: 2 });
         }
         return String(num);
     }
@@ -1164,6 +1248,134 @@ class NoodleSheet {
 
         this.renderGrid();
         this._fireChange();
+    }
+
+    // ── Find & Replace ─────────────────────────────────────────────────
+
+    _toggleFindBar() {
+        if (this.findBar.style.display === 'none') {
+            this.findBar.style.display = 'flex';
+            this.findInput.focus();
+            this.findInput.select();
+        } else {
+            this._closeFindBar();
+        }
+    }
+
+    _closeFindBar() {
+        this.findBar.style.display = 'none';
+        this._findMatches = [];
+        this._findMatchIndex = -1;
+        this.findCountEl.textContent = '';
+        this.renderGrid();
+        this.gridContainer.focus();
+    }
+
+    _findAll() {
+        const query = this.findInput.value.toLowerCase();
+        this._findMatches = [];
+        this._findMatchIndex = -1;
+
+        if (!query) {
+            this.findCountEl.textContent = '';
+            this.renderGrid();
+            return;
+        }
+
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        sheet.rows.forEach((row, r) => {
+            sheet.columns.forEach((col, c) => {
+                const val = (row[col.name] || '').toLowerCase();
+                if (val.includes(query)) {
+                    this._findMatches.push({ row: r, col: c });
+                }
+            });
+        });
+
+        this.findCountEl.textContent = this._findMatches.length + ' found';
+
+        if (this._findMatches.length > 0) {
+            this._findMatchIndex = 0;
+            this._goToMatch();
+        }
+
+        this.renderGrid();
+    }
+
+    _findNext() {
+        if (this._findMatches.length === 0) return;
+        this._findMatchIndex = (this._findMatchIndex + 1) % this._findMatches.length;
+        this._goToMatch();
+    }
+
+    _findPrev() {
+        if (this._findMatches.length === 0) return;
+        this._findMatchIndex = (this._findMatchIndex - 1 + this._findMatches.length) % this._findMatches.length;
+        this._goToMatch();
+    }
+
+    _goToMatch() {
+        const match = this._findMatches[this._findMatchIndex];
+        if (!match) return;
+        this._selectCell(match.row, match.col);
+        this.findCountEl.textContent = `${this._findMatchIndex + 1}/${this._findMatches.length}`;
+    }
+
+    _replaceOne() {
+        if (this._findMatches.length === 0 || this._findMatchIndex < 0) return;
+        const match = this._findMatches[this._findMatchIndex];
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        const query = this.findInput.value;
+        const replacement = this.replaceInput.value;
+        const colName = sheet.columns[match.col].name;
+        const currentVal = sheet.rows[match.row][colName] || '';
+
+        this._saveSnapshot();
+        sheet.rows[match.row][colName] = currentVal.replace(new RegExp(this._escapeRegex(query), 'i'), replacement);
+
+        this._findAll();
+        this._fireChange();
+    }
+
+    _replaceAll() {
+        if (this._findMatches.length === 0) return;
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        const query = this.findInput.value;
+        const replacement = this.replaceInput.value;
+        const regex = new RegExp(this._escapeRegex(query), 'gi');
+
+        this._saveSnapshot();
+        let count = 0;
+        sheet.rows.forEach(row => {
+            sheet.columns.forEach(col => {
+                const val = row[col.name] || '';
+                if (regex.test(val)) {
+                    row[col.name] = val.replace(regex, replacement);
+                    count++;
+                }
+                regex.lastIndex = 0;
+            });
+        });
+
+        this.findCountEl.textContent = `${count} replaced`;
+        this._findMatches = [];
+        this._findMatchIndex = -1;
+        this.renderGrid();
+        this._fireChange();
+    }
+
+    _escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    _isFindMatch(row, col) {
+        return this._findMatches.some(m => m.row === row && m.col === col);
     }
 
     // ── Column Resizing ───────────────────────────────────────────────

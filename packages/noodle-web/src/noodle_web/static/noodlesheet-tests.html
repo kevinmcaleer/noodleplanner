@@ -505,6 +505,101 @@
             document.body.removeChild(container);
         })();
 
+        // ── DBML Annotations Tests ──────────────────────────────
+
+        (function testDbmlAnnotations() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>DBML Annotations</h2>';
+            results.appendChild(section);
+
+            const dbml = `Table items {
+                price number [format: currency]
+                rate number [format: percentage]
+                score number [min: 0, max: 100]
+                name text
+            }`;
+
+            const schema = NoodleSheet.parseDbml(dbml);
+            assertEq(schema.columns[0].format, 'currency', 'Price has currency format');
+            assertEq(schema.columns[1].format, 'percentage', 'Rate has percentage format');
+            assertEq(schema.columns[2].min, 0, 'Score has min: 0');
+            assertEq(schema.columns[2].max, 100, 'Score has max: 100');
+            assertEq(schema.columns[3].format, null, 'Name has no format');
+        })();
+
+        // ── Number Formatting Tests ─────────────────────────────
+
+        (function testNumberFormatting() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Number Formatting</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{ name: 'T', dbml: 'Table t { col number }', markdown: '' }]
+            });
+
+            const currFmt = sheet._formatNumber(1234.5, 'number', 'currency');
+            assert(currFmt.includes('1') && currFmt.includes('234') && currFmt.includes('50'), 'Currency format includes digits: ' + currFmt);
+
+            const pctFmt = sheet._formatNumber(0.75, 'number', 'percentage');
+            assertEq(pctFmt, '75.0%', 'Percentage format: 75.0%');
+
+            const plainFmt = sheet._formatNumber(1234, 'number', null);
+            assert(plainFmt.includes('1') && plainFmt.includes('234'), 'Plain number formatted: ' + plainFmt);
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Find & Replace Tests ────────────────────────────────
+
+        (function testFindReplace() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Find & Replace</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test { name text\n city text }`,
+                    markdown: `| Name | City |\n|------|------|\n| Alice | London |\n| Bob | London |\n| Charlie | Paris |`
+                }]
+            });
+
+            // Simulate find
+            sheet.findInput.value = 'London';
+            sheet._findAll();
+            assertEq(sheet._findMatches.length, 2, 'Find "London": 2 matches');
+
+            // Find next
+            sheet._findNext();
+            assertEq(sheet._findMatchIndex, 1, 'After findNext: index 1');
+
+            // Replace all
+            sheet.replaceInput.value = 'Berlin';
+            sheet._replaceAll();
+            const rows = sheet.getRows(0);
+            assertEq(rows[0].city, 'Berlin', 'After replaceAll: first row Berlin');
+            assertEq(rows[1].city, 'Berlin', 'After replaceAll: second row Berlin');
+            assertEq(rows[2].city, 'Paris', 'After replaceAll: Paris unchanged');
+
+            // Undo the replace
+            sheet.undo();
+            assertEq(sheet.getRows(0)[0].city, 'London', 'After undo: back to London');
+
+            document.body.removeChild(container);
+        })();
+
         // ── Display Summary ─────────────────────────────────────
 
         const summary = document.getElementById('test-summary');
@@ -518,11 +613,11 @@
                 name: 'Budget',
                 dbml: `Table budget_items {
                     description text
-                    estimate number
-                    forecast number
+                    estimate number [format: currency]
+                    forecast number [format: currency]
                     type enum('Capex','Opex','One-off')
                     supplier text
-                    total number
+                    total number [format: currency]
                     date_ordered date
                     category enum('Consultancy','Resource','Travel','Infrastructure','Hardware','Software')
                 }`,
