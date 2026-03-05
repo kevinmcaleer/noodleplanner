@@ -11,6 +11,56 @@
     overflow: hidden;
 }
 
+/* ── Toolbar ───────────────────────────────────────────────────── */
+
+.ns-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: linear-gradient(180deg, #f8f8f8 0%, #eee 100%);
+    border-bottom: 1px solid #d0d0d0;
+    flex-shrink: 0;
+}
+
+.ns-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    min-width: 44px;
+    padding: 2px 10px;
+    border: 1px solid #c0c0c0;
+    border-radius: 3px;
+    background: #fff;
+    color: #333;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ns-toolbar-btn:hover {
+    background: #e8e8e8;
+    border-color: #999;
+}
+
+.ns-toolbar-btn:active {
+    background: #d8d8d8;
+}
+
+.ns-toolbar-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+.ns-toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: #ccc;
+    margin: 0 4px;
+}
+
 /* ── Formula Bar ───────────────────────────────────────────────── */
 
 .ns-formula-bar {
@@ -315,6 +365,56 @@ input[type="date"].ns-cell-editor {
 .ns-tab:focus-visible {
     outline: 2px solid #108BB9;
     outline-offset: -2px;
+}
+
+/* ── Context Menu ──────────────────────────────────────────────── */
+
+.ns-context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 4px 0;
+    min-width: 160px;
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    font-size: 13px;
+}
+
+.ns-ctx-item {
+    display: block;
+    width: 100%;
+    padding: 6px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: #333;
+    font-family: inherit;
+    font-size: inherit;
+    min-height: 32px;
+}
+
+.ns-ctx-item:hover:not(:disabled) {
+    background: #e8f0fe;
+    color: #1a73e8;
+}
+
+.ns-ctx-item:disabled {
+    color: #aaa;
+    cursor: default;
+}
+
+.ns-ctx-item:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+.ns-ctx-sep {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 4px 0;
 }
 
 /* ── Empty State ───────────────────────────────────────────────── */

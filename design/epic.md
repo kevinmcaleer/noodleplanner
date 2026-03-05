@@ -178,6 +178,57 @@ The RAID log is stored as a standard markdown table in a `raid.md` file:
 - `exportRaidExcel()` / `uploadRaidExcel()` — Excel via backend endpoints
 - `openRaidForm()` / `saveRaidItemFromForm()` — Modal form for CRUD
 
+### NoodleSheet - Reusable Spreadsheet Component (Issue #551)
+
+NoodleSheet is a reusable, Excel-like spreadsheet component that stores data in markdown tables with schema defined via DBML.
+
+**Files:**
+- `packages/noodle-web/src/noodle_web/static/noodlesheet.js` - Component class
+- `packages/noodle-web/src/noodle_web/static/noodlesheet.css` - Styling
+- `packages/noodle-web/src/noodle_web/static/noodlesheet-tests.html` - Test suite
+
+**Features:**
+- Excel-like cell grid with column headers (A, B, C...) and row numbers
+- DBML schema parser for defining columns, types, and enum values
+- Markdown table parser/generator (bidirectional, lossless round-trip)
+- Inline cell editing with type-appropriate editors (text, number, date, dropdown)
+- Formula engine: `=SUM()`, `=COUNT()`, `=AVERAGE()`, cell references, basic arithmetic
+- Worksheet tabs (add, switch, rename, delete)
+- Keyboard navigation (arrow keys, Tab, Enter, Delete, type-to-edit)
+- Context menu (right-click) for row operations
+- Toolbar with add/delete row and copy-to-clipboard
+- Formula bar showing cell reference and raw value/formula
+- Responsive design with horizontal scroll
+
+**DBML Schema Format:**
+```dbml
+Table budget_items {
+  description text
+  estimate number
+  type enum('Capex','Opex','One-off')
+  date_ordered date
+}
+```
+
+**Usage:**
+```javascript
+const sheet = new NoodleSheet(containerEl, {
+    sheets: [{ name: 'Budget', dbml: '...', markdown: '...' }],
+    onChange: (sheetIndex, markdown) => { /* save */ }
+});
+```
+
+**Public API:**
+- `addRow(data)` / `deleteRow(index)` / `setCellValue(row, col, value)`
+- `getMarkdown(sheetIndex)` / `loadMarkdown(markdown, sheetIndex)`
+- `getRows(sheetIndex)` / `getColumns(sheetIndex)` / `getSheetCount()`
+- `addSheet(name, dbml, markdown)` / `deleteSheet(index)` / `renameSheet(index, name)`
+- `activateSheet(index)` / `evaluateFormula(formula)`
+- `destroy()` - cleanup
+
+**Budget Tracker Integration:**
+The budget tab includes a "Spreadsheet" toggle button that switches between the existing form-based table view and the NoodleSheet component. Data syncs bidirectionally via markdown.
+
 ### Portfolio Views
 
 The Portfolio tab provides cross-project visibility through multiple sub-views:

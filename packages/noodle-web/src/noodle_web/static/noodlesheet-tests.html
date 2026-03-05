@@ -325,6 +325,40 @@
             document.body.removeChild(container);
         })();
 
+        // ── Insert Row Tests ─────────────────────────────────────
+
+        (function testInsertRow() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Insert Row</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test { name text\n amount number }`,
+                    markdown: `| Name | Amount |\n|------|--------|\n| A | 10 |\n| B | 20 |`
+                }]
+            });
+
+            // Insert row at beginning
+            sheet._insertRow(0);
+            assertEq(sheet.getRows(0).length, 3, 'Insert at 0: 3 rows');
+            assertEq(sheet.getRows(0)[0].name, '', 'Inserted row is empty');
+            assertEq(sheet.getRows(0)[1].name, 'A', 'Original first row shifted');
+
+            // Insert row at end
+            sheet._insertRow(3);
+            assertEq(sheet.getRows(0).length, 4, 'Insert at end: 4 rows');
+            assertEq(sheet.getRows(0)[3].name, '', 'New last row is empty');
+
+            document.body.removeChild(container);
+        })();
+
         // ── Display Summary ─────────────────────────────────────
 
         const summary = document.getElementById('test-summary');

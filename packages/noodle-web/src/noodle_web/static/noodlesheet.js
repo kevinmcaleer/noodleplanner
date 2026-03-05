@@ -325,6 +325,25 @@ class NoodleSheet {
         this.container.innerHTML = '';
         this.container.classList.add('noodlesheet');
 
+        // Toolbar
+        this.toolbar = document.createElement('div');
+        this.toolbar.className = 'ns-toolbar';
+        this.toolbar.innerHTML = `
+            <button class="ns-toolbar-btn" data-action="add-row" title="Add row" aria-label="Add row">+ Row</button>
+            <button class="ns-toolbar-btn" data-action="delete-row" title="Delete selected row" aria-label="Delete row">- Row</button>
+            <span class="ns-toolbar-sep"></span>
+            <button class="ns-toolbar-btn" data-action="copy" title="Copy table to clipboard" aria-label="Copy table">Copy</button>
+        `;
+        this.toolbar.addEventListener('click', e => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const action = btn.dataset.action;
+            if (action === 'add-row') this.addRow();
+            else if (action === 'delete-row' && this.selection.row >= 0) this.deleteRow(this.selection.row);
+            else if (action === 'copy') this._copyToClipboard();
+        });
+        this.container.appendChild(this.toolbar);
+
         // Formula bar
         this.formulaBar = document.createElement('div');
         this.formulaBar.className = 'ns-formula-bar';
@@ -350,6 +369,15 @@ class NoodleSheet {
         this.container.appendChild(this.gridContainer);
 
         this.gridContainer.addEventListener('keydown', e => this._onGridKeydown(e));
+        this.gridContainer.addEventListener('contextmenu', e => this._onContextMenu(e));
+
+        // Context menu
+        this.contextMenu = document.createElement('div');
+        this.contextMenu.className = 'ns-context-menu';
+        this.contextMenu.style.display = 'none';
+        this.contextMenu.setAttribute('role', 'menu');
+        document.body.appendChild(this.contextMenu);
+        document.addEventListener('click', () => this._hideContextMenu());
 
         // Tab bar
         this.tabBar = document.createElement('div');
@@ -800,5 +828,116 @@ class NoodleSheet {
             this.activeSheetIndex = this.sheets.length - 1;
         }
         this.activateSheet(this.activeSheetIndex);
+    }
+
+    // ── Context Menu ──────────────────────────────────────────────────
+
+    _onContextMenu(e) {
+        e.preventDefault();
+        const td = e.target.closest('td[data-row]');
+        if (!td) return;
+
+        const row = parseInt(td.dataset.row);
+        const col = parseInt(td.dataset.col);
+        this._selectCell(row, col);
+
+        const sheet = this.getActiveSheet();
+        const items = [
+            { label: 'Insert row above', action: () => this._insertRow(row) },
+            { label: 'Insert row below', action: () => this._insertRow(row + 1) },
+            { label: 'Delete row', action: () => this.deleteRow(row), disabled: row >= sheet.rows.length },
+            { type: 'separator' },
+            { label: 'Clear cell', action: () => this.setCellValue(row, col, '') },
+            { label: 'Copy table', action: () => this._copyToClipboard() }
+        ];
+
+        this.contextMenu.innerHTML = '';
+        items.forEach(item => {
+            if (item.type === 'separator') {
+                const sep = document.createElement('div');
+                sep.className = 'ns-ctx-sep';
+                this.contextMenu.appendChild(sep);
+                return;
+            }
+            const el = document.createElement('button');
+            el.className = 'ns-ctx-item';
+            el.textContent = item.label;
+            el.setAttribute('role', 'menuitem');
+            if (item.disabled) {
+                el.disabled = true;
+            } else {
+                el.addEventListener('click', () => {
+                    item.action();
+                    this._hideContextMenu();
+                });
+            }
+            this.contextMenu.appendChild(el);
+        });
+
+        this.contextMenu.style.display = 'block';
+        this.contextMenu.style.left = e.clientX + 'px';
+        this.contextMenu.style.top = e.clientY + 'px';
+
+        // Keep menu within viewport
+        const rect = this.contextMenu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+            this.contextMenu.style.left = (e.clientX - rect.width) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+            this.contextMenu.style.top = (e.clientY - rect.height) + 'px';
+        }
+    }
+
+    _hideContextMenu() {
+        if (this.contextMenu) {
+            this.contextMenu.style.display = 'none';
+        }
+    }
+
+    _insertRow(atIndex) {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+        const newRow = {};
+        sheet.columns.forEach(c => { newRow[c.name] = ''; });
+
+        // Expand rows if needed
+        while (sheet.rows.length < atIndex) {
+            const emptyRow = {};
+            sheet.columns.forEach(c => { emptyRow[c.name] = ''; });
+            sheet.rows.push(emptyRow);
+        }
+
+        sheet.rows.splice(atIndex, 0, newRow);
+        this._selectCell(atIndex, this.selection.col >= 0 ? this.selection.col : 0);
+        this._fireChange();
+    }
+
+    // ── Clipboard ─────────────────────────────────────────────────────
+
+    _copyToClipboard() {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        const headers = sheet.columns.map(c => c.displayName);
+        const rows = sheet.rows.map(r =>
+            sheet.columns.map(c => r[c.name] || '')
+        );
+
+        const tsv = [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
+
+        navigator.clipboard.writeText(tsv).then(() => {
+            const btn = this.toolbar.querySelector('[data-action="copy"]');
+            if (btn) {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            }
+        }).catch(() => {});
+    }
+
+    destroy() {
+        if (this.contextMenu && this.contextMenu.parentNode) {
+            this.contextMenu.parentNode.removeChild(this.contextMenu);
+        }
     }
 }
