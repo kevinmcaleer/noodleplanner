@@ -1,0 +1,599 @@
+/* ── NoodleSheet - Excel-like Spreadsheet Component ─────────────── */
+
+.noodlesheet {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    background: #fff;
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    font-size: 13px;
+    overflow: hidden;
+}
+
+/* ── Toolbar ───────────────────────────────────────────────────── */
+
+.ns-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: linear-gradient(180deg, #f8f8f8 0%, #eee 100%);
+    border-bottom: 1px solid #d0d0d0;
+    flex-shrink: 0;
+}
+
+.ns-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    min-width: 44px;
+    padding: 2px 10px;
+    border: 1px solid #c0c0c0;
+    border-radius: 3px;
+    background: #fff;
+    color: #333;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ns-toolbar-btn:hover {
+    background: #e8e8e8;
+    border-color: #999;
+}
+
+.ns-toolbar-btn:active {
+    background: #d8d8d8;
+}
+
+.ns-toolbar-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+.ns-toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: #ccc;
+    margin: 0 4px;
+}
+
+/* ── Formula Bar ───────────────────────────────────────────────── */
+
+.ns-formula-bar {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #d0d0d0;
+    background: #f8f8f8;
+    height: 28px;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.ns-cell-ref {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    min-width: 60px;
+    height: 100%;
+    border-right: 1px solid #d0d0d0;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+}
+
+.ns-fx-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    min-width: 24px;
+    height: 100%;
+    border-right: 1px solid #d0d0d0;
+    color: #666;
+    font-style: italic;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ns-formula-input {
+    flex: 1;
+    height: 100%;
+    border: none;
+    outline: none;
+    padding: 0 8px;
+    font-family: inherit;
+    font-size: 13px;
+    background: #fff;
+}
+
+.ns-formula-input:focus {
+    background: #fff;
+    box-shadow: inset 0 0 0 2px #108BB9;
+}
+
+/* ── Grid Container ────────────────────────────────────────────── */
+
+.ns-grid-container {
+    flex: 1;
+    overflow: auto;
+    outline: none;
+    min-height: 200px;
+}
+
+.ns-grid-container:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+/* ── Table ──────────────────────────────────────────────────────── */
+
+.ns-table {
+    border-collapse: collapse;
+    width: max-content;
+    min-width: 100%;
+    table-layout: fixed;
+}
+
+/* ── Column Headers ────────────────────────────────────────────── */
+
+.ns-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.ns-corner {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    background: linear-gradient(180deg, #f0f0f0 0%, #e2e2e2 100%);
+    border-right: 1px solid #b0b0b0;
+    border-bottom: 2px solid #a0a0a0;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+}
+
+.ns-col-header {
+    background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+    border-right: 1px solid #c8c8c8;
+    border-bottom: 2px solid #a0a0a0;
+    padding: 0;
+    text-align: center;
+    user-select: none;
+    cursor: default;
+    min-width: 80px;
+    max-width: 250px;
+    position: relative;
+}
+
+.ns-col-header.ns-selected-col {
+    background: linear-gradient(180deg, #d4e8f7 0%, #b8d4ea 100%);
+}
+
+.ns-col-letter {
+    font-size: 10px;
+    color: #888;
+    line-height: 1;
+    padding-top: 3px;
+}
+
+.ns-col-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #333;
+    padding: 1px 6px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Row Numbers ───────────────────────────────────────────────── */
+
+.ns-row-num {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    background: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 100%);
+    border-right: 1px solid #b0b0b0;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: center;
+    color: #666;
+    font-size: 11px;
+    padding: 2px 4px;
+    user-select: none;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+}
+
+.ns-row-num.ns-selected-row {
+    background: linear-gradient(90deg, #d4e8f7 0%, #b8d4ea 100%);
+    font-weight: 600;
+    color: #333;
+}
+
+/* ── Data Cells ────────────────────────────────────────────────── */
+
+.ns-cell {
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 2px 6px;
+    height: 24px;
+    max-height: 24px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: cell;
+    color: #222;
+    min-width: 80px;
+}
+
+.ns-cell.ns-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ns-cell.ns-formula-cell {
+    color: #1a5276;
+}
+
+.ns-cell.ns-empty-cell {
+    background: #fafafa;
+}
+
+.ns-cell.ns-selected {
+    outline: 2px solid #217346;
+    outline-offset: -1px;
+    background: #e8f4eb;
+    z-index: 2;
+    position: relative;
+}
+
+.ns-cell.ns-in-range {
+    background: #d6eadf;
+    z-index: 1;
+    position: relative;
+}
+
+.ns-cell.ns-editing {
+    padding: 0;
+    overflow: visible;
+}
+
+/* ── Sort Indicator ────────────────────────────────────────────── */
+
+.ns-sort-indicator {
+    font-size: 9px;
+    color: #555;
+    margin-left: 2px;
+}
+
+/* ── Resize Handle ─────────────────────────────────────────────── */
+
+.ns-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    z-index: 5;
+}
+
+.ns-resize-handle:hover {
+    background: rgba(33, 115, 70, 0.3);
+}
+
+/* ── Totals Row ────────────────────────────────────────────────── */
+
+.ns-totals-row {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+}
+
+.ns-totals-cell {
+    background: #f0f4e8 !important;
+    font-weight: 700;
+    color: #333;
+    border-top: 2px solid #a0a0a0;
+    border-bottom: none;
+}
+
+.ns-totals-label {
+    background: linear-gradient(90deg, #e8ecdf 0%, #dfe3d5 100%) !important;
+    font-weight: 700;
+    color: #555;
+    border-top: 2px solid #a0a0a0;
+}
+
+/* ── Alternating Rows ──────────────────────────────────────────── */
+
+.ns-table tbody tr:nth-child(even) .ns-cell:not(.ns-selected) {
+    background: #f9fafb;
+}
+
+.ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
+    background: #edf2f7;
+}
+
+.ns-table tbody tr:nth-child(even) .ns-row-num {
+    background: linear-gradient(90deg, #eaeaea 0%, #e2e2e2 100%);
+}
+
+/* ── Cell Editors ──────────────────────────────────────────────── */
+
+.ns-cell-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 24px;
+    border: none;
+    outline: 2px solid #217346;
+    outline-offset: -1px;
+    padding: 2px 6px;
+    font-family: inherit;
+    font-size: 13px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.ns-cell-editor:focus {
+    background: #fff;
+}
+
+select.ns-cell-editor {
+    padding: 1px 4px;
+    cursor: pointer;
+}
+
+input[type="date"].ns-cell-editor {
+    padding: 1px 4px;
+}
+
+/* ── Tab Bar ───────────────────────────────────────────────────── */
+
+.ns-tab-bar {
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid #d0d0d0;
+    background: #f0f0f0;
+    height: 32px;
+    min-height: 32px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    gap: 0;
+}
+
+.ns-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    min-width: 80px;
+    min-height: 32px;
+    border: none;
+    border-right: 1px solid #d0d0d0;
+    background: #e8e8e8;
+    color: #555;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.ns-tab:hover {
+    background: #ddd;
+}
+
+.ns-tab.ns-tab-active {
+    background: #fff;
+    color: #217346;
+    font-weight: 600;
+    border-bottom: 2px solid #217346;
+    margin-bottom: -1px;
+}
+
+.ns-tab.ns-tab-add {
+    min-width: 44px;
+    width: 44px;
+    font-size: 16px;
+    font-weight: 400;
+    color: #888;
+}
+
+.ns-tab.ns-tab-add:hover {
+    color: #217346;
+    background: #ddd;
+}
+
+.ns-tab:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+.ns-tab-rename {
+    width: 80px;
+    height: 22px;
+    border: 1px solid #217346;
+    border-radius: 2px;
+    padding: 0 4px;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    background: #fff;
+}
+
+/* ── Context Menu ──────────────────────────────────────────────── */
+
+.ns-context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 4px 0;
+    min-width: 160px;
+    font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+    font-size: 13px;
+}
+
+.ns-ctx-item {
+    display: block;
+    width: 100%;
+    padding: 6px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    color: #333;
+    font-family: inherit;
+    font-size: inherit;
+    min-height: 32px;
+}
+
+.ns-ctx-item:hover:not(:disabled) {
+    background: #e8f0fe;
+    color: #1a73e8;
+}
+
+.ns-ctx-item:disabled {
+    color: #aaa;
+    cursor: default;
+}
+
+.ns-ctx-item:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+.ns-ctx-sep {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 4px 0;
+}
+
+/* ── Find Bar ──────────────────────────────────────────────────── */
+
+.ns-find-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #fffbe6;
+    border-bottom: 1px solid #e6d88a;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.ns-find-input,
+.ns-replace-input {
+    height: 28px;
+    min-width: 140px;
+    max-width: 200px;
+    padding: 2px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+.ns-find-input:focus,
+.ns-replace-input:focus {
+    border-color: #108BB9;
+    box-shadow: 0 0 0 2px rgba(16, 139, 185, 0.2);
+}
+
+.ns-find-btn {
+    min-width: 36px;
+    padding: 2px 8px;
+}
+
+.ns-find-count {
+    font-size: 12px;
+    color: #666;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* ── Find Match Highlight ──────────────────────────────────────── */
+
+.ns-cell.ns-find-match {
+    background: #fff3b0 !important;
+    box-shadow: inset 0 0 0 1px #e6c200;
+}
+
+/* ── Conditional Formatting ────────────────────────────────────── */
+
+.ns-cell.ns-val-low {
+    color: #c0392b;
+    background: #fdedec !important;
+}
+
+.ns-cell.ns-val-high {
+    color: #d35400;
+    background: #fef5e7 !important;
+}
+
+/* ── Empty State ───────────────────────────────────────────────── */
+
+.ns-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #999;
+    font-size: 14px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .ns-cell {
+        min-width: 60px;
+        font-size: 12px;
+        padding: 2px 4px;
+    }
+
+    .ns-col-header {
+        min-width: 60px;
+    }
+
+    .ns-col-name {
+        font-size: 10px;
+    }
+
+    .ns-tab {
+        min-width: 60px;
+        padding: 0 10px;
+        font-size: 11px;
+    }
+
+    .ns-formula-bar {
+        height: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .ns-cell-ref {
+        width: 44px;
+        min-width: 44px;
+    }
+
+    .ns-corner,
+    .ns-row-num {
+        width: 36px;
+        min-width: 36px;
+        max-width: 36px;
+    }
+}
