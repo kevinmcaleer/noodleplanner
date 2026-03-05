@@ -1,13 +1,65 @@
 /**
  * Portfolio 2-Week Look-Ahead View
  * Shows overdue and upcoming tasks across all projects in a single table
- * with project-name column and project filter.
+ * with project-name column, project filter, and status filter.
  * Uses /api/parse data via parseAllProjects() for accurate task data.
  */
 
 /**
+ * Compute RAG status for a task based on dates and progress.
+ * Mirrors the logic from calculateInspectorRag() in script.js so that
+ * the look-ahead view and the task inspector show consistent statuses.
+ *
+ * @param {Object} params - Task parameters
+ * @param {Date|null} params.startDate - Task start date (normalised to midnight)
+ * @param {Date|null} params.finishDate - Task finish date (normalised to midnight)
+ * @param {number} params.percent - Percentage complete (0-100)
+ * @param {Date} params.today - Today's date (normalised to midnight)
+ * @returns {string} Computed status string
+ */
+function computeLookAheadTaskStatus({ startDate, finishDate, percent, today }) {
+    if (percent === 100) {
+        return 'Complete';
+    }
+
+    if (startDate && startDate > today) {
+        return 'Not Started';
+    }
+
+    if (startDate && startDate <= today && percent === 0) {
+        return 'Task Overdue';
+    }
+
+    if (startDate && finishDate) {
+        const totalDuration = (finishDate - startDate) / (1000 * 60 * 60 * 24);
+        const elapsedDays = Math.max(0, (today - startDate) / (1000 * 60 * 60 * 24));
+        const expectedPercent = Math.min(100, Math.round((elapsedDays / Math.max(1, totalDuration)) * 100));
+
+        if (today > finishDate && percent < 100) {
+            return 'Task Overdue';
+        }
+        if (percent >= expectedPercent) {
+            return 'On Track';
+        }
+        return 'Behind Schedule';
+    }
+
+    if (percent === 0) {
+        return 'Task Overdue';
+    }
+    if (percent < 50) {
+        return 'Task Overdue';
+    }
+    if (percent < 80) {
+        return 'Behind Schedule';
+    }
+    return 'On Track';
+}
+
+/**
  * Collect look-ahead tasks from all parsed projects.
  * Returns overdue tasks and upcoming tasks (within the next 2 weeks).
+ * Each task gets a computed status for accurate counting and filtering.
  *
  * @param {Array<{project, parsedResult}>} parsedProjects
  * @returns {{overdue: Array, upcoming: Array}} categorised task lists
@@ -36,21 +88,31 @@ function collectLookAheadTasks(parsedProjects) {
             if (finishDate) finishDate.setHours(0, 0, 0, 0);
 
             const percentComplete = parseInt(task.percent) || 0;
+            const computedStatus = computeLookAheadTaskStatus({
+                startDate, finishDate, percent: percentComplete, today
+            });
 
-            // Overdue: has a finish date in the past and is not 100% complete
-            if (finishDate && finishDate < today && percentComplete < 100) {
+            // Overdue: computed status is "Task Overdue"
+            if (computedStatus === 'Task Overdue') {
+                const daysLate = finishDate && finishDate < today
+                    ? Math.ceil((today - finishDate) / (1000 * 60 * 60 * 24))
+                    : (startDate && startDate <= today
+                        ? Math.ceil((today - startDate) / (1000 * 60 * 60 * 24))
+                        : 0);
+
                 overdue.push({
                     projectId: project.id,
                     projectName: project.name,
                     taskName: task.name || '-',
                     start: task.start || null,
                     finish: task.finish || null,
+                    startDate: startDate,
                     finishDate: finishDate,
                     durationDays: task.duration_days || null,
                     resources: task.resources || '-',
                     percent: percentComplete,
-                    rag: task.rag || '-',
-                    daysLate: Math.ceil((today - finishDate) / (1000 * 60 * 60 * 24))
+                    status: computedStatus,
+                    daysLate: daysLate
                 });
             }
 
@@ -70,14 +132,18 @@ function collectLookAheadTasks(parsedProjects) {
                     durationDays: task.duration_days || null,
                     resources: task.resources || '-',
                     percent: percentComplete,
-                    rag: task.rag || '-'
+                    status: computedStatus
                 });
             }
         });
     });
 
-    // Sort overdue by finish date (most overdue first)
-    overdue.sort((a, b) => a.finishDate - b.finishDate);
+    // Sort overdue by finish date (most overdue first), then by start date
+    overdue.sort((a, b) => {
+        const dateA = a.finishDate || a.startDate || new Date(9999, 0);
+        const dateB = b.finishDate || b.startDate || new Date(9999, 0);
+        return dateA - dateB;
+    });
 
     // Sort upcoming by start/finish date (soonest first)
     upcoming.sort((a, b) => {
@@ -100,13 +166,12 @@ function formatLookAheadDate(dateStr) {
 }
 
 /**
- * Get RAG badge HTML for a RAG value
+ * Get status badge HTML for a computed status value
  */
-function getLookAheadRAGBadge(rag) {
-    if (!rag || rag === '-') return '-';
-    const colour = typeof ragStatusToColour === 'function' ? ragStatusToColour(rag) : rag.toLowerCase();
-    const label = rag.toUpperCase();
-    return '<span class="rag-badge rag-' + colour + '">' + escapeHtml(label) + '</span>';
+function getLookAheadStatusBadge(status) {
+    if (!status || status === '-') return '-';
+    const colour = typeof ragStatusToColour === 'function' ? ragStatusToColour(status) : 'green';
+    return '<span class="rag-badge rag-' + colour + '">' + escapeHtml(status.toUpperCase()) + '</span>';
 }
 
 /**
@@ -119,14 +184,15 @@ function buildOverdueRows(tasks) {
             'data-project="' + escapeHtml(task.projectName) + '" ' +
             'data-project-id="' + escapeHtml(task.projectId) + '" ' +
             'data-task-name="' + escapeHtml(task.taskName) + '" ' +
+            'data-status="' + escapeHtml(task.status) + '" ' +
             'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeHtml(task.taskName).replace(/'/g, "\\'") + '\')">' +
             '<td class="lookahead-project-name">' + escapeHtml(task.projectName) + '</td>' +
             '<td class="lookahead-task-name">' + escapeHtml(task.taskName) + '</td>' +
-            '<td>' + formatLookAheadDate(task.finish) + '</td>' +
+            '<td>' + formatLookAheadDate(task.finish || task.start) + '</td>' +
             '<td class="lookahead-days-late">' + task.daysLate + '</td>' +
             '<td>' + escapeHtml(task.resources) + '</td>' +
             '<td>' + task.percent + '%</td>' +
-            '<td>' + getLookAheadRAGBadge(task.rag) + '</td>' +
+            '<td>' + getLookAheadStatusBadge(task.status) + '</td>' +
             '</tr>';
     });
     return html;
@@ -142,6 +208,7 @@ function buildUpcomingRows(tasks) {
             'data-project="' + escapeHtml(task.projectName) + '" ' +
             'data-project-id="' + escapeHtml(task.projectId) + '" ' +
             'data-task-name="' + escapeHtml(task.taskName) + '" ' +
+            'data-status="' + escapeHtml(task.status) + '" ' +
             'onclick="openPortfolioLookAheadTask(\'' + escapeHtml(task.projectId) + '\', \'' + escapeHtml(task.taskName).replace(/'/g, "\\'") + '\')">' +
             '<td class="lookahead-project-name">' + escapeHtml(task.projectName) + '</td>' +
             '<td class="lookahead-task-name">' + escapeHtml(task.taskName) + '</td>' +
@@ -150,10 +217,38 @@ function buildUpcomingRows(tasks) {
             '<td>' + (task.durationDays ? task.durationDays + 'd' : '-') + '</td>' +
             '<td>' + escapeHtml(task.resources) + '</td>' +
             '<td>' + task.percent + '%</td>' +
-            '<td>' + getLookAheadRAGBadge(task.rag) + '</td>' +
+            '<td>' + getLookAheadStatusBadge(task.status) + '</td>' +
             '</tr>';
     });
     return html;
+}
+
+/**
+ * Count tasks by computed status across both overdue and upcoming lists
+ */
+function countLookAheadTasksByStatus(overdue, upcoming) {
+    const counts = {
+        'Task Overdue': 0,
+        'Behind Schedule': 0,
+        'On Track': 0,
+        'Complete': 0,
+        'Not Started': 0,
+        'Ahead of Schedule': 0
+    };
+
+    overdue.forEach(task => {
+        if (counts.hasOwnProperty(task.status)) {
+            counts[task.status]++;
+        }
+    });
+
+    upcoming.forEach(task => {
+        if (counts.hasOwnProperty(task.status)) {
+            counts[task.status]++;
+        }
+    });
+
+    return counts;
 }
 
 /**
@@ -181,6 +276,7 @@ async function renderPortfolioLookAhead() {
         }
 
         const { overdue, upcoming } = collectLookAheadTasks(parsedProjects);
+        const statusCounts = countLookAheadTasksByStatus(overdue, upcoming);
 
         // Calculate date range for display
         const today = new Date();
@@ -192,10 +288,13 @@ async function renderPortfolioLookAhead() {
         const allTasks = [...overdue, ...upcoming];
         const projectNames = [...new Set(allTasks.map(t => t.projectName))].sort((a, b) => a.localeCompare(b));
 
+        // Build unique statuses for filter dropdown
+        const statusValues = [...new Set(allTasks.map(t => t.status))].sort();
+
         // Store data for filtering
         window.portfolioLookAheadData = { overdue, upcoming };
 
-        // Header with summary and filter
+        // Header with summary and filters
         let html = '<div class="portfolio-lookahead-header">' +
             '<h2><span class="ribbon-banner ribbon-banner--orange">Portfolio 2-Week Look-Ahead</span></h2>' +
             '<div class="portfolio-lookahead-summary">' +
@@ -213,8 +312,9 @@ async function renderPortfolioLookAhead() {
             '</div>' +
             '</div>' +
             '<div class="portfolio-lookahead-filters">' +
-            '<label>Filter by project: </label>' +
-            '<select id="portfolioLookAheadProjectFilter" onchange="filterPortfolioLookAhead()">' +
+            '<div class="lookahead-filter-group">' +
+            '<label for="portfolioLookAheadProjectFilter">Filter by project: </label>' +
+            '<select id="portfolioLookAheadProjectFilter" onchange="filterPortfolioLookAhead()" aria-label="Filter by project">' +
             '<option value="all">All Projects</option>';
 
         projectNames.forEach(name => {
@@ -222,6 +322,29 @@ async function renderPortfolioLookAhead() {
         });
 
         html += '</select>' +
+            '</div>' +
+            '<div class="lookahead-filter-group">' +
+            '<label for="portfolioLookAheadStatusFilter">Filter by status: </label>' +
+            '<select id="portfolioLookAheadStatusFilter" onchange="filterPortfolioLookAhead()" aria-label="Filter by status">' +
+            '<option value="all">All Statuses</option>';
+
+        const statusOptions = [
+            'Task Overdue',
+            'Behind Schedule',
+            'On Track',
+            'Not Started',
+            'Complete',
+            'Ahead of Schedule'
+        ];
+        statusOptions.forEach(status => {
+            const count = statusCounts[status] || 0;
+            if (count > 0 || statusValues.includes(status)) {
+                html += '<option value="' + escapeHtml(status) + '">' + escapeHtml(status) + ' (' + count + ')</option>';
+            }
+        });
+
+        html += '</select>' +
+            '</div>' +
             '</div>' +
             '<div class="portfolio-lookahead-daterange">' +
             '<span>' + formatDateRange(today) + ' &mdash; ' + formatDateRange(twoWeeksFromNow) + '</span>' +
@@ -231,7 +354,7 @@ async function renderPortfolioLookAhead() {
         // Overdue section
         if (overdue.length > 0) {
             html += '<div class="portfolio-lookahead-section" id="portfolioOverdueSection">' +
-                '<h3 class="portfolio-lookahead-section-title overdue">Overdue Tasks</h3>' +
+                '<h3 class="portfolio-lookahead-section-title overdue">Overdue Tasks (' + overdue.length + ')</h3>' +
                 '<div class="portfolio-lookahead-table-wrapper">' +
                 '<table class="portfolio-lookahead-table">' +
                 '<thead>' +
@@ -242,7 +365,7 @@ async function renderPortfolioLookAhead() {
                 '<th onclick="sortPortfolioLookAhead(\'daysLate\', \'overdue\')">Days Late <span class="sort-indicator"></span></th>' +
                 '<th>Resources</th>' +
                 '<th onclick="sortPortfolioLookAhead(\'percent\', \'overdue\')">% <span class="sort-indicator"></span></th>' +
-                '<th>RAG</th>' +
+                '<th>Status</th>' +
                 '</tr>' +
                 '</thead>' +
                 '<tbody id="portfolioOverdueTableBody">';
@@ -267,7 +390,7 @@ async function renderPortfolioLookAhead() {
                 '<th>Duration</th>' +
                 '<th>Resources</th>' +
                 '<th onclick="sortPortfolioLookAhead(\'percent\', \'upcoming\')">% <span class="sort-indicator"></span></th>' +
-                '<th>RAG</th>' +
+                '<th>Status</th>' +
                 '</tr>' +
                 '</thead>' +
                 '<tbody id="portfolioUpcomingTableBody">';
@@ -297,18 +420,18 @@ async function renderPortfolioLookAhead() {
 }
 
 /**
- * Filter portfolio look-ahead tables by project name
+ * Filter portfolio look-ahead tables by project name and status
  */
 function filterPortfolioLookAhead() {
-    const filter = document.getElementById('portfolioLookAheadProjectFilter')?.value || 'all';
+    const projectFilter = document.getElementById('portfolioLookAheadProjectFilter')?.value || 'all';
+    const statusFilter = document.getElementById('portfolioLookAheadStatusFilter')?.value || 'all';
     const rows = document.querySelectorAll('.portfolio-lookahead-row');
 
     rows.forEach(row => {
-        if (filter === 'all' || row.dataset.project === filter) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+        const matchesProject = projectFilter === 'all' || row.dataset.project === projectFilter;
+        const matchesStatus = statusFilter === 'all' || row.dataset.status === statusFilter;
+
+        row.style.display = (matchesProject && matchesStatus) ? '' : 'none';
     });
 }
 
@@ -384,11 +507,8 @@ function sortPortfolioLookAhead(column, section) {
         }
     }
 
-    // Re-apply filter
-    const filter = document.getElementById('portfolioLookAheadProjectFilter')?.value || 'all';
-    if (filter !== 'all') {
-        filterPortfolioLookAhead();
-    }
+    // Re-apply filters
+    filterPortfolioLookAhead();
 }
 
 /**
