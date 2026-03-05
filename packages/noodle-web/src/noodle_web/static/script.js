@@ -14814,6 +14814,7 @@ function clearBudgetEntries() {
     budgetItems = [];
     budgetNextId = 1;
     renderBudgetTable();
+    updateReportBudgetWidget();
     console.log('Cleared budget entries');
 }
 
