@@ -1506,7 +1506,11 @@ async function exportReportPptx() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = projectName + '-report.pptx';
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        a.download = projectName + ' - Report - ' + dd + '-' + mm + '-' + yyyy + '.pptx';
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
