@@ -1472,6 +1472,102 @@ class TestExportReportToPowerpoint:
         assert 'Shared Test' in text2
 
 
+class TestTimelineImageOnly:
+    """Regression tests: PPTX reports use image-based timeline only, not shapes."""
+
+    def test_no_shapes_fallback_when_only_timeline_tasks(self, tmp_path):
+        """When timeline_tasks are provided but no timeline_image,
+        _add_report_slide should NOT draw shape-based timeline graphics."""
+        from pptx import Presentation as PptxPresentation
+        from noodle_core.scheduling_engine import _add_report_slide
+
+        prs = PptxPresentation()
+        prs.slide_width = 12192000
+        prs.slide_height = 6858000
+
+        report_data = {
+            'project_name': 'No Shapes Test',
+            'manager': '', 'sponsor': '', 'budget': '',
+            'date': '2026-03-05', 'status': 'green',
+            'milestones': [], 'up_next': [],
+            'highlight': None, 'risks_issues': [],
+            'timeline_tasks': [
+                {'name': 'Phase A', 'start': '2026-01-01',
+                 'finish': '2026-06-30', 'percent': 50,
+                 'is_summary': True, 'duration_days': 181},
+            ],
+        }
+
+        _add_report_slide(prs, report_data)
+        slide = prs.slides[0]
+
+        # Count shapes: with the old fallback, _draw_timeline_graphic would
+        # add rectangles, diamonds, and lines. Without it, the only shapes
+        # are the title bar, text boxes, status badge, section headings, and
+        # tables — none should be drawn for timeline.
+        # Specifically, there should be no freeform or auto-shape elements
+        # that represent phase bars or milestone diamonds.
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        auto_shapes = [
+            s for s in slide.shapes
+            if s.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
+            and s.top > 900000  # below title bar area (~1 inch)
+            and s.top < 2000000  # in the timeline zone
+        ]
+        # With no timeline image and no shapes fallback, there should be
+        # zero auto-shapes in the timeline zone
+        assert len(auto_shapes) == 0, (
+            f"Expected no shape-based timeline graphics, "
+            f"found {len(auto_shapes)} auto-shapes in timeline zone"
+        )
+
+    def test_timeline_image_is_embedded_when_provided(self, tmp_path):
+        """When timeline_image is provided, it should be embedded as a picture."""
+        from pptx import Presentation as PptxPresentation
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        from noodle_core.scheduling_engine import _add_report_slide
+        import base64
+
+        # Create a minimal valid PNG (1x1 pixel, red)
+        import struct
+        import zlib
+        def _make_png():
+            sig = b'\x89PNG\r\n\x1a\n'
+            ihdr_data = struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
+            ihdr_crc = zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff
+            ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + struct.pack('>I', ihdr_crc)
+            raw = b'\x00\xff\x00\x00'  # filter byte + RGB
+            idat_data = zlib.compress(raw)
+            idat_crc = zlib.crc32(b'IDAT' + idat_data) & 0xffffffff
+            idat = struct.pack('>I', len(idat_data)) + b'IDAT' + idat_data + struct.pack('>I', idat_crc)
+            iend_crc = zlib.crc32(b'IEND') & 0xffffffff
+            iend = struct.pack('>I', 0) + b'IEND' + struct.pack('>I', iend_crc)
+            return sig + ihdr + idat + iend
+
+        png_b64 = base64.b64encode(_make_png()).decode('ascii')
+
+        prs = PptxPresentation()
+        prs.slide_width = 12192000
+        prs.slide_height = 6858000
+
+        report_data = {
+            'project_name': 'Image Timeline Test',
+            'manager': '', 'sponsor': '', 'budget': '',
+            'date': '2026-03-05', 'status': 'green',
+            'milestones': [], 'up_next': [],
+            'highlight': None, 'risks_issues': [],
+            'timeline_image': png_b64,
+        }
+
+        _add_report_slide(prs, report_data)
+        slide = prs.slides[0]
+
+        # Should find at least one picture shape (the timeline image)
+        pictures = [s for s in slide.shapes
+                    if s.shape_type == MSO_SHAPE_TYPE.PICTURE]
+        assert len(pictures) >= 1, "Timeline image should be embedded as a picture"
+
+
 class TestExportPortfolioToPowerpoint:
     """Tests for the export_portfolio_to_powerpoint function."""
 

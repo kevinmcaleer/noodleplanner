@@ -5,6 +5,91 @@
  */
 
 /**
+ * Capture a per-project timeline as a PNG image using the swimlane style.
+ * Builds an offscreen container with a date scale header and SVG swimlane,
+ * captures with html2canvas, then cleans up.
+ *
+ * @param {Array} tasks - Parsed tasks for the project
+ * @param {string} projectName - Project name (for logging)
+ * @returns {string|null} Base64-encoded PNG string, or null on failure
+ */
+async function captureProjectTimelineImage(tasks, projectName) {
+    if (typeof html2canvas === 'undefined') return null;
+    if (typeof renderTimelineScale !== 'function' || typeof assignSwimlanePhaseRows !== 'function') return null;
+
+    try {
+        var phases = tasks.filter(function(t) { return t.is_summary && t.start && t.finish; });
+        var milestones = tasks.filter(function(t) { return !t.is_summary && t.duration_days === 0 && t.finish; });
+
+        if (phases.length === 0 && milestones.length === 0) return null;
+
+        // Compute date range
+        var projectStart = null;
+        var projectEnd = null;
+        tasks.forEach(function(t) {
+            if (t.start) {
+                var s = new Date(t.start);
+                if (!projectStart || s < projectStart) projectStart = s;
+            }
+            if (t.finish) {
+                var f = new Date(t.finish);
+                if (!projectEnd || f > projectEnd) projectEnd = f;
+            }
+        });
+        if (!projectStart || !projectEnd) return null;
+
+        // 7-day padding
+        var padding = 7 * 24 * 60 * 60 * 1000;
+        var globalStart = new Date(projectStart.getTime() - padding);
+        var globalEnd = new Date(projectEnd.getTime() + padding);
+
+        // Build timeline data object matching renderProjectSwimlane expectations
+        var timeline = {
+            projectId: '',
+            projectName: projectName,
+            phases: phases,
+            milestones: milestones,
+            startDate: projectStart,
+            endDate: projectEnd
+        };
+
+        // Build HTML: date scale + swimlane
+        var scaleHtml = renderTimelineScale(globalStart, globalEnd, 'months');
+        var swimlaneHtml = renderProjectSwimlane(timeline, globalStart, globalEnd);
+
+        // Today marker
+        var todayHtml = '';
+        var today = new Date();
+        if (today >= globalStart && today <= globalEnd) {
+            var todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
+            todayHtml = '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
+                (todayPct / 100) + ');"></div>';
+        }
+
+        // Create offscreen container
+        var container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.width = '1200px';
+        container.className = 'portfolio-timeline-container';
+        container.style.background = '#ffffff';
+        container.innerHTML = scaleHtml + swimlaneHtml + todayHtml;
+
+        document.body.appendChild(container);
+
+        var canvas = await html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
+        var dataUrl = canvas.toDataURL('image/png');
+        var base64 = dataUrl.split(',')[1] || null;
+
+        document.body.removeChild(container);
+        return base64;
+    } catch (err) {
+        console.warn('Could not capture project timeline for ' + projectName + ':', err);
+        return null;
+    }
+}
+
+/**
  * Export the portfolio as a PowerPoint report.
  * Parses all projects via /api/parse, collects report data for each,
  * then sends it to /api/portfolio/export-pptx.
@@ -80,9 +165,10 @@ async function exportPortfolioReport() {
             // Build individual project report data
             const reportData = buildProjectReportData(project, tasks, frontMatter, raidItems, highlights, reportDate);
 
-            // Per-project slides use the server-side timeline renderer
-            // (same native graphic as the individual Export Project to PowerPoint)
-            // so we do not capture a swimlane-style image here.
+            // Capture per-project timeline as a PNG image using swimlane style
+            const timelineImage = await captureProjectTimelineImage(tasks, project.name);
+            if (timelineImage) reportData.timeline_image = timelineImage;
+
             projectReports.push(reportData);
         }
 

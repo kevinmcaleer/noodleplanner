@@ -2565,7 +2565,7 @@ def _add_report_slide(prs, report_data, include_footer=True):
         sp.font.color.rgb = _rag_colour(status)
         sp.alignment = PP_ALIGN.CENTER
 
-    # -- Timeline graphic -----------------------------------------------------
+    # -- Timeline graphic (image-only, captured from browser swimlane SVG) ----
     timeline_height_used = Inches(0)
     timeline_image_b64 = report_data.get('timeline_image')
     if timeline_image_b64:
@@ -2575,7 +2575,7 @@ def _add_report_slide(prs, report_data, include_footer=True):
             img_data = base64.b64decode(timeline_image_b64)
             img_stream = io.BytesIO(img_data)
             tl_width = Inches(12.533)
-            max_tl_height = Inches(1.8)  # Cap height to match native graphic
+            max_tl_height = Inches(1.8)
             pic = slide.shapes.add_picture(
                 img_stream, Inches(0.4), Inches(1.05), width=tl_width
             )
@@ -2588,19 +2588,6 @@ def _add_report_slide(prs, report_data, include_footer=True):
             logger.warning("Failed to embed timeline image in PPTX report",
                            exc_info=True)
             timeline_height_used = Inches(0)
-    else:
-        timeline_tasks = report_data.get('timeline_tasks', [])
-        if timeline_tasks:
-            try:
-                timeline_height_used = _draw_timeline_graphic(
-                    slide, timeline_tasks,
-                    left=Inches(0.4), top=Inches(1.05),
-                    width=Inches(12.533),
-                )
-            except (ValueError, KeyError, TypeError, IndexError):
-                logger.warning("Failed to draw timeline graphic in PPTX report",
-                               exc_info=True)
-                timeline_height_used = Inches(0)
 
     # -- Quad grid layout -----------------------------------------------------
     left_margin = Inches(0.4)

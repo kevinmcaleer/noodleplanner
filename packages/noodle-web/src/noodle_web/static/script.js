@@ -1438,38 +1438,7 @@ async function exportReportPptx() {
             score: item.score || 0
         }));
 
-    // Collect timeline task data for server-side rendering in the PPTX.
-    // We send phase (summary) tasks and milestone (0-duration) tasks so the
-    // backend can draw crisp vector shapes instead of relying on html2canvas
-    // which is unreliable with SVG content.
-    const tlTasks = [];
-    if (timelineTasks && timelineTasks.length > 0) {
-        let tasks = timelineTasks;
-        // Filter out top-level project container (same logic as updateTimeline)
-        if (tasks.length > 0) {
-            const minLevel = Math.min(...tasks.map(t => t.level));
-            const topLevelTasks = tasks.filter(t => t.level === minLevel);
-            if (topLevelTasks.length === 1) {
-                tasks = tasks.filter(t => t.level !== minLevel);
-            }
-        }
-        tasks.forEach(t => {
-            const isMilestone = t.duration_days === 0 && !t.is_summary;
-            const isPhase = t.is_summary && t.start && t.finish;
-            if (isMilestone || isPhase) {
-                tlTasks.push({
-                    name: t.name || '',
-                    start: t.start || '',
-                    finish: t.finish || '',
-                    percent: parseFloat(t.percent) || 0,
-                    is_summary: !!t.is_summary,
-                    duration_days: t.duration_days || 0
-                });
-            }
-        });
-    }
-
-    // Capture the report timeline as a PNG image using html2canvas
+    // Capture the report swimlane timeline as a PNG image using html2canvas
     let timelineImageB64 = null;
     const timelineWrapper = document.querySelector('.report-timeline-wrapper');
     if (timelineWrapper && typeof html2canvas !== 'undefined') {
@@ -1494,7 +1463,6 @@ async function exportReportPptx() {
         up_next: upNext,
         highlight: highlight,
         risks_issues: risksIssues,
-        timeline_tasks: tlTasks,
         timeline_image: timelineImageB64
     };
 
@@ -2124,35 +2092,63 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
 function updateReportTimeline(tasks, projectName) {
     try {
-        // Filter to tasks with valid dates for computing the date range
-        const allTasks = tasks.filter(t => (t.start && t.finish) || (t.finish && t.duration_days === 0));
-        if (allTasks.length === 0) return;
+        const container = document.getElementById('reportSwimlaneContainer');
+        if (!container) return;
 
-        // Find min and max dates across all tasks (phases + milestones)
-        const allDates = [];
-        allTasks.forEach(t => {
-            if (t.start) allDates.push(parseLocalDate(t.start));
-            if (t.finish) allDates.push(parseLocalDate(t.finish));
+        // Build swimlane data from tasks (same logic as portfolio-report.js)
+        const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
+        const milestones = tasks.filter(t => !t.is_summary && t.duration_days === 0 && t.finish);
+
+        if (phases.length === 0 && milestones.length === 0) {
+            container.innerHTML = '<p style="color: #888; font-size: 0.9em;">No timeline data available.</p>';
+            return;
+        }
+
+        // Compute date range
+        let projectStart = null;
+        let projectEnd = null;
+        tasks.forEach(t => {
+            if (t.start) {
+                const s = new Date(t.start);
+                if (!projectStart || s < projectStart) projectStart = s;
+            }
+            if (t.finish) {
+                const f = new Date(t.finish);
+                if (!projectEnd || f > projectEnd) projectEnd = f;
+            }
         });
-        const minDate = new Date(Math.min(...allDates));
-        const maxDate = new Date(Math.max(...allDates));
+        if (!projectStart || !projectEnd) return;
 
-        // Add padding
-        minDate.setDate(minDate.getDate() - 7);
-        maxDate.setDate(maxDate.getDate() + 7);
+        // 7-day padding
+        const padding = 7 * 24 * 60 * 60 * 1000;
+        const globalStart = new Date(projectStart.getTime() - padding);
+        const globalEnd = new Date(projectEnd.getTime() + padding);
 
-        // Calculate timeline width from available container
-        const timelineWrapper = document.querySelector('.report-timeline-wrapper');
+        // Build timeline data object matching renderProjectSwimlane expectations
+        const timeline = {
+            projectId: '',
+            projectName: projectName || 'Project',
+            phases: phases,
+            milestones: milestones,
+            startDate: projectStart,
+            endDate: projectEnd
+        };
 
-        // Skip if container is hidden
-        if (timelineWrapper && timelineWrapper.offsetWidth === 0) return;
+        // Render using shared portfolio-timeline.js functions
+        let html = '<div class="portfolio-timeline-container" style="position: relative;">';
+        html += renderTimelineScale(globalStart, globalEnd, 'months');
+        html += renderProjectSwimlane(timeline, globalStart, globalEnd);
 
-        const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 40 : 1200;
-        const timelineWidth = Math.max(400, availableWidth);
-        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+        // Today marker
+        const today = new Date();
+        if (today >= globalStart && today <= globalEnd) {
+            const todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
+            html += '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
+                (todayPct / 100) + ');"></div>';
+        }
 
-        // Always render the minimal view on the report page
-        renderMinimalTimeline(timelineWrapper, tasks, minDate, maxDate, totalDays, timelineWidth, { isReport: true });
+        html += '</div>';
+        container.innerHTML = html;
 
     } catch (error) {
         console.error('Error updating report timeline:', error);
