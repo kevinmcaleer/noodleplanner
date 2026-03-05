@@ -14,6 +14,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/style.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
 </head>
 <body>
     <!-- SVG Icon Sprite (hidden, reference with use#id) -->
@@ -1401,7 +1402,22 @@ Build
                             <label for="budgetSupplierFilter">Supplier:</label>
                             <input type="text" id="budgetSupplierFilter" class="form-control" placeholder="Filter supplier..." oninput="renderBudgetTable()" style="width: 150px; padding: 6px 12px; border: 2px solid #667eea; border-radius: 4px; font-size: 0.85em;">
                         </div>
+                        <div class="budget-toolbar-separator"></div>
+                        <button class="toolbar-btn budget-view-toggle" id="budgetViewToggle" onclick="toggleBudgetSheetView()" title="Toggle spreadsheet view" aria-label="Toggle spreadsheet view">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                                <rect x="1" y="1" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                                <line x1="1" y1="6" x2="17" y2="6" stroke="currentColor" stroke-width="1"/>
+                                <line x1="1" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1"/>
+                                <line x1="1" y1="14" x2="17" y2="14" stroke="currentColor" stroke-width="1"/>
+                                <line x1="6" y1="1" x2="6" y2="17" stroke="currentColor" stroke-width="1"/>
+                                <line x1="12" y1="1" x2="12" y2="17" stroke="currentColor" stroke-width="1"/>
+                            </svg>
+                            Spreadsheet
+                        </button>
                     </div>
+
+                    <!-- NoodleSheet Spreadsheet View -->
+                    <div id="budgetSheetContainer" style="display: none; flex: 1; min-height: 400px;"></div>
 
                     <!-- Budget Table -->
                     <div class="budget-table-wrapper">
@@ -2785,6 +2801,7 @@ Build
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
     <!-- Custom JavaScript -->
+    <script src="/static/noodlesheet.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/planning-room.js?v={{ v }}"></script>

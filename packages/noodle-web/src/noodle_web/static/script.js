@@ -14809,6 +14809,8 @@ let budgetSortColumn = 'id';
 let budgetSortAsc = true;
 let budgetEditorIsUpdating = false;
 let budgetEditorDebounceTimer = null;
+let budgetSheetInstance = null;
+let budgetSheetViewActive = false;
 
 const BUDGET_START = '---budget---';
 const BUDGET_TYPES = ['Capex', 'Opex', 'One-off'];
@@ -15652,6 +15654,107 @@ function uploadBudgetMarkdownFromEditor() {
         uploadBudgetMarkdown(event);
     };
     input.click();
+}
+
+
+// ── NoodleSheet Integration for Budget ────────────────────────────
+
+const BUDGET_DBML = `Table budget_items {
+  description text
+  estimate number
+  forecast number
+  type enum('Capex','Opex','One-off')
+  invoice_number text
+  po_number text
+  supplier text
+  total number
+  date_ordered date
+  date_received date
+  category enum('Consultancy','Resource','Travel','Infrastructure','Hardware','Software')
+}`;
+
+function toggleBudgetSheetView() {
+    budgetSheetViewActive = !budgetSheetViewActive;
+
+    const sheetContainer = document.getElementById('budgetSheetContainer');
+    const tableWrapper = document.querySelector('.budget-table-wrapper');
+    const emptyState = document.getElementById('budgetEmptyState');
+    const toggleBtn = document.getElementById('budgetViewToggle');
+    const filterGroups = document.querySelectorAll('.budget-filter-group');
+
+    if (budgetSheetViewActive) {
+        // Switch to spreadsheet view
+        if (tableWrapper) tableWrapper.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+        sheetContainer.style.display = 'flex';
+        toggleBtn.classList.add('active');
+        filterGroups.forEach(fg => fg.style.display = 'none');
+
+        initBudgetSheet();
+        syncBudgetItemsToSheet();
+    } else {
+        // Switch back to table view
+        sheetContainer.style.display = 'none';
+        if (tableWrapper) tableWrapper.style.display = '';
+        toggleBtn.classList.remove('active');
+        filterGroups.forEach(fg => fg.style.display = '');
+
+        // Sync sheet data back to budget items
+        syncSheetToBudgetItems();
+        renderBudgetTable();
+    }
+}
+
+function initBudgetSheet() {
+    if (budgetSheetInstance) return;
+
+    const container = document.getElementById('budgetSheetContainer');
+    budgetSheetInstance = new NoodleSheet(container, {
+        sheets: [{
+            name: 'Budget',
+            dbml: BUDGET_DBML,
+            markdown: ''
+        }],
+        onChange: function(sheetIndex, markdown) {
+            syncSheetToBudgetItems();
+            syncBudgetToPlanText();
+        }
+    });
+}
+
+function syncBudgetItemsToSheet() {
+    if (!budgetSheetInstance) return;
+
+    const md = generateBudgetTable();
+    budgetSheetInstance.loadMarkdown(md, 0);
+}
+
+function syncSheetToBudgetItems() {
+    if (!budgetSheetInstance) return;
+
+    const rows = budgetSheetInstance.getRows(0);
+    const columns = budgetSheetInstance.getColumns(0);
+    if (!columns.length) return;
+
+    const newItems = rows.filter(row => {
+        return columns.some(col => row[col.name] && row[col.name].trim() !== '');
+    }).map((row, i) => ({
+        id: i + 1,
+        description: row.description || '',
+        estimate: row.estimate || '',
+        forecast: row.forecast || '',
+        type: row.type || '',
+        invoice_number: row.invoice_number || '',
+        po_number: row.po_number || '',
+        supplier: row.supplier || '',
+        total: row.total || '',
+        date_ordered: row.date_ordered || '',
+        date_received: row.date_received || '',
+        category: row.category || ''
+    }));
+
+    budgetItems = newItems;
+    budgetNextId = newItems.length + 1;
 }
 
 

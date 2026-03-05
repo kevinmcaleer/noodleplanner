@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NoodleSheet Tests</title>
+    <link rel="stylesheet" href="noodlesheet.css">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 20px; background: #f5f5f5; }
+        .test-section { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .test-section h2 { margin-top: 0; color: #333; }
+        .test-result { padding: 4px 8px; margin: 2px 0; border-radius: 4px; font-family: monospace; font-size: 13px; }
+        .test-pass { background: #d4edda; color: #155724; }
+        .test-fail { background: #f8d7da; color: #721c24; }
+        .test-summary { font-size: 18px; font-weight: bold; padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .test-summary.all-pass { background: #d4edda; color: #155724; }
+        .test-summary.has-fail { background: #f8d7da; color: #721c24; }
+        #demo-container { height: 400px; }
+    </style>
+</head>
+<body>
+    <h1>NoodleSheet Component Tests</h1>
+    <div id="test-summary" class="test-summary"></div>
+    <div id="test-results"></div>
+
+    <div class="test-section">
+        <h2>Live Demo</h2>
+        <div id="demo-container"></div>
+    </div>
+
+    <script src="noodlesheet.js"></script>
+    <script>
+        let passed = 0;
+        let failed = 0;
+        const results = document.getElementById('test-results');
+
+        function assert(condition, testName) {
+            const el = document.createElement('div');
+            el.className = 'test-result ' + (condition ? 'test-pass' : 'test-fail');
+            el.textContent = (condition ? 'PASS' : 'FAIL') + ': ' + testName;
+            results.appendChild(el);
+            if (condition) passed++; else failed++;
+        }
+
+        function assertEq(actual, expected, testName) {
+            const eq = JSON.stringify(actual) === JSON.stringify(expected);
+            assert(eq, testName + (eq ? '' : ` (expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)})`));
+        }
+
+        // ── DBML Parsing Tests ──────────────────────────────────
+
+        (function testDbmlParsing() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>DBML Parsing</h2>';
+            results.appendChild(section);
+
+            const dbml = `Table budget_items {
+                description text
+                estimate number
+                date_ordered date
+                type enum('Capex','Opex','One-off')
+            }`;
+
+            const schema = NoodleSheet.parseDbml(dbml);
+            assertEq(schema.tableName, 'budget_items', 'Table name parsed correctly');
+            assertEq(schema.columns.length, 4, 'Correct number of columns');
+            assertEq(schema.columns[0].name, 'description', 'First column name');
+            assertEq(schema.columns[0].type, 'text', 'First column type');
+            assertEq(schema.columns[1].name, 'estimate', 'Second column name');
+            assertEq(schema.columns[1].type, 'number', 'Second column type');
+            assertEq(schema.columns[2].type, 'date', 'Date column type');
+            assertEq(schema.columns[3].type, 'enum', 'Enum column type');
+            assertEq(schema.columns[3].enumValues, ['Capex', 'Opex', 'One-off'], 'Enum values parsed');
+            assertEq(schema.columns[0].displayName, 'Description', 'Display name generated');
+            assertEq(schema.columns[2].displayName, 'Date Ordered', 'Multi-word display name');
+        })();
+
+        // ── Markdown Parsing Tests ──────────────────────────────
+
+        (function testMarkdownParsing() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Markdown Parsing</h2>';
+            results.appendChild(section);
+
+            const columns = [
+                { name: 'name', type: 'text', displayName: 'Name' },
+                { name: 'amount', type: 'number', displayName: 'Amount' }
+            ];
+
+            const md = `| Name | Amount |
+|------|--------|
+| Server | 5000 |
+| License | 1200 |`;
+
+            const rows = NoodleSheet.parseMarkdown(md, columns);
+            assertEq(rows.length, 2, 'Parsed 2 rows');
+            assertEq(rows[0].name, 'Server', 'First row name');
+            assertEq(rows[0].amount, '5000', 'First row amount');
+            assertEq(rows[1].name, 'License', 'Second row name');
+        })();
+
+        (function testMarkdownParsingEmpty() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Markdown Parsing - Edge Cases</h2>';
+            results.appendChild(section);
+
+            const columns = [{ name: 'col1', type: 'text', displayName: 'Col1' }];
+
+            assertEq(NoodleSheet.parseMarkdown('', columns).length, 0, 'Empty string returns empty array');
+            assertEq(NoodleSheet.parseMarkdown(null, columns).length, 0, 'Null returns empty array');
+            assertEq(NoodleSheet.parseMarkdown('| Col1 |\n|------|', columns).length, 0, 'Header only returns empty');
+        })();
+
+        (function testMarkdownWithEscapedPipes() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Markdown - Escaped Pipes</h2>';
+            results.appendChild(section);
+
+            const columns = [
+                { name: 'description', type: 'text', displayName: 'Description' },
+                { name: 'notes', type: 'text', displayName: 'Notes' }
+            ];
+
+            const md = `| Description | Notes |
+|-------------|-------|
+| Pipe \\| test | OK |`;
+
+            const rows = NoodleSheet.parseMarkdown(md, columns);
+            assertEq(rows.length, 1, 'Parsed 1 row with escaped pipe');
+            assertEq(rows[0].description, 'Pipe | test', 'Escaped pipe preserved in value');
+        })();
+
+        // ── Markdown Generation Tests ───────────────────────────
+
+        (function testMarkdownGeneration() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Markdown Generation</h2>';
+            results.appendChild(section);
+
+            const columns = [
+                { name: 'name', type: 'text', displayName: 'Name' },
+                { name: 'cost', type: 'number', displayName: 'Cost' }
+            ];
+            const rows = [
+                { name: 'Server', cost: '5000' },
+                { name: 'License', cost: '1200' }
+            ];
+
+            const md = NoodleSheet.generateMarkdown(columns, rows);
+            assert(md.includes('| Name'), 'Header contains Name');
+            assert(md.includes('| Cost'), 'Header contains Cost');
+            assert(md.includes('Server'), 'Body contains Server');
+            assert(md.includes('5000'), 'Body contains 5000');
+            assert(md.includes('|---'), 'Contains separator line');
+        })();
+
+        // ── Round-trip Tests ────────────────────────────────────
+
+        (function testRoundTrip() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Markdown Round-trip</h2>';
+            results.appendChild(section);
+
+            const columns = [
+                { name: 'description', type: 'text', displayName: 'Description' },
+                { name: 'amount', type: 'number', displayName: 'Amount' },
+                { name: 'category', type: 'text', displayName: 'Category' }
+            ];
+            const originalRows = [
+                { description: 'Hosting', amount: '2500', category: 'Infrastructure' },
+                { description: 'Consulting', amount: '8000', category: 'Resource' }
+            ];
+
+            const md = NoodleSheet.generateMarkdown(columns, originalRows);
+            const parsed = NoodleSheet.parseMarkdown(md, columns);
+
+            assertEq(parsed.length, originalRows.length, 'Round-trip preserves row count');
+            assertEq(parsed[0].description, 'Hosting', 'Round-trip preserves first description');
+            assertEq(parsed[0].amount, '2500', 'Round-trip preserves first amount');
+            assertEq(parsed[1].category, 'Resource', 'Round-trip preserves second category');
+        })();
+
+        // ── Formula Engine Tests ────────────────────────────────
+
+        (function testFormulaEngine() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Formula Engine</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{
+                    name: 'Test',
+                    dbml: `Table test {
+                        value number
+                        label text
+                    }`,
+                    markdown: `| Value | Label |
+|-------|-------|
+| 10 | A |
+| 20 | B |
+| 30 | C |
+| | D |`
+                }]
+            });
+
+            // SUM
+            const sumResult = sheet.evaluateFormula('=SUM(A1:A4)');
+            assertEq(sumResult, 60, 'SUM(A1:A4) = 60');
+
+            // COUNT
+            const countResult = sheet.evaluateFormula('=COUNT(A1:A4)');
+            assertEq(countResult, 4, 'COUNT(A1:A4) = 4 (counts non-empty)');
+
+            // AVERAGE
+            const avgResult = sheet.evaluateFormula('=AVERAGE(A1:A3)');
+            assertEq(avgResult, 20, 'AVERAGE(A1:A3) = 20');
+
+            // Basic arithmetic
+            const arithResult = sheet.evaluateFormula('=A1+A2');
+            assertEq(arithResult, 30, '=A1+A2 = 30');
+
+            // Non-formula returns as-is
+            assertEq(sheet.evaluateFormula('hello'), 'hello', 'Non-formula returns as-is');
+            assertEq(sheet.evaluateFormula(''), '', 'Empty returns empty');
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Column Name Conversion Tests ────────────────────────
+
+        (function testColumnNames() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Column Name Conversion</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [{ name: 'T', dbml: 'Table t { col text }', markdown: '' }]
+            });
+
+            assertEq(sheet._indexToColName(0), 'A', 'Index 0 = A');
+            assertEq(sheet._indexToColName(25), 'Z', 'Index 25 = Z');
+            assertEq(sheet._indexToColName(26), 'AA', 'Index 26 = AA');
+            assertEq(sheet._colNameToIndex('A'), 0, 'A = index 0');
+            assertEq(sheet._colNameToIndex('Z'), 25, 'Z = index 25');
+            assertEq(sheet._colNameToIndex('AA'), 26, 'AA = index 26');
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Component Instance Tests ────────────────────────────
+
+        (function testComponentInstance() {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = '<h2>Component Instance</h2>';
+            results.appendChild(section);
+
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+
+            const sheet = new NoodleSheet(container, {
+                sheets: [
+                    {
+                        name: 'Items',
+                        dbml: `Table items {
+                            name text
+                            price number
+                        }`,
+                        markdown: `| Name | Price |
+|------|-------|
+| Widget | 25 |`
+                    },
+                    {
+                        name: 'Summary',
+                        dbml: `Table summary { total number }`,
+                        markdown: ''
+                    }
+                ]
+            });
+
+            assertEq(sheet.getSheetCount(), 2, 'Has 2 sheets');
+            assertEq(sheet.getRows(0).length, 1, 'First sheet has 1 row');
+            assertEq(sheet.getRows(0)[0].name, 'Widget', 'First row name is Widget');
+            assertEq(sheet.getColumns(0).length, 2, 'First sheet has 2 columns');
+
+            // Add row
+            sheet.addRow({ name: 'Gadget', price: '50' });
+            assertEq(sheet.getRows(0).length, 2, 'After addRow has 2 rows');
+            assertEq(sheet.getRows(0)[1].name, 'Gadget', 'New row name is Gadget');
+
+            // Set cell value
+            sheet.setCellValue(0, 1, '30');
+            assertEq(sheet.getRows(0)[0].price, '30', 'setCellValue updates price');
+
+            // Delete row
+            sheet.deleteRow(0);
+            assertEq(sheet.getRows(0).length, 1, 'After deleteRow has 1 row');
+            assertEq(sheet.getRows(0)[0].name, 'Gadget', 'Remaining row is Gadget');
+
+            // Switch sheets
+            sheet.activateSheet(1);
+            assertEq(sheet.getRows().length, 0, 'Second sheet has 0 rows');
+
+            // Get markdown
+            sheet.activateSheet(0);
+            const md = sheet.getMarkdown(0);
+            assert(md.includes('Gadget'), 'Generated markdown contains Gadget');
+
+            document.body.removeChild(container);
+        })();
+
+        // ── Display Summary ─────────────────────────────────────
+
+        const summary = document.getElementById('test-summary');
+        summary.textContent = `${passed} passed, ${failed} failed out of ${passed + failed} tests`;
+        summary.className = 'test-summary ' + (failed === 0 ? 'all-pass' : 'has-fail');
+
+        // ── Live Demo ───────────────────────────────────────────
+
+        const demo = new NoodleSheet('demo-container', {
+            sheets: [{
+                name: 'Budget',
+                dbml: `Table budget_items {
+                    description text
+                    estimate number
+                    forecast number
+                    type enum('Capex','Opex','One-off')
+                    supplier text
+                    total number
+                    date_ordered date
+                    category enum('Consultancy','Resource','Travel','Infrastructure','Hardware','Software')
+                }`,
+                markdown: `| Description | Estimate | Forecast | Type | Supplier | Total | Date Ordered | Category |
+|-------------|----------|----------|------|----------|-------|--------------|----------|
+| Server hosting | 5000 | 4800 | Opex | AWS | 4800 | 2026-01-15 | Infrastructure |
+| Consulting fees | 8000 | 7500 | Capex | Acme Corp | 7200 | 2026-02-01 | Consultancy |
+| Travel expenses | 2000 | 2000 | One-off | | 1800 | 2026-02-10 | Travel |`
+            }],
+            onChange: function(idx, md) {
+                console.log('Sheet changed:', md);
+            }
+        });
+    </script>
+</body>
+</html>
