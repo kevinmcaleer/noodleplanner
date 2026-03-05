@@ -439,6 +439,8 @@ class NoodleSheet {
             <button class="ns-toolbar-btn" data-action="paste" title="Paste from clipboard (Ctrl+V)" aria-label="Paste">Paste</button>
             <span class="ns-toolbar-sep"></span>
             <button class="ns-toolbar-btn" data-action="find" title="Find & Replace (Ctrl+F)" aria-label="Find and Replace">Find</button>
+            <span class="ns-toolbar-sep"></span>
+            <button class="ns-toolbar-btn" data-action="export-csv" title="Export as CSV" aria-label="Export CSV">CSV</button>
         `;
         this.toolbar.addEventListener('click', e => {
             const btn = e.target.closest('[data-action]');
@@ -451,6 +453,7 @@ class NoodleSheet {
             else if (action === 'undo') this.undo();
             else if (action === 'redo') this.redo();
             else if (action === 'find') this._toggleFindBar();
+            else if (action === 'export-csv') this.exportCsv();
         });
         this.container.appendChild(this.toolbar);
 
@@ -614,6 +617,10 @@ class NoodleSheet {
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'ns-resize-handle';
             resizeHandle.addEventListener('mousedown', (e) => this._initResize(e, i));
+            resizeHandle.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this._autoFitColumn(i);
+            });
             th.appendChild(resizeHandle);
 
             if (this._isCellInSelection(-1, i) || this.selection.col === i) {
@@ -786,6 +793,15 @@ class NoodleSheet {
             tab.setAttribute('role', 'tab');
             tab.setAttribute('aria-selected', i === this.activeSheetIndex ? 'true' : 'false');
             tab.addEventListener('click', () => this.activateSheet(i));
+            tab.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this._renameTabInline(i, tab);
+            });
+            tab.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this._showTabContextMenu(e, i);
+            });
             this.tabBar.appendChild(tab);
         });
 
@@ -1095,6 +1111,76 @@ class NoodleSheet {
         this.renderTabs();
     }
 
+    _renameTabInline(index, tabEl) {
+        const sheet = this.sheets[index];
+        if (!sheet) return;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'ns-tab-rename';
+        input.value = sheet.name;
+        input.setAttribute('aria-label', 'Rename sheet');
+
+        const commit = () => {
+            const newName = input.value.trim();
+            if (newName) this.renameSheet(index, newName);
+            this.renderTabs();
+        };
+
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { e.preventDefault(); this.renderTabs(); }
+        });
+
+        tabEl.textContent = '';
+        tabEl.appendChild(input);
+        input.focus();
+        input.select();
+    }
+
+    _showTabContextMenu(e, index) {
+        const items = [
+            { label: 'Rename', action: () => {
+                const tab = this.tabBar.children[index];
+                if (tab) this._renameTabInline(index, tab);
+            }},
+            { label: 'Delete', action: () => {
+                if (this.sheets.length <= 1) return;
+                if (confirm(`Delete sheet "${this.sheets[index].name}"?`)) {
+                    this.deleteSheet(index);
+                }
+            }, disabled: this.sheets.length <= 1 }
+        ];
+
+        this.contextMenu.innerHTML = '';
+        items.forEach(item => {
+            const el = document.createElement('button');
+            el.className = 'ns-ctx-item';
+            el.textContent = item.label;
+            el.setAttribute('role', 'menuitem');
+            if (item.disabled) {
+                el.disabled = true;
+            } else {
+                el.addEventListener('click', () => {
+                    item.action();
+                    this._hideContextMenu();
+                });
+            }
+            this.contextMenu.appendChild(el);
+        });
+
+        this.contextMenu.style.display = 'block';
+        this.contextMenu.style.left = e.clientX + 'px';
+        this.contextMenu.style.top = (e.clientY - this.contextMenu.offsetHeight - 5) + 'px';
+
+        // Adjust if menu would go off-screen
+        const rect = this.contextMenu.getBoundingClientRect();
+        if (rect.top < 0) {
+            this.contextMenu.style.top = e.clientY + 'px';
+        }
+    }
+
     // ── Range Selection ───────────────────────────────────────────────
 
     _extendSelection(row, col) {
@@ -1376,6 +1462,61 @@ class NoodleSheet {
 
     _isFindMatch(row, col) {
         return this._findMatches.some(m => m.row === row && m.col === col);
+    }
+
+    // ── Auto-fit Column ─────────────────────────────────────────────────
+
+    _autoFitColumn(colIndex) {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        const col = sheet.columns[colIndex];
+
+        // Measure content widths using a hidden canvas for text measurement
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = '13px "Segoe UI", Calibri, Arial, sans-serif';
+
+        let maxWidth = ctx.measureText(col.displayName).width + 24; // header + padding
+        sheet.rows.forEach(row => {
+            const val = row[col.name] || '';
+            const w = ctx.measureText(val).width + 16;
+            if (w > maxWidth) maxWidth = w;
+        });
+
+        col.width = Math.max(60, Math.min(Math.ceil(maxWidth), 400));
+        this.renderGrid();
+    }
+
+    // ── CSV Export ────────────────────────────────────────────────────
+
+    exportCsv() {
+        const sheet = this.getActiveSheet();
+        if (!sheet) return;
+
+        const headers = sheet.columns.map(c => this._csvEscape(c.displayName));
+        const rows = sheet.rows.map(r =>
+            sheet.columns.map(c => this._csvEscape(r[c.name] || '')).join(',')
+        );
+
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (sheet.name || 'sheet') + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    _csvEscape(val) {
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
     }
 
     // ── Column Resizing ───────────────────────────────────────────────
