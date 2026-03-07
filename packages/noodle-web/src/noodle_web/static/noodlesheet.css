@@ -137,7 +137,6 @@
 .ns-table {
     border-collapse: collapse;
     width: max-content;
-    min-width: 100%;
     table-layout: fixed;
 }
 
@@ -169,8 +168,6 @@
     text-align: center;
     user-select: none;
     cursor: default;
-    min-width: 80px;
-    max-width: 250px;
     position: relative;
 }
 
@@ -233,7 +230,6 @@
     text-overflow: ellipsis;
     cursor: cell;
     color: #222;
-    min-width: 80px;
 }
 
 .ns-cell.ns-num {
@@ -560,13 +556,8 @@ input[type="date"].ns-cell-editor {
 
 @media (max-width: 768px) {
     .ns-cell {
-        min-width: 60px;
         font-size: 12px;
         padding: 2px 4px;
-    }
-
-    .ns-col-header {
-        min-width: 60px;
     }
 
     .ns-col-name {
