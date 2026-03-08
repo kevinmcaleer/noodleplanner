@@ -272,6 +272,14 @@ async function handleBoardFileUpload(file) {
     }
 }
 
+function setActiveNavTab(tabId) {
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    if (tabId) {
+        const navTab = document.getElementById(tabId);
+        if (navTab) navTab.classList.add('active');
+    }
+}
+
 function switchTab(tabName) {
     // Remove active class from all tab content
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -349,10 +357,6 @@ function switchTab(tabName) {
     }
 
     // Update nav bar active state for special tabs
-    // Remove active class from all nav tabs first
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-
-    // Map special tab names to their parent nav tab
     const tabToNavTab = {
         'kanban': 'planTab',
         'raid': 'trackingTab',
@@ -363,11 +367,7 @@ function switchTab(tabName) {
         'editor': 'dashboardTab'
     };
 
-    const navTabId = tabToNavTab[tabName];
-    if (navTabId) {
-        const navTab = document.getElementById(navTabId);
-        if (navTab) navTab.classList.add('active');
-    }
+    setActiveNavTab(tabToNavTab[tabName]);
 
     // Close all nav dropdown menus
     closeAllNavMenus();
@@ -9973,27 +9973,21 @@ function closeAllNavMenus(except) {
 function switchToProject() {
     switchToView('project-report');
     // Override nav active state to show Project tab as active (not Dashboard)
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const planTab = document.getElementById('planTab');
-    if (planTab) planTab.classList.add('active');
+    setActiveNavTab('planTab');
 }
 
 // Navigate to Tracking (RAID Log with tracking subnav)
 function switchToTracking() {
     switchTrackingSubnavToTab('actions');
     // Ensure Tracking tab is active
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const trackingTab = document.getElementById('trackingTab');
-    if (trackingTab) trackingTab.classList.add('active');
+    setActiveNavTab('trackingTab');
 }
 
 // Navigate to Resources (Resource Table with resources subnav)
 function switchToResources() {
     switchToView('resources');
     // Ensure Resources tab is active
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const resourcesTab = document.getElementById('resourcesTab');
-    if (resourcesTab) resourcesTab.classList.add('active');
+    setActiveNavTab('resourcesTab');
 }
 
 // Toggle Tools dropdown menu
@@ -10272,9 +10266,7 @@ function updatePlanSubnav(viewName) {
 function switchPlanSubnavToDashboard() {
     switchToView('project-report');
     // Override nav active state to keep Project tab active (not Dashboard tab)
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const planTab = document.getElementById('planTab');
-    if (planTab) planTab.classList.add('active');
+    setActiveNavTab('planTab');
 }
 
 // Handle Board button in the plan sub-nav
