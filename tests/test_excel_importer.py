@@ -608,3 +608,17 @@ class TestXlsSupport:
         })
         result = analyze_workbook(data, "test.xls")
         assert len(result["sheets"]) == 2
+
+    def test_analyze_xls_ignores_blank_data_rows(self):
+        data = _make_xls_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Task 1", 5],
+                ["", ""],
+                ["Task 2", 3],
+                ["", ""],
+            ]
+        })
+        result = analyze_workbook(data, "test.xls")
+        sheet = result["sheets"][0]
+        assert sheet["row_count"] == 2

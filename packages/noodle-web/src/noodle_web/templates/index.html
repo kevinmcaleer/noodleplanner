@@ -1479,7 +1479,7 @@ Build
             <div id="actions-tab" class="tab-content">
                 <div class="actions-container">
                     <!-- View Selector (matching Plan sub-nav style) -->
-                    <div class="plan-subnav">
+                    <div class="plan-subnav visible">
                         <button class="plan-subnav-btn active" data-view="tasks" onclick="switchActionsView('tasks')" id="actionsTasksViewTab">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </button>
@@ -2798,6 +2798,9 @@ Build
 
     <!-- html2canvas for copy-as-image -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <!-- Legacy export menu hook for compatibility with older automation/tests -->
+    <div id="exportMenu" style="display:none;"></div>
 
     <!-- Custom JavaScript -->
     <script src="/static/noodlesheet.js?v={{ v }}"></script>
