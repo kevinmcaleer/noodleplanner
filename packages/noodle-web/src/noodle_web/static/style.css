@@ -407,6 +407,31 @@ svg.icon {
     align-self: center;
 }
 
+/* Subnav group labels */
+.plan-subnav-group-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+    padding: 0 4px;
+    align-self: center;
+    color: #ccc;
+}
+
+/* Subnav dropdown (for Tools > More menu) */
+.plan-subnav-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.plan-subnav-dropdown .nav-menu {
+    top: 100%;
+    left: 0;
+    min-width: 200px;
+    margin-top: 4px;
+}
+
 /* Output Tab Content Styling */
 .output-tab-content {
     display: none;

@@ -221,6 +221,6 @@ Actions are ordered by impact. Earlier actions unlock later ones.
 
 ### Priority 6 — UX Polish
 
-- [ ] **UX-1** Move "Tools" (Planning Room, Syntax Guide) inside the Project context dropdown. Remove from top-level nav.
+- [x] **UX-1** Move "Tools" (Planning Room, Syntax Guide) inside the Project context dropdown. Remove from top-level nav.
 - [ ] **UX-2** Add clear visual distinction between Portfolio Resources view and Project Resources view to avoid data confusion.
 - [ ] **UX-3** Add a loading/transition state when switching between Portfolio and Project contexts so the mode change is unambiguous.
