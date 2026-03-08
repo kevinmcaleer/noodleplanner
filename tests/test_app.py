@@ -556,9 +556,9 @@ class TestStaticFiles:
         # Should either return the file (200) or 404 if not found
         assert response.status_code in [200, 404]
 
-    def test_script_js_contains_detailed_timeline_functions(self, client):
-        """Test that script.js contains the detailed timeline rendering functions."""
-        response = client.get("/static/script.js")
+    def test_views_timeline_js_contains_detailed_timeline_functions(self, client):
+        """Test that views-timeline.js contains the detailed timeline rendering functions."""
+        response = client.get("/static/views-timeline.js")
         assert response.status_code == 200
         js_content = response.text
         assert "renderDetailedPhaseBlocks" in js_content
@@ -601,9 +601,9 @@ class TestStaticFiles:
         # Verify context button is added in tasks table rendering
         assert "task-context-btn" in js_content
 
-    def test_script_js_context_menu_in_gantt_chart(self, client):
-        """Test that script.js adds context menu buttons to the gantt info table."""
-        response = client.get("/static/script.js")
+    def test_views_gantt_js_context_menu_in_gantt_chart(self, client):
+        """Test that views-gantt.js adds context menu buttons to the gantt info table."""
+        response = client.get("/static/views-gantt.js")
         assert response.status_code == 200
         js_content = response.text
         # The renderGanttRows function should include context menu actions cell
@@ -723,7 +723,7 @@ class TestKeyboardShortcuts:
 
     def test_tour_mentions_keyboard_shortcuts(self, client):
         """Test that the interface tour includes a keyboard shortcuts step."""
-        response = client.get("/static/script.js")
+        response = client.get("/static/nav.js")
         js_content = response.text
         assert "Keyboard Shortcuts" in js_content
         assert "Press ? at any time" in js_content

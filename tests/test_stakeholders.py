@@ -150,9 +150,11 @@ class TestStakeholderForm:
 class TestStakeholderJavaScript:
     """Test that required JavaScript functions and variables are declared in script.js."""
 
-    def test_stakeholder_items_array(self, script_content):
-        """Test that the stakeholderItems array is declared."""
-        assert "let stakeholderItems = []" in script_content
+    def test_stakeholder_items_array(self, client):
+        """Test that the stakeholderItems array is declared in state.js."""
+        response = client.get("/static/state.js")
+        assert response.status_code == 200
+        assert "let stakeholderItems = []" in response.text
 
     def test_render_stakeholder_table_function(self, script_content):
         """Test that renderStakeholderTable function is declared."""
@@ -214,9 +216,11 @@ class TestStakeholderJavaScript:
         """Test that stakeholders is included in the PLAN_VIEWS array."""
         assert "'stakeholders'" in script_content
 
-    def test_stakeholders_in_nav_mapping(self, script_content):
+    def test_stakeholders_in_nav_mapping(self, client):
         """Test that stakeholders maps to planTab in the nav mapping."""
-        assert "'stakeholders': 'planTab'" in script_content
+        response = client.get("/static/nav.js")
+        assert response.status_code == 200
+        assert "'stakeholders': 'planTab'" in response.text
 
     def test_clear_stakeholders_in_tracking_data(self, script_content):
         """Test that clearStakeholders is called in clearPlanTrackingData."""
