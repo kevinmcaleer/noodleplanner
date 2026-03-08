@@ -6073,209 +6073,74 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
 }
 
 function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null) {
-    // Get the editor content
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lines = editor.value.split('\n');
-
-    // For name field, search using oldName; otherwise use task.name
     const searchName = (field === 'name' && oldName) ? oldName : task.name;
 
-    // Find the task line (need to match by task name and level)
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-    const escapedSearchName = searchName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedSearchName}`);
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (taskNamePattern.test(line)) {
-            // Update the field in the line
-            if (field === 'name') {
-                // Replace task name (preserve rest of line)
-                // Account for optional * prefix (milestone marker)
-                const prefix = line.substring(indent.length).startsWith('*') ? '*' : '';
-                const rest = line.substring(indent.length + prefix.length + searchName.length);
-                lines[i] = indent + prefix + newValue + rest;
-            } else if (field === 'resources') {
-                // Update resources - need to find and replace resource pattern
-                const resourcePattern = /\[([^\]]+)\]/;
-                if (newValue) {
-                    if (resourcePattern.test(line)) {
-                        lines[i] = line.replace(resourcePattern, `[${newValue}]`);
-                    } else {
-                        // Add resources if not present
-                        lines[i] = line.trimEnd() + ` [${newValue}]`;
-                    }
-                } else {
-                    // Remove resources
-                    lines[i] = line.replace(resourcePattern, '').trimEnd();
-                }
-            } else if (field === 'comment') {
-                // Update comment - use "quoted" format matching backend parser
-                const commentPattern = /"([^"]*)"/;
-                if (newValue) {
-                    if (commentPattern.test(line)) {
-                        lines[i] = line.replace(commentPattern, `"${newValue}"`);
-                    } else {
-                        // Add comment if not present
-                        lines[i] = line.trimEnd() + ` "${newValue}"`;
-                    }
-                } else {
-                    // Remove comment
-                    lines[i] = line.replace(commentPattern, '').trimEnd();
-                }
-            } else if (field === 'bucket') {
-                // Update bucket - use {BucketName} format
-                const bucketPattern = /\{([^}]*)\}/;
-                if (newValue) {
-                    if (bucketPattern.test(line)) {
-                        lines[i] = line.replace(bucketPattern, `{${newValue}}`);
-                    } else {
-                        // Add bucket if not present
-                        lines[i] = line.trimEnd() + ` {${newValue}}`;
-                    }
-                } else {
-                    // Remove bucket
-                    lines[i] = line.replace(bucketPattern, '').trimEnd();
-                }
+    findAndUpdateTaskLine(task, (line, indent, name) => {
+        if (field === 'name') {
+            const prefix = line.substring(indent.length).startsWith('*') ? '*' : '';
+            const rest = line.substring(indent.length + prefix.length + name.length);
+            return indent + prefix + newValue + rest;
+        } else if (field === 'resources') {
+            const resourcePattern = /\[([^\]]+)\]/;
+            if (newValue) {
+                return resourcePattern.test(line) ?
+                    line.replace(resourcePattern, `[${newValue}]`) :
+                    line.trimEnd() + ` [${newValue}]`;
             }
-
-            // Update editor
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            break;
+            return line.replace(resourcePattern, '').trimEnd();
+        } else if (field === 'comment') {
+            const commentPattern = /"([^"]*)"/;
+            if (newValue) {
+                return commentPattern.test(line) ?
+                    line.replace(commentPattern, `"${newValue}"`) :
+                    line.trimEnd() + ` "${newValue}"`;
+            }
+            return line.replace(commentPattern, '').trimEnd();
+        } else if (field === 'bucket') {
+            const bucketPattern = /\{([^}]*)\}/;
+            if (newValue) {
+                return bucketPattern.test(line) ?
+                    line.replace(bucketPattern, `{${newValue}}`) :
+                    line.trimEnd() + ` {${newValue}}`;
+            }
+            return line.replace(bucketPattern, '').trimEnd();
         }
-    }
+        return line;
+    }, searchName);
 }
 
 function syncGanttPriorityToEditor(task, taskIndex) {
-    const editor = document.getElementById('planEditor');
-    if (!editor) return;
-
-    const lines = editor.value.split('\n');
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-    const escapedName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedName}`);
-
-    // Map priority to ! markers
     const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
     const marker = priorityMarkers[task.priority] || '';
 
-    for (let i = 0; i < lines.length; i++) {
-        if (taskNamePattern.test(lines[i])) {
-            // Remove existing priority markers (standalone !, !!, !!!)
-            let line = lines[i].replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, '').replace(/\s{2,}/g, ' ').trimEnd();
-            // Add new marker if not Low
-            if (marker) {
-                // Add marker after the task name portion
-                const nameEnd = indent.length + (line.substring(indent.length).startsWith('*') ? 1 : 0) + task.name.length;
-                line = line.substring(0, nameEnd) + ' ' + marker + line.substring(nameEnd);
-            }
-            lines[i] = line;
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            break;
+    findAndUpdateTaskLine(task, (line, indent, name) => {
+        let updated = line.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, '').replace(/\s{2,}/g, ' ').trimEnd();
+        if (marker) {
+            const nameEnd = indent.length + (updated.substring(indent.length).startsWith('*') ? 1 : 0) + task.name.length;
+            updated = updated.substring(0, nameEnd) + ' ' + marker + updated.substring(nameEnd);
         }
-    }
+        return updated;
+    });
 }
 
 function syncGanttDurationToEditor(task, taskIndex) {
     console.log('syncGanttDurationToEditor called:', { task: task.name, duration_days: task.duration_days, level: task.level });
 
-    // Get the editor content
-    const editor = document.getElementById('planEditor');
-    if (!editor) {
-        console.error('Editor not found!');
-        return;
-    }
-
-    const lines = editor.value.split('\n');
-
-    // Calculate indent: level represents hierarchy depth (root=0, first level=1, etc.)
-    // Editor uses 2 spaces per indent level, and indent = (level - 1) since level 1 = no indent
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-
-    // Task name pattern: match indent + optional * (dependency marker) + task name
-    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
-
-    console.log('Looking for task with indent:', JSON.stringify(indent), 'spaces:', indentSpaces, 'name:', task.name, 'pattern allows *');
-
-    // Find the task line by matching indent and task name
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (taskNamePattern.test(line)) {
-            console.log('Found task at line', i + 1, ':', line);
-
-            // Parse line into tokens, update duration token, rebuild line
-            const updatedLine = updateDurationInLine(line, task.duration_days, indent, task.name);
-            console.log('Updated line:', updatedLine);
-
-            lines[i] = updatedLine;
-
-            // Update editor
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            found = true;
-            break;
-        }
-    }
+    const found = findAndUpdateTaskLine(task, (line, indent, name) => {
+        return updateLineField(line, 'duration', task.duration_days, indent, name);
+    });
 
     if (!found) {
-        console.error('Task not found in editor!', { name: task.name, level: task.level, indent: JSON.stringify(indent), indentSpaces });
+        console.error('Task not found in editor!', { name: task.name, level: task.level });
     }
 }
 
 function syncGanttStartDateToEditor(task, taskIndex) {
     console.log('syncGanttStartDateToEditor called:', { task: task.name, start: task.start, level: task.level });
 
-    // Get the editor content
-    const editor = document.getElementById('planEditor');
-    if (!editor) {
-        console.error('Editor not found!');
-        return;
-    }
-
-    const lines = editor.value.split('\n');
-
-    // Calculate indent
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-
-    // Task name pattern: match indent + optional * (dependency marker) + task name
-    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
-
-    console.log('Looking for task to update start date:', task.name, 'new start:', task.start, 'pattern allows *');
-
-    // Find the task line by matching indent and task name
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (taskNamePattern.test(line)) {
-            console.log('Found task at line', i + 1, ':', line);
-
-            // Parse line into tokens, update start date, rebuild line
-            const updatedLine = updateStartDateInLine(line, task.start, indent, task.name);
-            console.log('Updated line:', updatedLine);
-
-            lines[i] = updatedLine;
-
-            // Update editor
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            found = true;
-            break;
-        }
-    }
+    const found = findAndUpdateTaskLine(task, (line, indent, name) => {
+        return updateLineField(line, 'startDate', task.start, indent, name);
+    });
 
     if (!found) {
         console.error('Task not found in editor!', { name: task.name, level: task.level });
@@ -6285,42 +6150,9 @@ function syncGanttStartDateToEditor(task, taskIndex) {
 function syncGanttFinishDateToEditor(task, taskIndex) {
     console.log('syncGanttFinishDateToEditor called:', { task: task.name, finish: task.finish, level: task.level });
 
-    const editor = document.getElementById('planEditor');
-    if (!editor) {
-        console.error('Editor not found!');
-        return;
-    }
-
-    const lines = editor.value.split('\n');
-
-    // Calculate indent
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-
-    // Task name pattern
-    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
-
-    console.log('Looking for task to update finish date:', task.name, 'new finish:', task.finish);
-
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (taskNamePattern.test(line)) {
-            console.log('Found task at line', i + 1, ':', line);
-
-            const updatedLine = updateFinishDateInLine(line, task.finish, indent, task.name);
-            console.log('Updated line:', updatedLine);
-
-            lines[i] = updatedLine;
-
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            found = true;
-            break;
-        }
-    }
+    const found = findAndUpdateTaskLine(task, (line, indent, name) => {
+        return updateLineField(line, 'finishDate', task.finish, indent, name);
+    });
 
     if (!found) {
         console.error('Task not found in editor!', { name: task.name, level: task.level });
@@ -6495,42 +6327,9 @@ function showPiechartPopup(piechartElement, currentPercent, onSelect) {
 function syncGanttPercentToEditor(task, taskIndex) {
     console.log('syncGanttPercentToEditor called:', { task: task.name, percent: task.percent, level: task.level });
 
-    const editor = document.getElementById('planEditor');
-    if (!editor) {
-        console.error('Editor not found!');
-        return;
-    }
-
-    const lines = editor.value.split('\n');
-
-    // Calculate indent
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-
-    // Task name pattern
-    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
-
-    console.log('Looking for task to update percent:', task.name, 'new percent:', task.percent);
-
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (taskNamePattern.test(line)) {
-            console.log('Found task at line', i + 1, ':', line);
-
-            const updatedLine = updatePercentInLine(line, task.percent, indent, task.name);
-            console.log('Updated line:', updatedLine);
-
-            lines[i] = updatedLine;
-
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            found = true;
-            break;
-        }
-    }
+    const found = findAndUpdateTaskLine(task, (line, indent, name) => {
+        return updateLineField(line, 'percent', task.percent, indent, name);
+    });
 
     if (!found) {
         console.error('Task not found in editor!', { name: task.name, level: task.level });
@@ -6540,64 +6339,29 @@ function syncGanttPercentToEditor(task, taskIndex) {
 function syncGanttPredecessorsToEditor(task, taskIndex) {
     console.log('syncGanttPredecessorsToEditor called:', { task: task.name, depends: task.depends, lag_lead: task.lag_lead });
 
-    const editor = document.getElementById('planEditor');
-    if (!editor) {
-        console.error('Editor not found!');
-        return;
+    // Build the new [depends ...] string
+    let newDependsStr = '';
+    if (task.depends && task.depends.length > 0) {
+        const depParts = task.depends.map(depName => {
+            const lag = (task.lag_lead && task.lag_lead[depName]) ? ' ' + task.lag_lead[depName] : '';
+            return depName + lag;
+        });
+        newDependsStr = '[depends ' + depParts.join(', ') + ']';
     }
 
-    const lines = editor.value.split('\n');
-
-    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
-    const indent = ' '.repeat(indentSpaces);
-
-    const escapedTaskName = task.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedTaskName}`);
-
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (taskNamePattern.test(line)) {
-            console.log('Found task at line', i + 1, ':', line);
-
-            // Build the new [depends ...] string
-            let newDependsStr = '';
-            if (task.depends && task.depends.length > 0) {
-                const depParts = task.depends.map(depName => {
-                    const lag = (task.lag_lead && task.lag_lead[depName]) ? ' ' + task.lag_lead[depName] : '';
-                    return depName + lag;
-                });
-                newDependsStr = '[depends ' + depParts.join(', ') + ']';
+    const found = findAndUpdateTaskLine(task, (line, indent, name) => {
+        const dependsPattern = /\[depends\s+[^\]]+\]/i;
+        if (dependsPattern.test(line)) {
+            if (newDependsStr) {
+                return line.replace(dependsPattern, newDependsStr);
             }
-
-            // Replace or add/remove the [depends ...] block in the line
-            const dependsPattern = /\[depends\s+[^\]]+\]/i;
-            let updatedLine;
-            if (dependsPattern.test(line)) {
-                if (newDependsStr) {
-                    updatedLine = line.replace(dependsPattern, newDependsStr);
-                } else {
-                    // Remove the depends block
-                    updatedLine = line.replace(dependsPattern, '').replace(/\s{2,}/g, ' ').trimEnd();
-                }
-            } else {
-                if (newDependsStr) {
-                    updatedLine = line.trimEnd() + ' ' + newDependsStr;
-                } else {
-                    updatedLine = line;
-                }
-            }
-
-            console.log('Updated line:', updatedLine);
-            lines[i] = updatedLine;
-
-            editor.value = lines.join('\n');
-            editor.dispatchEvent(new Event('input'));
-            found = true;
-            break;
+            return line.replace(dependsPattern, '').replace(/\s{2,}/g, ' ').trimEnd();
         }
-    }
+        if (newDependsStr) {
+            return line.trimEnd() + ' ' + newDependsStr;
+        }
+        return line;
+    });
 
     if (!found) {
         console.error('Task not found in editor!', { name: task.name, level: task.level });
@@ -6605,14 +6369,15 @@ function syncGanttPredecessorsToEditor(task, taskIndex) {
 }
 
 /**
- * Update duration in a task line by tokenizing, replacing duration token, and rebuilding
- * This avoids fragile regex replacements and handles all edge cases
+ * Tokenize a task line into an array of tokens.
+ * Splits by spaces but preserves quoted strings and bracket blocks as single tokens.
+ *
+ * @param {string} line - The full task line (with indent)
+ * @param {string} indent - The leading whitespace to strip before tokenizing
+ * @returns {string[]} Array of tokens
  */
-function updateDurationInLine(line, newDurationDays, indent, taskName) {
-    // Strip the indent from the line first, then tokenize
+function tokenizeLine(line, indent) {
     const lineWithoutIndent = line.substring(indent.length);
-
-    // Tokenize the line (split by spaces but preserve quoted strings and brackets)
     const tokens = [];
     let currentToken = '';
     let inQuotes = false;
@@ -6640,260 +6405,195 @@ function updateDurationInLine(line, newDurationDays, indent, taskName) {
         }
     }
 
-    // Push last token
     if (currentToken) {
         tokens.push(currentToken);
     }
 
-    // Find and replace duration token
-    let foundDuration = false;
-    for (let i = 0; i < tokens.length; i++) {
-        // Duration token format: digits followed by d/w/m/y
-        if (/^\d+[dwmy]$/.test(tokens[i])) {
-            tokens[i] = `${newDurationDays}d`;
-            foundDuration = true;
-            break;
+    return tokens;
+}
+
+/**
+ * Check whether a token is a "special" (non-name) token matching any known pattern.
+ *
+ * @param {string} token - A single token from the task line
+ * @returns {boolean} True if the token is a special (non-task-name) token
+ */
+function isSpecialToken(token) {
+    return /^\d+[dwmy]$/.test(token) ||        // duration: 5d, 2w, 3m
+           /^\d+%$/.test(token) ||              // percent: 50%
+           /^@/.test(token) ||                  // resource: @kev
+           /^#/.test(token) ||                  // label: #DEV
+           /^\d{4}-\d{2}-\d{2}$/.test(token) || // date: 2025-01-15
+           /^~/.test(token) ||                  // effort: ~8h/16h
+           /^!+$/.test(token) ||                // priority: !, !!, !!!
+           /^"/.test(token) ||                  // quoted comment
+           /^\[/.test(token) ||                 // bracket block [depends ...]
+           /^\{/.test(token);                   // bucket {BucketName}
+}
+
+/**
+ * Generic function to update a single field in a task line.
+ * Tokenizes the line, finds or inserts the relevant token, and rebuilds the line.
+ *
+ * Supported fieldName values:
+ *   'duration'    - value is the number of days (e.g. 5), stored as "5d"
+ *   'startDate'   - value is a YYYY-MM-DD string (first date in line)
+ *   'finishDate'  - value is a YYYY-MM-DD string (second date in line)
+ *   'percent'     - value is a percent string like "50%"
+ *
+ * @param {string} line - The full task line (with indent)
+ * @param {string} fieldName - Which field to update
+ * @param {*} value - The new value for the field
+ * @param {string} indent - The leading whitespace
+ * @param {string} taskName - The task name (unused currently, kept for API consistency)
+ * @returns {string} The rebuilt line with the field updated
+ */
+function updateLineField(line, fieldName, value, indent, taskName) {
+    const tokens = tokenizeLine(line, indent);
+
+    if (fieldName === 'duration') {
+        let found = false;
+        for (let i = 0; i < tokens.length; i++) {
+            if (/^\d+[dwmy]$/.test(tokens[i])) {
+                tokens[i] = `${value}d`;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            tokens.splice(1, 0, `${value}d`);
+        }
+    } else if (fieldName === 'startDate') {
+        let found = false;
+        for (let i = 0; i < tokens.length; i++) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+                tokens[i] = value;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            let insertIndex = 1;
+            for (let i = 1; i < tokens.length; i++) {
+                if (/^\d+[dwmy]$/.test(tokens[i])) {
+                    insertIndex = i + 1;
+                } else if (tokens[i].startsWith('@')) {
+                    insertIndex = i + 1;
+                } else if (/^\d+%$/.test(tokens[i])) {
+                    insertIndex = i + 1;
+                    break;
+                }
+            }
+            tokens.splice(insertIndex, 0, value);
+        }
+    } else if (fieldName === 'finishDate') {
+        let dateCount = 0;
+        let found = false;
+        for (let i = 0; i < tokens.length; i++) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+                dateCount++;
+                if (dateCount === 2) {
+                    tokens[i] = value;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            for (let i = 0; i < tokens.length; i++) {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
+                    tokens.splice(i + 1, 0, value);
+                    found = true;
+                    break;
+                }
+            }
+        }
+    } else if (fieldName === 'percent') {
+        let found = false;
+        for (let i = 0; i < tokens.length; i++) {
+            if (/^\d+%$/.test(tokens[i])) {
+                tokens[i] = value;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            let insertIndex = tokens.length;
+            for (let i = 0; i < tokens.length; i++) {
+                if (isSpecialToken(tokens[i])) {
+                    if (/^\d+[dwmy]$/.test(tokens[i]) || /^~/.test(tokens[i])) {
+                        insertIndex = i + 1;
+                        continue;
+                    }
+                    insertIndex = i;
+                    break;
+                }
+            }
+            tokens.splice(insertIndex, 0, value);
         }
     }
 
-    // If no duration found, add it after task name (first token)
-    if (!foundDuration) {
-        tokens.splice(1, 0, `${newDurationDays}d`);
-    }
-
-    // Rebuild line with indent preserved
     return indent + tokens.join(' ');
 }
 
 /**
- * Update start date in a task line by tokenizing, replacing/adding date token, and rebuilding
+ * Find a task line in the editor by indent and name, apply an update function, and write back.
+ * This replaces the boilerplate in syncGantt*ToEditor functions.
+ *
+ * @param {object} task - The task object with name, level, etc.
+ * @param {function} updateFn - Function(line, indent, taskName) => updatedLine
+ * @param {string} [searchName] - Optional name to search for (used when renaming)
+ * @returns {boolean} True if the task was found and updated
+ */
+function findAndUpdateTaskLine(task, updateFn, searchName) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return false;
+
+    const lines = editor.value.split('\n');
+    const indentSpaces = task.level > 0 ? (task.level - 1) * 2 : 0;
+    const indent = ' '.repeat(indentSpaces);
+    const name = searchName || task.name;
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const taskNamePattern = new RegExp(`^${indent}\\*?${escapedName}`);
+
+    for (let i = 0; i < lines.length; i++) {
+        if (taskNamePattern.test(lines[i])) {
+            lines[i] = updateFn(lines[i], indent, name);
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input'));
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Update duration in a task line (delegates to updateLineField).
+ */
+function updateDurationInLine(line, newDurationDays, indent, taskName) {
+    return updateLineField(line, 'duration', newDurationDays, indent, taskName);
+}
+
+/**
+ * Update start date in a task line (delegates to updateLineField).
  */
 function updateStartDateInLine(line, newStartDate, indent, taskName) {
-    // Strip the indent from the line first, then tokenize
-    const lineWithoutIndent = line.substring(indent.length);
-
-    // Tokenize the line (split by spaces but preserve quoted strings and brackets)
-    const tokens = [];
-    let currentToken = '';
-    let inQuotes = false;
-    let inBrackets = false;
-
-    for (let i = 0; i < lineWithoutIndent.length; i++) {
-        const char = lineWithoutIndent[i];
-
-        if (char === '"' && !inBrackets) {
-            inQuotes = !inQuotes;
-            currentToken += char;
-        } else if (char === '[' && !inQuotes) {
-            inBrackets = true;
-            currentToken += char;
-        } else if (char === ']' && !inQuotes) {
-            inBrackets = false;
-            currentToken += char;
-        } else if (char === ' ' && !inQuotes && !inBrackets) {
-            if (currentToken) {
-                tokens.push(currentToken);
-                currentToken = '';
-            }
-        } else {
-            currentToken += char;
-        }
-    }
-
-    // Push last token
-    if (currentToken) {
-        tokens.push(currentToken);
-    }
-
-    // Find and replace start date token (format: YYYY-MM-DD)
-    // Date should come after duration, resources, percent
-    let foundDate = false;
-    for (let i = 0; i < tokens.length; i++) {
-        // Date token format: YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
-            tokens[i] = newStartDate;
-            foundDate = true;
-            break;
-        }
-    }
-
-    // If no date found, add it after percent (or after resources if no percent, or after duration)
-    if (!foundDate) {
-        // Find the right position: after task name, duration, resources, percent
-        let insertIndex = 1; // Default: after task name
-
-        // Look for duration, resources, percent to find the right insertion point
-        for (let i = 1; i < tokens.length; i++) {
-            if (/^\d+[dwmy]$/.test(tokens[i])) {
-                insertIndex = i + 1; // After duration
-            } else if (tokens[i].startsWith('@')) {
-                insertIndex = i + 1; // After resources
-            } else if (/^\d+%$/.test(tokens[i])) {
-                insertIndex = i + 1; // After percent
-                break; // Percent is usually last before dates
-            }
-        }
-
-        tokens.splice(insertIndex, 0, newStartDate);
-    }
-
-    // Rebuild line with indent preserved
-    return indent + tokens.join(' ');
+    return updateLineField(line, 'startDate', newStartDate, indent, taskName);
 }
 
+/**
+ * Update finish date in a task line (delegates to updateLineField).
+ */
 function updateFinishDateInLine(line, newFinishDate, indent, taskName) {
-    // Strip the indent from the line first, then tokenize
-    const lineWithoutIndent = line.substring(indent.length);
-
-    // Tokenize the line
-    const tokens = [];
-    let currentToken = '';
-    let inQuotes = false;
-    let inBrackets = false;
-
-    for (let i = 0; i < lineWithoutIndent.length; i++) {
-        const char = lineWithoutIndent[i];
-
-        if (char === '"' && !inBrackets) {
-            inQuotes = !inQuotes;
-            currentToken += char;
-        } else if (char === '[' && !inQuotes) {
-            inBrackets = true;
-            currentToken += char;
-        } else if (char === ']' && !inQuotes) {
-            inBrackets = false;
-            currentToken += char;
-        } else if (char === ' ' && !inQuotes && !inBrackets) {
-            if (currentToken) {
-                tokens.push(currentToken);
-                currentToken = '';
-            }
-        } else {
-            currentToken += char;
-        }
-    }
-
-    if (currentToken) {
-        tokens.push(currentToken);
-    }
-
-    // Find and replace finish date token (second date in line, after start date)
-    let dateCount = 0;
-    let foundFinishDate = false;
-    for (let i = 0; i < tokens.length; i++) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
-            dateCount++;
-            if (dateCount === 2) {
-                // This is the finish date (second date)
-                tokens[i] = newFinishDate;
-                foundFinishDate = true;
-                break;
-            }
-        }
-    }
-
-    // If no finish date found, add it after start date
-    if (!foundFinishDate) {
-        // Find the start date position
-        for (let i = 0; i < tokens.length; i++) {
-            if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
-                // Insert finish date after start date
-                tokens.splice(i + 1, 0, newFinishDate);
-                foundFinishDate = true;
-                break;
-            }
-        }
-    }
-
-    // Rebuild line with indent preserved
-    return indent + tokens.join(' ');
+    return updateLineField(line, 'finishDate', newFinishDate, indent, taskName);
 }
 
+/**
+ * Update percent in a task line (delegates to updateLineField).
+ */
 function updatePercentInLine(line, newPercent, indent, taskName) {
-    // Strip the indent from the line first, then tokenize
-    const lineWithoutIndent = line.substring(indent.length);
-
-    // Tokenize the line
-    const tokens = [];
-    let currentToken = '';
-    let inQuotes = false;
-    let inBrackets = false;
-
-    for (let i = 0; i < lineWithoutIndent.length; i++) {
-        const char = lineWithoutIndent[i];
-
-        if (char === '"' && !inBrackets) {
-            inQuotes = !inQuotes;
-            currentToken += char;
-        } else if (char === '[' && !inQuotes) {
-            inBrackets = true;
-            currentToken += char;
-        } else if (char === ']' && !inQuotes) {
-            inBrackets = false;
-            currentToken += char;
-        } else if (char === ' ' && !inQuotes && !inBrackets) {
-            if (currentToken) {
-                tokens.push(currentToken);
-                currentToken = '';
-            }
-        } else {
-            currentToken += char;
-        }
-    }
-
-    if (currentToken) {
-        tokens.push(currentToken);
-    }
-
-    // Find and replace percent token (format: XX%)
-    let foundPercent = false;
-    for (let i = 0; i < tokens.length; i++) {
-        if (/^\d+%$/.test(tokens[i])) {
-            tokens[i] = newPercent;
-            foundPercent = true;
-            break;
-        }
-    }
-
-    // If no percent found, add it after duration (or after task name if no duration)
-    if (!foundPercent) {
-        // Find the end of the task name tokens.
-        // A token is a "special" (non-name) token if it matches any known pattern:
-        // duration, percent, resource, label, date, effort, priority, quoted, brackets, bucket
-        function isSpecialToken(token) {
-            return /^\d+[dwmy]$/.test(token) ||   // duration: 5d, 2w, 3m
-                   /^\d+%$/.test(token) ||          // percent: 50%
-                   /^@/.test(token) ||              // resource: @kev
-                   /^#/.test(token) ||              // label: #DEV
-                   /^\d{4}-\d{2}-\d{2}$/.test(token) || // date: 2025-01-15
-                   /^~/.test(token) ||              // effort: ~8h/16h
-                   /^!+$/.test(token) ||            // priority: !, !!, !!!
-                   /^"/.test(token) ||              // quoted comment
-                   /^\[/.test(token) ||             // bracket block [depends ...]
-                   /^\{/.test(token);               // bucket {BucketName}
-        }
-
-        let insertIndex = tokens.length; // Default: end of tokens
-
-        // Find the first special token - insert before it,
-        // but skip past duration and effort tokens (percent goes after those)
-        for (let i = 0; i < tokens.length; i++) {
-            if (isSpecialToken(tokens[i])) {
-                // Skip past duration and effort tokens - percent comes after them
-                if (/^\d+[dwmy]$/.test(tokens[i]) || /^~/.test(tokens[i])) {
-                    insertIndex = i + 1;
-                    continue;
-                }
-                insertIndex = i;
-                break;
-            }
-        }
-
-        tokens.splice(insertIndex, 0, newPercent);
-    }
-
-    // Rebuild line with indent preserved
-    return indent + tokens.join(' ');
+    return updateLineField(line, 'percent', newPercent, indent, taskName);
 }
 
 function showMessage(prefix, type, text) {
