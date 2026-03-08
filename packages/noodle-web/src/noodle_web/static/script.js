@@ -10219,9 +10219,9 @@ function toggleExportMenu(event) {
 
 // Close nav dropdown menus when clicking outside
 document.addEventListener('click', function(e) {
-    // Close all nav dropdown menus when clicking outside
+    // Close tools subnav dropdown when clicking outside
     const navMenus = [
-        { menu: 'toolsMenu', tab: 'toolsTab' }
+        { menu: 'toolsSubnavMenu', tab: 'toolsMoreBtn' }
     ];
     navMenus.forEach(({ menu: menuId, tab: tabId }) => {
         const navMenu = document.getElementById(menuId);
@@ -10234,7 +10234,7 @@ document.addEventListener('click', function(e) {
 
 // Close all nav dropdown menus (optionally except one)
 function closeAllNavMenus(except) {
-    const menuIds = ['toolsMenu'];
+    const menuIds = ['toolsSubnavMenu'];
     menuIds.forEach(id => {
         if (id !== except) {
             const m = document.getElementById(id);
@@ -10295,11 +10295,22 @@ function switchToResources() {
     NavigationController.navigateTo('resources');
 }
 
-// Toggle Tools dropdown menu
-function toggleToolsMenu(event) {
+// Toggle Tools subnav dropdown menu (inside project subnav)
+function toggleToolsSubnavMenu(event) {
     event.stopPropagation();
-    closeAllNavMenus('toolsMenu');
-    document.getElementById('toolsMenu').classList.toggle('show');
+    closeAllNavMenus('toolsSubnavMenu');
+    document.getElementById('toolsSubnavMenu').classList.toggle('show');
+}
+
+// Close Tools subnav dropdown menu
+function closeToolsSubnavMenu() {
+    const menu = document.getElementById('toolsSubnavMenu');
+    if (menu) menu.classList.remove('show');
+}
+
+// Legacy alias for backward compatibility
+function toggleToolsMenu(event) {
+    toggleToolsSubnavMenu(event);
 }
 
 // Templates Modal Functions
@@ -10555,6 +10566,7 @@ function switchTrackingSubnavToTab(tabName) {
 }
 
 // Handle Tools subnav buttons that use switchTab (Planning Room, Syntax Guide)
+// Tools are now inside the Plan subnav, so activate the Plan tab
 function switchToolsSubnavToTab(tabName) {
     NavigationController.navigateTo(tabName);
 }
@@ -13205,9 +13217,9 @@ const tourSteps = [
         position: "bottom"
     },
     {
-        title: "Tools Menu",
-        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options including Excel, CSV, PDF, and PowerPoint.",
-        target: "#toolsTab",
+        title: "Project Tools",
+        message: "The project sub-navigation includes a Tools section with Text Report, Planning Room (guided plan creation), and Syntax Guide. Use the More menu for Templates and Import/Export options (Excel, CSV, PDF, and PowerPoint).",
+        target: "#projectSubnav",
         position: "bottom"
     },
     {
@@ -13218,7 +13230,7 @@ const tourSteps = [
     },
     {
         title: "You're Ready! 🚀",
-        message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check Tools > Syntax Guide to learn more. Press '?' at any time to see keyboard shortcuts.",
+        message: "That's it! Start by creating your first task in the editor, explore the Project tab for different views, or check the Syntax Guide in the Tools section of the project subnav to learn more. Press '?' at any time to see keyboard shortcuts.",
         target: null,
         position: "center"
     }
@@ -18757,7 +18769,7 @@ function initMenuKeyboardNav() {
 
 function syncAriaExpanded() {
     const menus = [
-        { btn: 'toolsTab', menu: 'toolsMenu' }
+        { btn: 'toolsMoreBtn', menu: 'toolsSubnavMenu' }
     ];
 
     const observer = new MutationObserver(function() {

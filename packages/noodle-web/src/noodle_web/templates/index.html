@@ -145,55 +145,6 @@
                 <button class="tab active" id="projectTab" onclick="switchToProjectContext()">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Project
                 </button>
-                <div class="nav-dropdown">
-                    <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="toolsMenu">
-                        Tools ▾
-                    </button>
-                    <div class="nav-menu" id="toolsMenu" role="menu" aria-label="Tools">
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="switchToView('text-report'); event.stopPropagation();">
-                            📝 Text Report
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="switchTab('planning'); event.stopPropagation();">
-                            📋 Planning Room
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openTemplatesModal(); event.stopPropagation();">
-                            📄 Templates
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="switchTab('guide'); event.stopPropagation();">
-                            📖 Syntax Guide
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerExcelUpload(); event.stopPropagation();">
-                            📥 Import from Excel
-                        </div>
-                        <div class="nav-menu-divider"></div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
-                            📊 Export to Excel
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
-                            📋 Export to CSV
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
-                            📄 Export to PDF
-                        </div>
-                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportReportPptx(); event.stopPropagation();">
-                            📊 Export Report to PowerPoint
-                        </div>
-                        <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
-                            ⬇ Download RAID Markdown
-                        </div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); event.stopPropagation();">
-                            ⬆ Upload RAID Markdown
-                        </div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="exportRaidExcel(); event.stopPropagation();">
-                            📊 Export RAID to Excel
-                        </div>
-                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
-                            📊 Upload RAID Excel
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Project Sub-Navigation Bar (unified: Plan, Tracking, Resources views) -->
@@ -246,6 +197,57 @@
                 <button class="plan-subnav-btn" data-view="stakeholders" onclick="switchToView('stakeholders')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
                 </button>
+                <span class="plan-subnav-divider"></span>
+                <span class="plan-subnav-group-label">Tools</span>
+                <button class="plan-subnav-btn" data-view="text-report" onclick="switchToView('text-report')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Text Report
+                </button>
+                <button class="plan-subnav-btn" data-view="planning" onclick="switchToolsSubnavToTab('planning')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Planning Room
+                </button>
+                <button class="plan-subnav-btn" data-view="guide" onclick="switchToolsSubnavToTab('guide')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Syntax Guide
+                </button>
+                <div class="plan-subnav-dropdown">
+                    <button class="plan-subnav-btn" id="toolsMoreBtn" onclick="toggleToolsSubnavMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="toolsSubnavMenu">
+                        More ▾
+                    </button>
+                    <div class="nav-menu" id="toolsSubnavMenu" role="menu" aria-label="More tools">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openTemplatesModal(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Templates
+                        </div>
+                        <div class="nav-menu-divider"></div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerExcelUpload(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Import from Excel
+                        </div>
+                        <div class="nav-menu-divider"></div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('excel', 'editor'); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Export to Excel
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('csv', 'editor'); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Export to CSV
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('pdf', 'editor'); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Export to PDF
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportReportPptx(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Export Report to PowerPoint
+                        </div>
+                        <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="downloadRaidMarkdown(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Download RAID Markdown
+                        </div>
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidMdUpload').click(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Upload RAID Markdown
+                        </div>
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="exportRaidExcel(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Export RAID to Excel
+                        </div>
+                        <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); closeToolsSubnavMenu(); event.stopPropagation();">
+                            Upload RAID Excel
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Context-switch loading indicator (#581) -->
