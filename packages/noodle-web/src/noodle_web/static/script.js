@@ -1,11 +1,257 @@
-let selectedFile = null;
-let renderTimeout = null;
-let globalResourceMap = {}; // Maps shortnames to full names from backend
-let globalResourceDetails = {}; // Maps shortnames to { name, role } from front matter
-let lastRenderedTasks = []; // Cache of backend-calculated tasks from last render
+/**
+ * PlanState — Centralised state object for NoodlePlanner.
+ *
+ * Replaces 60+ scattered global variables with a single documented store.
+ * All mutable application state lives here, grouped by domain.
+ *
+ * Usage:
+ *   PlanState.get('selectedFile')
+ *   PlanState.set('selectedFile', 'myplan.yaml')
+ *   PlanState.reset('gantt')          // reset one domain to defaults
+ *   PlanState.resetAll()              // reset everything
+ *
+ * Backward-compatible global aliases (e.g. `selectedFile`, `ganttTasks`)
+ * are defined via Object.defineProperty so existing code continues to
+ * work without modification.
+ *
+ * @see design/refactoring-improvements.md  JS-4
+ */
+const PlanState = (() => {
+    const domainDefaults = {
+        core: () => ({
+            selectedFile: null,
+            renderTimeout: null,
+            closeDetailPaneTimer: null,
+        }),
+        resources: () => ({
+            globalResourceMap: {},
+            globalResourceDetails: {},
+            resourceFormReturnSection: null,
+            resourceDebounceTimer: null,
+        }),
+        tasks: () => ({
+            lastRenderedTasks: [],
+        }),
+        timeline: () => ({
+            timelineTasks: [],
+            timelineProjectName: '',
+            detailedTimelineEnabled: false,
+            minimalTimelineEnabled: false,
+        }),
+        gantt: () => ({
+            ganttTasks: [],
+            ganttScale: 'days',
+            ganttMinDate: null,
+            ganttMaxDate: null,
+            ganttPixelsPerDay: 14,
+            collapsedSummaryTasks: new Set(),
+        }),
+        taskEditor: () => ({
+            currentTask: null,
+            userSetStartDate: false,
+            userSetFinishDate: false,
+            userSetDuration: false,
+        }),
+        autocomplete: () => ({
+            autocompleteSelectedIndex: -1,
+            resourceAutocompleteSelectedIndex: -1,
+            dependencyAutocompleteSelectedIndex: -1,
+            currentDependencyInput: null,
+            labelAutocompleteSelectedIndex: -1,
+            projectLabelAutocompleteSelectedIndex: -1,
+        }),
+        templates: () => ({
+            templatesData: null,
+            currentCategory: 'all',
+        }),
+        resize: () => ({
+            isResizing: false,
+            startX: 0,
+            startWidth: 0,
+            isGanttResizing: false,
+            ganttStartX: 0,
+            ganttStartWidth: 0,
+            isEditorResizing: false,
+            editorStartX: 0,
+            editorStartWidth: 0,
+        }),
+        projectDetails: () => ({
+            projectDetailsDebounceTimer: null,
+        }),
+        conditionalFormatting: () => ({
+            conditionalFormattingRules: [],
+            cfActivePickerRowIndex: null,
+        }),
+        raid: () => ({
+            raidItems: [],
+            raidNextId: 1,
+            raidSortColumn: 'id',
+            raidSortAsc: true,
+            raidItemPendingDeleteId: null,
+            raidEditorIsUpdating: false,
+            raidEditorDebounceTimer: null,
+        }),
+        tour: () => ({
+            currentTourStep: 0,
+        }),
+        excelWizard: () => ({
+            excelWizardFile: null,
+            excelWizardData: null,
+            excelWizardStep: 1,
+        }),
+        calendar: () => ({
+            calendarCurrentMonth: new Date().getMonth(),
+            calendarCurrentYear: new Date().getFullYear(),
+            calendarTasks: [],
+        }),
+        budget: () => ({
+            budgetItems: [],
+            budgetNextId: 1,
+            budgetSortColumn: 'id',
+            budgetSortAsc: true,
+            budgetEditorIsUpdating: false,
+            budgetEditorDebounceTimer: null,
+            budgetSheetInstance: null,
+            budgetSheetViewActive: false,
+            budgetItemPendingDeleteId: null,
+        }),
+        baseline: () => ({
+            baselineItems: [],
+        }),
+        stakeholders: () => ({
+            stakeholderItems: [],
+            stakeholderNextId: 1,
+        }),
+        highlights: () => ({
+            highlightsData: [],
+        }),
+        actions: () => ({
+            actionsSortColumn: 'id',
+            actionsSortAsc: true,
+            actionsCurrentMonth: new Date(),
+            draggedAction: null,
+        }),
+        keyboard: () => ({
+            pendingGoKey: false,
+            goKeyTimeout: null,
+        }),
+    };
 
-// Track which section the resource form was opened from (for returning to it)
-let resourceFormReturnSection = null;
+    const _state = {};
+    const _fieldToDomain = {};
+
+    function _initAll() {
+        for (const [domain, factory] of Object.entries(domainDefaults)) {
+            const defaults = factory();
+            for (const key of Object.keys(defaults)) {
+                _fieldToDomain[key] = domain;
+            }
+            Object.assign(_state, defaults);
+        }
+    }
+    _initAll();
+
+    const _validators = {
+        ganttScale(v) {
+            const allowed = ['days', 'weeks', 'months'];
+            if (!allowed.includes(v)) {
+                console.warn(`PlanState: invalid ganttScale "${v}", must be one of ${allowed.join(', ')}`);
+                return false;
+            }
+            return true;
+        },
+        ganttPixelsPerDay(v) {
+            if (typeof v !== 'number' || v <= 0) {
+                console.warn('PlanState: ganttPixelsPerDay must be a positive number');
+                return false;
+            }
+            return true;
+        },
+        excelWizardStep(v) {
+            if (![1, 2, 3].includes(v)) {
+                console.warn(`PlanState: invalid excelWizardStep "${v}"`);
+                return false;
+            }
+            return true;
+        },
+    };
+
+    const _listeners = {};
+
+    return {
+        get(key) {
+            if (!(key in _state)) {
+                console.warn(`PlanState.get: unknown key "${key}"`);
+                return undefined;
+            }
+            return _state[key];
+        },
+
+        set(key, value) {
+            if (!(key in _state)) {
+                console.warn(`PlanState.set: unknown key "${key}"`);
+                return false;
+            }
+            const validator = _validators[key];
+            if (validator && !validator(value)) {
+                return false;
+            }
+            const oldValue = _state[key];
+            _state[key] = value;
+            if (_listeners[key]) {
+                for (const fn of _listeners[key]) {
+                    try { fn(value, oldValue, key); } catch (e) { console.error('PlanState listener error:', e); }
+                }
+            }
+            return true;
+        },
+
+        reset(domain) {
+            const factory = domainDefaults[domain];
+            if (!factory) {
+                console.warn(`PlanState.reset: unknown domain "${domain}"`);
+                return;
+            }
+            Object.assign(_state, factory());
+        },
+
+        resetAll() { _initAll(); },
+
+        onChange(key, fn) {
+            if (!_listeners[key]) _listeners[key] = [];
+            _listeners[key].push(fn);
+            return () => {
+                _listeners[key] = _listeners[key].filter(f => f !== fn);
+            };
+        },
+
+        keys() { return Object.keys(_state); },
+        domains() { return Object.keys(domainDefaults); },
+        domainOf(key) { return _fieldToDomain[key] || null; },
+
+        snapshot() {
+            const snap = {};
+            for (const [k, v] of Object.entries(_state)) {
+                snap[k] = v instanceof Set ? new Set(v) : Array.isArray(v) ? [...v] : v;
+            }
+            return snap;
+        },
+    };
+})();
+
+// Backward-compatible global aliases so existing code continues to work.
+(function _installPlanStateAliases() {
+    for (const key of PlanState.keys()) {
+        if (key in window) continue;
+        Object.defineProperty(window, key, {
+            get() { return PlanState.get(key); },
+            set(v) { PlanState.set(key, v); },
+            configurable: true,
+            enumerable: true,
+        });
+    }
+})();
+
 
 /**
  * Update the plan editor value while preserving cursor position and scroll state.
@@ -130,7 +376,7 @@ async function copyElementAsImage(element, feedbackBtn) {
  * Tracked so openDetailPane can cancel it to avoid a race condition
  * where a stale timeout blanks a newly opened form.
  */
-let closeDetailPaneTimer = null;
+// closeDetailPaneTimer — managed by PlanState (core domain)
 
 /**
  * Open the detail pane and show the specified section.
@@ -3687,11 +3933,7 @@ function updateTimesheet(tasks, frontMatter = {}) {
     }
 }
 
-// Store tasks and project name for timeline re-rendering
-let timelineTasks = [];
-let timelineProjectName = '';
-let detailedTimelineEnabled = false;
-let minimalTimelineEnabled = false;
+// Timeline state — managed by PlanState (timeline domain)
 
 function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays, timelineWidth) {
     // Remove existing detailed timeline if present
@@ -4778,13 +5020,7 @@ function updateTimeline(tasks, projectName) {
     }
 }
 
-// Gantt chart state
-let ganttTasks = [];
-let ganttScale = 'days';
-let ganttMinDate = null;
-let ganttMaxDate = null;
-let ganttPixelsPerDay = 14;
-let collapsedSummaryTasks = new Set();
+// Gantt chart state — managed by PlanState (gantt domain)
 
 // Helper function to parse date strings consistently as local dates
 // This avoids timezone issues where YYYY-MM-DD is parsed as UTC
@@ -7313,11 +7549,7 @@ function downloadMarkdown() {
     showMessage(messageTarget, 'success', 'Markdown file downloaded!');
 }
 
-// Task Form Modal Functions
-let currentTask = null;  // Will hold the Task instance being edited
-let userSetStartDate = false;  // Track if user explicitly set start date
-let userSetFinishDate = false;  // Track if user explicitly set finish date
-let userSetDuration = false;  // Track if user explicitly set duration
+// Task Form Modal Functions — state managed by PlanState (taskEditor domain)
 
 // Task class to manage task state
 class Task {
@@ -9687,9 +9919,7 @@ function parseResourceDetails(planText) {
     return details;
 }
 
-// Autocomplete functionality for dependencies and resources
-let autocompleteSelectedIndex = -1;
-let resourceAutocompleteSelectedIndex = -1;
+// Autocomplete state — managed by PlanState (autocomplete domain)
 
 function getAllTaskNames() {
     const editor = document.getElementById('planEditor');
@@ -9975,9 +10205,7 @@ function selectResource(name) {
     saveTask();
 }
 
-// Dependency autocomplete functionality
-let dependencyAutocompleteSelectedIndex = -1;
-let currentDependencyInput = null;
+// Dependency autocomplete — state managed by PlanState (autocomplete domain)
 
 function handleDependencyInput(input) {
     currentDependencyInput = input;
@@ -10068,8 +10296,7 @@ function selectDependency(taskName, input, dropdownId) {
     saveTask();
 }
 
-// Label autocomplete functionality
-let labelAutocompleteSelectedIndex = -1;
+// Label autocomplete — state managed by PlanState (autocomplete domain)
 
 function getAllLabelNames() {
     const editor = document.getElementById('planEditor');
@@ -10195,8 +10422,7 @@ function selectLabel(name) {
     saveTask();
 }
 
-// Project label autocomplete functionality
-let projectLabelAutocompleteSelectedIndex = -1;
+// Project label autocomplete — state managed by PlanState (autocomplete domain)
 
 function handleProjectLabelInput() {
     const input = document.getElementById('projectLabels');
@@ -10403,9 +10629,7 @@ function toggleToolsMenu(event) {
     toggleToolsSubnavMenu(event);
 }
 
-// Templates Modal Functions
-let templatesData = null;
-let currentCategory = 'all';
+// Templates Modal Functions — state managed by PlanState (templates domain)
 
 async function openTemplatesModal() {
     const overlay = document.getElementById('templatesModalOverlay');
@@ -10783,10 +11007,7 @@ function switchOutputTab(tabName) {
     }
 }
 
-// Resizer functionality
-let isResizing = false;
-let startX = 0;
-let startWidth = 0;
+// Resizer state — managed by PlanState (resize domain)
 
 function initResizer() {
     const resizer = document.getElementById('resizer');
@@ -10825,15 +11046,7 @@ function initResizer() {
     });
 }
 
-// Gantt splitter functionality
-let isGanttResizing = false;
-let ganttStartX = 0;
-let ganttStartWidth = 0;
-
-// Editor splitter drag state
-let isEditorResizing = false;
-let editorStartX = 0;
-let editorStartWidth = 0;
+// Gantt/editor splitter state — managed by PlanState (resize domain)
 const EDITOR_DEFAULT_WIDTH_PERCENT = 35;
 const EDITOR_MIN_WIDTH = 200;
 
@@ -11504,8 +11717,7 @@ function populateResourceForm(shortname) {
     console.log('ERROR: No matching resource found for shortname:', shortname);
 }
 
-// Auto-save resource with debounce
-let resourceDebounceTimer = null;
+// Auto-save resource — debounce timer managed by PlanState (resources domain)
 
 function autoSaveResource() {
     // Clear existing timer
@@ -11794,8 +12006,7 @@ function addStakeholderRow(data = '') {
     container.appendChild(row);
 }
 
-// Auto-save project details with debounce
-let projectDetailsDebounceTimer = null;
+// Auto-save project details — timer managed by PlanState (projectDetails domain)
 
 function autoSaveProjectDetails() {
     // Clear existing timer
@@ -12069,8 +12280,7 @@ document.addEventListener('DOMContentLoaded', function() {
  * Rules are stored in the plan front matter under "Formatting:" section.
  */
 
-let conditionalFormattingRules = [];
-let cfActivePickerRowIndex = null;
+// Conditional formatting state — managed by PlanState (conditionalFormatting domain)
 
 const CF_PASTEL_COLOURS = [
     '#FFE0B2', '#FFCCBC', '#F8BBD0', '#E1BEE7', '#D1C4E9',
@@ -12594,10 +12804,7 @@ function saveConditionalFormattingRulesToFrontMatter() {
  * Tracks Risks, Actions, Issues, Decisions, and Dependencies
  */
 
-let raidItems = [];
-let raidNextId = 1;
-let raidSortColumn = 'id';
-let raidSortAsc = true;
+// RAID state — managed by PlanState (raid domain)
 
 /**
  * Clear RAID log entries from the UI and global state.
@@ -12731,7 +12938,7 @@ function deleteRaidItem(id) {
     updateReportRaid();
 }
 
-let raidItemPendingDeleteId = null;
+// raidItemPendingDeleteId — managed by PlanState (raid domain)
 
 function confirmDeleteRaidItem() {
     const idField = document.getElementById('raidItemId').value;
@@ -13326,7 +13533,7 @@ const tourSteps = [
     }
 ];
 
-let currentTourStep = 0;
+// currentTourStep — managed by PlanState (tour domain)
 
 function startTour() {
     // Check if tour has been completed
@@ -13842,9 +14049,7 @@ function triggerExcelUpload() {
     input.click();
 }
 
-let excelWizardFile = null;
-let excelWizardData = null;
-let excelWizardStep = 1;
+// Excel wizard state — managed by PlanState (excelWizard domain)
 
 async function openExcelImportWizard(file) {
     excelWizardFile = file;
@@ -14166,9 +14371,7 @@ function createLookAheadRow(task, type, today) {
 // Calendar View
 // ============================================================
 
-let calendarCurrentMonth = new Date().getMonth();
-let calendarCurrentYear = new Date().getFullYear();
-let calendarTasks = [];
+// Calendar state — managed by PlanState (calendar domain)
 
 function updateCalendar(tasks) {
     calendarTasks = (tasks || []).filter(t => !t.is_summary && t.start && t.finish);
@@ -15085,8 +15288,7 @@ function wizardImport() {
 /*
  * RAID Markdown Editor
  */
-let raidEditorIsUpdating = false;
-let raidEditorDebounceTimer = null;
+// RAID editor state — managed by PlanState (raid domain)
 
 function toggleRaidEditor() {
     const body = document.getElementById('raidEditorBody');
@@ -15165,14 +15367,7 @@ document.addEventListener('DOMContentLoaded', function() {
  * Tracks project costs, forecasts, and spending.
  */
 
-let budgetItems = [];
-let budgetNextId = 1;
-let budgetSortColumn = 'id';
-let budgetSortAsc = true;
-let budgetEditorIsUpdating = false;
-let budgetEditorDebounceTimer = null;
-let budgetSheetInstance = null;
-let budgetSheetViewActive = false;
+// Budget state — managed by PlanState (budget domain)
 
 const BUDGET_START = '---budget---';
 const BUDGET_TYPES = ['Capex', 'Opex', 'One-off'];
@@ -15273,7 +15468,7 @@ function saveBudgetItemFromForm() {
     updateReportBudgetWidget();
 }
 
-let budgetItemPendingDeleteId = null;
+// budgetItemPendingDeleteId — managed by PlanState (budget domain)
 
 function confirmDeleteBudgetItem() {
     const idField = document.getElementById('budgetItemId').value;
@@ -16282,7 +16477,7 @@ function showToast(message, type) {
  */
 
 const BASELINE_START = '---baseline---';
-let baselineItems = [];
+// baselineItems — managed by PlanState (baseline domain)
 
 /**
  * Set (or replace) the baseline from the current scheduled tasks.
@@ -16528,8 +16723,7 @@ function getBaselineLookup() {
  * Format: - @Name: Role, interest:high, influence:low
  */
 
-let stakeholderItems = [];
-let stakeholderNextId = 1;
+// Stakeholder state — managed by PlanState (stakeholders domain)
 
 /**
  * Clear stakeholder entries from the UI and global state.
@@ -17073,7 +17267,7 @@ function loadStakeholdersFromPlanText() {
  * Project highlights / reporting entries stored in the plan text.
  */
 
-let highlightsData = [];
+// highlightsData — managed by PlanState (highlights domain)
 
 /**
  * Clear highlights from the UI and global state.
@@ -17992,10 +18186,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
 // ACTIONS TRACKER SYSTEM
 // ==============================================================================
 
-// Note: Actions are stored in the global raidItems array with type='action'
-let actionsSortColumn = 'id';
-let actionsSortAsc = true;
-let actionsCurrentMonth = new Date();
+// Actions state — managed by PlanState (actions domain)
 
 /**
  * Get all action items from RAID log
@@ -18415,7 +18606,7 @@ function enableActionsBoardDragDrop() {
     });
 }
 
-let draggedAction = null;
+// draggedAction — managed by PlanState (actions domain)
 
 function handleActionDragStart(e) {
     draggedAction = e.target;
@@ -18732,8 +18923,7 @@ function closeKeyboardShortcuts() {
  * Global Keyboard Shortcuts
  * ======================================== */
 
-let pendingGoKey = false;
-let goKeyTimeout = null;
+// Keyboard shortcut state — managed by PlanState (keyboard domain)
 
 document.addEventListener('keydown', function(e) {
     // Don't trigger shortcuts when typing in inputs/textareas
