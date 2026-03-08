@@ -1306,6 +1306,10 @@ async function renderText() {
     await render(text, projectName, false, false, false, false, 'editor');
 }
 
+async function renderPlan() {
+    return renderText();
+}
+
 async function exportFile(format, prefix) {
     const text = document.getElementById('planEditor').value.trim();
 
@@ -9976,7 +9980,7 @@ function switchToProject() {
 
 // Navigate to Tracking (RAID Log with tracking subnav)
 function switchToTracking() {
-    switchTrackingSubnavToTab('raid');
+    switchTrackingSubnavToTab('actions');
     // Ensure Tracking tab is active
     document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
     const trackingTab = document.getElementById('trackingTab');

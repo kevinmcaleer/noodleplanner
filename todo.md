@@ -2,6 +2,14 @@
 
 ## In Progress
 
+### Bug Hunt: Reproduce, Localize, Fix, Prove - IN PROGRESS
+- [x] Inspect repo scripts and test configuration
+- [x] Reproduce current failing test/lint/build issue
+- [x] Localize root cause to minimal files/lines
+- [x] Implement minimal high-confidence fix
+- [x] Add/adjust focused regression test
+- [x] Re-run targeted and relevant full tests
+
 ### Fix CLAUDE.md Violations from Issues #244, #443, #123 - ✅ COMPLETED
 - [x] Cherry-pick `tests/conftest.py` shared fixtures from branch #443
 - [x] Cherry-pick Obsidian Gantt year-view fix (#210) from branch
@@ -2122,4 +2130,3 @@ A new "Planning Room" feature for structured, guided planning workflows with 3 c
 - [x] Added 5 regression tests in TestTaskNameExcludesPercent class
 
 **Status:** ✅ ALL ISSUES COMPLETED - 565 tests passing.
-

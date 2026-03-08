@@ -729,10 +729,14 @@ def analyze_workbook(file_bytes, filename):
 
             headers = [str(c) if c is not None else "" for c in rows[header_row_idx]]
             data_rows = rows[header_row_idx + 1:]
+            non_empty_data_rows = [
+                row for row in data_rows
+                if any(cell is not None and str(cell).strip() != "" for cell in row)
+            ]
 
             # Sample up to 5 data rows, converting values to strings
             sample_rows = []
-            for row in data_rows[:5]:
+            for row in non_empty_data_rows[:5]:
                 sample_row = []
                 for cell in row:
                     if cell is None:
@@ -745,7 +749,7 @@ def analyze_workbook(file_bytes, filename):
 
             sheets.append({
                 "name": sheet_name,
-                "row_count": len(data_rows),
+                "row_count": len(non_empty_data_rows),
                 "columns": headers,
                 "sample_rows": sample_rows,
             })

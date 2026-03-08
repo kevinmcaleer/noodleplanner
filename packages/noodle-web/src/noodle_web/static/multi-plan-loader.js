@@ -63,10 +63,14 @@ function updateCachedProject(projectId, updates) {
  * Load project into editor
  */
 function loadProjectIntoEditor(projectId) {
+    if (!projectId) {
+        return false;
+    }
+
     // Load fresh from localStorage, not from potentially stale cache
     const project = loadProject(projectId);
     if (!project) {
-        console.error('Project not found:', projectId);
+        console.warn('Project not found:', projectId);
         return false;
     }
 
