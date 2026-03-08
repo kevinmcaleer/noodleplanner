@@ -1873,6 +1873,151 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
     }
 }
 
+// --- Per-view update functions (JS-6 refactor, issue #567) ---
+// Each function updates a single view and can be called independently.
+// They accept a parsed result object (from /api/parse) and/or planText.
+
+function updateHighlightsFromResult(result, planText) {
+    const highlights = (result.highlights && result.highlights.length > 0)
+        ? result.highlights
+        : extractHighlightsFromText(planText);
+    updateHighlightsView(highlights);
+}
+
+function updateGlobalState(result, planText) {
+    globalResourceMap = result.resource_map || {};
+    globalResourceDetails = parseResourceDetails(planText);
+    lastRenderedTasks = result.tasks || [];
+}
+
+function updateMilestonesView(result) {
+    updateMilestonesTable(result.tasks || []);
+}
+
+function updateReportView(result) {
+    updateReportPage(result.tasks || [], result.project_name, result.front_matter || {});
+}
+
+function updateResourcesView(result) {
+    updateResourcesTable(result.tasks || []);
+}
+
+function updateTimesheetView(result) {
+    updateTimesheet(result.tasks || [], result.front_matter || {});
+}
+
+function updateTimelineView(result) {
+    updateTimeline(result.tasks || [], result.project_name);
+}
+
+function updateEmbeddedTimelinesView() {
+    updateAllEmbeddedTimelines();
+}
+
+function updateConditionalFormattingView() {
+    loadConditionalFormattingRulesFromFrontMatter();
+}
+
+function updateAnimationsView() {
+    checkAnimationsFrontMatter();
+}
+
+function updateGanttView(result) {
+    updateGantt(result.tasks || []);
+}
+
+function updateTasksView(result) {
+    updateTasksTable(result.tasks || []);
+}
+
+function updateAnalysisView(result, planText) {
+    updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
+}
+
+function updateLookAheadView(result) {
+    updateLookAhead(result.tasks || []);
+}
+
+function updateUserWorkloadView(result) {
+    updateUserWorkload(result.tasks || []);
+}
+
+function updateResourceSheetView(result) {
+    updateResourceSheet(result.tasks || [], result.front_matter || {});
+}
+
+function updateCalendarView(result) {
+    updateCalendar(result.tasks || []);
+}
+
+function updateMindmapView(result) {
+    if (typeof updateMindmap === 'function') {
+        updateMindmap(result.tasks || [], result.project_name);
+    }
+}
+
+function updateRaidView(result, planText) {
+    const raidFromApi = result.raid_items || [];
+    if (raidFromApi.length > 0) {
+        loadRaidItemsFromData(raidFromApi);
+    } else {
+        const raidFromText = extractRaidItemsFromPlanText(planText);
+        loadRaidItemsFromData(raidFromText);
+    }
+}
+
+function updateBudgetView(planText) {
+    const budgetFromText = extractBudgetItemsFromPlanText(planText);
+    loadBudgetItemsFromData(budgetFromText);
+}
+
+function updateStakeholdersView() {
+    loadStakeholdersFromPlanText();
+}
+
+function updateBaselineView(result, planText) {
+    const baselineFromApi = result.baseline_items || [];
+    if (baselineFromApi.length > 0) {
+        loadBaselineFromData(baselineFromApi);
+    } else {
+        const baselineFromText = extractBaselineFromPlanText(planText);
+        loadBaselineFromData(baselineFromText);
+    }
+}
+
+function updateEditorLabels(result, planText, generation) {
+    if (result.updated_plan_text && result.updated_plan_text !== planText) {
+        const stale = (generation !== -1 && typeof projectSwitchGeneration !== 'undefined' && projectSwitchGeneration !== generation);
+        if (!stale) {
+            const editor = document.getElementById('planEditor');
+            if (editor) {
+                setEditorValuePreservingCursor(editor, result.updated_plan_text);
+                if (editor._updateLineNumbers) editor._updateLineNumbers();
+            }
+        }
+    }
+}
+
+function syncFrontMatterTitle(result, callerProjectId) {
+    if (result.front_matter && result.front_matter.title && callerProjectId) {
+        const fmTitle = String(result.front_matter.title).trim();
+        if (fmTitle) {
+            const project = typeof loadProject === 'function' ? loadProject(callerProjectId) : null;
+            if (project && project.name !== fmTitle) {
+                renameProject(callerProjectId, fmTitle);
+                if (typeof updateProjectBreadcrumb === 'function') {
+                    updateProjectBreadcrumb(fmTitle);
+                }
+                if (typeof refreshProjectSelectors === 'function') {
+                    refreshProjectSelectors();
+                }
+            }
+        }
+    }
+}
+
+// --- End per-view update functions ---
+
 async function updateAllViews(planText, projectName) {
     // Capture the generation counter so we can detect if the user switched
     // projects while we were waiting for the /api/parse response.
@@ -1912,163 +2057,63 @@ async function updateAllViews(planText, projectName) {
         }
 
         // Sync front matter title to stored project name.
-        // Use callerProjectId (captured at call time) so a stale response
-        // never renames a different project after a switch.
-        if (result.front_matter && result.front_matter.title && callerProjectId) {
-            const fmTitle = String(result.front_matter.title).trim();
-            if (fmTitle) {
-                const project = typeof loadProject === 'function' ? loadProject(callerProjectId) : null;
-                if (project && project.name !== fmTitle) {
-                    renameProject(callerProjectId, fmTitle);
-                    updateProjectBreadcrumb(fmTitle);
-                    if (typeof refreshProjectSelectors === 'function') {
-                        refreshProjectSelectors();
-                    }
-                }
-            }
-        }
+        syncFrontMatterTitle(result, callerProjectId);
 
-        // Always update highlights first (must be before updateReportPage
-        // so highlightsData is populated when the report renders its
-        // highlights quad).  Use backend data if available, otherwise
-        // extract directly from the plan text as a fallback.
-        const highlights = (result.highlights && result.highlights.length > 0)
-            ? result.highlights
-            : extractHighlightsFromText(planText);
-        updateHighlightsView(highlights);
+        // Each view update is wrapped in try/catch so one failure does not
+        // prevent the remaining views from updating (JS-6, issue #567).
+        const viewUpdates = [
+            { name: 'highlights',              fn: () => updateHighlightsFromResult(result, planText) },
+            { name: 'globalState',             fn: () => updateGlobalState(result, planText) },
+            { name: 'milestones',              fn: () => updateMilestonesView(result) },
+            { name: 'report',                  fn: () => updateReportView(result) },
+            { name: 'resources',               fn: () => updateResourcesView(result) },
+            { name: 'timesheet',               fn: () => updateTimesheetView(result) },
+            { name: 'timeline',                fn: () => updateTimelineView(result) },
+            { name: 'embeddedTimelines',       fn: () => updateEmbeddedTimelinesView() },
+            { name: 'conditionalFormatting',   fn: () => updateConditionalFormattingView() },
+            { name: 'animations',              fn: () => updateAnimationsView() },
+            { name: 'gantt',                   fn: () => updateGanttView(result) },
+            { name: 'tasks',                   fn: () => updateTasksView(result) },
+            { name: 'analysis',                fn: () => updateAnalysisView(result, planText) },
+            { name: 'lookAhead',               fn: () => updateLookAheadView(result) },
+            { name: 'userWorkload',            fn: () => updateUserWorkloadView(result) },
+            { name: 'resourceSheet',           fn: () => updateResourceSheetView(result) },
+            { name: 'calendar',                fn: () => updateCalendarView(result) },
+            { name: 'mindmap',                 fn: () => updateMindmapView(result) },
+            { name: 'raid',                    fn: () => updateRaidView(result, planText) },
+            { name: 'budget',                  fn: () => updateBudgetView(planText) },
+            { name: 'stakeholders',            fn: () => updateStakeholdersView() },
+            { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
+            { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
+        ];
 
-        // Store resource map and tasks globally BEFORE updating tables that need them
-        globalResourceMap = result.resource_map || {};
-        globalResourceDetails = parseResourceDetails(planText);
-        lastRenderedTasks = result.tasks || [];
-
-        // Update Milestones Table
-        updateMilestonesTable(result.tasks || []);
-
-        // Update Project Report page
-        updateReportPage(result.tasks || [], result.project_name, result.front_matter || {});
-
-        // Update Resources Table (needs globalResourceMap to be set first)
-        updateResourcesTable(result.tasks || []);
-
-        // Update Timesheet
-        updateTimesheet(result.tasks || [], result.front_matter || {});
-
-        // Update Timeline
-        updateTimeline(result.tasks || [], result.project_name);
-
-        // Update embedded timelines in tasks and gantt views
-        updateAllEmbeddedTimelines();
-
-        // Load conditional formatting rules before rendering
-        loadConditionalFormattingRulesFromFrontMatter();
-
-        // Check animations front matter toggle
-        checkAnimationsFrontMatter();
-
-        // Update Gantt Chart
-        updateGantt(result.tasks || []);
-
-        // Update Tasks Table
-        updateTasksTable(result.tasks || []);
-
-        // Update Analysis (pass planText directly since front_matter might be an object)
-        updateAnalysis(planText, result.tasks || [], planText, result.resource_map || {});
-
-        // Update 2-Week Look-Ahead
-        updateLookAhead(result.tasks || []);
-
-        // Update User Workload
-        updateUserWorkload(result.tasks || []);
-
-        // Update Resource Sheet
-        updateResourceSheet(result.tasks || [], result.front_matter || {});
-
-        // Update Calendar
-        updateCalendar(result.tasks || []);
-
-        // Update Mind Map
-        if (typeof updateMindmap === 'function') {
-            updateMindmap(result.tasks || [], result.project_name);
-        }
-
-        // Load RAID items from backend data, with client-side fallback
-        const raidFromApi = result.raid_items || [];
-        if (raidFromApi.length > 0) {
-            loadRaidItemsFromData(raidFromApi);
-        } else {
-            const raidFromText = extractRaidItemsFromPlanText(planText);
-            loadRaidItemsFromData(raidFromText);
-        }
-
-        // Load budget items from plan text
-        try {
-            const budgetFromText = extractBudgetItemsFromPlanText(planText);
-            loadBudgetItemsFromData(budgetFromText);
-        } catch (e) {
-            console.error('Failed to load budget items:', e);
-        }
-
-        // Load stakeholders from front matter
-        try {
-            loadStakeholdersFromPlanText();
-        } catch (e) {
-            console.error('Failed to load stakeholders:', e);
-        }
-
-        // Load baseline items from backend data, with client-side fallback
-        const baselineFromApi = result.baseline_items || [];
-        if (baselineFromApi.length > 0) {
-            loadBaselineFromData(baselineFromApi);
-        } else {
-            const baselineFromText = extractBaselineFromPlanText(planText);
-            loadBaselineFromData(baselineFromText);
-        }
-
-        // Update editor with labels if backend found and added them.
-        // Guard against stale responses overwriting a different project's text.
-        if (result.updated_plan_text && result.updated_plan_text !== planText) {
-            const stale = (generation !== -1 && typeof projectSwitchGeneration !== 'undefined' && projectSwitchGeneration !== generation);
-            if (!stale) {
-                const editor = document.getElementById('planEditor');
-                if (editor) {
-                    setEditorValuePreservingCursor(editor, result.updated_plan_text);
-                    if (editor._updateLineNumbers) editor._updateLineNumbers();
-                }
+        for (const { name, fn } of viewUpdates) {
+            try {
+                fn();
+            } catch (e) {
+                console.error(`Failed to update ${name} view:`, e);
             }
         }
 
     } catch (error) {
         console.error('Error updating views:', error);
-        // Fallback: extract highlights and RAID items from plan text on the
-        // client side so those tabs are populated even when parsing fails.
-        try {
-            updateHighlightsView(extractHighlightsFromText(planText));
-        } catch (e) {
-            console.error('Failed to extract highlights as fallback:', e);
-        }
-        try {
-            loadRaidItemsFromData(extractRaidItemsFromPlanText(planText));
-        } catch (e) {
-            console.error('Failed to extract RAID items as fallback:', e);
-        }
-        try {
-            loadBudgetItemsFromData(extractBudgetItemsFromPlanText(planText));
-        } catch (e) {
-            console.error('Failed to extract budget items as fallback:', e);
-        }
-        try {
-            loadStakeholdersFromPlanText();
-        } catch (e) {
-            console.error('Failed to load stakeholders as fallback:', e);
-        }
-        // Clear mind map so it doesn't show stale data when parsing fails
-        try {
-            if (typeof updateMindmap === 'function') {
-                updateMindmap([]);
+        // Fallback: extract highlights, RAID, budget, stakeholders from plan
+        // text on the client side so those tabs are populated even when
+        // parsing fails.
+        const fallbacks = [
+            { name: 'highlights',    fn: () => updateHighlightsView(extractHighlightsFromText(planText)) },
+            { name: 'raid',          fn: () => loadRaidItemsFromData(extractRaidItemsFromPlanText(planText)) },
+            { name: 'budget',        fn: () => loadBudgetItemsFromData(extractBudgetItemsFromPlanText(planText)) },
+            { name: 'stakeholders',  fn: () => loadStakeholdersFromPlanText() },
+            { name: 'mindmap',       fn: () => { if (typeof updateMindmap === 'function') updateMindmap([]); } },
+        ];
+
+        for (const { name, fn } of fallbacks) {
+            try {
+                fn();
+            } catch (e) {
+                console.error(`Failed to run ${name} fallback:`, e);
             }
-        } catch (e) {
-            console.error('Failed to clear mind map as fallback:', e);
         }
     }
 }
