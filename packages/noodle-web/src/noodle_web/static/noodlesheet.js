@@ -878,14 +878,17 @@ class NoodleSheet {
         editor.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                e.stopPropagation();
                 this._commitEdit(editor.value);
                 this._moveSelection(1, 0);
             } else if (e.key === 'Tab') {
                 e.preventDefault();
+                e.stopPropagation();
                 this._commitEdit(editor.value);
                 this._moveSelection(0, e.shiftKey ? -1 : 1);
             } else if (e.key === 'Escape') {
                 e.preventDefault();
+                e.stopPropagation();
                 this._cancelEdit();
             }
         });
