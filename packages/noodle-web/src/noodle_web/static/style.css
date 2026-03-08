@@ -21,7 +21,9 @@
     --np-dark-blue-subtle: #cfe0e7;
 
     /* Animation timing */
-    --np-anim-duration: 0.4s;
+    --np-anim-duration-fast: 0.15s;
+    --np-anim-duration: 0.2s;
+    --np-anim-duration-slow: 0.4s;
     --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -46,7 +48,7 @@
     z-index: 9999;
     font-weight: 600;
     text-decoration: none;
-    transition: top 0.2s;
+    transition: top var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .skip-to-content:focus {
@@ -139,7 +141,7 @@ svg.icon {
     font-size: 1em;
     color: #666;
     border-bottom: 3px solid transparent;
-    transition: all 0.3s;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .tab:hover {
@@ -263,7 +265,7 @@ svg.icon {
     max-width: 70%;
     overflow: hidden;
     background: #1e1e1e;
-    transition: width 0.3s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .editor-panel.collapsed {
@@ -302,7 +304,7 @@ svg.icon {
     cursor: col-resize;
     position: relative;
     flex-shrink: 0;
-    transition: width 0.3s ease, background 0.2s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing), background var(--np-anim-duration) var(--np-anim-easing);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -334,7 +336,7 @@ svg.icon {
     height: 4px;
     border-radius: 50%;
     background: #999;
-    transition: background 0.2s ease;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .editor-splitter:hover .splitter-grip-dot {
@@ -380,7 +382,7 @@ svg.icon {
     font-size: 0.85em;
     cursor: pointer;
     border-radius: 4px;
-    transition: background 0.15s, color 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing), color var(--np-anim-duration-fast) var(--np-anim-easing);
     white-space: nowrap;
     line-height: 1;
 }
@@ -574,7 +576,7 @@ svg.icon {
 
 .up-next-row-clickable {
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .up-next-row-clickable:hover {
@@ -631,7 +633,7 @@ svg.icon {
 .resources-table .resource-name {
     font-weight: 500;
     color: #333;
-    transition: color 0.2s, background 0.2s;
+    transition: color var(--np-anim-duration) var(--np-anim-easing), background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .resources-table .resource-name:hover {
@@ -673,7 +675,7 @@ svg.icon {
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), border-color var(--np-anim-duration) var(--np-anim-easing);
     line-height: 0;
     color: #999;
 }
@@ -688,7 +690,7 @@ svg.icon {
     color: #667eea;
     font-family: monospace;
     font-size: 0.9em;
-    transition: color 0.2s, background 0.2s;
+    transition: color var(--np-anim-duration) var(--np-anim-easing), background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .resources-table .resource-shortname:hover {
@@ -984,7 +986,7 @@ svg.icon {
     background: white;
     z-index: 5;
     border-right: 2px solid #e0e0e0;
-    transition: color 0.2s;
+    transition: color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .timesheet-table td.timesheet-resource-name:hover {
@@ -1148,7 +1150,7 @@ svg.icon {
 
 .embedded-timeline-toggle .toggle-icon {
     display: inline-block;
-    transition: transform 0.2s;
+    transition: transform var(--np-anim-duration) var(--np-anim-easing);
     font-size: 0.7rem;
 }
 
@@ -1251,15 +1253,15 @@ svg.icon {
 
 .donut-chart-svg .donut-arc {
     transform-origin: 50px 50px; /* center of 100x100 SVG */
-    animation: donutArcReveal 0.4s ease-out both;
+    animation: donutArcReveal var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 .donut-chart-svg .donut-ring-animated {
-    animation: donutRingDraw 0.6s ease-out both;
+    animation: donutRingDraw var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 .donut-chart-svg .donut-center-text {
-    animation: donutTextFadeIn 0.4s ease-out 0.3s both;
+    animation: donutTextFadeIn var(--np-anim-duration-slow) var(--np-anim-easing) 0.3s both;
 }
 
 .donut-chart-legend {
@@ -1351,7 +1353,7 @@ svg.icon {
     border-radius: 4px;
     padding: 2px 8px;
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), border-color var(--np-anim-duration) var(--np-anim-easing);
     color: #999;
     font-size: 1.1em;
     line-height: 1;
@@ -1430,7 +1432,7 @@ svg.icon {
     cursor: pointer;
     border-radius: 6px;
     padding: 8px;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .report-highlight-card.clickable:hover {
@@ -1529,7 +1531,7 @@ svg.icon {
     background: linear-gradient(to right, #28a745, #20c997); /* Green gradient for progress */
     z-index: 1;
     border-radius: 2px 0 0 2px;
-    transition: width 0.5s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
     box-shadow: 0 0 8px rgba(40, 167, 69, 0.5);
 }
 
@@ -1543,7 +1545,7 @@ svg.icon {
     position: absolute;
     top: -2px; /* Moved up by 2px from center */
     transform: translateX(-50%) translateY(-50%);
-    transition: transform 0.2s ease;
+    transition: transform var(--np-anim-duration) var(--np-anim-easing);
     z-index: 10; /* Above timeline line and progress bar */
 }
 
@@ -1578,7 +1580,7 @@ svg.icon {
     border: none;
     box-shadow: none; /* Remove drop shadow */
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
     position: relative;
     z-index: 2;
 }
@@ -1599,7 +1601,7 @@ svg.icon {
     height: 20px;
     margin: 0 auto;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
     position: relative;
     z-index: 3;
     display: flex;
@@ -1742,23 +1744,23 @@ svg.icon {
 }
 
 .detailed-timeline-svg .timeline-phase-animated {
-    animation: timelinePhaseSlideIn 0.4s ease-out both;
+    animation: timelinePhaseSlideIn var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 .minimal-timeline-svg .timeline-phase-animated {
-    animation: timelinePhaseSlideIn 0.4s ease-out both;
+    animation: timelinePhaseSlideIn var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 .timeline-milestone.timeline-milestone-animated {
-    animation: timelineMilestonePopIn 0.4s ease-out both;
+    animation: timelineMilestonePopIn var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 .minimal-milestone.timeline-milestone-animated {
-    animation: timelineMinimalMilestonePopIn 0.4s ease-out both;
+    animation: timelineMinimalMilestonePopIn var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 .timeline-progress.timeline-progress-animated {
-    animation: timelineProgressGrow 0.5s ease-out both;
+    animation: timelineProgressGrow var(--np-anim-duration-slow) var(--np-anim-easing) both;
 }
 
 /* Respect reduced motion preference */
@@ -1804,7 +1806,7 @@ svg.icon {
     border: 1px solid #fff;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
     cursor: pointer;
-    transition: transform 0.15s ease;
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .minimal-milestone-marker:hover {
@@ -1927,7 +1929,7 @@ svg.icon {
     color: #2c3e50;
     font-size: 0.95em;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .gantt-scale-selector select:hover {
@@ -2111,7 +2113,7 @@ svg.icon {
     cursor: pointer;
     display: inline-block;
     font-size: 0.7em;
-    transition: transform 0.15s ease;
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
     user-select: none;
     width: 1em;
     text-align: center;
@@ -2179,7 +2181,7 @@ svg.icon {
     top: 6px;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     overflow: visible;
 }
 
@@ -2371,7 +2373,7 @@ svg.icon {
     font-size: 0.9rem;
     z-index: 10000;
     opacity: 0;
-    transition: opacity 0.3s, transform 0.3s;
+    transition: opacity var(--np-anim-duration-slow) var(--np-anim-easing), transform var(--np-anim-duration-slow) var(--np-anim-easing);
     pointer-events: none;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -2475,7 +2477,7 @@ svg.icon {
     border-radius: 3px;
     cursor: pointer;
     font-size: 1em;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2530,7 +2532,7 @@ svg.icon {
     color: #333;
     font-size: 0.85em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
     max-width: 180px;
 }
 
@@ -2561,7 +2563,7 @@ svg.icon {
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9em;
-    transition: background 0.3s;
+    transition: background var(--np-anim-duration-slow) var(--np-anim-easing);
     display: flex;
     align-items: center;
     gap: 5px;
@@ -2577,7 +2579,7 @@ svg.icon {
     padding: 40px;
     text-align: center;
     background: #f8f9ff;
-    transition: all 0.3s;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
     cursor: pointer;
 }
 
@@ -2991,7 +2993,7 @@ input[type="checkbox"] {
     border-radius: 5px;
     font-size: 1.1em;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform var(--np-anim-duration) var(--np-anim-easing), box-shadow var(--np-anim-duration) var(--np-anim-easing);
     width: 100%;
     margin-top: 20px;
 }
@@ -3611,7 +3613,7 @@ input[type="checkbox"] {
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
-    animation: slideIn 0.3s ease-out;
+    animation: slideIn var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 @keyframes slideIn {
@@ -3654,7 +3656,7 @@ input[type="checkbox"] {
     z-index: 1020;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
     transform: translateX(100%);
-    transition: transform 0.3s ease;
+    transition: transform var(--np-anim-duration-slow) var(--np-anim-easing);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -3700,7 +3702,7 @@ input[type="checkbox"] {
     padding: 5px;
     border-radius: 4px;
     min-height: 1.2em;
-    transition: background-color 0.2s;
+    transition: background-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .detail-pane-title:hover {
@@ -3943,7 +3945,7 @@ body.detail-pane-open {
 .inspector-progress-bar-fill {
     height: 100%;
     border-radius: 6px;
-    transition: width 0.3s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .inspector-progress-bar-fill.green { background: #4caf50; }
@@ -3982,7 +3984,7 @@ body.detail-pane-open {
     padding: 2px 4px;
     border-radius: 4px;
     opacity: 0.5;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
 }
 
 tr:hover .task-inspect-btn {
@@ -4003,7 +4005,7 @@ tr:hover .task-inspect-btn {
     padding: 2px 6px;
     border-radius: 4px;
     opacity: 0.4;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
     color: #6c757d;
     line-height: 1;
     letter-spacing: 2px;
@@ -4062,7 +4064,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.9em;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
     text-align: left;
     white-space: nowrap;
 }
@@ -4236,7 +4238,7 @@ tr:hover .task-context-btn,
     border-radius: 4px;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: transform 0.1s ease, border-color 0.1s ease;
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing), border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .cf-colour-grid .cf-colour-option:hover {
@@ -4264,7 +4266,7 @@ tr:hover .task-context-btn,
     font-size: 1.5em;
     padding: 5px;
     border-radius: 4px;
-    transition: background-color 0.2s;
+    transition: background-color var(--np-anim-duration) var(--np-anim-easing);
     color: inherit;
     min-height: 1.2em;
 }
@@ -4295,7 +4297,7 @@ tr:hover .task-context-btn,
     align-items: center;
     justify-content: center;
     border-radius: 5px;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .close-btn:hover {
@@ -4361,7 +4363,7 @@ tr:hover .task-context-btn,
     font-family: inherit;
     background: white;
     color: black;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .form-group input:focus,
@@ -4466,7 +4468,7 @@ tr:hover .task-context-btn,
     border-radius: 5px;
     font-size: 1em;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform var(--np-anim-duration) var(--np-anim-easing), box-shadow var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-primary:hover {
@@ -4492,7 +4494,7 @@ tr:hover .task-context-btn,
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     margin-bottom: 6px;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .subtask-item:last-child {
@@ -4663,7 +4665,7 @@ tr:hover .task-context-btn,
     align-items: center;
     gap: 6px;
     cursor: pointer;
-    transition: color 0.2s;
+    transition: color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .add-item-link:hover {
@@ -4680,7 +4682,7 @@ tr:hover .task-context-btn,
     font-size: 18px;
     font-weight: bold;
     color: #108bb9;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .add-item-link:hover .add-icon {
@@ -4699,7 +4701,7 @@ tr:hover .task-context-btn,
     border-radius: 5px;
     font-size: 1em;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-secondary:hover {
@@ -4715,7 +4717,7 @@ tr:hover .task-context-btn,
     font-weight: 600;
     cursor: pointer;
     padding: 0;
-    transition: color 0.2s;
+    transition: color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-link:hover {
@@ -4851,7 +4853,7 @@ tr:hover .task-context-btn,
     display: flex;
     flex-direction: column;
     background: #1e1e1e;
-    transition: width 0.3s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
     overflow: hidden;
     flex-shrink: 0; /* Prevent shrinking when content changes */
 }
@@ -4867,7 +4869,7 @@ tr:hover .task-context-btn,
     cursor: col-resize;
     position: relative;
     flex-shrink: 0;
-    transition: width 0.3s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .kanban-splitter.collapsed {
@@ -4891,7 +4893,7 @@ tr:hover .task-context-btn,
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     opacity: 0;
 }
 
@@ -4973,7 +4975,7 @@ tr:hover .task-context-btn,
     border-radius: 6px;
     font-weight: 500;
     z-index: 10;
-    transition: opacity 0.3s;
+    transition: opacity var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .kanban-message-success {
@@ -5035,7 +5037,7 @@ tr:hover .task-context-btn,
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     height: 100%;
     max-height: 100%;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .kanban-column.draggable-column {
@@ -5105,7 +5107,7 @@ tr:hover .task-context-btn,
     padding: 0 5px;
     margin-left: 8px;
     opacity: 0.7;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .kanban-column-delete:hover {
@@ -5124,7 +5126,7 @@ tr:hover .task-context-btn,
     padding: 0 4px;
     margin-left: 8px;
     opacity: 0.7;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
     color: inherit;
 }
 
@@ -5166,7 +5168,7 @@ tr:hover .task-context-btn,
     color: #495057;
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .theme-colour-clear-btn:hover {
@@ -5217,7 +5219,7 @@ tr:hover .task-context-btn,
     color: #6c757d;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .kanban-add-card-btn:hover {
@@ -5255,7 +5257,7 @@ tr:hover .task-context-btn,
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .kanban-add-column-btn:hover {
@@ -5279,7 +5281,7 @@ tr:hover .task-context-btn,
     padding: 12px;
     margin-bottom: 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     border: 1px solid #e9ecef;
     position: relative;
 }
@@ -5341,7 +5343,7 @@ tr:hover .task-context-btn,
     border: 2px solid #adb5bd;
     border-radius: 50%;
     background: white;
-    transition: all 0.15s ease;
+    transition: all var(--np-anim-duration-fast) var(--np-anim-easing);
     flex-shrink: 0;
 }
 
@@ -5372,7 +5374,7 @@ tr:hover .task-context-btn,
     background: conic-gradient(#28a745 0% var(--percent), #e0e0e0 var(--percent) 100%);
     cursor: pointer;
     flex-shrink: 0;
-    transition: transform 0.15s ease;
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
     position: relative;
 }
 
@@ -5657,7 +5659,7 @@ tr:hover .task-context-btn,
     color: #667eea;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .kanban-add-task-btn:hover {
@@ -5738,7 +5740,7 @@ tr:hover .task-context-btn,
     border-radius: 8px;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7),
                 0 0 20px rgba(16, 139, 185, 0.8);
-    transition: all 0.4s ease;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
     pointer-events: none;
     z-index: 10001;
 }
@@ -5751,7 +5753,7 @@ tr:hover .task-context-btn,
     max-width: 400px;
     min-width: 300px;
     z-index: 10002;
-    transition: all 0.4s ease;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .tour-popup-content {
@@ -5791,7 +5793,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .tour-actions .btn-secondary {
@@ -5852,7 +5854,7 @@ tr:hover .task-context-btn,
     padding: 4px 10px;
     font-size: 12px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
     margin-top: 6px;
     display: flex;
     align-items: center;
@@ -5975,7 +5977,7 @@ tr:hover .task-context-btn,
     padding: 8px 20px;
     font-size: 0.95em;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     margin-top: 15px;
 }
 
@@ -6055,7 +6057,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 0.9em;
     font-weight: 600;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .raid-toolbar .btn-primary:hover {
@@ -6071,7 +6073,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 0.9em;
     font-weight: 500;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .raid-toolbar .btn-secondary:hover {
@@ -6141,7 +6143,7 @@ tr:hover .task-context-btn,
     white-space: nowrap;
     user-select: none;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .raid-table th:hover {
@@ -6245,7 +6247,7 @@ tr:hover .task-context-btn,
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 1em;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .raid-action-btn:hover {
@@ -6265,7 +6267,7 @@ tr:hover .task-context-btn,
     font-weight: bold;
     border-radius: 5px;
     border: 2px solid #e0e0e0;
-    transition: all 0.3s;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .raid-score-display.score-low { background: #d3f9d8; color: #2b8a3e; border-color: #2b8a3e; }
@@ -6349,7 +6351,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-editor-body {
-    transition: max-height 0.3s ease, opacity 0.3s ease;
+    transition: max-height var(--np-anim-duration-slow) var(--np-anim-easing), opacity var(--np-anim-duration-slow) var(--np-anim-easing);
     max-height: 400px;
     opacity: 1;
     overflow: hidden;
@@ -6600,7 +6602,7 @@ tr:hover .task-context-btn,
     padding: 4px 6px;
     border-radius: 4px;
     opacity: 0.6;
-    transition: opacity 0.15s;
+    transition: opacity var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .highlight-action-btn:hover {
@@ -6931,7 +6933,7 @@ tr:hover .task-context-btn,
     font-size: 16px;
     font-weight: 500;
     color: #6c757d;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     margin-bottom: -2px;
 }
 
@@ -7356,7 +7358,7 @@ tr:hover .task-context-btn,
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    transition: all 0.2s ease;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .templates-header .close-btn:hover {
@@ -7425,7 +7427,7 @@ tr:hover .task-context-btn,
     padding: 10px 20px;
     color: #666;
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     border-left: 3px solid transparent;
     font-size: 0.9rem;
 }
@@ -7475,7 +7477,7 @@ tr:hover .task-context-btn,
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid #e0e0e0;
-    transition: all 0.3s ease;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
     cursor: pointer;
 }
 
@@ -7495,7 +7497,7 @@ tr:hover .task-context-btn,
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    transition: transform var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .template-card:hover .template-hero img {
@@ -7557,7 +7559,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .template-use-btn:hover {
@@ -7793,7 +7795,7 @@ tr:hover .task-context-btn,
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: all 0.2s ease;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .templates-modal-close:hover {
@@ -7858,7 +7860,7 @@ tr:hover .task-context-btn,
     border: 2px solid #e0e0e0;
     border-radius: 12px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all var(--np-anim-duration-slow) var(--np-anim-easing);
     cursor: pointer;
     position: relative;
 }
@@ -7951,7 +7953,7 @@ tr:hover .task-context-btn,
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     font-size: 0.9rem;
 }
 
@@ -8088,7 +8090,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-size: 0.9em;
     line-height: 1.4;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .calendar-nav-btn:hover {
@@ -8124,7 +8126,7 @@ tr:hover .task-context-btn,
     overflow: hidden;
     position: relative;
     height: 100%;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition: transform var(--np-anim-duration-slow) var(--np-anim-easing), opacity var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .calendar-day-header {
@@ -8144,7 +8146,7 @@ tr:hover .task-context-btn,
     padding: 4px 6px;
     position: relative;
     vertical-align: top;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .calendar-day-cell:hover {
@@ -8225,7 +8227,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     padding: 1px 4px;
     text-align: left;
-    transition: color 0.15s;
+    transition: color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .calendar-more-btn:hover {
@@ -8254,7 +8256,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .calendar-day-cell:hover .calendar-add-btn {
@@ -8328,7 +8330,7 @@ tr:hover .task-context-btn,
     cursor: pointer;
     font-weight: 500;
     color: #555;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .actions-view-tab:hover {
@@ -8506,7 +8508,7 @@ tr:hover .task-context-btn,
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9em;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .actions-action-btn:hover {
@@ -8573,7 +8575,7 @@ tr:hover .task-context-btn,
     padding: 15px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     cursor: grab;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .actions-board-card:hover {
@@ -8599,7 +8601,7 @@ tr:hover .task-context-btn,
     font-size: 1em;
     padding: 4px 8px;
     border-radius: 4px;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .actions-card-menu:hover {
@@ -8666,7 +8668,7 @@ tr:hover .task-context-btn,
     height: 40px;
     font-size: 1.5em;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .actions-calendar-nav:hover {
@@ -8716,7 +8718,7 @@ tr:hover .task-context-btn,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .actions-calendar-item:hover {
@@ -8852,7 +8854,7 @@ tr:hover .task-context-btn,
     border-radius: 6px;
     color: #6c757d;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-more-btn:hover {
@@ -8891,7 +8893,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.9em;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
     text-align: left;
 }
 
@@ -8939,7 +8941,7 @@ tr:hover .task-context-btn,
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     border: 2px solid transparent;
 }
 
@@ -9008,7 +9010,7 @@ tr:hover .task-context-btn,
     font-size: 0.95em;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-primary:hover {
@@ -9026,7 +9028,7 @@ tr:hover .task-context-btn,
     font-size: 0.95em;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-secondary:hover {
@@ -9043,7 +9045,7 @@ tr:hover .task-context-btn,
     font-size: 0.95em;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-danger:hover {
@@ -9071,7 +9073,7 @@ tr:hover .task-context-btn,
     font-size: 0.85em;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     white-space: nowrap;
 }
 
@@ -9123,7 +9125,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.95em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-status-filters select:focus {
@@ -9155,7 +9157,7 @@ tr:hover .task-context-btn,
     border-bottom: 2px solid #e0e0e0;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-status-table th:hover {
@@ -9169,7 +9171,7 @@ tr:hover .task-context-btn,
 
 .portfolio-status-table tbody tr {
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-status-table tbody tr:hover {
@@ -9249,7 +9251,7 @@ tr:hover .task-context-btn,
     height: 100%;
     background: linear-gradient(90deg, #667eea, #764ba2);
     border-radius: 12px;
-    transition: width 0.3s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .progress-text {
@@ -9380,7 +9382,7 @@ tr:hover .task-context-btn,
     border-bottom: 2px solid #e0e0e0;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-resources-table th:hover {
@@ -9393,7 +9395,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-resources-table tbody tr {
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-resources-table tbody tr:hover {
@@ -9470,7 +9472,7 @@ tr:hover .task-context-btn,
     font-size: 0.85em;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .btn-small:hover {
@@ -9518,7 +9520,7 @@ tr:hover .task-context-btn,
     align-items: center;
     justify-content: center;
     border-radius: 5px;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .resource-details-content .close-btn:hover {
@@ -9669,7 +9671,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.95em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .timeline-controls select:focus {
@@ -9767,7 +9769,7 @@ tr:hover .task-context-btn,
     display: flex;
     margin-bottom: 5px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
     border-radius: 4px;
 }
 
@@ -9798,7 +9800,7 @@ tr:hover .task-context-btn,
     height: 30px;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     overflow: hidden;
 }
 
@@ -9979,7 +9981,7 @@ tr:hover .task-context-btn,
 .portfolio-projects-table th.sortable {
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-projects-table th.sortable:hover {
@@ -9996,7 +9998,7 @@ tr:hover .task-context-btn,
 
 .project-table-row {
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .project-table-row:hover {
@@ -10053,7 +10055,7 @@ tr:hover .task-context-btn,
     padding: 5px 7px;
     cursor: pointer;
     color: #6c757d;
-    transition: all 0.2s;
+    transition: all var(--np-anim-duration) var(--np-anim-easing);
     margin: 0 2px;
     vertical-align: middle;
     line-height: 1;
@@ -10235,7 +10237,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.95em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-actions-filters select:focus {
@@ -10267,7 +10269,7 @@ tr:hover .task-context-btn,
     border-bottom: 2px solid #e0e0e0;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-actions-table th:hover {
@@ -10281,7 +10283,7 @@ tr:hover .task-context-btn,
 
 .portfolio-actions-table tbody tr {
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-actions-table tbody tr:hover {
@@ -10381,7 +10383,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.95em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-risks-filters select:focus {
@@ -10403,7 +10405,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.95em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-risks-new select:focus {
@@ -10420,7 +10422,7 @@ tr:hover .task-context-btn,
     font-size: 0.95em;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
     white-space: nowrap;
 }
 
@@ -10452,7 +10454,7 @@ tr:hover .task-context-btn,
     border-bottom: 2px solid #e0e0e0;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-risks-table th:hover {
@@ -10466,7 +10468,7 @@ tr:hover .task-context-btn,
 
 .portfolio-risks-table tbody tr {
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-risks-table tbody tr:hover {
@@ -10600,7 +10602,7 @@ tr:hover .task-context-btn,
     color: #333;
     font-size: 0.95em;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color var(--np-anim-duration) var(--np-anim-easing);
     min-height: 44px;
 }
 
@@ -10662,7 +10664,7 @@ tr:hover .task-context-btn,
     border-bottom: 2px solid #e0e0e0;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-lookahead-table th:hover {
@@ -10676,7 +10678,7 @@ tr:hover .task-context-btn,
 
 .portfolio-lookahead-table tbody tr {
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .portfolio-lookahead-table tbody tr:hover {
@@ -10820,7 +10822,7 @@ tr:hover .task-context-btn,
     font-size: 0.8em;
     font-weight: 600;
     color: #333;
-    transition: transform 0.15s;
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .resource-heatmap-cell:hover {
@@ -10897,7 +10899,7 @@ tr:hover .task-context-btn,
     height: 16px;
     border-radius: 3px;
     opacity: 0.85;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .resource-task-bar:hover {
@@ -10941,7 +10943,7 @@ tr:hover .task-context-btn,
 /* Swimlane SVG phase bars */
 .swimlane-phase-bar {
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .swimlane-phase-bar:hover {
@@ -10950,7 +10952,7 @@ tr:hover .task-context-btn,
 
 .swimlane-milestone-dot {
     cursor: pointer;
-    transition: r 0.15s;
+    transition: r var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .swimlane-milestone-dot:hover {
@@ -11061,7 +11063,7 @@ tr:hover .task-context-btn,
     background: var(--mm-btn-bg);
     color: var(--mm-btn-text);
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing), border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mindmap-toolbar-btn:hover {
@@ -11097,7 +11099,7 @@ tr:hover .task-context-btn,
     background: var(--mm-btn-bg);
     color: var(--mm-btn-text);
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing), border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mindmap-theme-toggle:hover {
@@ -11160,7 +11162,7 @@ tr:hover .task-context-btn,
 }
 
 .mm-node rect:first-of-type {
-    transition: filter 0.15s;
+    transition: filter var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mm-node:hover rect:first-of-type {
@@ -11170,7 +11172,7 @@ tr:hover .task-context-btn,
 /* Plus button: hidden by default, shown on hover */
 .mm-plus-btn {
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
     cursor: pointer;
 }
 
@@ -11184,13 +11186,13 @@ tr:hover .task-context-btn,
 
 /* Selection ring */
 .mm-selection {
-    transition: opacity 0.15s;
+    transition: opacity var(--np-anim-duration-fast) var(--np-anim-easing);
     pointer-events: none;
 }
 
 /* Link hover */
 .mm-link {
-    transition: opacity 0.15s, stroke-width 0.15s;
+    transition: opacity var(--np-anim-duration-fast) var(--np-anim-easing), stroke-width var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mm-link:hover {
@@ -11208,7 +11210,7 @@ tr:hover .task-context-btn,
 .mm-collapse-btn {
     cursor: pointer;
     opacity: 0.6;
-    transition: opacity 0.15s;
+    transition: opacity var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mm-node:hover .mm-collapse-btn,
@@ -11217,7 +11219,7 @@ tr:hover .task-context-btn,
 }
 
 .mm-collapse-btn path:first-of-type {
-    transition: fill 0.15s;
+    transition: fill var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mm-collapse-btn:hover path:first-of-type {
@@ -11297,7 +11299,7 @@ tr:hover .task-context-btn,
     border-radius: 6px;
     border: 2px solid #555;
     cursor: pointer;
-    transition: border-color 0.15s, transform 0.1s;
+    transition: border-color var(--np-anim-duration-fast) var(--np-anim-easing), transform var(--np-anim-duration-fast) var(--np-anim-easing);
     background: #4A90D9;
     padding: 0;
 }
@@ -11343,7 +11345,7 @@ tr:hover .task-context-btn,
     border-radius: 4px;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: transform 0.1s ease, border-color 0.1s ease;
+    transition: transform var(--np-anim-duration-fast) var(--np-anim-easing), border-color var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mm-colour-swatch-option:hover {
@@ -11367,7 +11369,7 @@ tr:hover .task-context-btn,
     color: #ccc;
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--np-anim-duration-fast) var(--np-anim-easing);
 }
 
 .mm-colour-clear-btn:hover {
@@ -11536,7 +11538,7 @@ body.no-animations .np-fade-in {
     width: 100%;
     max-height: 80vh;
     overflow-y: auto;
-    animation: slideIn 0.3s ease-out;
+    animation: slideIn var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .shortcuts-modal-header {
@@ -11814,7 +11816,7 @@ body.no-animations .np-fade-in {
     color: #667eea;
     font-size: 0.85em;
     cursor: pointer;
-    transition: background 0.2s, color 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .budget-view-toggle:hover {
@@ -11882,7 +11884,7 @@ body.no-animations .np-fade-in {
     white-space: nowrap;
     user-select: none;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .budget-table th:hover {
@@ -11931,7 +11933,7 @@ body.no-animations .np-fade-in {
     border-radius: 3px;
     min-width: 44px;
     min-height: 44px;
-    transition: background 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .budget-action-btn:hover {
@@ -12018,7 +12020,7 @@ body.no-animations .np-fade-in {
 
 .budget-editor-toggle {
     font-size: 0.8em;
-    transition: transform 0.2s;
+    transition: transform var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .budget-editor-title {
@@ -12058,7 +12060,7 @@ body.no-animations .np-fade-in {
 .budget-editor-body {
     max-height: 300px;
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    transition: max-height var(--np-anim-duration-slow) var(--np-anim-easing);
 }
 
 .budget-editor-body.collapsed {
@@ -12141,7 +12143,7 @@ body.no-animations .np-fade-in {
 .budget-widget-bar {
     height: 100%;
     border-radius: 4px;
-    transition: width 0.5s ease, background 0.3s ease;
+    transition: width var(--np-anim-duration-slow) var(--np-anim-easing), background var(--np-anim-duration-slow) var(--np-anim-easing);
     background: #059669;
 }
 
