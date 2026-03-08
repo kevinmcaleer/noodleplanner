@@ -2,7 +2,6 @@ import os
 import io
 import re
 import hashlib
-import tempfile
 import logging
 import zipfile
 import yaml
@@ -45,6 +44,7 @@ from noodle_core import (
 )
 from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
+from .plan_service import PlanService, export_to_file
 from .middleware import ActivityLoggingMiddleware
 from .database import init_db, test_connection
 from .security import (
@@ -129,9 +129,6 @@ def _sanitized_detail(message: str, error: Exception) -> str:
 def export_to_file(export_fn, suffix, read_mode='rb'):
     """Run an export function that writes to a temp file and return the content.
 
-    This eliminates the repeated try/finally temp-file pattern (BE-1 from
-    the refactoring plan).
-
     Args:
         export_fn: Callable that accepts a file path and writes to it.
         suffix: File extension for the temp file (e.g. '.xlsx', '.csv').
@@ -152,6 +149,7 @@ def export_to_file(export_fn, suffix, read_mode='rb'):
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +189,11 @@ app.add_middleware(ErrorSanitizationMiddleware)
 
 # API key auth (outermost -- checked first)
 app.add_middleware(APIKeyAuthMiddleware)
+
+# ---------------------------------------------------------------------------
+# Service layer
+# ---------------------------------------------------------------------------
+plan_service = PlanService()
 
 
 @app.on_event("startup")
@@ -262,442 +265,87 @@ async def render_plan(data: RenderRequest):
     """Render a project plan and optionally export to Excel/PPT/PDF."""
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}")
 
-    # Extract title from front matter using consolidated parser
-    fm_parser = FrontMatterParser(data.plan_text)
-    project_name = data.project_name or fm_parser.parse_title() or "Project"
-
     try:
-        # Convert plan format (strip front matter)
-        converted_content = convert_plan_format_to_standard(data.plan_text)
-
-        # Check if we need exports
         has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf
 
         if has_exports:
-            # Count how many exports are requested
             export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf])
 
-            # If only one export is requested, return it directly
             if export_count == 1:
-                if data.export_excel:
-                    file_bytes = export_to_file(
-                        lambda path: export_to_excel(
-                            converted_content, path,
-                            is_yaml=False, project_name=project_name,
-                            original_text=data.plan_text
-                        ),
-                        suffix='.xlsx',
-                    )
-                    return Response(
-                        content=file_bytes,
-                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        headers={
-                            "Content-Disposition": f'attachment; filename="{project_name}.xlsx"'
-                        }
-                    )
-
-                elif data.export_csv:
-                    file_content = export_to_file(
-                        lambda path: export_to_csv(
-                            converted_content, path,
-                            is_yaml=False, project_name=project_name,
-                            original_text=data.plan_text
-                        ),
-                        suffix='.csv',
-                        read_mode='r',
-                    )
-                    return Response(
-                        content=file_content,
-                        media_type="text/csv",
-                        headers={
-                            "Content-Disposition": f'attachment; filename="{project_name}.csv"'
-                        }
-                    )
-
-                elif data.export_ppt:
-                    file_bytes = export_to_file(
-                        lambda path: export_timeline_to_powerpoint(
-                            converted_content, path,
-                            is_yaml=False, project_name=project_name,
-                            original_text=data.plan_text
-                        ),
-                        suffix='.pptx',
-                    )
-                    return Response(
-                        content=file_bytes,
-                        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        headers={
-                            "Content-Disposition": f'attachment; filename="{project_name}-timeline.pptx"'
-                        }
-                    )
-
-                elif data.export_pdf:
-                    file_bytes = export_to_file(
-                        lambda path: export_to_pdf(
-                            converted_content, path,
-                            is_yaml=False, project_name=project_name,
-                            original_text=data.plan_text
-                        ),
-                        suffix='.pdf',
-                    )
-                    return Response(
-                        content=file_bytes,
-                        media_type="application/pdf",
-                        headers={
-                            "Content-Disposition": f'attachment; filename="{project_name}.pdf"'
-                        }
-                    )
-
-            else:
-                # Multiple exports requested - return as ZIP
-                zip_bytes = generate_exports(
-                    data.plan_text,
-                    converted_content,
-                    project_name,
-                    data.export_excel,
-                    data.export_csv,
-                    data.export_ppt,
-                    data.export_pdf
+                # Determine the requested format
+                fmt = next(
+                    f for f, flag in [
+                        ("excel", data.export_excel),
+                        ("csv", data.export_csv),
+                        ("ppt", data.export_ppt),
+                        ("pdf", data.export_pdf),
+                    ] if flag
                 )
-
-                logger.info(f"Successfully generated exports")
-
+                result = plan_service.export_single(
+                    data.plan_text, fmt, project_name=data.project_name
+                )
                 return Response(
-                    content=zip_bytes,
-                    media_type="application/zip",
+                    content=result.content,
+                    media_type=result.media_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{project_name}-exports.zip"'
-                    }
+                        "Content-Disposition": f'attachment; filename="{result.filename}"'
+                    },
+                )
+            else:
+                result = plan_service.export_zip(
+                    data.plan_text,
+                    project_name=data.project_name,
+                    excel=data.export_excel,
+                    csv=data.export_csv,
+                    ppt=data.export_ppt,
+                    pdf=data.export_pdf,
+                )
+                logger.info("Successfully generated exports")
+                return Response(
+                    content=result.content,
+                    media_type=result.media_type,
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{result.filename}"'
+                    },
                 )
         else:
-            # Just return ASCII output
-            ascii_output = text_to_markdown_table(
-                converted_content,
-                is_yaml=False,
-                project_name=project_name,
-                terminal_width=120,
-                original_text=data.plan_text
-            )
-
-            return {"ascii_output": ascii_output}
+            result = plan_service.render(data.plan_text, project_name=data.project_name)
+            return {"ascii_output": result.ascii_output}
 
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error rendering plan: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to render plan", e))
 
 
-def generate_exports(
-    original_text: str,
-    converted_text: str,
-    project_name: str,
-    export_excel: bool,
-    export_csv: bool,
-    export_ppt: bool,
-    export_pdf: bool = False
-) -> bytes:
-    """Generate all requested exports and package them in a ZIP file."""
-
-    # Create a ZIP file in memory
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # ASCII text output
-        ascii_output = text_to_markdown_table(
-            converted_text,
-            is_yaml=False,
-            project_name=project_name,
-            terminal_width=120,
-            original_text=original_text
-        )
-        zip_file.writestr(f"{project_name}.txt", ascii_output)
-
-        # Excel export
-        if export_excel:
-            content = export_to_file(
-                lambda path: export_to_excel(
-                    converted_text, path,
-                    is_yaml=False, project_name=project_name,
-                    original_text=original_text
-                ),
-                suffix='.xlsx',
-            )
-            zip_file.writestr(f"{project_name}.xlsx", content)
-
-        # CSV export
-        if export_csv:
-            content = export_to_file(
-                lambda path: export_to_csv(
-                    converted_text, path,
-                    is_yaml=False, project_name=project_name,
-                    original_text=original_text
-                ),
-                suffix='.csv',
-                read_mode='r',
-            )
-            zip_file.writestr(f"{project_name}.csv", content)
-
-        # PowerPoint timeline export
-        if export_ppt:
-            content = export_to_file(
-                lambda path: export_timeline_to_powerpoint(
-                    converted_text, path,
-                    is_yaml=False, project_name=project_name,
-                    original_text=original_text
-                ),
-                suffix='.pptx',
-            )
-            zip_file.writestr(f"{project_name}-timeline.pptx", content)
-
-        # PDF export
-        if export_pdf:
-            content = export_to_file(
-                lambda path: export_to_pdf(
-                    converted_text, path,
-                    is_yaml=False, project_name=project_name,
-                    original_text=original_text
-                ),
-                suffix='.pdf',
-            )
-            zip_file.writestr(f"{project_name}.pdf", content)
-
-    # Get the ZIP file bytes
-    zip_buffer.seek(0)
-    return zip_buffer.read()
-
-
-def collect_labels_from_plan(plan_text: str) -> set:
-    """
-    Extract all unique labels from task lines in the plan.
-    Labels use hashtag syntax like #High #test #Risk
-    """
-    import re
-    from noodle_core import strip_highlights, strip_raid_log, strip_budget
-    # Strip highlights, budget, and RAID log sections so their content is not treated as labels
-    plan_text = strip_highlights(plan_text)
-    plan_text = strip_budget(plan_text)
-    plan_text = strip_raid_log(plan_text)
-
-    labels = set()
-    lines = plan_text.split('\n')
-    in_front_matter = False
-
-    for line in lines:
-        # Skip front matter
-        if line.strip() == '---':
-            in_front_matter = not in_front_matter
-            continue
-        if in_front_matter:
-            continue
-
-        # Skip empty lines
-        if not line.strip():
-            continue
-
-        # Look for labels with hashtag syntax: #labelname
-        # Pattern: # followed by word characters (letters, numbers, underscore)
-        label_pattern = r'#(\w+)'
-        matches = re.findall(label_pattern, line)
-
-        for label in matches:
-            # Convert to lowercase for consistency
-            labels.add(label.lower())
-
-    return labels
-
-
-def update_front_matter_with_labels(plan_text: str, labels: set) -> str:
-    """
-    Update the front matter to include all labels found in the plan.
-    If labels: line exists, merge with existing labels.
-    If no labels: line, add it.
-    If no front matter, create it.
-    """
-    if not labels:
-        return plan_text
-
-    lines = plan_text.split('\n')
-    has_front_matter = False
-    front_matter_end_index = -1
-    labels_line_index = -1
-
-    # Check for existing front matter
-    if lines and lines[0].strip() == '---':
-        has_front_matter = True
-        for i, line in enumerate(lines[1:], start=1):
-            if line.strip() == '---':
-                front_matter_end_index = i
-                break
-            if line.strip().lower().startswith('labels:'):
-                labels_line_index = i
-
-    # Format labels as comma-separated list
-    sorted_labels = sorted(labels)
-    labels_str = ', '.join(sorted_labels)
-    labels_line = f"labels: [{labels_str}]"
-
-    if not has_front_matter:
-        # No front matter - create one with just labels
-        new_front_matter = f"---\n{labels_line}\n---\n"
-        return new_front_matter + plan_text
-
-    if labels_line_index >= 0:
-        # Update existing labels line
-        # Parse existing labels and merge
-        existing_line = lines[labels_line_index]
-        existing_labels = set()
-        if '[' in existing_line and ']' in existing_line:
-            content = existing_line[existing_line.index('[')+1:existing_line.rindex(']')]
-            existing_labels = set(l.strip().lower() for l in content.split(',') if l.strip())
-
-        # Merge labels
-        all_labels = sorted(existing_labels.union(labels))
-        lines[labels_line_index] = f"labels: [{', '.join(all_labels)}]"
-    else:
-        # Add labels line before the closing ---
-        lines.insert(front_matter_end_index, labels_line)
-
-    return '\n'.join(lines)
+# collect_labels_from_plan and update_front_matter_with_labels have been
+# moved to plan_service.py.  Keep module-level aliases so that any code
+# importing them from app.py still works.
+from .plan_service import collect_labels_from_plan, update_front_matter_with_labels  # noqa: E402
 
 
 @app.post("/api/parse")
 async def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
-    logger.info(f"Parse request received")
+    logger.info("Parse request received")
 
-    # Parse all front matter data using the consolidated parser
-    fm_parser = FrontMatterParser(data.plan_text)
+    result = plan_service.parse(data.plan_text, project_name=data.project_name)
 
-    # Extract highlights, RAID log, and baseline early so they are always
-    # available, even if the task parsing pipeline fails.
-    highlights = fm_parser.parse_highlights()
-    raid_items = fm_parser.parse_raid()
-    baseline_items = fm_parser.parse_baseline()
+    response = {
+        "success": result.success,
+        "project_name": result.project_name,
+        "ascii_output": result.ascii_output,
+        "front_matter": result.front_matter,
+        "resource_map": result.resource_map,
+        "tasks": result.tasks,
+        "updated_plan_text": result.updated_plan_text,
+        "highlights": result.highlights,
+        "raid_items": result.raid_items,
+        "baseline_items": result.baseline_items,
+    }
+    if result.error:
+        response["error"] = result.error
 
-    try:
-        # Extract title and key-value pairs from front matter
-        title_from_frontmatter = fm_parser.parse_title()
-        project_name = data.project_name or title_from_frontmatter or "Project"
-
-        # Convert plan format (strip front matter)
-        converted_content = convert_plan_format_to_standard(data.plan_text)
-
-        # Generate report output (for Report tab)
-        ascii_output = text_to_markdown_table(
-            converted_content,
-            is_yaml=False,
-            project_name=project_name,
-            terminal_width=120,
-            original_text=data.plan_text
-        )
-
-        # Parse resource mappings and key-value pairs from front matter
-        resource_map = fm_parser.parse_resource_mappings()
-        front_matter = fm_parser.parse_key_values()
-
-        # Parse and schedule tasks for Milestones Table
-        yaml_data = natural_language_to_yaml(converted_content, project_name)
-        phases_raw = yaml_data[project_name]
-
-        # Handle both list and dict formats
-        if isinstance(phases_raw, list):
-            phases = phases_raw
-        elif isinstance(phases_raw, dict):
-            phases = [phases_raw]
-        else:
-            phases = []
-
-        # Schedule tasks and prepare for JSON serialization
-        tasks = schedule_tasks(phases)
-        tasks_data = []
-
-        for idx, task in enumerate(tasks, start=1):
-            # Convert datetime objects to ISO strings
-            start = task.get('start')
-            finish = task.get('finish')
-            duration = task.get('duration')
-
-            # Get resources and map to full names
-            resources = task.get('resources', '')
-            if resources:
-                resources = ', '.join([r.lstrip('@').strip() for r in resources.split(',')])
-                if resource_map:
-                    resource_list = [r.strip() for r in resources.split(',')]
-                    mapped_resources = [resource_map.get(r.lower(), r) for r in resource_list]
-                    resources = ', '.join(mapped_resources)
-
-            # Calculate RAG status (skip for summary tasks)
-            rag_status = ''
-            if not task.get('summary'):
-                rag_status = calculate_rag_status(task)
-
-            # Get task name (description or name), stripping any percent tokens
-            task_name = task.get('description') or task.get('name', '')
-            task_name = re.sub(r'\s*\b\d{1,3}%', '', task_name).strip()
-
-            task_data = {
-                'id': idx,
-                'name': task_name,
-                'start': start.strftime('%Y-%m-%d') if start else '',
-                'finish': finish.strftime('%Y-%m-%d') if finish else '',
-                'duration_days': duration.days if duration else 0,
-                'resources': resources,
-                'percent': task.get('percent', ''),
-                'rag': rag_status,
-                'comment': task.get('comment', ''),
-                'priority': task.get('priority', 'Low'),
-                'bucket': task.get('bucket', ''),
-                'level': task.get('level', 0),
-                'is_summary': task.get('summary', False),
-                'phase': task.get('phase', ''),
-                'depends': task.get('depends', []),
-                'lag_lead': task.get('lag_lead', {}),
-                'inherited_resource': task.get('inherited_resource', False),
-                'effort_completed': task.get('effort_completed', ''),
-                'effort_completed_unit': task.get('effort_completed_unit', ''),
-                'effort_total': task.get('effort_total', ''),
-                'effort_total_unit': task.get('effort_total_unit', ''),
-                'effort_remaining': task.get('effort_remaining', ''),
-                'effort_remaining_unit': task.get('effort_remaining_unit', ''),
-            }
-            tasks_data.append(task_data)
-
-        # Collect labels from tasks and update front matter
-        labels = collect_labels_from_plan(data.plan_text)
-        logger.info(f"Collected labels: {labels}")
-        updated_plan_text = update_front_matter_with_labels(data.plan_text, labels)
-        logger.info(f"Updated plan text differs from original: {updated_plan_text != data.plan_text}")
-
-        # Return structured JSON
-        return {
-            "success": True,
-            "project_name": project_name,
-            "ascii_output": ascii_output,
-            "front_matter": front_matter,
-            "resource_map": resource_map,
-            "tasks": tasks_data,
-            "updated_plan_text": updated_plan_text if labels else None,
-            "highlights": highlights,
-            "raid_items": raid_items,
-            "baseline_items": baseline_items,
-        }
-
-    except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Error parsing plan: {str(e)}", exc_info=True)
-        # Return a partial response with highlights so the frontend can
-        # still display them even when task parsing fails.
-        return {
-            "success": False,
-            "error": str(e),
-            "project_name": data.project_name or "Project",
-            "ascii_output": f"Error parsing plan: {str(e)}",
-            "front_matter": {},
-            "resource_map": {},
-            "tasks": [],
-            "updated_plan_text": None,
-            "highlights": highlights,
-            "raid_items": raid_items,
-            "baseline_items": baseline_items,
-        }
+    return response
 
 
 class ReportMilestone(BaseModel):
@@ -754,7 +402,7 @@ class ReportExportRequest(BaseModel):
 
 
 @app.post("/api/export-report-pptx")
-async def export_report_pptx(data: ReportExportRequest):
+async def export_report_pptx_route(data: ReportExportRequest):
     """Export the project report as a PowerPoint file."""
     logger.info(f"Report PPTX export request for: {data.project_name}")
 
@@ -774,15 +422,12 @@ async def export_report_pptx(data: ReportExportRequest):
     }
 
     try:
-        file_bytes = export_to_file(
-            lambda path: export_report_to_powerpoint(path, report_data),
-            suffix='.pptx',
-        )
+        result = plan_service.export_report_pptx(report_data)
         return Response(
-            content=file_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            content=result.content,
+            media_type=result.media_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{data.project_name} - Report - {datetime.now().strftime("%d-%m-%Y")}.pptx"'
+                "Content-Disposition": f'attachment; filename="{result.filename}"'
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
@@ -812,7 +457,7 @@ class PortfolioReportRequest(BaseModel):
 
 
 @app.post("/api/portfolio/export-pptx")
-async def export_portfolio_pptx(data: PortfolioReportRequest):
+async def export_portfolio_pptx_route(data: PortfolioReportRequest):
     """Export a portfolio report as a multi-slide PowerPoint file."""
     logger.info(f"Portfolio PPTX export request: {data.portfolio_name} "
                 f"({len(data.project_reports)} projects)")
@@ -843,17 +488,12 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
     ]
 
     try:
-        file_bytes = export_to_file(
-            lambda path: export_portfolio_to_powerpoint(
-                path, portfolio_data, project_reports
-            ),
-            suffix='.pptx',
-        )
+        result = plan_service.export_portfolio_pptx(portfolio_data, project_reports)
         return Response(
-            content=file_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            content=result.content,
+            media_type=result.media_type,
             headers={
-                "Content-Disposition": f'attachment; filename="{data.portfolio_name}-report.pptx"'
+                "Content-Disposition": f'attachment; filename="{result.filename}"'
             }
         )
     except (ValueError, KeyError, TypeError, OSError) as e:
