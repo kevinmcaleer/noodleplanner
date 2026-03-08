@@ -151,6 +151,40 @@ svg.icon {
     border-bottom-color: #667eea;
 }
 
+/* Current project breadcrumb indicator */
+.nav-project-indicator {
+    display: none;
+    align-items: center;
+    padding: 4px 12px;
+    margin-right: 4px;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: #495057;
+    background: #e9ecef;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    min-height: 28px;
+    line-height: 1.4;
+}
+
+.nav-project-indicator.visible {
+    display: inline-flex;
+}
+
+.nav-project-indicator::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #667eea;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
 /* Dashboard button styling */
 .nav-dashboard-btn {
     font-weight: 600;
@@ -3186,6 +3220,13 @@ input[type="checkbox"] {
         margin-right: 6px;
     }
 
+    .nav-project-indicator {
+        max-width: 120px;
+        font-size: 0.75em;
+        padding: 4px 8px;
+        min-height: 44px;
+    }
+
     /* Export dropdown */
     .nav-export-dropdown {
         flex-shrink: 0;
@@ -3528,6 +3569,11 @@ input[type="checkbox"] {
         padding: 8px 10px;
         font-size: 0.8em;
         min-height: 44px;
+    }
+
+    .nav-project-indicator {
+        max-width: 90px;
+        font-size: 0.7em;
     }
 
     /* Smaller editor font on very small screens */
