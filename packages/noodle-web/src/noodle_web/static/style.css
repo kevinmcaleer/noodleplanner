@@ -663,6 +663,12 @@ svg.icon {
     margin-bottom: 0;
 }
 
+.resources-scope-label {
+    margin: 2px 0 0 0;
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
 .copy-image-btn {
     position: absolute;
     top: 4px;
@@ -9327,9 +9333,15 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-resources-header h2 {
-    margin: 0 0 15px 0;
+    margin: 0 0 4px 0;
     color: #333;
     font-size: 1.8em;
+}
+
+.portfolio-scope-label {
+    margin: 0 0 15px 0;
+    color: #6c757d;
+    font-size: 0.95em;
 }
 
 .portfolio-resources-summary {

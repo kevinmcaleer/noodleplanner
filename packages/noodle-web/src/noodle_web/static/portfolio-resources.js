@@ -275,8 +275,9 @@ async function renderPortfolioResources() {
         const hotspots = resources.filter(r => r.workloadLevel === 'overloaded' || r.workloadLevel === 'high').length;
 
         // Summary header
-        let html = '<div class="portfolio-resources-header">' +
-            '<h2><span class="ribbon-banner ribbon-banner--dark">Resource Allocation Dashboard</span></h2>' +
+        let html = '<div class="portfolio-resources-header" role="region" aria-label="Team Allocation — cross-project resource view">' +
+            '<h2><span class="ribbon-banner ribbon-banner--dark">Team Allocation</span></h2>' +
+            '<p class="portfolio-scope-label">Cross-project resource allocation and workload</p>' +
             '<div class="portfolio-resources-summary">' +
             '<div class="resource-summary-item">' +
             '<span class="summary-label">Total Resources</span>' +

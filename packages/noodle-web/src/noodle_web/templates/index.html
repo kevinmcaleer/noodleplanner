@@ -260,7 +260,7 @@
             <!-- Resources Sub-Navigation Bar (shared across all Resources views) -->
             <div class="plan-subnav" id="resourcesSubnav" role="navigation" aria-label="Resource views">
                 <button class="plan-subnav-btn" data-view="resources" onclick="switchToView('resources')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Plan
                 </button>
                 <button class="plan-subnav-btn" data-view="timesheet" onclick="switchToView('timesheet')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Timesheet
@@ -784,12 +784,15 @@ Press Enter to render..."></textarea>
                         <!-- Resources View -->
                         <div id="resources-view" class="output-tab-content">
                             <div class="resources-placeholder">
-                                <h3>Resources</h3>
-                                <p>Render your plan to see resource allocation here.</p>
+                                <h3>Resource Plan</h3>
+                                <p>Render your plan to see the project resource plan here.</p>
                             </div>
                             <div class="resources-content np-fade-in" style="display: none;">
-                                <div class="resources-toolbar">
-                                    <h2 class="resources-title"><span class="ribbon-banner ribbon-banner--dark">Resource Allocation</span></h2>
+                                <div class="resources-toolbar" role="region" aria-label="Resource Plan — current project resources">
+                                    <div>
+                                        <h2 class="resources-title"><span class="ribbon-banner ribbon-banner--dark">Resource Plan</span></h2>
+                                        <p class="resources-scope-label">Resource assignments for the current project</p>
+                                    </div>
                                     <a class="subtle-add-btn" onclick="fixResourceNames()" title="Capitalise first letter of all resource shortnames">Fix Resource Names</a>
                                 </div>
                                 <div class="resources-table-wrapper" style="position: relative;">
@@ -1626,7 +1629,7 @@ Build
                                     <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-project-report"/></svg> Status
                                 </button>
                                 <button class="portfolio-subnav-btn" onclick="switchPortfolioView('resources')">
-                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-resources"/></svg> Resources
+                                    <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-resources"/></svg> Team Allocation
                                 </button>
                                 <button class="portfolio-subnav-btn" onclick="switchPortfolioView('timeline')">
                                     <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline

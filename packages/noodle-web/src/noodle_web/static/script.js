@@ -12931,7 +12931,7 @@ const tourSteps = [
     },
     {
         title: "Portfolio",
-        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
+        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Team Allocation, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
         target: "#portfolioTab",
         position: "bottom"
     },
@@ -12949,7 +12949,7 @@ const tourSteps = [
     },
     {
         title: "Resources",
-        message: "Click Resources to open the Resource Table with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
+        message: "Click Resources to open the Resource Plan with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
         target: "#resourcesTab",
         position: "bottom"
     },
