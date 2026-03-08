@@ -354,13 +354,14 @@ function switchTab(tabName) {
 
     // Map special tab names to their parent nav tab
     const tabToNavTab = {
-        'kanban': 'planTab',
-        'raid': 'trackingTab',
-        'actions': 'trackingTab',
-        'budget': 'trackingTab',
-        'planning': 'toolsTab',
-        'guide': 'toolsTab',
-        'editor': 'dashboardTab'
+        'kanban': 'projectTab',
+        'raid': 'projectTab',
+        'actions': 'projectTab',
+        'budget': 'projectTab',
+        'planning': 'projectTab',
+        'guide': 'projectTab',
+        'editor': 'projectTab',
+        'portfolio': 'portfolioTab'
     };
 
     const navTabId = tabToNavTab[tabName];
@@ -9969,31 +9970,19 @@ function closeAllNavMenus(except) {
     });
 }
 
-// Navigate to Project (Dashboard with plan subnav)
-function switchToProject() {
+// Navigate to Project context (Dashboard with project subnav)
+// Called from the top-level nav button (no projectId)
+function switchToProjectContext() {
     switchToView('project-report');
-    // Override nav active state to show Project tab as active (not Dashboard)
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const planTab = document.getElementById('planTab');
-    if (planTab) planTab.classList.add('active');
 }
 
-// Navigate to Tracking (RAID Log with tracking subnav)
+// Legacy aliases for backward compatibility
 function switchToTracking() {
-    switchTrackingSubnavToTab('actions');
-    // Ensure Tracking tab is active
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const trackingTab = document.getElementById('trackingTab');
-    if (trackingTab) trackingTab.classList.add('active');
+    switchToView('actions');
 }
 
-// Navigate to Resources (Resource Table with resources subnav)
 function switchToResources() {
     switchToView('resources');
-    // Ensure Resources tab is active
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const resourcesTab = document.getElementById('resourcesTab');
-    if (resourcesTab) resourcesTab.classList.add('active');
 }
 
 // Toggle Tools dropdown menu
@@ -10210,45 +10199,38 @@ function updateNavActiveState(viewName) {
         tab.classList.remove('active');
     });
 
-    // Map view names to their parent nav dropdown tab
-    const viewToNavTab = {
-        'project-report': 'dashboardTab',
-        'tasks': 'planTab',
-        'gantt': 'planTab',
-        'calendar': 'planTab',
-        'timeline': 'planTab',
-        'milestones': 'planTab',
-        'mindmap': 'planTab',
-        'stakeholders': 'planTab',
-        'highlights': 'trackingTab',
-        'lookahead': 'trackingTab',
-        'analysis': 'trackingTab',
-        'resources': 'resourcesTab',
-        'timesheet': 'resourcesTab',
-        'user-workload': 'resourcesTab',
-        'resource-sheet': 'resourcesTab',
-        'text-report': 'toolsTab'
-    };
+    // All project-context views map to the single Project tab
+    const projectViews = [
+        'project-report', 'tasks', 'gantt', 'calendar', 'timeline',
+        'milestones', 'mindmap', 'stakeholders', 'kanban',
+        'raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget',
+        'resources', 'timesheet', 'user-workload', 'resource-sheet',
+        'text-report', 'planning', 'guide'
+    ];
 
-    const navTabId = viewToNavTab[viewName];
-    if (navTabId) {
-        const navTab = document.getElementById(navTabId);
-        if (navTab) navTab.classList.add('active');
+    if (projectViews.includes(viewName)) {
+        const projectTab = document.getElementById('projectTab');
+        if (projectTab) projectTab.classList.add('active');
     }
 }
 
-// Sub-navigation: views that belong to each group
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders'];
-const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget'];
-const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
-const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
+// Sub-navigation: all project-context views belong to one unified subnav
+const PROJECT_VIEWS = [
+    'project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders',
+    'raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget',
+    'resources', 'timesheet', 'user-workload', 'resource-sheet',
+    'text-report', 'planning', 'guide'
+];
+
+// Legacy aliases for backward compatibility
+const PLAN_VIEWS = PROJECT_VIEWS;
+const TRACKING_VIEWS = PROJECT_VIEWS;
+const RESOURCES_VIEWS = PROJECT_VIEWS;
+const TOOLS_VIEWS = PROJECT_VIEWS;
 
 // Map each subnav group to its element ID
 const SUBNAV_GROUPS = [
-    { id: 'planSubnav', views: PLAN_VIEWS },
-    { id: 'trackingSubnav', views: TRACKING_VIEWS },
-    { id: 'resourcesSubnav', views: RESOURCES_VIEWS },
-    { id: 'toolsSubnav', views: TOOLS_VIEWS }
+    { id: 'projectSubnav', views: PROJECT_VIEWS }
 ];
 
 // Show or hide all sub-navs and highlight the active button
@@ -10268,13 +10250,9 @@ function updatePlanSubnav(viewName) {
     });
 }
 
-// Handle Dashboard button in the plan sub-nav
+// Handle Dashboard button in the project sub-nav
 function switchPlanSubnavToDashboard() {
     switchToView('project-report');
-    // Override nav active state to keep Project tab active (not Dashboard tab)
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const planTab = document.getElementById('planTab');
-    if (planTab) planTab.classList.add('active');
 }
 
 // Handle Board button in the plan sub-nav
@@ -12924,12 +12902,6 @@ const tourSteps = [
         position: "left"
     },
     {
-        title: "Dashboard",
-        message: "Click Dashboard to see your Project Report - an overview with timeline, task completion, milestones, highlights, and RAID summary.",
-        target: "#dashboardTab",
-        position: "bottom"
-    },
-    {
         title: "Portfolio",
         message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
         target: "#portfolioTab",
@@ -12937,25 +12909,13 @@ const tourSteps = [
     },
     {
         title: "Project",
-        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, and Stakeholders (with an Interest/Influence grid). Use the three-dot menu on each task row for quick actions.",
-        target: "#planTab",
-        position: "bottom"
-    },
-    {
-        title: "Tracking",
-        message: "Click Tracking to go straight to the RAID Log (Risks, Actions, Issues, Decisions, Dependencies) with a sub-navigation bar for Highlights, 2-Week Look-Ahead, and Analysis.",
-        target: "#trackingTab",
-        position: "bottom"
-    },
-    {
-        title: "Resources",
-        message: "Click Resources to open the Resource Table with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
-        target: "#resourcesTab",
+        message: "Click Project to enter the project context. The sub-navigation bar gives you access to all project tools organised into three groups: Plan (Dashboard, Tasks, Gantt, Board, Calendar, Timeline), Tracking (RAID, Actions, Highlights, Budget), and Resources (Resource Table, Timesheet). Plus Milestones and Stakeholders.",
+        target: "#projectTab",
         position: "bottom"
     },
     {
         title: "Tools Menu",
-        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options including Excel, CSV, PDF, and PowerPoint. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
+        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options including Excel, CSV, PDF, and PowerPoint.",
         target: "#toolsTab",
         position: "bottom"
     },
@@ -18505,9 +18465,6 @@ function initMenuKeyboardNav() {
 
 function syncAriaExpanded() {
     const menus = [
-        { btn: 'planTab', menu: 'planMenu' },
-        { btn: 'trackingTab', menu: 'trackingMenu' },
-        { btn: 'resourcesTab', menu: 'resourcesMenu' },
         { btn: 'toolsTab', menu: 'toolsMenu' }
     ];
 

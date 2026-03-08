@@ -155,11 +155,8 @@ class TestPageLoad:
         """All main navigation tabs must be present."""
         browser.get(app_server)
         expected_tabs = [
-            "dashboardTab",
             "portfolioTab",
-            "planTab",
-            "trackingTab",
-            "resourcesTab",
+            "projectTab",
             "toolsTab",
         ]
         for tab_id in expected_tabs:
@@ -192,7 +189,7 @@ class TestTabNavigation:
     def test_plan_tab_shows_editor(self, browser, app_server):
         """Clicking the Plan tab should display the editor view."""
         browser.get(app_server)
-        plan_tab = browser.find_element(By.ID, "planTab")
+        plan_tab = browser.find_element(By.ID, "projectTab")
         plan_tab.click()
         time.sleep(0.3)
 
@@ -216,7 +213,7 @@ class TestTabNavigation:
         browser.get(app_server)
 
         # Click Plan tab first
-        browser.find_element(By.ID, "planTab").click()
+        browser.find_element(By.ID, "projectTab").click()
         time.sleep(0.3)
 
         # Then click Portfolio tab
@@ -248,7 +245,7 @@ class TestEditorInput:
     def _navigate_to_editor(self, browser, app_server):
         """Helper to navigate to the editor tab."""
         browser.get(app_server)
-        browser.find_element(By.ID, "planTab").click()
+        browser.find_element(By.ID, "projectTab").click()
         time.sleep(0.3)
 
     def test_editor_accepts_text_input(self, browser, app_server):
@@ -305,7 +302,7 @@ class TestPlanRendering:
     def _enter_plan_and_render(self, browser, app_server):
         """Helper to enter a plan and trigger rendering."""
         browser.get(app_server)
-        browser.find_element(By.ID, "planTab").click()
+        browser.find_element(By.ID, "projectTab").click()
         time.sleep(0.3)
 
         editor = browser.find_element(By.ID, "planEditor")
@@ -372,7 +369,7 @@ class TestExportMenu:
     def test_export_menu_toggles(self, browser, app_server):
         """The export menu should toggle visibility when triggered."""
         browser.get(app_server)
-        browser.find_element(By.ID, "planTab").click()
+        browser.find_element(By.ID, "projectTab").click()
         time.sleep(0.3)
 
         # Toggle the export menu via JavaScript
@@ -396,10 +393,13 @@ class TestSubNavigation:
     """Verify plan sub-navigation views (tasks, gantt, board, calendar)."""
 
     def _go_to_actions_tab(self, browser, app_server):
-        """Helper to navigate to the actions/tracking tab."""
+        """Helper to navigate to the actions/tracking tab via project subnav."""
         browser.get(app_server)
-        tracking_tab = browser.find_element(By.ID, "trackingTab")
-        tracking_tab.click()
+        # Click the Actions button in the unified project sub-navigation
+        actions_btn = browser.find_element(
+            By.CSS_SELECTOR, '#projectSubnav .plan-subnav-btn[data-view="actions"]'
+        )
+        actions_btn.click()
         time.sleep(0.3)
 
     def test_actions_tab_has_sub_views(self, browser, app_server):
@@ -435,7 +435,7 @@ class TestKeyboardNavigation:
     def test_editor_is_focusable(self, browser, app_server):
         """The plan editor should be focusable via click."""
         browser.get(app_server)
-        browser.find_element(By.ID, "planTab").click()
+        browser.find_element(By.ID, "projectTab").click()
         time.sleep(0.3)
 
         editor = browser.find_element(By.ID, "planEditor")

@@ -151,9 +151,16 @@ svg.icon {
     border-bottom-color: #667eea;
 }
 
-/* Dashboard button styling */
-.nav-dashboard-btn {
+/* Project sub-nav group labels */
+.plan-subnav-group-label {
+    font-size: 0.7em;
     font-weight: 600;
+    text-transform: uppercase;
+    color: #999;
+    letter-spacing: 0.05em;
+    padding: 4px 2px 4px 4px;
+    white-space: nowrap;
+    user-select: none;
 }
 
 .nav-export-dropdown {
