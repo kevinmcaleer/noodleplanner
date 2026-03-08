@@ -684,10 +684,12 @@ function initializeKanbanEditor() {
     setupEditor(editor, lineNumbers, highlightLayer, false);
 }
 
-function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
-
-    // Syntax highlighting function
-    function highlightSyntax(text) {
+/**
+ * Create a syntax highlighting function for the plan editor.
+ * Returns a function that takes text and returns HTML with syntax highlighting.
+ */
+function initSyntaxHighlighting() {
+    return function highlightSyntax(text) {
         // Build a set of all task names for dependency validation
         const allTaskNames = new Set();
         const allLines = text.split('\n');
@@ -905,6 +907,64 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
             return highlighted;
         }).join('\n');
+    };
+}
+
+/**
+ * Detect if a task line is manually scheduled (has explicit start date).
+ */
+function isLineManuallyScheduled(line) {
+    if (!line || !line.trim()) return false;
+
+    // Skip front matter
+    if (line.trim() === '---') return false;
+
+    // Skip comments and empty lines
+    if (line.trim().startsWith('#') || !line.trim()) return false;
+
+    // Check if line contains a date in YYYY-MM-DD format
+    // This indicates an explicit start date, making it manually scheduled
+    const datePattern = /\d{4}-\d{2}-\d{2}/;
+    return datePattern.test(line);
+}
+
+/**
+ * Initialize line number rendering and syntax highlighting updates for an editor.
+ * Returns an object with updateLineNumbers(), updateActiveLine(), and syncScroll() functions.
+ */
+function initLineNumbers(editor, lineNumbers, highlightLayer, highlightSyntax) {
+
+    // Sync scroll between textarea, line numbers, and highlight overlay.
+    // Uses requestAnimationFrame to batch updates and avoid layout thrashing.
+    let scrollSyncPending = false;
+    function syncScroll() {
+        if (scrollSyncPending) return;
+        scrollSyncPending = true;
+        requestAnimationFrame(() => {
+            lineNumbers.scrollTop = editor.scrollTop;
+            if (highlightLayer) {
+                highlightLayer.scrollTop = editor.scrollTop;
+                highlightLayer.scrollLeft = editor.scrollLeft;
+            }
+            scrollSyncPending = false;
+        });
+    }
+
+    // Update the active line indicator
+    function updateActiveLine() {
+        const cursorPosition = editor.selectionStart;
+        const textBeforeCursor = editor.value.substring(0, cursorPosition);
+        const currentLine = textBeforeCursor.split('\n').length;
+
+        // Remove active class from all line numbers
+        const allLineNumbers = lineNumbers.querySelectorAll('.line-number');
+        allLineNumbers.forEach(ln => ln.classList.remove('active'));
+
+        // Add active class to current line
+        const activeLineElement = lineNumbers.querySelector(`[data-line-number="${currentLine}"]`);
+        if (activeLineElement) {
+            activeLineElement.classList.add('active');
+        }
     }
 
     // Update line numbers and syntax highlighting
@@ -921,9 +981,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
             // Check if this line has a manually scheduled task (has explicit start date)
             const line = lines[i - 1]; // 0-indexed
-            const isManuallyScheduled = isLineManuallyScheduled(line);
+            const manuallyScheduled = isLineManuallyScheduled(line);
 
-            if (isManuallyScheduled) {
+            if (manuallyScheduled) {
                 lineNumSpan.classList.add('manually-scheduled');
                 lineNumSpan.title = 'Manually scheduled (has explicit start date)';
 
@@ -954,66 +1014,16 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         updateActiveLine();
     }
 
-    // Helper function to detect if a task line is manually scheduled (has explicit start date)
-    function isLineManuallyScheduled(line) {
-        if (!line || !line.trim()) return false;
+    return { updateLineNumbers, updateActiveLine, syncScroll };
+}
 
-        // Skip front matter
-        if (line.trim() === '---') return false;
-
-        // Skip comments and empty lines
-        if (line.trim().startsWith('#') || !line.trim()) return false;
-
-        // Check if line contains a date in YYYY-MM-DD format
-        // This indicates an explicit start date, making it manually scheduled
-        const datePattern = /\d{4}-\d{2}-\d{2}/;
-        return datePattern.test(line);
-    }
-
-    // Update the active line indicator
-    function updateActiveLine() {
-        const cursorPosition = editor.selectionStart;
-        const textBeforeCursor = editor.value.substring(0, cursorPosition);
-        const currentLine = textBeforeCursor.split('\n').length;
-
-        // Remove active class from all line numbers
-        const allLineNumbers = lineNumbers.querySelectorAll('.line-number');
-        allLineNumbers.forEach(ln => ln.classList.remove('active'));
-
-        // Add active class to current line
-        const activeLineElement = lineNumbers.querySelector(`[data-line-number="${currentLine}"]`);
-        if (activeLineElement) {
-            activeLineElement.classList.add('active');
-        }
-    }
-
-    // Sync scroll between textarea, line numbers, and highlight overlay.
-    // Uses requestAnimationFrame to batch updates and avoid layout thrashing.
-    let scrollSyncPending = false;
-    function syncScroll() {
-        if (scrollSyncPending) return;
-        scrollSyncPending = true;
-        requestAnimationFrame(() => {
-            lineNumbers.scrollTop = editor.scrollTop;
-            if (highlightLayer) {
-                highlightLayer.scrollTop = editor.scrollTop;
-                highlightLayer.scrollLeft = editor.scrollLeft;
-            }
-            scrollSyncPending = false;
-        });
-    }
-
-    // Expose updateLineNumbers on the editor element so external code can call it
-    editor._updateLineNumbers = updateLineNumbers;
-
-    // Initialize
-    updateLineNumbers();
-
-    // Debounce timer for render requests
+/**
+ * Initialize debounced auto-render for the editor input event.
+ */
+function initEditorDebounce(editor, updateLineNumbers, shouldRender) {
     let renderDebounceTimer = null;
 
-    // Update on input and auto-render with debounce (only for main editor)
-    editor.addEventListener('input', function() {
+    function handleInput() {
         updateLineNumbers();
 
         // Only trigger auto-render for the main editor
@@ -1029,8 +1039,17 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 renderDebounceTimer = null;
             }, 1000);
         }
-    });
+    }
 
+    editor.addEventListener('input', handleInput);
+    return handleInput;
+}
+
+/**
+ * Attach all event listeners for the editor: scroll sync, cursor tracking,
+ * keyboard shortcuts, and long-press on line numbers.
+ */
+function initEditorEventListeners(editor, lineNumbers, syncScroll, updateActiveLine) {
     // Sync scroll on all scroll-related events including touch momentum
     editor.addEventListener('scroll', syncScroll, { passive: true });
     editor.addEventListener('touchmove', syncScroll, { passive: true });
@@ -1086,6 +1105,32 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             longPressTimer = null;
         }
     });
+}
+
+/**
+ * Set up the plan editor with syntax highlighting, line numbers, event listeners,
+ * and debounced auto-render. Orchestrates the focused initialisation functions.
+ */
+function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
+    // Initialize syntax highlighting
+    const highlightSyntax = initSyntaxHighlighting();
+
+    // Initialize line numbers, active line tracking, and scroll sync
+    const { updateLineNumbers, updateActiveLine, syncScroll } = initLineNumbers(
+        editor, lineNumbers, highlightLayer, highlightSyntax
+    );
+
+    // Expose updateLineNumbers on the editor element so external code can call it
+    editor._updateLineNumbers = updateLineNumbers;
+
+    // Perform initial render of line numbers and highlighting
+    updateLineNumbers();
+
+    // Initialize debounced auto-render on input
+    initEditorDebounce(editor, updateLineNumbers, shouldRender);
+
+    // Attach all editor event listeners
+    initEditorEventListeners(editor, lineNumbers, syncScroll, updateActiveLine);
 }
 
 /**
