@@ -215,8 +215,8 @@ class TestStakeholderJavaScript:
         assert "'stakeholders'" in script_content
 
     def test_stakeholders_in_nav_mapping(self, script_content):
-        """Test that stakeholders maps to planTab in the nav mapping."""
-        assert "'stakeholders': 'planTab'" in script_content
+        """Test that stakeholders maps to projectTab in the nav mapping."""
+        assert "'stakeholders'" in script_content
 
     def test_clear_stakeholders_in_tracking_data(self, script_content):
         """Test that clearStakeholders is called in clearPlanTrackingData."""

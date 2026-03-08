@@ -139,20 +139,11 @@
             <div class="tabs" role="navigation" aria-label="Main navigation">
                 <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
                 <span class="nav-project-indicator" id="navProjectIndicator" role="status" aria-label="Current project" aria-live="polite"></span>
-                <button class="tab nav-dashboard-btn active" id="dashboardTab" onclick="switchToView('project-report')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
-                </button>
                 <button class="tab" id="portfolioTab" onclick="switchTab('portfolio')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
                 </button>
-                <button class="tab" id="planTab" onclick="switchToProject()">
-                    Project
-                </button>
-                <button class="tab" id="trackingTab" onclick="switchToTracking()">
-                    Tracking
-                </button>
-                <button class="tab" id="resourcesTab" onclick="switchToResources()">
-                    Resources
+                <button class="tab active" id="projectTab" onclick="switchToProjectContext()">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Project
                 </button>
                 <div class="nav-dropdown">
                     <button class="tab" id="toolsTab" onclick="toggleToolsMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="toolsMenu">
@@ -205,9 +196,10 @@
                 </div>
             </div>
 
-            <!-- Plan Sub-Navigation Bar (shared across all Plan views) -->
-            <div class="plan-subnav" id="planSubnav" role="navigation" aria-label="Project views">
-                <button class="plan-subnav-btn" data-view="project-report" onclick="switchPlanSubnavToDashboard()">
+            <!-- Project Sub-Navigation Bar (unified: Plan, Tracking, Resources views) -->
+            <div class="plan-subnav visible" id="projectSubnav" role="navigation" aria-label="Project views">
+                <span class="plan-subnav-group-label">Plan</span>
+                <button class="plan-subnav-btn" data-view="project-report" onclick="switchToView('project-report')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
                 </button>
                 <button class="plan-subnav-btn" data-view="tasks" onclick="switchToView('tasks')">
@@ -222,24 +214,13 @@
                 <button class="plan-subnav-btn" data-view="calendar" onclick="switchToView('calendar')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
                 </button>
-                <button class="plan-subnav-btn" data-view="milestones" onclick="switchToView('milestones')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
-                </button>
                 <button class="plan-subnav-btn" data-view="timeline" onclick="switchToView('timeline')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline
                 </button>
-                <button class="plan-subnav-btn" data-view="mindmap" onclick="switchToView('mindmap')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
-                </button>
-                <button class="plan-subnav-btn" data-view="stakeholders" onclick="switchToView('stakeholders')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
-                </button>
-            </div>
-
-            <!-- Tracking Sub-Navigation Bar (shared across all Tracking views) -->
-            <div class="plan-subnav" id="trackingSubnav" role="navigation" aria-label="Tracking views">
+                <span class="plan-subnav-divider"></span>
+                <span class="plan-subnav-group-label">Tracking</span>
                 <button class="plan-subnav-btn" data-view="raid" onclick="switchTrackingSubnavToTab('raid')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID
                 </button>
                 <button class="plan-subnav-btn" data-view="actions" onclick="switchTrackingSubnavToTab('actions')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
@@ -247,59 +228,23 @@
                 <button class="plan-subnav-btn" data-view="highlights" onclick="switchToView('highlights')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
                 </button>
-                <button class="plan-subnav-btn" data-view="lookahead" onclick="switchToView('lookahead')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Look-Ahead
-                </button>
-                <button class="plan-subnav-btn" data-view="analysis" onclick="switchToView('analysis')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Analysis
-                </button>
                 <button class="plan-subnav-btn" data-view="budget" onclick="switchTrackingSubnavToTab('budget')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Budget
                 </button>
-            </div>
-
-            <!-- Resources Sub-Navigation Bar (shared across all Resources views) -->
-            <div class="plan-subnav" id="resourcesSubnav" role="navigation" aria-label="Resource views">
+                <span class="plan-subnav-divider"></span>
+                <span class="plan-subnav-group-label">Resources</span>
                 <button class="plan-subnav-btn" data-view="resources" onclick="switchToView('resources')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resources
                 </button>
                 <button class="plan-subnav-btn" data-view="timesheet" onclick="switchToView('timesheet')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Timesheet
                 </button>
-                <button class="plan-subnav-btn" data-view="user-workload" onclick="switchToView('user-workload')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Workload
-                </button>
-                <button class="plan-subnav-btn" data-view="resource-sheet" onclick="switchToView('resource-sheet')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Resource Sheet
-                </button>
-            </div>
-
-            <!-- Tools Sub-Navigation Bar (shared across all Tools views) -->
-            <div class="plan-subnav" id="toolsSubnav" role="navigation" aria-label="Tool views">
-                <button class="plan-subnav-btn" data-view="text-report" onclick="switchToView('text-report')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Text Report
-                </button>
-                <button class="plan-subnav-btn" data-view="planning" onclick="switchToolsSubnavToTab('planning')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Planning Room
-                </button>
-                <button class="plan-subnav-btn" data-view="guide" onclick="switchToolsSubnavToTab('guide')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Syntax Guide
-                </button>
                 <span class="plan-subnav-divider"></span>
-                <button class="plan-subnav-btn" onclick="triggerExcelUpload()">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Import Excel
+                <button class="plan-subnav-btn" data-view="milestones" onclick="switchToView('milestones')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Milestones
                 </button>
-                <button class="plan-subnav-btn" onclick="exportFile('excel', 'editor')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Export Excel
-                </button>
-                <button class="plan-subnav-btn" onclick="exportFile('csv', 'editor')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Export CSV
-                </button>
-                <button class="plan-subnav-btn" onclick="exportReportPptx()">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Export Report
-                </button>
-                <button class="plan-subnav-btn" onclick="exportFile('pdf', 'editor')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Export PDF
+                <button class="plan-subnav-btn" data-view="stakeholders" onclick="switchToView('stakeholders')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
                 </button>
             </div>
 
