@@ -283,21 +283,122 @@ async function handleBoardFileUpload(file) {
 const NavigationController = (() => {
     const registry = {};
     let currentView = null;
+    let transitioning = false;
+
+    // Duration must match the CSS animation duration for np-context-fade-out/in
+    const TRANSITION_MS = 150;
 
     function register(viewName, hooks) {
         registry[viewName] = hooks;
     }
 
+    /**
+     * Determine the context for a view: 'portfolio' or 'project'.
+     */
+    function contextOf(viewName) {
+        return viewName === 'portfolio' ? 'portfolio' : 'project';
+    }
+
+    /**
+     * Check if the user prefers reduced motion.
+     */
+    function prefersReducedMotion() {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    /**
+     * Show or hide the loading indicator for async data fetches.
+     */
+    function showLoadingIndicator(show) {
+        const el = document.getElementById('contextLoadingIndicator');
+        if (el) {
+            el.classList.toggle('active', show);
+        }
+    }
+
+    /**
+     * Find the currently visible tab-content element.
+     */
+    function getActiveTabContent() {
+        return document.querySelector('.tab-content.active');
+    }
+
+    /**
+     * Navigate to a view. If switching between Portfolio and Project contexts,
+     * a brief fade transition is applied to give visual feedback (#581 / UX-3).
+     */
     function navigateTo(viewName) {
         if (!registry[viewName]) {
             console.warn('NavigationController: unknown view "' + viewName + '"');
             return;
         }
+        if (transitioning) return;
+
+        const isContextSwitch = currentView &&
+            contextOf(currentView) !== contextOf(viewName);
+
+        if (isContextSwitch && !prefersReducedMotion()) {
+            performTransitionedSwitch(viewName);
+        } else {
+            performImmediateSwitch(viewName);
+        }
+    }
+
+    /**
+     * Immediate switch with no transition (same context or reduced motion).
+     */
+    function performImmediateSwitch(viewName) {
         if (currentView && registry[currentView] && registry[currentView].deactivate) {
             registry[currentView].deactivate();
         }
         currentView = viewName;
         registry[viewName].activate();
+    }
+
+    /**
+     * Animated switch: fade-out current, swap content, fade-in new.
+     */
+    function performTransitionedSwitch(viewName) {
+        transitioning = true;
+        const outgoing = getActiveTabContent();
+
+        // Phase 1: fade out current view
+        if (outgoing) {
+            outgoing.classList.add('np-context-fade-out');
+        }
+
+        // Show loading indicator for views that fetch async data
+        const targetHasAsync = registry[viewName] && registry[viewName].async;
+        if (targetHasAsync) {
+            showLoadingIndicator(true);
+        }
+
+        setTimeout(() => {
+            // Clean up outgoing animation class
+            if (outgoing) {
+                outgoing.classList.remove('np-context-fade-out');
+            }
+
+            // Perform the actual view switch
+            if (currentView && registry[currentView] && registry[currentView].deactivate) {
+                registry[currentView].deactivate();
+            }
+            currentView = viewName;
+            registry[viewName].activate();
+
+            // Phase 2: fade in new view
+            const incoming = getActiveTabContent();
+            if (incoming) {
+                incoming.classList.add('np-context-fade-in');
+                incoming.addEventListener('animationend', function handler() {
+                    incoming.classList.remove('np-context-fade-in');
+                    incoming.removeEventListener('animationend', handler);
+                }, { once: true });
+            }
+
+            showLoadingIndicator(false);
+            transitioning = false;
+        }, TRANSITION_MS);
     }
 
     function getCurrentView() {
@@ -308,7 +409,11 @@ const NavigationController = (() => {
         return registry;
     }
 
-    return { register, navigateTo, getCurrentView, getRegistry };
+    function isTransitioning() {
+        return transitioning;
+    }
+
+    return { register, navigateTo, getCurrentView, getRegistry, isTransitioning };
 })();
 
 // Shared helper: set a single nav tab as active, clearing all others (NAV-3)
@@ -498,6 +603,7 @@ NavigationController.register('guide', {
 });
 
 NavigationController.register('portfolio', {
+    async: true,
     activate() {
         deactivateKanban();
         if (typeof saveCurrentProjectState === 'function') {
