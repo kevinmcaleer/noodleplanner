@@ -176,7 +176,7 @@ class TestPageLoad:
         """Custom CSS should load and apply styles."""
         browser.get(app_server)
         editor = browser.find_element(By.ID, "planEditor")
-        # The editor should have some computed style from style.css
+        # The editor should have some computed style from the CSS modules
         font_family = browser.execute_script(
             "return window.getComputedStyle(arguments[0]).fontFamily", editor
         )
@@ -515,7 +515,7 @@ class TestStaticAssets:
         assert "404" not in page_source or "Not Found" not in page_source
 
     def test_css_loaded_and_applied(self, browser, app_server):
-        """style.css should load and apply custom styles."""
+        """CSS modules should load and apply custom styles."""
         browser.get(app_server)
 
         # Check that a known CSS class has styles applied
