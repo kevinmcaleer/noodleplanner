@@ -272,24 +272,74 @@ async function handleBoardFileUpload(file) {
     }
 }
 
-function switchTab(tabName) {
-    // Remove active class from all tab content
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+/**
+ * NavigationController — centralised view registry for all navigation.
+ *
+ * Each view registers { activate, deactivate } hooks. Navigating to a view
+ * calls deactivate on the current view, then activate on the target view.
+ * This replaces the overlapping switchTab / switchToView / switchToProject /
+ * switchToTracking / switchToResources functions with a single entry point.
+ */
+const NavigationController = (() => {
+    const registry = {};
+    let currentView = null;
 
-    // Activate the corresponding content
+    function register(viewName, hooks) {
+        registry[viewName] = hooks;
+    }
+
+    function navigateTo(viewName) {
+        if (!registry[viewName]) {
+            console.warn('NavigationController: unknown view "' + viewName + '"');
+            return;
+        }
+        if (currentView && registry[currentView] && registry[currentView].deactivate) {
+            registry[currentView].deactivate();
+        }
+        currentView = viewName;
+        registry[viewName].activate();
+    }
+
+    function getCurrentView() {
+        return currentView;
+    }
+
+    function getRegistry() {
+        return registry;
+    }
+
+    return { register, navigateTo, getCurrentView, getRegistry };
+})();
+
+// Shared helper: set a single nav tab as active, clearing all others (NAV-3)
+function setActiveNavTab(navTabId) {
+    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    if (navTabId) {
+        const navTab = document.getElementById(navTabId);
+        if (navTab) navTab.classList.add('active');
+    }
+}
+
+// Shared helper: activate a top-level tab-content pane by name
+function activateTabContent(tabName) {
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     const tabContent = document.getElementById(tabName + '-tab');
     if (tabContent) {
         tabContent.classList.add('active');
     }
+}
 
-    // Show/hide RAID-specific export menu items based on active tab
+// Shared helper: show/hide RAID export menu items
+function updateRaidExportVisibility(tabName) {
     const raidExportItems = document.querySelectorAll('.raid-export-item');
     raidExportItems.forEach(item => {
         item.style.display = tabName === 'raid' ? '' : 'none';
     });
+}
 
-    // If switching to RAID tab, load items from plan text if empty
-    if (tabName === 'raid' && raidItems.length === 0) {
+// Shared helper: load RAID items from plan text if currently empty
+function loadRaidItemsIfEmpty() {
+    if (raidItems.length === 0) {
         try {
             const editor = document.getElementById('planEditor');
             if (editor && editor.value) {
@@ -302,9 +352,11 @@ function switchTab(tabName) {
             console.error('Error loading RAID items on tab switch:', error);
         }
     }
+}
 
-    // If switching to Budget tab, load items from plan text if empty
-    if (tabName === 'budget' && budgetItems.length === 0) {
+// Shared helper: load budget items from plan text if currently empty
+function loadBudgetItemsIfEmpty() {
+    if (budgetItems.length === 0) {
         try {
             const editor = document.getElementById('planEditor');
             if (editor && editor.value) {
@@ -317,65 +369,178 @@ function switchTab(tabName) {
             console.error('Error loading budget items on tab switch:', error);
         }
     }
+}
 
-    // If switching to Gantt tab, re-render the chart
-    if (tabName === 'gantt') {
-        setTimeout(() => {
-            if (ganttTasks && ganttTasks.length > 0) {
-                renderGanttChart();
-            } else if (window.parsedPlanData && window.parsedPlanData.tasks) {
-                updateGantt(window.parsedPlanData.tasks);
-            }
-        }, 50);
+// Shared deactivate hook: sync kanban editor state back to main if leaving kanban
+function deactivateKanban() {
+    const kanbanTab = document.getElementById('kanban-tab');
+    if (kanbanTab && kanbanTab.classList.contains('active')) {
+        syncEditorStateToMain();
     }
+}
 
-    // If switching to Kanban tab, sync the board from the editor
-    if (tabName === 'kanban') {
+// ── Register all views with the NavigationController ──
+
+// Output views that live inside the editor tab-content pane.
+// Each activates the editor pane, switches the output sub-tab, and sets nav state.
+const OUTPUT_VIEWS = {
+    'project-report': 'dashboardTab',
+    'tasks': 'planTab',
+    'gantt': 'planTab',
+    'calendar': 'planTab',
+    'timeline': 'planTab',
+    'milestones': 'planTab',
+    'mindmap': 'planTab',
+    'stakeholders': 'planTab',
+    'highlights': 'trackingTab',
+    'lookahead': 'trackingTab',
+    'analysis': 'trackingTab',
+    'resources': 'resourcesTab',
+    'timesheet': 'resourcesTab',
+    'user-workload': 'resourcesTab',
+    'resource-sheet': 'resourcesTab',
+    'text-report': 'toolsTab'
+};
+
+Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
+    NavigationController.register(viewName, {
+        activate() {
+            deactivateKanban();
+            activateTabContent('editor');
+            switchOutputTab(viewName);
+            updateRaidExportVisibility('editor');
+            closeAllNavMenus();
+            setActiveNavTab(navTabId);
+            updatePlanSubnav(viewName);
+        },
+        deactivate() {}
+    });
+});
+
+// Top-level tab views (not output sub-tabs)
+NavigationController.register('kanban', {
+    activate() {
+        syncEditorStateToKanban();
+        activateTabContent('kanban');
+        updateRaidExportVisibility('kanban');
+        closeAllNavMenus();
+        setActiveNavTab('planTab');
+        updatePlanSubnav('kanban');
         setTimeout(() => {
             if (typeof syncKanbanFromEditor === 'function') {
                 syncKanbanFromEditor();
             }
         }, 50);
-    }
+    },
+    deactivate: deactivateKanban
+});
 
-    // If switching to Portfolio tab, save current project state first, then initialize
-    if (tabName === 'portfolio') {
+NavigationController.register('raid', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('raid');
+        updateRaidExportVisibility('raid');
+        loadRaidItemsIfEmpty();
+        closeAllNavMenus();
+        setActiveNavTab('trackingTab');
+        updatePlanSubnav('raid');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('actions', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('actions');
+        updateRaidExportVisibility('actions');
+        closeAllNavMenus();
+        setActiveNavTab('trackingTab');
+        updatePlanSubnav('actions');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('budget', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('budget');
+        updateRaidExportVisibility('budget');
+        loadBudgetItemsIfEmpty();
+        closeAllNavMenus();
+        setActiveNavTab('trackingTab');
+        updatePlanSubnav('budget');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('planning', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('planning');
+        updateRaidExportVisibility('planning');
+        closeAllNavMenus();
+        setActiveNavTab('toolsTab');
+        updatePlanSubnav('planning');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('guide', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('guide');
+        updateRaidExportVisibility('guide');
+        closeAllNavMenus();
+        setActiveNavTab('toolsTab');
+        updatePlanSubnav('guide');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('portfolio', {
+    activate() {
+        deactivateKanban();
         if (typeof saveCurrentProjectState === 'function') {
             saveCurrentProjectState();
         }
+        activateTabContent('portfolio');
+        updateRaidExportVisibility('portfolio');
+        closeAllNavMenus();
+        setActiveNavTab(null);
         if (typeof initPortfolio === 'function') {
             initPortfolio();
         }
-    }
+    },
+    deactivate() {}
+});
 
-    // Update nav bar active state for special tabs
-    // Remove active class from all nav tabs first
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+NavigationController.register('upload', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('upload');
+        updateRaidExportVisibility('upload');
+        closeAllNavMenus();
+    },
+    deactivate() {}
+});
 
-    // Map special tab names to their parent nav tab
-    const tabToNavTab = {
-        'kanban': 'planTab',
-        'raid': 'trackingTab',
-        'actions': 'trackingTab',
-        'budget': 'trackingTab',
-        'planning': 'toolsTab',
-        'guide': 'toolsTab',
-        'editor': 'dashboardTab'
-    };
+NavigationController.register('editor', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('editor');
+        updateRaidExportVisibility('editor');
+        closeAllNavMenus();
+        setActiveNavTab('dashboardTab');
+    },
+    deactivate() {}
+});
 
-    const navTabId = tabToNavTab[tabName];
-    if (navTabId) {
-        const navTab = document.getElementById(navTabId);
-        if (navTab) navTab.classList.add('active');
-    }
+// ── Public API: backward-compatible wrappers ──
 
-    // Close all nav dropdown menus
-    closeAllNavMenus();
-
-    // Update sub-navigation bars for the current tab
-    if (tabName !== 'editor') {
-        updatePlanSubnav(tabName);
-    }
+// switchTab remains available for callers that use the old top-level tab name API.
+// It delegates to the NavigationController.
+function switchTab(tabName) {
+    NavigationController.navigateTo(tabName);
 }
 
 // Initialize editor functionality when DOM is ready
@@ -9969,31 +10134,20 @@ function closeAllNavMenus(except) {
     });
 }
 
-// Navigate to Project (Dashboard with plan subnav)
+// Navigate to Project (Dashboard with plan subnav, Project tab active)
 function switchToProject() {
-    switchToView('project-report');
-    // Override nav active state to show Project tab as active (not Dashboard)
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const planTab = document.getElementById('planTab');
-    if (planTab) planTab.classList.add('active');
+    NavigationController.navigateTo('project-report');
+    setActiveNavTab('planTab');
 }
 
-// Navigate to Tracking (RAID Log with tracking subnav)
+// Navigate to Tracking (Actions tab with tracking subnav)
 function switchToTracking() {
-    switchTrackingSubnavToTab('actions');
-    // Ensure Tracking tab is active
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const trackingTab = document.getElementById('trackingTab');
-    if (trackingTab) trackingTab.classList.add('active');
+    NavigationController.navigateTo('actions');
 }
 
 // Navigate to Resources (Resource Table with resources subnav)
 function switchToResources() {
-    switchToView('resources');
-    // Ensure Resources tab is active
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const resourcesTab = document.getElementById('resourcesTab');
-    if (resourcesTab) resourcesTab.classList.add('active');
+    NavigationController.navigateTo('resources');
 }
 
 // Toggle Tools dropdown menu
@@ -10179,62 +10333,15 @@ async function useTemplate(templateId) {
     }
 }
 
-// Switch to a specific view (from Views or Tracking dropdown)
+// Switch to a specific view — delegates to NavigationController
 function switchToView(viewName) {
-    // Sync editor state from kanban to main if switching away from kanban
-    const kanbanTab = document.getElementById('kanban-tab');
-    if (kanbanTab && kanbanTab.classList.contains('active')) {
-        syncEditorStateToMain();
-    }
-
-    // First, switch to editor tab (where all views live)
-    switchTab('editor');
-
-    // Then switch to the specific output tab content
-    switchOutputTab(viewName);
-
-    // Close all nav dropdown menus
-    closeAllNavMenus();
-
-    // Update nav bar active state
-    updateNavActiveState(viewName);
-
-    // Update plan sub-navigation bar
-    updatePlanSubnav(viewName);
+    NavigationController.navigateTo(viewName);
 }
 
-// Update the active state in the navigation bar
+// Update the active state in the navigation bar (kept for any external callers)
 function updateNavActiveState(viewName) {
-    // Remove active class from all nav tabs
-    document.querySelectorAll('.tabs .tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-
-    // Map view names to their parent nav dropdown tab
-    const viewToNavTab = {
-        'project-report': 'dashboardTab',
-        'tasks': 'planTab',
-        'gantt': 'planTab',
-        'calendar': 'planTab',
-        'timeline': 'planTab',
-        'milestones': 'planTab',
-        'mindmap': 'planTab',
-        'stakeholders': 'planTab',
-        'highlights': 'trackingTab',
-        'lookahead': 'trackingTab',
-        'analysis': 'trackingTab',
-        'resources': 'resourcesTab',
-        'timesheet': 'resourcesTab',
-        'user-workload': 'resourcesTab',
-        'resource-sheet': 'resourcesTab',
-        'text-report': 'toolsTab'
-    };
-
-    const navTabId = viewToNavTab[viewName];
-    if (navTabId) {
-        const navTab = document.getElementById(navTabId);
-        if (navTab) navTab.classList.add('active');
-    }
+    const navTabId = OUTPUT_VIEWS[viewName];
+    setActiveNavTab(navTabId || null);
 }
 
 // Sub-navigation: views that belong to each group
@@ -10270,30 +10377,23 @@ function updatePlanSubnav(viewName) {
 
 // Handle Dashboard button in the plan sub-nav
 function switchPlanSubnavToDashboard() {
-    switchToView('project-report');
-    // Override nav active state to keep Project tab active (not Dashboard tab)
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
-    const planTab = document.getElementById('planTab');
-    if (planTab) planTab.classList.add('active');
+    NavigationController.navigateTo('project-report');
+    setActiveNavTab('planTab');
 }
 
 // Handle Board button in the plan sub-nav
 function switchPlanSubnavToBoard() {
-    syncEditorStateToKanban();
-    switchTab('kanban');
-    updatePlanSubnav('kanban');
+    NavigationController.navigateTo('kanban');
 }
 
 // Handle Tracking subnav buttons that use switchTab (RAID, Actions)
 function switchTrackingSubnavToTab(tabName) {
-    switchTab(tabName);
-    updatePlanSubnav(tabName);
+    NavigationController.navigateTo(tabName);
 }
 
 // Handle Tools subnav buttons that use switchTab (Planning Room, Syntax Guide)
 function switchToolsSubnavToTab(tabName) {
-    switchTab(tabName);
-    updatePlanSubnav(tabName);
+    NavigationController.navigateTo(tabName);
 }
 
 // Sync editor panel collapsed/expanded state from main editor to kanban editor
