@@ -13082,7 +13082,7 @@ const tourSteps = [
     },
     {
         title: "Portfolio",
-        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
+        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Team Allocation, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
         target: "#portfolioTab",
         position: "bottom"
     },
@@ -13094,7 +13094,7 @@ const tourSteps = [
     },
     {
         title: "Project",
-        message: "Click Project to enter the project context. The sub-navigation bar gives you access to all project tools organised into three groups: Plan (Dashboard, Tasks, Gantt, Board, Calendar, Timeline), Tracking (RAID, Actions, Highlights, Budget), and Resources (Resource Table, Timesheet). Plus Milestones and Stakeholders.",
+        message: "Click Project to enter the project context. The sub-navigation bar gives you access to all project tools organised into three groups: Plan (Dashboard, Tasks, Gantt, Board, Calendar, Timeline), Tracking (RAID, Actions, Highlights, Budget), and Resources (Resource Plan, Timesheet). Plus Milestones and Stakeholders.",
         target: "#projectTab",
         position: "bottom"
     },
