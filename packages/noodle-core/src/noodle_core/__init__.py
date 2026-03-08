@@ -58,6 +58,8 @@ from .excel_importer import (
     parse_planner_dependency,
 )
 
+from .front_matter_parser import FrontMatterParser
+
 from .planning_room import (
     generate_plan_from_planning_room,
 )
@@ -113,6 +115,8 @@ __all__ = [
     "detect_planner_worksheet",
     "parse_planner_duration",
     "parse_planner_dependency",
+    # Front matter parser
+    "FrontMatterParser",
     # Planning room
     "generate_plan_from_planning_room",
 ]
