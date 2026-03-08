@@ -93,8 +93,11 @@ class TestEditorCursorAlignment:
     def test_css_highlight_layer_not_hardcoded_left(self, client):
         """The highlight layer CSS must not use a hardcoded left offset (e.g., left: 50px)."""
         import re
-        with open('packages/noodle-web/src/noodle_web/static/style.css', 'r') as f:
-            css = f.read()
+        import glob
+        css = ''
+        for css_file in glob.glob('packages/noodle-web/src/noodle_web/static/**/*.css', recursive=True):
+            with open(css_file, 'r') as f:
+                css += f.read()
 
         # Find the .editor-highlight-layer rule and check left value
         match = re.search(r'\.editor-highlight-layer\s*\{([^}]+)\}', css)
@@ -568,8 +571,8 @@ class TestStaticFiles:
         assert "detailedTimelineEnabled" in js_content
 
     def test_style_css_contains_detailed_timeline_styles(self, client):
-        """Test that style.css contains the detailed timeline CSS classes."""
-        response = client.get("/static/style.css")
+        """Test that timeline CSS contains the detailed timeline CSS classes."""
+        response = client.get("/static/views/timeline.css")
         assert response.status_code == 200
         css_content = response.text
         assert "detailed-timeline-container" in css_content
@@ -611,8 +614,8 @@ class TestStaticFiles:
         assert "ganttContextBtn" in js_content
 
     def test_style_css_contains_task_context_menu_styles(self, client):
-        """Test that style.css contains the task context menu CSS classes."""
-        response = client.get("/static/style.css")
+        """Test that component CSS contains the task context menu CSS classes."""
+        response = client.get("/static/components.css")
         assert response.status_code == 200
         css_content = response.text
         assert "task-context-btn" in css_content

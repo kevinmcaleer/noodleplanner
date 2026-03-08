@@ -1,0 +1,2116 @@
+/* ==============================================================================
+   PORTFOLIO STYLES
+   ============================================================================== */
+
+.portfolio-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 10px 12px;
+    background: #f8f9fa;
+}
+
+.portfolio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.portfolio-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+
+.portfolio-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 6px 14px;
+    font-size: 0.85em;
+}
+
+/* Portfolio more menu (three-dot dropdown) */
+.portfolio-more-menu-wrapper {
+    position: relative;
+}
+
+.portfolio-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.portfolio-more-btn:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    color: #333;
+}
+
+.portfolio-more-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    min-width: 180px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.portfolio-more-menu.show {
+    display: block;
+}
+
+.portfolio-more-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    color: #333;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.portfolio-more-menu-item:hover {
+    background: #f0f4ff;
+}
+
+.portfolio-more-menu-item svg {
+    flex-shrink: 0;
+    color: #6c757d;
+}
+
+.portfolio-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.portfolio-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.portfolio-empty-state h3 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.5em;
+}
+
+.portfolio-empty-state p {
+    color: #adb5bd;
+    margin-bottom: 25px;
+}
+
+.portfolio-projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.portfolio-project-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.portfolio-project-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.portfolio-project-card.active {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.portfolio-project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-project-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 1.3em;
+}
+
+.portfolio-active-badge {
+    background: #667eea;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.portfolio-project-meta {
+    margin-bottom: 20px;
+}
+
+.portfolio-meta-item {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.portfolio-project-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.portfolio-project-actions button {
+    flex: 1;
+    min-width: 80px;
+}
+
+/* Button styles (if not already defined) */
+.btn-primary {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    background: #c62828;
+    transform: translateY(-1px);
+}
+
+/* Portfolio Sub-Navigation (inline in header row) */
+.portfolio-subnav {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.portfolio-subnav-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: #6c757d;
+    font-size: 0.85em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.portfolio-subnav-btn:hover {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.06);
+}
+
+.portfolio-subnav-btn.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+    font-weight: 600;
+}
+
+/* Portfolio Status View */
+.portfolio-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-status-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+.portfolio-status-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.portfolio-status-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-status-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-status-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-status-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-status-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-status-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-status-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-status-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-status-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-status-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-status-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-status-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.project-name {
+    font-weight: 600;
+    color: #333;
+}
+
+/* RAG Badges */
+.rag-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rag-badge.rag-red {
+    background: #dc3545;
+    color: white;
+}
+
+.rag-badge.rag-amber {
+    background: #ffc107;
+    color: #333;
+}
+
+.rag-badge.rag-green {
+    background: #28a745;
+    color: white;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.status-badge.status-red {
+    background: #dc3545;
+    color: white;
+}
+
+.status-badge.status-amber {
+    background: #ffc107;
+    color: #333;
+}
+
+.status-badge.status-green {
+    background: #28a745;
+    color: white;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    background: #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 12px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #333;
+    text-shadow: 0 0 3px white;
+}
+
+/* Risk Count */
+.risk-count {
+    font-weight: 600;
+    color: #dc3545;
+}
+
+/* RAG History Dots */
+.rag-history {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.rag-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.rag-dot-R { background: #dc3545; }
+.rag-dot-A { background: #ffc107; }
+.rag-dot-G { background: #28a745; }
+
+/* Trend Indicator */
+.trend-indicator {
+    font-size: 1.4em;
+    font-weight: bold;
+}
+
+.trend-indicator.trend-up {
+    color: #28a745;
+}
+
+.trend-indicator.trend-stable {
+    color: #ffc107;
+}
+
+.trend-indicator.trend-down {
+    color: #dc3545;
+}
+
+/* Sort Indicator */
+.sort-indicator {
+    opacity: 0.3;
+    margin-left: 5px;
+}
+
+.sort-indicator::after {
+    content: '⇅';
+}
+
+/* Portfolio Resources View */
+.portfolio-resources-header {
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-resources-header h2 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+.portfolio-resources-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.resource-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.summary-label {
+    font-size: 0.9em;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.summary-value {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.portfolio-resources-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-resources-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-resources-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-resources-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-resources-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-resources-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-resources-table tbody tr {
+    transition: background 0.2s;
+}
+
+.portfolio-resources-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-resources-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.resource-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.project-count-badge {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 10px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.projects-tooltip {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.in-progress-count {
+    font-weight: 600;
+    color: #ffc107;
+}
+
+/* Workload Badges */
+.workload-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.workload-badge.workload-low {
+    background: #28a745;
+    color: white;
+}
+
+.workload-badge.workload-medium {
+    background: #17a2b8;
+    color: white;
+}
+
+.workload-badge.workload-high {
+    background: #ffc107;
+    color: #333;
+}
+
+.workload-badge.workload-overloaded {
+    background: #dc3545;
+    color: white;
+}
+
+/* Small Button */
+.btn-small {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-small:hover {
+    background: #5568d3;
+    transform: translateY(-1px);
+}
+
+/* Resource Details Modal */
+.resource-details-modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: auto;
+}
+
+.resource-details-content {
+    background: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 900px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.resource-details-content .close-btn {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #adb5bd;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    transition: background 0.2s;
+}
+
+.resource-details-content .close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+#resourceDetailsBody {
+    padding: 30px;
+}
+
+#resourceDetailsBody h2 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 1.8em;
+}
+
+#resourceDetailsBody h3 {
+    margin: 25px 0 15px 0;
+    color: #667eea;
+    font-size: 1.4em;
+}
+
+#resourceDetailsBody h4 {
+    margin: 15px 0 10px 0;
+    color: #667eea;
+    font-size: 1.1em;
+}
+
+.resource-details-summary {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.detail-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.stat-label {
+    font-size: 0.9em;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.stat-value {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.project-assignments {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.assignments-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.assignments-table th {
+    background: #667eea;
+    color: white;
+    padding: 10px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.assignments-table td {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.assignments-table tr:last-child td {
+    border-bottom: none;
+}
+
+.task-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.task-status-badge.status-completed {
+    background: #28a745;
+    color: white;
+}
+
+.task-status-badge.status-in-progress {
+    background: #ffc107;
+    color: #333;
+}
+
+.task-status-badge.status-not-started {
+    background: #6c757d;
+    color: white;
+}
+
+/* Portfolio Timeline View */
+.portfolio-timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px 14px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.portfolio-timeline-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.2em;
+}
+
+.timeline-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.timeline-controls label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.timeline-controls select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.timeline-controls select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+#portfolioTimelineView.portfolio-timeline-active {
+    display: flex !important;
+    flex-direction: column;
+}
+
+.portfolio-timeline-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.portfolio-timeline-container {
+    padding: 12px 12px 24px 12px;
+}
+
+.portfolio-timeline-container .timeline-scale {
+    display: flex;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #e0e0e0;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    height: auto;
+}
+
+.timeline-project-label {
+    width: 200px;
+    padding: 10px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+
+.timeline-scale-track,
+.timeline-project-track {
+    flex: 1;
+    position: relative;
+    min-height: 40px;
+}
+
+.timeline-scale-track {
+    border-left: 1px solid #e0e0e0;
+}
+
+.timeline-scale-item {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-right: 1px solid #e0e0e0;
+    padding: 10px 5px;
+    font-size: 0.85em;
+    color: #6c757d;
+    font-weight: 600;
+    text-align: center;
+}
+
+.timeline-today-marker {
+    position: absolute;
+    top: 0;
+    bottom: -1000px;
+    width: 2px;
+    background: #dc3545;
+    z-index: 10;
+}
+
+.timeline-today-marker::before {
+    content: 'Today';
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    background: #dc3545;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.timeline-project-row {
+    display: flex;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 4px;
+}
+
+.timeline-project-row:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.timeline-project-row:nth-child(even) .timeline-project-label {
+    background: #eff1f3;
+}
+
+.timeline-project-row:hover {
+    background: #eef1f6;
+}
+
+.timeline-project-row .timeline-project-label {
+    background: #f8f9fa;
+    border-radius: 4px 0 0 4px;
+}
+
+.timeline-project-track {
+    border-left: 1px solid #e0e0e0;
+    padding: 5px 0;
+}
+
+.timeline-task-bar {
+    position: absolute;
+    height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+}
+
+.timeline-task-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 5;
+}
+
+.timeline-task-completion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.3);
+    border-right: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Timeline colors */
+.timeline-color-0 { background: #667eea; }
+.timeline-color-1 { background: #17a2b8; }
+.timeline-color-2 { background: #28a745; }
+.timeline-color-3 { background: #ffc107; }
+.timeline-color-4 { background: #6f42c1; }
+
+.timeline-task-bar.completed {
+    opacity: 0.7;
+    border: 2px solid #28a745;
+}
+
+.timeline-task-bar.in-progress {
+    border: 2px solid #ffc107;
+}
+
+.timeline-task-bar.not-started {
+    opacity: 0.5;
+}
+
+.portfolio-timeline-container .timeline-milestone {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #dc3545;
+    transform: rotate(45deg) translateX(-50%);
+    top: 7px;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 6;
+}
+
+.portfolio-timeline-container .timeline-milestone:hover {
+    transform: rotate(45deg) translateX(-50%) scale(1.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .portfolio-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .portfolio-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .portfolio-projects-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .portfolio-project-actions button {
+        font-size: 0.85em;
+        padding: 8px 12px;
+    }
+
+    .portfolio-subnav {
+        flex-wrap: wrap;
+    }
+
+    .portfolio-status-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .portfolio-status-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-status-table {
+        min-width: 800px;
+    }
+
+    .portfolio-resources-summary {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .resource-details-summary {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .portfolio-resources-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-resources-table {
+        min-width: 700px;
+    }
+
+    .resource-details-content {
+        width: 95%;
+        margin: 2% auto;
+    }
+
+    .portfolio-timeline-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .timeline-project-label {
+        width: 150px;
+        font-size: 0.9em;
+    }
+
+    .portfolio-timeline-container {
+        min-width: 800px;
+    }
+
+    .portfolio-actions-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .portfolio-actions-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-actions-table {
+        min-width: 700px;
+    }
+}
+
+/* Portfolio Projects Table View */
+.portfolio-table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.portfolio-projects-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+.portfolio-projects-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.portfolio-projects-table th {
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.portfolio-projects-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-projects-table th.sortable:hover {
+    background: #e9ecef;
+}
+
+.portfolio-projects-table tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.portfolio-projects-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.project-table-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.project-table-row:hover {
+    background: #f8f9fa;
+}
+
+.project-table-row.active-project-row {
+    background: #e7f3ff;
+}
+
+.project-table-row.active-project-row:hover {
+    background: #d0e7ff;
+}
+
+.portfolio-projects-table td {
+    padding: 14px 12px;
+    vertical-align: top;
+}
+
+.project-name-cell {
+    font-weight: 600;
+    color: #212529;
+}
+
+.project-name-editable {
+    cursor: default;
+}
+
+.project-name-input {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    color: #212529;
+    background: #fff;
+    border: 1px solid #667eea;
+    border-radius: 3px;
+    padding: 2px 6px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.active-indicator {
+    color: #667eea;
+    font-size: 1.2em;
+    margin-right: 4px;
+}
+
+/* Project table action buttons */
+.project-action-btn {
+    background: none;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 5px 7px;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.2s;
+    margin: 0 2px;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+.project-action-btn:hover {
+    background: #f8f9fa;
+}
+
+.project-action-btn.project-action-save:hover {
+    color: #667eea;
+    border-color: #667eea;
+}
+
+.project-action-btn.project-action-delete:hover {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-badge-green {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge-amber {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-badge-red {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge-blue {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-badge-gray {
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+/* Highlight cell */
+.highlight-cell {
+    max-width: 400px;
+}
+
+.highlight-preview {
+    font-size: 0.9em;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
+.highlight-date {
+    color: #495057;
+    font-weight: 600;
+}
+
+.highlight-author {
+    color: #667eea;
+    font-weight: 500;
+}
+
+/* Responsive table */
+@media (max-width: 1400px) {
+    .highlight-cell {
+        max-width: 300px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .portfolio-projects-table {
+        font-size: 0.9em;
+    }
+
+    .portfolio-projects-table th,
+    .portfolio-projects-table td {
+        padding: 12px 8px;
+    }
+
+    .highlight-cell {
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .portfolio-table-container {
+        overflow-x: auto;
+    }
+
+    .portfolio-projects-table {
+        min-width: 800px;
+        font-size: 0.85em;
+    }
+
+    .portfolio-projects-table th,
+    .portfolio-projects-table td {
+        padding: 10px 6px;
+    }
+}
+
+/* =========================================
+   Portfolio Actions View
+   ========================================= */
+.portfolio-actions-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.portfolio-actions-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+    flex-shrink: 0;
+}
+
+.portfolio-actions-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.actions-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.actions-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.actions-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #333;
+}
+
+.portfolio-actions-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.portfolio-actions-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-actions-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-actions-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-actions-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-actions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-actions-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-actions-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-actions-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-actions-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-actions-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-actions-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-actions-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.actions-project-name {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.actions-task-name {
+    color: #333;
+}
+
+.actions-finish-date {
+    white-space: nowrap;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.actions-finish-date.actions-overdue {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+/* =========================================
+   Portfolio Risks View
+   ========================================= */
+.portfolio-risks-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.portfolio-risks-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+    flex-shrink: 0;
+}
+
+.portfolio-risks-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.risks-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.risks-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.risks-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #333;
+}
+
+.portfolio-risks-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.portfolio-risks-filters label {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+.portfolio-risks-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-risks-filters select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.portfolio-risks-new {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.portfolio-risks-new select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.portfolio-risks-new select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.new-risk-btn {
+    padding: 8px 18px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.new-risk-btn:hover {
+    background: #5a6fd6;
+}
+
+.portfolio-risks-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-risks-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-risks-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-risks-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-risks-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-risks-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-risks-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-risks-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-risks-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.risks-project-name {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.risks-title {
+    color: #333;
+    font-weight: 500;
+}
+
+.risks-description {
+    color: #6c757d;
+    font-size: 0.9em;
+    max-width: 250px;
+}
+
+.risks-numeric {
+    text-align: center;
+    font-weight: 600;
+}
+
+.risk-score-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.risk-score-badge.rag-red {
+    background: #dc3545;
+    color: white;
+}
+
+.risk-score-badge.rag-amber {
+    background: #ffc107;
+    color: #333;
+}
+
+.risk-score-badge.rag-green {
+    background: #28a745;
+    color: white;
+}
+
+/* =========================================
+   Portfolio Look-Ahead
+   ========================================= */
+.portfolio-lookahead-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    gap: 15px;
+}
+
+.portfolio-lookahead-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.8em;
+    flex-shrink: 0;
+}
+
+.portfolio-lookahead-summary {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.lookahead-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.lookahead-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.lookahead-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #333;
+}
+
+.portfolio-lookahead-filters {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.lookahead-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.portfolio-lookahead-filters label {
+    font-weight: 600;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+.portfolio-lookahead-filters select {
+    padding: 8px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    min-height: 44px;
+}
+
+.portfolio-lookahead-filters select:focus-visible {
+    outline: 2px solid #108BB9;
+    border-color: #108BB9;
+}
+
+.portfolio-lookahead-daterange {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.portfolio-lookahead-section {
+    margin-bottom: 25px;
+}
+
+.portfolio-lookahead-section-title {
+    margin: 0 0 10px 0;
+    padding: 10px 15px;
+    border-radius: 6px 6px 0 0;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.portfolio-lookahead-section-title.overdue {
+    background: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.portfolio-lookahead-section-title.upcoming {
+    background: #d4edda;
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.portfolio-lookahead-table-wrapper {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.portfolio-lookahead-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-lookahead-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-lookahead-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.portfolio-lookahead-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-lookahead-table td {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.portfolio-lookahead-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.portfolio-lookahead-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-lookahead-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.lookahead-project-name {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.lookahead-task-name {
+    color: #333;
+}
+
+.lookahead-days-late {
+    color: #dc3545;
+    font-weight: 700;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .portfolio-lookahead-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .portfolio-lookahead-filters {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .lookahead-filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .portfolio-lookahead-filters select {
+        width: 100%;
+    }
+
+    .portfolio-lookahead-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .portfolio-lookahead-table {
+        min-width: 700px;
+    }
+}
+
+/* =========================================
+   Portfolio Loading State
+   ========================================= */
+.portfolio-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.portfolio-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e0e0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: portfolio-spin 0.8s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes portfolio-spin {
+    to { transform: rotate(360deg); }
+}
+
+.portfolio-loading p {
+    font-size: 1em;
+    font-weight: 500;
+}
+
+/* =========================================
+   Resource Heatmap
+   ========================================= */
+.resource-heatmap-container {
+    margin-top: 25px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.resource-heatmap-container h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.3em;
+}
+
+.resource-heatmap-grid {
+    display: grid;
+    gap: 2px;
+    overflow-x: auto;
+    font-size: 0.8em;
+}
+
+.resource-heatmap-label {
+    padding: 6px 10px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 3px;
+}
+
+.resource-heatmap-header-cell {
+    padding: 6px 4px;
+    font-weight: 600;
+    color: #6c757d;
+    text-align: center;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.resource-heatmap-cell {
+    width: 100%;
+    min-width: 36px;
+    height: 28px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #333;
+    transition: transform 0.15s;
+}
+
+.resource-heatmap-cell:hover {
+    transform: scale(1.1);
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.resource-heatmap-cell.heatmap-none {
+    background: #f0f0f0;
+    color: #adb5bd;
+}
+
+.resource-heatmap-cell.heatmap-low {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.resource-heatmap-cell.heatmap-medium {
+    background: #fff9c4;
+    color: #f57f17;
+}
+
+.resource-heatmap-cell.heatmap-high {
+    background: #ffe0b2;
+    color: #e65100;
+}
+
+.resource-heatmap-cell.heatmap-overloaded {
+    background: #ffcdd2;
+    color: #c62828;
+    font-weight: 700;
+}
+
+.resource-heatmap-legend {
+    display: flex;
+    gap: 15px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+    font-size: 0.85em;
+    color: #6c757d;
+    flex-wrap: wrap;
+}
+
+.resource-heatmap-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.resource-heatmap-legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* =========================================
+   Resource Detail Mini Timeline
+   ========================================= */
+.resource-task-timeline {
+    position: relative;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+}
+
+.resource-task-bar {
+    position: absolute;
+    top: 2px;
+    height: 16px;
+    border-radius: 3px;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+}
+
+.resource-task-bar:hover {
+    opacity: 1;
+}
+

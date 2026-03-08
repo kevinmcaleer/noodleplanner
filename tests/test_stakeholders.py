@@ -39,10 +39,24 @@ def script_content(client):
 
 @pytest.fixture
 def css_content(client):
-    """Fetch the style.css content for CSS tests."""
-    response = client.get("/static/style.css")
-    assert response.status_code == 200
-    return response.text
+    """Fetch all CSS content for CSS tests."""
+    css_files = [
+        "/static/base.css",
+        "/static/layout.css",
+        "/static/components.css",
+        "/static/views/timeline.css",
+        "/static/views/gantt.css",
+        "/static/views/kanban.css",
+        "/static/views/portfolio.css",
+        "/static/animations.css",
+        "/static/responsive.css",
+    ]
+    all_css = ""
+    for css_file in css_files:
+        response = client.get(css_file)
+        assert response.status_code == 200
+        all_css += response.text
+    return all_css
 
 
 class TestStakeholderNavigation:
