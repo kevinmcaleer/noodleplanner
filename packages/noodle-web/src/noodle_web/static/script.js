@@ -1128,6 +1128,7 @@ async function handleEditorFileDrop(file) {
         const project = createProject(projectName);
         saveProject(project.id, { planText: text });
         setCurrentProjectId(project.id);
+        updateProjectBreadcrumb(project.name);
 
         // Load content into editor
         planEditor.value = text;
@@ -1255,6 +1256,7 @@ async function renderFile() {
     const project = createProject(projectName);
     saveProject(project.id, { planText: text });
     setCurrentProjectId(project.id);
+    updateProjectBreadcrumb(project.name);
 
     // Populate the editor with the file content
     const editor = document.getElementById('planEditor');
@@ -1647,6 +1649,7 @@ async function updateAllViews(planText, projectName) {
                 const project = typeof loadProject === 'function' ? loadProject(callerProjectId) : null;
                 if (project && project.name !== fmTitle) {
                     renameProject(callerProjectId, fmTitle);
+                    updateProjectBreadcrumb(fmTitle);
                     if (typeof refreshProjectSelectors === 'function') {
                         refreshProjectSelectors();
                     }
@@ -9969,6 +9972,39 @@ function closeAllNavMenus(except) {
     });
 }
 
+// Update the current project breadcrumb indicator in the nav bar
+function updateProjectBreadcrumb(projectName) {
+    const indicator = document.getElementById('navProjectIndicator');
+    if (!indicator) return;
+
+    if (projectName) {
+        indicator.textContent = projectName;
+        indicator.title = projectName;
+        indicator.classList.add('visible');
+    } else {
+        indicator.textContent = '';
+        indicator.title = '';
+        indicator.classList.remove('visible');
+    }
+}
+
+// Listen for project loaded events to update the breadcrumb
+window.addEventListener('projectLoaded', function(event) {
+    if (event.detail && event.detail.projectName) {
+        updateProjectBreadcrumb(event.detail.projectName);
+    }
+});
+
+// Initialize breadcrumb on page load from stored project
+window.addEventListener('DOMContentLoaded', function() {
+    if (typeof getCurrentProject === 'function') {
+        const project = getCurrentProject();
+        if (project && project.name) {
+            updateProjectBreadcrumb(project.name);
+        }
+    }
+});
+
 // Navigate to Project (Dashboard with plan subnav)
 function switchToProject() {
     switchToView('project-report');
@@ -12936,6 +12972,12 @@ const tourSteps = [
         position: "bottom"
     },
     {
+        title: "Current Project Indicator",
+        message: "The project indicator in the nav bar shows which project you are currently editing. It stays visible when you switch to Portfolio or other views so you never lose context.",
+        target: "#navProjectIndicator",
+        position: "bottom"
+    },
+    {
         title: "Project",
         message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, and Stakeholders (with an Interest/Influence grid). Use the three-dot menu on each task row for quick actions.",
         target: "#planTab",
@@ -14697,6 +14739,7 @@ function wizardImport() {
     const project = createProject(projectName);
     saveProject(project.id, { planText: markdown });
     setCurrentProjectId(project.id);
+    updateProjectBreadcrumb(project.name);
 
     const editor = document.getElementById('planEditor');
     editor.value = markdown;
