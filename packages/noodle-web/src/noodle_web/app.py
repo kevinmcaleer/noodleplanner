@@ -124,6 +124,35 @@ def _sanitized_detail(message: str, error: Exception) -> str:
         return message
     return f"{message}: {error}"
 
+
+def export_to_file(export_fn, suffix, read_mode='rb'):
+    """Run an export function that writes to a temp file and return the content.
+
+    This eliminates the repeated try/finally temp-file pattern (BE-1 from
+    the refactoring plan).
+
+    Args:
+        export_fn: Callable that accepts a file path and writes to it.
+        suffix: File extension for the temp file (e.g. '.xlsx', '.csv').
+        read_mode: Mode used to read back the file ('rb' for binary,
+            'r' for text).  Defaults to 'rb'.
+
+    Returns:
+        The file contents as bytes (read_mode='rb') or str (read_mode='r').
+    """
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp_path = tmp.name
+        export_fn(tmp_path)
+        kwargs = {} if 'b' in read_mode else {'encoding': 'utf-8'}
+        with open(tmp_path, read_mode, **kwargs) as f:
+            return f.read()
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
 # ---------------------------------------------------------------------------
 # Middleware stack (applied in reverse order; last added = outermost)
 # ---------------------------------------------------------------------------
@@ -250,104 +279,73 @@ async def render_plan(data: RenderRequest):
             # If only one export is requested, return it directly
             if export_count == 1:
                 if data.export_excel:
-                    tmp_path = None
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-                            tmp_path = tmp.name
-                        export_to_excel(
-                            converted_content,
-                            tmp_path,
-                            is_yaml=False,
-                            project_name=project_name,
+                    file_bytes = export_to_file(
+                        lambda path: export_to_excel(
+                            converted_content, path,
+                            is_yaml=False, project_name=project_name,
                             original_text=data.plan_text
-                        )
-                        with open(tmp_path, 'rb') as f:
-                            file_bytes = f.read()
-                        return Response(
-                            content=file_bytes,
-                            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            headers={
-                                "Content-Disposition": f'attachment; filename="{project_name}.xlsx"'
-                            }
-                        )
-                    finally:
-                        if tmp_path and os.path.exists(tmp_path):
-                            os.unlink(tmp_path)
+                        ),
+                        suffix='.xlsx',
+                    )
+                    return Response(
+                        content=file_bytes,
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={
+                            "Content-Disposition": f'attachment; filename="{project_name}.xlsx"'
+                        }
+                    )
 
                 elif data.export_csv:
-                    tmp_path = None
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
-                            tmp_path = tmp.name
-                        export_to_csv(
-                            converted_content,
-                            tmp_path,
-                            is_yaml=False,
-                            project_name=project_name,
+                    file_content = export_to_file(
+                        lambda path: export_to_csv(
+                            converted_content, path,
+                            is_yaml=False, project_name=project_name,
                             original_text=data.plan_text
-                        )
-                        with open(tmp_path, 'r', encoding='utf-8') as f:
-                            file_content = f.read()
-                        return Response(
-                            content=file_content,
-                            media_type="text/csv",
-                            headers={
-                                "Content-Disposition": f'attachment; filename="{project_name}.csv"'
-                            }
-                        )
-                    finally:
-                        if tmp_path and os.path.exists(tmp_path):
-                            os.unlink(tmp_path)
+                        ),
+                        suffix='.csv',
+                        read_mode='r',
+                    )
+                    return Response(
+                        content=file_content,
+                        media_type="text/csv",
+                        headers={
+                            "Content-Disposition": f'attachment; filename="{project_name}.csv"'
+                        }
+                    )
 
                 elif data.export_ppt:
-                    tmp_path = None
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-                            tmp_path = tmp.name
-                        export_timeline_to_powerpoint(
-                            converted_content,
-                            tmp_path,
-                            is_yaml=False,
-                            project_name=project_name,
+                    file_bytes = export_to_file(
+                        lambda path: export_timeline_to_powerpoint(
+                            converted_content, path,
+                            is_yaml=False, project_name=project_name,
                             original_text=data.plan_text
-                        )
-                        with open(tmp_path, 'rb') as f:
-                            file_bytes = f.read()
-                        return Response(
-                            content=file_bytes,
-                            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                            headers={
-                                "Content-Disposition": f'attachment; filename="{project_name}-timeline.pptx"'
-                            }
-                        )
-                    finally:
-                        if tmp_path and os.path.exists(tmp_path):
-                            os.unlink(tmp_path)
+                        ),
+                        suffix='.pptx',
+                    )
+                    return Response(
+                        content=file_bytes,
+                        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        headers={
+                            "Content-Disposition": f'attachment; filename="{project_name}-timeline.pptx"'
+                        }
+                    )
 
                 elif data.export_pdf:
-                    tmp_path = None
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                            tmp_path = tmp.name
-                        export_to_pdf(
-                            converted_content,
-                            tmp_path,
-                            is_yaml=False,
-                            project_name=project_name,
+                    file_bytes = export_to_file(
+                        lambda path: export_to_pdf(
+                            converted_content, path,
+                            is_yaml=False, project_name=project_name,
                             original_text=data.plan_text
-                        )
-                        with open(tmp_path, 'rb') as f:
-                            file_bytes = f.read()
-                        return Response(
-                            content=file_bytes,
-                            media_type="application/pdf",
-                            headers={
-                                "Content-Disposition": f'attachment; filename="{project_name}.pdf"'
-                            }
-                        )
-                    finally:
-                        if tmp_path and os.path.exists(tmp_path):
-                            os.unlink(tmp_path)
+                        ),
+                        suffix='.pdf',
+                    )
+                    return Response(
+                        content=file_bytes,
+                        media_type="application/pdf",
+                        headers={
+                            "Content-Disposition": f'attachment; filename="{project_name}.pdf"'
+                        }
+                    )
 
             else:
                 # Multiple exports requested - return as ZIP
@@ -414,79 +412,52 @@ def generate_exports(
 
         # Excel export
         if export_excel:
-            tmp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-                    tmp_path = tmp.name
-                export_to_excel(
-                    converted_text,
-                    tmp_path,
-                    is_yaml=False,
-                    project_name=project_name,
+            content = export_to_file(
+                lambda path: export_to_excel(
+                    converted_text, path,
+                    is_yaml=False, project_name=project_name,
                     original_text=original_text
-                )
-                with open(tmp_path, 'rb') as f:
-                    zip_file.writestr(f"{project_name}.xlsx", f.read())
-            finally:
-                if tmp_path and os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+                ),
+                suffix='.xlsx',
+            )
+            zip_file.writestr(f"{project_name}.xlsx", content)
 
         # CSV export
         if export_csv:
-            tmp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as tmp:
-                    tmp_path = tmp.name
-                export_to_csv(
-                    converted_text,
-                    tmp_path,
-                    is_yaml=False,
-                    project_name=project_name,
+            content = export_to_file(
+                lambda path: export_to_csv(
+                    converted_text, path,
+                    is_yaml=False, project_name=project_name,
                     original_text=original_text
-                )
-                with open(tmp_path, 'r', encoding='utf-8') as f:
-                    zip_file.writestr(f"{project_name}.csv", f.read())
-            finally:
-                if tmp_path and os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+                ),
+                suffix='.csv',
+                read_mode='r',
+            )
+            zip_file.writestr(f"{project_name}.csv", content)
 
         # PowerPoint timeline export
         if export_ppt:
-            tmp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-                    tmp_path = tmp.name
-                export_timeline_to_powerpoint(
-                    converted_text,
-                    tmp_path,
-                    is_yaml=False,
-                    project_name=project_name,
+            content = export_to_file(
+                lambda path: export_timeline_to_powerpoint(
+                    converted_text, path,
+                    is_yaml=False, project_name=project_name,
                     original_text=original_text
-                )
-                with open(tmp_path, 'rb') as f:
-                    zip_file.writestr(f"{project_name}-timeline.pptx", f.read())
-            finally:
-                if tmp_path and os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+                ),
+                suffix='.pptx',
+            )
+            zip_file.writestr(f"{project_name}-timeline.pptx", content)
 
         # PDF export
         if export_pdf:
-            tmp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                    tmp_path = tmp.name
-                export_to_pdf(
-                    converted_text,
-                    tmp_path,
-                    is_yaml=False,
-                    project_name=project_name,
+            content = export_to_file(
+                lambda path: export_to_pdf(
+                    converted_text, path,
+                    is_yaml=False, project_name=project_name,
                     original_text=original_text
-                )
-                with open(tmp_path, 'rb') as f:
-                    zip_file.writestr(f"{project_name}.pdf", f.read())
-            finally:
-                if tmp_path and os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+                ),
+                suffix='.pdf',
+            )
+            zip_file.writestr(f"{project_name}.pdf", content)
 
     # Get the ZIP file bytes
     zip_buffer.seek(0)
@@ -813,31 +784,26 @@ async def export_report_pptx(data: ReportExportRequest):
     """Export the project report as a PowerPoint file."""
     logger.info(f"Report PPTX export request for: {data.project_name}")
 
-    tmp_path = None
+    report_data = {
+        'project_name': data.project_name,
+        'manager': data.manager,
+        'sponsor': data.sponsor,
+        'budget': data.budget,
+        'date': data.date,
+        'status': data.status,
+        'milestones': [m.model_dump() for m in data.milestones],
+        'up_next': [u.model_dump() for u in data.up_next],
+        'highlight': data.highlight.model_dump() if data.highlight else None,
+        'risks_issues': [r.model_dump() for r in data.risks_issues],
+        'timeline_tasks': [t.model_dump() for t in data.timeline_tasks],
+        'timeline_image': data.timeline_image,
+    }
+
     try:
-        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-            tmp_path = tmp.name
-
-        report_data = {
-            'project_name': data.project_name,
-            'manager': data.manager,
-            'sponsor': data.sponsor,
-            'budget': data.budget,
-            'date': data.date,
-            'status': data.status,
-            'milestones': [m.model_dump() for m in data.milestones],
-            'up_next': [u.model_dump() for u in data.up_next],
-            'highlight': data.highlight.model_dump() if data.highlight else None,
-            'risks_issues': [r.model_dump() for r in data.risks_issues],
-            'timeline_tasks': [t.model_dump() for t in data.timeline_tasks],
-            'timeline_image': data.timeline_image,
-        }
-
-        export_report_to_powerpoint(tmp_path, report_data)
-
-        with open(tmp_path, 'rb') as f:
-            file_bytes = f.read()
-
+        file_bytes = export_to_file(
+            lambda path: export_report_to_powerpoint(path, report_data),
+            suffix='.pptx',
+        )
         return Response(
             content=file_bytes,
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -848,9 +814,6 @@ async def export_report_pptx(data: ReportExportRequest):
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error exporting report to PPTX: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to export report", e))
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
 
 
 class PortfolioProjectSummary(BaseModel):
@@ -880,41 +843,38 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
     logger.info(f"Portfolio PPTX export request: {data.portfolio_name} "
                 f"({len(data.project_reports)} projects)")
 
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.pptx', delete=False) as tmp:
-            tmp_path = tmp.name
+    portfolio_data = {
+        'portfolio_name': data.portfolio_name,
+        'date': data.date,
+        'projects': [p.model_dump() for p in data.projects],
+        'timeline_image': data.timeline_image,
+    }
 
-        portfolio_data = {
-            'portfolio_name': data.portfolio_name,
-            'date': data.date,
-            'projects': [p.model_dump() for p in data.projects],
-            'timeline_image': data.timeline_image,
+    project_reports = [
+        {
+            'project_name': r.project_name,
+            'manager': r.manager,
+            'sponsor': r.sponsor,
+            'budget': r.budget,
+            'date': r.date,
+            'status': r.status,
+            'milestones': [m.model_dump() for m in r.milestones],
+            'up_next': [u.model_dump() for u in r.up_next],
+            'highlight': r.highlight.model_dump() if r.highlight else None,
+            'risks_issues': [ri.model_dump() for ri in r.risks_issues],
+            'timeline_tasks': [t.model_dump() for t in r.timeline_tasks],
+            'timeline_image': r.timeline_image,
         }
+        for r in data.project_reports
+    ]
 
-        project_reports = [
-            {
-                'project_name': r.project_name,
-                'manager': r.manager,
-                'sponsor': r.sponsor,
-                'budget': r.budget,
-                'date': r.date,
-                'status': r.status,
-                'milestones': [m.model_dump() for m in r.milestones],
-                'up_next': [u.model_dump() for u in r.up_next],
-                'highlight': r.highlight.model_dump() if r.highlight else None,
-                'risks_issues': [ri.model_dump() for ri in r.risks_issues],
-                'timeline_tasks': [t.model_dump() for t in r.timeline_tasks],
-                'timeline_image': r.timeline_image,
-            }
-            for r in data.project_reports
-        ]
-
-        export_portfolio_to_powerpoint(tmp_path, portfolio_data, project_reports)
-
-        with open(tmp_path, 'rb') as f:
-            file_bytes = f.read()
-
+    try:
+        file_bytes = export_to_file(
+            lambda path: export_portfolio_to_powerpoint(
+                path, portfolio_data, project_reports
+            ),
+            suffix='.pptx',
+        )
         return Response(
             content=file_bytes,
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -929,9 +889,6 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
             status_code=500,
             detail=_sanitized_detail("Failed to export portfolio report", e)
         )
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
 
 
 class RaidItem(BaseModel):
@@ -1005,24 +962,15 @@ async def export_raid_excel(data: RaidExportRequest):
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-        wb.save(tmp_path)
-        with open(tmp_path, 'rb') as f:
-            file_bytes = f.read()
-        project_name = data.project_name or "Project"
-        return Response(
-            content=file_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f'attachment; filename="{project_name}-raid.xlsx"'
-            }
-        )
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    project_name = data.project_name or "Project"
+    file_bytes = export_to_file(wb.save, suffix='.xlsx')
+    return Response(
+        content=file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{project_name}-raid.xlsx"'
+        }
+    )
 
 
 @app.post("/api/raid/import-excel")
@@ -1194,24 +1142,15 @@ async def export_budget_excel(data: BudgetExportRequest):
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-        wb.save(tmp_path)
-        with open(tmp_path, 'rb') as f:
-            file_bytes = f.read()
-        project_name = data.project_name or "Project"
-        return Response(
-            content=file_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f'attachment; filename="{project_name}-budget.xlsx"'
-            }
-        )
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    project_name = data.project_name or "Project"
+    file_bytes = export_to_file(wb.save, suffix='.xlsx')
+    return Response(
+        content=file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{project_name}-budget.xlsx"'
+        }
+    )
 
 
 @app.post("/api/budget/import-excel")
