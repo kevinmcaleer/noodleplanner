@@ -41,6 +41,7 @@ from noodle_core import (
     parse_raid_markdown,
     extract_baseline,
     parse_baseline_markdown,
+    FrontMatterParser,
 )
 from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
@@ -261,9 +262,9 @@ async def render_plan(data: RenderRequest):
     """Render a project plan and optionally export to Excel/PPT/PDF."""
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}")
 
-    # Extract title from front matter if present
-    title_from_frontmatter = extract_title_from_frontmatter(data.plan_text)
-    project_name = data.project_name or title_from_frontmatter or "Project"
+    # Extract title from front matter using consolidated parser
+    fm_parser = FrontMatterParser(data.plan_text)
+    project_name = data.project_name or fm_parser.parse_title() or "Project"
 
     try:
         # Convert plan format (strip front matter)
@@ -563,28 +564,18 @@ async def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
     logger.info(f"Parse request received")
 
+    # Parse all front matter data using the consolidated parser
+    fm_parser = FrontMatterParser(data.plan_text)
+
     # Extract highlights, RAID log, and baseline early so they are always
     # available, even if the task parsing pipeline fails.
-    highlights = extract_highlights(data.plan_text)
-    raid_items = []
-    try:
-        raid_log_text = extract_raid_log(data.plan_text)
-        if raid_log_text:
-            raid_items = parse_raid_markdown(raid_log_text)
-    except (ValueError, KeyError) as e:
-        logger.warning(f"Failed to parse RAID log from plan text: {e}")
-
-    baseline_items = []
-    try:
-        baseline_text = extract_baseline(data.plan_text)
-        if baseline_text:
-            baseline_items = parse_baseline_markdown(baseline_text)
-    except (ValueError, KeyError) as e:
-        logger.warning(f"Failed to parse baseline from plan text: {e}")
+    highlights = fm_parser.parse_highlights()
+    raid_items = fm_parser.parse_raid()
+    baseline_items = fm_parser.parse_baseline()
 
     try:
-        # Extract title from front matter if present
-        title_from_frontmatter = extract_title_from_frontmatter(data.plan_text)
+        # Extract title and key-value pairs from front matter
+        title_from_frontmatter = fm_parser.parse_title()
         project_name = data.project_name or title_from_frontmatter or "Project"
 
         # Convert plan format (strip front matter)
@@ -599,26 +590,9 @@ async def parse_plan(data: RenderRequest):
             original_text=data.plan_text
         )
 
-        # Parse resource mappings from front matter
-        resource_map = parse_resource_mappings(data.plan_text)
-
-        # Extract front matter data for project views
-        front_matter = {}
-        lines = data.plan_text.split('\n')
-        in_front_matter = False
-
-        for i, line in enumerate(lines):
-            if line.strip() == '---':
-                if not in_front_matter:
-                    in_front_matter = True
-                    continue
-                else:
-                    break
-
-            if in_front_matter:
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    front_matter[key.strip().lower()] = value.strip()
+        # Parse resource mappings and key-value pairs from front matter
+        resource_map = fm_parser.parse_resource_mappings()
+        front_matter = fm_parser.parse_key_values()
 
         # Parse and schedule tasks for Milestones Table
         yaml_data = natural_language_to_yaml(converted_content, project_name)
