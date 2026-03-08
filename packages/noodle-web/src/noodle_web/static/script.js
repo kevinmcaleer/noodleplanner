@@ -1799,6 +1799,171 @@ async function updateAllViews(planText, projectName) {
     }
 }
 
+/**
+ * Generic table row builder that replaces the repeated pattern of:
+ *   1. Clear tbody
+ *   2. Loop through data
+ *   3. Create cells with classList.add()
+ *   4. Attach event listeners
+ *
+ * @param {HTMLElement} tbody - The <tbody> element to populate
+ * @param {Array} data - Array of data items to render as rows
+ * @param {Array} columnDefs - Array of column definitions, each with:
+ *   - content: function(item, index) => string|Node - cell content (text or DOM node)
+ *   - classes: string|string[]|function(item, index) => string|string[] - CSS classes
+ *   - style: object|function(item, index) => object - inline styles { prop: value }
+ *   - dataset: object|function(item, index) => object - data attributes { key: value }
+ *   - title: string|function(item, index) => string - tooltip text
+ *   - onClick: function(item, index, cell, event) - click handler for the cell
+ *   - onDblClick: function(item, index, cell, event) - double-click handler for the cell
+ * @param {Object} [rowOptions] - Optional row-level configuration:
+ *   - classes: string|string[]|function(item, index) => string|string[] - row CSS classes
+ *   - style: object|function(item, index) => object - row inline styles
+ *   - dataset: object|function(item, index) => object - row data attributes
+ *   - onClick: function(item, index, row, event) - click handler for the row
+ *   - skip: function(item, index) => boolean - return true to skip this row
+ */
+function buildTableRows(tbody, data, columnDefs, rowOptions = {}) {
+    tbody.innerHTML = '';
+
+    if (!data || data.length === 0) return;
+
+    data.forEach((item, index) => {
+        if (rowOptions.skip && rowOptions.skip(item, index)) return;
+
+        const row = document.createElement('tr');
+
+        // Apply row classes
+        const rowClasses = typeof rowOptions.classes === 'function'
+            ? rowOptions.classes(item, index)
+            : rowOptions.classes;
+        if (rowClasses) {
+            const classList = Array.isArray(rowClasses) ? rowClasses : [rowClasses];
+            classList.filter(Boolean).forEach(cls => row.classList.add(cls));
+        }
+
+        // Apply row styles
+        const rowStyle = typeof rowOptions.style === 'function'
+            ? rowOptions.style(item, index)
+            : rowOptions.style;
+        if (rowStyle) {
+            Object.assign(row.style, rowStyle);
+        }
+
+        // Apply row dataset
+        const rowDataset = typeof rowOptions.dataset === 'function'
+            ? rowOptions.dataset(item, index)
+            : rowOptions.dataset;
+        if (rowDataset) {
+            Object.entries(rowDataset).forEach(([key, value]) => {
+                row.dataset[key] = value;
+            });
+        }
+
+        // Apply row click handler
+        if (rowOptions.onClick) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', (e) => rowOptions.onClick(item, index, row, e));
+        }
+
+        // Build cells
+        columnDefs.forEach(colDef => {
+            // Support conditional columns - skip if colDef is null/undefined
+            if (!colDef) return;
+
+            // Support dynamic columns via a function that returns null to skip
+            if (typeof colDef === 'function') {
+                colDef = colDef(item, index);
+                if (!colDef) return;
+            }
+
+            const cell = document.createElement('td');
+
+            // Set content (text string or DOM node)
+            const content = typeof colDef.content === 'function'
+                ? colDef.content(item, index)
+                : colDef.content;
+            if (content instanceof Node) {
+                cell.appendChild(content);
+            } else if (content !== undefined && content !== null) {
+                cell.textContent = content;
+            }
+
+            // Apply classes
+            const classes = typeof colDef.classes === 'function'
+                ? colDef.classes(item, index)
+                : colDef.classes;
+            if (classes) {
+                const classList = Array.isArray(classes) ? classes : [classes];
+                classList.filter(Boolean).forEach(cls => cell.classList.add(cls));
+            }
+
+            // Apply styles
+            const style = typeof colDef.style === 'function'
+                ? colDef.style(item, index)
+                : colDef.style;
+            if (style) {
+                Object.assign(cell.style, style);
+            }
+
+            // Apply dataset
+            const dataset = typeof colDef.dataset === 'function'
+                ? colDef.dataset(item, index)
+                : colDef.dataset;
+            if (dataset) {
+                Object.entries(dataset).forEach(([key, value]) => {
+                    cell.dataset[key] = value;
+                });
+            }
+
+            // Apply title
+            const title = typeof colDef.title === 'function'
+                ? colDef.title(item, index)
+                : colDef.title;
+            if (title) {
+                cell.title = title;
+            }
+
+            // Attach event handlers
+            if (colDef.onClick) {
+                cell.addEventListener('click', (e) => colDef.onClick(item, index, cell, e));
+            }
+            if (colDef.onDblClick) {
+                cell.addEventListener('dblclick', (e) => colDef.onDblClick(item, index, cell, e));
+            }
+
+            row.appendChild(cell);
+        });
+
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Helper to compute baseline variance text and class for a task.
+ * Used by milestones tables to avoid duplicating variance calculation logic.
+ */
+function computeBaselineVariance(task, baselineLookup) {
+    const bl = baselineLookup[task.name];
+    if (bl && bl.finish && task.finish) {
+        const currentDate = parseLocalDate(task.finish);
+        const baselineDate = parseLocalDate(bl.finish);
+        if (currentDate && baselineDate) {
+            const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                return { text: '+' + diffDays + 'd', cls: 'baseline-late' };
+            } else if (diffDays < 0) {
+                return { text: diffDays + 'd', cls: 'baseline-early' };
+            } else {
+                return { text: 'On track', cls: 'baseline-ontrack' };
+            }
+        }
+        return { text: '-', cls: null };
+    }
+    if (!bl) return { text: 'New', cls: 'baseline-new' };
+    return { text: '-', cls: null };
+}
+
 function updateMilestonesTable(tasks) {
     try {
         // Show milestones content, hide placeholder
@@ -1856,116 +2021,49 @@ function updateMilestonesTable(tasks) {
             return dateA - dateB;
         });
 
-        // Populate with milestone data
-        filteredTasks.forEach(task => {
-            const row = document.createElement('tr');
-
-            // ID cell
-            const idCell = document.createElement('td');
-            idCell.textContent = task.id;
-            row.appendChild(idCell);
-
-            // Task Name cell
-            const nameCell = document.createElement('td');
-            nameCell.textContent = task.name;
-            nameCell.classList.add('task-name');
-            row.appendChild(nameCell);
-
-            // Start cell
-            const startCell = document.createElement('td');
-            startCell.textContent = task.start || '-';
-            row.appendChild(startCell);
-
-            // Finish cell
-            const finishCell = document.createElement('td');
-            finishCell.textContent = task.finish || '-';
-            row.appendChild(finishCell);
-
-            // Baseline columns (if toggled on)
-            if (showBaseline) {
+        // Populate with milestone data using buildTableRows
+        const milestoneColumns = [
+            { content: (task) => task.id },
+            { content: (task) => task.name, classes: 'task-name' },
+            { content: (task) => task.start || '-' },
+            { content: (task) => task.finish || '-' },
+            // Baseline columns (conditional)
+            showBaseline ? (task) => {
                 const bl = baselineLookup[task.name];
-                const blStartCell = document.createElement('td');
-                blStartCell.classList.add('baseline-col');
-                blStartCell.textContent = bl ? (bl.start || '-') : '-';
-                row.appendChild(blStartCell);
-
-                const blFinishCell = document.createElement('td');
-                blFinishCell.classList.add('baseline-col');
-                blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
-                row.appendChild(blFinishCell);
-
-                const varianceCell = document.createElement('td');
-                varianceCell.classList.add('baseline-col');
-                if (bl && bl.finish && task.finish) {
-                    const currentDate = parseLocalDate(task.finish);
-                    const baselineDate = parseLocalDate(bl.finish);
-                    if (currentDate && baselineDate) {
-                        const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
-                        if (diffDays > 0) {
-                            varianceCell.textContent = '+' + diffDays + 'd';
-                            varianceCell.classList.add('baseline-late');
-                        } else if (diffDays < 0) {
-                            varianceCell.textContent = diffDays + 'd';
-                            varianceCell.classList.add('baseline-early');
-                        } else {
-                            varianceCell.textContent = 'On track';
-                            varianceCell.classList.add('baseline-ontrack');
-                        }
-                    } else {
-                        varianceCell.textContent = '-';
-                    }
-                } else {
-                    varianceCell.textContent = bl ? '-' : 'New';
-                    if (!bl) varianceCell.classList.add('baseline-new');
+                return { content: bl ? (bl.start || '-') : '-', classes: 'baseline-col' };
+            } : null,
+            showBaseline ? (task) => {
+                const bl = baselineLookup[task.name];
+                return { content: bl ? (bl.finish || '-') : '-', classes: 'baseline-col' };
+            } : null,
+            showBaseline ? (task) => {
+                const v = computeBaselineVariance(task, baselineLookup);
+                return { content: v.text, classes: ['baseline-col', v.cls].filter(Boolean) };
+            } : null,
+            { content: (task) => task.percent || '-' },
+            {
+                content: (task) => task.rag || '-',
+                classes: (task) => {
+                    const c = ragStatusToColour(task.rag || '-');
+                    return c ? 'rag-' + c : null;
                 }
-                row.appendChild(varianceCell);
-            }
+            },
+            {
+                content: (task) => task.priority || 'Low',
+                classes: (task) => {
+                    const p = task.priority || 'Low';
+                    if (p === 'Urgent') return 'priority-urgent';
+                    if (p === 'Important') return 'priority-important';
+                    if (p === 'Medium') return 'priority-medium';
+                    return null;
+                }
+            },
+            { content: (task) => task.bucket || '-' },
+            { content: (task) => task.comment || '-' }
+        ];
 
-            // Percent cell
-            const percentCell = document.createElement('td');
-            percentCell.textContent = task.percent || '-';
-            row.appendChild(percentCell);
-
-            // RAG cell
-            const ragCell = document.createElement('td');
-            const ragText = task.rag || '-';
-            ragCell.textContent = ragText;
-            const ragColour = ragStatusToColour(ragText);
-            if (ragColour) {
-                ragCell.classList.add('rag-' + ragColour);
-            }
-            row.appendChild(ragCell);
-
-            // Priority cell
-            const priorityCell = document.createElement('td');
-            const priorityVal = task.priority || 'Low';
-            priorityCell.textContent = priorityVal;
-            if (priorityVal === 'Urgent') {
-                priorityCell.classList.add('priority-urgent');
-            } else if (priorityVal === 'Important') {
-                priorityCell.classList.add('priority-important');
-            } else if (priorityVal === 'Medium') {
-                priorityCell.classList.add('priority-medium');
-            }
-            row.appendChild(priorityCell);
-
-            // Bucket cell
-            const bucketCell = document.createElement('td');
-            bucketCell.textContent = task.bucket || '-';
-            row.appendChild(bucketCell);
-
-            // Comment cell
-            const commentCell = document.createElement('td');
-            commentCell.textContent = task.comment || '-';
-            row.appendChild(commentCell);
-
-            // Make row clickable to open task form
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', () => {
-                openMilestoneTaskForm(task.name);
-            });
-
-            tbody.appendChild(row);
+        buildTableRows(tbody, filteredTasks, milestoneColumns, {
+            onClick: (task) => openMilestoneTaskForm(task.name)
         });
 
     } catch (error) {
@@ -2288,69 +2386,29 @@ function updateReportMilestones(tasks) {
         if (tableEl) tableEl.style.display = '';
         if (emptyEl) emptyEl.style.display = 'none';
 
-        displayMilestones.forEach(task => {
-            const row = document.createElement('tr');
-
-            const nameCell = document.createElement('td');
-            nameCell.textContent = task.name;
-            nameCell.classList.add('task-name');
-            row.appendChild(nameCell);
-
-            const dateCell = document.createElement('td');
-            dateCell.textContent = task.finish || '-';
-            row.appendChild(dateCell);
-
-            // Baseline columns (shown automatically when baseline exists)
-            if (hasBaseline) {
+        const reportMsColumns = [
+            { content: (task) => task.name, classes: 'task-name' },
+            { content: (task) => task.finish || '-' },
+            // Baseline columns (conditional)
+            hasBaseline ? (task) => {
                 const bl = baselineLookup[task.name];
-
-                const blFinishCell = document.createElement('td');
-                blFinishCell.classList.add('baseline-col');
-                blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
-                row.appendChild(blFinishCell);
-
-                const varianceCell = document.createElement('td');
-                varianceCell.classList.add('baseline-col');
-                if (bl && bl.finish && task.finish) {
-                    const currentDate = parseLocalDate(task.finish);
-                    const baselineDate = parseLocalDate(bl.finish);
-                    if (currentDate && baselineDate) {
-                        const diffDays = Math.round((currentDate - baselineDate) / (1000 * 60 * 60 * 24));
-                        if (diffDays > 0) {
-                            varianceCell.textContent = '+' + diffDays + 'd';
-                            varianceCell.classList.add('baseline-late');
-                        } else if (diffDays < 0) {
-                            varianceCell.textContent = diffDays + 'd';
-                            varianceCell.classList.add('baseline-early');
-                        } else {
-                            varianceCell.textContent = 'On track';
-                            varianceCell.classList.add('baseline-ontrack');
-                        }
-                    } else {
-                        varianceCell.textContent = '-';
-                    }
-                } else {
-                    varianceCell.textContent = bl ? '-' : 'New';
-                    if (!bl) varianceCell.classList.add('baseline-new');
+                return { content: bl ? (bl.finish || '-') : '-', classes: 'baseline-col' };
+            } : null,
+            hasBaseline ? (task) => {
+                const v = computeBaselineVariance(task, baselineLookup);
+                return { content: v.text, classes: ['baseline-col', v.cls].filter(Boolean) };
+            } : null,
+            {
+                content: (task) => task.rag || '-',
+                classes: (task) => {
+                    const c = ragStatusToColour(task.rag || '-');
+                    return c ? 'rag-' + c : null;
                 }
-                row.appendChild(varianceCell);
             }
+        ];
 
-            const ragCell = document.createElement('td');
-            const ragValue = task.rag || '-';
-            ragCell.textContent = ragValue;
-            const ragColourMs = ragStatusToColour(ragValue);
-            if (ragColourMs) {
-                ragCell.classList.add('rag-' + ragColourMs);
-            }
-            row.appendChild(ragCell);
-
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', () => {
-                openMilestoneTaskForm(task.name);
-            });
-
-            tbody.appendChild(row);
+        buildTableRows(tbody, displayMilestones, reportMsColumns, {
+            onClick: (task) => openMilestoneTaskForm(task.name)
         });
 
     } catch (error) {
@@ -2433,35 +2491,24 @@ function updateReportUpNext(tasks) {
         if (tableEl) tableEl.style.display = '';
         if (emptyEl) emptyEl.style.display = 'none';
 
-        displayTasks.forEach(({ task, status, statusClass }) => {
-            const row = document.createElement('tr');
-            row.classList.add('up-next-row-clickable');
-            row.addEventListener('click', () => {
+        buildTableRows(tbody, displayTasks, [
+            { content: (item) => item.task.name, classes: 'task-name' },
+            { content: (item) => item.task.start || '-' },
+            { content: (item) => item.task.finish || '-' },
+            {
+                content: (item) => {
+                    const badge = document.createElement('span');
+                    badge.className = 'up-next-status ' + item.statusClass;
+                    badge.textContent = item.status;
+                    return badge;
+                }
+            }
+        ], {
+            classes: 'up-next-row-clickable',
+            onClick: (item) => {
                 switchTab('editor');
-                openTaskFormByName(task.name);
-            });
-
-            const nameCell = document.createElement('td');
-            nameCell.textContent = task.name;
-            nameCell.classList.add('task-name');
-            row.appendChild(nameCell);
-
-            const startCell = document.createElement('td');
-            startCell.textContent = task.start || '-';
-            row.appendChild(startCell);
-
-            const finishCell = document.createElement('td');
-            finishCell.textContent = task.finish || '-';
-            row.appendChild(finishCell);
-
-            const statusCell = document.createElement('td');
-            const statusBadge = document.createElement('span');
-            statusBadge.className = 'up-next-status ' + statusClass;
-            statusBadge.textContent = status;
-            statusCell.appendChild(statusBadge);
-            row.appendChild(statusCell);
-
-            tbody.appendChild(row);
+                openTaskFormByName(item.task.name);
+            }
         });
 
     } catch (error) {
@@ -2497,33 +2544,28 @@ function updateReportRaid() {
         if (tableEl) tableEl.style.display = '';
         if (emptyEl) emptyEl.style.display = 'none';
 
-        openRisksAndIssues.forEach(item => {
-            const row = document.createElement('tr');
-            row.style.cursor = 'pointer';
-            row.title = 'Click to view details';
-            row.addEventListener('click', () => openRaidForm(item.id));
-
-            const typeCell = document.createElement('td');
-            const typeBadge = document.createElement('span');
-            typeBadge.className = 'raid-type-badge raid-type-' + item.type;
-            typeBadge.textContent = item.type;
-            typeCell.appendChild(typeBadge);
-            row.appendChild(typeCell);
-
-            const titleCell = document.createElement('td');
-            titleCell.textContent = item.title || item.description || '-';
-            row.appendChild(titleCell);
-
-            const scoreCell = document.createElement('td');
-            const scoreBadge = document.createElement('span');
-            const score = item.score || 0;
-            const scoreClass = score >= 16 ? 'raid-score-high' : score >= 6 ? 'raid-score-medium' : 'raid-score-low';
-            scoreBadge.className = 'raid-score ' + scoreClass;
-            scoreBadge.textContent = score;
-            scoreCell.appendChild(scoreBadge);
-            row.appendChild(scoreCell);
-
-            tbody.appendChild(row);
+        buildTableRows(tbody, openRisksAndIssues, [
+            {
+                content: (item) => {
+                    const badge = document.createElement('span');
+                    badge.className = 'raid-type-badge raid-type-' + item.type;
+                    badge.textContent = item.type;
+                    return badge;
+                }
+            },
+            { content: (item) => item.title || item.description || '-' },
+            {
+                content: (item) => {
+                    const badge = document.createElement('span');
+                    const score = item.score || 0;
+                    const scoreClass = score >= 16 ? 'raid-score-high' : score >= 6 ? 'raid-score-medium' : 'raid-score-low';
+                    badge.className = 'raid-score ' + scoreClass;
+                    badge.textContent = score;
+                    return badge;
+                }
+            }
+        ], {
+            onClick: (item) => openRaidForm(item.id)
         });
 
     } catch (error) {
@@ -2835,60 +2877,38 @@ function updateResourcesTable(tasks) {
             a.name.localeCompare(b.name)
         );
 
-        // Populate table rows
-        sortedResources.forEach(resource => {
-            const row = document.createElement('tr');
-
-            // Full Name cell (editable on double-click)
-            const nameCell = document.createElement('td');
-            nameCell.textContent = resource.name;
-            nameCell.classList.add('resource-name');
-            nameCell.style.cursor = 'pointer';
-            nameCell.title = 'Double-click to edit resource';
-            nameCell.addEventListener('dblclick', () => {
-                const shortname = resource.shortname || resource.name.replace(/^@/, '');
-                openResourceForm(shortname);
-            });
-            row.appendChild(nameCell);
-
-            // Shortname cell (editable on double-click)
-            const shortnameCell = document.createElement('td');
-            const displayShortname = resource.shortname || resource.name;
-            shortnameCell.textContent = '@' + displayShortname;
-            shortnameCell.classList.add('resource-shortname');
-            shortnameCell.style.cursor = 'pointer';
-            shortnameCell.title = 'Double-click to rename shortname';
-            shortnameCell.addEventListener('dblclick', () => {
-                startInlineRename(shortnameCell, displayShortname);
-            });
-            row.appendChild(shortnameCell);
-
-            // Role cell
-            const roleCell = document.createElement('td');
-            const details = globalResourceDetails[displayShortname.toLowerCase()];
-            roleCell.textContent = details ? details.role : '';
-            row.appendChild(roleCell);
-
-            // Tasks Assigned cell
-            const tasksCell = document.createElement('td');
-            tasksCell.textContent = resource.taskCount;
-            tasksCell.classList.add('text-center');
-            row.appendChild(tasksCell);
-
-            // Total Days cell
-            const daysCell = document.createElement('td');
-            daysCell.textContent = resource.totalDays;
-            daysCell.classList.add('text-center');
-            row.appendChild(daysCell);
-
-            // Total Hours cell
-            const hoursCell = document.createElement('td');
-            hoursCell.textContent = resource.totalHours;
-            hoursCell.classList.add('text-center');
-            row.appendChild(hoursCell);
-
-            tbody.appendChild(row);
-        });
+        // Populate table rows using buildTableRows
+        buildTableRows(tbody, sortedResources, [
+            {
+                content: (r) => r.name,
+                classes: 'resource-name',
+                style: { cursor: 'pointer' },
+                title: 'Double-click to edit resource',
+                onDblClick: (r) => {
+                    const shortname = r.shortname || r.name.replace(/^@/, '');
+                    openResourceForm(shortname);
+                }
+            },
+            {
+                content: (r) => '@' + (r.shortname || r.name),
+                classes: 'resource-shortname',
+                style: { cursor: 'pointer' },
+                title: 'Double-click to rename shortname',
+                onDblClick: (r, idx, cell) => {
+                    startInlineRename(cell, r.shortname || r.name);
+                }
+            },
+            {
+                content: (r) => {
+                    const displayShortname = r.shortname || r.name;
+                    const details = globalResourceDetails[displayShortname.toLowerCase()];
+                    return details ? details.role : '';
+                }
+            },
+            { content: (r) => r.taskCount, classes: 'text-center' },
+            { content: (r) => r.totalDays, classes: 'text-center' },
+            { content: (r) => r.totalHours, classes: 'text-center' }
+        ]);
 
         // Add totals row if there are resources
         if (sortedResources.length > 0) {
