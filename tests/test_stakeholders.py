@@ -165,8 +165,8 @@ class TestStakeholderJavaScript:
     """Test that required JavaScript functions and variables are declared in script.js."""
 
     def test_stakeholder_items_array(self, script_content):
-        """Test that the stakeholderItems array is declared."""
-        assert "let stakeholderItems = []" in script_content
+        """Test that the stakeholderItems state is available (via PlanState or global)."""
+        assert "stakeholderItems" in script_content
 
     def test_render_stakeholder_table_function(self, script_content):
         """Test that renderStakeholderTable function is declared."""

@@ -3,6 +3,7 @@ import io
 import re
 import hashlib
 import logging
+import tempfile
 import zipfile
 import yaml
 from datetime import datetime
