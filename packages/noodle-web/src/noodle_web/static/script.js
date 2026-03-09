@@ -10422,11 +10422,9 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
-    // If switching to stakeholders view, load from front matter if needed and render
+    // If switching to stakeholders view, always reload from front matter and render
     if (tabName === 'stakeholders') {
-        if (stakeholderItems.length === 0) {
-            loadStakeholdersFromPlanText();
-        }
+        loadStakeholdersFromPlanText();
         setTimeout(() => {
             renderStakeholderTable();
             renderStakeholderGrid();
@@ -16673,19 +16671,27 @@ function updateFrontMatterStakeholders(planText, items) {
     const fmContent = frontMatterMatch[2];
     const suffix = frontMatterMatch[3];
 
-    // Remove existing Key Stakeholders section
+    // Replace existing Key Stakeholders section in place
     const lines = fmContent.split('\n');
     const newLines = [];
     let inStakeholders = false;
+    let inserted = false;
 
     for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.toLowerCase() === 'key stakeholders:' || trimmed.toLowerCase() === 'stakeholders:') {
             inStakeholders = true;
+            // Insert new stakeholders at the same position
+            if (items.length > 0) {
+                const section = generateStakeholdersFrontMatterSection(items);
+                // Add section lines (without trailing newline, split handles it)
+                section.trimEnd().split('\n').forEach(l => newLines.push(l));
+                inserted = true;
+            }
             continue;
         }
         if (inStakeholders) {
-            if (trimmed.startsWith('- @') || trimmed === '') {
+            if (trimmed.startsWith('- ') || trimmed === '') {
                 continue;
             }
             inStakeholders = false;
@@ -16693,9 +16699,9 @@ function updateFrontMatterStakeholders(planText, items) {
         newLines.push(line);
     }
 
-    // Add updated stakeholders section
+    // If no existing section was found, append the new one
     let newFmContent = newLines.join('\n');
-    if (items.length > 0) {
+    if (items.length > 0 && !inserted) {
         if (!newFmContent.endsWith('\n')) newFmContent += '\n';
         newFmContent += generateStakeholdersFrontMatterSection(items);
     }
@@ -16711,7 +16717,8 @@ function generateStakeholdersFrontMatterSection(items) {
 
     let section = 'Key Stakeholders:\n';
     items.forEach(item => {
-        let line = `- ${item.name}: ${item.role}`;
+        const name = item.name.startsWith('@') ? item.name : '@' + item.name;
+        let line = `- ${name}: ${item.role}`;
         line += `, interest:${item.interest}`;
         line += `, influence:${item.influence}`;
         section += line + '\n';
@@ -16727,14 +16734,17 @@ function loadStakeholdersFromPlanText() {
     if (!editor || !editor.value) return;
 
     const frontMatterMatch = editor.value.match(/^---\s*\n([\s\S]*?)\n---/);
-    if (!frontMatterMatch) return;
-
-    const parsed = parseStakeholdersFromFrontMatter(frontMatterMatch[1]);
-    if (parsed.length > 0) {
-        stakeholderItems = parsed;
+    if (!frontMatterMatch) {
+        stakeholderItems = [];
         renderStakeholderTable();
         renderStakeholderGrid();
+        return;
     }
+
+    const parsed = parseStakeholdersFromFrontMatter(frontMatterMatch[1]);
+    stakeholderItems = parsed;
+    renderStakeholderTable();
+    renderStakeholderGrid();
 }
 
 
