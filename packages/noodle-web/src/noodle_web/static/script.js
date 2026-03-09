@@ -18720,7 +18720,7 @@ function calculateEVM(tasks) {
     const VAC = BAC - EAC; // Variance at Completion
 
     // Build time series data for the chart (monthly periods)
-    const timeSeries = buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData);
+    const timeSeries = buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData, EV, AC);
 
     return {
         BAC, PV, EV, AC,
@@ -18741,7 +18741,7 @@ function calculateEVM(tasks) {
  * Build time series data points for the EVM chart.
  * Generates monthly data points showing PV, EV, and AC over time.
  */
-function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData) {
+function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData, actualEV, actualAC) {
     const series = { dates: [], pv: [], ev: [], ac: [] };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -18752,6 +18752,25 @@ function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetD
     current.setDate(1); // Start at beginning of month
 
     const totalProjectMs = projectEnd - projectStart;
+
+    // Pre-calculate total actual cost for interpolation
+    let totalAC = 0;
+    if (hasBudgetData && typeof budgetItems !== 'undefined') {
+        budgetItems.forEach(item => {
+            totalAC += parseFloat(item.total) || 0;
+        });
+    }
+
+    // Calculate overall % complete once (same as calculateEVM point-in-time value)
+    let totalDurationDays = 0;
+    let weightedComplete = 0;
+    workTasks.forEach(t => {
+        const dur = t.duration_days || 0;
+        const pct = parseFloat(t.percent) || 0;
+        totalDurationDays += dur;
+        weightedComplete += dur * pct;
+    });
+    const overallPctComplete = totalDurationDays > 0 ? weightedComplete / totalDurationDays : 0;
 
     while (current <= chartEnd) {
         const pointDate = new Date(current);
@@ -18764,60 +18783,19 @@ function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetD
 
         // EV and AC: only for dates up to today
         if (pointDate <= today) {
-            // EV: calculate weighted % complete of tasks that should be done by this date
-            let periodWeightedComplete = 0;
-            let periodTotalDuration = 0;
+            // Calculate how far through the timeline this point is relative to today
+            const todayMs = today - projectStart;
+            const pointMs = pointDate - projectStart;
+            const progressFraction = todayMs > 0 ? Math.min(1, pointMs / todayMs) : 0;
 
-            workTasks.forEach(t => {
-                const taskStart = new Date(t.start);
-                const taskFinish = new Date(t.finish);
-                const dur = t.duration_days || 0;
-                const pct = parseFloat(t.percent) || 0;
+            // EV: interpolate from 0 to the actual EV value at today
+            series.ev.push(actualEV * progressFraction);
 
-                // Only include tasks that have started by this date
-                if (taskStart <= pointDate) {
-                    periodTotalDuration += dur;
-                    // For past dates, interpolate progress linearly
-                    // For the current period, use actual percent
-                    if (pointDate >= today) {
-                        periodWeightedComplete += dur * pct;
-                    } else {
-                        // Estimate: if task is done, count as 100% from finish date onwards
-                        if (pct >= 100 && taskFinish <= pointDate) {
-                            periodWeightedComplete += dur * 100;
-                        } else if (taskFinish <= pointDate) {
-                            // Task should be done by now, use actual percent
-                            periodWeightedComplete += dur * pct;
-                        } else if (taskStart <= pointDate) {
-                            // Task is in progress at this date
-                            const taskDurationMs = taskFinish - taskStart;
-                            const taskElapsedMs = pointDate - taskStart;
-                            const taskTimeFraction = taskDurationMs > 0 ? Math.min(1, taskElapsedMs / taskDurationMs) : 0;
-                            // Use the lesser of time-based progress and actual percent
-                            const estimatedPct = Math.min(taskTimeFraction * 100, pct);
-                            periodWeightedComplete += dur * estimatedPct;
-                        }
-                    }
-                }
-            });
-
-            const periodPctComplete = periodTotalDuration > 0 ? periodWeightedComplete / periodTotalDuration : 0;
-            series.ev.push(BAC * (periodPctComplete / 100));
-
-            // AC: interpolate actual cost over time
-            if (hasBudgetData && typeof budgetItems !== 'undefined') {
-                // Distribute actual cost linearly up to today
-                let totalAC = 0;
-                budgetItems.forEach(item => {
-                    totalAC += parseFloat(item.total) || 0;
-                });
-                const todayMs = today - projectStart;
-                const pointMs = pointDate - projectStart;
-                const acFraction = todayMs > 0 ? Math.min(1, pointMs / todayMs) : 0;
-                series.ac.push(totalAC * acFraction);
+            // AC: interpolate from 0 to the actual AC value at today
+            if (hasBudgetData) {
+                series.ac.push(actualAC * progressFraction);
             } else {
-                // No budget data: AC tracks with EV (cost equals work done)
-                series.ac.push(BAC * (periodPctComplete / 100));
+                series.ac.push(actualEV * progressFraction);
             }
         } else {
             series.ev.push(null);
@@ -18826,6 +18804,17 @@ function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetD
 
         // Move to next month
         current.setMonth(current.getMonth() + 1);
+    }
+
+    // Ensure the last non-null EV and AC data points match the actual values exactly.
+    // The monthly grid may not land exactly on "today", so replace the final data point.
+    let lastNonNullIdx = -1;
+    for (let i = series.ev.length - 1; i >= 0; i--) {
+        if (series.ev[i] !== null) { lastNonNullIdx = i; break; }
+    }
+    if (lastNonNullIdx >= 0) {
+        series.ev[lastNonNullIdx] = actualEV;
+        series.ac[lastNonNullIdx] = actualAC;
     }
 
     return series;
