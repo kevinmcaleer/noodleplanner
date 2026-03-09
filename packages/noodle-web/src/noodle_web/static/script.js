@@ -19080,9 +19080,23 @@ function renderEvmChart() {
     svg.setAttribute('width', width);
     svg.setAttribute('height', height);
 
+    // Read CSS custom properties for theme-aware colours
+    const cs = getComputedStyle(document.documentElement);
+    const cvar = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
+    const colChartBg   = cvar('--evm-chart-bg', '#f8f9fa');
+    const colGridLine  = cvar('--evm-grid-line', '#e0e0e0');
+    const colAxisLine  = cvar('--evm-axis-line', '#999');
+    const colAxisLabel = cvar('--evm-axis-label', '#666');
+    const colTextMuted = cvar('--evm-text-muted', '#888');
+    const colLinePV    = cvar('--evm-line-pv', '#2171b5');
+    const colLineEV    = cvar('--evm-line-ev', '#2ca02c');
+    const colLineAC    = cvar('--evm-line-ac', '#d62728');
+    const colLineToday = cvar('--evm-line-today', '#e6a817');
+    const colBacLine   = cvar('--evm-bac-line', '#999');
+
     const ts = evmData.timeSeries;
     if (!ts.dates || ts.dates.length === 0) {
-        svg.innerHTML = '<text x="' + (width / 2) + '" y="' + (height / 2) + '" text-anchor="middle" fill="#999" font-size="14">Insufficient data for chart</text>';
+        svg.innerHTML = '<text x="' + (width / 2) + '" y="' + (height / 2) + '" text-anchor="middle" fill="' + colTextMuted + '" font-size="14">Insufficient data for chart</text>';
         return;
     }
 
@@ -19099,15 +19113,15 @@ function renderEvmChart() {
     let svgContent = '';
 
     // Background
-    svgContent += '<rect x="0" y="0" width="' + width + '" height="' + height + '" fill="#1e1e1e" rx="4"/>';
+    svgContent += '<rect x="0" y="0" width="' + width + '" height="' + height + '" fill="' + colChartBg + '" rx="4"/>';
 
     // Grid lines
     const gridLines = 5;
     for (let i = 0; i <= gridLines; i++) {
         const y = padding.top + (i / gridLines) * chartH;
         const val = yMax * (1 - i / gridLines);
-        svgContent += '<line x1="' + padding.left + '" y1="' + y + '" x2="' + (width - padding.right) + '" y2="' + y + '" stroke="#333" stroke-width="1" stroke-dasharray="4,4"/>';
-        svgContent += '<text x="' + (padding.left - 8) + '" y="' + (y + 4) + '" text-anchor="end" fill="#999" font-size="11">' + formatEvmAxisValue(val, evmData.hasBudgetData) + '</text>';
+        svgContent += '<line x1="' + padding.left + '" y1="' + y + '" x2="' + (width - padding.right) + '" y2="' + y + '" stroke="' + colGridLine + '" stroke-width="1" stroke-dasharray="4,4"/>';
+        svgContent += '<text x="' + (padding.left - 8) + '" y="' + (y + 4) + '" text-anchor="end" fill="' + colAxisLabel + '" font-size="11">' + formatEvmAxisValue(val, evmData.hasBudgetData) + '</text>';
     }
 
     // X axis labels (dates)
@@ -19116,13 +19130,13 @@ function renderEvmChart() {
         const x = xScale(i);
         const d = ts.dates[i];
         const label = d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-        svgContent += '<text x="' + x + '" y="' + (height - padding.bottom + 20) + '" text-anchor="middle" fill="#999" font-size="11">' + label + '</text>';
-        svgContent += '<line x1="' + x + '" y1="' + padding.top + '" x2="' + x + '" y2="' + (padding.top + chartH) + '" stroke="#333" stroke-width="1" stroke-dasharray="2,4"/>';
+        svgContent += '<text x="' + x + '" y="' + (height - padding.bottom + 20) + '" text-anchor="middle" fill="' + colAxisLabel + '" font-size="11">' + label + '</text>';
+        svgContent += '<line x1="' + x + '" y1="' + padding.top + '" x2="' + x + '" y2="' + (padding.top + chartH) + '" stroke="' + colGridLine + '" stroke-width="1" stroke-dasharray="2,4"/>';
     }
 
     // Axis lines
-    svgContent += '<line x1="' + padding.left + '" y1="' + padding.top + '" x2="' + padding.left + '" y2="' + (padding.top + chartH) + '" stroke="#555" stroke-width="1"/>';
-    svgContent += '<line x1="' + padding.left + '" y1="' + (padding.top + chartH) + '" x2="' + (width - padding.right) + '" y2="' + (padding.top + chartH) + '" stroke="#555" stroke-width="1"/>';
+    svgContent += '<line x1="' + padding.left + '" y1="' + padding.top + '" x2="' + padding.left + '" y2="' + (padding.top + chartH) + '" stroke="' + colAxisLine + '" stroke-width="1"/>';
+    svgContent += '<line x1="' + padding.left + '" y1="' + (padding.top + chartH) + '" x2="' + (width - padding.right) + '" y2="' + (padding.top + chartH) + '" stroke="' + colAxisLine + '" stroke-width="1"/>';
 
     // Helper to build a polyline path
     function buildPath(values, skipNull) {
@@ -19135,18 +19149,18 @@ function renderEvmChart() {
     }
 
     // PV line (planned value) - dashed blue
-    svgContent += '<polyline points="' + buildPath(ts.pv, false) + '" fill="none" stroke="#4A90D9" stroke-width="2.5" stroke-dasharray="6,3"/>';
+    svgContent += '<polyline points="' + buildPath(ts.pv, false) + '" fill="none" stroke="' + colLinePV + '" stroke-width="2.5" stroke-dasharray="6,3"/>';
 
     // EV line (earned value) - solid green
     const evFiltered = ts.ev.filter(v => v !== null);
     if (evFiltered.length > 0) {
-        svgContent += '<polyline points="' + buildPath(ts.ev, true) + '" fill="none" stroke="#50C878" stroke-width="2.5"/>';
+        svgContent += '<polyline points="' + buildPath(ts.ev, true) + '" fill="none" stroke="' + colLineEV + '" stroke-width="2.5"/>';
     }
 
     // AC line (actual cost) - solid red/orange
     const acFiltered = ts.ac.filter(v => v !== null);
     if (acFiltered.length > 0) {
-        svgContent += '<polyline points="' + buildPath(ts.ac, true) + '" fill="none" stroke="#E8744F" stroke-width="2.5"/>';
+        svgContent += '<polyline points="' + buildPath(ts.ac, true) + '" fill="none" stroke="' + colLineAC + '" stroke-width="2.5"/>';
     }
 
     // Today line - interpolate to exact date position
@@ -19168,43 +19182,43 @@ function renderEvmChart() {
         }
     }
     if (todayX !== null) {
-        svgContent += '<line x1="' + todayX + '" y1="' + padding.top + '" x2="' + todayX + '" y2="' + (padding.top + chartH) + '" stroke="#FFD700" stroke-width="1.5" stroke-dasharray="4,2"/>';
-        svgContent += '<text x="' + todayX + '" y="' + (padding.top - 8) + '" text-anchor="middle" fill="#FFD700" font-size="10">Today</text>';
+        svgContent += '<line x1="' + todayX + '" y1="' + padding.top + '" x2="' + todayX + '" y2="' + (padding.top + chartH) + '" stroke="' + colLineToday + '" stroke-width="1.5" stroke-dasharray="4,2"/>';
+        svgContent += '<text x="' + todayX + '" y="' + (padding.top - 8) + '" text-anchor="middle" fill="' + colLineToday + '" font-size="10">Today</text>';
     }
 
     // BAC reference line
     const bacY = yScale(evmData.BAC);
     if (bacY >= padding.top && bacY <= padding.top + chartH) {
-        svgContent += '<line x1="' + padding.left + '" y1="' + bacY + '" x2="' + (width - padding.right) + '" y2="' + bacY + '" stroke="#888" stroke-width="1" stroke-dasharray="8,4"/>';
-        svgContent += '<text x="' + (width - padding.right + 4) + '" y="' + (bacY + 4) + '" fill="#888" font-size="10" text-anchor="start">BAC</text>';
+        svgContent += '<line x1="' + padding.left + '" y1="' + bacY + '" x2="' + (width - padding.right) + '" y2="' + bacY + '" stroke="' + colBacLine + '" stroke-width="1" stroke-dasharray="8,4"/>';
+        svgContent += '<text x="' + (width - padding.right + 4) + '" y="' + (bacY + 4) + '" fill="' + colBacLine + '" font-size="10" text-anchor="start">BAC</text>';
     }
 
     // Data point dots
     for (let i = 0; i < ts.dates.length; i++) {
         if (ts.pv[i] !== null && ts.pv[i] !== undefined) {
-            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.pv[i]) + '" r="3" fill="#4A90D9"/>';
+            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.pv[i]) + '" r="3" fill="' + colLinePV + '"/>';
         }
         if (ts.ev[i] !== null && ts.ev[i] !== undefined) {
-            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.ev[i]) + '" r="3" fill="#50C878"/>';
+            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.ev[i]) + '" r="3" fill="' + colLineEV + '"/>';
         }
         if (ts.ac[i] !== null && ts.ac[i] !== undefined) {
-            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.ac[i]) + '" r="3" fill="#E8744F"/>';
+            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.ac[i]) + '" r="3" fill="' + colLineAC + '"/>';
         }
     }
 
     // Axis labels
-    svgContent += '<text x="' + (width / 2) + '" y="' + (height - 5) + '" text-anchor="middle" fill="#aaa" font-size="12">Time</text>';
-    svgContent += '<text x="15" y="' + (height / 2) + '" text-anchor="middle" fill="#aaa" font-size="12" transform="rotate(-90 15 ' + (height / 2) + ')">Value' + (evmData.hasBudgetData ? ' (Currency)' : ' (Days)') + '</text>';
+    svgContent += '<text x="' + (width / 2) + '" y="' + (height - 5) + '" text-anchor="middle" fill="' + colTextMuted + '" font-size="12">Time</text>';
+    svgContent += '<text x="15" y="' + (height / 2) + '" text-anchor="middle" fill="' + colTextMuted + '" font-size="12" transform="rotate(-90 15 ' + (height / 2) + ')">Value' + (evmData.hasBudgetData ? ' (Currency)' : ' (Days)') + '</text>';
 
     svg.innerHTML = svgContent;
 
     // Legend
     if (legend) {
         legend.innerHTML =
-            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:#4A90D9; border-style:dashed;"></span> Planned Value (PV)</span>' +
-            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:#50C878;"></span> Earned Value (EV)</span>' +
-            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:#E8744F;"></span> Actual Cost (AC)</span>' +
-            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:#FFD700; border-style:dashed;"></span> Today</span>';
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLinePV + '; border-style:dashed;"></span> Planned Value (PV)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineEV + ';"></span> Earned Value (EV)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineAC + ';"></span> Actual Cost (AC)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineToday + '; border-style:dashed;"></span> Today</span>';
     }
 }
 
