@@ -19122,10 +19122,25 @@ function renderEvmChart() {
         svgContent += '<polyline points="' + buildPath(ts.ac, true) + '" fill="none" stroke="#E8744F" stroke-width="2.5"/>';
     }
 
-    // Today line
-    const todayIdx = ts.dates.findIndex(d => d >= evmData.today);
-    if (todayIdx >= 0) {
-        const todayX = xScale(todayIdx);
+    // Today line - interpolate to exact date position
+    let todayX = null;
+    const todayTime = evmData.today.getTime();
+    if (todayTime <= ts.dates[0].getTime()) {
+        todayX = xScale(0);
+    } else if (todayTime >= ts.dates[ts.dates.length - 1].getTime()) {
+        todayX = xScale(ts.dates.length - 1);
+    } else {
+        for (let ti = 1; ti < ts.dates.length; ti++) {
+            if (ts.dates[ti].getTime() >= todayTime) {
+                const prevTime = ts.dates[ti - 1].getTime();
+                const nextTime = ts.dates[ti].getTime();
+                const frac = (todayTime - prevTime) / (nextTime - prevTime);
+                todayX = xScale(ti - 1) + frac * (xScale(ti) - xScale(ti - 1));
+                break;
+            }
+        }
+    }
+    if (todayX !== null) {
         svgContent += '<line x1="' + todayX + '" y1="' + padding.top + '" x2="' + todayX + '" y2="' + (padding.top + chartH) + '" stroke="#FFD700" stroke-width="1.5" stroke-dasharray="4,2"/>';
         svgContent += '<text x="' + todayX + '" y="' + (padding.top - 8) + '" text-anchor="middle" fill="#FFD700" font-size="10">Today</text>';
     }
