@@ -122,6 +122,14 @@
           <line x1="14.5" y1="12" x2="18.5" y2="12"/>
           <line x1="14.5" y1="13.5" x2="18.5" y2="17.5"/>
         </symbol>
+        <!-- evm (earned value chart) -->
+        <symbol id="icon-evm" viewBox="0 0 24 24">
+          <polyline points="2,20 7,14 12,16 17,8 22,4" fill="none"/>
+          <polyline points="2,20 7,17 12,18 17,15 22,12" fill="none"/>
+          <polyline points="2,20 7,19 12,15 17,11 22,9" fill="none"/>
+          <line x1="2" y1="20" x2="2" y2="2"/>
+          <line x1="2" y1="20" x2="22" y2="20"/>
+        </symbol>
         <!-- stakeholders -->
         <symbol id="icon-stakeholders" viewBox="0 0 24 24">
           <circle cx="8" cy="6" r="3"/>
@@ -254,6 +262,9 @@
                 </button>
                 <button class="plan-subnav-btn" data-view="budget" onclick="switchTrackingSubnavToTab('budget')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Budget
+                </button>
+                <button class="plan-subnav-btn" data-view="evm" onclick="switchToView('evm')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
                 </button>
             </div>
 
@@ -1117,7 +1128,50 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
+                        <!-- Earned Value Management View -->
+                        <div id="evm-view" class="output-tab-content">
+                            <div class="evm-placeholder placeholder-view">
+                                <h3>Earned Value Management</h3>
+                                <p>Render your plan with budget data to see EVM metrics and charts here.</p>
+                                <p>EVM requires tasks with % complete and budget items to calculate meaningful metrics.</p>
+                            </div>
+                            <div class="evm-content" style="display: none;">
+                                <div class="evm-header">
+                                    <h2 class="evm-title"><span class="ribbon-banner ribbon-banner--blue">Earned Value Management</span></h2>
+                                    <button class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('evmChartWrapper'), this)" title="Copy chart as image">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    </button>
+                                </div>
 
+                                <!-- EVM KPI Cards -->
+                                <div class="evm-kpi-grid" id="evmKpiGrid">
+                                </div>
+
+                                <!-- EVM Chart -->
+                                <div class="evm-chart-wrapper" id="evmChartWrapper">
+                                    <svg id="evmChart" class="evm-chart-svg"></svg>
+                                    <div class="evm-chart-legend" id="evmChartLegend"></div>
+                                </div>
+
+                                <!-- EVM Metrics Table -->
+                                <div class="evm-metrics-wrapper">
+                                    <h3 class="evm-section-title">Detailed Metrics</h3>
+                                    <table class="evm-metrics-table" id="evmMetricsTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Category</th>
+                                                <th>Metric</th>
+                                                <th>Acronym</th>
+                                                <th>Value</th>
+                                                <th>Interpretation</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="evmMetricsBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
 
 
 
