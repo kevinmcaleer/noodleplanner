@@ -3,6 +3,22 @@
  * Depends on: state.js (globals)
  */
 
+/**
+ * Update the project breadcrumb indicator in the nav bar.
+ * @param {string|null} projectName - The project name to display, or null/empty to hide.
+ */
+function updateProjectBreadcrumb(projectName) {
+    const el = document.getElementById('projectBreadcrumb');
+    const nameEl = document.getElementById('projectBreadcrumbName');
+    if (!el || !nameEl) return;
+    if (projectName) {
+        nameEl.textContent = projectName;
+        el.style.display = '';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
 function toggleExportMenu(event) {
     event.stopPropagation();
     const menu = document.getElementById('exportMenu');
