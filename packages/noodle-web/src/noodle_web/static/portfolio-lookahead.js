@@ -288,11 +288,31 @@ async function renderPortfolioLookAhead() {
         const allTasks = [...overdue, ...upcoming];
         const projectNames = [...new Set(allTasks.map(t => t.projectName))].sort((a, b) => a.localeCompare(b));
 
-        // Build unique statuses for filter dropdown
-        const statusValues = [...new Set(allTasks.map(t => t.status))].sort();
-
         // Store data for filtering
         window.portfolioLookAheadData = { overdue, upcoming };
+
+        // Initialise RAG toggle state if not already set (all on by default)
+        if (!window.portfolioLookAheadRagToggles) {
+            window.portfolioLookAheadRagToggles = {
+                'Complete': true,
+                'Behind Schedule': true,
+                'Task Overdue': true,
+                'On Track': true,
+                'Not Started': true,
+                'Ahead of Schedule': true
+            };
+        }
+        const ragToggles = window.portfolioLookAheadRagToggles;
+
+        // RAG toggle button definitions with colours
+        const ragToggleDefs = [
+            { status: 'Task Overdue',     colour: 'red',   label: 'Task Overdue' },
+            { status: 'Behind Schedule',  colour: 'amber', label: 'Behind Schedule' },
+            { status: 'On Track',         colour: 'green', label: 'On Track' },
+            { status: 'Not Started',      colour: 'green', label: 'Not Started' },
+            { status: 'Complete',         colour: 'blue',  label: 'Complete' },
+            { status: 'Ahead of Schedule',colour: 'green', label: 'Ahead of Schedule' }
+        ];
 
         // Header with summary and filters
         let html = '<div class="portfolio-lookahead-header">' +
@@ -323,27 +343,24 @@ async function renderPortfolioLookAhead() {
 
         html += '</select>' +
             '</div>' +
-            '<div class="lookahead-filter-group">' +
-            '<label for="portfolioLookAheadStatusFilter">Filter by status: </label>' +
-            '<select id="portfolioLookAheadStatusFilter" onchange="filterPortfolioLookAhead()" aria-label="Filter by status">' +
-            '<option value="all">All Statuses</option>';
+            '<div class="lookahead-filter-group lookahead-rag-toggles">' +
+            '<label>Filter by status: </label>' +
+            '<div class="lookahead-rag-toggle-buttons">';
 
-        const statusOptions = [
-            'Task Overdue',
-            'Behind Schedule',
-            'On Track',
-            'Not Started',
-            'Complete',
-            'Ahead of Schedule'
-        ];
-        statusOptions.forEach(status => {
-            const count = statusCounts[status] || 0;
-            if (count > 0 || statusValues.includes(status)) {
-                html += '<option value="' + escapeHtml(status) + '">' + escapeHtml(status) + ' (' + count + ')</option>';
-            }
+        ragToggleDefs.forEach(def => {
+            const count = statusCounts[def.status] || 0;
+            const isActive = ragToggles[def.status] !== false;
+            const activeClass = isActive ? ' active' : '';
+            html += '<button type="button" class="lookahead-rag-toggle rag-toggle-' + def.colour + activeClass + '" ' +
+                'data-status="' + escapeHtml(def.status) + '" ' +
+                'onclick="togglePortfolioLookAheadRag(this)" ' +
+                'aria-pressed="' + isActive + '" ' +
+                'aria-label="Toggle ' + escapeHtml(def.label) + ' tasks">' +
+                escapeHtml(def.label) + ' (' + count + ')' +
+                '</button>';
         });
 
-        html += '</select>' +
+        html += '</div>' +
             '</div>' +
             '</div>' +
             '<div class="portfolio-lookahead-daterange">' +
@@ -420,16 +437,37 @@ async function renderPortfolioLookAhead() {
 }
 
 /**
- * Filter portfolio look-ahead tables by project name and status
+ * Toggle a RAG status filter button on/off
+ */
+function togglePortfolioLookAheadRag(button) {
+    const status = button.dataset.status;
+    if (!window.portfolioLookAheadRagToggles) {
+        window.portfolioLookAheadRagToggles = {};
+    }
+    const currentState = window.portfolioLookAheadRagToggles[status] !== false;
+    window.portfolioLookAheadRagToggles[status] = !currentState;
+
+    // Update button visual state
+    button.classList.toggle('active', !currentState);
+    button.setAttribute('aria-pressed', String(!currentState));
+
+    // Re-apply filters
+    filterPortfolioLookAhead();
+}
+
+/**
+ * Filter portfolio look-ahead tables by project name and RAG status toggles
  */
 function filterPortfolioLookAhead() {
     const projectFilter = document.getElementById('portfolioLookAheadProjectFilter')?.value || 'all';
-    const statusFilter = document.getElementById('portfolioLookAheadStatusFilter')?.value || 'all';
+    const ragToggles = window.portfolioLookAheadRagToggles || {};
     const rows = document.querySelectorAll('.portfolio-lookahead-row');
 
     rows.forEach(row => {
         const matchesProject = projectFilter === 'all' || row.dataset.project === projectFilter;
-        const matchesStatus = statusFilter === 'all' || row.dataset.status === statusFilter;
+        const rowStatus = row.dataset.status;
+        // If the toggle state is not defined for a status, default to visible
+        const matchesStatus = ragToggles[rowStatus] !== false;
 
         row.style.display = (matchesProject && matchesStatus) ? '' : 'none';
     });
