@@ -4671,10 +4671,8 @@ function renderGanttChart() {
     // Render dependency lines if toggle is on
     renderDependencyLines();
 
-    // Auto-scroll to current date (only in days view)
-    if (ganttScale === 'days') {
-        scrollGanttToToday();
-    }
+    // Auto-scroll to current period
+    scrollGanttToToday();
 }
 
 function scrollGanttToToday() {
@@ -4736,6 +4734,8 @@ function renderMonthHeaders(container) {
     const months = [];
     let currentMonth = new Date(ganttMinDate);
     currentMonth.setDate(1);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     while (currentMonth <= ganttMaxDate) {
         const nextMonth = new Date(currentMonth);
@@ -4745,9 +4745,13 @@ function renderMonthHeaders(container) {
         const monthEnd = new Date(Math.min(nextMonth, ganttMaxDate));
         const daysInView = Math.ceil((monthEnd - monthStart) / (1000 * 60 * 60 * 24));
 
+        const isCurrent = today.getFullYear() === currentMonth.getFullYear() &&
+                          today.getMonth() === currentMonth.getMonth();
+
         months.push({
             name: currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-            days: daysInView
+            days: daysInView,
+            isCurrent: isCurrent
         });
 
         currentMonth = nextMonth;
@@ -4758,6 +4762,9 @@ function renderMonthHeaders(container) {
         monthDiv.className = 'gantt-month';
         monthDiv.style.width = (month.days * ganttPixelsPerDay) + 'px';
         monthDiv.textContent = month.name;
+        if (month.isCurrent) {
+            monthDiv.classList.add('gantt-today');
+        }
         container.appendChild(monthDiv);
     });
 }
@@ -4795,6 +4802,8 @@ function renderDayHeaders(container) {
 
 function renderWeekHeaders(container) {
     let currentDate = new Date(ganttMinDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     while (currentDate <= ganttMaxDate) {
         const weekStart = new Date(currentDate);
@@ -4808,6 +4817,11 @@ function renderWeekHeaders(container) {
         weekDiv.className = 'gantt-month';
         weekDiv.style.width = (daysInWeek * ganttPixelsPerDay) + 'px';
         weekDiv.textContent = `Week ${getWeekNumber(weekStart)}`;
+
+        if (today >= weekStart && today <= weekEnd) {
+            weekDiv.classList.add('gantt-today');
+        }
+
         container.appendChild(weekDiv);
 
         currentDate.setDate(currentDate.getDate() + 7);
@@ -4817,6 +4831,8 @@ function renderWeekHeaders(container) {
 function renderQuarterHeaders(container) {
     let currentDate = new Date(ganttMinDate);
     currentDate.setMonth(Math.floor(currentDate.getMonth() / 3) * 3, 1);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     while (currentDate <= ganttMaxDate) {
         const quarterStart = new Date(currentDate);
@@ -4834,6 +4850,11 @@ function renderQuarterHeaders(container) {
         quarterDiv.className = 'gantt-month';
         quarterDiv.style.width = (daysInQuarter * ganttPixelsPerDay) + 'px';
         quarterDiv.textContent = `Q${quarter} ${year}`;
+
+        if (today >= quarterStart && today < quarterEnd) {
+            quarterDiv.classList.add('gantt-today');
+        }
+
         container.appendChild(quarterDiv);
 
         currentDate.setMonth(currentDate.getMonth() + 3);
@@ -4843,6 +4864,8 @@ function renderQuarterHeaders(container) {
 function renderYearHeaders(container) {
     let currentDate = new Date(ganttMinDate);
     currentDate.setMonth(0, 1);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     while (currentDate <= ganttMaxDate) {
         const yearStart = new Date(currentDate);
@@ -4857,6 +4880,11 @@ function renderYearHeaders(container) {
         yearDiv.className = 'gantt-month';
         yearDiv.style.width = (daysInYear * ganttPixelsPerDay) + 'px';
         yearDiv.textContent = currentDate.getFullYear();
+
+        if (today.getFullYear() === currentDate.getFullYear()) {
+            yearDiv.classList.add('gantt-today');
+        }
+
         container.appendChild(yearDiv);
 
         currentDate.setFullYear(currentDate.getFullYear() + 1);
@@ -12543,7 +12571,7 @@ function updateRaidSortIndicators() {
 function generateRaidMarkdown() {
     if (raidItems.length === 0) return '# RAID Log\n\n*No items.*\n';
 
-    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
+    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status', 'Priority', 'Target Date'];
 
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
@@ -12558,7 +12586,9 @@ function generateRaidMarkdown() {
         String(item.impact),
         String(item.likelihood),
         String(item.score),
-        item.status.charAt(0).toUpperCase() + item.status.slice(1)
+        item.status.charAt(0).toUpperCase() + item.status.slice(1),
+        escPipe(item.priority || ''),
+        escPipe(item.target_date || item.date || '')
     ]);
 
     const widths = headers.map(h => h.length);
@@ -12618,6 +12648,7 @@ function parseRaidMarkdown(text) {
             'owner': 'owner', 'mitigation actions': 'mitigation_actions',
             'impact': 'impact', 'likelihood': 'likelihood',
             'score': 'score', 'status': 'status',
+            'priority': 'priority', 'target date': 'target_date',
             'date': 'date'
         };
 
@@ -12703,6 +12734,9 @@ function parseRaidMarkdown(text) {
                 }
                 maxIdSeen = Math.max(maxIdSeen, itemId);
 
+                const parsedTargetDate = getCell('target_date', '') || getCell('date', '');
+                const parsedPriority = (getCell('priority', '') || '').toLowerCase();
+
                 items.push({
                     id: itemId,
                     type: validTypes.includes(itemType) ? itemType : 'risk',
@@ -12714,7 +12748,10 @@ function parseRaidMarkdown(text) {
                     impact: impact,
                     likelihood: likelihood,
                     score: score,
-                    status: validStatuses.includes(itemStatus) ? itemStatus : 'open'
+                    status: validStatuses.includes(itemStatus) ? itemStatus : 'open',
+                    priority: parsedPriority,
+                    target_date: parsedTargetDate,
+                    date: parsedTargetDate
                 });
             } catch (rowError) {
                 console.warn('Skipping malformed RAID row:', line, rowError);
