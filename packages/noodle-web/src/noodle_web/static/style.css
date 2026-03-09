@@ -384,7 +384,7 @@ svg.icon {
     display: flex;
     flex-direction: column;
     flex: none;
-    width: 100% !important;
+    width: 100%;
     min-width: 0;
     max-width: 100%;
     height: 35vh;
@@ -399,7 +399,7 @@ svg.icon {
     min-width: 0;
     height: 0;
     min-height: 0;
-    width: 100% !important;
+    width: 100%;
 }
 
 .editor-panel.dragging {
@@ -5215,6 +5215,26 @@ tr:hover .task-context-btn,
     min-height: 0;
     width: 100%; /* Force full width */
     overflow: hidden;
+}
+
+@media (min-width: 769px) {
+    .kanban-layout {
+        flex-direction: row;
+    }
+    .kanban-editor-panel {
+        width: 30%;
+        min-width: 200px;
+        max-width: 600px;
+        height: auto;
+    }
+    .kanban-editor-panel.collapsed {
+        height: auto;
+    }
+    .kanban-splitter {
+        width: 8px;
+        height: auto;
+        cursor: col-resize;
+    }
 }
 
 .kanban-editor-panel {

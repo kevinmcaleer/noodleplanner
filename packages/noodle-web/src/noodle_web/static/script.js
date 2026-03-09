@@ -495,7 +495,8 @@ const OUTPUT_VIEWS = {
     'timesheet': 'resourcesTab',
     'user-workload': 'resourcesTab',
     'resource-sheet': 'resourcesTab',
-    'text-report': 'toolsTab'
+    'text-report': 'toolsTab',
+    'evm': 'trackingTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -627,7 +628,7 @@ NavigationController.register('editor', {
         activateTabContent('editor');
         updateRaidExportVisibility('editor');
         closeAllNavMenus();
-        setActiveNavTab('projectTab');
+        setActiveNavTab('planTab');
     },
     deactivate() {}
 });

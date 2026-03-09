@@ -156,7 +156,9 @@ class TestPageLoad:
         browser.get(app_server)
         expected_tabs = [
             "portfolioTab",
-            "projectTab",
+            "planTab",
+            "trackingTab",
+            "resourcesTab",
             "toolsTab",
         ]
         for tab_id in expected_tabs:
