@@ -480,7 +480,7 @@ function deactivateKanban() {
 // Output views that live inside the editor tab-content pane.
 // Each activates the editor pane, switches the output sub-tab, and sets nav state.
 const OUTPUT_VIEWS = {
-    'project-report': 'dashboardTab',
+    'project-report': 'planTab',
     'tasks': 'planTab',
     'gantt': 'planTab',
     'calendar': 'planTab',

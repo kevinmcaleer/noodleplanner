@@ -270,7 +270,7 @@ function switchToView(viewName) {
 function updateNavActiveState(viewName) {
     // Map view names to their parent nav dropdown tab
     const viewToNavTab = {
-        'project-report': 'dashboardTab',
+        'project-report': 'planTab',
         'tasks': 'planTab',
         'gantt': 'planTab',
         'kanban': 'planTab',
@@ -777,12 +777,6 @@ const tourSteps = [
         message: "Drag the splitter bar between the editor and content pane to resize the editor to your preferred width. Click the arrow button to collapse or expand the editor panel.",
         target: "#editorSplitter",
         position: "left"
-    },
-    {
-        title: "Dashboard",
-        message: "Click Dashboard to see your Project Report - an overview with timeline, task completion, milestones, highlights, and RAID summary.",
-        target: "#dashboardTab",
-        position: "bottom"
     },
     {
         title: "Portfolio",

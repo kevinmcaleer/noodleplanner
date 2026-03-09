@@ -82,11 +82,6 @@ svg.icon {
     border-bottom-color: #667eea;
 }
 
-/* Dashboard button styling */
-.nav-dashboard-btn {
-    font-weight: 600;
-}
-
 .nav-export-dropdown {
     margin-left: auto;
     position: relative;
