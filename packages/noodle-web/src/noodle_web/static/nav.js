@@ -280,19 +280,26 @@ function updateNavActiveState(viewName) {
         'project-report': 'dashboardTab',
         'tasks': 'planTab',
         'gantt': 'planTab',
+        'kanban': 'planTab',
         'calendar': 'planTab',
         'timeline': 'planTab',
         'milestones': 'planTab',
         'mindmap': 'planTab',
         'stakeholders': 'planTab',
+        'raid': 'trackingTab',
+        'actions': 'trackingTab',
         'highlights': 'trackingTab',
         'lookahead': 'trackingTab',
         'analysis': 'trackingTab',
+        'budget': 'trackingTab',
+        'evm': 'trackingTab',
         'resources': 'resourcesTab',
         'timesheet': 'resourcesTab',
         'user-workload': 'resourcesTab',
         'resource-sheet': 'resourcesTab',
-        'text-report': 'toolsTab'
+        'text-report': 'toolsTab',
+        'planning': 'toolsTab',
+        'guide': 'toolsTab'
     };
 
     const navTabId = viewToNavTab[viewName];
