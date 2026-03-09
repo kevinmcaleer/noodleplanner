@@ -17973,6 +17973,12 @@ function renderActionsTable() {
 
         filtered.forEach(item => {
             const row = document.createElement('tr');
+            row.style.cursor = 'pointer';
+            row.title = 'Click to edit action';
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                openActionForm(item.id);
+            });
 
             const priorityClass = 'actions-priority-' + (item.priority || 'medium');
             const statusClass = 'actions-status-' + (item.status || 'open');
