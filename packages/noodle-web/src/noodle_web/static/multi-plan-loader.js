@@ -128,6 +128,11 @@ function loadProjectIntoEditor(projectId) {
         syncKanbanFromEditor();
     }
 
+    // Update project breadcrumb in nav bar
+    if (typeof updateProjectBreadcrumb === 'function') {
+        updateProjectBreadcrumb(project.name);
+    }
+
     // Emit project loaded event
     window.dispatchEvent(new CustomEvent('projectLoaded', {
         detail: { projectId, projectName: project.name }

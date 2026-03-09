@@ -146,6 +146,10 @@
         <div class="content" id="main-content" role="main">
             <div class="tabs" role="navigation" aria-label="Main navigation">
                 <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
+                <span id="projectBreadcrumb" class="project-breadcrumb" style="display:none;">
+                    <span class="breadcrumb-separator">/</span>
+                    <span id="projectBreadcrumbName" class="breadcrumb-project-name"></span>
+                </span>
                 <button class="tab nav-dashboard-btn active" id="dashboardTab" onclick="switchToView('project-report')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
                 </button>
