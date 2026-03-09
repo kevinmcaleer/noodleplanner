@@ -384,11 +384,17 @@ function buildProjectReportData(project, tasks, frontMatter, raidItems, highligh
         status: status,
         milestones: milestones,
         up_next: upNext,
-        highlight: highlights && highlights.length > 0 ? {
-            date: highlights[0].date || null,
-            author: highlights[0].author || null,
-            content: highlights[0].content || null
-        } : null,
+        highlight: highlights && highlights.length > 0 ? (() => {
+            const latest = highlights.reduce((newest, current) => {
+                if (!newest) return current;
+                return current.date > newest.date ? current : newest;
+            }, null);
+            return {
+                date: latest.date || null,
+                author: latest.author || null,
+                content: latest.content || null
+            };
+        })() : null,
         risks_issues: risksIssues,
         timeline_tasks: timelineTasks
     };
