@@ -995,9 +995,3 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-/**
- * Check for tasks that don't have an explicitly set duration
- * Returns tasks that are missing duration, excluding:
- * - Summary tasks
- * - Tasks with explicitly set 0d duration (milestones)
-

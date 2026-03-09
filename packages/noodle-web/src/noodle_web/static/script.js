@@ -6486,7 +6486,6 @@ async function uploadRaidExcel(event) {
  * Interface Tour System
  */
 
- */
 function checkTasksWithoutExplicitDuration(planText, tasks) {
     const tasksWithoutDuration = [];
 
@@ -11917,36 +11916,6 @@ function addNewTaskViaShortcut() {
     }
 }
 
-
-// ============================================================
-// Toggle export dropdown menu
-// ============================================================
-function toggleExportMenu(event) {
-    event.stopPropagation();
-    const menu = document.getElementById('exportMenu');
-    if (menu) menu.classList.toggle('show');
-}
-
-// Close nav dropdown menus when clicking outside
-document.addEventListener('click', function(e) {
-    // Close all nav dropdown menus when clicking outside
-    const navMenus = [
-        document.getElementById('planDropdown'),
-        document.getElementById('toolsDropdown'),
-        document.getElementById('portfolioDropdown'),
-        document.getElementById('exportMenu')
-    ];
-    navMenus.forEach(menu => {
-        if (menu && !menu.contains(e.target) && !e.target.closest('.nav-dropdown-toggle')) {
-            menu.classList.remove('show');
-        }
-    });
-});
-            openTaskForm(i + 1);
-            return;
-        }
-    }
-}
 
 /* ======================================================================
  * EARNED VALUE MANAGEMENT (EVM)
