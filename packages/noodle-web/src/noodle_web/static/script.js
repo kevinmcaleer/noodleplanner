@@ -18905,12 +18905,23 @@ function renderEvmKpis(data) {
         '</div>';
 }
 
+// ── NoodleSheet Integration for EVM Metrics ──────────────────────
+let evmMetricsSheetInstance = null;
+
+const EVM_METRICS_DBML = `Table evm_metrics {
+  category text
+  metric text
+  acronym text
+  value text
+  interpretation text
+}`;
+
 /**
- * Render the detailed EVM metrics table.
+ * Render the detailed EVM metrics table using NoodleSheet.
  */
 function renderEvmMetricsTable(data) {
-    const tbody = document.getElementById('evmMetricsBody');
-    if (!tbody) return;
+    const container = document.getElementById('evmMetricsSheetContainer');
+    if (!container) return;
 
     const fmt = (v) => {
         if (data.hasBudgetData) {
@@ -19012,24 +19023,40 @@ function renderEvmMetricsTable(data) {
         }
     ];
 
-    let html = '';
-    metrics.forEach(m => {
-        const valueClass = (m.acronym === 'CV' || m.acronym === 'SV' || m.acronym === 'VAC')
-            ? (parseFloat(m.value.replace(/,/g, '')) >= 0 ? 'evm-metric-positive' : 'evm-metric-negative')
-            : (m.acronym === 'CPI' || m.acronym === 'SPI')
-                ? (parseFloat(m.value) >= 1 ? 'evm-metric-positive' : 'evm-metric-negative')
-                : '';
+    // Build markdown table for NoodleSheet
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const headers = ['Category', 'Metric', 'Acronym', 'Value', 'Interpretation'];
+    const rows = metrics.map(m => [
+        escPipe(m.category),
+        escPipe(m.name),
+        escPipe(m.acronym),
+        escPipe(m.value),
+        escPipe(m.interpretation)
+    ]);
 
-        html += '<tr>' +
-            '<td>' + m.category + '</td>' +
-            '<td>' + m.name + '</td>' +
-            '<td><strong>' + m.acronym + '</strong></td>' +
-            '<td class="' + valueClass + '">' + m.value + '</td>' +
-            '<td>' + m.interpretation + '</td>' +
-            '</tr>';
-    });
+    const widths = headers.map((h, i) => Math.max(h.length, ...rows.map(r => r[i].length)));
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
 
-    tbody.innerHTML = html;
+    let md = formatRow(headers) + '\n' + separator + '\n';
+    rows.forEach(row => { md += formatRow(row) + '\n'; });
+
+    if (evmMetricsSheetInstance) {
+        // Update existing sheet with new data
+        evmMetricsSheetInstance.loadMarkdown(md, 0);
+    } else {
+        // Create new read-only NoodleSheet instance
+        evmMetricsSheetInstance = new NoodleSheet(container, {
+            sheets: [{
+                name: 'EVM Metrics',
+                dbml: EVM_METRICS_DBML,
+                markdown: md
+            }],
+            readOnly: true,
+            showTotals: false
+        });
+    }
 }
 
 /**

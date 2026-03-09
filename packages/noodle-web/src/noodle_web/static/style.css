@@ -12397,7 +12397,7 @@ body.no-animations .np-fade-in {
 
 .evm-section-title {
     font-size: 1em;
-    color: #f0f0f0;
+    color: #111;
     margin-bottom: 12px;
     font-weight: 600;
 }
@@ -12410,7 +12410,7 @@ body.no-animations .np-fade-in {
 
 .evm-metrics-table th {
     background: #2a2a2a;
-    color: #e0e0e0;
+    color: #111;
     padding: 10px 12px;
     text-align: left;
     border-bottom: 2px solid #3a3a3a;
@@ -12423,7 +12423,7 @@ body.no-animations .np-fade-in {
 .evm-metrics-table td {
     padding: 10px 12px;
     border-bottom: 1px solid #333;
-    color: #f0f0f0;
+    color: #111;
 }
 
 .evm-metrics-table td:nth-child(3) {
