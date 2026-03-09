@@ -16786,7 +16786,10 @@ function updateFrontMatterStakeholders(planText, items) {
             continue;
         }
         if (inStakeholders) {
-            if (trimmed.startsWith('- ') || trimmed === '') {
+            // Only skip lines that are stakeholder entries (- @Name: ...)
+            // or blank lines. Other list items (e.g. Theme: colors like
+            // "- To Do: #FF0000") must NOT be consumed.
+            if (trimmed.startsWith('- @') || trimmed === '') {
                 continue;
             }
             inStakeholders = false;
