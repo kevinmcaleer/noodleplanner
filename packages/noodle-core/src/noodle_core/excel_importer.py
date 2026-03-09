@@ -1024,6 +1024,136 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 "depends": dep_names,
             })
 
+        # Check if there's a Budget sheet and parse it before closing workbook
+        budget_section = ""
+        if "Budget" in wb.sheetnames:
+            try:
+                ws_budget = wb["Budget"]
+                budget_rows = list(ws_budget.iter_rows(values_only=True))
+
+                if budget_rows and len(budget_rows) > 1:  # Has header and at least one data row
+                    budget_headers_raw = [str(c).lower() if c is not None else "" for c in budget_rows[0]]
+                    budget_data_rows = budget_rows[1:]
+
+                    # Build column mapping
+                    budget_col_map = {}
+                    budget_field_aliases = {
+                        'id': 'id', 'description': 'description',
+                        'estimate': 'estimate', 'forecast': 'forecast',
+                        'type': 'type', 'invoice': 'invoice', 'po': 'po',
+                        'supplier': 'supplier', 'total': 'total',
+                        'ordered': 'date_ordered', 'received': 'date_received',
+                        'category': 'category',
+                    }
+
+                    for idx, header in enumerate(budget_headers_raw):
+                        for alias, field in budget_field_aliases.items():
+                            if alias in header:
+                                budget_col_map[field] = idx
+                                break
+
+                    # Parse budget items
+                    budget_items = []
+                    for row in budget_data_rows:
+                        if not row or not any(row):
+                            continue
+
+                        def _get_budget_cell(field, default=''):
+                            idx = budget_col_map.get(field)
+                            if idx is not None and idx < len(row) and row[idx] is not None:
+                                return str(row[idx])
+                            return default
+
+                        desc = _get_budget_cell('description', '')
+                        # Skip TOTALS row
+                        if desc.upper() == 'TOTALS':
+                            continue
+
+                        def _safe_float(val, default=0):
+                            try:
+                                return float(val) if val else default
+                            except (ValueError, TypeError):
+                                return default
+
+                        id_raw = _get_budget_cell('id', '')
+                        try:
+                            item_id = int(float(id_raw)) if id_raw else len(budget_items) + 1
+                        except (ValueError, TypeError):
+                            item_id = len(budget_items) + 1
+
+                        budget_items.append({
+                            'id': item_id,
+                            'description': desc,
+                            'estimate': _safe_float(_get_budget_cell('estimate', '0')),
+                            'forecast': _safe_float(_get_budget_cell('forecast', '0')),
+                            'type': _get_budget_cell('type', 'Capex'),
+                            'invoice': _get_budget_cell('invoice', ''),
+                            'po': _get_budget_cell('po', ''),
+                            'supplier': _get_budget_cell('supplier', ''),
+                            'total': _safe_float(_get_budget_cell('total', '0')),
+                            'date_ordered': _get_budget_cell('date_ordered', ''),
+                            'date_received': _get_budget_cell('date_received', ''),
+                            'category': _get_budget_cell('category', 'Consultancy'),
+                        })
+
+                    # Generate budget markdown table
+                    if budget_items:
+                        budget_table = _generate_budget_table_text(budget_items)
+                        budget_section = f"\n\n---budget---\n{budget_table}\n"
+
+            except (ValueError, KeyError, AttributeError, TypeError) as e:
+                logger.warning(f"Failed to parse Budget sheet: {e}")
+                warnings.append(f"Budget sheet found but could not be parsed: {e}")
+
+        # Check if there's a Stakeholders sheet and parse it before closing workbook
+        stakeholder_items = []
+        if "Stakeholders" in wb.sheetnames:
+            try:
+                ws_stakeholders = wb["Stakeholders"]
+                stakeholder_rows = list(ws_stakeholders.iter_rows(values_only=True))
+
+                if stakeholder_rows and len(stakeholder_rows) > 1:
+                    stakeholder_headers_raw = [str(c).lower() if c is not None else "" for c in stakeholder_rows[0]]
+                    stakeholder_data_rows = stakeholder_rows[1:]
+
+                    # Build column mapping
+                    stakeholder_col_map = {}
+                    stakeholder_field_aliases = {
+                        'name': 'name', 'role': 'role',
+                        'interest': 'interest', 'influence': 'influence',
+                    }
+
+                    for idx, header in enumerate(stakeholder_headers_raw):
+                        for alias, field in stakeholder_field_aliases.items():
+                            if alias in header:
+                                stakeholder_col_map[field] = idx
+                                break
+
+                    for row in stakeholder_data_rows:
+                        if not row or not any(row):
+                            continue
+
+                        def _get_stakeholder_cell(field, default=''):
+                            idx = stakeholder_col_map.get(field)
+                            if idx is not None and idx < len(row) and row[idx] is not None:
+                                return str(row[idx]).strip()
+                            return default
+
+                        name = _get_stakeholder_cell('name', '')
+                        if not name:
+                            continue
+
+                        stakeholder_items.append({
+                            'name': name,
+                            'role': _get_stakeholder_cell('role', ''),
+                            'interest': _get_stakeholder_cell('interest', 'low').lower(),
+                            'influence': _get_stakeholder_cell('influence', 'low').lower(),
+                        })
+
+            except (ValueError, KeyError, AttributeError, TypeError) as e:
+                logger.warning(f"Failed to parse Stakeholders sheet: {e}")
+                warnings.append(f"Stakeholders sheet found but could not be parsed: {e}")
+
         # Check if there's a RAID Log sheet and parse it before closing workbook
         raid_log_section = ""
         if "RAID Log" in wb.sheetnames:
@@ -1162,6 +1292,8 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
     markdown_lines.append("---")
     if all_resources:
         markdown_lines.append(_build_resource_section(all_resources))
+    if stakeholder_items:
+        markdown_lines.append(_build_stakeholder_section(stakeholder_items))
     markdown_lines.append("---")
     markdown_lines.append("")
 
@@ -1208,7 +1340,7 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 meta = _build_task_metadata(task, resource_map)
                 markdown_lines.append(f"{indent}{task['name']}{meta}")
 
-    markdown = "\n".join(markdown_lines) + raid_log_section + "\n"
+    markdown = "\n".join(markdown_lines) + budget_section + raid_log_section + "\n"
 
     return {
         "markdown": markdown,
@@ -1264,3 +1396,75 @@ def _build_task_metadata(task, resource_map):
     if not parts:
         return ""
     return " " + " ".join(parts)
+
+
+def _build_stakeholder_section(stakeholder_items):
+    """Build the Stakeholders front matter section from a list of stakeholder dicts."""
+    if not stakeholder_items:
+        return ""
+
+    lines = ["Stakeholders:"]
+    for item in stakeholder_items:
+        name = item.get('name', '')
+        role = item.get('role', '')
+        interest = item.get('interest', 'low').lower()
+        influence = item.get('influence', 'low').lower()
+
+        parts = []
+        if role:
+            parts.append(role)
+        parts.append(f"interest:{interest}")
+        parts.append(f"influence:{influence}")
+
+        lines.append(f"- {name}: {', '.join(parts)}")
+    return "\n".join(lines)
+
+
+def _generate_budget_table_text(budget_items):
+    """Generate a formatted markdown table from budget items.
+
+    Produces a table compatible with ``parse_budget_markdown``.
+    """
+    if not budget_items:
+        return ''
+
+    headers = ['ID', 'Description', 'Estimate', 'Forecast', 'Type',
+               'Invoice', 'PO', 'Supplier', 'Total', 'Ordered',
+               'Received', 'Category']
+
+    def escape_pipe(value):
+        return str(value).replace('|', '\\|').replace('\n', ' ')
+
+    rows = []
+    for item in budget_items:
+        rows.append([
+            escape_pipe(str(item.get('id', ''))),
+            escape_pipe(item.get('description', '')),
+            escape_pipe(str(item.get('estimate', 0))),
+            escape_pipe(str(item.get('forecast', 0))),
+            escape_pipe(item.get('type', '')),
+            escape_pipe(item.get('invoice', '')),
+            escape_pipe(item.get('po', '')),
+            escape_pipe(item.get('supplier', '')),
+            escape_pipe(str(item.get('total', 0))),
+            escape_pipe(item.get('date_ordered', '')),
+            escape_pipe(item.get('date_received', '')),
+            escape_pipe(item.get('category', '')),
+        ])
+
+    # Calculate column widths (minimum of header width)
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def format_row(cells):
+        padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
+        return '| ' + ' | '.join(padded) + ' |'
+
+    lines = [format_row(headers)]
+    lines.append('| ' + ' | '.join('-' * w for w in widths) + ' |')
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)

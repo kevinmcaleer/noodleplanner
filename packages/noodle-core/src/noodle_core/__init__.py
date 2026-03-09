@@ -20,6 +20,8 @@ from .scheduling_engine import (
     calculate_rag_status,
     rag_status_to_colour,
     parse_resource_mappings,
+    parse_stakeholders_from_frontmatter,
+    calculate_evm,
     natural_language_to_yaml,
     inherit_summary_resources,
     MAX_TASK_COUNT,
@@ -86,6 +88,8 @@ __all__ = [
     "calculate_rag_status",
     "rag_status_to_colour",
     "parse_resource_mappings",
+    "parse_stakeholders_from_frontmatter",
+    "calculate_evm",
     "natural_language_to_yaml",
     "inherit_summary_resources",
     # Format converter

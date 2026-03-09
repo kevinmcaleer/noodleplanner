@@ -29,6 +29,7 @@ function collectOpenActions(parsedProjects) {
             actions.push({
                 projectId: project.id,
                 projectName: project.name,
+                actionId: item.id || null,
                 title: item.title || item.description || '-',
                 description: item.description || item.mitigation_actions || '',
                 owner: item.owner || '-',
@@ -227,7 +228,7 @@ function buildActionsTableRows(actions, today) {
         const statusLabel = isOverdue ? 'Overdue' : 'Open';
 
         html += '<tr class="actions-row" data-project="' + escapeHtml(action.projectName) + '" ' +
-            'onclick="openProjectDashboard(\'' + action.projectId + '\')">' +
+            'onclick="openProjectAction(\'' + action.projectId + '\', ' + (action.actionId || 'null') + ')">' +
             '<td class="actions-project-name">' + escapeHtml(action.projectName) + '</td>' +
             '<td class="actions-task-name">' + escapeHtml(action.title) + '</td>' +
             '<td>' + escapeHtml(action.owner) + '</td>' +
@@ -338,4 +339,39 @@ function rerenderActionsTable(actions) {
     if (filter !== 'all') {
         filterPortfolioActions();
     }
+}
+
+/**
+ * Open a project and then open the action edit form for a specific action.
+ * Loads the project into the editor, switches to dashboard view, and waits
+ * for RAID items to be populated before opening the action form.
+ */
+function openProjectAction(projectId, actionId) {
+    if (!projectId) return;
+
+    // Load the project (this triggers updateAllViews which is async)
+    openProjectDashboard(projectId);
+
+    if (actionId == null) return;
+
+    // Wait for RAID items to be loaded by updateAllViews, then open the form.
+    // Poll briefly since updateAllViews is async and loads RAID items at the end.
+    let attempts = 0;
+    const maxAttempts = 30; // 3 seconds max
+    const interval = setInterval(() => {
+        attempts++;
+        const item = raidItems.find(i => i.id === actionId && i.type === 'action');
+        if (item) {
+            clearInterval(interval);
+            // Switch to actions tab and open the edit form
+            if (typeof switchToView === 'function') {
+                switchToView('actions');
+            }
+            openActionForm(actionId);
+        } else if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            // Fallback: just stay on the dashboard
+            console.warn('Could not find action', actionId, 'after loading project', projectId);
+        }
+    }, 100);
 }

@@ -1817,6 +1817,212 @@ def parse_resource_mappings(original_text):
 
     return resource_map
 
+
+def parse_stakeholders_from_frontmatter(original_text):
+    """Parse stakeholder entries from YAML front matter.
+
+    Stakeholders are stored in the front matter under a ``Stakeholders:`` or
+    ``Key Stakeholders:`` header using the format::
+
+        Stakeholders:
+        - @Name: Role, interest:high, influence:low
+
+    Returns a list of dicts with keys: name, role, interest, influence.
+    """
+    stakeholders = []
+    if not original_text:
+        return stakeholders
+
+    lines = original_text.split('\n')
+    in_frontmatter = False
+    in_stakeholders = False
+
+    for line in lines:
+        if line.strip() == '---':
+            if not in_frontmatter:
+                in_frontmatter = True
+            else:
+                break  # End of front matter
+            continue
+
+        if not in_frontmatter:
+            continue
+
+        trimmed = line.strip()
+
+        if trimmed.lower() in ('stakeholders:', 'key stakeholders:'):
+            in_stakeholders = True
+            continue
+
+        # Check if we've left the Stakeholders section
+        if in_stakeholders and trimmed and not trimmed.startswith('-') and re.match(r'^[a-zA-Z\s]+:', trimmed):
+            in_stakeholders = False
+
+        if in_stakeholders and trimmed.startswith('- @'):
+            entry = trimmed[2:].strip()  # Remove "- "
+            item = _parse_stakeholder_entry(entry)
+            if item:
+                stakeholders.append(item)
+
+    return stakeholders
+
+
+def _parse_stakeholder_entry(entry):
+    """Parse a single stakeholder entry string.
+
+    Format: ``@Name: Role, interest:high, influence:low``
+
+    Returns a dict with keys: name, role, interest, influence.
+    """
+    if not entry or not entry.startswith('@'):
+        return None
+
+    colon_idx = entry.find(':')
+    if colon_idx == -1:
+        return {'name': entry.strip(), 'role': '', 'interest': 'low', 'influence': 'low'}
+
+    name = entry[:colon_idx].strip()
+    rest = entry[colon_idx + 1:].strip()
+
+    parts = [p.strip() for p in rest.split(',')]
+
+    role_parts = []
+    interest = 'low'
+    influence = 'low'
+
+    for part in parts:
+        kv_match = re.match(r'^(interest|influence):\s*(high|low)$', part, re.IGNORECASE)
+        if kv_match:
+            key = kv_match.group(1).lower()
+            val = kv_match.group(2).lower()
+            if key == 'interest':
+                interest = val
+            elif key == 'influence':
+                influence = val
+        else:
+            if part:
+                role_parts.append(part)
+
+    role = ', '.join(role_parts)
+
+    return {'name': name, 'role': role, 'interest': interest, 'influence': influence}
+
+
+def calculate_evm(tasks, budget_items=None):
+    """Calculate Earned Value Management metrics from task and budget data.
+
+    This mirrors the JavaScript ``calculateEVM`` function in the frontend.
+
+    Args:
+        tasks: List of scheduled task dicts from ``schedule_tasks()``.
+        budget_items: Optional list of budget item dicts (with ``forecast``,
+            ``estimate``, ``total`` keys).
+
+    Returns:
+        A dict with EVM metrics, or ``None`` if insufficient data.
+    """
+    if not tasks:
+        return None
+
+    # Get non-summary, non-milestone tasks with dates
+    work_tasks = [
+        t for t in tasks
+        if not t.get('summary')
+        and t.get('start') and t.get('finish')
+        and t.get('duration') and (
+            isinstance(t['duration'], timedelta) and t['duration'].days > 0
+            or isinstance(t['duration'], (int, float)) and t['duration'] > 0
+        )
+    ]
+
+    if not work_tasks:
+        return None
+
+    # Calculate overall % complete (weighted by duration)
+    total_duration_days = 0
+    weighted_complete = 0
+    for t in work_tasks:
+        dur = t.get('duration', timedelta(days=0))
+        if isinstance(dur, timedelta):
+            dur_days = dur.days
+        else:
+            dur_days = int(dur)
+        pct = float(t.get('percent', 0) or 0)
+        total_duration_days += dur_days
+        weighted_complete += dur_days * pct
+
+    overall_percent_complete = weighted_complete / total_duration_days if total_duration_days > 0 else 0
+
+    # Project date range
+    starts = [t['start'] for t in work_tasks if t.get('start')]
+    finishes = [t['finish'] for t in work_tasks if t.get('finish')]
+    if not starts or not finishes:
+        return None
+
+    project_start = min(starts)
+    project_end = max(finishes)
+    total_project_days = (project_end - project_start).days
+    if total_project_days <= 0:
+        return None
+
+    today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Time elapsed fraction (clamped 0-1)
+    elapsed_days = max(0, (today - project_start).days)
+    time_elapsed_fraction = min(1.0, elapsed_days / total_project_days)
+
+    # BAC = total forecast from budget items, or fall back to task duration
+    bac = 0.0
+    ac = 0.0
+    has_budget_data = False
+
+    if budget_items:
+        for item in budget_items:
+            bac += float(item.get('forecast', 0) or item.get('estimate', 0) or 0)
+            ac += float(item.get('total', 0) or 0)
+
+    has_budget_data = bac > 0
+    if not has_budget_data:
+        bac = float(total_duration_days)
+        ac = float(total_duration_days) * (overall_percent_complete / 100.0)
+
+    # Core EVM calculations
+    pv = bac * time_elapsed_fraction
+    ev = bac * (overall_percent_complete / 100.0)
+
+    # Variances
+    cv = ev - ac  # Cost Variance
+    sv = ev - pv  # Schedule Variance
+
+    # Indices (guard against division by zero)
+    cpi = ev / ac if ac != 0 else 0
+    spi = ev / pv if pv != 0 else 0
+
+    # Forecasts
+    eac = bac / cpi if cpi != 0 else bac  # Estimate at Completion
+    etc = eac - ac  # Estimate to Complete
+    vac = bac - eac  # Variance at Completion
+
+    return {
+        'BAC': bac,
+        'PV': pv,
+        'EV': ev,
+        'AC': ac,
+        'CV': cv,
+        'SV': sv,
+        'CPI': cpi,
+        'SPI': spi,
+        'EAC': eac,
+        'ETC': etc,
+        'VAC': vac,
+        'overall_percent_complete': overall_percent_complete,
+        'time_elapsed_fraction': time_elapsed_fraction,
+        'project_start': project_start,
+        'project_end': project_end,
+        'has_budget_data': has_budget_data,
+    }
+
+
 def analyze_plan(text, original_text=None):
     """Analyze a project plan and provide suggestions for improvement.
 
@@ -2503,6 +2709,7 @@ def _add_report_slide(prs, report_data, include_footer=True):
     budget = report_data.get('budget', '')
     report_date = report_data.get('date', '')
     status = report_data.get('status', '')
+    percent_complete = report_data.get('percent_complete', None)
 
     # -- Title bar ------------------------------------------------------------
     title_bar = slide.shapes.add_shape(
@@ -2532,6 +2739,8 @@ def _add_report_slide(prs, report_data, include_footer=True):
         details_parts.append(f"Budget: {budget}")
     if report_date:
         details_parts.append(f"Date: {report_date}")
+    if percent_complete is not None:
+        details_parts.append(f"{percent_complete}% complete")
     detail_text = "   |   ".join(details_parts) if details_parts else ""
 
     if detail_text:
@@ -3951,6 +4160,130 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                 for col_num, header in enumerate(raid_headers, 1):
                     width = RAID_COLUMN_WIDTHS.get(header, 15)  # Default to 15 if not found
                     ws_raid.column_dimensions[get_column_letter(col_num)].width = width
+
+    # Create Stakeholders sheet if original_text contains stakeholder entries
+    if original_text:
+        stakeholder_items = parse_stakeholders_from_frontmatter(original_text)
+        if stakeholder_items:
+            ws_stakeholders = wb.create_sheet("Stakeholders")
+
+            stakeholder_headers = ['Name', 'Role', 'Interest', 'Influence']
+            ws_stakeholders.append(stakeholder_headers)
+
+            # Style header row
+            stakeholder_header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+            stakeholder_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+            for col_num, header_text in enumerate(stakeholder_headers, 1):
+                cell = ws_stakeholders.cell(row=1, column=col_num)
+                cell.fill = stakeholder_header_fill
+                cell.font = stakeholder_header_font
+                cell.alignment = Alignment(horizontal='center')
+
+            # Add stakeholder data
+            for row_idx, item in enumerate(stakeholder_items, 2):
+                ws_stakeholders.cell(row=row_idx, column=1, value=item.get('name', ''))
+                ws_stakeholders.cell(row=row_idx, column=2, value=item.get('role', ''))
+
+                interest_val = item.get('interest', 'low').capitalize()
+                interest_cell = ws_stakeholders.cell(row=row_idx, column=3, value=interest_val)
+                if interest_val.lower() == 'high':
+                    interest_cell.fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
+                else:
+                    interest_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
+
+                influence_val = item.get('influence', 'low').capitalize()
+                influence_cell = ws_stakeholders.cell(row=row_idx, column=4, value=influence_val)
+                if influence_val.lower() == 'high':
+                    influence_cell.fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
+                else:
+                    influence_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
+
+            # Set column widths
+            stakeholder_col_widths = [25, 30, 12, 12]
+            for col_num, width in enumerate(stakeholder_col_widths, 1):
+                ws_stakeholders.column_dimensions[get_column_letter(col_num)].width = width
+
+    # Create EVM sheet with calculated Earned Value Management metrics
+    if tasks:
+        budget_items_for_evm = None
+        if original_text:
+            budget_text = extract_budget(original_text)
+            if budget_text:
+                budget_items_for_evm = parse_budget_markdown(budget_text)
+
+        evm_data = calculate_evm(tasks, budget_items_for_evm)
+        if evm_data:
+            ws_evm = wb.create_sheet("EVM")
+
+            # EVM header styling
+            evm_header_fill = PatternFill(start_color="667eea", end_color="667eea", fill_type="solid")
+            evm_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+            # Add EVM metrics as a key-value table
+            evm_headers = ['Metric', 'Value']
+            ws_evm.append(evm_headers)
+
+            for col_num, header_text in enumerate(evm_headers, 1):
+                cell = ws_evm.cell(row=1, column=col_num)
+                cell.fill = evm_header_fill
+                cell.font = evm_header_font
+                cell.alignment = Alignment(horizontal='center')
+
+            fmt = lambda v: round(v, 2)
+            fmt_pct = lambda v: f"{round(v, 1)}%"
+            fmt_idx = lambda v: round(v, 2)
+
+            evm_rows = [
+                ('% Complete', fmt_pct(evm_data['overall_percent_complete'])),
+                ('BAC (Budget at Completion)', fmt(evm_data['BAC'])),
+                ('PV (Planned Value)', fmt(evm_data['PV'])),
+                ('EV (Earned Value)', fmt(evm_data['EV'])),
+                ('AC (Actual Cost)', fmt(evm_data['AC'])),
+                ('CV (Cost Variance)', fmt(evm_data['CV'])),
+                ('SV (Schedule Variance)', fmt(evm_data['SV'])),
+                ('CPI (Cost Performance Index)', fmt_idx(evm_data['CPI'])),
+                ('SPI (Schedule Performance Index)', fmt_idx(evm_data['SPI'])),
+                ('EAC (Estimate at Completion)', fmt(evm_data['EAC'])),
+                ('ETC (Estimate to Complete)', fmt(evm_data['ETC'])),
+                ('VAC (Variance at Completion)', fmt(evm_data['VAC'])),
+                ('Project Start', evm_data['project_start'].strftime('%Y-%m-%d') if evm_data.get('project_start') else ''),
+                ('Project End', evm_data['project_end'].strftime('%Y-%m-%d') if evm_data.get('project_end') else ''),
+                ('Time Elapsed', fmt_pct(evm_data['time_elapsed_fraction'] * 100)),
+                ('Budget Data Available', 'Yes' if evm_data.get('has_budget_data') else 'No (using duration proxy)'),
+            ]
+
+            for row_data in evm_rows:
+                ws_evm.append(list(row_data))
+
+            # Color-code variance rows
+            for row_idx in range(2, len(evm_rows) + 2):
+                metric_cell = ws_evm.cell(row=row_idx, column=1)
+                value_cell = ws_evm.cell(row=row_idx, column=2)
+                metric_name = metric_cell.value or ''
+
+                if metric_name.startswith('CV') or metric_name.startswith('SV') or metric_name.startswith('VAC'):
+                    try:
+                        val = float(value_cell.value)
+                        if val >= 0:
+                            value_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
+                        else:
+                            value_cell.fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
+                    except (ValueError, TypeError):
+                        pass
+                elif metric_name.startswith('CPI') or metric_name.startswith('SPI'):
+                    try:
+                        val = float(value_cell.value)
+                        if val >= 1:
+                            value_cell.fill = PatternFill(start_color="D3F9D8", end_color="D3F9D8", fill_type="solid")
+                        else:
+                            value_cell.fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
+                    except (ValueError, TypeError):
+                        pass
+
+            # Set column widths
+            ws_evm.column_dimensions['A'].width = 35
+            ws_evm.column_dimensions['B'].width = 25
 
     # Save workbook
     wb.save(output_path)

@@ -383,6 +383,7 @@ class NoodleSheet {
     }
 
     deleteRow(rowIndex) {
+        if (this.options.readOnly) return;
         const sheet = this.getActiveSheet();
         if (!sheet || rowIndex < 0 || rowIndex >= sheet.rows.length) return;
         this._saveSnapshot();
@@ -827,6 +828,7 @@ class NoodleSheet {
     }
 
     _startEdit(row, col) {
+        if (this.options.readOnly) return;
         const sheet = this.getActiveSheet();
         if (!sheet || row >= sheet.rows.length || col >= sheet.columns.length) return;
 
@@ -1228,6 +1230,7 @@ class NoodleSheet {
     }
 
     _clearSelection() {
+        if (this.options.readOnly) return;
         const sheet = this.getActiveSheet();
         if (!sheet || this.selection.row < 0) return;
         this._saveSnapshot();
@@ -1660,6 +1663,7 @@ class NoodleSheet {
     }
 
     _insertRow(atIndex) {
+        if (this.options.readOnly) return;
         const sheet = this.getActiveSheet();
         if (!sheet) return;
         this._saveSnapshot();

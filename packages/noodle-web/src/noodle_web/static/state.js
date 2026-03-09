@@ -118,6 +118,7 @@ let budgetEditorDebounceTimer = null;
 let budgetSheetInstance = null;
 let budgetSheetViewActive = false;
 let budgetItemPendingDeleteId = null;
+let agreedBudget = 0;
 
 const BUDGET_START = '---budget---';
 const BUDGET_TYPES = ['Capex', 'Opex', 'One-off'];
@@ -160,7 +161,7 @@ let goKeyTimeout = null;
 
 // Navigation constants
 const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders'];
-const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget'];
+const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
 const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
 

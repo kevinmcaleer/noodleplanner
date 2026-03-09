@@ -1251,6 +1251,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'raid',                    fn: () => updateRaidView(result, planText) },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
+            { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
         ];
@@ -11914,4 +11915,639 @@ function addNewTaskViaShortcut() {
             return;
         }
     }
+}
+
+
+// ============================================================
+// Toggle export dropdown menu
+// ============================================================
+function toggleExportMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('exportMenu');
+    if (menu) menu.classList.toggle('show');
+}
+
+// Close nav dropdown menus when clicking outside
+document.addEventListener('click', function(e) {
+    // Close all nav dropdown menus when clicking outside
+    const navMenus = [
+        document.getElementById('planDropdown'),
+        document.getElementById('toolsDropdown'),
+        document.getElementById('portfolioDropdown'),
+        document.getElementById('exportMenu')
+    ];
+    navMenus.forEach(menu => {
+        if (menu && !menu.contains(e.target) && !e.target.closest('.nav-dropdown-toggle')) {
+            menu.classList.remove('show');
+        }
+    });
+});
+            openTaskForm(i + 1);
+            return;
+        }
+    }
+}
+
+/* ======================================================================
+ * EARNED VALUE MANAGEMENT (EVM)
+ * ====================================================================== */
+
+let evmData = null;  // Cached EVM calculation results
+let evmMetricsSheetInstance = null;
+
+/**
+ * Calculate EVM metrics from tasks and budget data.
+ * This is the core calculation engine that derives all EVM values.
+ *
+ * PV (Planned Value) = BAC * (planned % of time elapsed)
+ * EV (Earned Value) = BAC * actual % complete
+ * AC (Actual Cost) = sum of budget items' total (spend to date)
+ * BAC (Budget at Completion) = sum of budget items' forecast (total budget)
+ */
+function calculateEVM(tasks) {
+    if (!tasks || tasks.length === 0) return null;
+
+    // Get non-summary, non-milestone tasks with dates
+    const workTasks = tasks.filter(t => !t.is_summary && t.duration_days > 0 && t.start && t.finish);
+    if (workTasks.length === 0) return null;
+
+    // Calculate overall % complete (weighted by duration)
+    let totalDurationDays = 0;
+    let weightedComplete = 0;
+    workTasks.forEach(t => {
+        const dur = t.duration_days || 0;
+        const pct = parseFloat(t.percent) || 0;
+        totalDurationDays += dur;
+        weightedComplete += dur * pct;
+    });
+    const overallPercentComplete = totalDurationDays > 0 ? weightedComplete / totalDurationDays : 0;
+
+    // Project date range
+    const starts = workTasks.map(t => new Date(t.start)).filter(d => !isNaN(d));
+    const finishes = workTasks.map(t => new Date(t.finish)).filter(d => !isNaN(d));
+    if (starts.length === 0 || finishes.length === 0) return null;
+
+    const projectStart = new Date(Math.min(...starts));
+    const projectEnd = new Date(Math.max(...finishes));
+    const totalProjectMs = projectEnd - projectStart;
+    if (totalProjectMs <= 0) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Time elapsed fraction (clamped 0-1)
+    const elapsedMs = Math.max(0, today - projectStart);
+    const timeElapsedFraction = Math.min(1, elapsedMs / totalProjectMs);
+
+    // BAC = agreed budget from front matter, or total forecast from budget items
+    let BAC = 0;
+    let AC = 0;
+    if (agreedBudget > 0) {
+        BAC = agreedBudget;
+        if (typeof budgetItems !== 'undefined' && budgetItems.length > 0) {
+            budgetItems.forEach(item => {
+                AC += parseFloat(item.total) || 0;
+            });
+        }
+    } else if (typeof budgetItems !== 'undefined' && budgetItems.length > 0) {
+        budgetItems.forEach(item => {
+            BAC += parseFloat(item.forecast) || parseFloat(item.estimate) || 0;
+            AC += parseFloat(item.total) || 0;
+        });
+    }
+
+    // If no budget data, use task duration as a proxy (1 day = 1 cost unit)
+    const hasBudgetData = BAC > 0;
+    if (!hasBudgetData) {
+        BAC = totalDurationDays;
+        // AC estimated from completed work when no actual cost data
+        AC = totalDurationDays * (overallPercentComplete / 100);
+    }
+
+    // Core EVM calculations
+    const PV = BAC * timeElapsedFraction;
+    const EV = BAC * (overallPercentComplete / 100);
+
+    // Variances
+    const CV = EV - AC;  // Cost Variance
+    const SV = EV - PV;  // Schedule Variance
+
+    // Indices (guard against division by zero)
+    const CPI = AC !== 0 ? EV / AC : 0;
+    const SPI = PV !== 0 ? EV / PV : 0;
+
+    // Forecasts
+    const EAC = CPI !== 0 ? BAC / CPI : BAC;  // Estimate at Completion (using CPI method: BAC/CPI)
+    const ETC = EAC - AC;  // Estimate to Complete
+    const VAC = BAC - EAC; // Variance at Completion
+
+    // Build time series data for the chart (monthly periods)
+    const timeSeries = buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData, EV, AC);
+
+    return {
+        BAC, PV, EV, AC,
+        CV, SV,
+        CPI, SPI,
+        EAC, ETC, VAC,
+        overallPercentComplete,
+        timeElapsedFraction,
+        projectStart,
+        projectEnd,
+        today,
+        hasBudgetData,
+        timeSeries
+    };
+}
+
+/**
+ * Build time series data points for the EVM chart.
+ * Generates monthly data points showing PV, EV, and AC over time.
+ */
+function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData, actualEV, actualAC) {
+    const series = { dates: [], pv: [], ev: [], ac: [] };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Generate monthly data points from project start to end (or today, whichever is later)
+    const chartEnd = new Date(Math.max(projectEnd, today));
+    const current = new Date(projectStart);
+    current.setDate(1); // Start at beginning of month
+
+    const totalProjectMs = projectEnd - projectStart;
+
+    // Pre-calculate total actual cost for interpolation
+    let totalAC = 0;
+    if (hasBudgetData && typeof budgetItems !== 'undefined') {
+        budgetItems.forEach(item => {
+            totalAC += parseFloat(item.total) || 0;
+        });
+    }
+
+    // Calculate overall % complete once (same as calculateEVM point-in-time value)
+    let totalDurationDays = 0;
+    let weightedComplete = 0;
+    workTasks.forEach(t => {
+        const dur = t.duration_days || 0;
+        const pct = parseFloat(t.percent) || 0;
+        totalDurationDays += dur;
+        weightedComplete += dur * pct;
+    });
+    const overallPctComplete = totalDurationDays > 0 ? weightedComplete / totalDurationDays : 0;
+
+    while (current <= chartEnd) {
+        const pointDate = new Date(current);
+        series.dates.push(pointDate);
+
+        // PV: planned value at this date = BAC * fraction of planned schedule elapsed
+        const elapsedMs = Math.max(0, pointDate - projectStart);
+        const timeFraction = Math.min(1, elapsedMs / totalProjectMs);
+        series.pv.push(BAC * timeFraction);
+
+        // EV and AC: only for dates up to today
+        if (pointDate <= today) {
+            // Calculate how far through the timeline this point is relative to today
+            const todayMs = today - projectStart;
+            const pointMs = pointDate - projectStart;
+            const progressFraction = todayMs > 0 ? Math.min(1, pointMs / todayMs) : 0;
+
+            // EV: interpolate from 0 to the actual EV value at today
+            series.ev.push(actualEV * progressFraction);
+
+            // AC: interpolate from 0 to the actual AC value at today
+            if (hasBudgetData) {
+                series.ac.push(actualAC * progressFraction);
+            } else {
+                series.ac.push(actualEV * progressFraction);
+            }
+        } else {
+            series.ev.push(null);
+            series.ac.push(null);
+        }
+
+        // Move to next month
+        current.setMonth(current.getMonth() + 1);
+    }
+
+    // Ensure the last non-null EV and AC data points match the actual values exactly.
+    // The monthly grid may not land exactly on "today", so replace the final data point.
+    let lastNonNullIdx = -1;
+    for (let i = series.ev.length - 1; i >= 0; i--) {
+        if (series.ev[i] !== null) { lastNonNullIdx = i; break; }
+    }
+    if (lastNonNullIdx >= 0) {
+        series.ev[lastNonNullIdx] = actualEV;
+        series.ac[lastNonNullIdx] = actualAC;
+    }
+
+    return series;
+}
+
+/**
+ * Main EVM update function called from updateAllViews.
+ */
+function updateEVM(tasks) {
+    evmData = calculateEVM(tasks);
+
+    const placeholder = document.querySelector('#evm-view .evm-placeholder');
+    const content = document.querySelector('#evm-view .evm-content');
+
+    if (!evmData) {
+        if (placeholder) placeholder.style.display = '';
+        if (content) content.style.display = 'none';
+        return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (content) content.style.display = '';
+
+    renderEvmKpis(evmData);
+    renderEvmMetricsTable(evmData);
+    renderEvmChart();
+}
+
+/**
+ * Render EVM KPI cards at the top of the view.
+ */
+function renderEvmKpis(data) {
+    const grid = document.getElementById('evmKpiGrid');
+    if (!grid) return;
+
+    const fmt = (v) => {
+        if (data.hasBudgetData) {
+            return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return Number(v).toFixed(1);
+    };
+
+    const fmtIdx = (v) => Number(v).toFixed(2);
+    const fmtPct = (v) => Number(v).toFixed(1) + '%';
+
+    const cvClass = data.CV >= 0 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const svClass = data.SV >= 0 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const cpiClass = data.CPI >= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+    const spiClass = data.SPI >= 1 ? 'evm-kpi-positive' : 'evm-kpi-negative';
+
+    grid.innerHTML =
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">% Complete</div>' +
+            '<div class="evm-kpi-value">' + fmtPct(data.overallPercentComplete) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">BAC (Budget)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.BAC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Planned Value (PV)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.PV) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Earned Value (EV)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.EV) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card">' +
+            '<div class="evm-kpi-label">Actual Cost (AC)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.AC) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + cvClass + '">' +
+            '<div class="evm-kpi-label">Cost Variance (CV)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.CV) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + svClass + '">' +
+            '<div class="evm-kpi-label">Schedule Variance (SV)</div>' +
+            '<div class="evm-kpi-value">' + fmt(data.SV) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + cpiClass + '">' +
+            '<div class="evm-kpi-label">CPI</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.CPI) + '</div>' +
+        '</div>' +
+        '<div class="evm-kpi-card ' + spiClass + '">' +
+            '<div class="evm-kpi-label">SPI</div>' +
+            '<div class="evm-kpi-value">' + fmtIdx(data.SPI) + '</div>' +
+        '</div>';
+}
+
+// ── NoodleSheet Integration for EVM Metrics ──────────────────────
+
+const EVM_METRICS_DBML = `Table evm_metrics {
+  category text
+  metric text
+  acronym text
+  value text
+  interpretation text
+}`;
+
+/**
+ * Render the detailed EVM metrics table using NoodleSheet.
+ */
+function renderEvmMetricsTable(data) {
+    const container = document.getElementById('evmMetricsSheetContainer');
+    if (!container) return;
+
+    const fmt = (v) => {
+        if (data.hasBudgetData) {
+            return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return Number(v).toFixed(1);
+    };
+    const fmtIdx = (v) => Number(v).toFixed(3);
+
+    const metrics = [
+        {
+            category: 'Measurement',
+            name: 'Budget At Completion',
+            acronym: 'BAC',
+            value: fmt(data.BAC),
+            interpretation: 'Total budget for the project'
+        },
+        {
+            category: 'Measurement',
+            name: 'Planned Value',
+            acronym: 'PV',
+            value: fmt(data.PV),
+            interpretation: data.PV > data.EV
+                ? 'More work was planned than has been earned'
+                : 'Planned work is on or ahead of earned value'
+        },
+        {
+            category: 'Measurement',
+            name: 'Earned Value',
+            acronym: 'EV',
+            value: fmt(data.EV),
+            interpretation: 'Value of work actually completed (' + data.overallPercentComplete.toFixed(1) + '% of BAC)'
+        },
+        {
+            category: 'Measurement',
+            name: 'Actual Cost',
+            acronym: 'AC',
+            value: fmt(data.AC),
+            interpretation: data.hasBudgetData ? 'Amount spent to date from budget items' : 'Estimated from completed work (no budget data)'
+        },
+        {
+            category: 'Variance',
+            name: 'Cost Variance',
+            acronym: 'CV',
+            value: fmt(data.CV),
+            interpretation: data.CV >= 0
+                ? 'Under budget by ' + fmt(Math.abs(data.CV))
+                : 'Over budget by ' + fmt(Math.abs(data.CV))
+        },
+        {
+            category: 'Variance',
+            name: 'Schedule Variance',
+            acronym: 'SV',
+            value: fmt(data.SV),
+            interpretation: data.SV >= 0
+                ? 'Ahead of schedule'
+                : 'Behind schedule'
+        },
+        {
+            category: 'Variance',
+            name: 'Variance At Completion',
+            acronym: 'VAC',
+            value: fmt(data.VAC),
+            interpretation: data.VAC >= 0
+                ? 'Expected to finish ' + fmt(Math.abs(data.VAC)) + ' under budget'
+                : 'Expected to finish ' + fmt(Math.abs(data.VAC)) + ' over budget'
+        },
+        {
+            category: 'Index',
+            name: 'Cost Performance Index',
+            acronym: 'CPI',
+            value: fmtIdx(data.CPI),
+            interpretation: data.CPI >= 1
+                ? 'Getting ' + fmtIdx(data.CPI) + ' worth of value for every 1 spent'
+                : 'Getting only ' + fmtIdx(data.CPI) + ' worth of value for every 1 spent'
+        },
+        {
+            category: 'Index',
+            name: 'Schedule Performance Index',
+            acronym: 'SPI',
+            value: fmtIdx(data.SPI),
+            interpretation: data.SPI >= 1
+                ? 'Progressing at ' + (data.SPI * 100).toFixed(0) + '% of planned rate'
+                : 'Progressing at only ' + (data.SPI * 100).toFixed(0) + '% of planned rate'
+        },
+        {
+            category: 'Forecast',
+            name: 'Estimate At Completion',
+            acronym: 'EAC',
+            value: fmt(data.EAC),
+            interpretation: 'Projected total cost based on current CPI'
+        },
+        {
+            category: 'Forecast',
+            name: 'Estimate To Complete',
+            acronym: 'ETC',
+            value: fmt(data.ETC),
+            interpretation: 'Remaining cost to finish the project'
+        }
+    ];
+
+    // Build markdown table for NoodleSheet
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const headers = ['Category', 'Metric', 'Acronym', 'Value', 'Interpretation'];
+    const rows = metrics.map(m => [
+        escPipe(m.category),
+        escPipe(m.name),
+        escPipe(m.acronym),
+        escPipe(m.value),
+        escPipe(m.interpretation)
+    ]);
+
+    const widths = headers.map((h, i) => Math.max(h.length, ...rows.map(r => r[i].length)));
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    let md = formatRow(headers) + '\n' + separator + '\n';
+    rows.forEach(row => { md += formatRow(row) + '\n'; });
+
+    if (evmMetricsSheetInstance) {
+        // Update existing sheet with new data
+        evmMetricsSheetInstance.loadMarkdown(md, 0);
+    } else {
+        // Create new read-only NoodleSheet instance
+        evmMetricsSheetInstance = new NoodleSheet(container, {
+            sheets: [{
+                name: 'EVM Metrics',
+                dbml: EVM_METRICS_DBML,
+                markdown: md
+            }],
+            readOnly: true,
+            showTotals: false
+        });
+    }
+}
+
+/**
+ * Render the EVM S-curve chart using SVG.
+ */
+function renderEvmChart() {
+    if (!evmData || !evmData.timeSeries) return;
+
+    const svg = document.getElementById('evmChart');
+    const legend = document.getElementById('evmChartLegend');
+    if (!svg) return;
+
+    const container = svg.parentElement;
+    const width = container.clientWidth || 700;
+    const height = 350;
+    const padding = { top: 30, right: 30, bottom: 60, left: 70 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+
+    // Read CSS custom properties for theme-aware colours
+    const cs = getComputedStyle(document.documentElement);
+    const cvar = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
+    const colChartBg   = cvar('--evm-chart-bg', '#f8f9fa');
+    const colGridLine  = cvar('--evm-grid-line', '#e0e0e0');
+    const colAxisLine  = cvar('--evm-axis-line', '#999');
+    const colAxisLabel = cvar('--evm-axis-label', '#666');
+    const colTextMuted = cvar('--evm-text-muted', '#888');
+    const colLinePV    = cvar('--evm-line-pv', '#2171b5');
+    const colLineEV    = cvar('--evm-line-ev', '#2ca02c');
+    const colLineAC    = cvar('--evm-line-ac', '#d62728');
+    const colLineToday = cvar('--evm-line-today', '#e6a817');
+    const colBacLine   = cvar('--evm-bac-line', '#999');
+
+    const ts = evmData.timeSeries;
+    if (!ts.dates || ts.dates.length === 0) {
+        svg.innerHTML = '<text x="' + (width / 2) + '" y="' + (height / 2) + '" text-anchor="middle" fill="' + colTextMuted + '" font-size="14">Insufficient data for chart</text>';
+        return;
+    }
+
+    // Find max value for Y axis
+    const allValues = [...ts.pv, ...ts.ev.filter(v => v !== null), ...ts.ac.filter(v => v !== null)];
+    const maxVal = Math.max(...allValues, 1);
+    const yMax = Math.ceil(maxVal * 1.1); // 10% headroom
+
+    // X scale: map date index to x position
+    const xScale = (i) => padding.left + (i / (ts.dates.length - 1)) * chartW;
+    // Y scale: map value to y position (inverted)
+    const yScale = (v) => padding.top + chartH - (v / yMax) * chartH;
+
+    let svgContent = '';
+
+    // Background
+    svgContent += '<rect x="0" y="0" width="' + width + '" height="' + height + '" fill="' + colChartBg + '" rx="4"/>';
+
+    // Grid lines
+    const gridLines = 5;
+    for (let i = 0; i <= gridLines; i++) {
+        const y = padding.top + (i / gridLines) * chartH;
+        const val = yMax * (1 - i / gridLines);
+        svgContent += '<line x1="' + padding.left + '" y1="' + y + '" x2="' + (width - padding.right) + '" y2="' + y + '" stroke="' + colGridLine + '" stroke-width="1" stroke-dasharray="4,4"/>';
+        svgContent += '<text x="' + (padding.left - 8) + '" y="' + (y + 4) + '" text-anchor="end" fill="' + colAxisLabel + '" font-size="11">' + formatEvmAxisValue(val, evmData.hasBudgetData) + '</text>';
+    }
+
+    // X axis labels (dates)
+    const labelStep = Math.max(1, Math.floor(ts.dates.length / 8));
+    for (let i = 0; i < ts.dates.length; i += labelStep) {
+        const x = xScale(i);
+        const d = ts.dates[i];
+        const label = d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+        svgContent += '<text x="' + x + '" y="' + (height - padding.bottom + 20) + '" text-anchor="middle" fill="' + colAxisLabel + '" font-size="11">' + label + '</text>';
+        svgContent += '<line x1="' + x + '" y1="' + padding.top + '" x2="' + x + '" y2="' + (padding.top + chartH) + '" stroke="' + colGridLine + '" stroke-width="1" stroke-dasharray="2,4"/>';
+    }
+
+    // Axis lines
+    svgContent += '<line x1="' + padding.left + '" y1="' + padding.top + '" x2="' + padding.left + '" y2="' + (padding.top + chartH) + '" stroke="' + colAxisLine + '" stroke-width="1"/>';
+    svgContent += '<line x1="' + padding.left + '" y1="' + (padding.top + chartH) + '" x2="' + (width - padding.right) + '" y2="' + (padding.top + chartH) + '" stroke="' + colAxisLine + '" stroke-width="1"/>';
+
+    // Helper to build a polyline path
+    function buildPath(values, skipNull) {
+        let points = [];
+        for (let i = 0; i < values.length; i++) {
+            if (skipNull && values[i] === null) continue;
+            points.push(xScale(i) + ',' + yScale(values[i]));
+        }
+        return points.join(' ');
+    }
+
+    // PV line (planned value) - dashed blue
+    svgContent += '<polyline points="' + buildPath(ts.pv, false) + '" fill="none" stroke="' + colLinePV + '" stroke-width="2.5" stroke-dasharray="6,3"/>';
+
+    // EV line (earned value) - solid green
+    const evFiltered = ts.ev.filter(v => v !== null);
+    if (evFiltered.length > 0) {
+        svgContent += '<polyline points="' + buildPath(ts.ev, true) + '" fill="none" stroke="' + colLineEV + '" stroke-width="2.5"/>';
+    }
+
+    // AC line (actual cost) - solid red/orange
+    const acFiltered = ts.ac.filter(v => v !== null);
+    if (acFiltered.length > 0) {
+        svgContent += '<polyline points="' + buildPath(ts.ac, true) + '" fill="none" stroke="' + colLineAC + '" stroke-width="2.5"/>';
+    }
+
+    // Today line - interpolate to exact date position
+    let todayX = null;
+    const todayTime = evmData.today.getTime();
+    if (todayTime <= ts.dates[0].getTime()) {
+        todayX = xScale(0);
+    } else if (todayTime >= ts.dates[ts.dates.length - 1].getTime()) {
+        todayX = xScale(ts.dates.length - 1);
+    } else {
+        for (let ti = 1; ti < ts.dates.length; ti++) {
+            if (ts.dates[ti].getTime() >= todayTime) {
+                const prevTime = ts.dates[ti - 1].getTime();
+                const nextTime = ts.dates[ti].getTime();
+                const frac = (todayTime - prevTime) / (nextTime - prevTime);
+                todayX = xScale(ti - 1) + frac * (xScale(ti) - xScale(ti - 1));
+                break;
+            }
+        }
+    }
+    if (todayX !== null) {
+        svgContent += '<line x1="' + todayX + '" y1="' + padding.top + '" x2="' + todayX + '" y2="' + (padding.top + chartH) + '" stroke="' + colLineToday + '" stroke-width="1.5" stroke-dasharray="4,2"/>';
+        svgContent += '<text x="' + todayX + '" y="' + (padding.top - 8) + '" text-anchor="middle" fill="' + colLineToday + '" font-size="10">Today</text>';
+    }
+
+    // BAC reference line
+    const bacY = yScale(evmData.BAC);
+    if (bacY >= padding.top && bacY <= padding.top + chartH) {
+        svgContent += '<line x1="' + padding.left + '" y1="' + bacY + '" x2="' + (width - padding.right) + '" y2="' + bacY + '" stroke="' + colBacLine + '" stroke-width="1" stroke-dasharray="8,4"/>';
+        svgContent += '<text x="' + (width - padding.right + 4) + '" y="' + (bacY + 4) + '" fill="' + colBacLine + '" font-size="10" text-anchor="start">BAC</text>';
+    }
+
+    // Data point dots
+    for (let i = 0; i < ts.dates.length; i++) {
+        if (ts.pv[i] !== null && ts.pv[i] !== undefined) {
+            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.pv[i]) + '" r="3" fill="' + colLinePV + '"/>';
+        }
+        if (ts.ev[i] !== null && ts.ev[i] !== undefined) {
+            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.ev[i]) + '" r="3" fill="' + colLineEV + '"/>';
+        }
+        if (ts.ac[i] !== null && ts.ac[i] !== undefined) {
+            svgContent += '<circle cx="' + xScale(i) + '" cy="' + yScale(ts.ac[i]) + '" r="3" fill="' + colLineAC + '"/>';
+        }
+    }
+
+    // Axis labels
+    svgContent += '<text x="' + (width / 2) + '" y="' + (height - 5) + '" text-anchor="middle" fill="' + colTextMuted + '" font-size="12">Time</text>';
+    svgContent += '<text x="15" y="' + (height / 2) + '" text-anchor="middle" fill="' + colTextMuted + '" font-size="12" transform="rotate(-90 15 ' + (height / 2) + ')">Value' + (evmData.hasBudgetData ? ' (Currency)' : ' (Days)') + '</text>';
+
+    svg.innerHTML = svgContent;
+
+    // Legend
+    if (legend) {
+        legend.innerHTML =
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLinePV + '; border-style:dashed;"></span> Planned Value (PV)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineEV + ';"></span> Earned Value (EV)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineAC + ';"></span> Actual Cost (AC)</span>' +
+            '<span class="evm-legend-item"><span class="evm-legend-swatch" style="background:' + colLineToday + '; border-style:dashed;"></span> Today</span>';
+    }
+}
+
+/**
+ * Format axis values for the EVM chart.
+ */
+function formatEvmAxisValue(val, isCurrency) {
+    if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+    if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+    if (isCurrency) return val.toFixed(0);
+    return val.toFixed(1);
 }

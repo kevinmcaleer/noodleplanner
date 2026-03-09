@@ -227,6 +227,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
         // Budget
         const budget = frontMatter.budget || '';
+        agreedBudget = parseFloat(String(budget).replace(/[^0-9.]/g, '')) || 0;
         const budgetDetail = document.getElementById('reportBudgetDetail');
         const budgetEl = document.getElementById('reportBudget');
         if (budgetDetail && budgetEl) {
