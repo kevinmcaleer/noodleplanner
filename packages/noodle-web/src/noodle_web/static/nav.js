@@ -52,22 +52,23 @@ function closeAllNavMenus(except) {
 }
 
 // Navigate to Project (Dashboard with plan subnav)
-function switchToProject() {
-    switchToView('project-report');
+// Named switchToProjectNav to avoid collision with portfolio.js switchToProject(projectId)
+function switchToProjectNav() {
+    NavigationController.navigateTo('project-report');
     // Override nav active state to show Project tab as active (not Dashboard)
     setActiveNavTab('planTab');
 }
 
-// Navigate to Tracking (RAID Log with tracking subnav)
+// Navigate to Tracking (Actions view with tracking subnav)
 function switchToTracking() {
-    switchTrackingSubnavToTab('actions');
+    NavigationController.navigateTo('actions');
     // Ensure Tracking tab is active
     setActiveNavTab('trackingTab');
 }
 
 // Navigate to Resources (Resource Table with resources subnav)
 function switchToResources() {
-    switchToView('resources');
+    NavigationController.navigateTo('resources');
     // Ensure Resources tab is active
     setActiveNavTab('resourcesTab');
 }
@@ -262,20 +263,7 @@ function switchToView(viewName) {
         syncEditorStateToMain();
     }
 
-    // First, switch to editor tab (where all views live)
-    switchTab('editor');
-
-    // Then switch to the specific output tab content
-    switchOutputTab(viewName);
-
-    // Close all nav dropdown menus
-    closeAllNavMenus();
-
-    // Update nav bar active state
-    updateNavActiveState(viewName);
-
-    // Update plan sub-navigation bar
-    updatePlanSubnav(viewName);
+    NavigationController.navigateTo(viewName);
 }
 
 // Update the active state in the navigation bar
@@ -331,28 +319,24 @@ function updatePlanSubnav(viewName) {
 
 // Handle Dashboard button in the plan sub-nav
 function switchPlanSubnavToDashboard() {
-    switchToView('project-report');
+    NavigationController.navigateTo('project-report');
     // Override nav active state to keep Project tab active (not Dashboard tab)
     setActiveNavTab('planTab');
 }
 
 // Handle Board button in the plan sub-nav
 function switchPlanSubnavToBoard() {
-    syncEditorStateToKanban();
-    switchTab('kanban');
-    updatePlanSubnav('kanban');
+    NavigationController.navigateTo('kanban');
 }
 
-// Handle Tracking subnav buttons that use switchTab (RAID, Actions)
+// Handle Tracking subnav buttons that use switchTab (RAID, Actions, Budget)
 function switchTrackingSubnavToTab(tabName) {
-    switchTab(tabName);
-    updatePlanSubnav(tabName);
+    NavigationController.navigateTo(tabName);
 }
 
 // Handle Tools subnav buttons that use switchTab (Planning Room, Syntax Guide)
 function switchToolsSubnavToTab(tabName) {
-    switchTab(tabName);
-    updatePlanSubnav(tabName);
+    NavigationController.navigateTo(tabName);
 }
 
 // Sync editor panel collapsed/expanded state from main editor to kanban editor
