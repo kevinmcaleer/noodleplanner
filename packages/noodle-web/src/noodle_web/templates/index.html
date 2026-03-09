@@ -1333,6 +1333,8 @@ Build
                                     <th onclick="sortRaidTable('likelihood')">Likelihood <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('score')">Score <span class="sort-indicator"></span></th>
                                     <th onclick="sortRaidTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('priority')">Priority <span class="sort-indicator"></span></th>
+                                    <th onclick="sortRaidTable('target_date')">Target Date <span class="sort-indicator"></span></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -2079,6 +2081,22 @@ Build
                     <div class="form-group">
                         <label for="raidItemMitigation">Mitigation Actions</label>
                         <textarea id="raidItemMitigation" class="form-control" placeholder="Steps to mitigate or resolve" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="raidItemPriority">Priority</label>
+                            <select id="raidItemPriority" class="form-control">
+                                <option value="">-- None --</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="raidItemTargetDate">Target Date</label>
+                            <input type="date" id="raidItemTargetDate" class="form-control">
+                        </div>
                     </div>
 
                     <div class="form-grid-3col">

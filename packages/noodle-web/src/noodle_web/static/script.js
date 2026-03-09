@@ -12274,6 +12274,8 @@ function openRaidForm(itemId) {
         document.getElementById('raidItemMitigation').value = item.mitigation_actions;
         document.getElementById('raidItemImpact').value = item.impact;
         document.getElementById('raidItemLikelihood').value = item.likelihood;
+        document.getElementById('raidItemPriority').value = item.priority || '';
+        document.getElementById('raidItemTargetDate').value = item.target_date || '';
         if (deleteRow) deleteRow.style.display = 'block';
     } else {
         title.textContent = 'New RAID Item';
@@ -12287,6 +12289,8 @@ function openRaidForm(itemId) {
         document.getElementById('raidItemMitigation').value = '';
         document.getElementById('raidItemImpact').value = '3';
         document.getElementById('raidItemLikelihood').value = '3';
+        document.getElementById('raidItemPriority').value = '';
+        document.getElementById('raidItemTargetDate').value = '';
         if (deleteRow) deleteRow.style.display = 'none';
     }
 
@@ -12338,7 +12342,9 @@ function saveRaidItemFromForm() {
         impact: impact,
         likelihood: likelihood,
         score: impact * likelihood,
-        status: document.getElementById('raidItemStatus').value
+        status: document.getElementById('raidItemStatus').value,
+        priority: document.getElementById('raidItemPriority').value,
+        target_date: document.getElementById('raidItemTargetDate').value
     };
 
     if (idField) {
@@ -12466,6 +12472,8 @@ function renderRaidTable() {
             <td>${item.likelihood || ''}</td>
             <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
             <td><span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span></td>
+            <td>${escapeHtml(item.priority || '')}</td>
+            <td>${escapeHtml(item.target_date || '')}</td>
             <td>
                 <button class="raid-action-btn" onclick="openRaidForm(${item.id})" title="Edit">✏️</button>
                 <button class="raid-action-btn delete" onclick="deleteRaidItem(${item.id})" title="Delete">🗑️</button>
