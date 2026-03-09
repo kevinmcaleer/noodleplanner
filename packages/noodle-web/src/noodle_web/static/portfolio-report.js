@@ -273,6 +273,7 @@ function buildProjectReportData(project, tasks, frontMatter, raidItems, highligh
     var sponsor = '';
     var budget = '';
     var status = '';
+    var percentComplete = calculateProjectCompletionFromTasks(tasks);
 
     if (frontMatter) {
         manager = frontMatter['manager'] || frontMatter['pm'] || frontMatter['project_manager'] || '';
@@ -396,6 +397,7 @@ function buildProjectReportData(project, tasks, frontMatter, raidItems, highligh
             };
         })() : null,
         risks_issues: risksIssues,
-        timeline_tasks: timelineTasks
+        timeline_tasks: timelineTasks,
+        percent_complete: percentComplete
     };
 }

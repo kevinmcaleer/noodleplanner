@@ -2503,6 +2503,7 @@ def _add_report_slide(prs, report_data, include_footer=True):
     budget = report_data.get('budget', '')
     report_date = report_data.get('date', '')
     status = report_data.get('status', '')
+    percent_complete = report_data.get('percent_complete', None)
 
     # -- Title bar ------------------------------------------------------------
     title_bar = slide.shapes.add_shape(
@@ -2532,6 +2533,8 @@ def _add_report_slide(prs, report_data, include_footer=True):
         details_parts.append(f"Budget: {budget}")
     if report_date:
         details_parts.append(f"Date: {report_date}")
+    if percent_complete is not None:
+        details_parts.append(f"{percent_complete}% complete")
     detail_text = "   |   ".join(details_parts) if details_parts else ""
 
     if detail_text:

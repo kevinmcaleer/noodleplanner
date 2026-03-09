@@ -806,6 +806,7 @@ class ReportExportRequest(BaseModel):
     risks_issues: List[ReportRiskIssue] = Field(default_factory=list)
     timeline_tasks: List[ReportTimelineTask] = Field(default_factory=list, description="Phase and milestone tasks for server-side timeline rendering")
     timeline_image: Optional[str] = Field(None, description="Base64-encoded PNG of timeline captured from browser")
+    percent_complete: int = Field(0, ge=0, le=100, description="Overall project completion percentage")
 
 
 @app.post("/api/export-report-pptx")
@@ -831,6 +832,7 @@ async def export_report_pptx(data: ReportExportRequest):
             'risks_issues': [r.model_dump() for r in data.risks_issues],
             'timeline_tasks': [t.model_dump() for t in data.timeline_tasks],
             'timeline_image': data.timeline_image,
+            'percent_complete': data.percent_complete,
         }
 
         export_report_to_powerpoint(tmp_path, report_data)
@@ -906,6 +908,7 @@ async def export_portfolio_pptx(data: PortfolioReportRequest):
                 'risks_issues': [ri.model_dump() for ri in r.risks_issues],
                 'timeline_tasks': [t.model_dump() for t in r.timeline_tasks],
                 'timeline_image': r.timeline_image,
+                'percent_complete': r.percent_complete,
             }
             for r in data.project_reports
         ]
