@@ -2030,6 +2030,7 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
         // Budget
         const budget = frontMatter.budget || '';
+        agreedBudget = parseFloat(String(budget).replace(/[^0-9.]/g, '')) || 0;
         const budgetDetail = document.getElementById('reportBudgetDetail');
         const budgetEl = document.getElementById('reportBudget');
         if (budgetDetail && budgetEl) {
@@ -14837,6 +14838,7 @@ let budgetItems = [];
 let budgetNextId = 1;
 let budgetSortColumn = 'id';
 let budgetSortAsc = true;
+let agreedBudget = 0;
 let budgetEditorIsUpdating = false;
 let budgetEditorDebounceTimer = null;
 let budgetSheetInstance = null;
@@ -15077,7 +15079,7 @@ function renderBudgetTable() {
 
         // Summary footer
         if (tfoot) {
-            tfoot.innerHTML =
+            let footerHtml =
                 '<tr>' +
                 '<td></td>' +
                 '<td><strong>Totals</strong></td>' +
@@ -15087,6 +15089,31 @@ function renderBudgetTable() {
                 '<td><strong>' + formatCurrency(totalSpend) + '</strong></td>' +
                 '<td></td><td></td><td></td>' +
                 '</tr>';
+            if (agreedBudget > 0) {
+                const variance = agreedBudget - totalForecast;
+                const varianceClass = variance < 0 ? 'budget-over' : 'budget-under';
+                const varianceLabel = variance < 0 ? 'Over Budget' : 'Under Budget';
+                footerHtml +=
+                    '<tr>' +
+                    '<td></td>' +
+                    '<td><strong>Agreed Budget</strong></td>' +
+                    '<td></td>' +
+                    '<td><strong>' + formatCurrency(agreedBudget) + '</strong></td>' +
+                    '<td></td><td></td><td></td>' +
+                    '<td></td><td></td><td></td><td></td>' +
+                    '</tr>' +
+                    '<tr>' +
+                    '<td></td>' +
+                    '<td><strong>Variance</strong></td>' +
+                    '<td></td>' +
+                    '<td><strong class="' + varianceClass + '">' +
+                        (variance < 0 ? '-' : '') + formatCurrency(Math.abs(variance)) +
+                        ' (' + varianceLabel + ')</strong></td>' +
+                    '<td></td><td></td><td></td>' +
+                    '<td></td><td></td><td></td><td></td>' +
+                    '</tr>';
+            }
+            tfoot.innerHTML = footerHtml;
         }
 
         updateBudgetSortIndicators();
@@ -15438,7 +15465,7 @@ function updateReportBudgetWidget() {
         const widget = document.getElementById('reportBudgetWidget');
         if (!widget) return;
 
-        if (budgetItems.length === 0) {
+        if (budgetItems.length === 0 && agreedBudget <= 0) {
             widget.style.display = 'none';
             return;
         }
@@ -15452,13 +15479,42 @@ function updateReportBudgetWidget() {
             totalSpend += item.total || 0;
         });
 
-        const remaining = totalForecast - totalSpend;
-        const spendPercent = totalForecast > 0 ? (totalSpend / totalForecast) * 100 : 0;
+        // When agreed budget is set, use it as the baseline for remaining/progress
+        const baseline = agreedBudget > 0 ? agreedBudget : totalForecast;
+        const remaining = baseline - totalSpend;
+        const spendPercent = baseline > 0 ? (totalSpend / baseline) * 100 : 0;
 
+        const agreedEl = document.getElementById('reportBudgetAgreed');
+        const varianceEl = document.getElementById('reportBudgetVariance');
+        const agreedCard = document.getElementById('reportBudgetAgreedCard');
+        const varianceCard = document.getElementById('reportBudgetVarianceCard');
         const forecastEl = document.getElementById('reportBudgetForecast');
         const spendEl = document.getElementById('reportBudgetSpend');
         const remainingEl = document.getElementById('reportBudgetRemaining');
         const barEl = document.getElementById('reportBudgetBar');
+
+        // Show/hide agreed budget and variance cards
+        if (agreedBudget > 0) {
+            if (agreedCard) agreedCard.style.display = '';
+            if (varianceCard) varianceCard.style.display = '';
+            if (agreedEl) agreedEl.textContent = formatCurrency(agreedBudget);
+            if (varianceEl) {
+                const variance = agreedBudget - totalForecast;
+                varianceEl.textContent = formatCurrency(Math.abs(variance));
+                varianceEl.className = 'budget-widget-value';
+                if (variance < 0) {
+                    varianceEl.textContent = '-' + formatCurrency(Math.abs(variance));
+                    varianceEl.classList.add('budget-over');
+                    varianceEl.title = 'Over Budget';
+                } else {
+                    varianceEl.classList.add('budget-under');
+                    varianceEl.title = 'Under Budget';
+                }
+            }
+        } else {
+            if (agreedCard) agreedCard.style.display = 'none';
+            if (varianceCard) varianceCard.style.display = 'none';
+        }
 
         if (forecastEl) forecastEl.textContent = formatCurrency(totalForecast);
         if (spendEl) spendEl.textContent = formatCurrency(totalSpend);
@@ -18684,10 +18740,17 @@ function calculateEVM(tasks) {
     const elapsedMs = Math.max(0, today - projectStart);
     const timeElapsedFraction = Math.min(1, elapsedMs / totalProjectMs);
 
-    // BAC = total forecast from budget items, or fall back to estimate if no budget
+    // BAC = agreed budget from front matter, or total forecast from budget items
     let BAC = 0;
     let AC = 0;
-    if (typeof budgetItems !== 'undefined' && budgetItems.length > 0) {
+    if (agreedBudget > 0) {
+        BAC = agreedBudget;
+        if (typeof budgetItems !== 'undefined' && budgetItems.length > 0) {
+            budgetItems.forEach(item => {
+                AC += parseFloat(item.total) || 0;
+            });
+        }
+    } else if (typeof budgetItems !== 'undefined' && budgetItems.length > 0) {
         budgetItems.forEach(item => {
             BAC += parseFloat(item.forecast) || parseFloat(item.estimate) || 0;
             AC += parseFloat(item.total) || 0;
