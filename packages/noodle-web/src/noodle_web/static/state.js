@@ -160,14 +160,13 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'stakeholders', 'text-report', 'planning', 'guide'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
-const TOOLS_VIEWS = ['text-report', 'planning', 'guide'];
+const TOOLS_VIEWS = [];
 
 const SUBNAV_GROUPS = [
     { id: 'planSubnav', views: PLAN_VIEWS },
     { id: 'trackingSubnav', views: TRACKING_VIEWS },
-    { id: 'resourcesSubnav', views: RESOURCES_VIEWS },
-    { id: 'toolsSubnav', views: TOOLS_VIEWS }
+    { id: 'resourcesSubnav', views: RESOURCES_VIEWS }
 ];

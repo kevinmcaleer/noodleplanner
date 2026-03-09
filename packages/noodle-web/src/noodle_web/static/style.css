@@ -537,6 +537,19 @@ svg.icon {
     align-self: center;
 }
 
+.plan-subnav-separator {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 8px;
+    align-self: center;
+}
+
+.plan-subnav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
 /* Subnav group labels */
 .plan-subnav-group-label {
     font-size: 0.7em;

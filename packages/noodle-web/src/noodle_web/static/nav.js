@@ -27,22 +27,17 @@ function toggleExportMenu(event) {
 
 // Close nav dropdown menus when clicking outside
 document.addEventListener('click', function(e) {
-    // Close all nav dropdown menus when clicking outside
-    const navMenus = [
-        { menu: 'toolsMenu', tab: 'toolsTab' }
-    ];
-    navMenus.forEach(({ menu: menuId, tab: tabId }) => {
-        const navMenu = document.getElementById(menuId);
-        const navTab = document.getElementById(tabId);
-        if (navMenu && !navMenu.contains(e.target) && (!navTab || !navTab.contains(e.target))) {
-            navMenu.classList.remove('show');
-        }
-    });
+    // Close import/export menu when clicking outside
+    const importExportMenu = document.getElementById('importExportMenu');
+    const importExportBtn = document.getElementById('importExportBtn');
+    if (importExportMenu && !importExportMenu.contains(e.target) && (!importExportBtn || !importExportBtn.contains(e.target))) {
+        importExportMenu.classList.remove('show');
+    }
 });
 
 // Close all nav dropdown menus (optionally except one)
 function closeAllNavMenus(except) {
-    const menuIds = ['toolsMenu'];
+    const menuIds = [];
     menuIds.forEach(id => {
         if (id !== except) {
             const m = document.getElementById(id);
@@ -73,11 +68,16 @@ function switchToResources() {
     setActiveNavTab('resourcesTab');
 }
 
-// Toggle Tools dropdown menu
+// Toggle Tools dropdown menu (no longer used — tools moved to plan subnav)
 function toggleToolsMenu(event) {
     event.stopPropagation();
-    closeAllNavMenus('toolsMenu');
-    document.getElementById('toolsMenu').classList.toggle('show');
+}
+
+// Toggle Import/Export dropdown menu in the plan subnav
+function toggleImportExportMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('importExportMenu');
+    if (menu) menu.classList.toggle('show');
 }
 
 // Templates Modal Functions
@@ -290,9 +290,9 @@ function updateNavActiveState(viewName) {
         'timesheet': 'resourcesTab',
         'user-workload': 'resourcesTab',
         'resource-sheet': 'resourcesTab',
-        'text-report': 'toolsTab',
-        'planning': 'toolsTab',
-        'guide': 'toolsTab'
+        'text-report': 'planTab',
+        'planning': 'planTab',
+        'guide': 'planTab'
     };
 
     setActiveNavTab(viewToNavTab[viewName]);
@@ -786,7 +786,7 @@ const tourSteps = [
     },
     {
         title: "Project",
-        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, and Stakeholders (with an Interest/Influence grid). Use the three-dot menu on each task row for quick actions.",
+        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, Stakeholders, plus Tools: Text Report, Planning Room, Syntax Guide, and Templates. Use the three-dot menu on each task row for quick actions.",
         target: "#planTab",
         position: "bottom"
     },
@@ -800,12 +800,6 @@ const tourSteps = [
         title: "Resources",
         message: "Click Resources to open the Resource Table with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
         target: "#resourcesTab",
-        position: "bottom"
-    },
-    {
-        title: "Tools Menu",
-        message: "The Tools dropdown provides utilities: Text Report, Planning Room (guided plan creation), Templates, Syntax Guide, and Import/Export options including Excel, CSV, PDF, and PowerPoint. A sub-navigation bar provides quick switching between Text Report, Planning Room, and Syntax Guide.",
-        target: "#toolsTab",
         position: "bottom"
     },
     {

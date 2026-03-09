@@ -495,7 +495,7 @@ const OUTPUT_VIEWS = {
     'timesheet': 'resourcesTab',
     'user-workload': 'resourcesTab',
     'resource-sheet': 'resourcesTab',
-    'text-report': 'toolsTab',
+    'text-report': 'planTab',
     'evm': 'trackingTab'
 };
 
@@ -576,7 +576,7 @@ NavigationController.register('planning', {
         activateTabContent('planning');
         updateRaidExportVisibility('planning');
         closeAllNavMenus();
-        setActiveNavTab('toolsTab');
+        setActiveNavTab('planTab');
         updatePlanSubnav('planning');
     },
     deactivate() {}
@@ -588,7 +588,7 @@ NavigationController.register('guide', {
         activateTabContent('guide');
         updateRaidExportVisibility('guide');
         closeAllNavMenus();
-        setActiveNavTab('toolsTab');
+        setActiveNavTab('planTab');
         updatePlanSubnav('guide');
     },
     deactivate() {}
@@ -11826,7 +11826,6 @@ function initMenuKeyboardNav() {
 
 function syncAriaExpanded() {
     const menus = [
-        { btn: 'toolsMoreBtn', menu: 'toolsSubnavMenu' }
     ];
 
     const observer = new MutationObserver(function() {
