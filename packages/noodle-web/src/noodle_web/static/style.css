@@ -5217,26 +5217,6 @@ tr:hover .task-context-btn,
     overflow: hidden;
 }
 
-@media (min-width: 769px) {
-    .kanban-layout {
-        flex-direction: row;
-    }
-    .kanban-editor-panel {
-        width: 30%;
-        min-width: 200px;
-        max-width: 600px;
-        height: auto;
-    }
-    .kanban-editor-panel.collapsed {
-        height: auto;
-    }
-    .kanban-splitter {
-        width: 8px;
-        height: auto;
-        cursor: col-resize;
-    }
-}
-
 .kanban-editor-panel {
     width: 100%;
     min-width: 0;
@@ -5304,6 +5284,30 @@ tr:hover .task-context-btn,
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+/* Desktop kanban: side-by-side layout (must come after base styles) */
+@media (min-width: 769px) {
+    .kanban-layout {
+        flex-direction: row;
+    }
+    .kanban-editor-panel {
+        width: 30%;
+        min-width: 200px;
+        max-width: 600px;
+        height: auto;
+    }
+    .kanban-editor-panel.collapsed {
+        height: auto;
+    }
+    .kanban-splitter {
+        width: 8px;
+        height: auto;
+        cursor: col-resize;
+    }
+    .kanban-panel {
+        min-height: auto;
+    }
 }
 
 .kanban-container {
