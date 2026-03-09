@@ -15895,7 +15895,7 @@ const RAID_LOG_START = '---raid log---';
 function generateRaidLogTable() {
     if (raidItems.length === 0) return '';
 
-    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
+    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status', 'Priority', 'Target Date'];
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
     const rows = raidItems.map(item => [
@@ -15909,7 +15909,9 @@ function generateRaidLogTable() {
         String(item.impact),
         String(item.likelihood),
         String(item.score),
-        escPipe(item.status)
+        escPipe(item.status),
+        escPipe(item.priority || ''),
+        escPipe(item.target_date || item.date || '')
     ]);
 
     // Calculate column widths
