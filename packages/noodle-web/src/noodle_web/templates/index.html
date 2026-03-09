@@ -1957,8 +1957,8 @@ Build
                             <label for="taskEffortCompleted">Effort Completed</label>
                             <div style="display: flex; gap: 5px; align-items: center;">
                                 <input type="number" id="taskEffortCompleted" placeholder="0" min="0" step="0.5"
-                                       style="width: 4ch; min-width: 4ch;" oninput="updateEffortTotal()">
-                                <select id="taskEffortCompletedUnit" style="flex: 1;" onchange="updateEffortTotal()">
+                                       style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
+                                <select id="taskEffortCompletedUnit" style="width: 3ch; min-width: 3ch; flex: none;" onchange="updateEffortTotal()">
                                     <option value="h">h</option>
                                     <option value="d">d</option>
                                 </select>
@@ -1968,8 +1968,8 @@ Build
                             <label for="taskEffortRemaining">Effort Remaining</label>
                             <div style="display: flex; gap: 5px; align-items: center;">
                                 <input type="number" id="taskEffortRemaining" placeholder="0" min="0" step="0.5"
-                                       style="width: 4ch; min-width: 4ch;" oninput="updateEffortTotal()">
-                                <select id="taskEffortRemainingUnit" style="flex: 1;" onchange="updateEffortTotal()">
+                                       style="flex: 1; min-width: 6ch;" oninput="updateEffortTotal()">
+                                <select id="taskEffortRemainingUnit" style="width: 3ch; min-width: 3ch; flex: none;" onchange="updateEffortTotal()">
                                     <option value="h">h</option>
                                     <option value="d">d</option>
                                 </select>
@@ -1979,8 +1979,8 @@ Build
                             <label for="taskEffortTotal">Effort Total</label>
                             <div style="display: flex; gap: 5px; align-items: center;">
                                 <input type="number" id="taskEffortTotal" placeholder="0" min="0"
-                                       style="width: 4ch; min-width: 4ch; background-color: #f0f0f0; cursor: not-allowed;" readonly>
-                                <span id="taskEffortTotalUnit" style="flex: 1; text-align: center; padding: 4px;">h</span>
+                                       style="flex: 1; min-width: 6ch; background-color: #f0f0f0; cursor: not-allowed;" readonly>
+                                <span id="taskEffortTotalUnit" style="width: 3ch; min-width: 3ch; flex: none; text-align: center; padding: 4px;">h</span>
                             </div>
                             <small>Auto-calculated (completed + remaining)</small>
                         </div>
