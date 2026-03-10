@@ -1,0 +1,194 @@
+/* =================================================================
+ * EARNED VALUE MANAGEMENT (EVM)
+ * ================================================================= */
+
+#evm-view {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.evm-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--evm-text-muted);
+}
+
+.evm-placeholder h3 {
+    color: var(--evm-text-secondary);
+    margin-bottom: 12px;
+}
+
+.evm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.evm-title {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+/* EVM KPI Cards Grid */
+.evm-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.evm-kpi-card {
+    background: var(--evm-card-bg);
+    border: 1px solid var(--evm-card-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+
+.evm-kpi-card:hover {
+    border-color: var(--evm-card-hover-border);
+}
+
+.evm-kpi-card.evm-kpi-positive {
+    border-left: 3px solid var(--evm-positive);
+}
+
+.evm-kpi-card.evm-kpi-negative {
+    border-left: 3px solid var(--evm-negative);
+}
+
+.evm-kpi-label {
+    font-size: 0.75em;
+    color: var(--evm-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.evm-kpi-value {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: var(--evm-text-primary);
+}
+
+.evm-kpi-positive .evm-kpi-value {
+    color: var(--evm-positive);
+}
+
+.evm-kpi-negative .evm-kpi-value {
+    color: var(--evm-negative);
+}
+
+/* EVM Chart */
+.evm-chart-wrapper {
+    background: var(--evm-chart-bg);
+    border: 1px solid var(--evm-chart-border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.evm-chart-svg {
+    width: 100%;
+    display: block;
+}
+
+.evm-chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding-top: 12px;
+    flex-wrap: wrap;
+}
+
+.evm-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    color: var(--evm-text-secondary);
+}
+
+.evm-legend-swatch {
+    width: 20px;
+    height: 3px;
+    border-radius: 1px;
+    border: 1px solid transparent;
+}
+
+/* EVM Metrics Table */
+.evm-metrics-wrapper {
+    margin-top: 8px;
+}
+
+.evm-section-title {
+    font-size: 1em;
+    color: var(--evm-text-primary);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.evm-metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.evm-metrics-table th {
+    background: var(--evm-table-header-bg);
+    color: var(--evm-text-primary);
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 2px solid var(--evm-table-border);
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.evm-metrics-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--evm-table-border);
+    color: var(--evm-text-primary);
+}
+
+.evm-metrics-table td:nth-child(3) {
+    font-family: monospace;
+    color: var(--evm-value-color);
+}
+
+.evm-metric-positive {
+    color: var(--evm-positive) !important;
+    font-weight: 600;
+}
+
+.evm-metric-negative {
+    color: var(--evm-negative) !important;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .evm-kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 8px;
+    }
+
+    .evm-kpi-card {
+        padding: 10px 12px;
+    }
+
+    .evm-kpi-value {
+        font-size: 1.1em;
+    }
+
+    .evm-metrics-table {
+        font-size: 0.8em;
+    }
+
+    .evm-metrics-table td,
+    .evm-metrics-table th {
+        padding: 8px;
+    }
+}

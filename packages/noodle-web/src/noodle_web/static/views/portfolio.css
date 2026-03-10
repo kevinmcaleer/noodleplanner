@@ -1377,6 +1377,21 @@
     }
 }
 
+@media (min-width: 1025px) {
+    .portfolio-projects-table {
+        font-size: 0.95em;
+    }
+
+    .portfolio-projects-table th,
+    .portfolio-projects-table td {
+        padding: 16px 12px;
+    }
+
+    .highlight-cell {
+        max-width: 400px;
+    }
+}
+
 /* =========================================
    Portfolio Actions View
    ========================================= */

@@ -3835,6 +3835,23 @@ tr:hover .task-context-btn,
     }
 }
 
+/* Desktop: planning room side-by-side layout */
+@media (min-width: 1025px) {
+    .planning-stage-content {
+        flex-direction: row;
+    }
+
+    .planning-editor-panel {
+        border-right: 1px solid #dee2e6;
+        border-bottom: none;
+        min-height: auto;
+    }
+
+    .planning-preview-panel {
+        min-height: auto;
+    }
+}
+
 @media (max-width: 768px) {
     .planning-stage-tabs {
         padding: 0 10px;

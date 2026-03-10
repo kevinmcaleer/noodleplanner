@@ -115,3 +115,91 @@ body.no-animations .np-fade-in {
     }
 }
 
+/* ========================================
+   Context-switch transitions (UX-3 / #581)
+   Fade transition when switching between
+   Portfolio and Project contexts.
+   ======================================== */
+.tab-content.np-context-fade-out {
+    animation: npContextFadeOut 150ms var(--np-anim-easing) forwards;
+}
+
+.tab-content.np-context-fade-in {
+    animation: npContextFadeIn 150ms var(--np-anim-easing) forwards;
+}
+
+@keyframes npContextFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+@keyframes npContextFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading indicator shown during async context switches */
+.np-context-loading {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100;
+    text-align: center;
+    color: var(--np-blue);
+}
+
+.np-context-loading.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.np-context-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--np-light-grey);
+    border-top-color: var(--np-blue);
+    border-radius: 50%;
+    animation: npContextSpin 0.6s linear infinite;
+}
+
+.np-context-loading-text {
+    font-size: 0.875rem;
+    color: var(--np-dark-grey);
+}
+
+@keyframes npContextSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Respect reduced motion: instant swap, no animation */
+@media (prefers-reduced-motion: reduce) {
+    .tab-content.np-context-fade-out,
+    .tab-content.np-context-fade-in {
+        animation: none !important;
+    }
+
+    .np-context-loading-spinner {
+        animation: none !important;
+        border-top-color: var(--np-blue);
+        opacity: 0.6;
+    }
+}
+

@@ -17,6 +17,18 @@
     }
 }
 
+/* ---- Desktop and up (1025px+) ---- */
+@media (min-width: 1025px) {
+    .gantt-table-side {
+        width: 400px;
+    }
+
+    .plan-subnav-btn {
+        padding: 5px 12px;
+        font-size: 0.85em;
+    }
+}
+
 /* ========================================
    Mobile Responsive Styles (768px)
    ======================================== */

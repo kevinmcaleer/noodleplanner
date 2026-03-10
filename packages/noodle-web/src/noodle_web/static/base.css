@@ -21,8 +21,60 @@
     --np-dark-blue-subtle: #cfe0e7;
 
     /* Animation timing */
-    --np-anim-duration: 0.4s;
+    --np-anim-duration-fast: 0.15s;
+    --np-anim-duration: 0.2s;
+    --np-anim-duration-slow: 0.4s;
     --np-anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+    /* EVM colour scheme (light theme) */
+    --evm-bg: #ffffff;
+    --evm-card-bg: #ffffff;
+    --evm-card-border: #e0e0e0;
+    --evm-card-hover-border: #bbb;
+    --evm-chart-bg: #f8f9fa;
+    --evm-chart-border: #e0e0e0;
+    --evm-text-primary: #333;
+    --evm-text-secondary: #666;
+    --evm-text-muted: #888;
+    --evm-grid-line: #e0e0e0;
+    --evm-axis-line: #999;
+    --evm-axis-label: #666;
+    --evm-table-header-bg: #f0f0f0;
+    --evm-table-border: #e0e0e0;
+    --evm-line-pv: #2171b5;
+    --evm-line-ev: #2ca02c;
+    --evm-line-ac: #d62728;
+    --evm-line-today: #e6a817;
+    --evm-positive: #2ca02c;
+    --evm-negative: #d62728;
+    --evm-bac-line: #999;
+    --evm-value-color: #4A90D9;
+}
+
+/* EVM dark mode overrides */
+.dark-mode {
+    --evm-bg: #1a1a1a;
+    --evm-card-bg: #2a2a2a;
+    --evm-card-border: #3a3a3a;
+    --evm-card-hover-border: #555;
+    --evm-chart-bg: #1e1e1e;
+    --evm-chart-border: #3a3a3a;
+    --evm-text-primary: #e0e0e0;
+    --evm-text-secondary: #bbb;
+    --evm-text-muted: #999;
+    --evm-grid-line: #333;
+    --evm-axis-line: #555;
+    --evm-axis-label: #999;
+    --evm-table-header-bg: #2a2a2a;
+    --evm-table-border: #333;
+    --evm-line-pv: #4A90D9;
+    --evm-line-ev: #50C878;
+    --evm-line-ac: #E8744F;
+    --evm-line-today: #FFD700;
+    --evm-positive: #50C878;
+    --evm-negative: #E8744F;
+    --evm-bac-line: #888;
+    --evm-value-color: #4A90D9;
 }
 
 * {
