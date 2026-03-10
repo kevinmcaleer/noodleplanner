@@ -6547,8 +6547,41 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
         insightsContainer.innerHTML = '';
 
         const insights = [];
+        const actions = [];
 
-        // 1. Check for resource shortname capitalization issues
+        // 1. Check for overdue tasks
+        const overdueTasks = getOverdueTasks(tasks);
+        if (overdueTasks.length > 0) {
+            insights.push({
+                type: 'warning',
+                title: 'Overdue Tasks',
+                description: overdueTasks.length + ' task(s) are past their finish date and not yet complete',
+                items: overdueTasks.slice(0, 5).map(t => '"' + t.name + '" was due ' + t.finish),
+                fixable: false
+            });
+            actions.push({
+                text: 'Review ' + overdueTasks.length + ' overdue task(s) and update completion status or reschedule',
+                severity: 'high'
+            });
+        }
+
+        // 2. EVM insights
+        const evmInsights = getEvmInsights();
+        evmInsights.forEach(i => insights.push(i));
+        const evmActions = getEvmActions();
+        evmActions.forEach(a => actions.push(a));
+
+        // 3. RAID log insights
+        const raidInsights = getRaidInsights();
+        raidInsights.forEach(i => insights.push(i));
+        const raidActions = getRaidActions();
+        raidActions.forEach(a => actions.push(a));
+
+        // 4. Baseline comparison insights
+        const baselineInsights = getBaselineInsights(tasks);
+        baselineInsights.forEach(i => insights.push(i));
+
+        // 5. Check for resource shortname capitalization issues
         const resourceIssues = checkResourceCapitalization(planText, resourceMap);
         if (resourceIssues.length > 0) {
             insights.push({
@@ -6561,7 +6594,7 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 2. Check for missing resource names in front matter
+        // 6. Check for missing resource names in front matter
         const missingResources = checkMissingResourceNames(tasks, resourceMap);
         if (missingResources.length > 0) {
             insights.push({
@@ -6574,7 +6607,7 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 3. Check for missing stakeholders
+        // 7. Check for missing stakeholders
         const frontMatterStr = typeof frontMatter === 'string' ? frontMatter : '';
         const hasStakeholders = frontMatterStr && frontMatterStr.toLowerCase().includes('stakeholders:');
         if (!hasStakeholders) {
@@ -6587,7 +6620,7 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 4. Check for missing front matter fields
+        // 8. Check for missing front matter fields
         const missingFields = checkMissingFrontMatterFields(frontMatter);
         if (missingFields.length > 0) {
             insights.push({
@@ -6599,7 +6632,7 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 5. Check for tasks with missing durations (not explicitly set)
+        // 9. Check for tasks with missing durations (not explicitly set)
         const tasksWithoutExplicitDuration = checkTasksWithoutExplicitDuration(planText, tasks);
         if (tasksWithoutExplicitDuration.length > 0) {
             insights.push({
@@ -6611,7 +6644,13 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             });
         }
 
-        // 6. Project health summary
+        // 10. Task completion summary
+        const completionInsight = getTaskCompletionInsight(tasks);
+        if (completionInsight) {
+            insights.push(completionInsight);
+        }
+
+        // Project health summary (render first)
         const healthScore = calculateHealthScore(insights);
         renderHealthScore(insightsContainer, healthScore);
 
@@ -6623,9 +6662,356 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
             insightsContainer.innerHTML += '<div class="analysis-success"><h3>✓ Project Looks Good!</h3><p>No issues found. Your project plan is well-structured.</p></div>';
         }
 
+        // Render actions section
+        renderAnalysisActions(actions);
+
     } catch (error) {
         console.error('Error updating analysis:', error);
     }
+}
+
+/**
+ * Get tasks that are overdue (past finish date, not 100% complete)
+ */
+function getOverdueTasks(tasks) {
+    if (!tasks || tasks.length === 0) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return tasks.filter(t => {
+        if (t.is_summary) return false;
+        const pct = parseFloat(t.percent) || 0;
+        if (pct >= 100) return false;
+        if (!t.finish) return false;
+        const finish = new Date(t.finish);
+        return !isNaN(finish) && finish < today;
+    });
+}
+
+/**
+ * Get EVM-based insights from cached evmData
+ */
+function getEvmInsights() {
+    if (!evmData) return [];
+    const insights = [];
+
+    // SPI insight
+    if (evmData.SPI > 0) {
+        const spi = evmData.SPI;
+        if (spi < 0.8) {
+            insights.push({
+                type: 'warning',
+                title: 'Schedule Performance (SPI: ' + spi.toFixed(2) + ')',
+                description: 'Project is significantly behind schedule. Earned value is well below planned value.',
+                items: [
+                    'SPI = ' + spi.toFixed(2) + ' (target: 1.0)',
+                    'Schedule Variance: ' + formatEvmCurrency(evmData.SV, evmData.hasBudgetData),
+                    'Time elapsed: ' + Math.round(evmData.timeElapsedFraction * 100) + '%, Work complete: ' + Math.round(evmData.overallPercentComplete) + '%'
+                ],
+                fixable: false
+            });
+        } else if (spi < 1.0) {
+            insights.push({
+                type: 'info',
+                title: 'Schedule Performance (SPI: ' + spi.toFixed(2) + ')',
+                description: 'Project is slightly behind schedule.',
+                items: [
+                    'SPI = ' + spi.toFixed(2) + ' (target: 1.0)',
+                    'Schedule Variance: ' + formatEvmCurrency(evmData.SV, evmData.hasBudgetData)
+                ],
+                fixable: false
+            });
+        } else if (spi > 1.1) {
+            insights.push({
+                type: 'suggestion',
+                title: 'Schedule Performance (SPI: ' + spi.toFixed(2) + ')',
+                description: 'Project is ahead of schedule.',
+                items: ['SPI = ' + spi.toFixed(2) + ' — ahead of plan'],
+                fixable: false
+            });
+        }
+    }
+
+    // CPI insight (only when budget data exists)
+    if (evmData.hasBudgetData && evmData.CPI > 0) {
+        const cpi = evmData.CPI;
+        if (cpi < 0.8) {
+            insights.push({
+                type: 'warning',
+                title: 'Cost Performance (CPI: ' + cpi.toFixed(2) + ')',
+                description: 'Project is significantly over budget. Spending exceeds earned value.',
+                items: [
+                    'CPI = ' + cpi.toFixed(2) + ' (target: 1.0)',
+                    'Cost Variance: ' + formatEvmCurrency(evmData.CV, true),
+                    'Estimate at Completion: ' + formatEvmCurrency(evmData.EAC, true) + ' vs Budget: ' + formatEvmCurrency(evmData.BAC, true)
+                ],
+                fixable: false
+            });
+        } else if (cpi < 1.0) {
+            insights.push({
+                type: 'info',
+                title: 'Cost Performance (CPI: ' + cpi.toFixed(2) + ')',
+                description: 'Project is slightly over budget.',
+                items: [
+                    'CPI = ' + cpi.toFixed(2) + ' (target: 1.0)',
+                    'Cost Variance: ' + formatEvmCurrency(evmData.CV, true)
+                ],
+                fixable: false
+            });
+        }
+    }
+
+    return insights;
+}
+
+/**
+ * Format EVM currency/day values for display
+ */
+function formatEvmCurrency(value, hasBudgetData) {
+    if (hasBudgetData) {
+        return (value >= 0 ? '+' : '') + value.toFixed(0);
+    }
+    return (value >= 0 ? '+' : '') + value.toFixed(1) + ' days';
+}
+
+/**
+ * Get suggested actions based on EVM data
+ */
+function getEvmActions() {
+    if (!evmData) return [];
+    const actions = [];
+
+    if (evmData.SPI > 0 && evmData.SPI < 0.9) {
+        actions.push({
+            text: 'Schedule is behind (SPI ' + evmData.SPI.toFixed(2) + '). Consider adding resources, reducing scope, or extending the timeline.',
+            severity: 'high'
+        });
+    }
+
+    if (evmData.hasBudgetData && evmData.CPI > 0 && evmData.CPI < 0.9) {
+        actions.push({
+            text: 'Budget is overrunning (CPI ' + evmData.CPI.toFixed(2) + '). Review remaining work estimates and cost forecasts.',
+            severity: 'high'
+        });
+    }
+
+    if (evmData.VAC < 0 && evmData.hasBudgetData) {
+        actions.push({
+            text: 'Projected to exceed budget by ' + Math.abs(evmData.VAC).toFixed(0) + '. Reassess remaining scope or seek additional funding.',
+            severity: 'medium'
+        });
+    }
+
+    return actions;
+}
+
+/**
+ * Get RAID log insights from the global raidItems array
+ */
+function getRaidInsights() {
+    if (typeof raidItems === 'undefined' || raidItems.length === 0) return [];
+    const insights = [];
+
+    const openItems = raidItems.filter(i => i.status === 'open');
+    const openRisks = openItems.filter(i => i.type === 'risk');
+    const openIssues = openItems.filter(i => i.type === 'issue');
+
+    // High-score open risks (score >= 16)
+    const highRisks = openRisks.filter(r => (r.score || (r.impact * r.likelihood)) >= 16);
+    if (highRisks.length > 0) {
+        insights.push({
+            type: 'warning',
+            title: 'High-Priority Risks (' + highRisks.length + ')',
+            description: highRisks.length + ' open risk(s) with a score of 16 or above require attention',
+            items: highRisks.slice(0, 5).map(r => r.title + ' (score: ' + (r.score || r.impact * r.likelihood) + ')'),
+            fixable: false
+        });
+    }
+
+    // Open issues summary
+    if (openIssues.length > 0) {
+        insights.push({
+            type: 'info',
+            title: 'Open Issues (' + openIssues.length + ')',
+            description: openIssues.length + ' issue(s) in the RAID log are still open',
+            items: openIssues.slice(0, 5).map(i => i.title),
+            fixable: false
+        });
+    }
+
+    // Overall RAID summary
+    if (openItems.length > 0) {
+        const byType = {};
+        openItems.forEach(item => {
+            byType[item.type] = (byType[item.type] || 0) + 1;
+        });
+        const summaryItems = Object.keys(byType).map(t => t.charAt(0).toUpperCase() + t.slice(1) + 's: ' + byType[t]);
+        insights.push({
+            type: 'info',
+            title: 'RAID Log Summary (' + openItems.length + ' open)',
+            description: 'Breakdown of open RAID items by type',
+            items: summaryItems,
+            fixable: false
+        });
+    }
+
+    return insights;
+}
+
+/**
+ * Get suggested actions based on RAID data
+ */
+function getRaidActions() {
+    if (typeof raidItems === 'undefined' || raidItems.length === 0) return [];
+    const actions = [];
+
+    const openItems = raidItems.filter(i => i.status === 'open');
+    const highRisks = openItems.filter(i => i.type === 'risk' && (i.score || (i.impact * i.likelihood)) >= 16);
+    const openIssues = openItems.filter(i => i.type === 'issue');
+
+    if (highRisks.length > 0) {
+        actions.push({
+            text: 'Escalate ' + highRisks.length + ' high-priority risk(s). Ensure mitigation actions are assigned and tracked.',
+            severity: 'high'
+        });
+    }
+
+    if (openIssues.length > 3) {
+        actions.push({
+            text: 'Review ' + openIssues.length + ' open issues. Consider a triage session to prioritize and assign owners.',
+            severity: 'medium'
+        });
+    }
+
+    // Check for items without mitigation
+    const noMitigation = openItems.filter(i => i.type === 'risk' && (!i.mitigation_actions || i.mitigation_actions.trim() === ''));
+    if (noMitigation.length > 0) {
+        actions.push({
+            text: noMitigation.length + ' open risk(s) have no mitigation actions defined. Add mitigation plans to reduce exposure.',
+            severity: 'medium'
+        });
+    }
+
+    return actions;
+}
+
+/**
+ * Get baseline comparison insights
+ */
+function getBaselineInsights(tasks) {
+    if (typeof baselineItems === 'undefined' || baselineItems.length === 0) return [];
+    if (!tasks || tasks.length === 0) return [];
+
+    const insights = [];
+
+    const currentNames = new Set(tasks.filter(t => !t.is_summary).map(t => t.name));
+    const baselineNames = new Set(baselineItems.map(b => b.name));
+
+    // Scope changes: tasks added since baseline
+    const addedTasks = tasks.filter(t => !t.is_summary && !baselineNames.has(t.name));
+    const removedTasks = baselineItems.filter(b => !currentNames.has(b.name));
+
+    if (addedTasks.length > 0 || removedTasks.length > 0) {
+        const items = [];
+        if (addedTasks.length > 0) {
+            items.push(addedTasks.length + ' task(s) added since baseline');
+            addedTasks.slice(0, 3).forEach(t => items.push('  Added: "' + t.name + '"'));
+        }
+        if (removedTasks.length > 0) {
+            items.push(removedTasks.length + ' task(s) removed since baseline');
+            removedTasks.slice(0, 3).forEach(t => items.push('  Removed: "' + t.name + '"'));
+        }
+        insights.push({
+            type: 'info',
+            title: 'Scope Changes Since Baseline',
+            description: 'The project scope has changed compared to the baseline',
+            items: items,
+            fixable: false
+        });
+    }
+
+    // Schedule variance: tasks whose dates shifted
+    const slippedTasks = [];
+    tasks.filter(t => !t.is_summary && t.finish).forEach(t => {
+        const baselineTask = baselineItems.find(b => b.name === t.name);
+        if (!baselineTask || !baselineTask.finish) return;
+        const currentFinish = new Date(t.finish);
+        const baselineFinish = new Date(baselineTask.finish);
+        if (isNaN(currentFinish) || isNaN(baselineFinish)) return;
+        const diffDays = Math.round((currentFinish - baselineFinish) / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+            slippedTasks.push({ name: t.name, days: diffDays });
+        }
+    });
+
+    if (slippedTasks.length > 0) {
+        slippedTasks.sort((a, b) => b.days - a.days);
+        insights.push({
+            type: 'warning',
+            title: 'Schedule Slippage (' + slippedTasks.length + ' tasks)',
+            description: slippedTasks.length + ' task(s) have slipped from their baseline finish dates',
+            items: slippedTasks.slice(0, 5).map(t => '"' + t.name + '" slipped by ' + t.days + ' day(s)'),
+            fixable: false
+        });
+    }
+
+    return insights;
+}
+
+/**
+ * Get task completion summary insight
+ */
+function getTaskCompletionInsight(tasks) {
+    if (!tasks || tasks.length === 0) return null;
+    const workTasks = tasks.filter(t => !t.is_summary && t.duration_days > 0);
+    if (workTasks.length === 0) return null;
+
+    const completed = workTasks.filter(t => (parseFloat(t.percent) || 0) >= 100).length;
+    const inProgress = workTasks.filter(t => {
+        const pct = parseFloat(t.percent) || 0;
+        return pct > 0 && pct < 100;
+    }).length;
+    const notStarted = workTasks.filter(t => (parseFloat(t.percent) || 0) === 0).length;
+
+    return {
+        type: 'info',
+        title: 'Task Completion Summary',
+        description: workTasks.length + ' work tasks in total',
+        items: [
+            'Completed: ' + completed + ' (' + Math.round(completed / workTasks.length * 100) + '%)',
+            'In progress: ' + inProgress,
+            'Not started: ' + notStarted
+        ],
+        fixable: false
+    };
+}
+
+/**
+ * Render suggested actions based on analysis insights
+ */
+function renderAnalysisActions(actions) {
+    const container = document.getElementById('analysisActions');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (actions.length === 0) return;
+
+    const heading = document.createElement('h3');
+    heading.className = 'analysis-actions-title';
+    heading.textContent = 'Suggested Actions';
+    container.appendChild(heading);
+
+    const list = document.createElement('ul');
+    list.className = 'analysis-actions-list';
+    list.setAttribute('role', 'list');
+
+    actions.forEach(action => {
+        const li = document.createElement('li');
+        li.className = 'analysis-action-item analysis-action-' + action.severity;
+        li.innerHTML = '<span class="action-severity-badge action-badge-' + action.severity + '">' + action.severity + '</span> ' + action.text;
+        list.appendChild(li);
+    });
+
+    container.appendChild(list);
 }
 
 function calculateHealthScore(insights) {

@@ -6403,6 +6403,77 @@ tr:hover .task-context-btn,
     font-size: 1.1em;
 }
 
+/* Analysis Actions Section */
+.analysis-actions {
+    max-width: 900px;
+    margin: 30px auto 0;
+}
+
+.analysis-actions-title {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 15px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #108bb9;
+}
+
+.analysis-actions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.analysis-action-item {
+    background: white;
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    line-height: 1.5;
+    color: #444;
+    border-left: 4px solid #ccc;
+}
+
+.analysis-action-high {
+    border-left-color: #f44336;
+}
+
+.analysis-action-medium {
+    border-left-color: #ff9800;
+}
+
+.analysis-action-low {
+    border-left-color: #4caf50;
+}
+
+.action-severity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.action-badge-high {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.action-badge-medium {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.action-badge-low {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
 /* Issue #66: Make project title placeholder white */
 #projectTitle::placeholder {
     color: white;
