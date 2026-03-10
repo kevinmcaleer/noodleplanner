@@ -1834,6 +1834,71 @@
     border-color: #108BB9;
 }
 
+/* RAG toggle buttons for look-ahead filtering */
+.lookahead-rag-toggles {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.lookahead-rag-toggle-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.lookahead-rag-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: opacity 0.2s, box-shadow 0.2s, transform 0.1s;
+    border: 2px solid transparent;
+    min-height: 36px;
+    user-select: none;
+}
+
+.lookahead-rag-toggle:not(.active) {
+    opacity: 0.35;
+    filter: grayscale(60%);
+}
+
+.lookahead-rag-toggle:hover {
+    transform: scale(1.04);
+}
+
+.lookahead-rag-toggle:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 2px;
+}
+
+.lookahead-rag-toggle.rag-toggle-red {
+    background: #dc3545;
+    color: white;
+    border-color: #c82333;
+}
+
+.lookahead-rag-toggle.rag-toggle-amber {
+    background: #ffc107;
+    color: #333;
+    border-color: #e0a800;
+}
+
+.lookahead-rag-toggle.rag-toggle-green {
+    background: #28a745;
+    color: white;
+    border-color: #218838;
+}
+
+.lookahead-rag-toggle.rag-toggle-blue {
+    background: #1976d2;
+    color: white;
+    border-color: #1565c0;
+}
+
 .portfolio-lookahead-daterange {
     color: #6c757d;
     font-size: 0.9em;
@@ -1946,6 +2011,17 @@
 
     .portfolio-lookahead-filters select {
         width: 100%;
+    }
+
+    .lookahead-rag-toggle-buttons {
+        width: 100%;
+    }
+
+    .lookahead-rag-toggle {
+        flex: 1 1 auto;
+        justify-content: center;
+        font-size: 0.8em;
+        padding: 5px 10px;
     }
 
     .portfolio-lookahead-table-wrapper {
