@@ -864,7 +864,7 @@ Resources:
   - @john: John Doe
 ---
 Task 1 @john 3d"""
-        result = parse_resource_mappings(text)
+        result, _ = parse_resource_mappings(text)
         assert 'john' in result
         assert 'John Doe' in result.values()
 
@@ -877,7 +877,7 @@ Resources:
   - @jane: Jane Smith
 ---
 Task 1 @john 3d"""
-        result = parse_resource_mappings(text)
+        result, _ = parse_resource_mappings(text)
         # Function returns lowercase keys
         assert 'john' in result or len(result) >= 0  # May return empty if parsing fails
         assert isinstance(result, dict)
@@ -885,7 +885,7 @@ Task 1 @john 3d"""
     def test_parse_no_resources(self):
         """Test parsing text with no resource mappings."""
         text = "Task 1 @john 3d"
-        result = parse_resource_mappings(text)
+        result, _ = parse_resource_mappings(text)
         assert result == {}
 
     def test_parse_resources_without_shortname(self):
@@ -895,7 +895,7 @@ resources:
   - name: John Doe
 ---
 Task 1 @john 3d"""
-        result = parse_resource_mappings(text)
+        result, _ = parse_resource_mappings(text)
         # Should handle missing shortname gracefully
         assert isinstance(result, dict)
 
@@ -905,8 +905,26 @@ Task 1 @john 3d"""
 resources: [invalid yaml
 ---
 Task 1 @john 3d"""
-        result = parse_resource_mappings(text)
+        result, _ = parse_resource_mappings(text)
         assert result == {}
+
+    def test_parse_resource_with_non_working_days(self):
+        """Test parsing resource with inline non-working days."""
+        from datetime import date
+        text = """---
+Resources:
+  - @jack: Jack Lloyd, Network Arch, non-working [2026-03-01:2026-03-03, 2026-12-31]
+---
+Task 1 @jack 3d"""
+        result, nwd = parse_resource_mappings(text)
+        assert 'jack' in result
+        assert result['jack'] == 'Jack Lloyd'
+        assert 'jack' in nwd
+        assert date(2026, 3, 1) in nwd['jack']
+        assert date(2026, 3, 2) in nwd['jack']
+        assert date(2026, 3, 3) in nwd['jack']
+        assert date(2026, 12, 31) in nwd['jack']
+        assert len(nwd['jack']) == 4
 
 
 class TestDependencyLoopDetection:

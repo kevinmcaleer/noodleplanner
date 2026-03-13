@@ -475,13 +475,16 @@ def _propagate_resource_to_children(tasks, parent_name, resource):
                 task['inherited_resource'] = True
 
 
-def schedule_tasks(phases):
+def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
     """Schedule tasks from arbitrarily nested structure.
 
     Args:
         phases: Nested dict structure from natural_language_to_yaml or YAML.
                 Leaf tasks have {'_text': str, '_level': int}
                 Summary tasks have nested dicts with '_level' and '_is_summary' markers
+        holidays: Set of project-wide holiday dates to skip when scheduling.
+        resource_non_working_days: Dict mapping lowercase resource shortnames to
+                sets of datetime.date for resource-specific non-working days.
 
     Returns:
         List of tasks, each with: name, description, level, resources, start, finish,
@@ -624,10 +627,25 @@ def schedule_tasks(phases):
     # Use lowercase keys for case-insensitive task name lookup
     name_lookup = {t['name'].lower(): t for t in all_tasks if 'name' in t}
 
+    # Prepare holiday sets
+    if holidays is None:
+        holidays = set()
+    if resource_non_working_days is None:
+        resource_non_working_days = {}
+
     for idx, t in enumerate(all_tasks):
         # Skip summary tasks - their dates will be calculated from children
         if t.get('summary'):
             continue
+
+        # Build per-task holiday set: project-wide + assigned resource's non-working days
+        task_holidays = set(holidays)
+        task_resources = t.get('resources', '')
+        if task_resources and resource_non_working_days:
+            for res in task_resources.split(','):
+                res_key = res.strip().lstrip('@').lower()
+                if res_key in resource_non_working_days:
+                    task_holidays |= resource_non_working_days[res_key]
 
         logger.debug("[SCHEDULE] Task %d: %s (sequential: %s, depends: %s, start: %s)", idx, t.get('name'), t.get('sequential'), t.get('depends'), t.get('start'))
 
@@ -666,16 +684,16 @@ def schedule_tasks(phases):
                     # Sequential tasks start the next working day after predecessor finishes
                     # Predecessor's finish date is exclusive (day after last working day)
                     # So we can use it directly as the start of the next working day
-                    t['start'] = get_next_working_day(prev['finish'])
+                    t['start'] = get_next_working_day(prev['finish'], task_holidays)
                 logger.debug("[SEQ-LOGIC] Task '%s' scheduled after '%s' finish=%s, new start=%s", t.get('name'), prev.get('name'), prev['finish'], t['start'])
             else:
-                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
+                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
                 logger.debug("[SEQ-LOGIC] Task '%s' no predecessor, starting from today: %s", t.get('name'), t['start'])
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
                 if isinstance(duration, timedelta):
-                    t['finish'] = add_working_days(t['start'], duration.days)
+                    t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
                 else:
                     t['finish'] = t['start'] + timedelta(days=1)
 
@@ -695,7 +713,7 @@ def schedule_tasks(phases):
                         offset_str = lag_lead_map[dep_name]
                         offset_days = parse_duration_to_days(offset_str)
                         # Positive offset = lag (wait after), negative = lead (start before)
-                        dep_finish = add_working_days(dep_finish, offset_days)
+                        dep_finish = add_working_days(dep_finish, offset_days, task_holidays)
 
                     dep_finishes_with_offset.append(dep_finish)
 
@@ -712,7 +730,7 @@ def schedule_tasks(phases):
                 else:
                     # Regular tasks start the next working day after dependency finishes
                     # Dependency finish dates are exclusive (day after last working day)
-                    dep_start = get_next_working_day(latest_dep_finish)
+                    dep_start = get_next_working_day(latest_dep_finish, task_holidays)
 
                 # If the task also has an explicit start date, use the later of
                 # the two -- the explicit date acts as a "not before" constraint.
@@ -728,12 +746,12 @@ def schedule_tasks(phases):
                 if 'start' in t and t['start']:
                     pass  # Keep the explicit start date
                 else:
-                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
+                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
                 if isinstance(duration, timedelta):
-                    t['finish'] = add_working_days(t['start'], duration.days)
+                    t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
                 else:
                     t['finish'] = t['start'] + timedelta(days=1)
 
@@ -743,7 +761,7 @@ def schedule_tasks(phases):
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days)
+                t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
             else:
                 t['finish'] = t['start'] + timedelta(days=1)
 
@@ -764,14 +782,14 @@ def schedule_tasks(phases):
                 if first_sibling:
                     t['start'] = first_sibling['start']
                 else:
-                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
+                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
             else:
-                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0))
+                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
 
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days)
+                t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
             else:
                 t['finish'] = t['start'] + timedelta(days=1)
 
@@ -1770,13 +1788,64 @@ def rag_status_to_colour(rag_status):
     }
     return mapping.get((rag_status or '').lower(), 'grey')
 
+def _parse_non_working_suffix(suffix_str):
+    """Parse a non-working [...] suffix into a set of datetime.date objects.
+
+    Supports individual dates (2026-12-31) and ranges (2026-03-01:2026-04-01).
+    A range expands to all calendar days from start to end inclusive.
+
+    Args:
+        suffix_str: The content inside the brackets, e.g. "2026-03-01:2026-04-01, 2026-12-31"
+
+    Returns:
+        A set of datetime.date objects.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+
+    dates = set()
+    if not suffix_str:
+        return dates
+
+    for part in suffix_str.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        if ':' in part:
+            # Range: start:end
+            range_parts = part.split(':', 1)
+            try:
+                start = _dt.strptime(range_parts[0].strip(), '%Y-%m-%d').date()
+                end = _dt.strptime(range_parts[1].strip(), '%Y-%m-%d').date()
+                current = start
+                while current <= end:
+                    dates.add(current)
+                    current += _td(days=1)
+            except ValueError:
+                logger.warning("Invalid date range in non-working suffix: %s", part)
+        else:
+            # Single date
+            try:
+                dates.add(_dt.strptime(part, '%Y-%m-%d').date())
+            except ValueError:
+                logger.warning("Invalid date in non-working suffix: %s", part)
+
+    return dates
+
+
 def parse_resource_mappings(original_text):
     """Parse resource mappings from YAML front matter.
 
-    Returns a dict mapping short names to full names.
-    Example: {'Andy': 'Andy Mcarthy, Lead Developer', 'Bob': 'Bob Smith, Developer, 50%'}
+    Returns a tuple of (resource_map, resource_non_working_days).
+    - resource_map: dict mapping short names (lowercase) to full names.
+    - resource_non_working_days: dict mapping short names (lowercase) to sets of datetime.date.
+
+    Example resource_map: {'andy': 'Andy McCarthy', 'bob': 'Bob Smith'}
+
+    Resource lines may have an optional non-working days suffix:
+        - @Jack: Jack Lloyd, Network Arch, non-working [2026-03-01:2026-04-01, 2026-12-31]
     """
     resource_map = {}
+    resource_nwd = {}
 
     # Extract YAML front matter
     lines = original_text.split('\n')
@@ -1805,17 +1874,27 @@ def parse_resource_mappings(original_text):
 
         # Parse resource line
         if in_resources and line.strip().startswith('-'):
-            # Format: - @Andy: Andy Mcarthy, Lead Developer
+            # Format: - @Andy: Andy McCarthy, Lead Developer, non-working [2026-03-01:2026-04-01]
             match = re.match(r'\s*-\s*@(\w+):\s*(.+)', line)
             if match:
                 short_name = match.group(1)
                 full_info = match.group(2).strip()
+
+                # Extract non-working days suffix if present
+                nwd_match = re.search(r',?\s*non-working\s*\[([^\]]*)\]\s*$', full_info)
+                if nwd_match:
+                    nwd_dates = _parse_non_working_suffix(nwd_match.group(1))
+                    if nwd_dates:
+                        resource_nwd[short_name.lower()] = nwd_dates
+                    # Remove the non-working suffix from full_info
+                    full_info = full_info[:nwd_match.start()].strip().rstrip(',').strip()
+
                 # Extract just the name (before the first comma)
                 name_only = full_info.split(',')[0].strip()
                 # Store with lowercase key for case-insensitive lookup
                 resource_map[short_name.lower()] = name_only
 
-    return resource_map
+    return resource_map, resource_nwd
 
 
 def parse_stakeholders_from_frontmatter(original_text):
@@ -2052,7 +2131,7 @@ def analyze_plan(text, original_text=None):
     resource_map = {}
     has_frontmatter = False
     if original_text:
-        resource_map = parse_resource_mappings(original_text)
+        resource_map, _ = parse_resource_mappings(original_text)
         # Check if front matter exists
         if '---' in original_text:
             has_frontmatter = True
@@ -3655,7 +3734,7 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     resource_map = {}
     baseline_lookup = {}
     if original_text:
-        resource_map = parse_resource_mappings(original_text)
+        resource_map, _ = parse_resource_mappings(original_text)
         # Extract baseline items for milestone comparison
         baseline_text = extract_baseline(original_text)
         if baseline_text:
@@ -4301,10 +4380,15 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
     """
     today = datetime.today()
 
-    # Parse resource mappings from original text if provided
+    # Parse resource mappings and non-working days from original text if provided
     resource_map = {}
+    resource_nwd = {}
+    project_holidays = set()
     if original_text:
-        resource_map = parse_resource_mappings(original_text)
+        resource_map, resource_nwd = parse_resource_mappings(original_text)
+        from .front_matter_parser import FrontMatterParser
+        _fm_parser = FrontMatterParser(original_text)
+        project_holidays = _fm_parser.parse_non_working_days()
 
     if is_yaml:
         data = yaml.safe_load(text)
@@ -4322,7 +4406,7 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
         phases = [phases_raw]
     else:
         phases = []
-    tasks = schedule_tasks(phases)
+    tasks = schedule_tasks(phases, holidays=project_holidays, resource_non_working_days=resource_nwd)
 
     # Compute phase timelines
     phase_dates = {}
@@ -4674,7 +4758,7 @@ def text_to_markdown_table(text, is_yaml=True, project_name="Project", terminal_
     md += "\n"
     md += render_gantt_chart(tasks, start_date, finish_date, timeline_width)
     md += "\n"
-    md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width, resource_map=resource_map)
+    md += render_resource_sheet(tasks, start_date, finish_date, holidays=project_holidays, terminal_width=timeline_width, resource_map=resource_map)
     return md
 
 def yaml_to_markdown_table(yaml_path, terminal_width=80):
@@ -4684,8 +4768,11 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
     with open(yaml_path, encoding="utf-8") as f:
         original_text = f.read()
 
-    # Parse resource mappings
-    resource_map = parse_resource_mappings(original_text)
+    # Parse resource mappings and non-working days
+    resource_map, resource_nwd = parse_resource_mappings(original_text)
+    from .front_matter_parser import FrontMatterParser
+    _fm_parser = FrontMatterParser(original_text)
+    project_holidays = _fm_parser.parse_non_working_days()
 
     # Parse YAML
     data = yaml.safe_load(original_text)
@@ -4698,7 +4785,7 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
         phases = [phases_raw]
     else:
         phases = []
-    tasks = schedule_tasks(phases)
+    tasks = schedule_tasks(phases, holidays=project_holidays, resource_non_working_days=resource_nwd)
 
     # Compute phase timelines
     phase_dates = {}
@@ -5050,7 +5137,7 @@ def yaml_to_markdown_table(yaml_path, terminal_width=80):
     md += "\n"
     md += render_gantt_chart(tasks, start_date, finish_date, timeline_width)
     md += "\n"
-    md += render_resource_sheet(tasks, start_date, finish_date, holidays=set(), terminal_width=timeline_width, resource_map=resource_map)
+    md += render_resource_sheet(tasks, start_date, finish_date, holidays=project_holidays, terminal_width=timeline_width, resource_map=resource_map)
     return md
 
 
@@ -5136,7 +5223,7 @@ def export_to_csv(text, output_path, is_yaml=True, project_name="Project", origi
     # Parse resource mappings from original text if provided
     resource_map = {}
     if original_text:
-        resource_map = parse_resource_mappings(original_text)
+        resource_map, _ = parse_resource_mappings(original_text)
 
     # Parse the text to get tasks and project info
     if is_yaml:

@@ -170,8 +170,7 @@ PLAN_WITH_NON_WORKING_DAYS = """\
 title: Holiday Project
 non-working-days: 2026-12-25, 2026-12-26, 2027-01-01
 Resources:
-  - @alice: Alice Smith, Developer
-resource-non-working-days-alice: 2026-03-20, 2026-04-14
+  - @alice: Alice Smith, Developer, non-working [2026-03-20, 2026-04-14]
 ---
 Phase 1
   Task A 3d @alice
@@ -200,10 +199,8 @@ PLAN_WITH_MULTIPLE_RESOURCE_NWD = """\
 ---
 title: Multi Resource NWD
 Resources:
-  - @alice: Alice Smith, Developer
-  - @bob: Bob Jones, Tester
-resource-non-working-days-alice: 2026-03-20, 2026-04-14
-resource-non-working-days-bob: 2026-05-01
+  - @alice: Alice Smith, Developer, non-working [2026-03-20, 2026-04-14]
+  - @bob: Bob Jones, Tester, non-working [2026-05-01]
 ---
 Phase 1
   Task A 3d @alice
@@ -274,6 +271,43 @@ class TestParseResourceNonWorkingDays:
     def test_returns_empty_dict_without_front_matter(self):
         parser = FrontMatterParser(PLAN_WITHOUT_FRONT_MATTER)
         assert parser.parse_resource_non_working_days() == {}
+
+    def test_parses_date_ranges(self):
+        from datetime import date
+        plan = """\
+---
+title: Range Test
+Resources:
+  - @carol: Carol Davis, Designer, non-working [2026-03-01:2026-03-03, 2026-12-31]
+---
+Phase 1
+  Task A 3d @carol
+"""
+        parser = FrontMatterParser(plan)
+        rnwd = parser.parse_resource_non_working_days()
+        assert 'carol' in rnwd
+        assert date(2026, 3, 1) in rnwd['carol']
+        assert date(2026, 3, 2) in rnwd['carol']
+        assert date(2026, 3, 3) in rnwd['carol']
+        assert date(2026, 12, 31) in rnwd['carol']
+        assert len(rnwd['carol']) == 4
+
+    def test_resource_name_preserved_without_nwd(self):
+        """Ensure resource names are correctly parsed when non-working days are present."""
+        plan = """\
+---
+Resources:
+  - @dave: Dave Wilson, Analyst, dave@co.com, 80%, non-working [2026-06-15]
+---
+Phase 1
+  Task A 3d @dave
+"""
+        parser = FrontMatterParser(plan)
+        rm = parser.parse_resource_mappings()
+        assert rm['dave'] == 'Dave Wilson'
+        rnwd = parser.parse_resource_non_working_days()
+        from datetime import date
+        assert date(2026, 6, 15) in rnwd['dave']
 
 
 class TestParserReuse:

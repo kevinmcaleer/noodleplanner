@@ -4725,12 +4725,39 @@ function populateResourceForm(shortname) {
         }
 
         if (inResources && line.trim().startsWith('-')) {
-            // Parse resource line: - @shortname: Full Name, Role, email, allocation%
+            // Parse resource line: - @shortname: Full Name, Role, email, allocation%, non-working [...]
             const match = line.match(/^-\s*@([^:]+):\s*(.+)$/);
             console.log('Checking resource line:', line, 'match:', match);
             if (match && match[1].trim().toLowerCase() === shortnameLC) {
                 console.log('Found matching resource!', match[1].trim(), '(case-insensitive match with)', shortname);
-                const parts = match[2].split(',').map(p => p.trim());
+
+                // Extract non-working days suffix before splitting by comma
+                let fullInfo = match[2];
+                let nwdDates = [];
+                const nwdMatch = fullInfo.match(/,?\s*non-working\s*\[([^\]]*)\]\s*$/);
+                if (nwdMatch) {
+                    // Parse dates and ranges from the bracket content
+                    const nwdContent = nwdMatch[1];
+                    for (const part of nwdContent.split(',')) {
+                        const trimmed = part.trim();
+                        if (!trimmed) continue;
+                        if (trimmed.includes(':')) {
+                            // Date range - expand to individual dates
+                            const [startStr, endStr] = trimmed.split(':').map(s => s.trim());
+                            const start = new Date(startStr + 'T00:00:00');
+                            const end = new Date(endStr + 'T00:00:00');
+                            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                                nwdDates.push(d.toISOString().slice(0, 10));
+                            }
+                        } else {
+                            nwdDates.push(trimmed);
+                        }
+                    }
+                    // Remove the non-working suffix from fullInfo
+                    fullInfo = fullInfo.slice(0, nwdMatch.index).trim().replace(/,\s*$/, '');
+                }
+
+                const parts = fullInfo.split(',').map(p => p.trim());
                 document.getElementById('resourceShortname').value = shortname;
                 document.getElementById('resourceFullName').value = parts[0] || '';
                 document.getElementById('resourceRole').value = parts[1] || '';
@@ -4741,19 +4768,9 @@ function populateResourceForm(shortname) {
                     document.getElementById('resourceAllocation').value = parts[3].replace('%', '').trim();
                 }
 
-                // Parse resource-level non-working days from front matter
+                // Render resource-level non-working days from the inline suffix
                 document.getElementById('resourceNonWorkingDaysList').innerHTML = '';
-                const nwdKey = `resource-non-working-days-${shortnameLC}`;
-                for (let fmLine of lines) {
-                    const fmMatch = fmLine.trim().match(/^([^:]+):\s*(.*)$/);
-                    if (fmMatch && fmMatch[1].trim().toLowerCase() === nwdKey) {
-                        const dateMatches = fmMatch[2].match(/\d{4}-\d{2}-\d{2}/g);
-                        if (dateMatches) {
-                            dateMatches.forEach(d => renderNonWorkingDayChip(d, 'resourceNonWorkingDaysList'));
-                        }
-                        break;
-                    }
-                }
+                nwdDates.forEach(d => renderNonWorkingDayChip(d, 'resourceNonWorkingDaysList'));
 
                 console.log('Successfully populated form fields');
                 return; // Found and populated, exit early
@@ -4808,11 +4825,17 @@ function saveResourceInternal(closeModal = true) {
         return;
     }
 
-    // Build resource line
+    // Build resource line (with inline non-working days if any)
     let resourceParts = [fullName];
     if (role) resourceParts.push(role);
     if (email) resourceParts.push(email);
     if (allocation) resourceParts.push(`${allocation}%`);
+
+    // Append non-working days as inline suffix
+    const resourceNWD = getNonWorkingDaysFromContainer('resourceNonWorkingDaysList');
+    if (resourceNWD.length > 0) {
+        resourceParts.push(`non-working [${resourceNWD.join(', ')}]`);
+    }
 
     const resourceLine = `- @${shortname}: ${resourceParts.join(', ')}`;
 
@@ -4872,35 +4895,6 @@ function saveResourceInternal(closeModal = true) {
                 insertIndex++;
             }
             lines.splice(insertIndex, 0, resourceLine);
-        }
-    }
-
-    // Save resource non-working days to front matter
-    const resourceNWD = getNonWorkingDaysFromContainer('resourceNonWorkingDaysList');
-    const nwdKeyName = `resource-non-working-days-${shortname.toLowerCase()}`;
-
-    // Remove any existing resource-non-working-days line for this resource
-    for (let i = lines.length - 1; i >= 0; i--) {
-        const nwdMatch = lines[i].trim().match(/^resource-non-working-days-([^:]+):/i);
-        if (nwdMatch && nwdMatch[1].toLowerCase() === shortname.toLowerCase()) {
-            lines.splice(i, 1);
-            // Adjust indices if needed
-            if (i < frontMatterEnd) frontMatterEnd--;
-        }
-    }
-
-    // Insert new non-working days line before the closing --- if there are any dates
-    if (resourceNWD.length > 0) {
-        // Re-find frontMatterEnd since we may have removed lines
-        let newFMEnd = -1;
-        let inFM = false;
-        for (let i = 0; i < lines.length; i++) {
-            if (lines[i].trim() === '---') {
-                if (!inFM) { inFM = true; } else { newFMEnd = i; break; }
-            }
-        }
-        if (newFMEnd > 0) {
-            lines.splice(newFMEnd, 0, `${nwdKeyName}: ${resourceNWD.join(', ')}`);
         }
     }
 
@@ -5206,13 +5200,12 @@ function saveProjectDetailsInternal(closeModal = true) {
     const editor = document.getElementById('planEditor');
     let content = editor.value;
 
-    // Extract existing Resources, Key Stakeholders, Formatting, Theme, and resource non-working days
+    // Extract existing Resources, Key Stakeholders, Formatting, and Theme
     // from current editor to preserve any changes made via resource form, conditional formatting, etc.
     const existingResourcesSection = extractFrontMatterSection(content, 'Resources');
     const existingStakeholdersSection = extractFrontMatterSection(content, 'Key Stakeholders');
     const existingFormattingSection = extractFrontMatterSection(content, 'Formatting');
     const existingThemeSection = extractFrontMatterSection(content, 'Theme');
-    const existingResourceNWDLines = extractResourceNonWorkingDayLines(content);
 
     // Collect form data
     const title = document.getElementById('projectTitle').value.trim();
@@ -5259,11 +5252,6 @@ function saveProjectDetailsInternal(closeModal = true) {
     // Preserve existing Theme section from editor (don't overwrite kanban theme colours)
     if (existingThemeSection) {
         frontMatter += existingThemeSection;
-    }
-
-    // Preserve resource-level non-working days lines
-    if (existingResourceNWDLines) {
-        frontMatter += existingResourceNWDLines;
     }
 
     frontMatter += '---\n';
@@ -5325,26 +5313,6 @@ function extractFrontMatterSection(content, sectionName) {
     }
 
     return sectionLines.length > 0 ? sectionLines.join('\n') + '\n' : null;
-}
-
-/**
- * Extract all resource-non-working-days-* lines from front matter.
- * Returns a string of all matching lines joined with newlines, or null.
- */
-function extractResourceNonWorkingDayLines(content) {
-    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-    if (!frontMatterMatch) return null;
-
-    const lines = frontMatterMatch[1].split('\n');
-    const nwdLines = [];
-
-    for (const line of lines) {
-        if (line.trim().match(/^resource-non-working-days-/i)) {
-            nwdLines.push(line);
-        }
-    }
-
-    return nwdLines.length > 0 ? nwdLines.join('\n') + '\n' : null;
 }
 
 /**

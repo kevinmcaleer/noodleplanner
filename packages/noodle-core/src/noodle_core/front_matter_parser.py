@@ -144,7 +144,8 @@ class FrontMatterParser:
 
         Returns a dict mapping short names to full names.
         """
-        return parse_resource_mappings(self._plan_text)
+        resource_map, _ = parse_resource_mappings(self._plan_text)
+        return resource_map
 
     def parse_non_working_days(self) -> set:
         """Parse project-wide non-working days from front matter.
@@ -172,32 +173,13 @@ class FrontMatterParser:
         return dates
 
     def parse_resource_non_working_days(self) -> dict:
-        """Parse resource-level non-working days from front matter.
+        """Parse resource-level non-working days from resource lines.
 
-        Looks for 'resource-non-working-days-<shortname>' keys with
-        comma-separated dates in YYYY-MM-DD format.
+        Extracts the ``non-working [...]`` suffix from resource lines in the
+        front matter.  Supports individual dates and date ranges
+        (``YYYY-MM-DD:YYYY-MM-DD``).
 
         Returns a dict mapping lowercase shortnames to sets of datetime.date objects.
         """
-        from datetime import datetime as _dt
-
-        key_values = self.parse_key_values()
-        resource_nwd = {}
-
-        for key, value in key_values.items():
-            if key.startswith('resource-non-working-days-'):
-                shortname = key[len('resource-non-working-days-'):]
-                if shortname and value:
-                    dates = set()
-                    date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', value)
-                    for date_str in date_matches:
-                        try:
-                            dates.add(_dt.strptime(date_str, '%Y-%m-%d').date())
-                        except ValueError:
-                            logger.warning(
-                                f"Invalid date in resource-non-working-days-{shortname}: {date_str}"
-                            )
-                    if dates:
-                        resource_nwd[shortname] = dates
-
+        _, resource_nwd = parse_resource_mappings(self._plan_text)
         return resource_nwd

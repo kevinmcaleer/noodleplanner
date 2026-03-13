@@ -288,7 +288,7 @@ class PlanService:
                 original_text=plan_text,
             )
 
-            resource_map = parse_resource_mappings(plan_text)
+            resource_map, _ = parse_resource_mappings(plan_text)
             front_matter = parse_front_matter(plan_text)
             tasks_data = self._schedule_and_build_tasks(
                 converted, resolved_name, resource_map
