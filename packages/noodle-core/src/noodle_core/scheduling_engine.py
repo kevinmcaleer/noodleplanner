@@ -1791,11 +1791,18 @@ def rag_status_to_colour(rag_status):
 def _parse_non_working_suffix(suffix_str):
     """Parse a non-working [...] suffix into a set of datetime.date objects.
 
-    Supports individual dates (2026-12-31) and ranges (2026-03-01:2026-04-01).
-    A range expands to all calendar days from start to end inclusive.
+    Supports multiple formats:
+    - Individual dates: ``2026-12-31``
+    - Date ranges: ``2026-03-01:2026-04-01``
+    - Named entries: ``Annual Leave: 2026-03-01:2026-03-14``
+    - Named single dates: ``Doctor: 2026-04-01``
+
+    Named entries have the format ``Name: date`` or ``Name: date:date``.
+    The name is for display only; only dates are extracted.
 
     Args:
-        suffix_str: The content inside the brackets, e.g. "2026-03-01:2026-04-01, 2026-12-31"
+        suffix_str: The content inside the brackets,
+            e.g. "Annual Leave: 2026-03-01:2026-03-14, Doctor: 2026-04-01"
 
     Returns:
         A set of datetime.date objects.
@@ -1810,8 +1817,44 @@ def _parse_non_working_suffix(suffix_str):
         part = part.strip()
         if not part:
             continue
+
+        # Check for named entry: "Name: date" or "Name: date:date"
+        named_match = re.match(
+            r'([^:]+?):\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$',
+            part
+        )
+        if named_match:
+            # Named entry — the first group may be a name or a date
+            # If group(1) looks like a date, treat as range (legacy format)
+            if re.match(r'\d{4}-\d{2}-\d{2}$', named_match.group(1).strip()):
+                # Legacy range format: "2026-03-01:2026-03-14"
+                try:
+                    start = _dt.strptime(named_match.group(1).strip(), '%Y-%m-%d').date()
+                    end = _dt.strptime(named_match.group(2), '%Y-%m-%d').date()
+                    current = start
+                    while current <= end:
+                        dates.add(current)
+                        current += _td(days=1)
+                except ValueError:
+                    logger.warning("Invalid date range in non-working suffix: %s", part)
+            else:
+                # Named entry: "Name: start_date" or "Name: start_date:end_date"
+                try:
+                    start = _dt.strptime(named_match.group(2), '%Y-%m-%d').date()
+                    if named_match.group(3):
+                        end = _dt.strptime(named_match.group(3), '%Y-%m-%d').date()
+                        current = start
+                        while current <= end:
+                            dates.add(current)
+                            current += _td(days=1)
+                    else:
+                        dates.add(start)
+                except ValueError:
+                    logger.warning("Invalid date in named non-working entry: %s", part)
+            continue
+
+        # Legacy range: start:end (both are dates)
         if ':' in part:
-            # Range: start:end
             range_parts = part.split(':', 1)
             try:
                 start = _dt.strptime(range_parts[0].strip(), '%Y-%m-%d').date()
@@ -1830,6 +1873,51 @@ def _parse_non_working_suffix(suffix_str):
                 logger.warning("Invalid date in non-working suffix: %s", part)
 
     return dates
+
+
+def _parse_named_non_working_suffix(suffix_str):
+    """Parse a non-working [...] suffix preserving names and ranges.
+
+    Returns a list of dicts with 'name', 'start', and optional 'finish' keys.
+    """
+    entries = []
+    if not suffix_str:
+        return entries
+
+    for part in suffix_str.split(','):
+        part = part.strip()
+        if not part:
+            continue
+
+        named_match = re.match(
+            r'([^:]+?):\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$',
+            part
+        )
+        if named_match:
+            if re.match(r'\d{4}-\d{2}-\d{2}$', named_match.group(1).strip()):
+                # Legacy range without name
+                entries.append({
+                    'name': '',
+                    'start': named_match.group(1).strip(),
+                    'finish': named_match.group(2),
+                })
+            else:
+                entries.append({
+                    'name': named_match.group(1).strip(),
+                    'start': named_match.group(2),
+                    'finish': named_match.group(3) or '',
+                })
+        else:
+            # Single date without name
+            date_match = re.match(r'(\d{4}-\d{2}-\d{2})\s*$', part)
+            if date_match:
+                entries.append({
+                    'name': '',
+                    'start': date_match.group(1),
+                    'finish': '',
+                })
+
+    return entries
 
 
 def parse_resource_mappings(original_text):

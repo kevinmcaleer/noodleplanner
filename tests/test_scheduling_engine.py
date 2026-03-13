@@ -927,6 +927,25 @@ Task 1 @jack 3d"""
         assert len(nwd['jack']) == 4
 
 
+    def test_parse_resource_with_named_non_working_days(self):
+        """Test parsing resource with named inline non-working days."""
+        from datetime import date
+        text = """---
+Resources:
+  - @jack: Jack Lloyd, Network Arch, non-working [Annual Leave: 2026-03-01:2026-03-03, Doctor: 2026-04-01]
+---
+Task 1 @jack 3d"""
+        result, nwd = parse_resource_mappings(text)
+        assert 'jack' in result
+        assert result['jack'] == 'Jack Lloyd'
+        assert 'jack' in nwd
+        assert date(2026, 3, 1) in nwd['jack']
+        assert date(2026, 3, 2) in nwd['jack']
+        assert date(2026, 3, 3) in nwd['jack']
+        assert date(2026, 4, 1) in nwd['jack']
+        assert len(nwd['jack']) == 4
+
+
 class TestDependencyLoopDetection:
     """Test suite for dependency loop detection (GitHub issue #22)."""
 

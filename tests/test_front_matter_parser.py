@@ -310,6 +310,129 @@ Phase 1
         assert date(2026, 6, 15) in rnwd['dave']
 
 
+class TestParseNamedNonWorkingDays:
+    """Tests for the new named non-working days list format."""
+
+    def test_parses_named_list_format(self):
+        from datetime import date
+        plan = """\
+---
+title: Named NWD Test
+non-working-days:
+  - Christmas: 2026-12-25:2026-12-26
+  - New Year: 2027-01-01
+  - Easter: 2027-04-18:2027-04-21
+---
+Phase 1
+  Task A 3d
+"""
+        parser = FrontMatterParser(plan)
+        nwd = parser.parse_non_working_days()
+        assert date(2026, 12, 25) in nwd
+        assert date(2026, 12, 26) in nwd
+        assert date(2027, 1, 1) in nwd
+        assert date(2027, 4, 18) in nwd
+        assert date(2027, 4, 19) in nwd
+        assert date(2027, 4, 20) in nwd
+        assert date(2027, 4, 21) in nwd
+        assert len(nwd) == 7
+
+    def test_parses_named_entries_preserving_names(self):
+        plan = """\
+---
+title: Named NWD Test
+non-working-days:
+  - Christmas: 2026-12-25:2026-12-26
+  - New Year: 2027-01-01
+---
+Phase 1
+  Task A 3d
+"""
+        parser = FrontMatterParser(plan)
+        entries = parser.parse_named_non_working_days()
+        assert len(entries) == 2
+        assert entries[0]['name'] == 'Christmas'
+        assert entries[0]['start'] == '2026-12-25'
+        assert entries[0]['finish'] == '2026-12-26'
+        assert entries[1]['name'] == 'New Year'
+        assert entries[1]['start'] == '2027-01-01'
+        assert entries[1]['finish'] == ''
+
+    def test_falls_back_to_legacy_flat_format(self):
+        from datetime import date
+        plan = """\
+---
+title: Legacy Test
+non-working-days: 2026-12-25, 2026-12-26
+---
+Phase 1
+  Task A 3d
+"""
+        parser = FrontMatterParser(plan)
+        nwd = parser.parse_non_working_days()
+        assert date(2026, 12, 25) in nwd
+        assert date(2026, 12, 26) in nwd
+        assert len(nwd) == 2
+
+    def test_named_list_with_holidays_key(self):
+        from datetime import date
+        plan = """\
+---
+title: Holidays Key Test
+holidays:
+  - Bank Holiday: 2026-08-31
+---
+Phase 1
+  Task A 3d
+"""
+        parser = FrontMatterParser(plan)
+        nwd = parser.parse_non_working_days()
+        assert date(2026, 8, 31) in nwd
+        assert len(nwd) == 1
+
+
+class TestResourceNamedNonWorkingDays:
+    """Tests for named non-working days in resource inline format."""
+
+    def test_parses_named_resource_nwd(self):
+        from datetime import date
+        plan = """\
+---
+Resources:
+  - @jack: Jack Lloyd, Network Arch, non-working [Annual Leave: 2026-03-01:2026-03-03, Doctor: 2026-04-01]
+---
+Phase 1
+  Task A 3d @jack
+"""
+        parser = FrontMatterParser(plan)
+        rnwd = parser.parse_resource_non_working_days()
+        assert 'jack' in rnwd
+        assert date(2026, 3, 1) in rnwd['jack']
+        assert date(2026, 3, 2) in rnwd['jack']
+        assert date(2026, 3, 3) in rnwd['jack']
+        assert date(2026, 4, 1) in rnwd['jack']
+        assert len(rnwd['jack']) == 4
+
+    def test_backward_compatible_with_legacy_resource_nwd(self):
+        from datetime import date
+        plan = """\
+---
+Resources:
+  - @jack: Jack Lloyd, Network Arch, non-working [2026-03-01:2026-03-03, 2026-12-31]
+---
+Phase 1
+  Task A 3d @jack
+"""
+        parser = FrontMatterParser(plan)
+        rnwd = parser.parse_resource_non_working_days()
+        assert 'jack' in rnwd
+        assert date(2026, 3, 1) in rnwd['jack']
+        assert date(2026, 3, 2) in rnwd['jack']
+        assert date(2026, 3, 3) in rnwd['jack']
+        assert date(2026, 12, 31) in rnwd['jack']
+        assert len(rnwd['jack']) == 4
+
+
 class TestParserReuse:
     """Verify that a single parser instance can serve all parsing needs."""
 

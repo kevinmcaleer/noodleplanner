@@ -4378,31 +4378,13 @@ body.detail-pane-open {
     background: #0d7aa3;
 }
 
-.task-actions-cell {
-    text-align: center;
-    padding: 2px 4px !important;
-    width: 56px;
-    white-space: nowrap;
+/* Task name cell layout */
+.task-name-cell {
+    position: relative;
 }
 
-.task-inspect-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 0.85em;
-    padding: 2px 4px;
-    border-radius: 4px;
-    opacity: 0.5;
-    transition: opacity var(--np-anim-duration) var(--np-anim-easing);
-}
-
-tr:hover .task-inspect-btn {
-    opacity: 1;
-}
-
-.task-inspect-btn:hover {
-    background: rgba(16, 139, 185, 0.1);
-    opacity: 1;
+.task-name-text {
+    display: inline;
 }
 
 /* Task Context Menu */
@@ -4413,13 +4395,17 @@ tr:hover .task-inspect-btn {
     font-size: 1.1em;
     padding: 2px 6px;
     border-radius: 4px;
-    opacity: 0.4;
+    opacity: 0;
     transition: opacity var(--np-anim-duration) var(--np-anim-easing);
     color: #6c757d;
     line-height: 1;
     letter-spacing: 2px;
     min-width: 44px;
     min-height: 44px;
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 tr:hover .task-context-btn,
@@ -4436,6 +4422,32 @@ tr:hover .task-context-btn,
     outline: 2px solid #108BB9;
     outline-offset: 1px;
     opacity: 1;
+}
+
+/* Task form inspect button */
+.task-form-inspect-btn {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    cursor: pointer;
+    font-size: 0.85em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-right: 8px;
+    white-space: nowrap;
+    min-width: 44px;
+    min-height: 32px;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), border-color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.task-form-inspect-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.task-form-inspect-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
 }
 
 .task-context-menu {
@@ -4788,52 +4800,98 @@ tr:hover .task-context-btn,
     font-size: 0.9em;
 }
 
-/* Non-working days list */
-.non-working-days-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+/* Non-working days exceptions table */
+.nwd-exceptions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
     margin-bottom: 8px;
 }
 
-.non-working-day-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #e8f4f8;
-    border: 1px solid #b8d4e3;
-    border-radius: 999px;
-    padding: 4px 8px 4px 12px;
-    font-size: 13px;
-    color: #333;
+.nwd-exceptions-table thead th {
+    background: #f0f4f7;
+    font-weight: 600;
+    font-size: 12px;
+    text-align: left;
+    padding: 4px 8px;
+    border: 1px dotted #ccc;
+    color: #555;
 }
 
-.non-working-day-chip button {
-    background: #9cb5c4;
-    border: none;
-    color: white;
-    cursor: pointer;
-    font-size: 11px;
-    line-height: 1;
+.nwd-exceptions-table tbody td {
     padding: 0;
-    width: 18px;
-    height: 18px;
-    min-width: 18px;
-    min-height: 18px;
+    border: 1px dotted #ccc;
+    vertical-align: middle;
+    height: 32px;
+}
+
+.nwd-exceptions-table tbody td input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 4px 8px;
+    font-size: 13px;
+    color: #333;
+    height: 100%;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.nwd-exceptions-table tbody td input:focus {
+    background: #f8fbff;
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+.nwd-exceptions-table tbody td input[type="date"] {
+    max-width: 160px;
+}
+
+.nwd-exceptions-table .nwd-actions-col {
+    width: 32px;
+    text-align: center;
+}
+
+.nwd-exceptions-table .nwd-delete-btn {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 4px;
+    min-width: 28px;
+    min-height: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    transition: background 0.15s;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 
-.non-working-day-chip button:hover {
-    background: #dc3545;
+.nwd-exceptions-table tbody tr:hover .nwd-delete-btn {
+    opacity: 1;
 }
 
-.non-working-day-chip button:focus-visible {
+.nwd-exceptions-table .nwd-delete-btn:hover {
+    color: #dc3545;
+    background: #fef0f0;
+}
+
+.nwd-exceptions-table .nwd-delete-btn:focus-visible {
+    opacity: 1;
     outline: 2px solid #108BB9;
     outline-offset: 1px;
+}
+
+.nwd-exceptions-table tbody tr.nwd-blank-row td {
+    background: #fafbfc;
+}
+
+.nwd-exceptions-table tbody tr.nwd-blank-row td input::placeholder {
+    color: #bbb;
+    font-style: italic;
 }
 
 /* Dependencies table in task form */

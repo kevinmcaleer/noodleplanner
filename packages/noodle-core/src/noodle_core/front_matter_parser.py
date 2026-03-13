@@ -150,27 +150,126 @@ class FrontMatterParser:
     def parse_non_working_days(self) -> set:
         """Parse project-wide non-working days from front matter.
 
-        Looks for 'non-working-days' or 'holidays' key with comma-separated
-        dates in YYYY-MM-DD format.
+        Supports two formats:
+
+        Legacy flat format::
+
+            non-working-days: 2026-12-25, 2026-12-26
+
+        Named list format with optional date ranges::
+
+            non-working-days:
+              - Christmas: 2026-12-25:2026-12-26
+              - New Year: 2027-01-01
 
         Returns a set of datetime.date objects.
         """
-        from datetime import datetime as _dt
+        from datetime import datetime as _dt, timedelta as _td
 
-        key_values = self.parse_key_values()
         dates = set()
 
-        for key in ('non-working-days', 'holidays'):
-            value = key_values.get(key, '')
-            if value:
-                date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', value)
-                for date_str in date_matches:
-                    try:
-                        dates.add(_dt.strptime(date_str, '%Y-%m-%d').date())
-                    except ValueError:
-                        logger.warning(f"Invalid date in {key}: {date_str}")
+        # First try the new list format by scanning front matter lines
+        lines = self._extract_front_matter_lines()
+        in_nwd_list = False
+        found_list = False
+        for line in lines:
+            stripped = line.strip()
+            # Detect section header
+            if stripped.lower() in ('non-working-days:', 'holidays:'):
+                in_nwd_list = True
+                continue
+            # If we're in the list, look for "- Name: date" or "- Name: date:date"
+            if in_nwd_list:
+                if stripped.startswith('- '):
+                    found_list = True
+                    entry = stripped[2:].strip()
+                    # Named entry: "Name: date" or "Name: date:date"
+                    # Also handle legacy unnamed: "- 2026-12-25"
+                    name_match = re.match(
+                        r'(.+?):\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$',
+                        entry
+                    )
+                    if name_match:
+                        start_str = name_match.group(2)
+                        end_str = name_match.group(3)
+                        try:
+                            start = _dt.strptime(start_str, '%Y-%m-%d').date()
+                            if end_str:
+                                end = _dt.strptime(end_str, '%Y-%m-%d').date()
+                                current = start
+                                while current <= end:
+                                    dates.add(current)
+                                    current += _td(days=1)
+                            else:
+                                dates.add(start)
+                        except ValueError:
+                            logger.warning("Invalid date in non-working-days list entry: %s", entry)
+                    else:
+                        # Try as a bare date
+                        date_match = re.match(r'(\d{4}-\d{2}-\d{2})\s*$', entry)
+                        if date_match:
+                            try:
+                                dates.add(_dt.strptime(date_match.group(1), '%Y-%m-%d').date())
+                            except ValueError:
+                                logger.warning("Invalid date in non-working-days list: %s", entry)
+                elif stripped and not stripped.startswith('#'):
+                    # Non-list-item, non-empty line means we left the section
+                    in_nwd_list = False
+
+        # If no list items found, fall back to the legacy flat format
+        if not found_list:
+            key_values = self.parse_key_values()
+            for key in ('non-working-days', 'holidays'):
+                value = key_values.get(key, '')
+                if value:
+                    date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', value)
+                    for date_str in date_matches:
+                        try:
+                            dates.add(_dt.strptime(date_str, '%Y-%m-%d').date())
+                        except ValueError:
+                            logger.warning(f"Invalid date in {key}: {date_str}")
 
         return dates
+
+    def parse_named_non_working_days(self) -> list:
+        """Parse project-wide non-working days preserving names and ranges.
+
+        Returns a list of dicts with 'name', 'start', and optional 'finish' keys.
+        Dates are strings in YYYY-MM-DD format.
+        """
+        entries = []
+        lines = self._extract_front_matter_lines()
+        in_nwd_list = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.lower() in ('non-working-days:', 'holidays:'):
+                in_nwd_list = True
+                continue
+            if in_nwd_list:
+                if stripped.startswith('- '):
+                    entry_text = stripped[2:].strip()
+                    name_match = re.match(
+                        r'(.+?):\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$',
+                        entry_text
+                    )
+                    if name_match:
+                        entries.append({
+                            'name': name_match.group(1).strip(),
+                            'start': name_match.group(2),
+                            'finish': name_match.group(3) or '',
+                        })
+                    else:
+                        # Bare date
+                        date_match = re.match(r'(\d{4}-\d{2}-\d{2})\s*$', entry_text)
+                        if date_match:
+                            entries.append({
+                                'name': '',
+                                'start': date_match.group(1),
+                                'finish': '',
+                            })
+                elif stripped and not stripped.startswith('#'):
+                    in_nwd_list = False
+        return entries
 
     def parse_resource_non_working_days(self) -> dict:
         """Parse resource-level non-working days from resource lines.

@@ -1855,6 +1855,15 @@ function openTaskForm(lineNumber) {
     }
 }
 
+/**
+ * Open the task inspector for the task currently open in the task form.
+ */
+function openTaskInspectorFromForm() {
+    if (currentTaskLineNumber) {
+        openTaskInspector(currentTaskLineNumber);
+    }
+}
+
 function openMilestoneTaskForm(taskName) {
     // Switch to plan editor tab
     switchTab('editor');
@@ -1928,6 +1937,13 @@ function showTaskContextMenu(event, task, taskIndex) {
         openMilestoneTaskForm(task.name);
     }));
 
+    // Inspect Task (only for non-summary tasks)
+    if (!task.is_summary) {
+        items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
+            openTaskInspectorByName(task.name);
+        }));
+    }
+
     items.push(createContextMenuSeparator());
 
     // Promote (outdent)
@@ -1976,6 +1992,97 @@ function showTaskContextMenu(event, task, taskIndex) {
         top = window.innerHeight - menuRect.height - 8;
     }
     if (top < 0) top = 8;
+
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    // Focus the first menu item for keyboard navigation
+    const firstItem = menu.querySelector('button[role="menuitem"]');
+    if (firstItem) firstItem.focus();
+
+    // Keyboard navigation within the menu
+    menu.addEventListener('keydown', handleContextMenuKeydown);
+
+    // Close when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closeTaskContextMenuOnOutsideClick);
+    }, 0);
+}
+
+/**
+ * Show the task context menu at a specific mouse position (for right-click).
+ */
+function showTaskContextMenuAtPosition(event, task, taskIndex) {
+    closeTaskContextMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'task-context-menu show';
+    menu.id = 'activeTaskContextMenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Task actions');
+
+    const items = [];
+
+    // Edit
+    items.push(createContextMenuItem('Edit', '\u270E', () => {
+        openMilestoneTaskForm(task.name);
+    }));
+
+    // Inspect Task (only for non-summary tasks)
+    if (!task.is_summary) {
+        items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
+            openTaskInspectorByName(task.name);
+        }));
+    }
+
+    items.push(createContextMenuSeparator());
+
+    // Promote (outdent)
+    items.push(createContextMenuItem('Promote (Outdent)', '\u2B05', () => {
+        promoteTask(task, taskIndex);
+    }));
+
+    // Demote (indent)
+    items.push(createContextMenuItem('Demote (Indent)', '\u27A1', () => {
+        demoteTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Insert Above
+    items.push(createContextMenuItem('Insert Task Above', '\u2795', () => {
+        insertTaskAbove(task, taskIndex);
+    }));
+
+    // Assign Resource
+    items.push(createContextMenuItem('Assign Resource', '\uD83D\uDC64', () => {
+        assignResourceToTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Set Completion (submenu)
+    const completionSubmenu = createCompletionSubmenu(task, taskIndex);
+    items.push(completionSubmenu);
+
+    items.forEach(item => menu.appendChild(item));
+
+    document.body.appendChild(menu);
+
+    // Position menu at cursor
+    let left = event.clientX;
+    let top = event.clientY;
+
+    // Ensure menu doesn't overflow the viewport
+    const menuRect = menu.getBoundingClientRect();
+    if (left + menuRect.width > window.innerWidth) {
+        left = window.innerWidth - menuRect.width - 8;
+    }
+    if (top + menuRect.height > window.innerHeight) {
+        top = window.innerHeight - menuRect.height - 8;
+    }
+    if (top < 0) top = 8;
+    if (left < 0) left = 8;
 
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
@@ -4672,7 +4779,7 @@ function openResourceForm(existingShortname = null) {
     document.getElementById('resourceRole').value = '';
     document.getElementById('resourceEmail').value = '';
     document.getElementById('resourceAllocation').value = '';
-    document.getElementById('resourceNonWorkingDaysList').innerHTML = '';
+    initNwdTable('resourceNonWorkingDaysTableBody', []);
 
     // If editing existing resource, populate form
     if (existingShortname) {
@@ -4733,24 +4840,33 @@ function populateResourceForm(shortname) {
 
                 // Extract non-working days suffix before splitting by comma
                 let fullInfo = match[2];
-                let nwdDates = [];
+                let nwdEntries = [];
                 const nwdMatch = fullInfo.match(/,?\s*non-working\s*\[([^\]]*)\]\s*$/);
                 if (nwdMatch) {
-                    // Parse dates and ranges from the bracket content
+                    // Parse named entries from the bracket content
                     const nwdContent = nwdMatch[1];
                     for (const part of nwdContent.split(',')) {
                         const trimmed = part.trim();
                         if (!trimmed) continue;
-                        if (trimmed.includes(':')) {
-                            // Date range - expand to individual dates
-                            const [startStr, endStr] = trimmed.split(':').map(s => s.trim());
-                            const start = new Date(startStr + 'T00:00:00');
-                            const end = new Date(endStr + 'T00:00:00');
-                            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                                nwdDates.push(d.toISOString().slice(0, 10));
+                        // Named entry: "Name: date" or "Name: date:date"
+                        const namedMatch = trimmed.match(/^(.+?):\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$/);
+                        if (namedMatch) {
+                            // Check if first group is a date (legacy range without name)
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(namedMatch[1].trim())) {
+                                nwdEntries.push({ name: '', start: namedMatch[1].trim(), finish: namedMatch[2] });
+                            } else {
+                                nwdEntries.push({
+                                    name: namedMatch[1].trim(),
+                                    start: namedMatch[2],
+                                    finish: namedMatch[3] || '',
+                                });
                             }
                         } else {
-                            nwdDates.push(trimmed);
+                            // Single date without name
+                            const dateMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})$/);
+                            if (dateMatch) {
+                                nwdEntries.push({ name: '', start: dateMatch[1], finish: '' });
+                            }
                         }
                     }
                     // Remove the non-working suffix from fullInfo
@@ -4768,9 +4884,8 @@ function populateResourceForm(shortname) {
                     document.getElementById('resourceAllocation').value = parts[3].replace('%', '').trim();
                 }
 
-                // Render resource-level non-working days from the inline suffix
-                document.getElementById('resourceNonWorkingDaysList').innerHTML = '';
-                nwdDates.forEach(d => renderNonWorkingDayChip(d, 'resourceNonWorkingDaysList'));
+                // Render resource-level non-working days in the exceptions table
+                initNwdTable('resourceNonWorkingDaysTableBody', nwdEntries);
 
                 console.log('Successfully populated form fields');
                 return; // Found and populated, exit early
@@ -4831,10 +4946,10 @@ function saveResourceInternal(closeModal = true) {
     if (email) resourceParts.push(email);
     if (allocation) resourceParts.push(`${allocation}%`);
 
-    // Append non-working days as inline suffix
-    const resourceNWD = getNonWorkingDaysFromContainer('resourceNonWorkingDaysList');
-    if (resourceNWD.length > 0) {
-        resourceParts.push(`non-working [${resourceNWD.join(', ')}]`);
+    // Append non-working days as inline suffix (named entries with ranges)
+    const resourceNwdSuffix = buildResourceNwdSuffix('resourceNonWorkingDaysTableBody');
+    if (resourceNwdSuffix) {
+        resourceParts.push(resourceNwdSuffix);
     }
 
     const resourceLine = `- @${shortname}: ${resourceParts.join(', ')}`;
@@ -4944,10 +5059,12 @@ function populateProjectDetailsFromFrontMatter() {
     document.getElementById('projectLabels').value = '';
     document.getElementById('resourcesList').innerHTML = '';
     document.getElementById('stakeholdersList').innerHTML = '';
-    document.getElementById('nonWorkingDaysList').innerHTML = '';
+    initNwdTable('nonWorkingDaysTableBody', []);
 
     let inResources = false;
     let inStakeholders = false;
+    let inNonWorkingDays = false;
+    const nwdEntries = [];
 
     for (let line of lines) {
         line = line.trim();
@@ -4956,15 +5073,44 @@ function populateProjectDetailsFromFrontMatter() {
         if (line.toLowerCase() === 'resources:') {
             inResources = true;
             inStakeholders = false;
+            inNonWorkingDays = false;
             continue;
         } else if (line.toLowerCase() === 'key stakeholders:' || line.toLowerCase() === 'stakeholders:') {
             inStakeholders = true;
             inResources = false;
+            inNonWorkingDays = false;
             continue;
-        } else if (line.match(/^[a-z\s]+:/i) && !line.startsWith('-')) {
-            // New section, stop parsing resources/stakeholders
+        } else if (line.toLowerCase() === 'non-working-days:' || line.toLowerCase() === 'holidays:') {
+            inNonWorkingDays = true;
             inResources = false;
             inStakeholders = false;
+            continue;
+        } else if (line.match(/^[a-z\s-]+:/i) && !line.startsWith('-')) {
+            // New section header, stop parsing current section
+            inResources = false;
+            inStakeholders = false;
+            inNonWorkingDays = false;
+        }
+
+        // Parse non-working days list items (new format)
+        if (inNonWorkingDays && line.startsWith('- ')) {
+            const entry = line.substring(2).trim();
+            // Named entry: "Name: date" or "Name: date:date"
+            const namedMatch = entry.match(/^(.+?):\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$/);
+            if (namedMatch) {
+                nwdEntries.push({
+                    name: namedMatch[1].trim(),
+                    start: namedMatch[2],
+                    finish: namedMatch[3] || '',
+                });
+            } else {
+                // Bare date
+                const dateMatch = entry.match(/^(\d{4}-\d{2}-\d{2})\s*$/);
+                if (dateMatch) {
+                    nwdEntries.push({ name: '', start: dateMatch[1], finish: '' });
+                }
+            }
+            continue;
         }
 
         // Parse resources and stakeholders
@@ -4978,7 +5124,7 @@ function populateProjectDetailsFromFrontMatter() {
 
         // Parse other fields
         const match = line.match(/^([^:]+):\s*(.*)$/);
-        if (match && !inResources && !inStakeholders) {
+        if (match && !inResources && !inStakeholders && !inNonWorkingDays) {
             const key = match[1].trim().toLowerCase();
             const value = match[2].trim();
 
@@ -5018,14 +5164,21 @@ function populateProjectDetailsFromFrontMatter() {
                     break;
                 case 'non-working-days':
                 case 'holidays':
-                    // Parse non-working days: 2026-12-25, 2026-12-26 format
-                    const dateMatches = value.match(/\d{4}-\d{2}-\d{2}/g);
-                    if (dateMatches) {
-                        dateMatches.forEach(d => renderNonWorkingDayChip(d, 'nonWorkingDaysList'));
+                    // Legacy flat format: non-working-days: 2026-12-25, 2026-12-26
+                    if (value) {
+                        const dateMatches = value.match(/\d{4}-\d{2}-\d{2}/g);
+                        if (dateMatches) {
+                            dateMatches.forEach(d => nwdEntries.push({ name: '', start: d, finish: '' }));
+                        }
                     }
                     break;
             }
         }
+    }
+
+    // Populate non-working days table
+    if (nwdEntries.length > 0) {
+        initNwdTable('nonWorkingDaysTableBody', nwdEntries);
     }
 }
 
@@ -5040,87 +5193,247 @@ function clearProjectDetailsForm() {
     document.getElementById('projectLabels').value = '';
     document.getElementById('resourcesList').innerHTML = '';
     document.getElementById('stakeholdersList').innerHTML = '';
-    document.getElementById('nonWorkingDaysList').innerHTML = '';
+    initNwdTable('nonWorkingDaysTableBody', []);
 }
 
-// --- Non-Working Days Functions ---
+// --- Non-Working Days Exceptions Table Functions ---
 
 /**
- * Render a non-working day chip (date badge with remove button) into a container.
+ * Add a row to a non-working days exceptions table.
+ * @param {string} tbodyId - The ID of the tbody element.
+ * @param {object} entry - Optional entry with name, start, finish fields.
+ * @param {boolean} isBlank - Whether this is the blank entry row at the bottom.
  */
-function renderNonWorkingDayChip(dateStr, containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+function addNwdTableRow(tbodyId, entry = null, isBlank = false) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
 
-    // Avoid duplicates
-    const existing = container.querySelectorAll('.non-working-day-chip');
-    for (const chip of existing) {
-        if (chip.dataset.date === dateStr) return;
+    const row = document.createElement('tr');
+    if (isBlank) row.classList.add('nwd-blank-row');
+
+    const nameCell = document.createElement('td');
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.placeholder = isBlank ? 'Type to add...' : '';
+    nameInput.value = entry ? (entry.name || '') : '';
+    nameInput.setAttribute('aria-label', 'Non-working day name');
+    nameInput.addEventListener('input', function() {
+        handleNwdRowChange(tbodyId, row);
+    });
+    nameCell.appendChild(nameInput);
+    row.appendChild(nameCell);
+
+    const startCell = document.createElement('td');
+    const startInput = document.createElement('input');
+    startInput.type = 'date';
+    startInput.value = entry ? (entry.start || '') : '';
+    startInput.setAttribute('aria-label', 'Start date');
+    startInput.addEventListener('change', function() {
+        handleNwdRowChange(tbodyId, row);
+    });
+    startCell.appendChild(startInput);
+    row.appendChild(startCell);
+
+    const finishCell = document.createElement('td');
+    const finishInput = document.createElement('input');
+    finishInput.type = 'date';
+    finishInput.value = entry ? (entry.finish || '') : '';
+    finishInput.setAttribute('aria-label', 'Finish date');
+    finishInput.addEventListener('change', function() {
+        handleNwdRowChange(tbodyId, row);
+    });
+    finishCell.appendChild(finishInput);
+    row.appendChild(finishCell);
+
+    const actionsCell = document.createElement('td');
+    actionsCell.classList.add('nwd-actions-col');
+    if (!isBlank) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'nwd-delete-btn';
+        deleteBtn.innerHTML = '&times;';
+        deleteBtn.setAttribute('aria-label', 'Remove this non-working day');
+        deleteBtn.addEventListener('click', function() {
+            row.remove();
+            triggerNwdAutoSave(tbodyId);
+        });
+        actionsCell.appendChild(deleteBtn);
+    }
+    row.appendChild(actionsCell);
+
+    tbody.appendChild(row);
+    return row;
+}
+
+/**
+ * Handle changes to a non-working day row (convert blank row, remove empty rows).
+ */
+function handleNwdRowChange(tbodyId, row) {
+    const inputs = row.querySelectorAll('input');
+    const name = inputs[0].value.trim();
+    const start = inputs[1].value.trim();
+    const finish = inputs[2].value.trim();
+    const hasContent = name || start || finish;
+
+    if (row.classList.contains('nwd-blank-row') && hasContent) {
+        // Convert blank row to data row: add delete button, remove blank class
+        row.classList.remove('nwd-blank-row');
+        inputs[0].placeholder = '';
+        const actionsCell = row.querySelector('.nwd-actions-col');
+        if (actionsCell && !actionsCell.querySelector('.nwd-delete-btn')) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'nwd-delete-btn';
+            deleteBtn.innerHTML = '&times;';
+            deleteBtn.setAttribute('aria-label', 'Remove this non-working day');
+            deleteBtn.addEventListener('click', function() {
+                row.remove();
+                triggerNwdAutoSave(tbodyId);
+            });
+            actionsCell.appendChild(deleteBtn);
+        }
+        // Add a new blank row at the bottom
+        addNwdTableRow(tbodyId, null, true);
+    } else if (!row.classList.contains('nwd-blank-row') && !hasContent) {
+        // All fields empty on a data row: auto-remove it
+        row.remove();
     }
 
-    const chip = document.createElement('span');
-    chip.className = 'non-working-day-chip';
-    chip.dataset.date = dateStr;
-    chip.setAttribute('role', 'listitem');
-
-    // Format date for display (e.g., "25 Dec 2026")
-    const d = new Date(dateStr + 'T00:00:00');
-    const displayDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    chip.textContent = displayDate;
-
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.innerHTML = '&times;';
-    removeBtn.setAttribute('aria-label', `Remove ${displayDate}`);
-    removeBtn.onclick = function() {
-        chip.remove();
-        // Trigger auto-save depending on which container
-        if (containerId === 'nonWorkingDaysList') {
-            autoSaveProjectDetails();
-        } else if (containerId === 'resourceNonWorkingDaysList') {
-            autoSaveResource();
-        }
-    };
-
-    chip.appendChild(removeBtn);
-    container.appendChild(chip);
+    triggerNwdAutoSave(tbodyId);
 }
 
 /**
- * Get all non-working day dates from a container as a sorted array of date strings.
+ * Trigger auto-save based on which table was modified.
+ */
+function triggerNwdAutoSave(tbodyId) {
+    if (tbodyId === 'nonWorkingDaysTableBody') {
+        autoSaveProjectDetails();
+    } else if (tbodyId === 'resourceNonWorkingDaysTableBody') {
+        autoSaveResource();
+    }
+}
+
+/**
+ * Initialize a non-working days table with entries and a blank row.
+ * @param {string} tbodyId - The tbody element ID.
+ * @param {Array} entries - Array of {name, start, finish} objects.
+ */
+function initNwdTable(tbodyId, entries) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (entries && entries.length > 0) {
+        entries.forEach(entry => addNwdTableRow(tbodyId, entry, false));
+    }
+    addNwdTableRow(tbodyId, null, true);
+}
+
+/**
+ * Get all non-working day entries from a table as an array of {name, start, finish}.
+ */
+function getNwdEntriesFromTable(tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return [];
+    const entries = [];
+    const rows = tbody.querySelectorAll('tr:not(.nwd-blank-row)');
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const name = inputs[0] ? inputs[0].value.trim() : '';
+        const start = inputs[1] ? inputs[1].value.trim() : '';
+        const finish = inputs[2] ? inputs[2].value.trim() : '';
+        if (start) {
+            entries.push({ name, start, finish });
+        }
+    });
+    // Sort by start date
+    entries.sort((a, b) => a.start.localeCompare(b.start));
+    return entries;
+}
+
+/**
+ * Build front matter string for non-working days from the table entries.
+ * Returns the YAML lines (including the key) or empty string.
+ */
+function buildNwdFrontMatter(tbodyId) {
+    const entries = getNwdEntriesFromTable(tbodyId);
+    if (entries.length === 0) return '';
+    let lines = 'non-working-days:\n';
+    entries.forEach(e => {
+        const name = e.name || 'Untitled';
+        const dateStr = e.finish ? `${e.start}:${e.finish}` : e.start;
+        lines += `  - ${name}: ${dateStr}\n`;
+    });
+    return lines;
+}
+
+/**
+ * Build inline non-working suffix for resource lines from the table entries.
+ * Returns string like "non-working [Annual Leave: 2026-03-01:2026-03-14, Doctor: 2026-04-01]"
+ */
+function buildResourceNwdSuffix(tbodyId) {
+    const entries = getNwdEntriesFromTable(tbodyId);
+    if (entries.length === 0) return '';
+    const parts = entries.map(e => {
+        const name = e.name || 'Untitled';
+        const dateStr = e.finish ? `${e.start}:${e.finish}` : e.start;
+        return `${name}: ${dateStr}`;
+    });
+    return `non-working [${parts.join(', ')}]`;
+}
+
+// Legacy compatibility wrappers
+
+/**
+ * Render a non-working day chip as a table row (legacy compatibility).
+ * Used when loading old flat date format from front matter.
+ */
+function renderNonWorkingDayChip(dateStr, containerId) {
+    // Map old container IDs to new table body IDs
+    const tbodyMap = {
+        'nonWorkingDaysList': 'nonWorkingDaysTableBody',
+        'resourceNonWorkingDaysList': 'resourceNonWorkingDaysTableBody',
+    };
+    const tbodyId = tbodyMap[containerId];
+    if (!tbodyId) return;
+
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    // Check for duplicates in existing rows
+    const existingRows = tbody.querySelectorAll('tr:not(.nwd-blank-row)');
+    for (const row of existingRows) {
+        const startInput = row.querySelectorAll('input')[1];
+        if (startInput && startInput.value === dateStr) return;
+    }
+
+    // Remove the blank row, add the data row, then re-add blank
+    const blankRow = tbody.querySelector('.nwd-blank-row');
+    if (blankRow) blankRow.remove();
+    addNwdTableRow(tbodyId, { name: '', start: dateStr, finish: '' }, false);
+    addNwdTableRow(tbodyId, null, true);
+}
+
+/**
+ * Get all non-working day dates from a table (legacy compatibility).
+ * Returns a flat sorted array of date strings.
  */
 function getNonWorkingDaysFromContainer(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return [];
-    const chips = container.querySelectorAll('.non-working-day-chip');
+    const tbodyMap = {
+        'nonWorkingDaysList': 'nonWorkingDaysTableBody',
+        'resourceNonWorkingDaysList': 'resourceNonWorkingDaysTableBody',
+    };
+    const tbodyId = tbodyMap[containerId];
+    if (!tbodyId) return [];
+
+    const entries = getNwdEntriesFromTable(tbodyId);
     const dates = [];
-    chips.forEach(chip => {
-        if (chip.dataset.date) dates.push(chip.dataset.date);
+    entries.forEach(e => {
+        if (e.start) dates.push(e.start);
+        // Note: for legacy compat, just return start dates
+        // The full range expansion happens in the backend
     });
     dates.sort();
     return dates;
-}
-
-/**
- * Add a project-wide non-working day from the date input.
- */
-function addNonWorkingDay() {
-    const input = document.getElementById('nonWorkingDayInput');
-    if (!input || !input.value) return;
-    renderNonWorkingDayChip(input.value, 'nonWorkingDaysList');
-    input.value = '';
-    autoSaveProjectDetails();
-}
-
-/**
- * Add a resource-level non-working day from the date input.
- */
-function addResourceNonWorkingDay() {
-    const input = document.getElementById('resourceNonWorkingDayInput');
-    if (!input || !input.value) return;
-    renderNonWorkingDayChip(input.value, 'resourceNonWorkingDaysList');
-    input.value = '';
-    autoSaveResource();
 }
 
 function addResourceRow(data = '') {
@@ -5228,10 +5541,10 @@ function saveProjectDetailsInternal(closeModal = true) {
     if (budget) frontMatter += `budget: ${budget}\n`;
     if (labelsInput) frontMatter += `labels: [${labelsInput}]\n`;
 
-    // Add non-working days from the form
-    const nonWorkingDays = getNonWorkingDaysFromContainer('nonWorkingDaysList');
-    if (nonWorkingDays.length > 0) {
-        frontMatter += `non-working-days: ${nonWorkingDays.join(', ')}\n`;
+    // Add non-working days from the exceptions table
+    const nwdFrontMatter = buildNwdFrontMatter('nonWorkingDaysTableBody');
+    if (nwdFrontMatter) {
+        frontMatter += nwdFrontMatter;
     }
 
     // Preserve existing Resources section from editor (don't overwrite)
@@ -8178,10 +8491,23 @@ function updateResourceSheet(tasks, frontMatter = {}) {
                 if (dateMatches) {
                     dateMatches.forEach(d => { if (!holidays.includes(d)) holidays.push(d); });
                 }
-                // Also handle array format
+                // Handle array format (new named entries list)
                 if (Array.isArray(frontMatter[fmKey])) {
                     frontMatter[fmKey].forEach(h => {
-                        if (typeof h === 'string' && !holidays.includes(h)) holidays.push(h);
+                        if (typeof h === 'string') {
+                            // Named entry: "Christmas: 2026-12-25:2026-12-26" or bare date
+                            const namedMatch = h.match(/^.+?:\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\s*$/);
+                            if (namedMatch) {
+                                const start = new Date(namedMatch[1] + 'T00:00:00');
+                                const end = namedMatch[2] ? new Date(namedMatch[2] + 'T00:00:00') : start;
+                                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                                    const ds = d.toISOString().slice(0, 10);
+                                    if (!holidays.includes(ds)) holidays.push(ds);
+                                }
+                            } else if (/^\d{4}-\d{2}-\d{2}$/.test(h.trim())) {
+                                if (!holidays.includes(h.trim())) holidays.push(h.trim());
+                            }
+                        }
                     });
                 }
             }
