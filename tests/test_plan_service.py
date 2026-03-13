@@ -309,6 +309,26 @@ class TestPlanServiceParse:
         result = service.parse(sample_plan)
         assert isinstance(result.baseline_items, list)
 
+    def test_baseline_tasks_not_in_parsed_tasks(self, service):
+        """Baseline tasks must not appear in the regular tasks list (#615)."""
+        plan_with_baseline = """Phase 1
+  Task A @john 3d
+  Task B @jane 2d
+
+---baseline---
+| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task A    | 2026-03-02 | 2026-03-05 | 3d       |
+| Task B    | 2026-03-02 | 2026-03-04 | 2d       |"""
+        result = service.parse(plan_with_baseline)
+        assert result.success
+        task_names = [t["name"] for t in result.tasks]
+        # Only the real tasks should be present (no duplicates from baseline)
+        assert task_names.count("Task A") == 1
+        assert task_names.count("Task B") == 1
+        # Baseline items should be returned separately
+        assert len(result.baseline_items) == 2
+
     def test_parse_failure_returns_partial(self, service):
         """An invalid plan still returns highlights and metadata."""
         # Use text that will cause a parsing error in the scheduling engine
