@@ -2951,14 +2951,13 @@ def _add_report_slide(prs, report_data, include_footer=True):
             img_data = base64.b64decode(timeline_image_b64)
             img_stream = io.BytesIO(img_data)
             tl_width = Inches(12.533)
-            max_tl_height = Inches(1.8)
+            max_tl_height = Inches(0.9)
             pic = slide.shapes.add_picture(
                 img_stream, Inches(0.4), Inches(1.05), width=tl_width
             )
             if pic.height > max_tl_height:
-                aspect = pic.width / pic.height
                 pic.height = max_tl_height
-                pic.width = int(max_tl_height * aspect)
+                pic.width = tl_width
             timeline_height_used = pic.height + Inches(0.15)
         except Exception:
             logger.warning("Failed to embed timeline image in PPTX report",
@@ -3505,9 +3504,8 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
                 img_stream, tl_left, tl_top, width=tl_width
             )
             if pic.height > max_tl_height:
-                aspect = pic.width / pic.height
                 pic.height = max_tl_height
-                pic.width = int(max_tl_height * aspect)
+                pic.width = tl_width
         except Exception:
             logger.warning("Failed to embed portfolio timeline image",
                            exc_info=True)
