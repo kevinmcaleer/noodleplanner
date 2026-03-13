@@ -1577,21 +1577,22 @@ function updateTasksTable(tasks) {
         idCell.textContent = task.id;
         row.appendChild(idCell);
 
-        // Task Name
+        // Task Name with context menu button
         const nameCell = document.createElement('td');
-        nameCell.classList.add('editable');
+        nameCell.classList.add('editable', 'task-name-cell');
         nameCell.dataset.field = 'name';
+        nameCell.style.position = 'relative';
         const indent = '  '.repeat(task.level);
+        const taskNameSpan = document.createElement('span');
+        taskNameSpan.classList.add('task-name-text');
+        taskNameSpan.style.whiteSpace = 'pre';
         if (task.is_summary) {
-            nameCell.style.fontFamily = "'Courier New', monospace";
-            nameCell.style.whiteSpace = 'pre';
-            nameCell.style.fontWeight = '600';
-            nameCell.textContent = indent + task.name;
-        } else {
-            nameCell.textContent = indent + task.name;
-            nameCell.style.fontFamily = "'Courier New', monospace";
-            nameCell.style.whiteSpace = 'pre';
+            taskNameSpan.style.fontWeight = '600';
         }
+        taskNameSpan.textContent = indent + task.name;
+        nameCell.appendChild(taskNameSpan);
+        const contextBtn = createTaskContextButton(task, index);
+        nameCell.appendChild(contextBtn);
         nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
         row.appendChild(nameCell);
 
@@ -1706,29 +1707,18 @@ function updateTasksTable(tasks) {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         row.appendChild(predCell);
 
-        // Actions column with context menu and inspect button
-        const actionsCell = document.createElement('td');
-        actionsCell.classList.add('task-actions-cell');
-        const contextBtn = createTaskContextButton(task, index);
-        actionsCell.appendChild(contextBtn);
-        if (!task.is_summary) {
-            const inspectBtn = document.createElement('button');
-            inspectBtn.className = 'task-inspect-btn';
-            inspectBtn.title = 'Inspect task';
-            inspectBtn.textContent = '🔍';
-            inspectBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openTaskInspectorByName(task.name);
-            });
-            actionsCell.appendChild(inspectBtn);
-        }
-        row.appendChild(actionsCell);
-
         // Click to open task
         row.style.cursor = 'pointer';
         row.addEventListener('click', (e) => {
-            if (e.target.closest('.editable') || e.target.closest('.gantt-done-cell') || e.target.closest('.task-actions-cell')) return;
+            if (e.target.closest('.editable') || e.target.closest('.gantt-done-cell') || e.target.closest('.task-context-btn')) return;
             openMilestoneTaskForm(task.name);
+        });
+
+        // Right-click context menu
+        row.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showTaskContextMenuAtPosition(e, task, index);
         });
 
         tbody.appendChild(row);

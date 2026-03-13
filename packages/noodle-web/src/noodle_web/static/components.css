@@ -1412,31 +1412,13 @@ body.detail-pane-open {
     background: #0d7aa3;
 }
 
-.task-actions-cell {
-    text-align: center;
-    padding: 2px 4px !important;
-    width: 56px;
-    white-space: nowrap;
+/* Task name cell layout */
+.task-name-cell {
+    position: relative;
 }
 
-.task-inspect-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 0.85em;
-    padding: 2px 4px;
-    border-radius: 4px;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-}
-
-tr:hover .task-inspect-btn {
-    opacity: 1;
-}
-
-.task-inspect-btn:hover {
-    background: rgba(16, 139, 185, 0.1);
-    opacity: 1;
+.task-name-text {
+    display: inline;
 }
 
 /* Task Context Menu */
@@ -1447,13 +1429,17 @@ tr:hover .task-inspect-btn {
     font-size: 1.1em;
     padding: 2px 6px;
     border-radius: 4px;
-    opacity: 0.4;
+    opacity: 0;
     transition: opacity 0.2s;
     color: #6c757d;
     line-height: 1;
     letter-spacing: 2px;
     min-width: 32px;
     min-height: 32px;
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 tr:hover .task-context-btn,
@@ -1477,6 +1463,32 @@ tr:hover .task-context-btn,
         min-width: 44px;
         min-height: 44px;
     }
+}
+
+/* Task form inspect button */
+.task-form-inspect-btn {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    cursor: pointer;
+    font-size: 0.85em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-right: 8px;
+    white-space: nowrap;
+    min-width: 44px;
+    min-height: 32px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.task-form-inspect-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.task-form-inspect-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
 }
 
 .task-context-menu {

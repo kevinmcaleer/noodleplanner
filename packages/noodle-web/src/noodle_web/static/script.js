@@ -1855,6 +1855,15 @@ function openTaskForm(lineNumber) {
     }
 }
 
+/**
+ * Open the task inspector for the task currently open in the task form.
+ */
+function openTaskInspectorFromForm() {
+    if (currentTaskLineNumber) {
+        openTaskInspector(currentTaskLineNumber);
+    }
+}
+
 function openMilestoneTaskForm(taskName) {
     // Switch to plan editor tab
     switchTab('editor');
@@ -1928,6 +1937,13 @@ function showTaskContextMenu(event, task, taskIndex) {
         openMilestoneTaskForm(task.name);
     }));
 
+    // Inspect Task (only for non-summary tasks)
+    if (!task.is_summary) {
+        items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
+            openTaskInspectorByName(task.name);
+        }));
+    }
+
     items.push(createContextMenuSeparator());
 
     // Promote (outdent)
@@ -1976,6 +1992,97 @@ function showTaskContextMenu(event, task, taskIndex) {
         top = window.innerHeight - menuRect.height - 8;
     }
     if (top < 0) top = 8;
+
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    // Focus the first menu item for keyboard navigation
+    const firstItem = menu.querySelector('button[role="menuitem"]');
+    if (firstItem) firstItem.focus();
+
+    // Keyboard navigation within the menu
+    menu.addEventListener('keydown', handleContextMenuKeydown);
+
+    // Close when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', closeTaskContextMenuOnOutsideClick);
+    }, 0);
+}
+
+/**
+ * Show the task context menu at a specific mouse position (for right-click).
+ */
+function showTaskContextMenuAtPosition(event, task, taskIndex) {
+    closeTaskContextMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'task-context-menu show';
+    menu.id = 'activeTaskContextMenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Task actions');
+
+    const items = [];
+
+    // Edit
+    items.push(createContextMenuItem('Edit', '\u270E', () => {
+        openMilestoneTaskForm(task.name);
+    }));
+
+    // Inspect Task (only for non-summary tasks)
+    if (!task.is_summary) {
+        items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
+            openTaskInspectorByName(task.name);
+        }));
+    }
+
+    items.push(createContextMenuSeparator());
+
+    // Promote (outdent)
+    items.push(createContextMenuItem('Promote (Outdent)', '\u2B05', () => {
+        promoteTask(task, taskIndex);
+    }));
+
+    // Demote (indent)
+    items.push(createContextMenuItem('Demote (Indent)', '\u27A1', () => {
+        demoteTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Insert Above
+    items.push(createContextMenuItem('Insert Task Above', '\u2795', () => {
+        insertTaskAbove(task, taskIndex);
+    }));
+
+    // Assign Resource
+    items.push(createContextMenuItem('Assign Resource', '\uD83D\uDC64', () => {
+        assignResourceToTask(task, taskIndex);
+    }));
+
+    items.push(createContextMenuSeparator());
+
+    // Set Completion (submenu)
+    const completionSubmenu = createCompletionSubmenu(task, taskIndex);
+    items.push(completionSubmenu);
+
+    items.forEach(item => menu.appendChild(item));
+
+    document.body.appendChild(menu);
+
+    // Position menu at cursor
+    let left = event.clientX;
+    let top = event.clientY;
+
+    // Ensure menu doesn't overflow the viewport
+    const menuRect = menu.getBoundingClientRect();
+    if (left + menuRect.width > window.innerWidth) {
+        left = window.innerWidth - menuRect.width - 8;
+    }
+    if (top + menuRect.height > window.innerHeight) {
+        top = window.innerHeight - menuRect.height - 8;
+    }
+    if (top < 0) top = 8;
+    if (left < 0) left = 8;
 
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';

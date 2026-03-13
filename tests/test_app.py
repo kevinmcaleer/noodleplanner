@@ -605,13 +605,13 @@ class TestStaticFiles:
         assert "task-context-btn" in js_content
 
     def test_views_gantt_js_context_menu_in_gantt_chart(self, client):
-        """Test that views-gantt.js adds context menu buttons to the gantt info table."""
+        """Test that views-gantt.js adds context menu buttons to the gantt name cell."""
         response = client.get("/static/views-gantt.js")
         assert response.status_code == 200
         js_content = response.text
-        # The renderGanttRows function should include context menu actions cell
-        assert "ganttActionsCell" in js_content
+        # The renderGanttRows function should include context menu button in name cell
         assert "ganttContextBtn" in js_content
+        assert "task-name-cell" in js_content
 
     def test_style_css_contains_task_context_menu_styles(self, client):
         """Test that component CSS contains the task context menu CSS classes."""

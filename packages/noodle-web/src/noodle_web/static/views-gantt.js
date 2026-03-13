@@ -513,11 +513,16 @@ function renderGanttRows() {
         idCell.textContent = task.id;
         infoRow.appendChild(idCell);
 
-        // Task Name cell (editable)
+        // Task Name cell (editable) with context menu button
         const nameCell = document.createElement('td');
-        nameCell.classList.add('editable');
+        nameCell.classList.add('editable', 'task-name-cell');
         nameCell.dataset.field = 'name';
+        nameCell.style.position = 'relative';
         const indent = '  '.repeat(task.level);
+
+        const ganttNameSpan = document.createElement('span');
+        ganttNameSpan.classList.add('task-name-text');
+        ganttNameSpan.style.whiteSpace = 'pre';
 
         // Add disclosure triangle for summary tasks
         if (task.is_summary) {
@@ -537,16 +542,18 @@ function renderGanttRows() {
                 }
                 renderGanttRows();
             });
-            nameCell.style.fontFamily = "'Courier New', monospace";
-            nameCell.style.whiteSpace = 'pre';
-            nameCell.appendChild(document.createTextNode(indent));
-            nameCell.appendChild(triangle);
-            nameCell.appendChild(document.createTextNode(' ' + task.name));
+            ganttNameSpan.style.fontWeight = '600';
+            ganttNameSpan.appendChild(document.createTextNode(indent));
+            ganttNameSpan.appendChild(triangle);
+            ganttNameSpan.appendChild(document.createTextNode(' ' + task.name));
         } else {
-            nameCell.textContent = indent + task.name;
-            nameCell.style.fontFamily = "'Courier New', monospace";
-            nameCell.style.whiteSpace = 'pre';
+            ganttNameSpan.textContent = indent + task.name;
         }
+        nameCell.appendChild(ganttNameSpan);
+
+        // Context menu button inside name cell
+        const ganttContextBtn = createTaskContextButton(task, index);
+        nameCell.appendChild(ganttContextBtn);
 
         nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
         infoRow.appendChild(nameCell);
@@ -651,12 +658,12 @@ function renderGanttRows() {
         predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
         infoRow.appendChild(predCell);
 
-        // Actions cell with context menu button
-        const ganttActionsCell = document.createElement('td');
-        ganttActionsCell.classList.add('task-actions-cell');
-        const ganttContextBtn = createTaskContextButton(task, index);
-        ganttActionsCell.appendChild(ganttContextBtn);
-        infoRow.appendChild(ganttActionsCell);
+        // Right-click context menu on gantt rows
+        infoRow.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showTaskContextMenuAtPosition(e, task, index);
+        });
 
         ganttInfoBody.appendChild(infoRow);
 

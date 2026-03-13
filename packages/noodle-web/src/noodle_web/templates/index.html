@@ -716,7 +716,6 @@ Press Enter to render..."></textarea>
                                                     <th>Bucket</th>
                                                     <th>Comment</th>
                                                     <th>Predecessors</th>
-                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="ganttInfoBody">
@@ -779,7 +778,6 @@ Press Enter to render..."></textarea>
                                                 <th>Bucket</th>
                                                 <th>Comment</th>
                                                 <th>Predecessors</th>
-                                                <th></th>
                                             </tr>
                                         </thead>
                                         <tbody id="tasksTableBody">
@@ -1897,6 +1895,7 @@ Build
         <div id="taskFormSection" class="detail-pane-section">
             <div class="detail-pane-header">
                 <div id="taskFormTitle" class="detail-pane-title" contenteditable="true" oninput="updateTaskNameFromTitle()">Task Name</div>
+                <button class="task-form-inspect-btn" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
                 <button class="close-btn" onclick="closeTaskForm()">&times;</button>
             </div>
             <div class="modal-body">
