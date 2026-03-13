@@ -2514,8 +2514,11 @@ svg.icon {
 
 /* Baseline columns in milestone table */
 .baseline-col {
-    color: #6c757d;
     font-style: italic;
+}
+
+.milestones-table td.baseline-col {
+    color: #6c757d;
 }
 
 .baseline-late {
