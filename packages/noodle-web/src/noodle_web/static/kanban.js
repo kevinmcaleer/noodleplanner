@@ -116,6 +116,8 @@ class KanbanBoard {
         inFrontMatter = false;
         let inHighlights = false;
         let inRaidLog = false;
+        let inBaseline = false;
+        let inBudget = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -147,14 +149,34 @@ class KanbanBoard {
                 continue;
             }
 
-            // Track and skip RAID log section (extends to end of file)
+            // Track and skip budget section
+            if (trimmedLine === '---budget---') {
+                inBudget = true;
+                continue;
+            }
+            if (inBudget && (trimmedLine === '---raid log---' || trimmedLine === '---baseline---')) {
+                inBudget = false;
+                // Fall through to handle the new section marker below
+            }
+
+            // Track and skip RAID log section (extends to baseline or end of file)
             if (trimmedLine === '---raid log---') {
                 inHighlights = false; // RAID log marker also ends highlights
                 inRaidLog = true;
                 continue;
             }
+            if (inRaidLog && trimmedLine === '---baseline---') {
+                inRaidLog = false;
+                // Fall through to handle baseline marker below
+            }
 
-            if (inHighlights || inRaidLog) {
+            // Track and skip baseline section (extends to end of file)
+            if (trimmedLine === '---baseline---') {
+                inBaseline = true;
+                continue;
+            }
+
+            if (inHighlights || inRaidLog || inBaseline || inBudget) {
                 continue;
             }
 
