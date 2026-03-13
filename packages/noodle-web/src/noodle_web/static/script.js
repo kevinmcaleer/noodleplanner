@@ -1855,12 +1855,25 @@ function openTaskForm(lineNumber) {
     }
 }
 
+/** Line number of the task currently shown in the inspector. */
+let currentInspectorLineNumber = null;
+
 /**
  * Open the task inspector for the task currently open in the task form.
  */
 function openTaskInspectorFromForm() {
     if (currentTaskLineNumber) {
         openTaskInspector(currentTaskLineNumber);
+    }
+}
+
+/**
+ * Open the task form for the task currently shown in the inspector.
+ */
+function editFromInspector() {
+    if (currentInspectorLineNumber) {
+        closeTaskInspector();
+        openTaskForm(currentInspectorLineNumber);
     }
 }
 
@@ -11666,6 +11679,7 @@ function formatInspectorDate(dateStr) {
  * Render the full Task Inspector content.
  */
 function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
+    currentInspectorLineNumber = lineNumber;
     const title = document.getElementById('inspectorTaskTitle');
     const body = document.getElementById('inspectorBody');
 
@@ -11807,8 +11821,7 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
         html += '</div>';
     }
 
-    // Edit button
-    html += '<button class="inspector-open-task-btn" onclick="closeTaskInspector(); openTaskForm(' + lineNumber + ');">Edit This Task</button>';
+    // Edit button is now in the inspector header — no inline button needed
 
     body.innerHTML = html;
 }

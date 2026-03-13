@@ -4426,8 +4426,8 @@ tr:hover .task-context-btn,
 
 /* Task form inspect button */
 .task-form-inspect-btn {
-    background: none;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: transparent;
+    border: 1px solid white;
     color: white;
     cursor: pointer;
     font-size: 0.85em;
