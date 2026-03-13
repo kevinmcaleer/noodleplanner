@@ -165,6 +165,117 @@ class TestParseResourceMappings:
         assert parser.parse_resource_mappings() == {}
 
 
+PLAN_WITH_NON_WORKING_DAYS = """\
+---
+title: Holiday Project
+non-working-days: 2026-12-25, 2026-12-26, 2027-01-01
+Resources:
+  - @alice: Alice Smith, Developer
+resource-non-working-days-alice: 2026-03-20, 2026-04-14
+---
+Phase 1
+  Task A 3d @alice
+"""
+
+PLAN_WITH_HOLIDAYS_KEY = """\
+---
+title: Legacy Holidays
+holidays: 2026-12-25, 2026-12-26
+---
+Phase 1
+  Task A 3d
+"""
+
+PLAN_WITH_BOTH_HOLIDAYS_AND_NWD = """\
+---
+title: Both Keys
+holidays: 2026-12-25
+non-working-days: 2027-01-01, 2026-12-26
+---
+Phase 1
+  Task A 3d
+"""
+
+PLAN_WITH_MULTIPLE_RESOURCE_NWD = """\
+---
+title: Multi Resource NWD
+Resources:
+  - @alice: Alice Smith, Developer
+  - @bob: Bob Jones, Tester
+resource-non-working-days-alice: 2026-03-20, 2026-04-14
+resource-non-working-days-bob: 2026-05-01
+---
+Phase 1
+  Task A 3d @alice
+  Task B 2d @bob
+"""
+
+
+class TestParseNonWorkingDays:
+    def test_parses_non_working_days(self):
+        from datetime import date
+        parser = FrontMatterParser(PLAN_WITH_NON_WORKING_DAYS)
+        nwd = parser.parse_non_working_days()
+        assert date(2026, 12, 25) in nwd
+        assert date(2026, 12, 26) in nwd
+        assert date(2027, 1, 1) in nwd
+        assert len(nwd) == 3
+
+    def test_parses_holidays_key(self):
+        from datetime import date
+        parser = FrontMatterParser(PLAN_WITH_HOLIDAYS_KEY)
+        nwd = parser.parse_non_working_days()
+        assert date(2026, 12, 25) in nwd
+        assert date(2026, 12, 26) in nwd
+        assert len(nwd) == 2
+
+    def test_merges_holidays_and_non_working_days(self):
+        from datetime import date
+        parser = FrontMatterParser(PLAN_WITH_BOTH_HOLIDAYS_AND_NWD)
+        nwd = parser.parse_non_working_days()
+        assert date(2026, 12, 25) in nwd
+        assert date(2026, 12, 26) in nwd
+        assert date(2027, 1, 1) in nwd
+        assert len(nwd) == 3
+
+    def test_returns_empty_set_without_non_working_days(self):
+        parser = FrontMatterParser(PLAN_WITH_TITLE_ONLY)
+        assert parser.parse_non_working_days() == set()
+
+    def test_returns_empty_set_without_front_matter(self):
+        parser = FrontMatterParser(PLAN_WITHOUT_FRONT_MATTER)
+        assert parser.parse_non_working_days() == set()
+
+
+class TestParseResourceNonWorkingDays:
+    def test_parses_resource_non_working_days(self):
+        from datetime import date
+        parser = FrontMatterParser(PLAN_WITH_NON_WORKING_DAYS)
+        rnwd = parser.parse_resource_non_working_days()
+        assert 'alice' in rnwd
+        assert date(2026, 3, 20) in rnwd['alice']
+        assert date(2026, 4, 14) in rnwd['alice']
+        assert len(rnwd['alice']) == 2
+
+    def test_parses_multiple_resources(self):
+        from datetime import date
+        parser = FrontMatterParser(PLAN_WITH_MULTIPLE_RESOURCE_NWD)
+        rnwd = parser.parse_resource_non_working_days()
+        assert 'alice' in rnwd
+        assert 'bob' in rnwd
+        assert len(rnwd['alice']) == 2
+        assert len(rnwd['bob']) == 1
+        assert date(2026, 5, 1) in rnwd['bob']
+
+    def test_returns_empty_dict_without_resource_nwd(self):
+        parser = FrontMatterParser(PLAN_WITH_TITLE_ONLY)
+        assert parser.parse_resource_non_working_days() == {}
+
+    def test_returns_empty_dict_without_front_matter(self):
+        parser = FrontMatterParser(PLAN_WITHOUT_FRONT_MATTER)
+        assert parser.parse_resource_non_working_days() == {}
+
+
 class TestParserReuse:
     """Verify that a single parser instance can serve all parsing needs."""
 

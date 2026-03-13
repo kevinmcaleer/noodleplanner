@@ -4788,6 +4788,52 @@ tr:hover .task-context-btn,
     font-size: 0.9em;
 }
 
+/* Non-working days list */
+.non-working-days-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.non-working-day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f0f4f8;
+    border: 1px solid #d0d7de;
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: #333;
+}
+
+.non-working-day-chip button {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    min-width: 20px;
+    min-height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.15s, color 0.15s;
+}
+
+.non-working-day-chip button:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.non-working-day-chip button:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
 /* Dependencies table in task form */
 .dependencies-table {
     border: 2px solid #e0e0e0;

@@ -1291,15 +1291,15 @@ function updateTimesheet(tasks, frontMatter = {}) {
             content.style.display = 'block';
         }
 
-        // Parse holidays from front matter
+        // Parse holidays and non-working days from front matter
         const holidays = [];
-        if (frontMatter.holidays) {
-            // Holidays can be a string or array in front matter
-            const holidayStr = typeof frontMatter.holidays === 'string' ? frontMatter.holidays : '';
-            // Parse dates in format like "2025-01-01, 2025-12-25" or YAML list format
-            const holidayMatches = holidayStr.match(/\d{4}-\d{2}-\d{2}/g);
-            if (holidayMatches) {
-                holidays.push(...holidayMatches);
+        for (const fmKey of ['holidays', 'non-working-days']) {
+            if (frontMatter[fmKey]) {
+                const val = typeof frontMatter[fmKey] === 'string' ? frontMatter[fmKey] : '';
+                const dateMatches = val.match(/\d{4}-\d{2}-\d{2}/g);
+                if (dateMatches) {
+                    dateMatches.forEach(d => { if (!holidays.includes(d)) holidays.push(d); });
+                }
             }
         }
 

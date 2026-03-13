@@ -2484,6 +2484,16 @@ Build
                         <small>Comma-separated labels for categorization</small>
                     </div>
 
+                    <div class="form-group">
+                        <label for="projectNonWorkingDays">Non-Working Days</label>
+                        <div id="nonWorkingDaysList" class="non-working-days-list" role="list" aria-label="Project non-working days"></div>
+                        <div class="non-working-days-add" style="display: flex; gap: 8px; align-items: center;">
+                            <input type="date" id="nonWorkingDayInput" aria-label="Add non-working day date">
+                            <button type="button" class="btn-secondary" onclick="addNonWorkingDay()" aria-label="Add non-working day" style="min-width: 44px; min-height: 44px;">+ Add</button>
+                        </div>
+                        <small>Bank holidays, public holidays, or other project-wide non-working days</small>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group" style="flex: 1;">
                             <label>Resources</label>
@@ -2591,6 +2601,16 @@ Build
                         <label for="resourceAllocation">Work Allocation %</label>
                         <input type="number" id="resourceAllocation" min="0" max="100" placeholder="e.g., 50" oninput="autoSaveResource()">
                         <small>Percentage of time allocated to this project (0-100%)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resourceNonWorkingDays">Non-Working Days</label>
+                        <div id="resourceNonWorkingDaysList" class="non-working-days-list" role="list" aria-label="Resource non-working days"></div>
+                        <div class="non-working-days-add" style="display: flex; gap: 8px; align-items: center;">
+                            <input type="date" id="resourceNonWorkingDayInput" aria-label="Add resource non-working day date">
+                            <button type="button" class="btn-secondary" onclick="addResourceNonWorkingDay()" aria-label="Add resource non-working day" style="min-width: 44px; min-height: 44px;">+ Add</button>
+                        </div>
+                        <small>Personal holidays, vacation, or other non-working days for this resource</small>
                     </div>
 
                     <div class="form-actions">

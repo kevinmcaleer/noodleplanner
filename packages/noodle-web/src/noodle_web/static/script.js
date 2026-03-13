@@ -4672,6 +4672,7 @@ function openResourceForm(existingShortname = null) {
     document.getElementById('resourceRole').value = '';
     document.getElementById('resourceEmail').value = '';
     document.getElementById('resourceAllocation').value = '';
+    document.getElementById('resourceNonWorkingDaysList').innerHTML = '';
 
     // If editing existing resource, populate form
     if (existingShortname) {
@@ -4739,6 +4740,21 @@ function populateResourceForm(shortname) {
                 if (parts[3] && parts[3].includes('%')) {
                     document.getElementById('resourceAllocation').value = parts[3].replace('%', '').trim();
                 }
+
+                // Parse resource-level non-working days from front matter
+                document.getElementById('resourceNonWorkingDaysList').innerHTML = '';
+                const nwdKey = `resource-non-working-days-${shortnameLC}`;
+                for (let fmLine of lines) {
+                    const fmMatch = fmLine.trim().match(/^([^:]+):\s*(.*)$/);
+                    if (fmMatch && fmMatch[1].trim().toLowerCase() === nwdKey) {
+                        const dateMatches = fmMatch[2].match(/\d{4}-\d{2}-\d{2}/g);
+                        if (dateMatches) {
+                            dateMatches.forEach(d => renderNonWorkingDayChip(d, 'resourceNonWorkingDaysList'));
+                        }
+                        break;
+                    }
+                }
+
                 console.log('Successfully populated form fields');
                 return; // Found and populated, exit early
             }
@@ -4859,6 +4875,35 @@ function saveResourceInternal(closeModal = true) {
         }
     }
 
+    // Save resource non-working days to front matter
+    const resourceNWD = getNonWorkingDaysFromContainer('resourceNonWorkingDaysList');
+    const nwdKeyName = `resource-non-working-days-${shortname.toLowerCase()}`;
+
+    // Remove any existing resource-non-working-days line for this resource
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const nwdMatch = lines[i].trim().match(/^resource-non-working-days-([^:]+):/i);
+        if (nwdMatch && nwdMatch[1].toLowerCase() === shortname.toLowerCase()) {
+            lines.splice(i, 1);
+            // Adjust indices if needed
+            if (i < frontMatterEnd) frontMatterEnd--;
+        }
+    }
+
+    // Insert new non-working days line before the closing --- if there are any dates
+    if (resourceNWD.length > 0) {
+        // Re-find frontMatterEnd since we may have removed lines
+        let newFMEnd = -1;
+        let inFM = false;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim() === '---') {
+                if (!inFM) { inFM = true; } else { newFMEnd = i; break; }
+            }
+        }
+        if (newFMEnd > 0) {
+            lines.splice(newFMEnd, 0, `${nwdKeyName}: ${resourceNWD.join(', ')}`);
+        }
+    }
+
     // Update editor
     editor.value = lines.join('\n');
     editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -4905,6 +4950,7 @@ function populateProjectDetailsFromFrontMatter() {
     document.getElementById('projectLabels').value = '';
     document.getElementById('resourcesList').innerHTML = '';
     document.getElementById('stakeholdersList').innerHTML = '';
+    document.getElementById('nonWorkingDaysList').innerHTML = '';
 
     let inResources = false;
     let inStakeholders = false;
@@ -4976,6 +5022,14 @@ function populateProjectDetailsFromFrontMatter() {
                         document.getElementById('projectLabels').value = value;
                     }
                     break;
+                case 'non-working-days':
+                case 'holidays':
+                    // Parse non-working days: 2026-12-25, 2026-12-26 format
+                    const dateMatches = value.match(/\d{4}-\d{2}-\d{2}/g);
+                    if (dateMatches) {
+                        dateMatches.forEach(d => renderNonWorkingDayChip(d, 'nonWorkingDaysList'));
+                    }
+                    break;
             }
         }
     }
@@ -4992,6 +5046,87 @@ function clearProjectDetailsForm() {
     document.getElementById('projectLabels').value = '';
     document.getElementById('resourcesList').innerHTML = '';
     document.getElementById('stakeholdersList').innerHTML = '';
+    document.getElementById('nonWorkingDaysList').innerHTML = '';
+}
+
+// --- Non-Working Days Functions ---
+
+/**
+ * Render a non-working day chip (date badge with remove button) into a container.
+ */
+function renderNonWorkingDayChip(dateStr, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Avoid duplicates
+    const existing = container.querySelectorAll('.non-working-day-chip');
+    for (const chip of existing) {
+        if (chip.dataset.date === dateStr) return;
+    }
+
+    const chip = document.createElement('span');
+    chip.className = 'non-working-day-chip';
+    chip.dataset.date = dateStr;
+    chip.setAttribute('role', 'listitem');
+
+    // Format date for display (e.g., "25 Dec 2026")
+    const d = new Date(dateStr + 'T00:00:00');
+    const displayDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    chip.textContent = displayDate;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.setAttribute('aria-label', `Remove ${displayDate}`);
+    removeBtn.onclick = function() {
+        chip.remove();
+        // Trigger auto-save depending on which container
+        if (containerId === 'nonWorkingDaysList') {
+            autoSaveProjectDetails();
+        } else if (containerId === 'resourceNonWorkingDaysList') {
+            autoSaveResource();
+        }
+    };
+
+    chip.appendChild(removeBtn);
+    container.appendChild(chip);
+}
+
+/**
+ * Get all non-working day dates from a container as a sorted array of date strings.
+ */
+function getNonWorkingDaysFromContainer(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    const chips = container.querySelectorAll('.non-working-day-chip');
+    const dates = [];
+    chips.forEach(chip => {
+        if (chip.dataset.date) dates.push(chip.dataset.date);
+    });
+    dates.sort();
+    return dates;
+}
+
+/**
+ * Add a project-wide non-working day from the date input.
+ */
+function addNonWorkingDay() {
+    const input = document.getElementById('nonWorkingDayInput');
+    if (!input || !input.value) return;
+    renderNonWorkingDayChip(input.value, 'nonWorkingDaysList');
+    input.value = '';
+    autoSaveProjectDetails();
+}
+
+/**
+ * Add a resource-level non-working day from the date input.
+ */
+function addResourceNonWorkingDay() {
+    const input = document.getElementById('resourceNonWorkingDayInput');
+    if (!input || !input.value) return;
+    renderNonWorkingDayChip(input.value, 'resourceNonWorkingDaysList');
+    input.value = '';
+    autoSaveResource();
 }
 
 function addResourceRow(data = '') {
@@ -5071,12 +5206,13 @@ function saveProjectDetailsInternal(closeModal = true) {
     const editor = document.getElementById('planEditor');
     let content = editor.value;
 
-    // Extract existing Resources, Key Stakeholders, Formatting, and Theme sections from current editor
-    // to preserve any changes made via resource form, conditional formatting, or kanban theme colours
+    // Extract existing Resources, Key Stakeholders, Formatting, Theme, and resource non-working days
+    // from current editor to preserve any changes made via resource form, conditional formatting, etc.
     const existingResourcesSection = extractFrontMatterSection(content, 'Resources');
     const existingStakeholdersSection = extractFrontMatterSection(content, 'Key Stakeholders');
     const existingFormattingSection = extractFrontMatterSection(content, 'Formatting');
     const existingThemeSection = extractFrontMatterSection(content, 'Theme');
+    const existingResourceNWDLines = extractResourceNonWorkingDayLines(content);
 
     // Collect form data
     const title = document.getElementById('projectTitle').value.trim();
@@ -5099,6 +5235,12 @@ function saveProjectDetailsInternal(closeModal = true) {
     if (budget) frontMatter += `budget: ${budget}\n`;
     if (labelsInput) frontMatter += `labels: [${labelsInput}]\n`;
 
+    // Add non-working days from the form
+    const nonWorkingDays = getNonWorkingDaysFromContainer('nonWorkingDaysList');
+    if (nonWorkingDays.length > 0) {
+        frontMatter += `non-working-days: ${nonWorkingDays.join(', ')}\n`;
+    }
+
     // Preserve existing Resources section from editor (don't overwrite)
     if (existingResourcesSection) {
         frontMatter += existingResourcesSection;
@@ -5117,6 +5259,11 @@ function saveProjectDetailsInternal(closeModal = true) {
     // Preserve existing Theme section from editor (don't overwrite kanban theme colours)
     if (existingThemeSection) {
         frontMatter += existingThemeSection;
+    }
+
+    // Preserve resource-level non-working days lines
+    if (existingResourceNWDLines) {
+        frontMatter += existingResourceNWDLines;
     }
 
     frontMatter += '---\n';
@@ -5178,6 +5325,26 @@ function extractFrontMatterSection(content, sectionName) {
     }
 
     return sectionLines.length > 0 ? sectionLines.join('\n') + '\n' : null;
+}
+
+/**
+ * Extract all resource-non-working-days-* lines from front matter.
+ * Returns a string of all matching lines joined with newlines, or null.
+ */
+function extractResourceNonWorkingDayLines(content) {
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!frontMatterMatch) return null;
+
+    const lines = frontMatterMatch[1].split('\n');
+    const nwdLines = [];
+
+    for (const line of lines) {
+        if (line.trim().match(/^resource-non-working-days-/i)) {
+            nwdLines.push(line);
+        }
+    }
+
+    return nwdLines.length > 0 ? nwdLines.join('\n') + '\n' : null;
 }
 
 /**
@@ -8034,13 +8201,22 @@ function updateResourceSheet(tasks, frontMatter = {}) {
             return;
         }
 
-        // Parse holidays from front matter
+        // Parse holidays and non-working days from front matter
         const holidays = [];
-        if (frontMatter.holidays) {
-            const holidayList = Array.isArray(frontMatter.holidays) ? frontMatter.holidays : [frontMatter.holidays];
-            holidayList.forEach(h => {
-                if (typeof h === 'string') holidays.push(h);
-            });
+        for (const fmKey of ['holidays', 'non-working-days']) {
+            if (frontMatter[fmKey]) {
+                const val = typeof frontMatter[fmKey] === 'string' ? frontMatter[fmKey] : '';
+                const dateMatches = val.match(/\d{4}-\d{2}-\d{2}/g);
+                if (dateMatches) {
+                    dateMatches.forEach(d => { if (!holidays.includes(d)) holidays.push(d); });
+                }
+                // Also handle array format
+                if (Array.isArray(frontMatter[fmKey])) {
+                    frontMatter[fmKey].forEach(h => {
+                        if (typeof h === 'string' && !holidays.includes(h)) holidays.push(h);
+                    });
+                }
+            }
         }
 
         // Determine date range

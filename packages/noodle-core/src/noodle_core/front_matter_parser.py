@@ -145,3 +145,59 @@ class FrontMatterParser:
         Returns a dict mapping short names to full names.
         """
         return parse_resource_mappings(self._plan_text)
+
+    def parse_non_working_days(self) -> set:
+        """Parse project-wide non-working days from front matter.
+
+        Looks for 'non-working-days' or 'holidays' key with comma-separated
+        dates in YYYY-MM-DD format.
+
+        Returns a set of datetime.date objects.
+        """
+        from datetime import datetime as _dt
+
+        key_values = self.parse_key_values()
+        dates = set()
+
+        for key in ('non-working-days', 'holidays'):
+            value = key_values.get(key, '')
+            if value:
+                date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', value)
+                for date_str in date_matches:
+                    try:
+                        dates.add(_dt.strptime(date_str, '%Y-%m-%d').date())
+                    except ValueError:
+                        logger.warning(f"Invalid date in {key}: {date_str}")
+
+        return dates
+
+    def parse_resource_non_working_days(self) -> dict:
+        """Parse resource-level non-working days from front matter.
+
+        Looks for 'resource-non-working-days-<shortname>' keys with
+        comma-separated dates in YYYY-MM-DD format.
+
+        Returns a dict mapping lowercase shortnames to sets of datetime.date objects.
+        """
+        from datetime import datetime as _dt
+
+        key_values = self.parse_key_values()
+        resource_nwd = {}
+
+        for key, value in key_values.items():
+            if key.startswith('resource-non-working-days-'):
+                shortname = key[len('resource-non-working-days-'):]
+                if shortname and value:
+                    dates = set()
+                    date_matches = re.findall(r'\d{4}-\d{2}-\d{2}', value)
+                    for date_str in date_matches:
+                        try:
+                            dates.add(_dt.strptime(date_str, '%Y-%m-%d').date())
+                        except ValueError:
+                            logger.warning(
+                                f"Invalid date in resource-non-working-days-{shortname}: {date_str}"
+                            )
+                    if dates:
+                        resource_nwd[shortname] = dates
+
+        return resource_nwd
