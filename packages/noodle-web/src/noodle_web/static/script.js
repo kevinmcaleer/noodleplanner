@@ -1228,6 +1228,11 @@ async function updateAllViews(planText, projectName) {
         // Sync front matter title to stored project name.
         syncFrontMatterTitle(result, callerProjectId);
 
+        // Apply theme from front matter if specified (#595)
+        if (typeof applyThemeFromFrontMatter === 'function') {
+            try { applyThemeFromFrontMatter(result.front_matter); } catch (e) { console.error('Theme sync error:', e); }
+        }
+
         // Each view update is wrapped in try/catch so one failure does not
         // prevent the remaining views from updating (JS-6, issue #567).
         const viewUpdates = [
