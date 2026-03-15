@@ -21,6 +21,19 @@
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
+
+    <!-- Apply saved theme immediately to prevent flash of wrong theme -->
+    <script>
+    (function() {
+        var choice = localStorage.getItem('np-theme-choice') || 'light';
+        var theme = choice;
+        if (choice === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+    </script>
     <link rel="stylesheet" href="/static/animations.css?v={{ v }}">
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
@@ -173,7 +186,34 @@
                 <button class="tab" id="resourcesTab" onclick="switchToResources()">
                     Resources
                 </button>
-                <!-- Templates and Import/Export are accessible via the editor toolbar and export menu -->
+                <!-- Theme toggle -->
+                <div class="theme-toggle-wrapper" style="margin-left: auto; position: relative;">
+                    <button class="theme-toggle-btn" id="themeToggleBtn"
+                            onclick="toggleThemeMenu(event)"
+                            aria-haspopup="true" aria-expanded="false"
+                            aria-controls="themeMenu"
+                            aria-label="Change colour theme"
+                            title="Change colour theme">
+                        <i class="bi bi-sun-fill" id="themeIcon"></i>
+                    </button>
+                    <div class="theme-menu" id="themeMenu" role="menu" aria-label="Theme options">
+                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
+                             data-theme-choice="light" onclick="setThemeChoice('light')">
+                            <i class="bi bi-sun-fill"></i> Light
+                            <span class="theme-check" aria-hidden="true"></span>
+                        </div>
+                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
+                             data-theme-choice="dark" onclick="setThemeChoice('dark')">
+                            <i class="bi bi-moon-fill"></i> Dark
+                            <span class="theme-check" aria-hidden="true"></span>
+                        </div>
+                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
+                             data-theme-choice="system" onclick="setThemeChoice('system')">
+                            <i class="bi bi-display"></i> System
+                            <span class="theme-check" aria-hidden="true"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Plan Sub-Navigation Bar (shared across all Plan views) -->
@@ -2903,6 +2943,7 @@ Build
     <!-- Custom JavaScript -->
     <script src="/static/noodlesheet.js?v={{ v }}"></script>
     <script src="/static/state.js?v={{ v }}"></script>
+    <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>

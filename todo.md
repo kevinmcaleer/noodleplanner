@@ -2,6 +2,20 @@
 
 ## In Progress
 
+### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
+- [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)
+- [x] Add theme toggle button (sun/moon icon) to nav bar with dropdown (Light/Dark/System)
+- [x] Create `theme.js` module: toggle, localStorage, prefers-color-scheme listener, front matter sync
+- [x] Add FOUC-prevention inline script in `<head>` to apply theme before render
+- [x] Hook `applyThemeFromFrontMatter()` into `updateAllViews()` in script.js
+- [x] Theme persisted in localStorage (`np-theme-choice`) and plan front matter (`theme: dark|light|system`)
+- [x] Full ARIA support: `aria-label`, `aria-haspopup`, `aria-expanded`, keyboard navigation (ArrowUp/Down, Escape)
+- [x] 44x44px minimum touch target, focus-visible outline (#108BB9)
+- [x] Write 26 tests in `test_dark_mode.py` covering assets, accessibility, front matter parsing, CSS tokens, JS
+- [x] All tests passing
+- [x] Update `design/epic.md` with Dark Mode documentation
+- [x] Update `todo.md` with progress
+
 ### Bug Hunt: Reproduce, Localize, Fix, Prove - IN PROGRESS
 - [x] Inspect repo scripts and test configuration
 - [x] Reproduce current failing test/lint/build issue

@@ -1146,3 +1146,36 @@ A three-dot (`...`) context menu on every task row in both the Tasks table and t
 | `assignResourceToTask()` | `script.js` | Prompt for and apply a resource assignment |
 | `setTaskCompletion()` | `script.js` | Set a task's completion percentage |
 | `findTaskLineNumber()` | `script.js` | Look up a task's line number in the editor by name |
+
+---
+
+## Dark Mode (Issue #595)
+
+### Overview
+Noodle Planner supports light and dark colour themes, toggled via a button in the main navigation bar. The preference can also be stored in the plan front matter so that a project always opens in the author's preferred mode.
+
+### Theme Options
+- **Light** (default): Standard light colour scheme
+- **Dark**: Dark background with light text, reduced eye strain in low-light environments
+- **System**: Follows the browser/OS `prefers-color-scheme` setting automatically
+
+### How It Works
+
+1. **CSS Variable Architecture**: `dark-mode.css` defines semantic colour tokens (e.g. `--np-bg`, `--np-text`, `--np-surface`) on `:root` for light mode and overrides them under `[data-theme="dark"]` for dark mode. All UI components reference these tokens.
+
+2. **Toggle Button**: A sun/moon icon button is placed in the top navigation bar with a dropdown menu offering Light, Dark, and System options. The button meets the 44x44px minimum touch target, has `aria-label`, `aria-haspopup`, and full keyboard navigation (ArrowUp/Down, Enter, Escape).
+
+3. **Persistence**: The chosen theme is saved to `localStorage` under the key `np-theme-choice`. A FOUC-prevention inline script in `<head>` applies the saved theme before the page renders.
+
+4. **Front Matter Sync**: When the user changes theme, it writes `theme: light|dark|system` into the plan's YAML front matter. When a plan is parsed, the theme value from front matter is read and applied. This means each project can have its own theme preference.
+
+5. **System Mode**: When set to "System", the app listens to `matchMedia('(prefers-color-scheme: dark)')` change events and updates in real time when the OS theme changes.
+
+### Files
+| File | Purpose |
+|------|---------|
+| `static/dark-mode.css` | Semantic colour tokens, dark theme overrides, toggle button and menu styles |
+| `static/theme.js` | Theme initialisation, toggle logic, localStorage persistence, front matter sync, keyboard navigation |
+| `templates/index.html` | Theme toggle button in nav bar, FOUC-prevention script, CSS/JS loading |
+| `static/script.js` | Calls `applyThemeFromFrontMatter()` during `updateAllViews()` |
+| `tests/test_dark_mode.py` | 26 tests covering assets, accessibility, front matter parsing, CSS tokens, and JS functions |
