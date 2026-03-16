@@ -15,6 +15,7 @@
  */
 function collectOpenRisksAndIssues(parsedProjects, typeFilter) {
     const items = [];
+    const seen = new Set();
 
     parsedProjects.forEach(({ project, parsedResult }) => {
         if (!parsedResult) return;
@@ -34,6 +35,13 @@ function collectOpenRisksAndIssues(parsedProjects, typeFilter) {
             // Skip closed items
             if (item.status && item.status.toLowerCase() === 'closed') return;
 
+            // Deduplicate by project, type, and title to prevent the
+            // same risk from appearing multiple times.
+            const title = item.title || item.description || '-';
+            const dedupKey = project.id + '|' + itemType + '|' + title;
+            if (seen.has(dedupKey)) return;
+            seen.add(dedupKey);
+
             // Use the backend's pre-calculated values directly
             const impact = item.impact != null ? item.impact : 0;
             const likelihood = item.likelihood != null ? item.likelihood : 0;
@@ -44,7 +52,7 @@ function collectOpenRisksAndIssues(parsedProjects, typeFilter) {
                 projectName: project.name,
                 raidItemId: item.id,
                 type: itemType,
-                title: item.title || item.description || '-',
+                title: title,
                 description: item.description || '',
                 owner: item.owner || '-',
                 impact: impact,

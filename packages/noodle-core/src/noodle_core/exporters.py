@@ -1866,12 +1866,23 @@ def _add_portfolio_overview_slide(prs, portfolio_data):
 def _collect_portfolio_risks(project_reports):
     """Collect Medium and High open risks/issues across all projects."""
     risks = []
+    seen = set()
     for report in project_reports:
         project_name = report.get('project_name', '')
         for item in report.get('risks_issues', []):
             score = item.get('score', 0)
             if score < 6:
                 continue
+            # Deduplicate by project, type, and title to prevent the
+            # same risk from appearing multiple times.
+            dedup_key = (
+                project_name,
+                item.get('type', ''),
+                item.get('title', ''),
+            )
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
             rag = 'red' if score >= 16 else 'amber'
             risks.append({
                 'project_name': project_name,

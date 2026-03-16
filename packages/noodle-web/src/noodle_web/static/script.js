@@ -7465,12 +7465,15 @@ function extractRaidLogFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Stop at baseline section if present
-    const blIdx = planText.indexOf(BASELINE_START, afterMarker);
-    if (blIdx !== -1) {
-        return planText.substring(afterMarker, blIdx).trim();
+    // Stop at the next section marker (budget or baseline) if present
+    let endIdx = planText.length;
+    for (const sectionMarker of [BUDGET_START, BASELINE_START]) {
+        const mIdx = planText.indexOf(sectionMarker, afterMarker);
+        if (mIdx !== -1 && mIdx < endIdx) {
+            endIdx = mIdx;
+        }
     }
-    return planText.substring(afterMarker).trim();
+    return planText.substring(afterMarker, endIdx).trim();
 }
 
 /**
