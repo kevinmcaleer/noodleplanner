@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
 
     <!-- Apply saved theme immediately to prevent flash of wrong theme -->
@@ -2740,6 +2741,7 @@ Build
     <!-- Custom JavaScript -->
     <script src="/static/noodlesheet.js?v={{ v }}"></script>
     <script src="/static/state.js?v={{ v }}"></script>
+    <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
@@ -2871,5 +2873,21 @@ Build
             </div>
         </div>
     </div>
+    <!-- Status Bar -->
+    <div class="status-bar" role="status" aria-label="Project status bar">
+        <div class="status-bar-left">
+            <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project" aria-label="Select project"></select>
+            <span class="status-bar-rag" id="statusBarRAG" title="Project RAG status" aria-label="Project RAG status"></span>
+            <span class="status-bar-separator"></span>
+        </div>
+        <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
+        <div class="status-bar-right">
+            <button class="status-bar-btn" onclick="openProjectDetailsForm()" title="Project Details" aria-label="Open project details">
+                <i class="bi bi-clipboard-data"></i>
+                <span class="status-bar-btn-label">Details</span>
+            </button>
+        </div>
+    </div>
+
 </body>
 </html>

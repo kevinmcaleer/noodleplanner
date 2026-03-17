@@ -1,0 +1,180 @@
+/* ========================================
+   Status Bar — fixed bottom bar
+   ======================================== */
+
+.status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 36px;
+    min-height: 36px;
+    background: var(--np-bg, #ffffff);
+    border-top: 1px solid var(--np-border, #e0e0e0);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 10px;
+    z-index: 1050;
+    font-size: 0.82em;
+    color: var(--np-text-secondary, #666666);
+}
+
+/* Left section: project selector + RAG dot + project name */
+.status-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.status-bar .project-selector-dropdown {
+    padding: 4px 8px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 4px;
+    background: var(--np-input-bg, #ffffff);
+    color: var(--np-text, #333333);
+    font-size: 0.92em;
+    cursor: pointer;
+    max-width: 200px;
+    min-height: 28px;
+    transition: border-color 0.15s ease;
+}
+
+.status-bar .project-selector-dropdown:hover {
+    border-color: var(--np-accent, #667eea);
+}
+
+.status-bar .project-selector-dropdown:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+/* RAG indicator dot */
+.status-bar-rag {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-bar-rag.rag-green  { background: #388e3c; }
+.status-bar-rag.rag-amber  { background: #f57c00; }
+.status-bar-rag.rag-red    { background: #d32f2f; }
+.status-bar-rag.rag-blue   { background: #1976d2; }
+
+/* Separator */
+.status-bar-separator {
+    width: 1px;
+    height: 18px;
+    background: var(--np-border, #e0e0e0);
+    flex-shrink: 0;
+}
+
+/* Centre section: status message */
+.status-bar-centre {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--np-text-muted, #888888);
+}
+
+/* Right section: project details button */
+.status-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.status-bar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 28px;
+    padding: 2px 10px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 4px;
+    background: var(--np-input-bg, #ffffff);
+    color: var(--np-text, #333333);
+    cursor: pointer;
+    font-size: 0.92em;
+    gap: 4px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+
+.status-bar-btn:hover {
+    border-color: var(--np-accent, #667eea);
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.status-bar-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+/* Ensure main content doesn't hide behind status bar */
+body {
+    padding-bottom: 36px;
+}
+
+/* ========================================
+   Responsive: tablet (768px)
+   ======================================== */
+@media (max-width: 768px) {
+    .status-bar {
+        height: auto;
+        min-height: 44px;
+        flex-wrap: wrap;
+        padding: 4px 8px;
+        gap: 4px;
+    }
+
+    .status-bar-left {
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .status-bar-centre {
+        order: 3;
+        flex-basis: 100%;
+        text-align: left;
+        padding: 2px 0;
+    }
+
+    .status-bar-right {
+        order: 2;
+        flex-shrink: 0;
+    }
+
+    .status-bar .project-selector-dropdown {
+        min-height: 44px;
+    }
+
+    .status-bar-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* ========================================
+   Responsive: mobile (480px)
+   ======================================== */
+@media (max-width: 480px) {
+    .status-bar .project-selector-dropdown {
+        max-width: 140px;
+    }
+
+    .status-bar-btn .status-bar-btn-label {
+        display: none;
+    }
+}
