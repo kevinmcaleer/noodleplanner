@@ -32,6 +32,7 @@ document.addEventListener('click', function(e) {
     const importExportBtn = document.getElementById('importExportBtn');
     if (importExportMenu && !importExportMenu.contains(e.target) && (!importExportBtn || !importExportBtn.contains(e.target))) {
         importExportMenu.classList.remove('show');
+        if (importExportBtn) importExportBtn.setAttribute('aria-expanded', 'false');
     }
 });
 
@@ -77,7 +78,13 @@ function toggleToolsMenu(event) {
 function toggleImportExportMenu(event) {
     event.stopPropagation();
     const menu = document.getElementById('importExportMenu');
-    if (menu) menu.classList.toggle('show');
+    const btn = document.getElementById('importExportBtn');
+    if (menu) {
+        menu.classList.toggle('show');
+        if (btn) {
+            btn.setAttribute('aria-expanded', menu.classList.contains('show') ? 'true' : 'false');
+        }
+    }
 }
 
 // Templates Modal Functions
