@@ -152,8 +152,6 @@ let highlightsData = [];
 // Actions state
 let actionsSortColumn = 'id';
 let actionsSortAsc = true;
-let actionsCurrentMonth = new Date();
-let draggedAction = null;
 
 // Keyboard shortcut state
 let pendingGoKey = false;

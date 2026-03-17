@@ -1587,22 +1587,6 @@ Build
             <!-- Actions Tracker Tab -->
             <div id="actions-tab" class="tab-content">
                 <div class="actions-container">
-                    <!-- View Selector (matching Plan sub-nav style) -->
-                    <div class="plan-subnav visible">
-                        <button class="plan-subnav-btn active" data-view="tasks" onclick="switchActionsView('tasks')" id="actionsTasksViewTab">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
-                        </button>
-                        <button class="plan-subnav-btn" data-view="gantt" onclick="switchActionsView('gantt')" id="actionsGanttViewTab">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
-                        </button>
-                        <button class="plan-subnav-btn" data-view="board" onclick="switchActionsView('board')" id="actionsBoardViewTab">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Board
-                        </button>
-                        <button class="plan-subnav-btn" data-view="calendar" onclick="switchActionsView('calendar')" id="actionsCalendarViewTab">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Calendar
-                        </button>
-                    </div>
-
                     <!-- Tasks View -->
                     <div id="actionsTasksView" class="actions-view active">
                         <!-- Toolbar -->
@@ -1662,58 +1646,6 @@ Build
                         </div>
                     </div>
 
-                    <!-- Gantt View -->
-                    <div id="actionsGanttView" class="actions-view">
-                        <div class="actions-gantt-wrapper">
-                            <div class="actions-gantt-toolbar">
-                                <h2>Actions Gantt Chart</h2>
-                            </div>
-                            <div class="actions-gantt-container" id="actionsGanttContainer">
-                                <div class="actions-gantt-empty-state">
-                                    <h3>Actions Timeline</h3>
-                                    <p>Actions with target dates will appear here as a timeline.</p>
-                                    <p>Click <strong>"+ Add Action"</strong> to get started.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Board View -->
-                    <div id="actionsBoardView" class="actions-view">
-                        <div class="actions-board">
-                            <div class="actions-board-column">
-                                <h3 class="actions-board-column-title">
-                                    <span class="actions-board-column-icon">📋</span>
-                                    Open
-                                    <span class="actions-board-count" id="actionsOpenCount">0</span>
-                                </h3>
-                                <div class="actions-board-cards" id="actionsOpenCards" data-status="open">
-                                </div>
-                            </div>
-                            <div class="actions-board-column">
-                                <h3 class="actions-board-column-title">
-                                    <span class="actions-board-column-icon">✅</span>
-                                    Closed
-                                    <span class="actions-board-count" id="actionsClosedCount">0</span>
-                                </h3>
-                                <div class="actions-board-cards" id="actionsClosedCards" data-status="closed">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Calendar View -->
-                    <div id="actionsCalendarView" class="actions-view">
-                        <div class="actions-calendar">
-                            <div class="actions-calendar-header">
-                                <button class="actions-calendar-nav" onclick="changeActionsMonth(-1)">‹</button>
-                                <h3 id="actionsCalendarTitle"></h3>
-                                <button class="actions-calendar-nav" onclick="changeActionsMonth(1)">›</button>
-                            </div>
-                            <div class="actions-calendar-grid" id="actionsCalendarGrid">
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 

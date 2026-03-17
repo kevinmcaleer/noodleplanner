@@ -6812,9 +6812,6 @@ function loadRaidItemsFromData(items) {
 
         // Update action tracker views with actions from RAID log
         renderActionsTable();
-        renderActionsBoard();
-        renderActionsCalendar();
-        renderActionsGantt();
         updateReportActions();
         updateResourceFilter();
     } catch (error) {
@@ -11901,8 +11898,6 @@ function clearActionsEntries() {
     // Remove all action-type items from raidItems
     raidItems = raidItems.filter(item => item.type !== 'action');
     renderActionsTable();
-    renderActionsBoard();
-    renderActionsCalendar();
     renderRaidTable(); // Update RAID table as well
     console.log('Cleared actions entries');
 }
@@ -12008,9 +12003,6 @@ function saveActionFromForm() {
 
     closeActionForm();
     renderActionsTable();
-    renderActionsBoard();
-    renderActionsCalendar();
-    renderActionsGantt();
     updateReportActions();
     updateResourceFilter();
     renderRaidTable(); // Update RAID table as well
@@ -12024,9 +12016,6 @@ function deleteAction(id) {
     if (!confirm('Are you sure you want to delete this action?')) return;
     raidItems = raidItems.filter(i => !(i.id === id && i.type === 'action'));
     renderActionsTable();
-    renderActionsBoard();
-    renderActionsCalendar();
-    renderActionsGantt();
     updateReportActions();
     updateResourceFilter();
     renderRaidTable(); // Update RAID table as well
@@ -12144,278 +12133,6 @@ function updateActionsSortIndicators() {
             }
         }
     });
-}
-
-/**
- * Switch actions view (tasks/board/calendar)
- */
-function switchActionsView(view) {
-    // Update sub-nav buttons (using plan-subnav-btn class to match Plan navigation)
-    const actionsContainer = document.getElementById('actions-tab');
-    if (actionsContainer) {
-        actionsContainer.querySelectorAll('.plan-subnav-btn').forEach(btn => btn.classList.remove('active'));
-        const viewTab = document.getElementById('actions' + view.charAt(0).toUpperCase() + view.slice(1) + 'ViewTab');
-        if (viewTab) viewTab.classList.add('active');
-    }
-
-    // Update view content
-    document.querySelectorAll('.actions-view').forEach(v => v.classList.remove('active'));
-    const viewContent = document.getElementById('actions' + view.charAt(0).toUpperCase() + view.slice(1) + 'View');
-    if (viewContent) viewContent.classList.add('active');
-
-    // Render appropriate view
-    if (view === 'gantt') {
-        renderActionsGantt();
-    } else if (view === 'board') {
-        renderActionsBoard();
-    } else if (view === 'calendar') {
-        renderActionsCalendar();
-    }
-}
-
-/**
- * Render actions board view (Kanban)
- */
-function renderActionsBoard() {
-    const openCards = document.getElementById('actionsOpenCards');
-    const closedCards = document.getElementById('actionsClosedCards');
-    const openCount = document.getElementById('actionsOpenCount');
-    const closedCount = document.getElementById('actionsClosedCount');
-
-    if (!openCards || !closedCards) return;
-
-    openCards.innerHTML = '';
-    closedCards.innerHTML = '';
-
-    const actionItems = getActionItems();
-    const openActions = actionItems.filter(a => a.status === 'open');
-    const closedActions = actionItems.filter(a => a.status === 'closed');
-
-    openCount.textContent = openActions.length;
-    closedCount.textContent = closedActions.length;
-
-    openActions.forEach(action => {
-        openCards.appendChild(createActionCard(action));
-    });
-
-    closedActions.forEach(action => {
-        closedCards.appendChild(createActionCard(action));
-    });
-
-    // Enable drag and drop
-    enableActionsBoardDragDrop();
-}
-
-/**
- * Render actions gantt view
- */
-function renderActionsGantt() {
-    const container = document.getElementById('actionsGanttContainer');
-    const emptyState = container ? container.querySelector('.actions-gantt-empty-state') : null;
-
-    if (!container) return;
-
-    const actionItems = getActionItems();
-    const actionsWithDates = actionItems.filter(a => {
-        const targetDate = a.target_date || a.date;
-        return targetDate && targetDate.trim() !== '';
-    });
-
-    if (actionsWithDates.length === 0) {
-        if (emptyState) emptyState.style.display = 'block';
-        return;
-    }
-
-    if (emptyState) emptyState.style.display = 'none';
-
-    // Sort actions by target date
-    actionsWithDates.sort((a, b) => {
-        const dateA = new Date(a.target_date || a.date || '9999-12-31');
-        const dateB = new Date(b.target_date || b.date || '9999-12-31');
-        return dateA - dateB;
-    });
-
-    // Create simple timeline view
-    let html = '<div class="actions-gantt-timeline">';
-    html += '<table class="actions-table" style="margin-top: 20px;">';
-    html += '<thead><tr>';
-    html += '<th>Action</th><th>Owner</th><th>Priority</th><th>Target Date</th><th>Status</th>';
-    html += '</tr></thead><tbody>';
-
-    actionsWithDates.forEach(action => {
-        const priorityClass = 'actions-priority-' + (action.priority || 'medium');
-        const statusClass = 'actions-status-' + (action.status || 'open');
-        const targetDate = action.target_date || action.date || '';
-
-        html += '<tr onclick="openActionForm(' + action.id + ')" style="cursor: pointer;">';
-        html += '<td>' + escapeHtml(action.title || '') + '</td>';
-        html += '<td>' + escapeHtml(action.owner || '') + '</td>';
-        html += '<td><span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span></td>';
-        html += '<td>' + targetDate + '</td>';
-        html += '<td><span class="actions-status-badge ' + statusClass + '">' + (action.status || 'open') + '</span></td>';
-        html += '</tr>';
-    });
-
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-}
-
-/**
- * Create action card element
- */
-function createActionCard(action) {
-    const card = document.createElement('div');
-    card.className = 'actions-board-card';
-    card.draggable = true;
-    card.dataset.actionId = action.id;
-
-    const priorityClass = 'actions-priority-' + (action.priority || 'medium');
-    const description = action.description || action.mitigation_actions || '';
-    const targetDate = action.target_date || action.date || '';
-
-    card.innerHTML = '<div class="actions-card-header">' +
-        '<span class="actions-priority-badge ' + priorityClass + '">' + (action.priority || 'medium') + '</span>' +
-        '<button class="actions-card-menu" onclick="openActionForm(' + action.id + ')">✏️</button>' +
-        '</div>' +
-        '<div class="actions-card-title">' + escapeHtml(action.title || '') + '</div>' +
-        (description ? '<div class="actions-card-description">' + escapeHtml(description) + '</div>' : '') +
-        '<div class="actions-card-footer">' +
-        (action.owner ? '<span class="actions-card-owner">👤 ' + escapeHtml(action.owner) + '</span>' : '') +
-        (targetDate ? '<span class="actions-card-date">📅 ' + targetDate + '</span>' : '') +
-        '</div>';
-
-    return card;
-}
-
-/**
- * Enable drag and drop for actions board
- */
-function enableActionsBoardDragDrop() {
-    const cards = document.querySelectorAll('.actions-board-card');
-    const columns = document.querySelectorAll('.actions-board-cards');
-
-    cards.forEach(card => {
-        card.addEventListener('dragstart', handleActionDragStart);
-        card.addEventListener('dragend', handleActionDragEnd);
-    });
-
-    columns.forEach(column => {
-        column.addEventListener('dragover', handleActionDragOver);
-        column.addEventListener('drop', handleActionDrop);
-    });
-}
-
-// draggedAction is now in state.js
-
-function handleActionDragStart(e) {
-    draggedAction = e.target;
-    e.target.style.opacity = '0.5';
-}
-
-function handleActionDragEnd(e) {
-    e.target.style.opacity = '1';
-    draggedAction = null;
-}
-
-function handleActionDragOver(e) {
-    e.preventDefault();
-}
-
-function handleActionDrop(e) {
-    e.preventDefault();
-    if (!draggedAction) return;
-
-    const targetColumn = e.currentTarget;
-    const newStatus = targetColumn.dataset.status;
-    const actionId = parseInt(draggedAction.dataset.actionId);
-
-    // Update action status
-    const action = raidItems.find(a => a.id === actionId && a.type === 'action');
-    if (action && action.status !== newStatus) {
-        action.status = newStatus;
-        renderActionsBoard();
-        renderActionsTable();
-        updateReportActions();
-        renderRaidTable(); // Update RAID table as well
-        syncRaidLogToPlanText(); // Save to plan text
-    }
-}
-
-/**
- * Render actions calendar view
- */
-function renderActionsCalendar() {
-    const grid = document.getElementById('actionsCalendarGrid');
-    const title = document.getElementById('actionsCalendarTitle');
-
-    if (!grid || !title) return;
-
-    const year = actionsCurrentMonth.getFullYear();
-    const month = actionsCurrentMonth.getMonth();
-
-    title.textContent = actionsCurrentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
-
-    // Get first day of month and number of days
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    grid.innerHTML = '';
-
-    // Add day headers
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayNames.forEach(name => {
-        const header = document.createElement('div');
-        header.className = 'actions-calendar-day-header';
-        header.textContent = name;
-        grid.appendChild(header);
-    });
-
-    // Add empty cells for days before month starts
-    for (let i = 0; i < firstDay; i++) {
-        const empty = document.createElement('div');
-        empty.className = 'actions-calendar-day empty';
-        grid.appendChild(empty);
-    }
-
-    // Add days of month
-    const actionItems = getActionItems();
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-        const dayActions = actionItems.filter(a => {
-            const targetDate = a.target_date || a.date || '';
-            return targetDate === dateStr;
-        });
-
-        const dayCell = document.createElement('div');
-        dayCell.className = 'actions-calendar-day';
-
-        const dayNumber = document.createElement('div');
-        dayNumber.className = 'actions-calendar-day-number';
-        dayNumber.textContent = day;
-        dayCell.appendChild(dayNumber);
-
-        if (dayActions.length > 0) {
-            dayActions.forEach(action => {
-                const description = action.description || action.mitigation_actions || '';
-                const actionItem = document.createElement('div');
-                actionItem.className = 'actions-calendar-item actions-priority-' + (action.priority || 'medium');
-                actionItem.textContent = action.title || '';
-                actionItem.title = (action.title || '') + (description ? '\n' + description : '');
-                actionItem.onclick = function() { openActionForm(action.id); };
-                dayCell.appendChild(actionItem);
-            });
-        }
-
-        grid.appendChild(dayCell);
-    }
-}
-
-/**
- * Change calendar month
- */
-function changeActionsMonth(delta) {
-    actionsCurrentMonth = new Date(actionsCurrentMonth.getFullYear(), actionsCurrentMonth.getMonth() + delta, 1);
-    renderActionsCalendar();
 }
 
 /**
@@ -12540,8 +12257,6 @@ async function uploadActionsExcel(event) {
             actionsItems = data.items;
             actionsNextId = Math.max(...actionsItems.map(i => i.id || 0), 0) + 1;
             renderActionsTable();
-            renderActionsBoard();
-            renderActionsCalendar();
             updateReportActions();
             updateResourceFilter();
         }
