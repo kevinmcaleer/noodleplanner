@@ -44,6 +44,8 @@ from noodle_core import (
     parse_baseline_markdown,
     FrontMatterParser,
     import_from_msproject_xml,
+    import_from_mpp,
+    _check_mpxj_available,
 )
 from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
@@ -969,13 +971,32 @@ async def import_msproject(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
 
     try:
-        xml_content = file_bytes.decode("utf-8")
-        markdown = import_from_msproject_xml(xml_content)
+        if extension == "mpp":
+            if not _check_mpxj_available():
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Native .mpp import requires the mpxj package and Java runtime. "
+                        "Please save the file as XML from MS Project and import the .xml file instead."
+                    ),
+                )
+            markdown = import_from_mpp(file_bytes)
+        else:
+            xml_content = file_bytes.decode("utf-8")
+            markdown = import_from_msproject_xml(xml_content)
+
         return {"markdown": markdown, "filename": file.filename}
+    except HTTPException:
+        raise
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="File must be a valid UTF-8 XML file")
     except ET.ParseError as e:
         raise HTTPException(status_code=400, detail=f"Invalid XML file: {str(e)}")
+    except ImportError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"Error reading .mpp file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to read .mpp file", e))
     except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Error importing MS Project file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to import MS Project file", e))

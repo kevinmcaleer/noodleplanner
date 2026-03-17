@@ -63,6 +63,8 @@ from .excel_importer import (
 from .msproject import (
     export_to_msproject_xml,
     import_from_msproject_xml,
+    import_from_mpp,
+    _check_mpxj_available,
 )
 
 from .front_matter_parser import FrontMatterParser
@@ -124,9 +126,11 @@ __all__ = [
     "detect_planner_worksheet",
     "parse_planner_duration",
     "parse_planner_dependency",
-    # MS Project XML
+    # MS Project
     "export_to_msproject_xml",
     "import_from_msproject_xml",
+    "import_from_mpp",
+    "_check_mpxj_available",
     # Front matter parser
     "FrontMatterParser",
     # Planning room
