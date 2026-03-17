@@ -497,10 +497,12 @@ body {
     color: var(--np-text);
 }
 
-/* Ribbon banners */
+/* Ribbon banners - base dark override (pointy bit matches via --ribbon-bg) */
 [data-theme="dark"] .ribbon-banner {
-    background: var(--np-surface-alt);
-    color: var(--np-text);
+    --ribbon-bg: var(--np-surface-alt);
+    --ribbon-text: var(--np-text);
+    background: var(--ribbon-bg);
+    color: var(--ribbon-text);
 }
 
 /* Scrollbar styling for dark mode */
@@ -719,4 +721,1645 @@ body {
 .theme-menu-item .theme-check {
     margin-left: auto;
     color: var(--np-accent);
+}
+
+/* ========================================
+   Dark Mode Enhancements (#620)
+   Comprehensive fixes for all views
+   ======================================== */
+
+/* ---- General: Ribbon banner pointy bits ---- */
+[data-theme="dark"] .ribbon-banner {
+    --ribbon-text: var(--np-text);
+}
+
+[data-theme="dark"] .ribbon-banner--red {
+    --ribbon-bg: #5c2020;
+    --ribbon-color: #e05252;
+}
+
+[data-theme="dark"] .ribbon-banner--orange {
+    --ribbon-bg: #5c3a10;
+    --ribbon-color: #e89040;
+}
+
+[data-theme="dark"] .ribbon-banner--yellow {
+    --ribbon-bg: #4a3f10;
+    --ribbon-color: #d4b030;
+}
+
+[data-theme="dark"] .ribbon-banner--green {
+    --ribbon-bg: #1a4a28;
+    --ribbon-color: #3cb860;
+}
+
+[data-theme="dark"] .ribbon-banner--blue {
+    --ribbon-bg: #153a4a;
+    --ribbon-color: #30a0d0;
+}
+
+[data-theme="dark"] .ribbon-banner--dark {
+    --ribbon-bg: #1a2a35;
+    --ribbon-color: #4090b0;
+}
+
+/* ---- Gantt Chart / Tasks View ---- */
+[data-theme="dark"] .gantt-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .tasks-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .gantt-chart-side {
+    background: var(--np-bg);
+}
+
+[data-theme="dark"] .gantt-body {
+    background: var(--np-bg);
+}
+
+[data-theme="dark"] .gantt-bar-row {
+    border-bottom-color: var(--np-border-light);
+}
+
+[data-theme="dark"] .gantt-bar-row:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .gantt-day {
+    border-right-color: var(--np-border-light);
+}
+
+[data-theme="dark"] .gantt-weekend {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .gantt-month {
+    border-right-color: var(--np-border);
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-month.gantt-today {
+    background-color: #1a3a2a;
+    color: #50c878;
+}
+
+/* Summary task rows - better contrast */
+[data-theme="dark"] .gantt-info-table tr.gantt-phase-row {
+    background: var(--np-summary-row);
+    color: var(--np-text);
+}
+
+/* Completed task bars - dimmer green */
+[data-theme="dark"] .gantt-task-bar {
+    background: #2d8f4e;
+}
+
+/* Hover highlight on task rows - subtle */
+[data-theme="dark"] .gantt-info-table tbody tr:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .gantt-info-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .gantt-info-table td.editable:hover {
+    background: var(--np-bg-hover);
+    outline-color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-info-table td.editing {
+    background: var(--np-input-bg);
+}
+
+[data-theme="dark"] .gantt-info-table td.editing input {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-info-table tr.selected {
+    background: var(--np-surface-alt);
+}
+
+/* Show dependencies / show baseline labels - white text */
+[data-theme="dark"] .gantt-dependency-toggle label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .baseline-toggle-label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .gantt-dependency-toggle input[type="checkbox"],
+[data-theme="dark"] .baseline-toggle-label input[type="checkbox"] {
+    accent-color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-scale-selector label {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-scale-selector select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .tasks-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .gantt-disclosure-triangle:hover {
+    color: var(--np-accent);
+}
+
+/* ---- Board View (Kanban) ---- */
+[data-theme="dark"] .kanban-board {
+    background: var(--np-bg);
+}
+
+[data-theme="dark"] .kanban-header {
+    background: var(--np-surface);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .kanban-view-switcher label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .kanban-sort-toggle label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .kanban-column {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .kanban-card {
+    background: var(--np-surface-alt);
+    border-color: var(--np-border);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .kanban-card-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .kanban-card-comment {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .kanban-card:hover {
+    border-color: var(--np-accent);
+    box-shadow: 0 4px 8px var(--np-shadow);
+}
+
+[data-theme="dark"] .round-checkbox {
+    background: var(--np-surface-alt);
+    border-color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .kanban-add-card-btn,
+[data-theme="dark"] .kanban-add-task-btn {
+    background: transparent;
+    border-color: var(--np-border);
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .kanban-add-card-btn:hover,
+[data-theme="dark"] .kanban-add-task-btn:hover {
+    background: var(--np-bg-hover);
+    border-color: var(--np-accent);
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .kanban-column-footer {
+    background: var(--np-surface);
+}
+
+[data-theme="dark"] .kanban-column-body {
+    background: var(--np-surface);
+}
+
+[data-theme="dark"] .kanban-column-body.drag-over {
+    background: var(--np-bg-hover);
+    border-color: var(--np-accent);
+}
+
+[data-theme="dark"] .kanban-column-empty {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .kanban-empty-state h3 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .kanban-empty-state p {
+    color: var(--np-text-secondary);
+}
+
+/* Kanban card metadata badges */
+[data-theme="dark"] .kanban-meta-duration {
+    background: #1a2e4a;
+    color: #6db3f0;
+}
+
+[data-theme="dark"] .kanban-meta-progress {
+    background: var(--np-surface-alt);
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .kanban-meta-progress.progress-complete {
+    background: #1a3a28;
+    color: #50c878;
+}
+
+[data-theme="dark"] .kanban-meta-progress.progress-in-progress {
+    background: #3a3020;
+    color: #e0a020;
+}
+
+[data-theme="dark"] .kanban-meta-progress.progress-not-started {
+    background: var(--np-surface-alt);
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .kanban-card-footer {
+    border-top-color: var(--np-border-light);
+}
+
+[data-theme="dark"] .label {
+    background: var(--np-badge-bg);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .label-dependency {
+    background: #1a2e4a;
+    color: #6db3f0;
+}
+
+[data-theme="dark"] .label-tag {
+    background: #2e1a40;
+    color: #b080d0;
+}
+
+/* Kanban card resource avatars dark border */
+[data-theme="dark"] .resource-avatar {
+    border-color: var(--np-surface-alt);
+}
+
+/* Task detail pane - form labels & inputs */
+[data-theme="dark"] .detail-pane label {
+    color: var(--np-text);
+}
+
+/* Dependencies / subtasks table headers */
+[data-theme="dark"] .detail-pane table th,
+[data-theme="dark"] .detail-pane .table th {
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .detail-pane table td,
+[data-theme="dark"] .detail-pane .table td {
+    border-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+/* Comments field */
+[data-theme="dark"] .detail-pane textarea {
+    background: var(--np-input-bg);
+    border-color: var(--np-input-border);
+    color: var(--np-text);
+}
+
+/* Piechart popup */
+[data-theme="dark"] .piechart-popup {
+    background: var(--np-surface);
+    box-shadow: 0 2px 12px var(--np-shadow-strong);
+}
+
+[data-theme="dark"] .piechart-popup-btn {
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .piechart-popup-btn:hover {
+    background: #28a745;
+    color: white;
+}
+
+/* Theme colour picker popup */
+[data-theme="dark"] .theme-colour-picker {
+    background: var(--np-surface);
+    border-color: var(--np-border);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
+}
+
+[data-theme="dark"] .theme-colour-label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .theme-colour-clear-btn {
+    border-color: var(--np-border);
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+}
+
+/* ---- Timeline View ---- */
+[data-theme="dark"] .timeline-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .milestone-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .milestone-date {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .timeline-line {
+    background: #ffffff;
+}
+
+[data-theme="dark"] .timeline-line::before,
+[data-theme="dark"] .timeline-line::after {
+    background: #ffffff;
+}
+
+[data-theme="dark"] .timeline-diamond {
+    background: #ffffff;
+}
+
+[data-theme="dark"] .timeline-connector {
+    background: var(--np-text-muted);
+}
+
+[data-theme="dark"] .timeline-date-label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .timeline-scale-tick {
+    background: var(--np-text-muted);
+}
+
+[data-theme="dark"] .timeline-scale-label {
+    color: var(--np-text-secondary);
+}
+
+/* Timeline options - checkboxes and titles */
+[data-theme="dark"] .timeline-content label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .timeline-content input[type="checkbox"] {
+    accent-color: var(--np-accent);
+}
+
+/* Minimal timeline line in dark */
+[data-theme="dark"] .minimal-timeline-mode .timeline-line {
+    background: #ffffff;
+}
+
+[data-theme="dark"] .minimal-timeline-mode .timeline-line::before,
+[data-theme="dark"] .minimal-timeline-mode .timeline-line::after {
+    background: #ffffff;
+}
+
+[data-theme="dark"] .minimal-date-label {
+    color: var(--np-text-muted);
+}
+
+/* ---- Stakeholders Page ---- */
+[data-theme="dark"] .stakeholders-table tbody tr:nth-child(even) {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .stakeholders-table tbody tr:hover,
+[data-theme="dark"] .stakeholders-table tbody tr:nth-child(even):hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .stakeholders-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .stakeholder-grid-wrapper {
+    background: var(--np-surface);
+    border-color: var(--np-border);
+}
+
+/* ---- RAID Log ---- */
+[data-theme="dark"] .raid-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 8px var(--np-shadow);
+}
+
+[data-theme="dark"] .raid-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .raid-table tbody tr:nth-child(even) {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .raid-table tbody tr:hover,
+[data-theme="dark"] .raid-table tbody tr:nth-child(even):hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .raid-container {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .raid-toolbar .btn-secondary {
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .raid-filter-group label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .raid-filter-group select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .raid-action-btn:hover {
+    background: var(--np-bg-hover);
+}
+
+/* ---- Project Actions Tracker ---- */
+[data-theme="dark"] .actions-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 8px var(--np-shadow);
+}
+
+[data-theme="dark"] .actions-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .actions-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .actions-table tbody tr:nth-child(even) {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .actions-empty-state {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .actions-empty-state h3 {
+    color: var(--np-text-secondary);
+}
+
+/* ---- Highlights Page ---- */
+[data-theme="dark"] .highlights-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .highlights-content {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .highlight-card {
+    background: var(--np-surface);
+    border-color: var(--np-border);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .highlight-card-header {
+    border-bottom-color: var(--np-border-light);
+}
+
+[data-theme="dark"] .highlight-date {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .highlight-author {
+    background: #1a2e4a;
+    color: #6db3f0;
+}
+
+[data-theme="dark"] .highlight-body {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .highlight-body h1,
+[data-theme="dark"] .highlight-body h2,
+[data-theme="dark"] .highlight-body h3 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .highlight-body hr {
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .highlight-action-btn {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .highlight-action-btn:hover {
+    background: var(--np-bg-hover);
+    color: var(--np-text);
+}
+
+/* ---- 2-Week Look-ahead Page ---- */
+[data-theme="dark"] .lookahead-content {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .lookahead-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .lookahead-info {
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .lookahead-info p {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .lookahead-table-wrapper {
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .lookahead-table {
+    background: var(--np-surface);
+}
+
+[data-theme="dark"] .lookahead-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .lookahead-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+/* ---- Analysis Page ---- */
+[data-theme="dark"] .analysis-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .analysis-health-score {
+    background: var(--np-surface);
+    box-shadow: 0 2px 8px var(--np-shadow);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .analysis-health-score h3 {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .analysis-insight {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .analysis-success {
+    background: var(--np-surface);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .analysis-success h3 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .analysis-success p {
+    color: var(--np-text-secondary);
+}
+
+/* ---- Budget Page ---- */
+[data-theme="dark"] .budget-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 8px var(--np-shadow);
+}
+
+[data-theme="dark"] .budget-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .budget-table tbody tr:nth-child(even) {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .budget-table tbody tr:hover,
+[data-theme="dark"] .budget-table tbody tr:nth-child(even):hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .budget-table tfoot td {
+    background: var(--np-summary-row);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .budget-container {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .budget-toolbar-separator {
+    background: var(--np-border);
+}
+
+[data-theme="dark"] .budget-filter-group label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .budget-filter-group select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .budget-view-toggle {
+    background: var(--np-surface);
+    color: var(--np-accent);
+    border-color: var(--np-accent);
+}
+
+[data-theme="dark"] .budget-view-toggle:hover,
+[data-theme="dark"] .budget-view-toggle.active {
+    background: var(--np-accent);
+    color: white;
+}
+
+[data-theme="dark"] .budget-action-btn:hover {
+    background: var(--np-bg-hover);
+}
+
+/* ---- EVM Page ---- */
+[data-theme="dark"] #evm-view {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .evm-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .evm-section-title {
+    color: var(--np-text);
+}
+
+/* ---- Resources Page ---- */
+[data-theme="dark"] .resources-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resources-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .resources-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resources-table .resource-name {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resources-table .resource-name:hover {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .resources-table .resource-shortname {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resources-table .totals-row {
+    background: var(--np-summary-row);
+}
+
+[data-theme="dark"] .resources-table .totals-row:hover {
+    background: var(--np-summary-row-hover);
+}
+
+[data-theme="dark"] .resources-scope-label {
+    color: var(--np-text-muted);
+}
+
+/* ---- Timesheet Table Page ---- */
+[data-theme="dark"] .timesheet-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .timesheet-table td {
+    border-bottom-color: var(--np-border-light);
+    border-right-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .timesheet-table td.timesheet-resource-name {
+    background: var(--np-surface);
+    color: var(--np-text);
+    border-right-color: var(--np-border);
+}
+
+[data-theme="dark"] .timesheet-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .timesheet-table tbody tr:hover td.timesheet-resource-name {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .timesheet-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .timesheet-hours-none {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .timesheet-hours-low {
+    background: #1a3a28;
+    color: #50c878;
+}
+
+[data-theme="dark"] .timesheet-hours-normal {
+    background: #3a3020;
+    color: #e0a020;
+}
+
+[data-theme="dark"] .timesheet-hours-high {
+    background: #3a2020;
+    color: #e06060;
+}
+
+[data-theme="dark"] .timesheet-weekend {
+    background: var(--np-surface-alt) !important;
+}
+
+[data-theme="dark"] .timesheet-holiday {
+    background: #3a3020 !important;
+    border-left-color: #e0a020;
+}
+
+/* ---- Workload Page ---- */
+[data-theme="dark"] .workload-content {
+    color: var(--np-text);
+}
+
+/* ---- Resource Sheet Page ---- */
+[data-theme="dark"] .resource-sheet-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-sheet-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .resource-sheet-filter label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-sheet-filter select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .resource-sheet-group-header {
+    background: var(--np-summary-row);
+}
+
+[data-theme="dark"] .resource-sheet-group-name {
+    color: var(--np-text);
+    border-bottom-color: var(--np-accent);
+}
+
+[data-theme="dark"] .resource-sheet-task-row td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-sheet-task-row:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .resource-sheet-task-name {
+    background: var(--np-surface);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-sheet-task-row:hover .resource-sheet-task-name {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .resource-sheet-date-cell {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-sheet-pct-cell {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-sheet-timeline-cell {
+    border-right-color: var(--np-border-light);
+}
+
+[data-theme="dark"] .resource-sheet-timeline-cell.resource-sheet-weekend {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .resource-sheet-timeline-cell.resource-sheet-holiday {
+    background: #3a3020;
+}
+
+/* ---- NoodleSheet (EVM spreadsheet, etc.) ---- */
+[data-theme="dark"] .noodlesheet {
+    background: var(--np-surface);
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-toolbar {
+    background: linear-gradient(180deg, var(--np-surface-alt) 0%, var(--np-surface) 100%);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-toolbar-btn {
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-toolbar-btn:hover {
+    background: var(--np-bg-hover);
+    border-color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .ns-toolbar-sep {
+    background: var(--np-border);
+}
+
+[data-theme="dark"] .ns-formula-bar {
+    border-bottom-color: var(--np-border);
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .ns-cell-ref {
+    background: var(--np-surface);
+    border-right-color: var(--np-border);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ns-fx-label {
+    border-right-color: var(--np-border);
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .ns-formula-input {
+    background: var(--np-surface);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ns-formula-input:focus {
+    background: var(--np-surface);
+    box-shadow: inset 0 0 0 2px var(--np-accent);
+}
+
+[data-theme="dark"] .ns-corner {
+    background: linear-gradient(180deg, var(--np-surface-alt) 0%, var(--np-surface) 100%);
+    border-right-color: var(--np-border);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-col-header {
+    background: linear-gradient(180deg, var(--np-surface-alt) 0%, var(--np-surface) 100%);
+    border-right-color: var(--np-border);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-col-header.ns-selected-col {
+    background: linear-gradient(180deg, #2a3a5a 0%, #1f2f4a 100%);
+}
+
+[data-theme="dark"] .ns-col-letter {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .ns-col-name {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ns-row-num {
+    background: linear-gradient(90deg, var(--np-surface-alt) 0%, var(--np-surface) 100%);
+    border-right-color: var(--np-border);
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .ns-row-num.ns-selected-row {
+    background: linear-gradient(90deg, #2a3a5a 0%, #1f2f4a 100%);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ns-cell {
+    border-right-color: var(--np-border-light);
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ns-cell.ns-empty-cell {
+    background: var(--np-bg);
+}
+
+[data-theme="dark"] .ns-cell.ns-selected {
+    outline-color: var(--np-accent);
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .ns-cell.ns-in-range {
+    background: rgba(123, 143, 240, 0.15);
+}
+
+[data-theme="dark"] .ns-table tbody tr:nth-child(even) .ns-cell:not(.ns-selected) {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .ns-table tbody tr:hover .ns-cell:not(.ns-selected):not(.ns-editing) {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .ns-table tbody tr:nth-child(even) .ns-row-num {
+    background: linear-gradient(90deg, var(--np-surface) 0%, #252545 100%);
+}
+
+[data-theme="dark"] .ns-cell-editor {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    outline-color: var(--np-accent);
+}
+
+[data-theme="dark"] .ns-cell-editor:focus {
+    background: var(--np-input-bg);
+}
+
+[data-theme="dark"] .ns-totals-cell {
+    background: var(--np-summary-row) !important;
+    color: var(--np-text);
+    border-top-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-totals-label {
+    background: var(--np-summary-row) !important;
+    color: var(--np-text-secondary);
+    border-top-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-tab-bar {
+    background: var(--np-surface-alt);
+    border-top-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-tab {
+    background: var(--np-surface);
+    color: var(--np-text-secondary);
+    border-right-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-tab:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .ns-tab.ns-tab-active {
+    background: var(--np-bg);
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
+}
+
+[data-theme="dark"] .ns-tab.ns-tab-add {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .ns-tab.ns-tab-add:hover {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .ns-context-menu {
+    background: var(--np-surface);
+    border-color: var(--np-border);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
+}
+
+[data-theme="dark"] .ns-ctx-item {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ns-ctx-item:hover:not(:disabled) {
+    background: var(--np-bg-hover);
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .ns-ctx-item:disabled {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .ns-ctx-sep {
+    background: var(--np-border-light);
+}
+
+[data-theme="dark"] .ns-find-bar {
+    background: var(--np-surface-alt);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .ns-find-input,
+[data-theme="dark"] .ns-replace-input {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .ns-find-count {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .ns-sort-indicator {
+    color: var(--np-text-muted);
+}
+
+/* ---- Portfolio Pages ---- */
+[data-theme="dark"] .portfolio-container {
+    background: var(--np-bg);
+}
+
+[data-theme="dark"] .portfolio-header {
+    background: var(--np-surface);
+    box-shadow: 0 1px 3px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-subnav-btn {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-subnav-btn:hover {
+    color: var(--np-accent);
+    background: rgba(123, 143, 240, 0.1);
+}
+
+[data-theme="dark"] .portfolio-subnav-btn.active {
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
+}
+
+[data-theme="dark"] .portfolio-more-btn {
+    border-color: var(--np-border);
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-more-btn:hover {
+    background: var(--np-bg-hover);
+    border-color: var(--np-text-muted);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-more-menu {
+    background: var(--np-surface);
+    border-color: var(--np-border);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
+}
+
+[data-theme="dark"] .portfolio-more-menu-item {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-more-menu-item:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .portfolio-more-menu-item svg {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-empty-state {
+    background: var(--np-surface);
+    box-shadow: 0 1px 3px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-empty-state h3 {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .portfolio-empty-state p {
+    color: var(--np-text-secondary);
+}
+
+/* Portfolio project cards */
+[data-theme="dark"] .portfolio-project-card {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-project-card:hover {
+    box-shadow: 0 4px 8px var(--np-shadow-strong);
+}
+
+[data-theme="dark"] .portfolio-project-header {
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .portfolio-project-header h3 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-meta-item {
+    color: var(--np-text-secondary);
+}
+
+/* Portfolio project selector */
+[data-theme="dark"] .portfolio-header .project-selector-dropdown {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-header .project-selector-label {
+    color: var(--np-text-secondary);
+}
+
+/* Portfolio Status View */
+[data-theme="dark"] .portfolio-status-header {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-status-header h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-status-filters label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-status-filters select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-status-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-status-table thead {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .portfolio-status-table th {
+    color: var(--np-text);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .portfolio-status-table th:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .portfolio-status-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-status-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .project-name {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .progress-text {
+    color: var(--np-text);
+    text-shadow: none;
+}
+
+/* Portfolio Resources View */
+[data-theme="dark"] .portfolio-resources-header {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-resources-header h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .summary-label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-resources-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-resources-table thead {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .portfolio-resources-table th {
+    color: var(--np-text);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .portfolio-resources-table th:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .portfolio-resources-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-resources-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .resource-name {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .projects-tooltip {
+    color: var(--np-text-secondary);
+}
+
+/* Portfolio Timeline View */
+[data-theme="dark"] .portfolio-timeline-header {
+    background: var(--np-surface);
+    box-shadow: 0 1px 3px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-timeline-header h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .timeline-controls label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .timeline-controls select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-timeline-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-timeline-container .timeline-scale {
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .timeline-project-label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .timeline-scale-item {
+    border-right-color: var(--np-border-light);
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .timeline-scale-track {
+    border-left-color: var(--np-border);
+}
+
+[data-theme="dark"] .timeline-project-track {
+    border-left-color: var(--np-border);
+}
+
+[data-theme="dark"] .timeline-project-row:nth-child(even) {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .timeline-project-row:nth-child(even) .timeline-project-label {
+    background: var(--np-table-stripe);
+}
+
+[data-theme="dark"] .timeline-project-row:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .timeline-project-row .timeline-project-label {
+    background: var(--np-bg);
+}
+
+/* Portfolio Actions View */
+[data-theme="dark"] .portfolio-actions-header {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-actions-header h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-actions-filters label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-actions-filters select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-actions-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-actions-table thead {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .portfolio-actions-table th {
+    color: var(--np-text);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .portfolio-actions-table th:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .portfolio-actions-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-actions-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+/* Portfolio Risks View */
+[data-theme="dark"] .portfolio-risks-header {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-risks-header h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-risks-filters label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-risks-filters select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-risks-new select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-risks-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-risks-table thead {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .portfolio-risks-table th {
+    color: var(--np-text);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .portfolio-risks-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-risks-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+/* Portfolio summary cards */
+[data-theme="dark"] .portfolio-actions-summary,
+[data-theme="dark"] .portfolio-risks-summary {
+    color: var(--np-text);
+}
+
+/* Resource details modal in dark mode */
+[data-theme="dark"] .resource-details-content {
+    background: var(--np-surface);
+    box-shadow: 0 4px 12px var(--np-shadow-strong);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-details-content .close-btn {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .resource-details-content .close-btn:hover {
+    background: var(--np-bg-hover);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] #resourceDetailsBody h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .resource-details-summary {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .stat-label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .project-assignments {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .assignments-table {
+    background: var(--np-surface);
+}
+
+[data-theme="dark"] .assignments-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+/* ---- General labels/forms in dark mode ---- */
+[data-theme="dark"] label {
+    color: var(--np-text);
+}
+
+/* ---- Copy image button ---- */
+[data-theme="dark"] .copy-image-btn {
+    background: var(--np-surface-alt);
+    border-color: var(--np-border);
+    color: var(--np-text);
+}
+
+/* ---- Welcome screen ---- */
+[data-theme="dark"] .welcome-screen h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .welcome-screen p {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .welcome-screen li {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .welcome-hint kbd {
+    background: var(--np-surface-alt);
+    border-color: var(--np-border);
+    color: var(--np-text);
+}
+
+/* ---- Panel headers ---- */
+[data-theme="dark"] .panel-header {
+    background: var(--np-surface);
+    color: var(--np-accent);
+}
+
+/* ---- Syntax guide ---- */
+[data-theme="dark"] .syntax-guide {
+    background: var(--np-surface);
+}
+
+[data-theme="dark"] .syntax-guide h3 {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .syntax-guide code {
+    background: var(--np-surface-alt);
+    color: var(--np-text);
+}
+
+/* ---- Output container ---- */
+[data-theme="dark"] .output-container {
+    background: var(--np-bg);
+    color: var(--np-text);
+}
+
+/* ---- Upload area ---- */
+[data-theme="dark"] .upload-area {
+    background: var(--np-surface);
+    border-color: var(--np-accent);
+}
+
+[data-theme="dark"] .upload-area:hover,
+[data-theme="dark"] .upload-area.dragover {
+    background: var(--np-bg-hover);
+}
+
+/* ---- Kanban splitter ---- */
+[data-theme="dark"] .kanban-splitter {
+    background: var(--np-splitter-bg);
+}
+
+/* ---- Message boxes ---- */
+[data-theme="dark"] .kanban-message-success {
+    background: #1a3a28;
+    color: #50c878;
+    border-color: #2a5a3a;
+}
+
+[data-theme="dark"] .kanban-message-info {
+    background: #1a2e4a;
+    color: #6db3f0;
+    border-color: #2a4060;
+}
+
+/* ---- Progress bar dark mode ---- */
+[data-theme="dark"] .progress-bar-container {
+    background: var(--np-surface-alt);
+}
+
+/* Portfolio Look-ahead View */
+[data-theme="dark"] .portfolio-lookahead-header {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-lookahead-header h2 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-lookahead-filters label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .portfolio-lookahead-filters select {
+    background: var(--np-input-bg);
+    color: var(--np-text);
+    border-color: var(--np-input-border);
+}
+
+[data-theme="dark"] .portfolio-lookahead-table-wrapper {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .portfolio-lookahead-table thead {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .portfolio-lookahead-table th {
+    color: var(--np-text);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .portfolio-lookahead-table th:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .portfolio-lookahead-table td {
+    border-bottom-color: var(--np-border-light);
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-lookahead-table tbody tr:hover {
+    background: var(--np-table-hover);
+}
+
+[data-theme="dark"] .portfolio-lookahead-summary {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .portfolio-lookahead-daterange {
+    color: var(--np-text-secondary);
 }
