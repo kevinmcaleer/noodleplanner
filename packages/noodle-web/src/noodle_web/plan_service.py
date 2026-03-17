@@ -36,6 +36,8 @@ from noodle_core import (
     strip_highlights,
     strip_raid_log,
     strip_budget,
+    export_to_msproject_xml,
+    import_from_msproject_xml,
 )
 
 logger = logging.getLogger(__name__)
@@ -360,6 +362,7 @@ class PlanService:
             "csv": self._export_csv,
             "ppt": self._export_ppt,
             "pdf": self._export_pdf,
+            "msproject": self._export_msproject,
         }
 
         exporter = exporters.get(fmt)
@@ -676,4 +679,19 @@ class PlanService:
             content=content,
             media_type="application/pdf",
             filename=f"{name}.pdf",
+        )
+
+    def _export_msproject(
+        self, converted: str, original: str, name: str
+    ) -> ExportResult:
+        content = export_to_file(
+            lambda path: export_to_msproject_xml(
+                original, path, project_name=name,
+            ),
+            suffix=".xml",
+        )
+        return ExportResult(
+            content=content,
+            media_type="application/xml",
+            filename=f"{name}.xml",
         )
