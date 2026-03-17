@@ -329,6 +329,16 @@ svg.icon {
     background: #f8f9ff;
 }
 
+.nav-menu-item.active {
+    background: #e8f0fe;
+    font-weight: 600;
+    color: #108BB9;
+}
+
+.nav-menu-item.active:hover {
+    background: #d4e5fc;
+}
+
 .tab-content {
     display: none !important;
     overflow: hidden;

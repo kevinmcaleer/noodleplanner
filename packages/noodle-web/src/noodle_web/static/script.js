@@ -488,15 +488,15 @@ const OUTPUT_VIEWS = {
     'milestones': 'planTab',
     'mindmap': 'planTab',
     'stakeholders': 'planTab',
-    'highlights': 'trackingTab',
-    'lookahead': 'trackingTab',
-    'analysis': 'trackingTab',
-    'resources': 'resourcesTab',
-    'timesheet': 'resourcesTab',
-    'user-workload': 'resourcesTab',
-    'resource-sheet': 'resourcesTab',
+    'highlights': 'planTab',
+    'lookahead': 'planTab',
+    'analysis': 'planTab',
+    'resources': 'planTab',
+    'timesheet': 'planTab',
+    'user-workload': 'planTab',
+    'resource-sheet': 'planTab',
     'text-report': 'planTab',
-    'evm': 'trackingTab'
+    'evm': 'planTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -539,7 +539,7 @@ NavigationController.register('raid', {
         updateRaidExportVisibility('raid');
         loadRaidItemsIfEmpty();
         closeAllNavMenus();
-        setActiveNavTab('trackingTab');
+        setActiveNavTab('planTab');
         updatePlanSubnav('raid');
     },
     deactivate() {}
@@ -551,7 +551,7 @@ NavigationController.register('actions', {
         activateTabContent('actions');
         updateRaidExportVisibility('actions');
         closeAllNavMenus();
-        setActiveNavTab('trackingTab');
+        setActiveNavTab('planTab');
         updatePlanSubnav('actions');
     },
     deactivate() {}
@@ -564,7 +564,7 @@ NavigationController.register('budget', {
         updateRaidExportVisibility('budget');
         loadBudgetItemsIfEmpty();
         closeAllNavMenus();
-        setActiveNavTab('trackingTab');
+        setActiveNavTab('planTab');
         updatePlanSubnav('budget');
     },
     deactivate() {}
@@ -605,6 +605,9 @@ NavigationController.register('portfolio', {
         updateRaidExportVisibility('portfolio');
         closeAllNavMenus();
         setActiveNavTab(null);
+        // Hide the project subnav when in portfolio view
+        const planSubnav = document.getElementById('planSubnav');
+        if (planSubnav) planSubnav.classList.remove('visible');
         if (typeof initPortfolio === 'function') {
             initPortfolio();
         }
@@ -12634,10 +12637,11 @@ document.addEventListener('keydown', function(e) {
  * ======================================== */
 
 function initMenuKeyboardNav() {
-    const dropdowns = document.querySelectorAll('.nav-dropdown');
+    // Support both old .nav-dropdown (if any remain) and new .plan-subnav-dropdown
+    const dropdowns = document.querySelectorAll('.nav-dropdown, .plan-subnav-dropdown');
 
     dropdowns.forEach(dropdown => {
-        const trigger = dropdown.querySelector('.tab');
+        const trigger = dropdown.querySelector('.tab, .plan-subnav-btn[aria-haspopup]');
         const menu = dropdown.querySelector('.nav-menu');
         if (!trigger || !menu) return;
 

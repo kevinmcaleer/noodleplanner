@@ -157,8 +157,6 @@ class TestPageLoad:
         expected_tabs = [
             "portfolioTab",
             "planTab",
-            "trackingTab",
-            "resourcesTab",
         ]
         for tab_id in expected_tabs:
             element = browser.find_element(By.ID, tab_id)

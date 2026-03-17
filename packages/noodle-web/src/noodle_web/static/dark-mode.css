@@ -144,6 +144,15 @@ body {
     background: var(--np-bg-hover);
 }
 
+.nav-menu-item.active {
+    background: var(--np-bg-hover);
+    color: var(--np-accent);
+}
+
+.nav-menu-item.active:hover {
+    background: var(--np-bg-hover);
+}
+
 /* Editor panel */
 .editor-panel {
     background: var(--np-editor-bg);
