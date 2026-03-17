@@ -249,21 +249,17 @@ function renderGanttChart() {
 }
 
 function scrollGanttToToday() {
-    // Scroll the chart side to show today's date
+    // Scroll the chart side so today is the second visible column
     const chartSide = document.querySelector('.gantt-chart-side');
-    const todayColumn = document.querySelector('.gantt-today');
+    const todayColumn = document.querySelector('.gantt-day-cell.gantt-today');
 
     if (!chartSide || !todayColumn) {
         return;
     }
 
-    // Calculate the scroll position to show today's date
-    // Get the offset of the today column relative to its parent
+    // Position today as the second column: offset by one column width
     const todayOffset = todayColumn.offsetLeft;
-
-    // Scroll so that today's column appears near the left edge
-    // Subtract a bit to give some context (show a day or two before)
-    const scrollPosition = todayOffset - (ganttPixelsPerDay * 2);
+    const scrollPosition = todayOffset - ganttPixelsPerDay;
 
     chartSide.scrollLeft = Math.max(0, scrollPosition);
 }
@@ -334,34 +330,70 @@ function renderMonthHeaders(container) {
 }
 
 function renderDayHeaders(container) {
-    // Calculate total days by iterating from min to max date
-    // This ensures we have exactly one header per day in the range
+    // Use a two-row layout: month names row on top, day numbers below
+    container.style.flexWrap = 'wrap';
+
     let currentDate = new Date(ganttMinDate);
     const endDate = new Date(ganttMaxDate);
     const today = new Date();
 
-    // Reset times to midnight for accurate day counting
     currentDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
 
+    // First pass: build month spans for the month row
+    const monthRow = document.createElement('div');
+    monthRow.className = 'gantt-month-row';
+
+    const months = [];
+    let iterDate = new Date(currentDate);
+    while (iterDate <= endDate) {
+        const monthKey = iterDate.getFullYear() + '-' + iterDate.getMonth();
+        if (months.length === 0 || months[months.length - 1].key !== monthKey) {
+            months.push({
+                key: monthKey,
+                name: iterDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                days: 1
+            });
+        } else {
+            months[months.length - 1].days++;
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+    }
+
+    months.forEach(month => {
+        const monthDiv = document.createElement('div');
+        monthDiv.className = 'gantt-month-label';
+        monthDiv.style.width = (month.days * ganttPixelsPerDay) + 'px';
+        monthDiv.textContent = month.name;
+        monthRow.appendChild(monthDiv);
+    });
+
+    container.appendChild(monthRow);
+
+    // Second pass: day number row
+    const dayRow = document.createElement('div');
+    dayRow.className = 'gantt-day-row';
+
+    currentDate = new Date(ganttMinDate);
+    currentDate.setHours(0, 0, 0, 0);
+
     while (currentDate <= endDate) {
         const dayDiv = document.createElement('div');
-        dayDiv.className = 'gantt-month';
+        dayDiv.className = 'gantt-month gantt-day-cell';
         dayDiv.style.width = ganttPixelsPerDay + 'px';
         dayDiv.textContent = currentDate.getDate();
         dayDiv.title = currentDate.toLocaleDateString();
 
-        // Highlight current date with light green background
         if (currentDate.getTime() === today.getTime()) {
             dayDiv.classList.add('gantt-today');
         }
 
-        container.appendChild(dayDiv);
-
-        // Move to next day
+        dayRow.appendChild(dayDiv);
         currentDate.setDate(currentDate.getDate() + 1);
     }
+
+    container.appendChild(dayRow);
 }
 
 function renderWeekHeaders(container) {
@@ -870,10 +902,12 @@ function renderWeekendHighlights(container) {
     // Iterate through each day from min to max date
     let currentDate = new Date(ganttMinDate);
     const endDate = new Date(ganttMaxDate);
+    const today = new Date();
 
     // Reset times to midnight
     currentDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
 
     let dayIndex = 0;
     while (currentDate <= endDate) {
@@ -885,6 +919,15 @@ function renderWeekendHighlights(container) {
             weekend.style.left = (dayIndex * ganttPixelsPerDay) + 'px';
             weekend.style.width = ganttPixelsPerDay + 'px';
             container.appendChild(weekend);
+        }
+
+        // Full-column highlight for today
+        if (currentDate.getTime() === today.getTime()) {
+            const todayHighlight = document.createElement('div');
+            todayHighlight.className = 'gantt-today-column';
+            todayHighlight.style.left = (dayIndex * ganttPixelsPerDay) + 'px';
+            todayHighlight.style.width = ganttPixelsPerDay + 'px';
+            container.appendChild(todayHighlight);
         }
 
         // Move to next day

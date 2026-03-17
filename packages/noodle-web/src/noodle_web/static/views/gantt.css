@@ -240,6 +240,7 @@
 
 .gantt-header {
     display: flex;
+    flex-wrap: wrap;
     background: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
     position: sticky;
@@ -265,6 +266,43 @@
 .gantt-month.gantt-today {
     background-color: #d4edda;
     color: #155724;
+}
+
+/* Month names row above day numbers */
+.gantt-month-row {
+    display: flex;
+    width: 100%;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.gantt-month-label {
+    border-right: 1px solid #dee2e6;
+    padding: 4px 2px;
+    text-align: center;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.7em;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 18px;
+    flex-shrink: 0;
+}
+
+.gantt-day-row {
+    display: flex;
+    width: 100%;
+}
+
+/* Full-column today highlight extending through the body */
+.gantt-today-column {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-color: rgba(212, 237, 218, 0.35);
+    pointer-events: none;
+    z-index: 1;
 }
 
 .gantt-body {
