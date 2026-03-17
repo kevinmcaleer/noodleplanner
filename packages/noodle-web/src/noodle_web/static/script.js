@@ -495,7 +495,6 @@ const OUTPUT_VIEWS = {
     'timesheet': 'planTab',
     'user-workload': 'planTab',
     'resource-sheet': 'planTab',
-    'text-report': 'planTab',
     'evm': 'planTab'
 };
 
@@ -566,18 +565,6 @@ NavigationController.register('budget', {
         closeAllNavMenus();
         setActiveNavTab('planTab');
         updatePlanSubnav('budget');
-    },
-    deactivate() {}
-});
-
-NavigationController.register('planning', {
-    activate() {
-        deactivateKanban();
-        activateTabContent('planning');
-        updateRaidExportVisibility('planning');
-        closeAllNavMenus();
-        setActiveNavTab('planTab');
-        updatePlanSubnav('planning');
     },
     deactivate() {}
 });

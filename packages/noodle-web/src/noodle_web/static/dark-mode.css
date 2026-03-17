@@ -448,21 +448,6 @@ body {
     color: var(--np-text);
 }
 
-/* Text report */
-[data-theme="dark"] .text-report-content {
-    color: var(--np-text);
-}
-
-[data-theme="dark"] .text-report-content pre {
-    background: var(--np-code-bg);
-    color: var(--np-text);
-}
-
-/* Planning room */
-[data-theme="dark"] .planning-room-content {
-    color: var(--np-text);
-}
-
 /* Workload chart */
 [data-theme="dark"] .workload-content {
     color: var(--np-text);

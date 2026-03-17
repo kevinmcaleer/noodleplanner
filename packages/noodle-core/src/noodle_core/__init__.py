@@ -67,10 +67,6 @@ from .msproject import (
 
 from .front_matter_parser import FrontMatterParser
 
-from .planning_room import (
-    generate_plan_from_planning_room,
-)
-
 __version__ = "1.0.0"
 
 __all__ = [
@@ -129,6 +125,4 @@ __all__ = [
     "import_from_msproject_xml",
     # Front matter parser
     "FrontMatterParser",
-    # Planning room
-    "generate_plan_from_planning_room",
 ]
