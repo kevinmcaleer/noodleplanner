@@ -346,7 +346,7 @@ function switchTrackingSubnavToTab(tabName) {
     NavigationController.navigateTo(tabName);
 }
 
-// Handle Tools subnav buttons that use switchTab (Planning Room, Syntax Guide)
+// Handle Tools subnav buttons that use switchTab (Syntax Guide)
 function switchToolsSubnavToTab(tabName) {
     NavigationController.navigateTo(tabName);
 }
