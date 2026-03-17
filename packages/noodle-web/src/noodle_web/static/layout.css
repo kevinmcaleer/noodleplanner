@@ -355,3 +355,14 @@ svg.icon {
     margin-top: 4px;
 }
 
+/* Active state for dropdown menu items (current view indicator) */
+.nav-menu-item.active {
+    background: #e8f0fe;
+    font-weight: 600;
+    color: #108BB9;
+}
+
+.nav-menu-item.active:hover {
+    background: #d4e5fc;
+}
+

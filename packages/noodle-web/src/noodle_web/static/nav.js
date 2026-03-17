@@ -25,24 +25,49 @@ function toggleExportMenu(event) {
     if (menu) menu.classList.toggle('show');
 }
 
+// All subnav dropdown menu IDs and their button IDs
+const NAV_DROPDOWN_MENUS = [
+    { menuId: 'trackingDropdownMenu', btnId: 'trackingDropdownBtn' },
+    { menuId: 'resourcesDropdownMenu', btnId: 'resourcesDropdownBtn' },
+    { menuId: 'toolsDropdownMenu', btnId: 'toolsDropdownBtn' }
+];
+
 // Close nav dropdown menus when clicking outside
 document.addEventListener('click', function(e) {
-    // Close import/export menu when clicking outside
-    const importExportMenu = document.getElementById('importExportMenu');
-    const importExportBtn = document.getElementById('importExportBtn');
-    if (importExportMenu && !importExportMenu.contains(e.target) && (!importExportBtn || !importExportBtn.contains(e.target))) {
-        importExportMenu.classList.remove('show');
-        if (importExportBtn) importExportBtn.setAttribute('aria-expanded', 'false');
-    }
+    NAV_DROPDOWN_MENUS.forEach(({ menuId, btnId }) => {
+        const menu = document.getElementById(menuId);
+        const btn = document.getElementById(btnId);
+        if (menu && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+            menu.classList.remove('show');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+    });
 });
+
+// Toggle a subnav dropdown menu by ID
+function toggleDropdownMenu(menuId, btnId, event) {
+    event.stopPropagation();
+    const menu = document.getElementById(menuId);
+    const btn = document.getElementById(btnId);
+    if (!menu) return;
+
+    // Close other dropdown menus first
+    closeAllNavMenus(menuId);
+
+    menu.classList.toggle('show');
+    if (btn) {
+        btn.setAttribute('aria-expanded', menu.classList.contains('show') ? 'true' : 'false');
+    }
+}
 
 // Close all nav dropdown menus (optionally except one)
 function closeAllNavMenus(except) {
-    const menuIds = [];
-    menuIds.forEach(id => {
-        if (id !== except) {
-            const m = document.getElementById(id);
+    NAV_DROPDOWN_MENUS.forEach(({ menuId, btnId }) => {
+        if (menuId !== except) {
+            const m = document.getElementById(menuId);
             if (m) m.classList.remove('show');
+            const b = document.getElementById(btnId);
+            if (b) b.setAttribute('aria-expanded', 'false');
         }
     });
 }
@@ -55,18 +80,14 @@ function switchToProjectNav() {
     setActiveNavTab('planTab');
 }
 
-// Navigate to Tracking (Actions view with tracking subnav)
+// Navigate to Tracking (kept for backward compatibility, now goes to RAID via project subnav)
 function switchToTracking() {
-    NavigationController.navigateTo('actions');
-    // Ensure Tracking tab is active
-    setActiveNavTab('trackingTab');
+    NavigationController.navigateTo('raid');
 }
 
-// Navigate to Resources (Resource Table with resources subnav)
+// Navigate to Resources (kept for backward compatibility, now goes to resources via project subnav)
 function switchToResources() {
     NavigationController.navigateTo('resources');
-    // Ensure Resources tab is active
-    setActiveNavTab('resourcesTab');
 }
 
 // Toggle Tools dropdown menu (no longer used — tools moved to plan subnav)
@@ -74,17 +95,9 @@ function toggleToolsMenu(event) {
     event.stopPropagation();
 }
 
-// Toggle Import/Export dropdown menu in the plan subnav
+// Toggle Import/Export dropdown menu (kept for backward compatibility)
 function toggleImportExportMenu(event) {
-    event.stopPropagation();
-    const menu = document.getElementById('importExportMenu');
-    const btn = document.getElementById('importExportBtn');
-    if (menu) {
-        menu.classList.toggle('show');
-        if (btn) {
-            btn.setAttribute('aria-expanded', menu.classList.contains('show') ? 'true' : 'false');
-        }
-    }
+    toggleDropdownMenu('toolsDropdownMenu', 'toolsDropdownBtn', event);
 }
 
 // Templates Modal Functions
@@ -275,34 +288,8 @@ function switchToView(viewName) {
 
 // Update the active state in the navigation bar
 function updateNavActiveState(viewName) {
-    // Map view names to their parent nav dropdown tab
-    const viewToNavTab = {
-        'project-report': 'planTab',
-        'tasks': 'planTab',
-        'gantt': 'planTab',
-        'kanban': 'planTab',
-        'calendar': 'planTab',
-        'timeline': 'planTab',
-        'milestones': 'planTab',
-        'mindmap': 'planTab',
-        'stakeholders': 'planTab',
-        'raid': 'trackingTab',
-        'actions': 'trackingTab',
-        'highlights': 'trackingTab',
-        'lookahead': 'trackingTab',
-        'analysis': 'trackingTab',
-        'budget': 'trackingTab',
-        'evm': 'trackingTab',
-        'resources': 'resourcesTab',
-        'timesheet': 'resourcesTab',
-        'user-workload': 'resourcesTab',
-        'resource-sheet': 'resourcesTab',
-        'text-report': 'planTab',
-        'planning': 'planTab',
-        'guide': 'planTab'
-    };
-
-    setActiveNavTab(viewToNavTab[viewName]);
+    // All project views now map to planTab (tracking/resources tabs removed)
+    setActiveNavTab('planTab');
 }
 
 // Navigation constants (PLAN_VIEWS, TRACKING_VIEWS, etc.) are in state.js
@@ -317,9 +304,22 @@ function updatePlanSubnav(viewName) {
         subnav.classList.toggle('visible', isActive);
 
         if (isActive) {
+            // Highlight direct subnav buttons
             subnav.querySelectorAll('.plan-subnav-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.view === viewName);
+                const isDirectMatch = btn.dataset.view === viewName;
+                // Check if this is a dropdown parent button whose child view is active
+                const dropdownViews = btn.dataset.dropdownViews;
+                const isDropdownParent = dropdownViews && dropdownViews.split(',').includes(viewName);
+                btn.classList.toggle('active', isDirectMatch || isDropdownParent);
             });
+
+            // Highlight active item inside dropdown menus
+            subnav.querySelectorAll('.nav-menu-item[data-view]').forEach(item => {
+                item.classList.toggle('active', item.dataset.view === viewName);
+            });
+
+            // Close all dropdown menus when switching views
+            closeAllNavMenus();
         }
     });
 }
@@ -793,20 +793,8 @@ const tourSteps = [
     },
     {
         title: "Project",
-        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all plan views: Tasks, Gantt chart (with baseline comparison), Calendar, Board (Kanban), Timeline, Milestones, Mind Map, Stakeholders, plus Tools: Text Report, Planning Room, Syntax Guide, and Templates. Use the three-dot menu on each task row for quick actions.",
+        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all views. Direct buttons for Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map, and Stakeholders. Use the Tracking, Resources, and Tools dropdowns for more views including RAID Log, Budget, Templates, Import/Export, and more.",
         target: "#planTab",
-        position: "bottom"
-    },
-    {
-        title: "Tracking",
-        message: "Click Tracking to go straight to the RAID Log (Risks, Actions, Issues, Decisions, Dependencies) with a sub-navigation bar for Highlights, 2-Week Look-Ahead, and Analysis.",
-        target: "#trackingTab",
-        position: "bottom"
-    },
-    {
-        title: "Resources",
-        message: "Click Resources to open the Resource Table with a sub-navigation bar for Timesheet, User Workload, and Resource Sheet views.",
-        target: "#resourcesTab",
         position: "bottom"
     },
     {

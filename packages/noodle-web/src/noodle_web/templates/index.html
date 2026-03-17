@@ -180,12 +180,6 @@
                 <button class="tab active" id="planTab" onclick="switchToProjectNav()">
                     Project
                 </button>
-                <button class="tab" id="trackingTab" onclick="switchToTracking()">
-                    Tracking
-                </button>
-                <button class="tab" id="resourcesTab" onclick="switchToResources()">
-                    Resources
-                </button>
                 <!-- Theme toggle -->
                 <div class="theme-toggle-wrapper" style="margin-left: auto; position: relative;">
                     <button class="theme-toggle-btn" id="themeToggleBtn"
@@ -216,7 +210,7 @@
                 </div>
             </div>
 
-            <!-- Plan Sub-Navigation Bar (shared across all Plan views) -->
+            <!-- Project Sub-Navigation Bar (shared across all project views) -->
             <div class="plan-subnav" id="planSubnav" role="navigation" aria-label="Project views">
                 <button class="plan-subnav-btn" data-view="project-report" onclick="switchPlanSubnavToDashboard()">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
@@ -246,23 +240,86 @@
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
                 </button>
                 <span class="plan-subnav-separator" aria-hidden="true"></span>
-                <button class="plan-subnav-btn" data-view="text-report" onclick="switchToView('text-report')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Text Report
-                </button>
-                <button class="plan-subnav-btn" data-view="planning" onclick="switchToView('planning')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Planning Room
-                </button>
-                <button class="plan-subnav-btn" data-view="guide" onclick="switchToView('guide')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Syntax Guide
-                </button>
-                <button class="plan-subnav-btn" onclick="openTemplatesModal()">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Templates
-                </button>
+
+                <!-- Tracking dropdown -->
                 <div class="plan-subnav-dropdown">
-                    <button class="plan-subnav-btn" id="importExportBtn" onclick="toggleImportExportMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="importExportMenu">
-                        Import/Export &#9662;
+                    <button class="plan-subnav-btn" id="trackingDropdownBtn"
+                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm"
+                            onclick="toggleDropdownMenu('trackingDropdownMenu', 'trackingDropdownBtn', event)"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="trackingDropdownMenu">
+                        Tracking &#9662;
                     </button>
-                    <div class="nav-menu" id="importExportMenu" role="menu" aria-label="Import and Export">
+                    <div class="nav-menu" id="trackingDropdownMenu" role="menu" aria-label="Tracking views">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="raid" onclick="switchToView('raid'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="actions" onclick="switchToView('actions'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="highlights" onclick="switchToView('highlights'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="lookahead" onclick="switchToView('lookahead'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Look-Ahead
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="analysis" onclick="switchToView('analysis'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Analysis
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="budget" onclick="switchToView('budget'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Budget
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="evm" onclick="switchToView('evm'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resources dropdown -->
+                <div class="plan-subnav-dropdown">
+                    <button class="plan-subnav-btn" id="resourcesDropdownBtn"
+                            data-dropdown-views="resources,timesheet,user-workload,resource-sheet"
+                            onclick="toggleDropdownMenu('resourcesDropdownMenu', 'resourcesDropdownBtn', event)"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="resourcesDropdownMenu">
+                        Resources &#9662;
+                    </button>
+                    <div class="nav-menu" id="resourcesDropdownMenu" role="menu" aria-label="Resource views">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="resources" onclick="switchToView('resources'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="timesheet" onclick="switchToView('timesheet'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Timesheet
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="user-workload" onclick="switchToView('user-workload'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Workload
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="resource-sheet" onclick="switchToView('resource-sheet'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Resource Sheet
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tools dropdown -->
+                <div class="plan-subnav-dropdown">
+                    <button class="plan-subnav-btn" id="toolsDropdownBtn"
+                            data-dropdown-views="text-report,planning,guide"
+                            onclick="toggleDropdownMenu('toolsDropdownMenu', 'toolsDropdownBtn', event)"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="toolsDropdownMenu">
+                        Tools &#9662;
+                    </button>
+                    <div class="nav-menu" id="toolsDropdownMenu" role="menu" aria-label="Tools">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openTemplatesModal(); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Templates
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="text-report" onclick="switchToView('text-report'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Text Report
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="planning" onclick="switchToView('planning'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Planning Room
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="guide" onclick="switchToView('guide'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Syntax Guide
+                        </div>
+                        <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerExcelUpload(); event.stopPropagation();">
                             Import from Excel
                         </div>
@@ -301,47 +358,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Tracking Sub-Navigation Bar (shared across all Tracking views) -->
-            <div class="plan-subnav" id="trackingSubnav" role="navigation" aria-label="Tracking views">
-                <button class="plan-subnav-btn" data-view="raid" onclick="switchTrackingSubnavToTab('raid')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-raid-log"/></svg> RAID Log
-                </button>
-                <button class="plan-subnav-btn" data-view="actions" onclick="switchTrackingSubnavToTab('actions')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Actions
-                </button>
-                <button class="plan-subnav-btn" data-view="highlights" onclick="switchToView('highlights')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Highlights
-                </button>
-                <button class="plan-subnav-btn" data-view="lookahead" onclick="switchToView('lookahead')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-timeline"/></svg> Look-Ahead
-                </button>
-                <button class="plan-subnav-btn" data-view="analysis" onclick="switchToView('analysis')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Analysis
-                </button>
-                <button class="plan-subnav-btn" data-view="budget" onclick="switchTrackingSubnavToTab('budget')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-milestones"/></svg> Budget
-                </button>
-                <button class="plan-subnav-btn" data-view="evm" onclick="switchToView('evm')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
-                </button>
-            </div>
-
-            <!-- Resources Sub-Navigation Bar (shared across all Resources views) -->
-            <div class="plan-subnav" id="resourcesSubnav" role="navigation" aria-label="Resource views">
-                <button class="plan-subnav-btn" data-view="resources" onclick="switchToView('resources')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-resources"/></svg> Resource Table
-                </button>
-                <button class="plan-subnav-btn" data-view="timesheet" onclick="switchToView('timesheet')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-calendar"/></svg> Timesheet
-                </button>
-                <button class="plan-subnav-btn" data-view="user-workload" onclick="switchToView('user-workload')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Workload
-                </button>
-                <button class="plan-subnav-btn" data-view="resource-sheet" onclick="switchToView('resource-sheet')">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Resource Sheet
-                </button>
             </div>
 
             <!-- Loading indicator for Portfolio/Project context switches (#581 / UX-3) -->
