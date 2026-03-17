@@ -5,6 +5,7 @@ import hashlib
 import logging
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 import yaml
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +43,7 @@ from noodle_core import (
     extract_baseline,
     parse_baseline_markdown,
     FrontMatterParser,
+    import_from_msproject_xml,
 )
 from noodle_core.planning_room import generate_plan_from_planning_room as generate_plan_core
 import json
@@ -216,6 +218,7 @@ class RenderRequest(BaseModel):
     export_csv: bool = Field(False)
     export_ppt: bool = Field(False)
     export_pdf: bool = Field(False)
+    export_msproject: bool = Field(False)
 
 
 
@@ -263,14 +266,14 @@ async def health_check():
 
 @app.post("/render")
 async def render_plan(data: RenderRequest):
-    """Render a project plan and optionally export to Excel/PPT/PDF."""
-    logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}")
+    """Render a project plan and optionally export to Excel/PPT/PDF/MS Project."""
+    logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}, {data.export_msproject}")
 
     try:
-        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf
+        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject
 
         if has_exports:
-            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf])
+            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject])
 
             if export_count == 1:
                 # Determine the requested format
@@ -280,6 +283,7 @@ async def render_plan(data: RenderRequest):
                         ("csv", data.export_csv),
                         ("ppt", data.export_ppt),
                         ("pdf", data.export_pdf),
+                        ("msproject", data.export_msproject),
                     ] if flag
                 )
                 result = plan_service.export_single(
@@ -948,6 +952,33 @@ async def excel_convert_planner(file: UploadFile = File(...)):
     except (KeyError, TypeError, IndexError, OSError) as e:
         logger.error(f"Error converting Planner file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to convert Planner file", e))
+
+
+@app.post("/api/msproject/import")
+async def import_msproject(file: UploadFile = File(...)):
+    """Import a Microsoft Project XML file and convert to NoodlePlanner markdown."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    extension = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
+    if extension not in ("xml", "mpp"):
+        raise HTTPException(status_code=400, detail="File must be .xml or .mpp format")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
+
+    try:
+        xml_content = file_bytes.decode("utf-8")
+        markdown = import_from_msproject_xml(xml_content)
+        return {"markdown": markdown, "filename": file.filename}
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be a valid UTF-8 XML file")
+    except ET.ParseError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid XML file: {str(e)}")
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Error importing MS Project file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to import MS Project file", e))
 
 
 # ==============================================================================

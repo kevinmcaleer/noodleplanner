@@ -60,6 +60,11 @@ from .excel_importer import (
     parse_planner_dependency,
 )
 
+from .msproject import (
+    export_to_msproject_xml,
+    import_from_msproject_xml,
+)
+
 from .front_matter_parser import FrontMatterParser
 
 from .planning_room import (
@@ -119,6 +124,9 @@ __all__ = [
     "detect_planner_worksheet",
     "parse_planner_duration",
     "parse_planner_dependency",
+    # MS Project XML
+    "export_to_msproject_xml",
+    "import_from_msproject_xml",
     # Front matter parser
     "FrontMatterParser",
     # Planning room

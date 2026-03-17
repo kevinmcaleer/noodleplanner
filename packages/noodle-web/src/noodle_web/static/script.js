@@ -768,8 +768,9 @@ async function exportFile(format, prefix) {
     const exportCSV = format === 'csv';
     const exportPPT = format === 'ppt';
     const exportPDF = format === 'pdf';
+    const exportMSProject = format === 'msproject';
 
-    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix);
+    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject);
 }
 
 /**
@@ -945,7 +946,7 @@ async function exportReportPptx() {
     }
 }
 
-async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix) {
+async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject) {
     // Capture generation so we can bail out if the user switched projects
     // while waiting for the /render response.
     const generation = (typeof projectSwitchGeneration !== 'undefined') ? projectSwitchGeneration : -1;
@@ -967,7 +968,8 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             export_excel: exportExcel,
             export_csv: exportCSV,
             export_ppt: exportPPT,
-            export_pdf: exportPDF
+            export_pdf: exportPDF,
+            export_msproject: exportMSProject || false
         };
 
         const response = await fetch('/render', {
@@ -1015,6 +1017,8 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
                 a.download = filename + '-timeline.pptx';
             } else if (contentType.includes('application/pdf')) {
                 a.download = filename + '.pdf';
+            } else if (contentType.includes('application/xml')) {
+                a.download = filename + '.xml';
             } else {
                 a.download = filename + '-export';
             }
@@ -7675,6 +7679,47 @@ function toggleTimelinePhases() {
     // Re-render the timeline with current tasks
     if (timelineTasks && timelineTasks.length > 0) {
         updateTimeline(timelineTasks, timelineProjectName);
+    }
+}
+
+// ===== MS Project Import =====
+
+function triggerMSProjectUpload() {
+    closeAllNavMenus();
+    const input = document.getElementById('msProjectImportInput');
+    input.value = '';
+    input.onchange = function() {
+        if (input.files && input.files[0]) {
+            uploadMSProjectFile(input.files[0]);
+        }
+    };
+    input.click();
+}
+
+async function uploadMSProjectFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/msproject/import', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to import MS Project file');
+        }
+
+        const result = await response.json();
+        const editor = document.getElementById('planEditor');
+        editor.value = result.markdown;
+        showMessage('editor', 'success', 'MS Project file imported successfully!');
+
+        // Auto-render the imported plan
+        await renderText();
+    } catch (error) {
+        showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
     }
 }
 

@@ -279,6 +279,13 @@
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportReportPptx(); event.stopPropagation();">
                             Export Report to PowerPoint
                         </div>
+                        <div class="nav-menu-divider"></div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerMSProjectUpload(); event.stopPropagation();">
+                            Import from MS Project
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('msproject', 'editor'); event.stopPropagation();">
+                            Export to MS Project
+                        </div>
                         <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
                         <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
                             Download RAID Markdown
@@ -2694,6 +2701,9 @@ Build
 
     <!-- Hidden file input for Import/Export dropdown Excel upload -->
     <input type="file" id="excelImportInput" accept=".xlsx,.xls" style="display: none;">
+
+    <!-- Hidden file input for MS Project import -->
+    <input type="file" id="msProjectImportInput" accept=".xml" style="display: none;">
 
     <!-- Excel Import Wizard Modal -->
     <div id="excelWizardOverlay" class="modal-overlay" onclick="if(event.target===this) closeExcelWizard()">
