@@ -408,6 +408,9 @@ Press Enter to render..."></textarea>
 
                     <div class="output-panel">
 
+                        <!-- Hidden render output target (used by render pipeline) -->
+                        <div class="output-container empty" id="editorOutput" style="display:none;"></div>
+
                         <!-- Project Report View (default) -->
                         <div id="project-report-view" class="output-tab-content active">
                             <div class="project-report-placeholder">
@@ -2814,7 +2817,7 @@ Build
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
         <div class="status-bar-right">
-            <button class="status-bar-btn" onclick="openProjectDetailsForm()" title="Project Details" aria-label="Open project details">
+            <button class="status-bar-btn" onclick="toggleProjectDetails()" title="Project Details" aria-label="Toggle project details">
                 <i class="bi bi-clipboard-data"></i>
                 <span class="status-bar-btn-label">Details</span>
             </button>

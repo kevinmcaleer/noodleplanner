@@ -723,8 +723,10 @@ async function renderText() {
 
     if (!text) {
         const output = document.getElementById('editorOutput');
-        output.textContent = 'Press Enter in the editor to render your plan...';
-        output.classList.add('empty');
+        if (output) {
+            output.textContent = 'Press Enter in the editor to render your plan...';
+            output.classList.add('empty');
+        }
         return;
     }
 
@@ -985,7 +987,7 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
         if (contentType.includes('application/json')) {
             // ASCII output
             const result = await response.json();
-            output.textContent = result.ascii_output;
+            if (output) output.textContent = result.ascii_output;
             // No success message needed - silent render
 
             // Parse plan data and update all views
@@ -4771,6 +4773,16 @@ function openProjectDetailsForm() {
 
 function closeProjectDetailsForm() {
     closeDetailPane();
+}
+
+function toggleProjectDetails() {
+    const pane = document.getElementById('detailPane');
+    const section = document.getElementById('projectDetailsSection');
+    if (pane && pane.classList.contains('open') && section && section.classList.contains('active')) {
+        closeProjectDetailsForm();
+    } else {
+        openProjectDetailsForm();
+    }
 }
 
 // ESC and click-outside for project details are handled by the unified detail pane handlers
