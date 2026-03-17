@@ -329,15 +329,6 @@ svg.icon {
     background: #f8f9ff;
 }
 
-.nav-menu-item.active {
-    background: #e8f0fe;
-    font-weight: 600;
-    color: #108BB9;
-}
-
-.nav-menu-item.active:hover {
-    background: #d4e5fc;
-}
 
 .tab-content {
     display: none !important;
@@ -494,66 +485,7 @@ svg.icon {
     background: white;
 }
 
-/* Plan Sub-Navigation Bar */
-.plan-subnav {
-    display: none;
-    align-items: center;
-    gap: 2px;
-    padding: 4px 12px;
-    background: #f0f1f4;
-    border-bottom: 1px solid #e0e0e0;
-    flex-shrink: 0;
-}
-
-.plan-subnav.visible {
-    display: flex;
-}
-
-.plan-subnav-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 12px;
-    border: none;
-    background: transparent;
-    color: #666;
-    font-size: 0.85em;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background var(--np-anim-duration-fast) var(--np-anim-easing), color var(--np-anim-duration-fast) var(--np-anim-easing);
-    white-space: nowrap;
-    line-height: 1;
-}
-
-.plan-subnav-btn:hover {
-    background: #e2e3e8;
-    color: #333;
-}
-
-.plan-subnav-btn.active {
-    background: #667eea;
-    color: white;
-}
-
-.plan-subnav-btn.active svg.icon {
-    stroke: white;
-}
-
-.plan-subnav-divider {
-    width: 1px;
-    height: 20px;
-    background: rgba(255, 255, 255, 0.2);
-    margin: 0 4px;
-    align-self: center;
-}
-
-.plan-subnav-separator {
-    width: 1px;
-    height: 20px;
-    background: rgba(255, 255, 255, 0.3);
-    margin: 0 8px;
-    align-self: center;
-}
+/* Plan Sub-Navigation Bar — canonical rules are in layout.css */
 
 .plan-subnav-dropdown {
     position: relative;

@@ -309,8 +309,13 @@ function updatePlanSubnav(viewName) {
                 const isDirectMatch = btn.dataset.view === viewName;
                 // Check if this is a dropdown parent button whose child view is active
                 const dropdownViews = btn.dataset.dropdownViews;
-                const isDropdownParent = dropdownViews && dropdownViews.split(',').includes(viewName);
-                btn.classList.toggle('active', isDirectMatch || isDropdownParent);
+                const isDropdownParent = !!(dropdownViews && dropdownViews.split(',').includes(viewName));
+                const shouldBeActive = isDirectMatch || isDropdownParent;
+                if (shouldBeActive) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
             });
 
             // Highlight active item inside dropdown menus
