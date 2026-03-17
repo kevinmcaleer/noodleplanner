@@ -52,7 +52,7 @@
 }
 
 /* EVM dark mode overrides */
-.dark-mode {
+[data-theme="dark"] {
     --evm-bg: #1a1a1a;
     --evm-card-bg: #2a2a2a;
     --evm-card-border: #3a3a3a;
