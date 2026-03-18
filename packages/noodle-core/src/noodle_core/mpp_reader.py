@@ -908,9 +908,7 @@ class Mpp14TableBackedReader:
         )
         proj.tasks = self._read_tasks()
         proj.resources = self._read_resources()
-        # Dependencies and assignments use a different structure in
-        # table-backed format; return empty lists for now
-        proj.dependencies = []
+        proj.dependencies = self._read_dependencies()
         proj.assignments = []
         return proj
 
@@ -1137,6 +1135,87 @@ class Mpp14TableBackedReader:
             ))
 
         return resources
+
+    def _read_dependencies(self) -> List[MppDependency]:
+        """
+        Read dependencies from TBkndCons streams.
+
+        Table-backed format stores dependencies using GUIDs rather than integer
+        UIDs.  Task GUIDs live in TBkndTask/Fixed2Data and dependency records
+        (relation_guid + predecessor_guid + successor_guid, 48 bytes each) live
+        in TBkndCons/Fixed2Data.  We build a GUID → task-UID map from the task
+        Fixed2Data, then resolve each dependency pair.
+        """
+        cons_data = self._read_stream('TBkndCons', 'Fixed2Data')
+        task_f2 = self._read_stream('TBkndTask', 'Fixed2Data')
+        task_fixed = self._read_stream('TBkndTask', 'FixedData')
+        if not cons_data or not task_f2 or not task_fixed:
+            return []
+
+        # ── Build GUID → task UID map from TBkndTask/Fixed2Data ──
+        # Fixed2Data has 64-byte records (total / record_count from meta).
+        # The first 16 bytes of each non-zero record is the task GUID.
+        task_f2_meta = self._read_stream('TBkndTask', 'Fixed2Meta')
+        if not task_f2_meta or len(task_f2_meta) < 16:
+            return []
+        f2_total = struct.unpack_from('<I', task_f2_meta, 12)[0]
+        f2_size = struct.unpack_from('<I', task_f2_meta, 8)[0]
+        if f2_size == 0 or f2_total == 0:
+            return []
+        f2_rec_size = f2_total // f2_size
+        if f2_rec_size < 16:
+            return []
+
+        # Detect task FixedData record size (same as in _read_tasks)
+        task_data_len = len(task_fixed) - self._FIXED_HEADER
+        task_rec_size = self._detect_record_size(task_fixed)
+        if task_rec_size == 0:
+            return []
+
+        guid_to_uid: Dict[bytes, int] = {}
+        n_f2 = len(task_f2) // f2_rec_size
+        for i in range(n_f2):
+            rec = task_f2[i * f2_rec_size:(i + 1) * f2_rec_size]
+            guid = rec[:16]
+            if all(b == 0 for b in guid):
+                continue
+            # Map this Fixed2Data row back to the FixedData row to get the UID.
+            # Fixed2Data rows correspond 1:1 with FixedData rows (including the
+            # 3 header slots that have no GUID), so the FixedData row index is
+            # (i - header_offset).  The header has 3 × 16-byte index entries
+            # (48 bytes) before real records.  Fixed2Data rows 0-2 are zero
+            # (matching those header slots), and row 3 is the first real task.
+            task_row = i - 3  # offset for the 3 header index entries
+            if task_row < 0 or task_row >= task_data_len // task_rec_size:
+                continue
+            task_off = self._FIXED_HEADER + task_row * task_rec_size
+            uid = struct.unpack_from('<I', task_fixed, task_off)[0]
+            guid_to_uid[guid] = uid
+
+        # ── Parse dependency records (48 bytes each) ──
+        # Each record: relation_guid(16) + predecessor_guid(16) + successor_guid(16)
+        deps: List[MppDependency] = []
+        n_cons = len(cons_data) // 48
+        for i in range(n_cons):
+            rec = cons_data[i * 48:(i + 1) * 48]
+            if all(b == 0 for b in rec):
+                continue
+            pred_guid = rec[16:32]
+            succ_guid = rec[32:48]
+            pred_uid = guid_to_uid.get(bytes(pred_guid))
+            succ_uid = guid_to_uid.get(bytes(succ_guid))
+            if pred_uid is None or succ_uid is None:
+                continue
+            if pred_uid == 0 or succ_uid == 0:
+                continue
+            deps.append(MppDependency(
+                predecessor_unique_id=pred_uid,
+                successor_unique_id=succ_uid,
+                relation_type='FS',  # table-backed format defaults to FS
+                lag_minutes=0.0,
+            ))
+
+        return deps
 
 
 # Patch MPP9Reader to expose shared parse helpers used by Mpp14Reader
