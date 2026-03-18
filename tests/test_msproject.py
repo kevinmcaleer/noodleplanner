@@ -17,6 +17,7 @@ from noodle_core.msproject import (
     _duration_to_iso8601,
     _date_to_msproject,
     _parse_iso8601_duration,
+    _generate_shortname,
 )
 from noodle_core.mpp_reader import (
     MppProject,
@@ -609,9 +610,13 @@ class TestImportFromMpp:
         assert "Design Phase" in result
         assert "Build Widget" in result
         assert "3d" in result  # 1440 minutes = 3 days
-        assert "@Alice" in result
+        assert "@adeveloper" in result  # shortname for Alice Developer
         assert "50%" in result
-        assert "[depends Design Phase]" in result
+        # Adjacent predecessor uses * shorthand
+        assert "Build Widget 3d @adeveloper 50% *" in result
+        # Resource header section
+        assert "Resources:" in result
+        assert "- @adeveloper: Alice Developer" in result
 
     def test_import_no_resources_or_deps(self):
         """Test import with tasks only — no resources or dependencies."""
@@ -631,3 +636,178 @@ class TestImportFromMpp:
 
         assert "title: Simple Project" in result
         assert "Simple Task 1d" in result
+        # No Resources header when there are no resources
+        assert "Resources:" not in result
+
+    def test_import_non_adjacent_dependency(self):
+        """Non-adjacent predecessor uses [depends: ...] instead of *."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Task A", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Task B", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 7),
+            finish=datetime.datetime(2025, 1, 7), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task3 = MppTask(
+            unique_id=3, task_id=3, name="Task C", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 8),
+            finish=datetime.datetime(2025, 1, 8), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        # Task C depends on Task A (non-adjacent, Task B is in between)
+        dep = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=3,
+            relation_type="FS", lag_minutes=0.0,
+        )
+
+        project = self._make_mock_project(
+            title="Dep Test",
+            tasks=[task1, task2, task3],
+            dependencies=[dep],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        assert "[depends: Task A]" in result
+
+    def test_import_multiple_dependencies(self):
+        """Multiple predecessors use [depends: ...] format."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Task A", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Task B", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 7),
+            finish=datetime.datetime(2025, 1, 7), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task3 = MppTask(
+            unique_id=3, task_id=3, name="Task C", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 8),
+            finish=datetime.datetime(2025, 1, 8), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        # Task C depends on both Task A and Task B
+        dep1 = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=3,
+            relation_type="FS", lag_minutes=0.0,
+        )
+        dep2 = MppDependency(
+            predecessor_unique_id=2, successor_unique_id=3,
+            relation_type="FS", lag_minutes=0.0,
+        )
+
+        project = self._make_mock_project(
+            title="Multi Dep Test",
+            tasks=[task1, task2, task3],
+            dependencies=[dep1, dep2],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        assert "[depends: Task A, Task B]" in result
+
+    def test_import_resource_shortname_generation(self):
+        """Resources use generated shortnames and appear in header."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Do Work", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        res1 = MppResource(unique_id=1, resource_id=1, name="Kevin McAleer", type="Work")
+        res2 = MppResource(unique_id=2, resource_id=2, name="Jane Smith", type="Work")
+
+        assign1 = MppAssignment(task_unique_id=1, resource_unique_id=1, units=100.0)
+
+        project = self._make_mock_project(
+            title="Resource Test",
+            tasks=[task1],
+            resources=[res1, res2],
+            assignments=[assign1],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        # Shortname in task line
+        assert "@kmcaleer" in result
+        # Resource header
+        assert "- @kmcaleer: Kevin McAleer" in result
+        assert "- @jsmith: Jane Smith" in result
+
+    def test_import_adjacent_dependency_uses_star(self):
+        """Adjacent predecessor (immediately preceding task) uses * shorthand."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="First", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Second", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 7),
+            finish=datetime.datetime(2025, 1, 7), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        dep = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=2,
+            relation_type="FS", lag_minutes=0.0,
+        )
+
+        project = self._make_mock_project(
+            title="Star Dep",
+            tasks=[task1, task2],
+            dependencies=[dep],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        # Should use * not [depends: First]
+        assert "Second 1d *" in result
+        assert "[depends" not in result
+
+
+# ---------------------------------------------------------------------------
+# Shortname generation tests
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateShortname:
+    def test_two_part_name(self):
+        assert _generate_shortname("John Smith") == "jsmith"
+
+    def test_single_name(self):
+        assert _generate_shortname("Alice") == "alice"
+
+    def test_three_part_name(self):
+        assert _generate_shortname("Bob J. Jones") == "bjones"
+
+    def test_mcname(self):
+        assert _generate_shortname("Kevin McAleer") == "kmcaleer"
+
+    def test_empty_string(self):
+        assert _generate_shortname("") == ""

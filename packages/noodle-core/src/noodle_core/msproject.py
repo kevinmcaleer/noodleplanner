@@ -389,6 +389,26 @@ def _check_mpp_available() -> bool:
 _check_mpxj_available = _check_mpp_available
 
 
+def _generate_shortname(full_name: str) -> str:
+    """Generate a short resource name from a full name.
+
+    Examples:
+        "John Smith"     -> "jsmith"
+        "Kevin McAleer"  -> "kmcaleer"
+        "Alice"          -> "alice"
+        "Bob J. Jones"   -> "bjones"
+    """
+    if not full_name:
+        return ""
+    parts = full_name.split()
+    if len(parts) == 1:
+        return parts[0].lower()
+    # First initial + last name, all lowercase
+    first_initial = parts[0][0].lower()
+    last_name = parts[-1].lower()
+    return f"{first_initial}{last_name}"
+
+
 def import_from_mpp(file_bytes: bytes) -> str:
     """Import a native .mpp file and convert to NoodlePlanner markdown.
 
@@ -436,18 +456,29 @@ def import_from_mpp(file_bytes: bytes) -> str:
     # Extract project name
     project_name = project.title or "Project"
 
-    # Build resource UID → name map
-    resource_map = {}
+    # Build resource UID → name map and generate short names
+    resource_name_map: dict[int, str] = {}  # uid → full name
+    resource_shortnames: dict[int, str] = {}  # uid → shortname
+    used_shortnames: set[str] = set()
     for res in project.real_resources():
-        resource_map[res.unique_id] = res.name
+        resource_name_map[res.unique_id] = res.name
+        shortname = _generate_shortname(res.name)
+        # Handle collisions by appending a number
+        base = shortname
+        counter = 2
+        while shortname in used_shortnames:
+            shortname = f"{base}{counter}"
+            counter += 1
+        used_shortnames.add(shortname)
+        resource_shortnames[res.unique_id] = shortname
 
-    # Build task UID → assigned resource names
-    task_resources: dict[int, list[str]] = {}
+    # Build task UID → assigned resource UIDs
+    task_resource_uids: dict[int, list[int]] = {}
     for assign in project.assignments:
         res = project.resource_by_uid(assign.resource_unique_id)
         if res and res.name:
-            task_resources.setdefault(assign.task_unique_id, []).append(
-                res.name
+            task_resource_uids.setdefault(assign.task_unique_id, []).append(
+                assign.resource_unique_id
             )
 
     # Build task UID → name map for dependency resolution
@@ -456,18 +487,28 @@ def import_from_mpp(file_bytes: bytes) -> str:
         if task.name:
             task_id_to_name[task.unique_id] = task.name
 
+    # Build an ordered list of real task UIDs for adjacency checks
+    real_tasks = [t for t in project.real_tasks() if t.name]
+    real_task_uids = [t.unique_id for t in real_tasks]
+
     # Build markdown output
     lines = [
         "---",
         f"title: {project_name}",
-        "---",
-        "",
     ]
 
-    for task in project.real_tasks():
-        if not task.name:
-            continue
+    # Add resource header section if there are resources
+    if resource_name_map:
+        lines.append("Resources:")
+        for uid in sorted(resource_name_map.keys()):
+            full_name = resource_name_map[uid]
+            shortname = resource_shortnames[uid]
+            lines.append(f"- @{shortname}: {full_name}")
 
+    lines.append("---")
+    lines.append("")
+
+    for idx, task in enumerate(real_tasks):
         indent_level = max(0, task.outline_level - 1)
         indent = "  " * indent_level
 
@@ -479,26 +520,41 @@ def import_from_mpp(file_bytes: bytes) -> str:
             if days is not None and days > 0:
                 parts.append(f"{max(1, int(days))}d")
 
-        # Resources
-        resources = task_resources.get(task.unique_id, [])
-        for res in resources:
-            shortname = res.split()[0] if res else res
-            parts.append(f"@{shortname}")
+        # Resources (using shortnames)
+        res_uids = task_resource_uids.get(task.unique_id, [])
+        for res_uid in res_uids:
+            shortname = resource_shortnames.get(res_uid)
+            if shortname:
+                parts.append(f"@{shortname}")
 
         # Percent complete
         if task.percent_complete > 0:
             parts.append(f"{task.percent_complete}%")
 
         # Dependencies (predecessors)
-        dep_names = []
+        dep_uids = []
         for dep in project.dependencies:
             if dep.successor_unique_id == task.unique_id:
-                pred_name = task_id_to_name.get(dep.predecessor_unique_id)
-                if pred_name:
-                    dep_names.append(pred_name)
-        if dep_names:
-            deps_str = ", ".join(dep_names)
-            parts.append(f"[depends {deps_str}]")
+                if dep.predecessor_unique_id in task_id_to_name:
+                    dep_uids.append(dep.predecessor_unique_id)
+
+        if dep_uids:
+            # Check if this is a simple single dependency on the
+            # immediately preceding task — use '*' shorthand
+            if len(dep_uids) == 1 and idx > 0:
+                prev_uid = real_task_uids[idx - 1]
+                if dep_uids[0] == prev_uid:
+                    parts.append("*")
+                else:
+                    pred_name = task_id_to_name[dep_uids[0]]
+                    parts.append(f"[depends: {pred_name}]")
+            elif len(dep_uids) == 1:
+                pred_name = task_id_to_name[dep_uids[0]]
+                parts.append(f"[depends: {pred_name}]")
+            else:
+                dep_names = [task_id_to_name[uid] for uid in dep_uids]
+                deps_str = ", ".join(dep_names)
+                parts.append(f"[depends: {deps_str}]")
 
         line = f"{indent}{' '.join(parts)}"
         lines.append(line)
