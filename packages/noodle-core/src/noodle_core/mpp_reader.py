@@ -158,6 +158,9 @@ class MppProject:
             elif version == 12:
                 return Mpp12Reader(ole, path).read()
             elif version == 14:
+                # Check for table-backed format (Project 2024+)
+                if _is_table_backed(ole):
+                    return Mpp14TableBackedReader(ole, path).read()
                 return Mpp14Reader(ole, path).read()
             else:
                 raise MppReadError(
@@ -223,12 +226,21 @@ def _detect_version(ole: olefile.OleFileIO) -> int:
 
     # Fallback: check which well-known streams exist
     # MPP14 has 'Props' stream; MPP12 has 'Props9' stream
+    if ole.exists('Props14'):
+        return 14
     if ole.exists('Props'):
         return 14
     if ole.exists('Props9'):
         return 12
     if ole.exists('Props8'):
         return 9
+
+    # Check for table-backed MPP14 format (Project 2024+)
+    # Data stored under '   114/TBkndTask/' instead of 'VisibleDocument/'
+    for entry in ole.listdir():
+        if len(entry) >= 2 and entry[0].strip() == '114' and entry[1].startswith('TBknd'):
+            return 14
+            break
 
     # Last resort: check root entry
     # All MPP9 files have a 'Task' stream (MPP14 uses 'Task2')
@@ -772,6 +784,359 @@ class Mpp14Reader(Mpp9Reader):
         if not data:
             return []
         return super()._parse_assignment_data(data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Table-backed format detection and reader (Project 2024+)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _is_table_backed(ole: olefile.OleFileIO) -> bool:
+    """
+    Detect if the MPP14 file uses the table-backed storage format.
+
+    Newer MS Project versions (2024+) store data under directories like
+    '   114/TBkndTask/' instead of 'VisibleDocument/Task2'.
+    """
+    for entry in ole.listdir():
+        if len(entry) >= 2 and entry[0].strip() == '114' and entry[1].startswith('TBknd'):
+            return True
+    return False
+
+
+def _find_tb_dir(ole: olefile.OleFileIO) -> str:
+    """Find the table-backed directory name (may have leading spaces)."""
+    for entry in ole.listdir():
+        if len(entry) >= 2 and entry[0].strip() == '114':
+            return entry[0]
+    return '   114'
+
+
+def _decode_tb_date(raw: int) -> Optional[datetime.datetime]:
+    """
+    Decode a table-backed MPP14 date value.
+
+    Format: upper 16 bits = day number (1-based, day 1 = 1984-01-01)
+            lower 16 bits = time of day in 1/10 minutes (value / 10 = minutes)
+    """
+    if raw == 0 or raw == 0xFFFFFFFF:
+        return None
+    days = raw >> 16
+    time_ticks = raw & 0xFFFF
+    minutes = time_ticks / 10.0
+    if days == 0 and time_ticks == 0:
+        return None
+    try:
+        # Day numbering is 1-based: day 1 = Jan 1, 1984
+        return _MPP_EPOCH + datetime.timedelta(days=days - 1, minutes=minutes)
+    except (OverflowError, ValueError):
+        return None
+
+
+def _read_tb_vardata_string(vardata: bytes, offset: int) -> str:
+    """
+    Read a UTF-16LE string from table-backed Var2Data.
+
+    Format: [uint32: byte_length][utf16-le bytes]
+    """
+    if not vardata or offset + 4 > len(vardata):
+        return ''
+    try:
+        byte_len = struct.unpack_from('<I', vardata, offset)[0]
+        if byte_len == 0 or byte_len > 10000 or offset + 4 + byte_len > len(vardata):
+            return ''
+        raw = vardata[offset + 4: offset + 4 + byte_len]
+        return raw.decode('utf-16-le', errors='replace').strip('\x00')
+    except Exception:
+        return ''
+
+
+# Field ID for task name in table-backed VarMeta
+_TB_FIELD_TASK_NAME = 188743694  # 0x0B40000E
+
+
+class Mpp14TableBackedReader:
+    """
+    Reads MPP14 table-backed format files (Project 2024+).
+
+    This newer format stores data under '   114/TBkndTask/' directories
+    instead of 'VisibleDocument/Task2'. The data uses:
+      - FixedData:  fixed-size records for numeric fields
+      - VarMeta:    maps (row, field_id) → offset in Var2Data
+      - Var2Data:   variable-length strings/binary blobs
+
+    FixedData record layout (202 bytes, after 48-byte header):
+      0x00: unique_id    (uint32)
+      0x04: task_id      (uint32)
+      0x50: duration     (uint32, in project-minutes: 480 min = 1 day)
+      0x5C: pct_complete (uint16)
+      0x60: start_date   (uint32, encoded: days<<16 | time_ticks)
+      0x64: finish_date  (uint32, encoded)
+      0x8C: is_summary   (byte, 1 = summary task)
+      0x8E: parent_uid   (uint16, 0xFFFF = no parent)
+    """
+
+    # FixedData header size (3 × 16-byte index entries)
+    _FIXED_HEADER = 48
+
+    # Task FixedData field offsets within each record
+    _T_UID        = 0x00  # uint32
+    _T_ID         = 0x04  # uint32
+    _T_DURATION   = 0x50  # uint32 (minutes)
+    _T_PCT        = 0x5C  # uint16
+    _T_START      = 0x60  # uint32 (packed date)
+    _T_FINISH     = 0x64  # uint32 (packed date)
+    _T_SUMMARY    = 0x8C  # byte (1 = summary)
+    _T_PARENT_UID = 0x8E  # uint16 (0xFFFF = none)
+
+    def __init__(self, ole: olefile.OleFileIO, path: Path):
+        self._ole = ole
+        self._path = path
+        self._dir = _find_tb_dir(ole)
+
+    def _read_stream(self, table: str, stream: str) -> Optional[bytes]:
+        """Read a stream from the table-backed directory."""
+        try:
+            return self._ole.openstream([self._dir, table, stream]).read()
+        except Exception:
+            return None
+
+    def read(self) -> MppProject:
+        proj = MppProject(
+            title=self._read_title(),
+            author=self._read_author(),
+            mpp_version='MPP14 Table-Backed (Project 2024+)',
+        )
+        proj.tasks = self._read_tasks()
+        proj.resources = self._read_resources()
+        # Dependencies and assignments use a different structure in
+        # table-backed format; return empty lists for now
+        proj.dependencies = []
+        proj.assignments = []
+        return proj
+
+    def _read_title(self) -> str:
+        try:
+            meta = self._ole.get_metadata()
+            title = meta.title or ''
+            return title.decode('utf-8', errors='replace') if isinstance(title, bytes) else title
+        except Exception:
+            return ''
+
+    def _read_author(self) -> str:
+        try:
+            meta = self._ole.get_metadata()
+            author = meta.author or ''
+            return author.decode('utf-8', errors='replace') if isinstance(author, bytes) else author
+        except Exception:
+            return ''
+
+    def _read_tasks(self) -> List[MppTask]:
+        fixed = self._read_stream('TBkndTask', 'FixedData')
+        varmeta = self._read_stream('TBkndTask', 'VarMeta')
+        vardata = self._read_stream('TBkndTask', 'Var2Data')
+        if not fixed:
+            return []
+
+        # Build name lookup from VarMeta → Var2Data
+        names = self._parse_var_names(varmeta, vardata)
+
+        # Determine record size from the data
+        # The FixedData has a 48-byte header followed by fixed-size records
+        data_len = len(fixed) - self._FIXED_HEADER
+        if data_len <= 0:
+            return []
+
+        # Auto-detect record size: try dividing by plausible record counts
+        record_size = self._detect_record_size(fixed)
+        if record_size == 0:
+            return []
+
+        n_records = data_len // record_size
+        tasks = []
+        # Track uid → outline_level for deriving from parent chain
+        uid_to_level: Dict[int, int] = {}
+
+        for i in range(n_records):
+            offset = self._FIXED_HEADER + i * record_size
+            rec = fixed[offset:offset + record_size]
+            if len(rec) < record_size:
+                break
+
+            uid = struct.unpack_from('<I', rec, self._T_UID)[0]
+            tid = struct.unpack_from('<I', rec, self._T_ID)[0]
+
+            # Skip blank/sentinel records
+            if uid == 0xFFFFFFFF:
+                continue
+
+            dur_raw = struct.unpack_from('<I', rec, self._T_DURATION)[0]
+            pct = struct.unpack_from('<H', rec, self._T_PCT)[0]
+            start_raw = struct.unpack_from('<I', rec, self._T_START)[0]
+            finish_raw = struct.unpack_from('<I', rec, self._T_FINISH)[0]
+            is_summary = bool(rec[self._T_SUMMARY])
+            parent_raw = struct.unpack_from('<H', rec, self._T_PARENT_UID)[0]
+            parent_uid = None if parent_raw == 0xFFFF else parent_raw
+
+            name = names.get(i, '')
+            # Skip records with no name (deleted/blank rows in the table)
+            if not name and dur_raw == 0 and pct == 0:
+                continue
+            if not name:
+                name = f'Task {uid}'
+            duration = float(dur_raw) if dur_raw > 0 else None
+            milestone = (dur_raw == 0 and not is_summary and uid > 0)
+
+            tasks.append(MppTask(
+                unique_id=uid,
+                task_id=tid,
+                name=name,
+                outline_level=0,  # Computed below from parent chain
+                duration_minutes=duration,
+                start=_decode_tb_date(start_raw),
+                finish=_decode_tb_date(finish_raw),
+                percent_complete=min(100, pct),
+                milestone=milestone,
+                summary=is_summary,
+                parent_unique_id=parent_uid,
+            ))
+            uid_to_level[uid] = 0  # placeholder
+
+        # Derive outline levels from parent chain
+        uid_map = {t.unique_id: t for t in tasks}
+        for t in tasks:
+            level = 0
+            cur = t
+            visited = set()
+            while cur.parent_unique_id is not None and cur.parent_unique_id in uid_map:
+                if cur.parent_unique_id in visited:
+                    break  # avoid cycles
+                visited.add(cur.parent_unique_id)
+                cur = uid_map[cur.parent_unique_id]
+                level += 1
+            t.outline_level = level
+
+        return tasks
+
+    def _detect_record_size(self, fixed: bytes) -> int:
+        """Auto-detect FixedData record size from the data."""
+        data_len = len(fixed) - self._FIXED_HEADER
+        if data_len <= 0:
+            return 0
+
+        # Look at the FixedData to count records by scanning for sequential UIDs
+        # starting from the header
+        best_size = 0
+        for candidate in range(150, 300):
+            if data_len % candidate != 0:
+                continue
+            n = data_len // candidate
+            if n < 2:
+                continue
+            # Check if first few records have sequential UIDs
+            try:
+                uid0 = struct.unpack_from('<I', fixed, self._FIXED_HEADER)[0]
+                uid1 = struct.unpack_from('<I', fixed, self._FIXED_HEADER + candidate)[0]
+                if uid1 == uid0 + 1:
+                    best_size = candidate
+                    break
+            except struct.error:
+                continue
+
+        return best_size
+
+    def _parse_var_names(
+        self,
+        varmeta: Optional[bytes],
+        vardata: Optional[bytes],
+    ) -> Dict[int, str]:
+        """Parse VarMeta to extract task names keyed by row index."""
+        names: Dict[int, str] = {}
+        if not varmeta or not vardata or len(varmeta) < 36:
+            return names
+
+        # VarMeta: 24-byte header + 12-byte entries
+        # Entry: row_index(4) + var_data_offset(4) + field_id(4)
+        for i in range(24, len(varmeta) - 11, 12):
+            row = struct.unpack_from('<I', varmeta, i)[0]
+            var_offset = struct.unpack_from('<I', varmeta, i + 4)[0]
+            field_id = struct.unpack_from('<I', varmeta, i + 8)[0]
+
+            if field_id == _TB_FIELD_TASK_NAME and row not in names:
+                s = _read_tb_vardata_string(vardata, var_offset)
+                if s:
+                    names[row] = s
+
+        return names
+
+    def _read_resources(self) -> List[MppResource]:
+        """Read resources from TBkndRsc streams."""
+        varmeta = self._read_stream('TBkndRsc', 'VarMeta')
+        vardata = self._read_stream('TBkndRsc', 'Var2Data')
+        fixed = self._read_stream('TBkndRsc', 'FixedData')
+        if not fixed:
+            return []
+
+        # Resource names from VarMeta (field 188743694 might be reused or
+        # resources use a different field ID — but names are scarce in this file)
+        rsc_names: Dict[int, str] = {}
+        if varmeta and vardata:
+            for i in range(24, len(varmeta) - 11, 12):
+                row = struct.unpack_from('<I', varmeta, i)[0]
+                var_offset = struct.unpack_from('<I', varmeta, i + 4)[0]
+                field_id = struct.unpack_from('<I', varmeta, i + 8)[0]
+                # Resource name field ID (same pattern as task name)
+                if field_id == _TB_FIELD_TASK_NAME and row not in rsc_names:
+                    s = _read_tb_vardata_string(vardata, var_offset)
+                    if s:
+                        rsc_names[row] = s
+
+        # FixedData has a similar header structure
+        # Resource records are simpler — just extract uid/id from the header entries
+        resources = []
+        # Try to detect record size similarly to tasks
+        data_len = len(fixed)
+        if data_len < self._FIXED_HEADER:
+            return []
+
+        # For resources, the header pattern is also 16-byte entries
+        # but the format is simpler. Extract UIDs from the initial entries.
+        # Read 16-byte header entries first
+        header_entries = min(3, data_len // 16)
+        remaining = data_len - header_entries * 16
+        if remaining <= 0:
+            return []
+
+        # Auto-detect record size
+        record_size = 0
+        for candidate in range(50, 300):
+            if remaining % candidate == 0:
+                n = remaining // candidate
+                if 1 <= n <= 100:
+                    record_size = candidate
+                    break
+
+        if record_size == 0:
+            return []
+
+        n_records = remaining // record_size
+        for i in range(n_records):
+            offset = header_entries * 16 + i * record_size
+            rec = fixed[offset:offset + record_size]
+            if len(rec) < 8:
+                break
+            uid = struct.unpack_from('<I', rec, 0)[0]
+            if uid == 0 or uid == 0xFFFFFFFF:
+                continue
+            rid = struct.unpack_from('<I', rec, 4)[0] if len(rec) >= 8 else uid
+            name = rsc_names.get(i, '')
+            resources.append(MppResource(
+                unique_id=uid,
+                resource_id=rid,
+                name=name,
+                type='Work',
+            ))
+
+        return resources
 
 
 # Patch MPP9Reader to expose shared parse helpers used by Mpp14Reader
