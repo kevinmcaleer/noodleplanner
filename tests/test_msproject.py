@@ -613,7 +613,7 @@ class TestImportFromMpp:
         assert "@adeveloper" in result  # shortname for Alice Developer
         assert "50%" in result
         # Adjacent predecessor uses * shorthand
-        assert "Build Widget 3d @adeveloper 50% *" in result
+        assert "*Build Widget 3d @adeveloper 50%" in result
         # Resource header section
         assert "Resources:" in result
         assert "- @adeveloper: Alice Developer" in result
@@ -787,7 +787,7 @@ class TestImportFromMpp:
             result = import_from_mpp(b"\x00")
 
         # Should use * not [depends: First]
-        assert "Second 1d *" in result
+        assert "*Second 1d" in result
         assert "[depends" not in result
 
 

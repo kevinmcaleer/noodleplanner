@@ -538,13 +538,13 @@ def import_from_mpp(file_bytes: bytes) -> str:
                 if dep.predecessor_unique_id in task_id_to_name:
                     dep_uids.append(dep.predecessor_unique_id)
 
+        # Dependencies (simple '*' is prepended to the task name with no space)
+        dep_prefix = ""
         if dep_uids:
-            # Check if this is a simple single dependency on the
-            # immediately preceding task — use '*' shorthand
             if len(dep_uids) == 1 and idx > 0:
                 prev_uid = real_task_uids[idx - 1]
                 if dep_uids[0] == prev_uid:
-                    parts.append("*")
+                    dep_prefix = "*"
                 else:
                     pred_name = task_id_to_name[dep_uids[0]]
                     parts.append(f"[depends: {pred_name}]")
@@ -556,7 +556,7 @@ def import_from_mpp(file_bytes: bytes) -> str:
                 deps_str = ", ".join(dep_names)
                 parts.append(f"[depends: {deps_str}]")
 
-        line = f"{indent}{' '.join(parts)}"
+        line = f"{indent}{dep_prefix}{' '.join(parts)}"
         lines.append(line)
 
     return "\n".join(lines) + "\n"
