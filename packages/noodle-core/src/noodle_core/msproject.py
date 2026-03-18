@@ -5,9 +5,9 @@ Supports MS Project XML format (.xml) and native .mpp files.
 XML format can be opened by Microsoft Project, ProjectLibre, and other
 tools that support the MS Project XML schema.
 
-Native .mpp import requires the ``mpxj`` Python package and a Java
-runtime.  When mpxj is not available the endpoint returns a clear error
-asking the user to export as XML from MS Project instead.
+Native .mpp import uses a pure-Python binary reader (requires only
+``olefile``).  No Java runtime needed.  When olefile is not available
+the endpoint returns a clear error asking the user to install it.
 
 Field mapping:
     NoodlePlanner → MS Project XML
@@ -376,44 +376,24 @@ def import_from_msproject_xml(xml_content: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _check_mpxj_available() -> bool:
-    """Return True if the mpxj package is importable."""
+def _check_mpp_available() -> bool:
+    """Return True if olefile is importable (needed for .mpp reading)."""
     try:
-        import mpxj  # noqa: F401
+        import olefile  # noqa: F401
         return True
     except ImportError:
         return False
 
 
-def _duration_to_days(duration) -> int:
-    """Convert an mpxj Duration object to working days.
-
-    mpxj Duration objects expose .duration (float) and .units (enum).
-    We normalise everything to whole working days.
-    """
-    if duration is None:
-        return 1
-
-    raw = float(duration.duration) if hasattr(duration, "duration") else 0
-    if raw <= 0:
-        return 1
-
-    units = str(getattr(duration, "units", "")).upper()
-    if "HOUR" in units:
-        return max(1, int(raw / 8))
-    if "WEEK" in units:
-        return max(1, int(raw * 5))
-    if "MONTH" in units:
-        return max(1, int(raw * 20))
-    # Default: assume days
-    return max(1, int(raw))
+# Backwards-compatible alias
+_check_mpxj_available = _check_mpp_available
 
 
 def import_from_mpp(file_bytes: bytes) -> str:
     """Import a native .mpp file and convert to NoodlePlanner markdown.
 
-    Requires the ``mpxj`` Python package (``pip install mpxj``) and a
-    Java runtime.
+    Uses a pure-Python MPP binary reader (requires ``olefile``).
+    No Java runtime needed.
 
     Args:
         file_bytes: The raw bytes of the .mpp file.
@@ -422,31 +402,31 @@ def import_from_mpp(file_bytes: bytes) -> str:
         NoodlePlanner plan text in markdown format.
 
     Raises:
-        ImportError: If mpxj is not installed.
+        ImportError: If olefile is not installed.
         RuntimeError: If the file cannot be parsed.
     """
     try:
-        from mpxj import ProjectReader
+        from .mpp_reader import MppProject, MppReadError
     except ImportError:
         raise ImportError(
-            "The mpxj package is required to import .mpp files. "
-            "Install it with: pip install mpxj  (requires Java runtime). "
-            "Alternatively, open the file in MS Project and save as XML."
+            "The olefile package is required to import .mpp files. "
+            "Install it with: pip install olefile"
         )
 
     import tempfile
     import os
 
-    # mpxj reads from a file path, so write bytes to a temp file
+    # MppProject.read() needs a file path, so write bytes to a temp file
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".mpp")
     try:
         os.write(tmp_fd, file_bytes)
         os.close(tmp_fd)
 
-        reader = ProjectReader()
-        project = reader.read(tmp_path)
+        project = MppProject.read(tmp_path)
     except ImportError:
         raise
+    except MppReadError as e:
+        raise RuntimeError(f"Failed to read .mpp file: {e}") from e
     except Exception as e:
         raise RuntimeError(f"Failed to read .mpp file: {e}") from e
     finally:
@@ -454,42 +434,27 @@ def import_from_mpp(file_bytes: bytes) -> str:
             os.unlink(tmp_path)
 
     # Extract project name
-    project_name = "Project"
-    if hasattr(project, "project_properties"):
-        props = project.project_properties
-        project_name = getattr(props, "project_title", None) or getattr(
-            props, "name", None
-        ) or "Project"
+    project_name = project.title or "Project"
 
-    # Build resource ID → name map
+    # Build resource UID → name map
     resource_map = {}
-    if hasattr(project, "resources"):
-        for res in project.resources:
-            res_id = getattr(res, "unique_id", None)
-            res_name = getattr(res, "name", None)
-            if res_id is not None and res_name:
-                resource_map[res_id] = res_name
+    for res in project.real_resources():
+        resource_map[res.unique_id] = res.name
 
-    # Build task ID → assigned resource names
-    task_resources = {}
-    if hasattr(project, "resource_assignments"):
-        for assign in project.resource_assignments:
-            task = getattr(assign, "task", None)
-            resource = getattr(assign, "resource", None)
-            if task is not None and resource is not None:
-                task_id = getattr(task, "unique_id", None)
-                res_name = getattr(resource, "name", None)
-                if task_id is not None and res_name:
-                    task_resources.setdefault(task_id, []).append(res_name)
+    # Build task UID → assigned resource names
+    task_resources: dict[int, list[str]] = {}
+    for assign in project.assignments:
+        res = project.resource_by_uid(assign.resource_unique_id)
+        if res and res.name:
+            task_resources.setdefault(assign.task_unique_id, []).append(
+                res.name
+            )
 
-    # Build task ID → name map for dependency resolution
+    # Build task UID → name map for dependency resolution
     task_id_to_name = {}
-    if hasattr(project, "tasks"):
-        for task in project.tasks:
-            tid = getattr(task, "unique_id", None)
-            tname = getattr(task, "name", None)
-            if tid is not None and tname:
-                task_id_to_name[tid] = tname
+    for task in project.tasks:
+        if task.name:
+            task_id_to_name[task.unique_id] = task.name
 
     # Build markdown output
     lines = [
@@ -499,76 +464,43 @@ def import_from_mpp(file_bytes: bytes) -> str:
         "",
     ]
 
-    if hasattr(project, "tasks"):
-        for task in project.tasks:
-            name = getattr(task, "name", None)
-            if not name:
-                continue
+    for task in project.real_tasks():
+        if not task.name:
+            continue
 
-            # Skip project summary (outline level 0)
-            outline_level = getattr(task, "outline_level", None)
-            if outline_level is not None:
-                outline_level = int(outline_level)
-            else:
-                outline_level = 1
+        indent_level = max(0, task.outline_level - 1)
+        indent = "  " * indent_level
 
-            uid = getattr(task, "unique_id", None)
-            if uid == 0 and outline_level == 0:
-                continue
+        parts = [task.name]
 
-            is_summary = bool(getattr(task, "summary", False))
-            indent_level = max(0, outline_level - 1)
-            indent = "  " * indent_level
+        # Duration
+        if not task.summary:
+            days = task.duration_days
+            if days is not None and days > 0:
+                parts.append(f"{max(1, int(days))}d")
 
-            parts = [name]
+        # Resources
+        resources = task_resources.get(task.unique_id, [])
+        for res in resources:
+            shortname = res.split()[0] if res else res
+            parts.append(f"@{shortname}")
 
-            # Duration
-            if not is_summary:
-                duration = getattr(task, "duration", None)
-                days = _duration_to_days(duration)
-                if days > 0:
-                    parts.append(f"{days}d")
+        # Percent complete
+        if task.percent_complete > 0:
+            parts.append(f"{task.percent_complete}%")
 
-            # Resources
-            resources = task_resources.get(uid, [])
-            for res in resources:
-                shortname = res.split()[0] if res else res
-                parts.append(f"@{shortname}")
+        # Dependencies (predecessors)
+        dep_names = []
+        for dep in project.dependencies:
+            if dep.successor_unique_id == task.unique_id:
+                pred_name = task_id_to_name.get(dep.predecessor_unique_id)
+                if pred_name:
+                    dep_names.append(pred_name)
+        if dep_names:
+            deps_str = ", ".join(dep_names)
+            parts.append(f"[depends {deps_str}]")
 
-            # Percent complete
-            percent = getattr(task, "percent_complete", None)
-            if percent is not None:
-                pct = int(float(percent))
-                if pct > 0:
-                    parts.append(f"{pct}%")
-
-            # Dependencies (predecessors)
-            predecessors = getattr(task, "predecessors", None)
-            if predecessors:
-                dep_names = []
-                for rel in predecessors:
-                    pred_task = getattr(rel, "target_task", None) or getattr(
-                        rel, "predecessor", None
-                    )
-                    if pred_task is not None:
-                        pred_id = getattr(pred_task, "unique_id", None)
-                        if pred_id in task_id_to_name:
-                            dep_names.append(task_id_to_name[pred_id])
-                if dep_names:
-                    deps_str = ", ".join(dep_names)
-                    parts.append(f"[depends {deps_str}]")
-
-            # Notes
-            notes = getattr(task, "notes", None)
-            if notes:
-                # Strip HTML if present
-                if "<" in notes and ">" in notes:
-                    import re
-                    notes = re.sub(r"<[^>]+>", "", notes).strip()
-                if notes:
-                    parts.append(f'"{notes}"')
-
-            line = f"{indent}{' '.join(parts)}"
-            lines.append(line)
+        line = f"{indent}{' '.join(parts)}"
+        lines.append(line)
 
     return "\n".join(lines) + "\n"

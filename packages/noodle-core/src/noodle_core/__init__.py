@@ -64,7 +64,8 @@ from .msproject import (
     export_to_msproject_xml,
     import_from_msproject_xml,
     import_from_mpp,
-    _check_mpxj_available,
+    _check_mpp_available,
+    _check_mpxj_available,  # backwards-compatible alias
 )
 
 from .front_matter_parser import FrontMatterParser
@@ -126,6 +127,7 @@ __all__ = [
     "export_to_msproject_xml",
     "import_from_msproject_xml",
     "import_from_mpp",
+    "_check_mpp_available",
     "_check_mpxj_available",
     # Front matter parser
     "FrontMatterParser",

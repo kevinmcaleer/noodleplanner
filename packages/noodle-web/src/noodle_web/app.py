@@ -45,7 +45,7 @@ from noodle_core import (
     FrontMatterParser,
     import_from_msproject_xml,
     import_from_mpp,
-    _check_mpxj_available,
+    _check_mpp_available,
 )
 import json
 from .plan_service import PlanService, export_to_file
@@ -971,12 +971,12 @@ async def import_msproject(file: UploadFile = File(...)):
 
     try:
         if extension == "mpp":
-            if not _check_mpxj_available():
+            if not _check_mpp_available():
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        "Native .mpp import requires the mpxj package and Java runtime. "
-                        "Please save the file as XML from MS Project and import the .xml file instead."
+                        "Native .mpp import requires the olefile package. "
+                        "Install it with: pip install olefile"
                     ),
                 )
             markdown = import_from_mpp(file_bytes)
