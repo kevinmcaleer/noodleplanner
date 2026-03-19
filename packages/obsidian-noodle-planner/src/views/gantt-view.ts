@@ -349,6 +349,29 @@ export class GanttView extends BaseView {
   private setupDragListeners(): void {
     if (!this.chartContainer) return;
 
+    const onMouseMove = (e: MouseEvent) => {
+      if (!this.dragState) return;
+
+      const deltaX = e.clientX - this.dragState.startX;
+      const deltaDays = Math.round(deltaX / this.pixelsPerDay);
+
+      if (deltaDays === 0) return;
+
+      // Preview the change (don't update source yet)
+      this.previewDrag(deltaDays);
+    };
+
+    const onMouseUp = async () => {
+      if (!this.dragState) return;
+
+      // Apply the change to source
+      await this.applyDragChange();
+
+      this.dragState = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
     this.chartContainer.addEventListener('mousedown', (e) => {
       const target = e.target as HTMLElement;
       const bar = target.closest('.noodle-gantt-bar') as HTMLElement;
@@ -371,30 +394,8 @@ export class GanttView extends BaseView {
       };
 
       e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (!this.dragState) return;
-
-      const deltaX = e.clientX - this.dragState.startX;
-      const deltaDays = Math.round(deltaX / this.pixelsPerDay);
-
-      if (deltaDays === 0) return;
-
-      // Preview the change (don't update source yet)
-      this.previewDrag(deltaDays);
-    });
-
-    document.addEventListener('mouseup', async () => {
-      if (!this.dragState) return;
-
-      const { task, handleType, startX } = this.dragState;
-      const deltaX = document.body.getBoundingClientRect().width; // Get current position
-
-      // Apply the change to source
-      await this.applyDragChange();
-
-      this.dragState = null;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
     });
   }
 
