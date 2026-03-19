@@ -409,10 +409,16 @@ const NavigationController = (() => {
 
 // Shared helper: set a single nav tab as active, clearing all others (NAV-3)
 function setActiveNavTab(navTabId) {
-    document.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tabs .tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.setAttribute('aria-selected', 'false');
+    });
     if (navTabId) {
         const navTab = document.getElementById(navTabId);
-        if (navTab) navTab.classList.add('active');
+        if (navTab) {
+            navTab.classList.add('active');
+            navTab.setAttribute('aria-selected', 'true');
+        }
     }
 }
 

@@ -316,6 +316,7 @@ function updatePlanSubnav(viewName) {
                 } else {
                     btn.classList.remove('active');
                 }
+                btn.setAttribute('aria-selected', shouldBeActive ? 'true' : 'false');
             });
 
             // Highlight active item inside dropdown menus
