@@ -3,6 +3,7 @@
 import os
 import tempfile
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -811,3 +812,87 @@ class TestGenerateShortname:
 
     def test_empty_string(self):
         assert _generate_shortname("") == ""
+
+
+# ---------------------------------------------------------------------------
+# End-to-end test with real Draft Plan.mpp (skipped if file not present)
+# ---------------------------------------------------------------------------
+
+
+class TestRealMppImport:
+    """Integration tests using the real Draft Plan.mpp file.
+
+    These are skipped when the file is not available (e.g., in CI).
+    """
+
+    DRAFT_PLAN = Path(__file__).resolve().parent.parent / "Draft Plan.mpp"
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_no_file(self):
+        if not self.DRAFT_PLAN.exists():
+            pytest.skip("Draft Plan.mpp not present")
+
+    def _import(self):
+        with open(self.DRAFT_PLAN, "rb") as f:
+            return import_from_mpp(f.read())
+
+    def test_imports_without_error(self):
+        result = self._import()
+        assert result
+        assert "---" in result
+
+    def test_title(self):
+        result = self._import()
+        assert "title: Draft Plan" in result
+
+    def test_task_count(self):
+        result = self._import()
+        # All non-blank, non-frontmatter lines are task lines
+        lines = [l for l in result.strip().split("\n")
+                 if l.strip() and not l.startswith("---") and not l.startswith("title:")]
+        assert len(lines) >= 90  # Draft Plan has ~97 tasks
+
+    def test_indentation_max_two_per_level(self):
+        """Every child should be exactly 2 spaces deeper than its parent."""
+        result = self._import()
+        lines = result.strip().split("\n")
+        prev_indent = 0
+        for line in lines:
+            if not line.strip() or line.startswith("---") or line.startswith("title:"):
+                continue
+            indent = len(line) - len(line.lstrip())
+            # Indent can increase by at most 2 from previous line
+            assert indent <= prev_indent + 2, (
+                f"Indent jumped by {indent - prev_indent} (max 2): {line!r}"
+            )
+            prev_indent = indent
+
+    def test_dependencies_present(self):
+        result = self._import()
+        assert "[depends:" in result or "*" in result
+
+    def test_star_dependency_prepended(self):
+        """The * shorthand must be prepended with no space."""
+        result = self._import()
+        for line in result.split("\n"):
+            stripped = line.lstrip()
+            if stripped.startswith("*"):
+                # Ensure no trailing ' *' pattern (old format)
+                assert not stripped.endswith(" *")
+
+    def test_known_tasks_present(self):
+        result = self._import()
+        assert "Project Soti - MobiControl" in result
+        assert "DEFINITION PHASE" in result
+        assert "DESIGN, BUILD & TEST PHASE" in result
+        assert "Close project" in result
+
+    def test_durations_present(self):
+        result = self._import()
+        assert "5d" in result  # Detail Definition phase = 5 days
+        assert "2d" in result  # Compile PDD = 2 days
+
+    def test_percent_complete(self):
+        result = self._import()
+        assert "50%" in result  # Gate 1 approval
+        assert "20%" in result  # Compile PDD

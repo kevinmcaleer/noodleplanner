@@ -973,7 +973,8 @@ class Mpp14TableBackedReader:
             finish_raw = struct.unpack_from('<I', rec, self._T_FINISH)[0]
             is_summary = bool(rec[self._T_SUMMARY])
             parent_raw = struct.unpack_from('<H', rec, self._T_PARENT_UID)[0]
-            parent_uid = None if parent_raw == 0xFFFF else parent_raw
+            # The parent field stores the parent's task_id, not unique_id
+            parent_tid = None if parent_raw == 0xFFFF else parent_raw
 
             name = names.get(i, '')
             # Skip records with no name (deleted/blank rows in the table)
@@ -995,9 +996,14 @@ class Mpp14TableBackedReader:
                 percent_complete=min(100, pct),
                 milestone=milestone,
                 summary=is_summary,
-                parent_unique_id=parent_uid,
+                parent_unique_id=parent_tid,  # temporarily holds parent tid
             ))
-            uid_to_level[uid] = 0  # placeholder
+
+        # Resolve parent_unique_id: convert from task_id to unique_id
+        tid_to_uid = {t.task_id: t.unique_id for t in tasks}
+        for t in tasks:
+            if t.parent_unique_id is not None:
+                t.parent_unique_id = tid_to_uid.get(t.parent_unique_id, t.parent_unique_id)
 
         # Derive outline levels from parent chain
         uid_map = {t.unique_id: t for t in tasks}
