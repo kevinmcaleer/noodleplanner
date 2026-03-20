@@ -1234,3 +1234,102 @@ Noodle Planner supports light and dark colour themes, toggled via a button in th
 | `templates/index.html` | Theme toggle button in nav bar, FOUC-prevention script, CSS/JS loading |
 | `static/script.js` | Calls `applyThemeFromFrontMatter()` during `updateAllViews()` |
 | `tests/test_dark_mode.py` | 26 tests covering assets, accessibility, front matter parsing, CSS tokens, and JS functions |
+
+---
+
+### Programme Dependencies (Issue #630)
+
+Allows users to specify dependencies between projects at the programme level — linking a task or milestone in one project to a task in another.
+
+#### How it Works
+
+1. **Dependency Storage**: Programme dependencies are stored in browser `localStorage` under the key `noodleplanner_programme_deps`. Each dependency is an object with:
+   - `id`: unique identifier (`dep-{timestamp}-{random}`)
+   - `from_project_id`: source project localStorage key
+   - `from_task_name`: source task or milestone name (matched case-insensitively)
+   - `to_project_id`: dependent project localStorage key
+   - `to_task_name`: dependent task name
+   - `lag_days`: integer; positive = wait N days after source finishes; negative = can start N days before
+   - `notes`: optional free text
+
+2. **RAG Calculation**: The server endpoint `POST /api/programme-dependencies/propagate` accepts all project task data + dependency definitions. For each dependency it:
+   - Looks up the source task finish date
+   - Calculates `required_start = source_finish + lag_days`
+   - Compares with the dependent task's actual start date
+   - Returns **RED** if the dependency constraint is violated (dependent starts before required_start)
+   - Returns **RED** if dependent task is overdue (finish date passed, < 100% complete)
+   - Returns **AMBER** if source has finished but dependent hasn't started
+   - Returns **GREEN** if constraint satisfied
+   - Returns **GREY** if tasks cannot be found or have missing dates
+
+3. **Overall Programme RAG**: Worst-case across all dependency RAGs (red > amber > green > grey).
+
+4. **Portfolio Dependencies View**: A dedicated "Dependencies" sub-tab in the Portfolio section. Users can:
+   - View all programme dependencies as a table with RAG circles
+   - Add new dependencies via a modal dialog (with task name autocomplete from the selected project's plan)
+   - Edit or delete existing dependencies
+
+5. **Timeline Arrows**: When the Portfolio Timeline view is rendered, `drawDependencyArrows()` overlays an SVG layer on the swimlane chart. Each dependency is drawn as a vertical connector line from the source task's finish date on its project row to the dependent task's row, coloured by RAG status:
+   - Dashed red line = dependency violated
+   - Dashed amber line = dependency at risk
+   - Solid green line = satisfied
+
+#### API
+
+**`POST /api/programme-dependencies/propagate`**
+
+Request body:
+```json
+{
+  "dependencies": [
+    {
+      "id": "dep-xxx",
+      "from_project_id": "project-xxx",
+      "from_task_name": "Phase 1 Complete",
+      "to_project_id": "project-yyy",
+      "to_task_name": "Integration Testing",
+      "lag_days": 2,
+      "notes": "Must wait 2 days for env setup"
+    }
+  ],
+  "projects": [
+    {
+      "project_id": "project-xxx",
+      "project_name": "Backend API",
+      "tasks": [
+        { "name": "Phase 1 Complete", "start": "2026-03-01", "finish": "2026-03-15", "percent": 100, "duration_days": 0, "is_summary": false }
+      ]
+    }
+  ]
+}
+```
+
+Response:
+```json
+{
+  "results": [
+    {
+      "dependency_id": "dep-xxx",
+      "rag": "green",
+      "reason": "Dependency satisfied; task starts 2026-03-17",
+      "propagated_start": "2026-03-17",
+      "from_task": { ... },
+      "to_task": { ... }
+    }
+  ],
+  "overall_rag": "green",
+  "dependency_count": 1
+}
+```
+
+#### Files
+
+| File | Purpose |
+|------|---------|
+| `static/portfolio-dependencies.js` | LocalStorage CRUD, API call, render dependencies table, arrow drawing |
+| `static/portfolio-timeline.js` | Enhanced to call `drawDependencyArrows()` after timeline render |
+| `static/portfolio.js` | Added `dependencies` case to `switchPortfolioView()` |
+| `static/views/portfolio.css` | Styles for `.dep-table`, `.dep-rag-circle`, `.programme-deps-view` |
+| `templates/index.html` | Dependencies sub-nav button and `portfolioDependenciesView` div |
+| `packages/noodle-web/src/noodle_web/app.py` | `POST /api/programme-dependencies/propagate` endpoint + helpers |
+| `tests/test_programme_dependencies.py` | 21 tests covering helper functions and API endpoint |
