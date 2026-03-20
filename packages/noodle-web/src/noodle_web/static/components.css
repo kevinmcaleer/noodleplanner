@@ -2590,6 +2590,126 @@ tr:hover .task-context-btn,
     font-size: 1.1em;
 }
 
+/* ========================================
+   Quality Analyser (ProjectQA) Styles
+   ======================================== */
+
+.qa-section {
+    max-width: 900px;
+    margin: 30px auto 0;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+}
+
+.qa-section-title {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.qa-section-desc {
+    color: #666;
+    font-size: 0.95em;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.qa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.qa-check-card {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 44px;
+}
+
+.qa-check-card.qa-info {
+    border-left-color: #2196f3;
+}
+
+.qa-check-card.qa-issue {
+    border-left-color: #ff5722;
+}
+
+.qa-check-card.qa-issue-ok {
+    border-left-color: #4caf50;
+}
+
+.qa-check-number {
+    font-size: 0.75em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #999;
+}
+
+.qa-check-count {
+    font-size: 2.2em;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.qa-check-card.qa-info .qa-check-count {
+    color: #1565c0;
+}
+
+.qa-check-card.qa-issue .qa-check-count {
+    color: #d32f2f;
+}
+
+.qa-check-card.qa-issue-ok .qa-check-count {
+    color: #388e3c;
+}
+
+.qa-check-label {
+    font-size: 0.85em;
+    color: #555;
+    line-height: 1.3;
+    font-weight: 500;
+}
+
+.qa-check-badge {
+    display: inline-block;
+    font-size: 0.7em;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    width: fit-content;
+}
+
+.qa-badge-info {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.qa-badge-issue {
+    background: #fbe9e7;
+    color: #bf360c;
+}
+
+.qa-badge-ok {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+@media (max-width: 480px) {
+    .qa-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 /* Issue #66: Make project title placeholder white */
 #projectTitle::placeholder {
     color: white;
@@ -5891,6 +6011,78 @@ tr:hover .task-context-btn,
     .budget-table th {
         padding: 8px 6px;
         font-size: 0.8em;
+    }
+}
+
+/* Recurrence form controls */
+.recurrence-days-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.recurrence-day-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.recurrence-day-label:hover {
+    background: #f0f8ff;
+    border-color: #108BB9;
+}
+
+.recurrence-day-label input[type="checkbox"] {
+    margin: 0;
+    accent-color: #108BB9;
+}
+
+/* Recurrence badge in lookahead / up-next tables */
+.recurrence-badge {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #108BB9;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 0.78em;
+    font-weight: 600;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .recurrence-day-label {
+    border-color: var(--border-color, #444);
+    color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .recurrence-day-label:hover {
+    background: rgba(16, 139, 185, 0.15);
+    border-color: #108BB9;
+}
+
+[data-theme="dark"] .recurrence-badge {
+    background: rgba(16, 139, 185, 0.2);
+    color: #6fc3e8;
+}
+
+@media (max-width: 768px) {
+    .recurrence-days-grid {
+        gap: 4px;
+    }
+
+    .recurrence-day-label {
+        min-width: 44px;
+        font-size: 0.85em;
     }
 }
 

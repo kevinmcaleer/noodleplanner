@@ -24,6 +24,8 @@ from .scheduling_engine import (
     calculate_evm,
     natural_language_to_yaml,
     inherit_summary_resources,
+    parse_recurrence,
+    generate_recurrence_occurrences,
     MAX_TASK_COUNT,
     MAX_NESTING_DEPTH,
     MAX_TASK_NAME_LENGTH,
@@ -64,7 +66,8 @@ from .msproject import (
     export_to_msproject_xml,
     import_from_msproject_xml,
     import_from_mpp,
-    _check_mpxj_available,
+    _check_mpp_available,
+    _check_mpxj_available,  # backwards-compatible alias
 )
 
 from .front_matter_parser import FrontMatterParser
@@ -95,6 +98,8 @@ __all__ = [
     "calculate_evm",
     "natural_language_to_yaml",
     "inherit_summary_resources",
+    "parse_recurrence",
+    "generate_recurrence_occurrences",
     # Format converter
     "convert_plan_format_to_standard",
     "extract_title_from_frontmatter",
@@ -126,6 +131,7 @@ __all__ = [
     "export_to_msproject_xml",
     "import_from_msproject_xml",
     "import_from_mpp",
+    "_check_mpp_available",
     "_check_mpxj_available",
     # Front matter parser
     "FrontMatterParser",

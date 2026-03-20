@@ -11,8 +11,7 @@ services:
       - PORT=8007
       - MAX_FILE_SIZE=1048576
       - RELOAD=false
-      - DATABASE_URL=${DATABASE_URL}
-      - ENABLE_ACTIVITY_LOGGING=${ENABLE_ACTIVITY_LOGGING:-true}
+      - ENABLE_ACTIVITY_LOGGING=false
     volumes:
       # Mount packages for development (optional - comment out for production)
       - ./packages:/app/packages

@@ -1216,11 +1216,15 @@ function setupBarDragListeners(bar, task, taskIndex) {
 
         bar.classList.remove('dragging');
         dragState = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
     };
 
-    bar.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    bar.addEventListener('mousedown', (e) => {
+        onMouseDown(e);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
 }
 
 function updateTaskDates(task, taskIndex, handleType, deltaDays) {

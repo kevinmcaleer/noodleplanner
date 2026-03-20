@@ -180,6 +180,155 @@ def parse_duration_to_days(duration_str):
 
     # Apply sign
     return days if sign == '+' else -days
+def parse_recurrence(recurrence_str):
+    """Parse a recurrence string from [repeats ...] syntax.
+
+    Supported formats:
+      daily
+      weekly mon,wed,fri
+      monthly 3rd thu
+      yearly
+
+    Returns a dict with keys:
+      frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+      days: list of lowercase 3-letter day abbreviations (weekly only)
+      week_of_month: int 1-5 (monthly only)
+      day_of_week: lowercase 3-letter day abbreviation (monthly only)
+      raw: the original string
+    """
+    s = recurrence_str.strip().lower()
+    result = {'raw': s}
+
+    if s == 'daily':
+        result['frequency'] = 'daily'
+    elif s == 'yearly':
+        result['frequency'] = 'yearly'
+    elif s.startswith('weekly'):
+        result['frequency'] = 'weekly'
+        days_part = s[len('weekly'):].strip()
+        if days_part:
+            result['days'] = [d.strip() for d in days_part.split(',') if d.strip()]
+        else:
+            result['days'] = []
+    elif s.startswith('monthly'):
+        result['frequency'] = 'monthly'
+        monthly_part = s[len('monthly'):].strip()
+        ordinal_map = {'1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5}
+        match = re.match(r'(\d+(?:st|nd|rd|th))\s+(\w+)', monthly_part)
+        if match:
+            ordinal_str = match.group(1)
+            day_str = match.group(2)
+            result['week_of_month'] = ordinal_map.get(ordinal_str, 1)
+            result['day_of_week'] = day_str
+    else:
+        result['frequency'] = s
+
+    return result
+
+
+def generate_recurrence_occurrences(task, window_start, window_end):
+    """Generate occurrence dates for a recurring task within a date window.
+
+    Args:
+        task: Task dict with 'recurrence' key (parsed recurrence dict)
+        window_start: datetime.date start of window (inclusive)
+        window_end: datetime.date end of window (inclusive)
+
+    Returns:
+        List of datetime.date objects for each occurrence in the window
+    """
+    recurrence = task.get('recurrence')
+    if not recurrence:
+        return []
+
+    frequency = recurrence.get('frequency')
+    occurrences = []
+
+    day_name_to_weekday = {
+        'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6,
+        'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+        'friday': 4, 'saturday': 5, 'sunday': 6
+    }
+
+    if frequency == 'daily':
+        current = window_start
+        while current <= window_end:
+            occurrences.append(current)
+            current = current + timedelta(days=1)
+
+    elif frequency == 'weekly':
+        target_days = recurrence.get('days', [])
+        target_weekdays = {day_name_to_weekday[d] for d in target_days if d in day_name_to_weekday}
+        if not target_weekdays:
+            # No specific days: recur every day of the week
+            current = window_start
+            while current <= window_end:
+                occurrences.append(current)
+                current = current + timedelta(days=1)
+        else:
+            current = window_start
+            while current <= window_end:
+                if current.weekday() in target_weekdays:
+                    occurrences.append(current)
+                current = current + timedelta(days=1)
+
+    elif frequency == 'monthly':
+        week_of_month = recurrence.get('week_of_month', 1)
+        day_of_week_str = recurrence.get('day_of_week', '')
+        target_weekday = day_name_to_weekday.get(day_of_week_str)
+
+        if target_weekday is not None:
+            # Iterate through each month in the window
+            import calendar
+            current_year = window_start.year
+            current_month = window_start.month
+            end_year = window_end.year
+            end_month = window_end.month
+
+            while (current_year, current_month) <= (end_year, end_month):
+                # Find all occurrences of target_weekday in the month
+                cal = calendar.monthcalendar(current_year, current_month)
+                matching_days = []
+                for week in cal:
+                    day = week[target_weekday]
+                    if day != 0:
+                        matching_days.append(day)
+
+                if len(matching_days) >= week_of_month:
+                    day_num = matching_days[week_of_month - 1]
+                    from datetime import date as date_type
+                    occurrence = date_type(current_year, current_month, day_num)
+                    if window_start <= occurrence <= window_end:
+                        occurrences.append(occurrence)
+
+                # Advance to next month
+                if current_month == 12:
+                    current_month = 1
+                    current_year += 1
+                else:
+                    current_month += 1
+
+    elif frequency == 'yearly':
+        # Recur on the same month/day each year
+        task_start = task.get('start')
+        if task_start:
+            if isinstance(task_start, str):
+                from dateutil.parser import parse as parse_date_local
+                task_start = parse_date_local(task_start).date()
+            elif hasattr(task_start, 'date'):
+                task_start = task_start.date()
+            from datetime import date as date_type
+            for year in range(window_start.year, window_end.year + 1):
+                try:
+                    occurrence = date_type(year, task_start.month, task_start.day)
+                    if window_start <= occurrence <= window_end:
+                        occurrences.append(occurrence)
+                except ValueError:
+                    pass  # Skip Feb 29 in non-leap years
+
+    return occurrences
+
+
 def extract_metadata(task_str, task_name=None):
     meta = {}
     tokens = re.split(r'(?<!\\)\s+', task_str)
@@ -224,6 +373,13 @@ def extract_metadata(task_str, task_name=None):
             meta['lag_lead'] = lag_lead_map
 
         meta['depends'] = dep_list
+
+    # Extract recurrence using [repeats ...] syntax
+    recurrence_pattern = r'\[repeats\s+([^\]]+)\]'
+    recurrence_match = re.search(recurrence_pattern, task_str, re.IGNORECASE)
+    if recurrence_match:
+        meta['recurrence'] = parse_recurrence(recurrence_match.group(1))
+
     if task_name:
         meta['name'] = task_name
     if str(task_str).startswith('*'):

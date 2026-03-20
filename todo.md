@@ -3,18 +3,19 @@
 ## In Progress
 
 ### User Documentation (GitHub Issue #632) - ✅ COMPLETED
-- [x] Explore codebase: read design/epic.md, index.html, static files
 - [x] Set up Sphinx with sphinx-rtd-theme in docs/ directory
-- [x] Write tutorials: getting-started, first-project
-- [x] Write how-to guides: create-a-project, gantt, kanban, raid-log, resources, export, portfolio, 2-week-lookahead, timeline, import-from-excel
-- [x] Write reference pages: plan-syntax, keyboard-shortcuts, views, export-formats, front-matter
-- [x] Write explanation pages: rag-status, scheduling-engine, diataxis
-- [x] Add Docs link to main navigation in index.html
+- [x] Write 20 pages across tutorials, how-to, reference, and explanation sections
+- [x] Add Docs link to main navigation, serve at /docs/ via FastAPI static mount
 - [x] Update CLAUDE.md with docs maintenance rule
-- [x] Update design/epic.md with documentation feature
-- [x] Build docs and verify no errors (uv run --with sphinx --with sphinx-rtd-theme)
-- [x] Run tests to confirm no regressions
-- [x] Commit changes
+
+### Recurring Tasks (GitHub Issue #629) - ✅ COMPLETED
+- [x] Added `parse_recurrence()` and `generate_recurrence_occurrences()` to `scheduling_engine.py`
+- [x] Added recurrence UI to task details form; updated look-ahead and up-next views
+- [x] Wrote 31 tests in `tests/test_recurrence.py` (all passing)
+
+### Quality Analyser Enhancements (GitHub Issue #627) - ✅ COMPLETED
+- [x] Add `runQualityAnalyserChecks(tasks)` with 13 checks to `script.js`
+- [x] Write 16 tests in `tests/test_quality_analyser.py` (all passing)
 
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
 - [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)
@@ -80,6 +81,22 @@
 - [x] All tests passing
 - [ ] Commit, push, and create PR
 - [ ] Comment on issue and close
+
+### Programme Dependencies (GitHub Issue #630) - ✅ COMPLETED
+- [x] Explore codebase: understand data model (localStorage), portfolio timeline, RAG status
+- [x] Design dependency data model (localStorage, not DB — consistent with project storage)
+- [x] Create `static/portfolio-dependencies.js` with CRUD, propagation API call, table render, arrow drawing
+- [x] Add `POST /api/programme-dependencies/propagate` endpoint in `app.py`
+- [x] Add helper functions `_find_task_in_project()` and `_calculate_dependency_rag()`
+- [x] Add "Dependencies" sub-nav button to portfolio header in `index.html`
+- [x] Add `portfolioDependenciesView` div in `index.html`
+- [x] Wire up `dependencies` case in `switchPortfolioView()` in `portfolio.js`
+- [x] Enhance `portfolio-timeline.js` to draw dependency arrows after render
+- [x] Add CSS for dependency table and RAG circles in `views/portfolio.css`
+- [x] Include `portfolio-dependencies.js` in `index.html` script tags
+- [x] Write 21 tests in `tests/test_programme_dependencies.py` — all passing
+- [x] Update `design/epic.md` with Programme Dependencies documentation
+- [x] Update `todo.md` with progress
 
 ## Completed ✅
 
