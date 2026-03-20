@@ -1663,6 +1663,10 @@ Build
                                 <button class="portfolio-subnav-btn" onclick="switchPortfolioView('lookahead')">
                                     <svg class="icon" width="16" height="16" aria-hidden="true"><use href="#icon-timeline"/></svg> Look-Ahead
                                 </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('dependencies')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                                    Dependencies
+                                </button>
                             </div>
                         </div>
                         <div class="portfolio-actions">
@@ -1712,6 +1716,10 @@ Build
 
                     <div id="portfolioLookAheadView" class="portfolio-content portfolio-view">
                         <!-- Look-Ahead view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioDependenciesView" class="portfolio-content portfolio-view">
+                        <!-- Programme dependencies view will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -2696,6 +2704,7 @@ Build
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>
+    <script src="/static/portfolio-dependencies.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
 

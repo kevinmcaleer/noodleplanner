@@ -126,6 +126,15 @@ async function renderPortfolioTimeline() {
 
         container.innerHTML = html;
 
+        // Draw inter-project dependency arrows if the module is loaded
+        if (typeof drawDependencyArrows === 'function' && typeof propagateProgrammeDependencies === 'function') {
+            propagateProgrammeDependencies(parsedProjects).then(propResult => {
+                drawDependencyArrows(timelines, globalStart, globalEnd, propResult);
+            }).catch(err => {
+                console.warn('Could not draw dependency arrows:', err);
+            });
+        }
+
     } catch (error) {
         console.error('Error rendering portfolio timeline:', error);
         container.innerHTML = '<div class="portfolio-empty-state">' +
