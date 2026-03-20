@@ -2,25 +2,20 @@
 
 ## In Progress
 
+### User Documentation (GitHub Issue #632) - ✅ COMPLETED
+- [x] Set up Sphinx with sphinx-rtd-theme in docs/ directory
+- [x] Write 20 pages across tutorials, how-to, reference, and explanation sections
+- [x] Add Docs link to main navigation, serve at /docs/ via FastAPI static mount
+- [x] Update CLAUDE.md with docs maintenance rule
+
 ### Recurring Tasks (GitHub Issue #629) - ✅ COMPLETED
-- [x] Explored codebase: task data model, form, markdown parsing, lookahead/dashboard views
-- [x] Designed recurrence as inline markdown syntax `[repeats ...]` (no DB changes needed)
 - [x] Added `parse_recurrence()` and `generate_recurrence_occurrences()` to `scheduling_engine.py`
-- [x] Extracted recurrence from `[repeats ...]` in `extract_metadata()`
-- [x] Exported new functions from `noodle_core/__init__.py`
-- [x] Added `recurrence` field to task data dict in `plan_service.py`
-- [x] Added recurrence UI to task details form in `index.html`
-- [x] Updated `parseTaskLine()`, `saveTask()`, and look-ahead/up-next views in `script.js`
+- [x] Added recurrence UI to task details form; updated look-ahead and up-next views
 - [x] Wrote 31 tests in `tests/test_recurrence.py` (all passing)
-- [x] Updated `design/epic.md` with recurring tasks documentation
 
 ### Quality Analyser Enhancements (GitHub Issue #627) - ✅ COMPLETED
-- [x] Add `runQualityAnalyserChecks(tasks)` with all 13 checks to `script.js`
-- [x] Add Quality Analyser HTML section to `index.html` analysis view
-- [x] Add CSS styles for QA cards/grid to `components.css` and `dark-mode.css`
+- [x] Add `runQualityAnalyserChecks(tasks)` with 13 checks to `script.js`
 - [x] Write 16 tests in `tests/test_quality_analyser.py` (all passing)
-- [x] Update `design/epic.md` with Quality Analyser documentation
-- Skipped checks: 1 (MS Project issue field - not applicable), 16 (summary tasks with resources - by design)
 
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
 - [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)

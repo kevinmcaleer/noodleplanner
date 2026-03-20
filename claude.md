@@ -31,6 +31,8 @@
 - always update an issue with progress when a subagent is working on it over leaving the issue without updates
 - when an issue is completed, update the issue with a comment summarizing the changes made and close the issue over leaving it open without a summary
 - when an issue is completed, also update the todo.md with progress and next steps over leaving the todo.md outdated
+- update user documentation in docs/ when new features are added or existing ones changed over leaving docs outdated
+- documentation follows the Diataxis methodology: tutorials/ (learning), how-to/ (task-oriented), reference/ (information), explanation/ (understanding) over unstructured docs
 
 ## UI/UX Rules
 
