@@ -103,6 +103,11 @@ app = FastAPI(
 # Mount static files and setup templates
 package_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(package_dir / "static")), name="static")
+
+# Serve built Sphinx documentation at /docs/
+_docs_build = Path(__file__).parents[5] / "docs" / "_build" / "html"
+if _docs_build.exists():
+    app.mount("/docs", StaticFiles(directory=str(_docs_build), html=True), name="docs")
 templates = Jinja2Templates(directory=str(package_dir / "templates"))
 
 

@@ -1,0 +1,50 @@
+NoodlePlanner Documentation
+============================
+
+Welcome to NoodlePlanner — a powerful project planning tool that converts natural language task descriptions into scheduled project plans with Gantt charts, Kanban boards, timelines, and more.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/getting-started
+   tutorials/first-project
+
+.. toctree::
+   :maxdepth: 2
+   :caption: How-to Guides
+
+   how-to/create-a-project
+   how-to/use-the-gantt-view
+   how-to/use-the-kanban-board
+   how-to/use-the-raid-log
+   how-to/manage-resources
+   how-to/export-your-plan
+   how-to/use-the-portfolio-view
+   how-to/use-the-2-week-lookahead
+   how-to/use-the-timeline-view
+   how-to/import-from-excel
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   reference/plan-syntax
+   reference/keyboard-shortcuts
+   reference/views
+   reference/export-formats
+   reference/front-matter
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Explanation
+
+   explanation/rag-status
+   explanation/scheduling-engine
+   explanation/diataxis
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`search`

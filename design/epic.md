@@ -527,6 +527,63 @@ The Portfolio page header was consolidated to save vertical space and prioritise
 - `packages/noodle-web/src/noodle_web/static/style.css` -- Updated portfolio styles (header, subnav, more menu, reduced spacing)
 - `packages/noodle-web/src/noodle_web/static/portfolio.js` -- Added toggle/close functions for the more menu
 
+### User Documentation (Issue #632)
+
+NoodlePlanner includes a full user documentation site built with Sphinx and the Read the Docs theme, hosted at `docs.noodleplanner.com`.
+
+**Structure (Diátaxis methodology):**
+
+| Section | Purpose | Location |
+|---------|---------|----------|
+| Tutorials | Learning-oriented step-by-step guides for beginners | `docs/tutorials/` |
+| How-to guides | Task-oriented guides for users who know what they want | `docs/how-to/` |
+| Reference | Technical descriptions of syntax, views, exports, shortcuts | `docs/reference/` |
+| Explanation | Conceptual discussion (RAG status, scheduling engine) | `docs/explanation/` |
+
+**Pages:**
+
+- `tutorials/getting-started.rst` — first steps from zero to a rendered plan
+- `tutorials/first-project.rst` — realistic project plan walkthrough
+- `how-to/create-a-project.rst` — project setup guide
+- `how-to/use-the-gantt-view.rst` — Gantt view guide
+- `how-to/use-the-kanban-board.rst` — Kanban board guide
+- `how-to/use-the-raid-log.rst` — RAID log guide
+- `how-to/manage-resources.rst` — resource management
+- `how-to/export-your-plan.rst` — export formats guide
+- `how-to/use-the-portfolio-view.rst` — portfolio guide
+- `how-to/use-the-2-week-lookahead.rst` — look-ahead guide
+- `how-to/use-the-timeline-view.rst` — timeline guide
+- `how-to/import-from-excel.rst` — Excel import guide
+- `reference/plan-syntax.rst` — complete syntax reference
+- `reference/keyboard-shortcuts.rst` — keyboard shortcut reference
+- `reference/views.rst` — all views reference
+- `reference/export-formats.rst` — export format specification
+- `reference/front-matter.rst` — front matter field reference
+- `explanation/rag-status.rst` — RAG status explanation
+- `explanation/scheduling-engine.rst` — scheduling algorithm explanation
+- `explanation/diataxis.rst` — documentation methodology
+
+**Building the docs:**
+
+```bash
+cd docs
+uv run --with sphinx --with sphinx-rtd-theme python3 -m sphinx -b html . _build/html
+# or:
+pip install -r docs/requirements.txt
+make html
+```
+
+**Navigation link:**
+
+A **Docs** link in the main navigation bar (`index.html`) opens `https://docs.noodleplanner.com` in a new tab.
+
+**Files:**
+- `docs/` — Sphinx documentation root
+- `docs/conf.py` — Sphinx configuration (RTD theme, extensions)
+- `docs/Makefile` — build helper
+- `docs/requirements.txt` — `sphinx` and `sphinx-rtd-theme`
+- `packages/noodle-web/src/noodle_web/templates/index.html` — Docs nav link added
+
 ### CLI Tool
 
 The CLI (`packages/noodle-cli/`) provides command-line access to the planning engine.

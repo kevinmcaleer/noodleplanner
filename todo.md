@@ -2,6 +2,20 @@
 
 ## In Progress
 
+### User Documentation (GitHub Issue #632) - ✅ COMPLETED
+- [x] Explore codebase: read design/epic.md, index.html, static files
+- [x] Set up Sphinx with sphinx-rtd-theme in docs/ directory
+- [x] Write tutorials: getting-started, first-project
+- [x] Write how-to guides: create-a-project, gantt, kanban, raid-log, resources, export, portfolio, 2-week-lookahead, timeline, import-from-excel
+- [x] Write reference pages: plan-syntax, keyboard-shortcuts, views, export-formats, front-matter
+- [x] Write explanation pages: rag-status, scheduling-engine, diataxis
+- [x] Add Docs link to main navigation in index.html
+- [x] Update CLAUDE.md with docs maintenance rule
+- [x] Update design/epic.md with documentation feature
+- [x] Build docs and verify no errors (uv run --with sphinx --with sphinx-rtd-theme)
+- [x] Run tests to confirm no regressions
+- [x] Commit changes
+
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
 - [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)
 - [x] Add theme toggle button (sun/moon icon) to nav bar with dropdown (Light/Dark/System)
