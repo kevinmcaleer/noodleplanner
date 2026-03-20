@@ -584,25 +584,52 @@ function updateReportUpNext(tasks) {
         const twoWeeksFromNow = new Date(today);
         twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
 
+        // Expand recurring tasks into occurrences within the window
+        // generateRecurrenceOccurrences is defined in script.js
+        const allTasks = [...tasks];
+        if (typeof generateRecurrenceOccurrences === 'function') {
+            tasks.forEach(task => {
+                if (task.recurrence && !task.is_summary) {
+                    const occurrences = generateRecurrenceOccurrences(task, today, twoWeeksFromNow);
+                    occurrences.forEach(occ => allTasks.push(occ));
+                }
+            });
+        }
+
         // Filter to leaf tasks only (non-summary, non-milestone, with dates)
-        const leafTasks = tasks.filter(t =>
+        const leafTasks = allTasks.filter(t =>
             !t.is_summary &&
-            t.duration_days !== 0 &&
-            t.start && t.finish
+            (t.duration_days !== 0 || t.is_recurring_instance) &&
+            (t.start || t.is_recurring_instance) && (t.finish || t.is_recurring_instance)
         );
 
         const categorized = [];
 
         leafTasks.forEach(task => {
             const percent = parseFloat(task.percent) || 0;
-            const startDate = parseLocalDate(task.start);
-            const finishDate = parseLocalDate(task.finish);
 
-            if (percent >= 100) return;
+            // For recurring instances, use recurrence_date
+            const taskStart = task.is_recurring_instance ? task.recurrence_date : task.start;
+            const taskFinish = task.is_recurring_instance ? task.recurrence_date : task.finish;
 
-            const isLate = finishDate < today && percent < 100;
+            if (!taskStart && !taskFinish) return;
+            if (percent >= 100 && !task.is_recurring_instance) return;
+
+            const startDate = taskStart ? parseLocalDate(taskStart) : null;
+            const finishDate = taskFinish ? parseLocalDate(taskFinish) : null;
+
+            // Recurring instances always show as upcoming if within window
+            if (task.is_recurring_instance) {
+                const occDate = parseLocalDate(task.recurrence_date);
+                if (occDate >= today && occDate <= twoWeeksFromNow) {
+                    categorized.push({ task, sortOrder: 2, status: 'Recurring', statusClass: 'rag-green', displayStart: taskStart, displayFinish: taskFinish });
+                }
+                return;
+            }
+
+            const isLate = finishDate && finishDate < today && percent < 100;
             const isInProgress = percent > 0 && percent < 100;
-            const isUpcoming = startDate <= twoWeeksFromNow && startDate >= today && percent === 0;
+            const isUpcoming = startDate && startDate <= twoWeeksFromNow && startDate >= today && percent === 0;
 
             // Use the RAG status from the scheduling engine for consistency
             // with the task table, falling back to a derived value only if
@@ -612,18 +639,18 @@ function updateReportUpNext(tasks) {
             const ragClass = ragColourCat ? 'rag-' + ragColourCat : '';
 
             if (isLate) {
-                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Task Overdue', statusClass: ragClass || 'rag-red' });
+                categorized.push({ task, sortOrder: 0, status: ragStatus || 'Task Overdue', statusClass: ragClass || 'rag-red', displayStart: taskStart, displayFinish: taskFinish });
             } else if (isInProgress) {
-                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Behind Schedule', statusClass: ragClass || 'rag-amber' });
+                categorized.push({ task, sortOrder: 1, status: ragStatus || 'Behind Schedule', statusClass: ragClass || 'rag-amber', displayStart: taskStart, displayFinish: taskFinish });
             } else if (isUpcoming) {
-                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Not Started', statusClass: ragClass || 'rag-green' });
+                categorized.push({ task, sortOrder: 2, status: ragStatus || 'Not Started', statusClass: ragClass || 'rag-green', displayStart: taskStart, displayFinish: taskFinish });
             }
         });
 
         // Sort by task start date ascending (earliest first)
         categorized.sort((a, b) => {
-            const dateA = parseLocalDate(a.task.start);
-            const dateB = parseLocalDate(b.task.start);
+            const dateA = a.displayStart ? parseLocalDate(a.displayStart) : parseLocalDate(a.task.start);
+            const dateB = b.displayStart ? parseLocalDate(b.displayStart) : parseLocalDate(b.task.start);
             return dateA - dateB;
         });
 
@@ -638,7 +665,7 @@ function updateReportUpNext(tasks) {
         if (tableEl) tableEl.style.display = '';
         if (emptyEl) emptyEl.style.display = 'none';
 
-        displayTasks.forEach(({ task, status, statusClass }) => {
+        displayTasks.forEach(({ task, status, statusClass, displayStart, displayFinish }) => {
             const row = document.createElement('tr');
             row.classList.add('up-next-row-clickable');
             row.addEventListener('click', () => {
@@ -647,16 +674,24 @@ function updateReportUpNext(tasks) {
             });
 
             const nameCell = document.createElement('td');
-            nameCell.textContent = task.name;
             nameCell.classList.add('task-name');
+            const nameText = document.createTextNode(task.name);
+            nameCell.appendChild(nameText);
+            if (task.recurrence) {
+                const badge = document.createElement('span');
+                badge.className = 'recurrence-badge';
+                const label = (typeof formatRecurrenceLabel === 'function') ? formatRecurrenceLabel(task.recurrence) : task.recurrence;
+                badge.textContent = label;
+                nameCell.appendChild(badge);
+            }
             row.appendChild(nameCell);
 
             const startCell = document.createElement('td');
-            startCell.textContent = task.start || '-';
+            startCell.textContent = displayStart || task.start || '-';
             row.appendChild(startCell);
 
             const finishCell = document.createElement('td');
-            finishCell.textContent = task.finish || '-';
+            finishCell.textContent = displayFinish || task.finish || '-';
             row.appendChild(finishCell);
 
             const statusCell = document.createElement('td');

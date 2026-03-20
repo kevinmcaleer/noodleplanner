@@ -2,17 +2,24 @@
 
 ## In Progress
 
+### Recurring Tasks (GitHub Issue #629) - ✅ COMPLETED
+- [x] Explored codebase: task data model, form, markdown parsing, lookahead/dashboard views
+- [x] Designed recurrence as inline markdown syntax `[repeats ...]` (no DB changes needed)
+- [x] Added `parse_recurrence()` and `generate_recurrence_occurrences()` to `scheduling_engine.py`
+- [x] Extracted recurrence from `[repeats ...]` in `extract_metadata()`
+- [x] Exported new functions from `noodle_core/__init__.py`
+- [x] Added `recurrence` field to task data dict in `plan_service.py`
+- [x] Added recurrence UI to task details form in `index.html`
+- [x] Updated `parseTaskLine()`, `saveTask()`, and look-ahead/up-next views in `script.js`
+- [x] Wrote 31 tests in `tests/test_recurrence.py` (all passing)
+- [x] Updated `design/epic.md` with recurring tasks documentation
+
 ### Quality Analyser Enhancements (GitHub Issue #627) - ✅ COMPLETED
-- [x] Explore codebase: understand existing Analysis view and task data model
-- [x] Add `runQualityAnalyserChecks(tasks)` function to `script.js` with all 13 checks
-- [x] Add `buildSuccessorMap`, `countInboundDependencies`, `countOutboundDependencies`, `countOutboundMilestonesWithoutPredecessors`, `countInboundMilestonesWithoutSuccessors`, `createQaCheckCard` helper functions
-- [x] Call `runQualityAnalyserChecks` from `updateAnalysis` after rendering actions
+- [x] Add `runQualityAnalyserChecks(tasks)` with all 13 checks to `script.js`
 - [x] Add Quality Analyser HTML section to `index.html` analysis view
-- [x] Add CSS styles for QA cards/grid to `components.css`
-- [x] Add dark mode CSS for QA section to `dark-mode.css`
-- [x] Write tests in `tests/test_quality_analyser.py` (parse endpoint fields + HTML section)
+- [x] Add CSS styles for QA cards/grid to `components.css` and `dark-mode.css`
+- [x] Write 16 tests in `tests/test_quality_analyser.py` (all passing)
 - [x] Update `design/epic.md` with Quality Analyser documentation
-- [x] Update `todo.md` with progress
 - Skipped checks: 1 (MS Project issue field - not applicable), 16 (summary tasks with resources - by design)
 
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
