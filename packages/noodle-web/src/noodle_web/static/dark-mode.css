@@ -1350,6 +1350,32 @@ body {
     color: var(--np-text-secondary);
 }
 
+/* ---- Quality Analyser ---- */
+[data-theme="dark"] .qa-section {
+    border-top-color: var(--np-border);
+}
+
+[data-theme="dark"] .qa-section-title {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .qa-section-desc {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .qa-check-card {
+    background: var(--np-surface);
+    box-shadow: 0 2px 4px var(--np-shadow);
+}
+
+[data-theme="dark"] .qa-check-label {
+    color: var(--np-text-secondary);
+}
+
+[data-theme="dark"] .qa-check-number {
+    color: var(--np-text-muted);
+}
+
 /* ---- Budget Page ---- */
 [data-theme="dark"] .budget-table-wrapper {
     background: var(--np-surface);
