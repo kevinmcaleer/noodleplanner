@@ -49,8 +49,6 @@ from noodle_core import (
 )
 import json
 from .plan_service import PlanService, export_to_file
-from .middleware import ActivityLoggingMiddleware
-from .database import init_db, test_connection
 from .security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
@@ -160,9 +158,6 @@ def export_to_file(export_fn, suffix, read_mode='rb'):
 # Middleware stack (applied in reverse order; last added = outermost)
 # ---------------------------------------------------------------------------
 
-# Activity logging (innermost -- runs closest to the route handler)
-app.add_middleware(ActivityLoggingMiddleware)
-
 # CORS -- configurable via CORS_ORIGINS env var (comma-separated).
 # Defaults to ["*"] in development for convenience.
 _cors_env = os.getenv("CORS_ORIGINS", "")
@@ -198,18 +193,6 @@ app.add_middleware(APIKeyAuthMiddleware)
 # Service layer
 # ---------------------------------------------------------------------------
 plan_service = PlanService()
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    logger.info("Starting up application...")
-    if test_connection():
-        logger.info("Database connection successful")
-        logger.info("Note: Database schema is managed via Alembic migrations")
-        logger.info("Run 'alembic upgrade head' to apply pending migrations")
-    else:
-        logger.warning("Database connection failed - activity logging may not work")
 
 
 class RenderRequest(BaseModel):
