@@ -2,6 +2,25 @@
 
 ## In Progress
 
+### Recurring Tasks (GitHub Issue #629) - ✅ COMPLETED
+- [x] Explored codebase: task data model, form, markdown parsing, lookahead/dashboard views
+- [x] Designed recurrence as inline markdown syntax `[repeats ...]` (no DB changes needed)
+- [x] Added `parse_recurrence()` and `generate_recurrence_occurrences()` to `scheduling_engine.py`
+- [x] Extracted recurrence from `[repeats ...]` in `extract_metadata()`
+- [x] Exported new functions from `noodle_core/__init__.py`
+- [x] Added `recurrence` field to task data dict in `plan_service.py`
+- [x] Added recurrence UI to task details form in `index.html` (frequency dropdown + weekly day checkboxes + monthly ordinal+day selectors)
+- [x] Updated `parseTaskLine()` in `script.js` to parse `[repeats ...]`
+- [x] Added `populateRecurrenceForm()`, `buildRecurrenceString()`, `onRecurrenceFrequencyChange()`, `formatRecurrenceLabel()`, `generateRecurrenceOccurrences()` to `script.js`
+- [x] Updated `saveTask()` to write recurrence back to markdown
+- [x] Updated `updateLookAhead()` to show recurring task occurrences in 2-week window
+- [x] Updated `createLookAheadRow()` to show recurrence badge and use occurrence date
+- [x] Updated `updateReportUpNext()` in `views-tables.js` to include recurring task occurrences
+- [x] Added recurrence-days-grid and recurrence-badge CSS to `components.css`
+- [x] Wrote 31 tests in `tests/test_recurrence.py` (all passing)
+- [x] Updated `design/epic.md` with recurring tasks documentation
+- [x] Updated `todo.md` with progress
+
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
 - [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)
 - [x] Add theme toggle button (sun/moon icon) to nav bar with dropdown (Light/Dark/System)

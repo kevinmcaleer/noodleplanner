@@ -1841,6 +1841,51 @@ Build
                     </div>
 
                     <div class="form-group">
+                        <label for="taskRecurrence">Recurrence</label>
+                        <select id="taskRecurrence" onchange="onRecurrenceFrequencyChange()" aria-label="Recurrence frequency">
+                            <option value="">No recurrence</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                        <div id="recurrenceWeeklyOptions" style="display: none; margin-top: 8px;" aria-label="Weekly recurrence days">
+                            <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
+                            <div class="recurrence-days-grid">
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_mon" value="mon" onchange="saveTask()"> Mon</label>
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_tue" value="tue" onchange="saveTask()"> Tue</label>
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_wed" value="wed" onchange="saveTask()"> Wed</label>
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_thu" value="thu" onchange="saveTask()"> Thu</label>
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_fri" value="fri" onchange="saveTask()"> Fri</label>
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sat" value="sat" onchange="saveTask()"> Sat</label>
+                                <label class="recurrence-day-label"><input type="checkbox" class="recurrence-day-checkbox" id="recDay_sun" value="sun" onchange="saveTask()"> Sun</label>
+                            </div>
+                        </div>
+                        <div id="recurrenceMonthlyOptions" style="display: none; margin-top: 8px;" aria-label="Monthly recurrence options">
+                            <small style="display: block; margin-bottom: 4px;">Repeat on:</small>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <select id="recurrenceWeekOfMonth" onchange="saveTask()" aria-label="Week of month">
+                                    <option value="1st">1st</option>
+                                    <option value="2nd">2nd</option>
+                                    <option value="3rd">3rd</option>
+                                    <option value="4th">4th</option>
+                                    <option value="5th">5th</option>
+                                </select>
+                                <select id="recurrenceDayOfWeek" onchange="saveTask()" aria-label="Day of week">
+                                    <option value="mon">Monday</option>
+                                    <option value="tue">Tuesday</option>
+                                    <option value="wed">Wednesday</option>
+                                    <option value="thu">Thursday</option>
+                                    <option value="fri">Friday</option>
+                                    <option value="sat">Saturday</option>
+                                    <option value="sun">Sunday</option>
+                                </select>
+                            </div>
+                        </div>
+                        <small>e.g. every Monday, or 3rd Thursday of month</small>
+                    </div>
+
+                    <div class="form-group">
                         <label>Dependencies</label>
                         <div id="dependenciesTable" class="dependencies-table">
                             <table>

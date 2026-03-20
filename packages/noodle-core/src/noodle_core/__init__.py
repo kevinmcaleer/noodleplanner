@@ -24,6 +24,8 @@ from .scheduling_engine import (
     calculate_evm,
     natural_language_to_yaml,
     inherit_summary_resources,
+    parse_recurrence,
+    generate_recurrence_occurrences,
     MAX_TASK_COUNT,
     MAX_NESTING_DEPTH,
     MAX_TASK_NAME_LENGTH,
@@ -95,6 +97,8 @@ __all__ = [
     "calculate_evm",
     "natural_language_to_yaml",
     "inherit_summary_resources",
+    "parse_recurrence",
+    "generate_recurrence_occurrences",
     # Format converter
     "convert_plan_format_to_standard",
     "extract_title_from_frontmatter",

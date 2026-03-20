@@ -5894,3 +5894,75 @@ tr:hover .task-context-btn,
     }
 }
 
+/* Recurrence form controls */
+.recurrence-days-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.recurrence-day-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.recurrence-day-label:hover {
+    background: #f0f8ff;
+    border-color: #108BB9;
+}
+
+.recurrence-day-label input[type="checkbox"] {
+    margin: 0;
+    accent-color: #108BB9;
+}
+
+/* Recurrence badge in lookahead / up-next tables */
+.recurrence-badge {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #108BB9;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 0.78em;
+    font-weight: 600;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .recurrence-day-label {
+    border-color: var(--border-color, #444);
+    color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .recurrence-day-label:hover {
+    background: rgba(16, 139, 185, 0.15);
+    border-color: #108BB9;
+}
+
+[data-theme="dark"] .recurrence-badge {
+    background: rgba(16, 139, 185, 0.2);
+    color: #6fc3e8;
+}
+
+@media (max-width: 768px) {
+    .recurrence-days-grid {
+        gap: 4px;
+    }
+
+    .recurrence-day-label {
+        min-width: 44px;
+        font-size: 0.85em;
+    }
+}
+

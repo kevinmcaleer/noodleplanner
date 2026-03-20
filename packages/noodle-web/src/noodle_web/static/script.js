@@ -1832,6 +1832,9 @@ function openTaskForm(lineNumber) {
             labelsInput.value = task.labels || '';
         }
 
+        // Populate recurrence fields
+        populateRecurrenceForm(task.recurrence || '');
+
         currentTaskLineNumber = lineNumber;
         updateRagDisplay();
         updateProgressBar();
@@ -3462,6 +3465,15 @@ function saveTask() {
         }
     }
 
+    // Add recurrence
+    const recurrenceInput = document.getElementById('taskRecurrence');
+    if (recurrenceInput) {
+        const recurrenceVal = buildRecurrenceString();
+        if (recurrenceVal) {
+            newLine += ' [repeats ' + recurrenceVal + ']';
+        }
+    }
+
     // Update the line
     lines[currentTaskLineNumber - 1] = newLine;
 
@@ -3475,6 +3487,240 @@ function saveTask() {
     // Trigger input event to update line numbers and render
     editor.dispatchEvent(new Event('input'));
     setTimeout(() => renderText(), 10);
+}
+
+/**
+ * Populate the recurrence form fields from a recurrence string.
+ * Recurrence strings: 'daily', 'weekly mon,wed,fri', 'monthly 3rd thu', 'yearly'
+ */
+function populateRecurrenceForm(recurrenceStr) {
+    const freqSelect = document.getElementById('taskRecurrence');
+    const weeklyOptions = document.getElementById('recurrenceWeeklyOptions');
+    const monthlyOptions = document.getElementById('recurrenceMonthlyOptions');
+
+    if (!freqSelect) return;
+
+    // Reset all options
+    freqSelect.value = '';
+    if (weeklyOptions) weeklyOptions.style.display = 'none';
+    if (monthlyOptions) monthlyOptions.style.display = 'none';
+
+    // Uncheck all day checkboxes
+    const dayCheckboxes = document.querySelectorAll('.recurrence-day-checkbox');
+    dayCheckboxes.forEach(cb => { cb.checked = false; });
+
+    if (!recurrenceStr) return;
+
+    const str = recurrenceStr.trim().toLowerCase();
+
+    if (str === 'daily') {
+        freqSelect.value = 'daily';
+    } else if (str === 'yearly') {
+        freqSelect.value = 'yearly';
+    } else if (str.startsWith('weekly')) {
+        freqSelect.value = 'weekly';
+        if (weeklyOptions) weeklyOptions.style.display = '';
+        const daysPart = str.replace(/^weekly\s*/, '');
+        if (daysPart) {
+            const days = daysPart.split(',').map(d => d.trim());
+            days.forEach(day => {
+                const cb = document.getElementById('recDay_' + day);
+                if (cb) cb.checked = true;
+            });
+        }
+    } else if (str.startsWith('monthly')) {
+        freqSelect.value = 'monthly';
+        if (monthlyOptions) monthlyOptions.style.display = '';
+        const monthlyPart = str.replace(/^monthly\s*/, '');
+        const match = monthlyPart.match(/(\d+(?:st|nd|rd|th))\s+(\w+)/);
+        if (match) {
+            const ordinalSel = document.getElementById('recurrenceWeekOfMonth');
+            const daySel = document.getElementById('recurrenceDayOfWeek');
+            if (ordinalSel) ordinalSel.value = match[1];
+            if (daySel) daySel.value = match[2];
+        }
+    }
+}
+
+/**
+ * Build a recurrence string from the current form state.
+ * Returns empty string if no recurrence is set.
+ */
+function buildRecurrenceString() {
+    const freqSelect = document.getElementById('taskRecurrence');
+    if (!freqSelect || !freqSelect.value) return '';
+
+    const freq = freqSelect.value;
+
+    if (freq === 'daily') return 'daily';
+    if (freq === 'yearly') return 'yearly';
+
+    if (freq === 'weekly') {
+        const checkedDays = [];
+        const dayCheckboxes = document.querySelectorAll('.recurrence-day-checkbox:checked');
+        dayCheckboxes.forEach(cb => checkedDays.push(cb.value));
+        if (checkedDays.length > 0) {
+            return 'weekly ' + checkedDays.join(',');
+        }
+        return 'weekly';
+    }
+
+    if (freq === 'monthly') {
+        const ordinalSel = document.getElementById('recurrenceWeekOfMonth');
+        const daySel = document.getElementById('recurrenceDayOfWeek');
+        const ordinal = ordinalSel ? ordinalSel.value : '1st';
+        const day = daySel ? daySel.value : 'mon';
+        return 'monthly ' + ordinal + ' ' + day;
+    }
+
+    return '';
+}
+
+/**
+ * Handle changes to the recurrence frequency selector.
+ * Shows/hides sub-options based on the chosen frequency.
+ */
+function onRecurrenceFrequencyChange() {
+    const freqSelect = document.getElementById('taskRecurrence');
+    const weeklyOptions = document.getElementById('recurrenceWeeklyOptions');
+    const monthlyOptions = document.getElementById('recurrenceMonthlyOptions');
+
+    if (!freqSelect) return;
+
+    if (weeklyOptions) weeklyOptions.style.display = freqSelect.value === 'weekly' ? '' : 'none';
+    if (monthlyOptions) monthlyOptions.style.display = freqSelect.value === 'monthly' ? '' : 'none';
+
+    saveTask();
+}
+
+/**
+ * Format a recurrence string into a human-readable label.
+ * e.g. 'weekly mon,wed,fri' -> 'Weekly: Mon, Wed, Fri'
+ */
+function formatRecurrenceLabel(recurrenceStr) {
+    if (!recurrenceStr) return '';
+    const str = recurrenceStr.trim().toLowerCase();
+    if (str === 'daily') return 'Daily';
+    if (str === 'yearly') return 'Yearly';
+    if (str.startsWith('weekly')) {
+        const daysPart = str.replace(/^weekly\s*/, '');
+        if (!daysPart) return 'Weekly';
+        const days = daysPart.split(',').map(d => d.charAt(0).toUpperCase() + d.slice(1));
+        return 'Weekly: ' + days.join(', ');
+    }
+    if (str.startsWith('monthly')) {
+        const rest = str.replace(/^monthly\s*/, '');
+        if (!rest) return 'Monthly';
+        const match = rest.match(/(\d+(?:st|nd|rd|th))\s+(\w+)/);
+        if (match) {
+            const ordinal = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+            const day = match[2].charAt(0).toUpperCase() + match[2].slice(1);
+            return 'Monthly: ' + ordinal + ' ' + day;
+        }
+        return 'Monthly';
+    }
+    return str;
+}
+
+/**
+ * Generate virtual recurring task occurrences within a date window.
+ * Returns array of task-like objects for each occurrence.
+ */
+function generateRecurrenceOccurrences(task, windowStart, windowEnd) {
+    const recurrence = task.recurrence;
+    if (!recurrence) return [];
+
+    const dayNameToWeekday = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0 };
+    const occurrences = [];
+    const str = recurrence.trim().toLowerCase();
+
+    let frequency = '';
+    if (str === 'daily') frequency = 'daily';
+    else if (str === 'yearly') frequency = 'yearly';
+    else if (str.startsWith('weekly')) frequency = 'weekly';
+    else if (str.startsWith('monthly')) frequency = 'monthly';
+
+    const addOccurrence = (date) => {
+        occurrences.push(Object.assign({}, task, {
+            start: date.toISOString().split('T')[0],
+            finish: date.toISOString().split('T')[0],
+            is_recurring_instance: true,
+            recurrence_date: date.toISOString().split('T')[0]
+        }));
+    };
+
+    if (frequency === 'daily') {
+        let current = new Date(windowStart);
+        while (current <= windowEnd) {
+            addOccurrence(new Date(current));
+            current.setDate(current.getDate() + 1);
+        }
+    } else if (frequency === 'weekly') {
+        const daysPart = str.replace(/^weekly\s*/, '');
+        let targetWeekdays = new Set();
+        if (daysPart) {
+            daysPart.split(',').forEach(d => {
+                const wd = dayNameToWeekday[d.trim()];
+                if (wd !== undefined) targetWeekdays.add(wd);
+            });
+        }
+        let current = new Date(windowStart);
+        while (current <= windowEnd) {
+            if (targetWeekdays.size === 0 || targetWeekdays.has(current.getDay())) {
+                addOccurrence(new Date(current));
+            }
+            current.setDate(current.getDate() + 1);
+        }
+    } else if (frequency === 'monthly') {
+        const monthlyPart = str.replace(/^monthly\s*/, '');
+        const match = monthlyPart.match(/(\d+)(?:st|nd|rd|th)\s+(\w+)/);
+        if (match) {
+            const weekOfMonth = parseInt(match[1]);
+            const targetWeekday = dayNameToWeekday[match[2]];
+            if (targetWeekday !== undefined) {
+                let year = windowStart.getFullYear();
+                let month = windowStart.getMonth();
+                const endYear = windowEnd.getFullYear();
+                const endMonth = windowEnd.getMonth();
+
+                while (year < endYear || (year === endYear && month <= endMonth)) {
+                    // Find nth occurrence of target weekday in this month
+                    const firstDay = new Date(year, month, 1);
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    let count = 0;
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const date = new Date(year, month, d);
+                        if (date.getDay() === targetWeekday) {
+                            count++;
+                            if (count === weekOfMonth) {
+                                if (date >= windowStart && date <= windowEnd) {
+                                    addOccurrence(date);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    month++;
+                    if (month > 11) { month = 0; year++; }
+                }
+            }
+        }
+    } else if (frequency === 'yearly') {
+        // Use the task's start date month/day and repeat each year in window
+        if (task.start) {
+            const taskStart = new Date(task.start + 'T00:00:00');
+            for (let yr = windowStart.getFullYear(); yr <= windowEnd.getFullYear(); yr++) {
+                try {
+                    const occurrence = new Date(yr, taskStart.getMonth(), taskStart.getDate());
+                    if (occurrence >= windowStart && occurrence <= windowEnd) {
+                        addOccurrence(occurrence);
+                    }
+                } catch (e) { /* skip invalid dates */ }
+            }
+        }
+    }
+
+    return occurrences;
 }
 
 /**
@@ -3580,6 +3826,7 @@ function parseTaskLine(line, lineNum) {
         bucket: '',
         dependencies: '',
         labels: '',
+        recurrence: '',
         effortCompleted: '',
         effortCompletedUnit: 'h',
         effortRemaining: '',
@@ -3672,6 +3919,13 @@ function parseTaskLine(line, lineNum) {
         else if (marker === '!!') task.priority = 'Important';
         else if (marker === '!') task.priority = 'Medium';
         text = text.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/, '').trim();
+    }
+
+    // Handle recurrence ([repeats daily], [repeats weekly mon,wed], [repeats monthly 3rd thu], [repeats yearly])
+    const repeatsMatch = text.match(/\[repeats\s+([^\]]+)\]/i);
+    if (repeatsMatch) {
+        task.recurrence = repeatsMatch[1].trim().toLowerCase();
+        text = text.replace(/\[repeats\s+[^\]]+\]/i, '').trim();
     }
 
     // Handle dependencies (everything in square brackets [depends ...])
@@ -7908,9 +8162,19 @@ function updateLookAhead(tasks) {
             dateRangeEl.textContent = `Showing tasks from ${formatDate(today)} to ${formatDate(twoWeeksFromNow)}`;
         }
 
-        // Filter overdue tasks (past due date, not complete)
-        const overdueTasks = tasks.filter(task => {
+        // Expand recurring tasks into individual occurrences within the window
+        const allTasksWithRecurring = [...tasks];
+        tasks.forEach(task => {
+            if (task.recurrence && !task.is_summary) {
+                const occurrences = generateRecurrenceOccurrences(task, today, twoWeeksFromNow);
+                occurrences.forEach(occ => allTasksWithRecurring.push(occ));
+            }
+        });
+
+        // Filter overdue tasks (past due date, not complete) - skip pure recurring tasks (no fixed date)
+        const overdueTasks = allTasksWithRecurring.filter(task => {
             if (task.is_summary || !task.finish) return false;
+            if (task.is_recurring_instance) return false; // recurring instances don't go overdue
             const finishDate = new Date(task.finish);
             finishDate.setHours(0, 0, 0, 0);
             const percentComplete = parseInt(task.percent) || 0;
@@ -7918,8 +8182,14 @@ function updateLookAhead(tasks) {
         });
 
         // Filter upcoming tasks (start or finish within next 2 weeks, not summary)
-        const upcomingTasks = tasks.filter(task => {
+        const upcomingTasks = allTasksWithRecurring.filter(task => {
             if (task.is_summary) return false;
+
+            // For recurring instances, use the recurrence_date
+            if (task.is_recurring_instance) {
+                const occDate = new Date(task.recurrence_date + 'T00:00:00');
+                return occDate >= today && occDate <= twoWeeksFromNow;
+            }
 
             const startDate = task.start ? new Date(task.start) : null;
             const finishDate = task.finish ? new Date(task.finish) : null;
@@ -7936,7 +8206,11 @@ function updateLookAhead(tasks) {
 
         // Sort by finish date
         overdueTasks.sort((a, b) => new Date(a.finish) - new Date(b.finish));
-        upcomingTasks.sort((a, b) => new Date(a.start || a.finish) - new Date(b.start || b.finish));
+        upcomingTasks.sort((a, b) => {
+            const dateA = a.is_recurring_instance ? new Date(a.recurrence_date) : new Date(a.start || a.finish);
+            const dateB = b.is_recurring_instance ? new Date(b.recurrence_date) : new Date(b.start || b.finish);
+            return dateA - dateB;
+        });
 
         // Populate overdue tasks table
         const overdueSection = document.getElementById('overdueSection');
@@ -7987,24 +8261,36 @@ function createLookAheadRow(task, type, today) {
     row.style.cursor = 'pointer';
     row.onclick = () => openMilestoneTaskForm(task.name);
 
-    // Task name with indentation
+    // Task name with indentation and optional recurrence badge
     const nameCell = document.createElement('td');
     const indent = '  '.repeat(task.level || 0);
-    nameCell.textContent = indent + task.name;
     nameCell.style.fontFamily = 'monospace';
     nameCell.classList.add('task-level-' + (task.level || 0));
+    const nameText = document.createTextNode(indent + task.name);
+    nameCell.appendChild(nameText);
+    if (task.recurrence) {
+        const badge = document.createElement('span');
+        badge.className = 'recurrence-badge';
+        badge.textContent = formatRecurrenceLabel(task.recurrence);
+        badge.setAttribute('aria-label', 'Recurring: ' + formatRecurrenceLabel(task.recurrence));
+        nameCell.appendChild(badge);
+    }
     row.appendChild(nameCell);
+
+    // For recurring instances, use recurrence_date as both start and finish
+    const displayStart = task.is_recurring_instance ? task.recurrence_date : task.start;
+    const displayFinish = task.is_recurring_instance ? task.recurrence_date : task.finish;
 
     if (type === 'overdue') {
         // Due date
         const dueDateCell = document.createElement('td');
-        dueDateCell.textContent = task.finish ? new Date(task.finish).toLocaleDateString() : '-';
+        dueDateCell.textContent = displayFinish ? new Date(displayFinish + 'T00:00:00').toLocaleDateString() : '-';
         row.appendChild(dueDateCell);
 
         // Days late
         const daysLateCell = document.createElement('td');
-        if (task.finish && today) {
-            const finishDate = new Date(task.finish);
+        if (displayFinish && today) {
+            const finishDate = new Date(displayFinish + 'T00:00:00');
             finishDate.setHours(0, 0, 0, 0);
             const diffTime = today - finishDate;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -8018,17 +8304,17 @@ function createLookAheadRow(task, type, today) {
     } else {
         // Start date
         const startCell = document.createElement('td');
-        startCell.textContent = task.start ? new Date(task.start).toLocaleDateString() : '-';
+        startCell.textContent = displayStart ? new Date(displayStart + 'T00:00:00').toLocaleDateString() : '-';
         row.appendChild(startCell);
 
         // Due date
         const dueDateCell = document.createElement('td');
-        dueDateCell.textContent = task.finish ? new Date(task.finish).toLocaleDateString() : '-';
+        dueDateCell.textContent = displayFinish ? new Date(displayFinish + 'T00:00:00').toLocaleDateString() : '-';
         row.appendChild(dueDateCell);
 
         // Duration
         const durationCell = document.createElement('td');
-        durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
+        durationCell.textContent = task.is_recurring_instance ? 'recurring' : (task.duration_days ? `${task.duration_days}d` : '-');
         row.appendChild(durationCell);
     }
 

@@ -19,6 +19,7 @@ The scheduling engine (`packages/noodle-core/`) parses natural language task def
 - **Explicit dates**: `2025-01-15`
 - **Progress**: `50%` or `p50`
 - **Comments**: `!"note"` or `"note"`
+- **Recurrence**: `[repeats daily]`, `[repeats weekly mon,wed,fri]`, `[repeats monthly 3rd thu]`, `[repeats yearly]`
 
 ### Web Application
 
@@ -1179,3 +1180,60 @@ Noodle Planner supports light and dark colour themes, toggled via a button in th
 | `templates/index.html` | Theme toggle button in nav bar, FOUC-prevention script, CSS/JS loading |
 | `static/script.js` | Calls `applyThemeFromFrontMatter()` during `updateAllViews()` |
 | `tests/test_dark_mode.py` | 26 tests covering assets, accessibility, front matter parsing, CSS tokens, and JS functions |
+
+---
+
+## Recurring Tasks (Issue #629)
+
+### Overview
+
+Tasks can be set to repeat at a regular frequency. Recurrence is stored inline in the task's markdown using `[repeats ...]` syntax — no database changes required.
+
+### Syntax
+
+| Example | Meaning |
+|---------|---------|
+| `[repeats daily]` | Repeats every day |
+| `[repeats weekly]` | Repeats every day of the week |
+| `[repeats weekly mon,wed,fri]` | Repeats every Monday, Wednesday, and Friday |
+| `[repeats monthly 3rd thu]` | Repeats on the 3rd Thursday of each month |
+| `[repeats monthly 1st mon]` | Repeats on the 1st Monday of each month |
+| `[repeats yearly]` | Repeats annually on the same month/day as the task start date |
+
+### How It Works
+
+1. **Markdown storage**: Recurrence is stored inline in the task line alongside other metadata: `standup 1d @alice [repeats weekly mon,wed,fri]`
+
+2. **Backend parsing**: `extract_metadata()` in `scheduling_engine.py` detects `[repeats ...]` and calls `parse_recurrence()` to build a structured dict. This is returned as the `recurrence` key on the task object and included in the `/api/parse` response.
+
+3. **Frontend form**: The task details form has a "Recurrence" dropdown. Selecting "weekly" or "monthly" reveals sub-options (day checkboxes or ordinal+day selectors). `populateRecurrenceForm()` reads the recurrence string from the parsed task; `buildRecurrenceString()` builds it back from the form state on save.
+
+4. **Look-ahead and up-next views**: `generateRecurrenceOccurrences()` in `script.js` generates virtual occurrence dates for recurring tasks within the 14-day look-ahead window. These appear in:
+   - The 2-Week Look-Ahead view (overdue and upcoming tables)
+   - The Report page "Up Next" widget
+   Recurring task rows show a `[Recurring label]` badge in the task name column.
+
+### Functions
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `parse_recurrence(s)` | `scheduling_engine.py` | Parse recurrence string into structured dict |
+| `generate_recurrence_occurrences(task, start, end)` | `scheduling_engine.py` | Generate occurrence dates in a window (Python) |
+| `populateRecurrenceForm(str)` | `script.js` | Populate task form recurrence fields from string |
+| `buildRecurrenceString()` | `script.js` | Build recurrence string from form state |
+| `onRecurrenceFrequencyChange()` | `script.js` | Show/hide sub-options on frequency change |
+| `formatRecurrenceLabel(str)` | `script.js` | Human-readable label e.g. "Weekly: Mon, Wed, Fri" |
+| `generateRecurrenceOccurrences(task, start, end)` | `script.js` | Generate virtual occurrences (JS, for views) |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `packages/noodle-core/src/noodle_core/scheduling_engine.py` | Added `parse_recurrence()`, `generate_recurrence_occurrences()`, recurrence extraction in `extract_metadata()` |
+| `packages/noodle-core/src/noodle_core/__init__.py` | Exported new functions |
+| `packages/noodle-web/src/noodle_web/plan_service.py` | Included `recurrence` in task data dict |
+| `packages/noodle-web/src/noodle_web/templates/index.html` | Recurrence form UI in task details pane |
+| `packages/noodle-web/src/noodle_web/static/script.js` | Recurrence parsing, form population, occurrence generation, look-ahead integration |
+| `packages/noodle-web/src/noodle_web/static/views-tables.js` | Recurring tasks in "Up Next" report widget |
+| `packages/noodle-web/src/noodle_web/static/components.css` | Styles for day-picker and recurrence badge |
+| `tests/test_recurrence.py` | 31 tests covering parsing, generation, and metadata extraction |
