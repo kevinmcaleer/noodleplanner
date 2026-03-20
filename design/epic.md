@@ -229,6 +229,61 @@ const sheet = new NoodleSheet(containerEl, {
 **Budget Tracker Integration:**
 The budget tab includes a "Spreadsheet" toggle button that switches between the existing form-based table view and the NoodleSheet component. Data syncs bidirectionally via markdown.
 
+### Quality Analyser (Issue #627)
+
+The Quality Analyser enhances the existing **Analysis** view with a set of schedule quality checks derived from the ProjectQA VBA tool methodology. The checks are displayed as a card grid below the health score and insights sections.
+
+**Location:** Analysis view (`switchToView('analysis')`) — under the "Suggested Actions" section.
+
+**Two check categories:**
+
+1. **Information Checks** (blue cards) — counts that describe the plan, not flagged as problems:
+   - Check 2: Inbound dependencies (tasks tagged `#inbound` in comment/name)
+   - Check 3: Outbound dependencies (tasks tagged `#outbound` in comment/name)
+   - Check 4: Remaining tasks (non-summary, completion < 100%)
+   - Check 5: Milestones (non-summary tasks with `duration_days === 0`)
+   - Check 7: Tasks finishing within the next 8 weeks (not complete)
+
+2. **Issue Checks** (red when count > 0, green when count = 0) — problems that need attention:
+   - Check 6: Outbound milestones without predecessors (zero-duration tasks with no `depends`)
+   - Check 8: Tasks longer than 5 days finishing within next 8 weeks
+   - Check 9: Inbound milestones with no successors (zero-duration tasks nothing depends on)
+   - Check 10: Tasks longer than 20 days
+   - Check 11: Tasks with no successors (nothing depends on them)
+   - Check 12: Tasks with no predecessors (no `depends` entries)
+   - Check 13: Tasks with negative float (overdue and not complete)
+   - Check 14: Tasks with work in the past (started + finished in past, not complete)
+   - Check 15: Tasks with work complete in future (100% but finish date still future)
+
+**Skipped checks:**
+- Check 1 (clear issue field): Not applicable — NoodlePlanner has no MS Project "issue field"
+- Check 16 (summary tasks with resources assigned): NoodlePlanner allows this by design (resource inheritance)
+
+**Implementation:** Entirely frontend JavaScript, using the `tasks` array from `/api/parse`.
+
+**Key JavaScript functions:**
+- `runQualityAnalyserChecks(tasks)` — entry point, computes all checks and renders cards
+- `buildSuccessorMap(tasks)` — inverts `depends` to build task → successor list
+- `countInboundDependencies(tasks)` — counts tasks tagged `#inbound`
+- `countOutboundDependencies(tasks)` — counts tasks tagged `#outbound`
+- `countOutboundMilestonesWithoutPredecessors(tasks)` — Check 6 logic
+- `countInboundMilestonesWithoutSuccessors(tasks, successorMap)` — Check 9 logic
+- `createQaCheckCard(checkNum, count, label, cardType)` — renders a single check card
+
+**CSS classes:**
+- `.qa-section` — outer container with border-top separator
+- `.qa-grid` — CSS grid with `auto-fill` responsive columns (min 200px)
+- `.qa-check-card` / `.qa-info` / `.qa-issue` / `.qa-issue-ok` — card variants
+- `.qa-check-badge` / `.qa-badge-info` / `.qa-badge-issue` / `.qa-badge-ok` — status badges
+
+**Data requirements from `/api/parse`:**
+- `duration_days` — 0 for milestones
+- `depends` — list of predecessor task names
+- `start`, `finish` — date strings (YYYY-MM-DD)
+- `percent` — completion percentage
+- `is_summary` — boolean to exclude summary tasks from checks
+- `comment`, `name` — text fields checked for `#inbound` / `#outbound` tags
+
 ### Portfolio Views
 
 The Portfolio tab provides cross-project visibility through multiple sub-views:

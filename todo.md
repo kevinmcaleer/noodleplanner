@@ -2,6 +2,19 @@
 
 ## In Progress
 
+### Quality Analyser Enhancements (GitHub Issue #627) - ✅ COMPLETED
+- [x] Explore codebase: understand existing Analysis view and task data model
+- [x] Add `runQualityAnalyserChecks(tasks)` function to `script.js` with all 13 checks
+- [x] Add `buildSuccessorMap`, `countInboundDependencies`, `countOutboundDependencies`, `countOutboundMilestonesWithoutPredecessors`, `countInboundMilestonesWithoutSuccessors`, `createQaCheckCard` helper functions
+- [x] Call `runQualityAnalyserChecks` from `updateAnalysis` after rendering actions
+- [x] Add Quality Analyser HTML section to `index.html` analysis view
+- [x] Add CSS styles for QA cards/grid to `components.css`
+- [x] Add dark mode CSS for QA section to `dark-mode.css`
+- [x] Write tests in `tests/test_quality_analyser.py` (parse endpoint fields + HTML section)
+- [x] Update `design/epic.md` with Quality Analyser documentation
+- [x] Update `todo.md` with progress
+- Skipped checks: 1 (MS Project issue field - not applicable), 16 (summary tasks with resources - by design)
+
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
 - [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)
 - [x] Add theme toggle button (sun/moon icon) to nav bar with dropdown (Light/Dark/System)

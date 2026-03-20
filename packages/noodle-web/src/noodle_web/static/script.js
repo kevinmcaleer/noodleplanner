@@ -7135,6 +7135,9 @@ function updateAnalysis(planText, tasks, frontMatter, resourceMap) {
         // Render actions section
         renderAnalysisActions(actions);
 
+        // Render Quality Analyser (ProjectQA) checks
+        runQualityAnalyserChecks(tasks);
+
     } catch (error) {
         console.error('Error updating analysis:', error);
     }
@@ -7672,6 +7675,288 @@ function addMissingResources(missingResources) {
 
     editor.value = lines.join('\n');
     editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// ===== Quality Analyser (ProjectQA checks) =====
+
+/**
+ * Run all ProjectQA checks and render results into the qa-checks grid.
+ *
+ * @param {Array} tasks - Parsed task objects from the API.
+ */
+function runQualityAnalyserChecks(tasks) {
+    const grid = document.getElementById('qaChecksGrid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    if (!tasks || tasks.length === 0) {
+        grid.innerHTML = '<p class="qa-section-desc">No tasks available to analyse.</p>';
+        return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eightWeeksAhead = new Date(today);
+    eightWeeksAhead.setDate(today.getDate() + 56);
+
+    // Build successor map: taskName -> list of task names that depend on it
+    const successorMap = buildSuccessorMap(tasks);
+
+    // --- Information checks (just display counts) ---
+
+    // Check 2: Count inbound dependencies (#inbound-labelled tasks or tasks with no predecessors that have successors)
+    const inboundCount = countInboundDependencies(tasks);
+
+    // Check 3: Count outbound dependencies (#outbound-labelled tasks)
+    const outboundCount = countOutboundDependencies(tasks);
+
+    // Check 4: Count remaining tasks (non-summary, not 100% complete)
+    const remainingTasks = tasks.filter(t => !t.is_summary && (parseFloat(t.percent) || 0) < 100);
+    const remainingCount = remainingTasks.length;
+
+    // Check 5: Count key milestones (duration_days === 0, non-summary)
+    const keyMilestones = tasks.filter(t => !t.is_summary && t.duration_days === 0);
+    const keyMilestonesCount = keyMilestones.length;
+
+    // Check 7: Count tasks finishing within next 8 weeks (non-summary, not complete)
+    const finishingIn8Weeks = tasks.filter(t => {
+        if (t.is_summary || (parseFloat(t.percent) || 0) >= 100) return false;
+        if (!t.finish) return false;
+        const finish = new Date(t.finish);
+        return !isNaN(finish) && finish >= today && finish <= eightWeeksAhead;
+    });
+    const finishingIn8WeeksCount = finishingIn8Weeks.length;
+
+    // --- Issue checks (flag as problems) ---
+
+    // Check 6: Outbound milestones without predecessors
+    const outboundMilestonesNoPreds = countOutboundMilestonesWithoutPredecessors(tasks);
+
+    // Check 8: Tasks over 5 days long finishing within next 8 weeks
+    const longTasksIn8Weeks = tasks.filter(t => {
+        if (t.is_summary || (parseFloat(t.percent) || 0) >= 100) return false;
+        if (!t.finish || !t.duration_days) return false;
+        const finish = new Date(t.finish);
+        return t.duration_days > 5 && !isNaN(finish) && finish >= today && finish <= eightWeeksAhead;
+    });
+    const longTasksIn8WeeksCount = longTasksIn8Weeks.length;
+
+    // Check 9: Inbound milestones with no successors
+    const inboundMilestonesNoSuccessors = countInboundMilestonesWithoutSuccessors(tasks, successorMap);
+
+    // Check 10: Tasks over 20 days long (non-summary)
+    const veryLongTasks = tasks.filter(t => !t.is_summary && t.duration_days > 20);
+    const veryLongTasksCount = veryLongTasks.length;
+
+    // Check 11: Tasks with no successors (non-summary, non-milestone, not complete)
+    const tasksNoSuccessors = tasks.filter(t => {
+        if (t.is_summary || (parseFloat(t.percent) || 0) >= 100) return false;
+        const succs = successorMap[t.name] || [];
+        return succs.length === 0;
+    });
+    const tasksNoSuccessorsCount = tasksNoSuccessors.length;
+
+    // Check 12: Tasks with no predecessors (non-summary, not first task by position)
+    const tasksNoPredecessors = tasks.filter(t => {
+        if (t.is_summary) return false;
+        const deps = t.depends || [];
+        return deps.length === 0;
+    });
+    const tasksNoPredecessorsCount = tasksNoPredecessors.length;
+
+    // Check 13: Tasks with negative float (overdue and not complete)
+    const negativeFloatTasks = tasks.filter(t => {
+        if (t.is_summary || (parseFloat(t.percent) || 0) >= 100) return false;
+        if (!t.finish) return false;
+        const finish = new Date(t.finish);
+        return !isNaN(finish) && finish < today;
+    });
+    const negativeFloatCount = negativeFloatTasks.length;
+
+    // Check 14: Tasks with work in the past (started but not complete, finish in past)
+    const workInPast = tasks.filter(t => {
+        if (t.is_summary || (parseFloat(t.percent) || 0) >= 100) return false;
+        if (!t.start || !t.finish) return false;
+        const start = new Date(t.start);
+        const finish = new Date(t.finish);
+        return !isNaN(start) && !isNaN(finish) && start < today && finish < today;
+    });
+    const workInPastCount = workInPast.length;
+
+    // Check 15: Tasks with work complete in the future (100% but finish date is in the future)
+    const workCompleteInFuture = tasks.filter(t => {
+        if (t.is_summary) return false;
+        const pct = parseFloat(t.percent) || 0;
+        if (pct < 100) return false;
+        if (!t.finish) return false;
+        const finish = new Date(t.finish);
+        return !isNaN(finish) && finish > today;
+    });
+    const workCompleteInFutureCount = workCompleteInFuture.length;
+
+    // Render information checks
+    const infoChecks = [
+        { num: '2', label: 'Inbound dependencies', count: inboundCount },
+        { num: '3', label: 'Outbound dependencies', count: outboundCount },
+        { num: '4', label: 'Remaining tasks', count: remainingCount },
+        { num: '5', label: 'Milestones', count: keyMilestonesCount },
+        { num: '7', label: 'Tasks finishing in 8 weeks', count: finishingIn8WeeksCount },
+    ];
+
+    // Render issue checks
+    const issueChecks = [
+        { num: '6', label: 'Outbound milestones without predecessors', count: outboundMilestonesNoPreds },
+        { num: '8', label: 'Tasks >5 days finishing in 8 weeks', count: longTasksIn8WeeksCount },
+        { num: '9', label: 'Inbound milestones with no successors', count: inboundMilestonesNoSuccessors },
+        { num: '10', label: 'Tasks over 20 days long', count: veryLongTasksCount },
+        { num: '11', label: 'Tasks with no successors', count: tasksNoSuccessorsCount },
+        { num: '12', label: 'Tasks with no predecessors', count: tasksNoPredecessorsCount },
+        { num: '13', label: 'Tasks with negative float (overdue)', count: negativeFloatCount },
+        { num: '14', label: 'Tasks with work in the past', count: workInPastCount },
+        { num: '15', label: 'Tasks with work complete in future', count: workCompleteInFutureCount },
+    ];
+
+    infoChecks.forEach(check => {
+        grid.appendChild(createQaCheckCard(check.num, check.count, check.label, 'info'));
+    });
+
+    issueChecks.forEach(check => {
+        const cardType = check.count > 0 ? 'issue' : 'issue-ok';
+        grid.appendChild(createQaCheckCard(check.num, check.count, check.label, cardType));
+    });
+}
+
+/**
+ * Build a map of task name -> array of task names that depend on it (successors).
+ *
+ * @param {Array} tasks
+ * @returns {Object}
+ */
+function buildSuccessorMap(tasks) {
+    const map = {};
+    tasks.forEach(task => {
+        if (!task.name) return;
+        const deps = task.depends || [];
+        deps.forEach(depName => {
+            if (!map[depName]) map[depName] = [];
+            map[depName].push(task.name);
+        });
+    });
+    return map;
+}
+
+/**
+ * Count inbound dependencies: tasks tagged #inbound or tasks representing
+ * external inputs (no predecessors, but have successors - entry points).
+ *
+ * @param {Array} tasks
+ * @returns {number}
+ */
+function countInboundDependencies(tasks) {
+    return tasks.filter(t => {
+        if (t.is_summary) return false;
+        // Tagged explicitly as inbound
+        const comment = (t.comment || '').toLowerCase();
+        const name = (t.name || '').toLowerCase();
+        return comment.includes('#inbound') || name.includes('#inbound');
+    }).length;
+}
+
+/**
+ * Count outbound dependencies: tasks tagged #outbound or milestones that
+ * have no successors (potential hand-off points to other projects).
+ *
+ * @param {Array} tasks
+ * @returns {number}
+ */
+function countOutboundDependencies(tasks) {
+    return tasks.filter(t => {
+        if (t.is_summary) return false;
+        const comment = (t.comment || '').toLowerCase();
+        const name = (t.name || '').toLowerCase();
+        return comment.includes('#outbound') || name.includes('#outbound');
+    }).length;
+}
+
+/**
+ * Count outbound milestones (duration_days === 0) that have no predecessors.
+ * These are milestones that kick off work but have no driving predecessors.
+ *
+ * @param {Array} tasks
+ * @returns {number}
+ */
+function countOutboundMilestonesWithoutPredecessors(tasks) {
+    return tasks.filter(t => {
+        if (t.is_summary) return false;
+        if (t.duration_days !== 0) return false;
+        const deps = t.depends || [];
+        return deps.length === 0;
+    }).length;
+}
+
+/**
+ * Count inbound milestones (duration_days === 0) that have no successors.
+ * These milestones have nothing depending on them - potential orphans.
+ *
+ * @param {Array} tasks
+ * @param {Object} successorMap
+ * @returns {number}
+ */
+function countInboundMilestonesWithoutSuccessors(tasks, successorMap) {
+    return tasks.filter(t => {
+        if (t.is_summary) return false;
+        if (t.duration_days !== 0) return false;
+        const succs = successorMap[t.name] || [];
+        return succs.length === 0;
+    }).length;
+}
+
+/**
+ * Create a QA check card DOM element.
+ *
+ * @param {string} checkNum - Check number (e.g., '2')
+ * @param {number} count - The computed count value
+ * @param {string} label - Human-readable check description
+ * @param {'info'|'issue'|'issue-ok'} cardType - Card style
+ * @returns {HTMLElement}
+ */
+function createQaCheckCard(checkNum, count, label, cardType) {
+    const card = document.createElement('div');
+    card.className = 'qa-check-card qa-' + cardType;
+    card.setAttribute('role', 'article');
+    card.setAttribute('aria-label', 'Check ' + checkNum + ': ' + label + ', count: ' + count);
+
+    const numEl = document.createElement('div');
+    numEl.className = 'qa-check-number';
+    numEl.textContent = 'Check ' + checkNum;
+
+    const countEl = document.createElement('div');
+    countEl.className = 'qa-check-count';
+    countEl.textContent = count;
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'qa-check-label';
+    labelEl.textContent = label;
+
+    const badgeEl = document.createElement('span');
+    if (cardType === 'info') {
+        badgeEl.className = 'qa-check-badge qa-badge-info';
+        badgeEl.textContent = 'Info';
+    } else if (cardType === 'issue') {
+        badgeEl.className = 'qa-check-badge qa-badge-issue';
+        badgeEl.textContent = 'Issue';
+    } else {
+        badgeEl.className = 'qa-check-badge qa-badge-ok';
+        badgeEl.textContent = 'OK';
+    }
+
+    card.appendChild(numEl);
+    card.appendChild(countEl);
+    card.appendChild(labelEl);
+    card.appendChild(badgeEl);
+
+    return card;
 }
 
 // Toggle phases on timeline view
