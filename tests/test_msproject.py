@@ -3,6 +3,7 @@
 import os
 import tempfile
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,11 +13,19 @@ from noodle_core.msproject import (
     export_to_msproject_xml,
     import_from_msproject_xml,
     import_from_mpp,
+    _check_mpp_available,
     _check_mpxj_available,
     _duration_to_iso8601,
-    _duration_to_days,
     _date_to_msproject,
     _parse_iso8601_duration,
+    _generate_shortname,
+)
+from noodle_core.mpp_reader import (
+    MppProject,
+    MppTask,
+    MppResource,
+    MppDependency,
+    MppAssignment,
 )
 from noodle_web import app
 
@@ -474,15 +483,15 @@ class TestMSProjectImportEndpoint:
         data = response.json()
         assert data["filename"] == "myproject.xml"
 
-    def test_import_mpp_without_mpxj_returns_error(self, client):
-        """Uploading .mpp when mpxj is not available gives a clear error."""
-        with patch("noodle_web.app._check_mpxj_available", return_value=False):
+    def test_import_mpp_without_olefile_returns_error(self, client):
+        """Uploading .mpp when olefile is not available gives a clear error."""
+        with patch("noodle_web.app._check_mpp_available", return_value=False):
             response = client.post(
                 "/api/msproject/import",
                 files={"file": ("project.mpp", b"\x00\x01\x02", "application/octet-stream")},
             )
         assert response.status_code == 400
-        assert "mpxj" in response.json()["detail"].lower() or "xml" in response.json()["detail"].lower()
+        assert "olefile" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
@@ -490,156 +499,400 @@ class TestMSProjectImportEndpoint:
 # ---------------------------------------------------------------------------
 
 
-class TestDurationToDays:
-    def test_none_returns_one(self):
-        assert _duration_to_days(None) == 1
+class TestMppTaskDurationDays:
+    """Test MppTask.duration_days property."""
 
-    def test_hours_duration(self):
-        dur = MagicMock()
-        dur.duration = 16.0
-        dur.units = "HOURS"
-        assert _duration_to_days(dur) == 2
+    def test_none_duration(self):
+        task = MppTask(unique_id=1, task_id=1, name="T", outline_level=1,
+                       duration_minutes=None, start=None, finish=None,
+                       percent_complete=0, milestone=False, summary=False,
+                       parent_unique_id=None)
+        assert task.duration_days is None
 
-    def test_days_duration(self):
-        dur = MagicMock()
-        dur.duration = 5.0
-        dur.units = "DAYS"
-        assert _duration_to_days(dur) == 5
+    def test_one_day(self):
+        task = MppTask(unique_id=1, task_id=1, name="T", outline_level=1,
+                       duration_minutes=480.0, start=None, finish=None,
+                       percent_complete=0, milestone=False, summary=False,
+                       parent_unique_id=None)
+        assert task.duration_days == 1.0
 
-    def test_weeks_duration(self):
-        dur = MagicMock()
-        dur.duration = 2.0
-        dur.units = "WEEKS"
-        assert _duration_to_days(dur) == 10
+    def test_hours_to_days(self):
+        # 16 hours = 960 minutes = 2 days
+        task = MppTask(unique_id=1, task_id=1, name="T", outline_level=1,
+                       duration_minutes=960.0, start=None, finish=None,
+                       percent_complete=0, milestone=False, summary=False,
+                       parent_unique_id=None)
+        assert task.duration_days == 2.0
 
-    def test_months_duration(self):
-        dur = MagicMock()
-        dur.duration = 1.0
-        dur.units = "MONTHS"
-        assert _duration_to_days(dur) == 20
-
-    def test_zero_duration_returns_one(self):
-        dur = MagicMock()
-        dur.duration = 0.0
-        dur.units = "DAYS"
-        assert _duration_to_days(dur) == 1
+    def test_zero_duration(self):
+        task = MppTask(unique_id=1, task_id=1, name="T", outline_level=1,
+                       duration_minutes=0.0, start=None, finish=None,
+                       percent_complete=0, milestone=False, summary=False,
+                       parent_unique_id=None)
+        assert task.duration_days == 0.0
 
 
-class TestCheckMpxjAvailable:
-    def test_returns_false_when_not_installed(self):
-        with patch.dict("sys.modules", {"mpxj": None}):
-            # Force re-evaluation - mpxj import will fail
-            import importlib
+class TestCheckMppAvailable:
+    def test_returns_true_when_olefile_installed(self):
+        # olefile is in our dependencies so should be available
+        assert _check_mpp_available() is True
+
+    def test_backwards_compat_alias(self):
+        # _check_mpxj_available is an alias for _check_mpp_available
+        assert _check_mpxj_available() == _check_mpp_available()
+
+    def test_returns_false_when_olefile_not_installed(self):
+        with patch.dict("sys.modules", {"olefile": None}):
             import sys
-            # Remove cached result if any
-            if "mpxj" in sys.modules:
-                del sys.modules["mpxj"]
-            # The function tries to import mpxj; with it removed it should fail
-            result = _check_mpxj_available()
-            # Result depends on whether mpxj is actually installed
+            if "olefile" in sys.modules:
+                del sys.modules["olefile"]
+            result = _check_mpp_available()
             assert isinstance(result, bool)
 
 
 class TestImportFromMpp:
-    def test_raises_import_error_without_mpxj(self):
-        """import_from_mpp raises ImportError when mpxj is not available."""
-        with patch.dict("sys.modules", {"mpxj": None}):
-            with pytest.raises(ImportError, match="mpxj"):
-                import_from_mpp(b"\x00\x01\x02")
+    def _make_mock_project(self, title="Test MPP Project", tasks=None,
+                           resources=None, dependencies=None,
+                           assignments=None):
+        """Build an MppProject with real dataclass objects."""
+        return MppProject(
+            title=title,
+            author="Test Author",
+            mpp_version="MPP14 (Project 2010+)",
+            tasks=tasks or [],
+            resources=resources or [],
+            dependencies=dependencies or [],
+            assignments=assignments or [],
+        )
 
-    def test_import_with_mocked_mpxj(self):
-        """Test the full import flow with a mocked mpxj project."""
-        # Build a mock project structure
-        mock_resource = MagicMock()
-        mock_resource.unique_id = 1
-        mock_resource.name = "Alice Developer"
+    def test_import_with_mocked_reader(self):
+        """Test the full import flow with a mocked MppProject.read()."""
+        import datetime
 
-        mock_pred_task = MagicMock()
-        mock_pred_task.unique_id = 1
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Design Phase", outline_level=1,
+            duration_minutes=None, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 10), percent_complete=0,
+            milestone=False, summary=True, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Build Widget", outline_level=2,
+            duration_minutes=1440.0,  # 3 days (3 * 480)
+            start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 8), percent_complete=50,
+            milestone=False, summary=False, parent_unique_id=1,
+        )
 
-        mock_relation = MagicMock()
-        mock_relation.target_task = mock_pred_task
+        resource = MppResource(
+            unique_id=1, resource_id=1, name="Alice Developer", type="Work",
+        )
 
-        mock_duration = MagicMock()
-        mock_duration.duration = 24.0
-        mock_duration.units = "HOURS"
+        dep = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=2,
+            relation_type="FS", lag_minutes=0.0,
+        )
 
-        mock_task1 = MagicMock()
-        mock_task1.name = "Design Phase"
-        mock_task1.unique_id = 1
-        mock_task1.outline_level = 1
-        mock_task1.summary = True
-        mock_task1.duration = None
-        mock_task1.percent_complete = 0
-        mock_task1.predecessors = []
-        mock_task1.notes = None
+        assign = MppAssignment(
+            task_unique_id=2, resource_unique_id=1, units=100.0,
+        )
 
-        mock_task2 = MagicMock()
-        mock_task2.name = "Build Widget"
-        mock_task2.unique_id = 2
-        mock_task2.outline_level = 2
-        mock_task2.summary = False
-        mock_task2.duration = mock_duration
-        mock_task2.percent_complete = 50
-        mock_task2.predecessors = [mock_relation]
-        mock_task2.notes = "Important task"
+        project = self._make_mock_project(
+            title="Test MPP Project",
+            tasks=[task1, task2],
+            resources=[resource],
+            dependencies=[dep],
+            assignments=[assign],
+        )
 
-        mock_assignment = MagicMock()
-        mock_assignment.task = mock_task2
-        mock_assignment.resource = mock_resource
-
-        mock_project = MagicMock()
-        mock_project.project_properties.project_title = "Test MPP Project"
-        mock_project.project_properties.name = "Test MPP Project"
-        mock_project.resources = [mock_resource]
-        mock_project.tasks = [mock_task1, mock_task2]
-        mock_project.resource_assignments = [mock_assignment]
-
-        mock_reader = MagicMock()
-        mock_reader.read.return_value = mock_project
-
-        mock_mpxj = MagicMock()
-        mock_mpxj.ProjectReader.return_value = mock_reader
-
-        with patch.dict("sys.modules", {"mpxj": mock_mpxj}):
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
             result = import_from_mpp(b"\x00\x01\x02")
 
         assert "title: Test MPP Project" in result
         assert "Design Phase" in result
         assert "Build Widget" in result
-        assert "3d" in result  # 24 hours = 3 days
-        assert "@Alice" in result
+        assert "3d" in result  # 1440 minutes = 3 days
+        assert "@adeveloper" in result  # shortname for Alice Developer
         assert "50%" in result
-        assert '[depends Design Phase]' in result
-        assert '"Important task"' in result
+        # Adjacent predecessor uses * shorthand
+        assert "*Build Widget 3d @adeveloper 50%" in result
+        # Resource header section
+        assert "Resources:" in result
+        assert "- @adeveloper: Alice Developer" in result
 
-    def test_import_strips_html_from_notes(self):
-        """HTML tags in notes should be stripped."""
-        mock_task = MagicMock()
-        mock_task.name = "Task With HTML"
-        mock_task.unique_id = 1
-        mock_task.outline_level = 1
-        mock_task.summary = False
-        mock_task.duration = None
-        mock_task.percent_complete = 0
-        mock_task.predecessors = []
-        mock_task.notes = "<p>Some <b>bold</b> note</p>"
+    def test_import_no_resources_or_deps(self):
+        """Test import with tasks only — no resources or dependencies."""
+        task = MppTask(
+            unique_id=1, task_id=1, name="Simple Task", outline_level=1,
+            duration_minutes=480.0, start=None, finish=None,
+            percent_complete=0, milestone=False, summary=False,
+            parent_unique_id=None,
+        )
 
-        mock_project = MagicMock()
-        mock_project.project_properties.project_title = "HTML Test"
-        mock_project.resources = []
-        mock_project.tasks = [mock_task]
-        mock_project.resource_assignments = []
+        project = self._make_mock_project(
+            title="Simple Project", tasks=[task],
+        )
 
-        mock_reader = MagicMock()
-        mock_reader.read.return_value = mock_project
-
-        mock_mpxj = MagicMock()
-        mock_mpxj.ProjectReader.return_value = mock_reader
-
-        with patch.dict("sys.modules", {"mpxj": mock_mpxj}):
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
             result = import_from_mpp(b"\x00")
 
-        assert "Some bold note" in result
-        assert "<p>" not in result
-        assert "<b>" not in result
+        assert "title: Simple Project" in result
+        assert "Simple Task 1d" in result
+        # No Resources header when there are no resources
+        assert "Resources:" not in result
+
+    def test_import_non_adjacent_dependency(self):
+        """Non-adjacent predecessor uses [depends: ...] instead of *."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Task A", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Task B", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 7),
+            finish=datetime.datetime(2025, 1, 7), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task3 = MppTask(
+            unique_id=3, task_id=3, name="Task C", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 8),
+            finish=datetime.datetime(2025, 1, 8), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        # Task C depends on Task A (non-adjacent, Task B is in between)
+        dep = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=3,
+            relation_type="FS", lag_minutes=0.0,
+        )
+
+        project = self._make_mock_project(
+            title="Dep Test",
+            tasks=[task1, task2, task3],
+            dependencies=[dep],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        assert "[depends: Task A]" in result
+
+    def test_import_multiple_dependencies(self):
+        """Multiple predecessors use [depends: ...] format."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Task A", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Task B", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 7),
+            finish=datetime.datetime(2025, 1, 7), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task3 = MppTask(
+            unique_id=3, task_id=3, name="Task C", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 8),
+            finish=datetime.datetime(2025, 1, 8), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        # Task C depends on both Task A and Task B
+        dep1 = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=3,
+            relation_type="FS", lag_minutes=0.0,
+        )
+        dep2 = MppDependency(
+            predecessor_unique_id=2, successor_unique_id=3,
+            relation_type="FS", lag_minutes=0.0,
+        )
+
+        project = self._make_mock_project(
+            title="Multi Dep Test",
+            tasks=[task1, task2, task3],
+            dependencies=[dep1, dep2],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        assert "[depends: Task A, Task B]" in result
+
+    def test_import_resource_shortname_generation(self):
+        """Resources use generated shortnames and appear in header."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="Do Work", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        res1 = MppResource(unique_id=1, resource_id=1, name="Kevin McAleer", type="Work")
+        res2 = MppResource(unique_id=2, resource_id=2, name="Jane Smith", type="Work")
+
+        assign1 = MppAssignment(task_unique_id=1, resource_unique_id=1, units=100.0)
+
+        project = self._make_mock_project(
+            title="Resource Test",
+            tasks=[task1],
+            resources=[res1, res2],
+            assignments=[assign1],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        # Shortname in task line
+        assert "@kmcaleer" in result
+        # Resource header
+        assert "- @kmcaleer: Kevin McAleer" in result
+        assert "- @jsmith: Jane Smith" in result
+
+    def test_import_adjacent_dependency_uses_star(self):
+        """Adjacent predecessor (immediately preceding task) uses * shorthand."""
+        import datetime
+
+        task1 = MppTask(
+            unique_id=1, task_id=1, name="First", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 6),
+            finish=datetime.datetime(2025, 1, 6), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+        task2 = MppTask(
+            unique_id=2, task_id=2, name="Second", outline_level=1,
+            duration_minutes=480.0, start=datetime.datetime(2025, 1, 7),
+            finish=datetime.datetime(2025, 1, 7), percent_complete=0,
+            milestone=False, summary=False, parent_unique_id=None,
+        )
+
+        dep = MppDependency(
+            predecessor_unique_id=1, successor_unique_id=2,
+            relation_type="FS", lag_minutes=0.0,
+        )
+
+        project = self._make_mock_project(
+            title="Star Dep",
+            tasks=[task1, task2],
+            dependencies=[dep],
+        )
+
+        with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
+            result = import_from_mpp(b"\x00")
+
+        # Should use * not [depends: First]
+        assert "*Second 1d" in result
+        assert "[depends" not in result
+
+
+# ---------------------------------------------------------------------------
+# Shortname generation tests
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateShortname:
+    def test_two_part_name(self):
+        assert _generate_shortname("John Smith") == "jsmith"
+
+    def test_single_name(self):
+        assert _generate_shortname("Alice") == "alice"
+
+    def test_three_part_name(self):
+        assert _generate_shortname("Bob J. Jones") == "bjones"
+
+    def test_mcname(self):
+        assert _generate_shortname("Kevin McAleer") == "kmcaleer"
+
+    def test_empty_string(self):
+        assert _generate_shortname("") == ""
+
+
+# ---------------------------------------------------------------------------
+# End-to-end test with real Draft Plan.mpp (skipped if file not present)
+# ---------------------------------------------------------------------------
+
+
+class TestRealMppImport:
+    """Integration tests using the real Draft Plan.mpp file.
+
+    These are skipped when the file is not available (e.g., in CI).
+    """
+
+    DRAFT_PLAN = Path(__file__).resolve().parent.parent / "Draft Plan.mpp"
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_no_file(self):
+        if not self.DRAFT_PLAN.exists():
+            pytest.skip("Draft Plan.mpp not present")
+
+    def _import(self):
+        with open(self.DRAFT_PLAN, "rb") as f:
+            return import_from_mpp(f.read())
+
+    def test_imports_without_error(self):
+        result = self._import()
+        assert result
+        assert "---" in result
+
+    def test_title(self):
+        result = self._import()
+        assert "title: Draft Plan" in result
+
+    def test_task_count(self):
+        result = self._import()
+        # All non-blank, non-frontmatter lines are task lines
+        lines = [l for l in result.strip().split("\n")
+                 if l.strip() and not l.startswith("---") and not l.startswith("title:")]
+        assert len(lines) >= 90  # Draft Plan has ~97 tasks
+
+    def test_indentation_max_two_per_level(self):
+        """Every child should be exactly 2 spaces deeper than its parent."""
+        result = self._import()
+        lines = result.strip().split("\n")
+        prev_indent = 0
+        for line in lines:
+            if not line.strip() or line.startswith("---") or line.startswith("title:"):
+                continue
+            indent = len(line) - len(line.lstrip())
+            # Indent can increase by at most 2 from previous line
+            assert indent <= prev_indent + 2, (
+                f"Indent jumped by {indent - prev_indent} (max 2): {line!r}"
+            )
+            prev_indent = indent
+
+    def test_dependencies_present(self):
+        result = self._import()
+        assert "[depends:" in result or "*" in result
+
+    def test_star_dependency_prepended(self):
+        """The * shorthand must be prepended with no space."""
+        result = self._import()
+        for line in result.split("\n"):
+            stripped = line.lstrip()
+            if stripped.startswith("*"):
+                # Ensure no trailing ' *' pattern (old format)
+                assert not stripped.endswith(" *")
+
+    def test_known_tasks_present(self):
+        result = self._import()
+        assert "Project Soti - MobiControl" in result
+        assert "DEFINITION PHASE" in result
+        assert "DESIGN, BUILD & TEST PHASE" in result
+        assert "Close project" in result
+
+    def test_durations_present(self):
+        result = self._import()
+        assert "5d" in result  # Detail Definition phase = 5 days
+        assert "2d" in result  # Compile PDD = 2 days
+
+    def test_percent_complete(self):
+        result = self._import()
+        assert "50%" in result  # Gate 1 approval
+        assert "20%" in result  # Compile PDD

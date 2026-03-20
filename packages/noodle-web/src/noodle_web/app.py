@@ -45,12 +45,10 @@ from noodle_core import (
     FrontMatterParser,
     import_from_msproject_xml,
     import_from_mpp,
-    _check_mpxj_available,
+    _check_mpp_available,
 )
 import json
 from .plan_service import PlanService, export_to_file
-from .middleware import ActivityLoggingMiddleware
-from .database import init_db, test_connection
 from .security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
@@ -160,9 +158,6 @@ def export_to_file(export_fn, suffix, read_mode='rb'):
 # Middleware stack (applied in reverse order; last added = outermost)
 # ---------------------------------------------------------------------------
 
-# Activity logging (innermost -- runs closest to the route handler)
-app.add_middleware(ActivityLoggingMiddleware)
-
 # CORS -- configurable via CORS_ORIGINS env var (comma-separated).
 # Defaults to ["*"] in development for convenience.
 _cors_env = os.getenv("CORS_ORIGINS", "")
@@ -198,18 +193,6 @@ app.add_middleware(APIKeyAuthMiddleware)
 # Service layer
 # ---------------------------------------------------------------------------
 plan_service = PlanService()
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    logger.info("Starting up application...")
-    if test_connection():
-        logger.info("Database connection successful")
-        logger.info("Note: Database schema is managed via Alembic migrations")
-        logger.info("Run 'alembic upgrade head' to apply pending migrations")
-    else:
-        logger.warning("Database connection failed - activity logging may not work")
 
 
 class RenderRequest(BaseModel):
@@ -971,12 +954,12 @@ async def import_msproject(file: UploadFile = File(...)):
 
     try:
         if extension == "mpp":
-            if not _check_mpxj_available():
+            if not _check_mpp_available():
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        "Native .mpp import requires the mpxj package and Java runtime. "
-                        "Please save the file as XML from MS Project and import the .xml file instead."
+                        "Native .mpp import requires the olefile package. "
+                        "Install it with: pip install olefile"
                     ),
                 )
             markdown = import_from_mpp(file_bytes)
@@ -1138,6 +1121,218 @@ async def templates_page(request: Request):
         "request": request,
         "v": STATIC_VERSION,
     })
+
+
+# ==============================================================================
+# PROGRAMME DEPENDENCIES API ENDPOINTS
+# ==============================================================================
+
+
+class ProgrammeDependency(BaseModel):
+    """A dependency link between a task in one project and a task in another."""
+    id: str = Field(..., max_length=100)
+    from_project_id: str = Field(..., max_length=200)
+    from_task_name: str = Field(..., max_length=500)
+    to_project_id: str = Field(..., max_length=200)
+    to_task_name: str = Field(..., max_length=500)
+    lag_days: int = Field(0)
+    notes: str = Field("", max_length=1000)
+
+
+class ParsedTask(BaseModel):
+    """A parsed task from a project plan."""
+    name: str = Field("", max_length=500)
+    start: Optional[str] = Field(None, max_length=50)
+    finish: Optional[str] = Field(None, max_length=50)
+    duration_days: int = Field(0)
+    percent: float = Field(0)
+    is_summary: bool = Field(False)
+
+
+class ParsedProjectData(BaseModel):
+    """Parsed data for a single project."""
+    project_id: str = Field(..., max_length=200)
+    project_name: str = Field(..., max_length=500)
+    tasks: List[ParsedTask] = Field(default_factory=list)
+
+
+class DependencyPropagateRequest(BaseModel):
+    """Request to calculate propagated dates and RAG for programme dependencies."""
+    dependencies: List[ProgrammeDependency] = Field(default_factory=list)
+    projects: List[ParsedProjectData] = Field(default_factory=list)
+
+
+def _find_task_in_project(tasks: List[dict], task_name: str) -> Optional[dict]:
+    """Find a task by name (case-insensitive partial match) in a task list."""
+    task_name_lower = task_name.lower().strip()
+    for task in tasks:
+        if task.get("name", "").lower().strip() == task_name_lower:
+            return task
+    # Fallback: partial match
+    for task in tasks:
+        if task_name_lower in task.get("name", "").lower():
+            return task
+    return None
+
+
+def _calculate_dependency_rag(
+    from_task: dict,
+    to_task: dict,
+    lag_days: int,
+) -> dict:
+    """Calculate RAG status for a single dependency link.
+
+    Returns a dict with:
+      - rag: 'red', 'amber', or 'green'
+      - reason: human-readable explanation
+      - propagated_start: ISO date string or None
+    """
+    from datetime import date, timedelta
+
+    from_finish = from_task.get("finish")
+    to_start = to_task.get("start")
+    to_finish = to_task.get("finish")
+    to_percent = float(to_task.get("percent") or 0)
+
+    if not from_finish:
+        return {"rag": "grey", "reason": "Source task has no finish date", "propagated_start": None}
+
+    try:
+        from_finish_date = date.fromisoformat(str(from_finish)[:10])
+    except ValueError:
+        return {"rag": "grey", "reason": "Invalid source task finish date", "propagated_start": None}
+
+    # The dependent task should start no earlier than from_finish + lag_days
+    required_start = from_finish_date + timedelta(days=lag_days)
+    propagated_start = required_start.isoformat()
+
+    if not to_start:
+        return {
+            "rag": "amber",
+            "reason": f"Dependent task has no start date; should start on {propagated_start}",
+            "propagated_start": propagated_start,
+        }
+
+    try:
+        to_start_date = date.fromisoformat(str(to_start)[:10])
+    except ValueError:
+        return {"rag": "grey", "reason": "Invalid dependent task start date", "propagated_start": propagated_start}
+
+    today = date.today()
+
+    # Red: dependent task starts before source finishes (dependency violated)
+    if to_start_date < required_start:
+        return {
+            "rag": "red",
+            "reason": (
+                f"Dependency violated: task starts {to_start_date} "
+                f"but must start on or after {required_start}"
+            ),
+            "propagated_start": propagated_start,
+        }
+
+    # Check if finish is overdue
+    if to_finish:
+        try:
+            to_finish_date = date.fromisoformat(str(to_finish)[:10])
+            if to_finish_date < today and to_percent < 100:
+                return {
+                    "rag": "red",
+                    "reason": f"Dependent task overdue (finish {to_finish_date}, {to_percent:.0f}% complete)",
+                    "propagated_start": propagated_start,
+                }
+        except ValueError:
+            pass
+
+    # Amber: dependent task hasn't started yet but source finished in the past
+    if from_finish_date < today and to_start_date > today and to_percent == 0:
+        return {
+            "rag": "amber",
+            "reason": (
+                f"Source finished {from_finish_date} but dependent task not yet started"
+            ),
+            "propagated_start": propagated_start,
+        }
+
+    return {
+        "rag": "green",
+        "reason": f"Dependency satisfied; task starts {to_start_date}",
+        "propagated_start": propagated_start,
+    }
+
+
+@app.post("/api/programme-dependencies/propagate")
+async def propagate_programme_dependencies(data: DependencyPropagateRequest):
+    """Calculate RAG status and propagated dates for inter-project dependencies.
+
+    For each dependency link, finds the source and target tasks, calculates
+    whether the dependency constraint is satisfied, and returns RAG colour
+    with reasoning for display in the portfolio timeline view.
+    """
+    logger.info(
+        "Programme dependency propagation request: %d dependencies, %d projects",
+        len(data.dependencies),
+        len(data.projects),
+    )
+
+    # Build lookup: project_id -> {task_name_lower -> task_dict}
+    project_task_map: dict[str, list] = {}
+    for proj in data.projects:
+        project_task_map[proj.project_id] = [t.model_dump() for t in proj.tasks]
+
+    results = []
+    for dep in data.dependencies:
+        from_tasks = project_task_map.get(dep.from_project_id, [])
+        to_tasks = project_task_map.get(dep.to_project_id, [])
+
+        from_task = _find_task_in_project(from_tasks, dep.from_task_name)
+        to_task = _find_task_in_project(to_tasks, dep.to_task_name)
+
+        if from_task is None:
+            result = {
+                "dependency_id": dep.id,
+                "rag": "grey",
+                "reason": f"Source task '{dep.from_task_name}' not found in project",
+                "propagated_start": None,
+                "from_task": None,
+                "to_task": None,
+            }
+        elif to_task is None:
+            result = {
+                "dependency_id": dep.id,
+                "rag": "grey",
+                "reason": f"Dependent task '{dep.to_task_name}' not found in project",
+                "propagated_start": None,
+                "from_task": from_task,
+                "to_task": None,
+            }
+        else:
+            rag_info = _calculate_dependency_rag(from_task, to_task, dep.lag_days)
+            result = {
+                "dependency_id": dep.id,
+                "rag": rag_info["rag"],
+                "reason": rag_info["reason"],
+                "propagated_start": rag_info["propagated_start"],
+                "from_task": from_task,
+                "to_task": to_task,
+            }
+
+        results.append(result)
+
+    # Overall programme RAG: worst of all dependency RAGs
+    rag_priority = {"red": 3, "amber": 2, "green": 1, "grey": 0}
+    overall_rag = "green"
+    if results:
+        worst = max(results, key=lambda r: rag_priority.get(r["rag"], 0))
+        overall_rag = worst["rag"]
+    elif not data.dependencies:
+        overall_rag = "grey"
+
+    return {
+        "results": results,
+        "overall_rag": overall_rag,
+        "dependency_count": len(results),
+    }
 
 
 if __name__ == "__main__":

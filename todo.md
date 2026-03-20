@@ -9,17 +9,18 @@
 - [x] Extracted recurrence from `[repeats ...]` in `extract_metadata()`
 - [x] Exported new functions from `noodle_core/__init__.py`
 - [x] Added `recurrence` field to task data dict in `plan_service.py`
-- [x] Added recurrence UI to task details form in `index.html` (frequency dropdown + weekly day checkboxes + monthly ordinal+day selectors)
-- [x] Updated `parseTaskLine()` in `script.js` to parse `[repeats ...]`
-- [x] Added `populateRecurrenceForm()`, `buildRecurrenceString()`, `onRecurrenceFrequencyChange()`, `formatRecurrenceLabel()`, `generateRecurrenceOccurrences()` to `script.js`
-- [x] Updated `saveTask()` to write recurrence back to markdown
-- [x] Updated `updateLookAhead()` to show recurring task occurrences in 2-week window
-- [x] Updated `createLookAheadRow()` to show recurrence badge and use occurrence date
-- [x] Updated `updateReportUpNext()` in `views-tables.js` to include recurring task occurrences
-- [x] Added recurrence-days-grid and recurrence-badge CSS to `components.css`
+- [x] Added recurrence UI to task details form in `index.html`
+- [x] Updated `parseTaskLine()`, `saveTask()`, and look-ahead/up-next views in `script.js`
 - [x] Wrote 31 tests in `tests/test_recurrence.py` (all passing)
 - [x] Updated `design/epic.md` with recurring tasks documentation
-- [x] Updated `todo.md` with progress
+
+### Quality Analyser Enhancements (GitHub Issue #627) - ✅ COMPLETED
+- [x] Add `runQualityAnalyserChecks(tasks)` with all 13 checks to `script.js`
+- [x] Add Quality Analyser HTML section to `index.html` analysis view
+- [x] Add CSS styles for QA cards/grid to `components.css` and `dark-mode.css`
+- [x] Write 16 tests in `tests/test_quality_analyser.py` (all passing)
+- [x] Update `design/epic.md` with Quality Analyser documentation
+- Skipped checks: 1 (MS Project issue field - not applicable), 16 (summary tasks with resources - by design)
 
 ### App Dark Mode (GitHub Issue #595) - ✅ COMPLETED
 - [x] Create `dark-mode.css` with semantic colour tokens (light defaults + `[data-theme="dark"]` overrides)
@@ -85,6 +86,22 @@
 - [x] All tests passing
 - [ ] Commit, push, and create PR
 - [ ] Comment on issue and close
+
+### Programme Dependencies (GitHub Issue #630) - ✅ COMPLETED
+- [x] Explore codebase: understand data model (localStorage), portfolio timeline, RAG status
+- [x] Design dependency data model (localStorage, not DB — consistent with project storage)
+- [x] Create `static/portfolio-dependencies.js` with CRUD, propagation API call, table render, arrow drawing
+- [x] Add `POST /api/programme-dependencies/propagate` endpoint in `app.py`
+- [x] Add helper functions `_find_task_in_project()` and `_calculate_dependency_rag()`
+- [x] Add "Dependencies" sub-nav button to portfolio header in `index.html`
+- [x] Add `portfolioDependenciesView` div in `index.html`
+- [x] Wire up `dependencies` case in `switchPortfolioView()` in `portfolio.js`
+- [x] Enhance `portfolio-timeline.js` to draw dependency arrows after render
+- [x] Add CSS for dependency table and RAG circles in `views/portfolio.css`
+- [x] Include `portfolio-dependencies.js` in `index.html` script tags
+- [x] Write 21 tests in `tests/test_programme_dependencies.py` — all passing
+- [x] Update `design/epic.md` with Programme Dependencies documentation
+- [x] Update `todo.md` with progress
 
 ## Completed ✅
 

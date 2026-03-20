@@ -2,38 +2,6 @@
 // DBML Documentation: https://dbml.dbdiagram.io/docs
 
 Project NoodlePlanner {
-  database_type: 'PostgreSQL'
-  Note: 'Noodle Planner - Project planning and scheduling tool with activity logging'
+  database_type: 'N/A'
+  Note: 'NoodlePlanner is a stateless application. All data lives in the browser as markdown. No database is used.'
 }
-
-// Activity Logs Table
-// Stores all user activity for audit and analytics
-Table activity_logs {
-  id integer [primary key, increment, note: 'Auto-incrementing primary key']
-  timestamp timestamp [not null, default: `(NOW() AT TIME ZONE 'UTC')`, note: 'UTC timestamp when request occurred']
-  ip_address varchar(45) [note: 'Client IP address (supports IPv6), respects X-Forwarded-For headers']
-  user_agent varchar(500) [note: 'Browser or client user agent string']
-  activity_type varchar(100) [not null, note: 'Type of activity: render_plan, export_excel, export_powerpoint, analyze_plan, file_upload, page_view, etc.']
-  endpoint varchar(200) [not null, note: 'URL path accessed']
-  method varchar(10) [not null, note: 'HTTP method: GET, POST, etc.']
-  status_code integer [note: 'HTTP response status code']
-  response_time_ms integer [note: 'Response time in milliseconds']
-
-  indexes {
-    timestamp [name: 'idx_activity_logs_timestamp', note: 'Index for time-based queries']
-    activity_type [name: 'idx_activity_logs_activity_type', note: 'Index for activity type filtering']
-    endpoint [name: 'idx_activity_logs_endpoint', note: 'Index for endpoint analysis']
-    ip_address [name: 'idx_activity_logs_ip_address', note: 'Index for IP-based queries']
-  }
-
-  Note: 'Captures all user interactions for audit trail and analytics'
-}
-
-// Future tables can be added here as the application grows
-// Example:
-// Table users {
-//   id integer [primary key, increment]
-//   username varchar(100) [unique, not null]
-//   email varchar(255) [unique, not null]
-//   created_at timestamp [default: `now()`]
-// }

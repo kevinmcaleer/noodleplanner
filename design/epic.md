@@ -230,6 +230,61 @@ const sheet = new NoodleSheet(containerEl, {
 **Budget Tracker Integration:**
 The budget tab includes a "Spreadsheet" toggle button that switches between the existing form-based table view and the NoodleSheet component. Data syncs bidirectionally via markdown.
 
+### Quality Analyser (Issue #627)
+
+The Quality Analyser enhances the existing **Analysis** view with a set of schedule quality checks derived from the ProjectQA VBA tool methodology. The checks are displayed as a card grid below the health score and insights sections.
+
+**Location:** Analysis view (`switchToView('analysis')`) — under the "Suggested Actions" section.
+
+**Two check categories:**
+
+1. **Information Checks** (blue cards) — counts that describe the plan, not flagged as problems:
+   - Check 2: Inbound dependencies (tasks tagged `#inbound` in comment/name)
+   - Check 3: Outbound dependencies (tasks tagged `#outbound` in comment/name)
+   - Check 4: Remaining tasks (non-summary, completion < 100%)
+   - Check 5: Milestones (non-summary tasks with `duration_days === 0`)
+   - Check 7: Tasks finishing within the next 8 weeks (not complete)
+
+2. **Issue Checks** (red when count > 0, green when count = 0) — problems that need attention:
+   - Check 6: Outbound milestones without predecessors (zero-duration tasks with no `depends`)
+   - Check 8: Tasks longer than 5 days finishing within next 8 weeks
+   - Check 9: Inbound milestones with no successors (zero-duration tasks nothing depends on)
+   - Check 10: Tasks longer than 20 days
+   - Check 11: Tasks with no successors (nothing depends on them)
+   - Check 12: Tasks with no predecessors (no `depends` entries)
+   - Check 13: Tasks with negative float (overdue and not complete)
+   - Check 14: Tasks with work in the past (started + finished in past, not complete)
+   - Check 15: Tasks with work complete in future (100% but finish date still future)
+
+**Skipped checks:**
+- Check 1 (clear issue field): Not applicable — NoodlePlanner has no MS Project "issue field"
+- Check 16 (summary tasks with resources assigned): NoodlePlanner allows this by design (resource inheritance)
+
+**Implementation:** Entirely frontend JavaScript, using the `tasks` array from `/api/parse`.
+
+**Key JavaScript functions:**
+- `runQualityAnalyserChecks(tasks)` — entry point, computes all checks and renders cards
+- `buildSuccessorMap(tasks)` — inverts `depends` to build task → successor list
+- `countInboundDependencies(tasks)` — counts tasks tagged `#inbound`
+- `countOutboundDependencies(tasks)` — counts tasks tagged `#outbound`
+- `countOutboundMilestonesWithoutPredecessors(tasks)` — Check 6 logic
+- `countInboundMilestonesWithoutSuccessors(tasks, successorMap)` — Check 9 logic
+- `createQaCheckCard(checkNum, count, label, cardType)` — renders a single check card
+
+**CSS classes:**
+- `.qa-section` — outer container with border-top separator
+- `.qa-grid` — CSS grid with `auto-fill` responsive columns (min 200px)
+- `.qa-check-card` / `.qa-info` / `.qa-issue` / `.qa-issue-ok` — card variants
+- `.qa-check-badge` / `.qa-badge-info` / `.qa-badge-issue` / `.qa-badge-ok` — status badges
+
+**Data requirements from `/api/parse`:**
+- `duration_days` — 0 for milestones
+- `depends` — list of predecessor task names
+- `start`, `finish` — date strings (YYYY-MM-DD)
+- `percent` — completion percentage
+- `is_summary` — boolean to exclude summary tasks from checks
+- `comment`, `name` — text fields checked for `#inbound` / `#outbound` tags
+
 ### Portfolio Views
 
 The Portfolio tab provides cross-project visibility through multiple sub-views:
@@ -1237,3 +1292,102 @@ Tasks can be set to repeat at a regular frequency. Recurrence is stored inline i
 | `packages/noodle-web/src/noodle_web/static/views-tables.js` | Recurring tasks in "Up Next" report widget |
 | `packages/noodle-web/src/noodle_web/static/components.css` | Styles for day-picker and recurrence badge |
 | `tests/test_recurrence.py` | 31 tests covering parsing, generation, and metadata extraction |
+
+---
+
+### Programme Dependencies (Issue #630)
+
+Allows users to specify dependencies between projects at the programme level — linking a task or milestone in one project to a task in another.
+
+#### How it Works
+
+1. **Dependency Storage**: Programme dependencies are stored in browser `localStorage` under the key `noodleplanner_programme_deps`. Each dependency is an object with:
+   - `id`: unique identifier (`dep-{timestamp}-{random}`)
+   - `from_project_id`: source project localStorage key
+   - `from_task_name`: source task or milestone name (matched case-insensitively)
+   - `to_project_id`: dependent project localStorage key
+   - `to_task_name`: dependent task name
+   - `lag_days`: integer; positive = wait N days after source finishes; negative = can start N days before
+   - `notes`: optional free text
+
+2. **RAG Calculation**: The server endpoint `POST /api/programme-dependencies/propagate` accepts all project task data + dependency definitions. For each dependency it:
+   - Looks up the source task finish date
+   - Calculates `required_start = source_finish + lag_days`
+   - Compares with the dependent task's actual start date
+   - Returns **RED** if the dependency constraint is violated (dependent starts before required_start)
+   - Returns **RED** if dependent task is overdue (finish date passed, < 100% complete)
+   - Returns **AMBER** if source has finished but dependent hasn't started
+   - Returns **GREEN** if constraint satisfied
+   - Returns **GREY** if tasks cannot be found or have missing dates
+
+3. **Overall Programme RAG**: Worst-case across all dependency RAGs (red > amber > green > grey).
+
+4. **Portfolio Dependencies View**: A dedicated "Dependencies" sub-tab in the Portfolio section. Users can:
+   - View all programme dependencies as a table with RAG circles
+   - Add new dependencies via a modal dialog (with task name autocomplete from the selected project's plan)
+   - Edit or delete existing dependencies
+
+5. **Timeline Arrows**: When the Portfolio Timeline view is rendered, `drawDependencyArrows()` overlays an SVG layer on the swimlane chart. Each dependency is drawn as a vertical connector line from the source task's finish date on its project row to the dependent task's row, coloured by RAG status:
+   - Dashed red line = dependency violated
+   - Dashed amber line = dependency at risk
+   - Solid green line = satisfied
+
+#### API
+
+**`POST /api/programme-dependencies/propagate`**
+
+Request body:
+```json
+{
+  "dependencies": [
+    {
+      "id": "dep-xxx",
+      "from_project_id": "project-xxx",
+      "from_task_name": "Phase 1 Complete",
+      "to_project_id": "project-yyy",
+      "to_task_name": "Integration Testing",
+      "lag_days": 2,
+      "notes": "Must wait 2 days for env setup"
+    }
+  ],
+  "projects": [
+    {
+      "project_id": "project-xxx",
+      "project_name": "Backend API",
+      "tasks": [
+        { "name": "Phase 1 Complete", "start": "2026-03-01", "finish": "2026-03-15", "percent": 100, "duration_days": 0, "is_summary": false }
+      ]
+    }
+  ]
+}
+```
+
+Response:
+```json
+{
+  "results": [
+    {
+      "dependency_id": "dep-xxx",
+      "rag": "green",
+      "reason": "Dependency satisfied; task starts 2026-03-17",
+      "propagated_start": "2026-03-17",
+      "from_task": { ... },
+      "to_task": { ... }
+    }
+  ],
+  "overall_rag": "green",
+  "dependency_count": 1
+}
+```
+
+#### Files
+
+| File | Purpose |
+|------|---------|
+| `static/portfolio-dependencies.js` | LocalStorage CRUD, API call, render dependencies table, arrow drawing |
+| `static/portfolio-timeline.js` | Enhanced to call `drawDependencyArrows()` after timeline render |
+| `static/portfolio.js` | Added `dependencies` case to `switchPortfolioView()` |
+| `static/views/portfolio.css` | Styles for `.dep-table`, `.dep-rag-circle`, `.programme-deps-view` |
+| `templates/index.html` | Dependencies sub-nav button and `portfolioDependenciesView` div |
+| `packages/noodle-web/src/noodle_web/app.py` | `POST /api/programme-dependencies/propagate` endpoint + helpers |
+| `tests/test_programme_dependencies.py` | 21 tests covering helper functions and API endpoint |
