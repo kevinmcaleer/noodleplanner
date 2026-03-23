@@ -843,6 +843,41 @@ body {
     background: var(--np-surface-alt);
 }
 
+/* Task row add buttons & drag handle - dark mode */
+[data-theme="dark"] .task-row-add-btn {
+    background: var(--np-surface);
+    color: var(--np-accent);
+    border-color: var(--np-accent);
+}
+
+[data-theme="dark"] .task-row-add-btn:hover {
+    background: var(--np-accent);
+    color: var(--np-surface);
+}
+
+[data-theme="dark"] .task-drag-handle {
+    color: #6c757d;
+}
+
+[data-theme="dark"] .task-drag-handle:hover {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-info-table tbody tr.dragging,
+[data-theme="dark"] .tasks-table tbody tr.dragging {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .gantt-info-table tbody tr.drag-over-above,
+[data-theme="dark"] .tasks-table tbody tr.drag-over-above {
+    border-top-color: var(--np-accent);
+}
+
+[data-theme="dark"] .gantt-info-table tbody tr.drag-over-below,
+[data-theme="dark"] .tasks-table tbody tr.drag-over-below {
+    border-bottom-color: var(--np-accent);
+}
+
 /* Show dependencies / show baseline labels - white text */
 [data-theme="dark"] .gantt-dependency-toggle label {
     color: var(--np-text);
