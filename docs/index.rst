@@ -23,6 +23,14 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/use-the-portfolio-view
    how-to/use-the-2-week-lookahead
    how-to/use-the-timeline-view
+   how-to/use-the-calendar-view
+   how-to/use-the-mind-map
+   how-to/use-the-stakeholders-view
+   how-to/use-the-evm-view
+   how-to/use-the-task-inspector
+   how-to/use-baselines
+   how-to/use-conditional-formatting
+   how-to/use-project-templates
    how-to/import-from-excel
    how-to/import-from-ms-project
 

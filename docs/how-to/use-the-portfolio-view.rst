@@ -85,6 +85,25 @@ Export a Portfolio Report
    - A portfolio overview slide (summary counts, timeline, project table)
    - One report slide per project
 
+Portfolio Look-Ahead
+---------------------
+
+The Portfolio Look-Ahead shows overdue and upcoming tasks across all projects in the portfolio for the next 14 days.
+
+1. Click the **Look-Ahead** tab in the portfolio header
+2. Tasks are grouped by project and sorted by date
+3. Overdue tasks are highlighted at the top
+4. Use this view in steering meetings to review near-term deliverables across the programme
+
+Portfolio Dependencies
+-----------------------
+
+The Portfolio Dependencies view shows cross-project dependencies in a single map.
+
+1. Click the **Dependencies** tab in the portfolio header
+2. Each dependency is shown as a link between tasks in different projects
+3. Use this view to identify inter-project risks and coordinate handoffs between teams
+
 Related
 --------
 

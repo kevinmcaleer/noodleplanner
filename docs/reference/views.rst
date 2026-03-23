@@ -38,7 +38,7 @@ A card-based board with tasks grouped into columns. See :doc:`../how-to/use-the-
 Calendar
 ~~~~~~~~~
 
-Tasks displayed on a monthly calendar grid, positioned by their start and finish dates.
+Tasks displayed on a monthly calendar grid, positioned by their start and finish dates. See :doc:`../how-to/use-the-calendar-view`.
 
 Milestones
 ~~~~~~~~~~~
@@ -53,12 +53,12 @@ A horizontal milestone timeline. See :doc:`../how-to/use-the-timeline-view`.
 Mind Map
 ~~~~~~~~~
 
-A radial diagram showing the project hierarchy (phases and tasks as nodes).
+A radial diagram showing the project hierarchy (phases and tasks as nodes). Supports keyboard navigation, branch colour customisation, and copy-as-image export. See :doc:`../how-to/use-the-mind-map`.
 
 Stakeholders
 ~~~~~~~~~~~~~
 
-A view for managing project stakeholders (interest/influence mapping).
+A view for managing project stakeholders using an interest/influence grid. Stakeholders are defined in the front matter. See :doc:`../how-to/use-the-stakeholders-view`.
 
 Tracking Views
 ---------------
@@ -86,7 +86,7 @@ Overdue and upcoming tasks for the next 14 days. See :doc:`../how-to/use-the-2-w
 Analysis
 ~~~~~~~~~
 
-EVM (Earned Value Management) and other analytical views.
+EVM (Earned Value Management) and other analytical views. Displays PV, EV, AC, SPI, CPI, and S-curve charts. See :doc:`../how-to/use-the-evm-view`.
 
 Budget
 ~~~~~~~
@@ -127,6 +127,21 @@ See :doc:`../how-to/use-the-portfolio-view` for a full guide.
 - **Timeline** — Gantt-style portfolio timeline
 - **Actions** — open actions across all projects
 - **Risks** — aggregated risk register
+- **Look-Ahead** — overdue and upcoming tasks across all portfolio projects
+- **Dependencies** — cross-project dependency map
+
+Shared View Features
+---------------------
+
+Embedded Timeline Toggle
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Several views (Dashboard, Tasks, Gantt) include an **embedded timeline** toggle that displays a compact milestone timeline bar at the top of the view. Click the toggle in the view toolbar to show or hide it.
+
+Copy as Image
+~~~~~~~~~~~~~~
+
+Multiple views support a **Copy as Image** button in the toolbar. Click it to copy the current view to your clipboard as a PNG image, ready to paste into documents or presentations. Available in: Mind Map, Gantt, Timeline.
 
 RAID Log Columns
 -----------------

@@ -91,6 +91,11 @@ Edit Resource Details
 1. Open the **Project Details** panel (via the settings icon in the editor toolbar or via the Resource form)
 2. Add or edit resources, including full name, role, and short name
 
+Fix Resource Names
+~~~~~~~~~~~~~~~~~~~
+
+Click the **Fix Resource Names** button in the Resource form to batch-capitalise all resource names. This is useful if resource names were entered inconsistently (e.g., ``@alice: alice smith`` becomes ``@alice: Alice Smith``).
+
 Related
 --------
 

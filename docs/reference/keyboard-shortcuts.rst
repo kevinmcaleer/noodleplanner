@@ -57,6 +57,32 @@ Global Shortcut
    * - ``?``
      - Open the keyboard shortcuts help modal
 
+Mind Map Shortcuts
+-------------------
+
+These shortcuts are available when the Mind Map view is active.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Shortcut
+     - Action
+   * - ``Space``
+     - Collapse or expand the selected node
+   * - ``Enter``
+     - Add a sibling node
+   * - ``Insert``
+     - Add a child node
+   * - ``Arrow keys``
+     - Navigate between nodes
+   * - ``Delete``
+     - Remove the selected node
+   * - ``Scroll``
+     - Pan the view
+   * - ``Ctrl+Scroll`` / ``Cmd+Scroll``
+     - Zoom in or out
+
 File Operations
 ----------------
 

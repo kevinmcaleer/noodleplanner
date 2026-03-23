@@ -55,9 +55,23 @@ Click to Edit
 
 Click on a task row to open the **Task Details** panel on the right. From there you can edit the task name, dates, duration, resources, progress, RAG status, and comments directly.
 
+Baselines
+----------
+
+Baselines let you save a snapshot of your schedule and compare it against the current plan.
+
+**Set a Baseline**
+   Click the **Set Baseline** button in the Gantt toolbar to save the current schedule as a baseline.
+
+**Show Baseline**
+   Check the **Show Baseline** checkbox in the Gantt toolbar. Semi-transparent bars appear behind the current task bars, showing the original baselined dates. If a task has slipped, the current bar extends beyond the baseline bar.
+
+See :doc:`use-baselines` for a full guide on working with baselines.
+
 Related
 --------
 
 - :doc:`../reference/views` — overview of all views
 - :doc:`../explanation/rag-status` — understanding RAG status
 - :doc:`../reference/plan-syntax` — plan syntax reference
+- :doc:`use-baselines` — full baselines guide
