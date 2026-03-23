@@ -7871,12 +7871,45 @@ function renderInsight(container, insight) {
 function checkResourceCapitalization(planText, resourceMap) {
     const issues = [];
     const lines = planText.split('\n');
+    let inFrontMatter = false;
+    let frontMatterSeen = false;
+    let inExcludedSection = false;
 
     lines.forEach((line, idx) => {
-        const matches = line.match(/@(\w+)/g);
+        const trimmed = line.trim();
+
+        // Track front matter boundaries (between --- delimiters)
+        if (trimmed === '---') {
+            if (!frontMatterSeen) {
+                inFrontMatter = true;
+                frontMatterSeen = true;
+            } else if (inFrontMatter) {
+                inFrontMatter = false;
+            }
+            return;
+        }
+
+        // Track excluded sections (highlights, RAID log, budget, baseline)
+        if (trimmed === '---highlights---' || trimmed === '---raid log---' ||
+            trimmed === '---budget---' || trimmed === '---baseline---') {
+            inExcludedSection = true;
+            return;
+        }
+        if (trimmed === '---end-highlights---') {
+            inExcludedSection = false;
+            return;
+        }
+
+        // Skip excluded sections - only check front matter and task lines
+        if (inExcludedSection) return;
+        // Skip comment lines and section headers outside front matter
+        if (!inFrontMatter && (!trimmed || trimmed.startsWith('#') || trimmed.includes('==='))) return;
+
+        // Use negative lookbehind to exclude email addresses (characters before @)
+        const matches = line.match(/(?<!\w)@(\w+)/g);
         if (matches) {
             matches.forEach(match => {
-                const shortname = match.substring(1);
+                const shortname = match.replace(/^@/, '');
                 if (shortname[0] === shortname[0].toLowerCase()) {
                     issues.push('Line ' + (idx + 1) + ': "' + match + '" should be capitalized (e.g., "@' + (shortname.charAt(0).toUpperCase() + shortname.slice(1)) + '")');
                 }
@@ -7934,7 +7967,8 @@ function fixResourceCapitalization(issues) {
         if (match) {
             const lowercase = match[1];
             const capitalized = lowercase.charAt(0).toUpperCase() + lowercase.slice(1);
-            const regex = new RegExp('@' + lowercase + '\\b', 'g');
+            // Use negative lookbehind to avoid replacing email addresses
+            const regex = new RegExp('(?<!\\w)@' + lowercase + '\\b', 'g');
             text = text.replace(regex, '@' + capitalized);
         }
     });
