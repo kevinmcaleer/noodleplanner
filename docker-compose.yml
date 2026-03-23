@@ -10,11 +10,13 @@ services:
       - HOST=0.0.0.0
       - PORT=8007
       - MAX_FILE_SIZE=1048576
-      - RELOAD=false
+      - RELOAD=true
       - ENABLE_ACTIVITY_LOGGING=false
+    command: ["uv", "run", "uvicorn", "noodle_web.app:app", "--host", "0.0.0.0", "--port", "8007", "--reload", "--reload-dir", "/app/packages"]
     volumes:
       # Mount packages for development (optional - comment out for production)
       - ./packages:/app/packages
+      - ./templates:/app/templates
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health').read()"]
