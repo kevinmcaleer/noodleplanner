@@ -61,13 +61,22 @@ async function renderPortfolioTimeline() {
 
             if (!projectStart || !projectEnd) return;
 
+            // Calculate overall project progress from leaf tasks
+            const leafTasks = tasks.filter(t => !t.is_summary);
+            let overallPercent = 0;
+            if (leafTasks.length > 0) {
+                const totalPct = leafTasks.reduce((sum, t) => sum + (parseFloat(t.percent) || 0), 0);
+                overallPercent = Math.round(totalPct / leafTasks.length);
+            }
+
             timelines.push({
                 projectId: project.id,
                 projectName: project.name,
                 phases,
                 milestones,
                 startDate: projectStart,
-                endDate: projectEnd
+                endDate: projectEnd,
+                overallPercent
             });
 
             if (!globalStart || projectStart < globalStart) globalStart = projectStart;
@@ -83,10 +92,7 @@ async function renderPortfolioTimeline() {
             return;
         }
 
-        // 7-day padding
-        const padding = 7 * 24 * 60 * 60 * 1000;
-        globalStart = new Date(globalStart.getTime() - padding);
-        globalEnd = new Date(globalEnd.getTime() + padding);
+        // No extra padding — start and end sit at the edges
 
         // Build HTML
         let html = '<div class="portfolio-timeline-header">' +
@@ -212,15 +218,19 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
     const totalMs = globalEnd.getTime() - globalStart.getTime();
     const barHeight = 28;
     const rowPadding = 6;
+    const milestoneRadius = 7;
 
     // Assign rows for phases using overlap detection
     const phaseRows = assignSwimlanePhaseRows(timeline.phases, globalStart, totalMs);
-    const numRows = phaseRows.length > 0 ? Math.max(...phaseRows.map(p => p.row)) + 1 : 1;
-    const svgHeight = Math.max(40, numRows * (barHeight + rowPadding) + 10);
+    const numRows = phaseRows.length > 0 ? Math.max(...phaseRows.map(p => p.row)) + 1 : 0;
+    const phaseAreaHeight = numRows > 0 ? numRows * (barHeight + rowPadding) + 4 : 0;
+    const lineY = phaseAreaHeight + 16; // horizontal backbone below phases
+    const svgHeight = lineY + milestoneRadius + 4;
 
     // Blue shades for incomplete phases
     const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6'];
     const greenComplete = '#4caf50';
+    const overallPercent = timeline.overallPercent || 0;
 
     let html = '<div class="timeline-project-row" onclick="openProjectDashboard(\'' + timeline.projectId + '\')">' +
         '<div class="timeline-project-label" title="' + escapeHtml(timeline.projectName) + '">' +
@@ -260,7 +270,6 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
         }
 
         // Phase name text inside bar (only if wide enough)
-        // We use a rough heuristic: wPct > 4 means ~40px+ at typical widths
         if (wPct > 4) {
             const fontSize = Math.min(14, barHeight - 6);
             const textLabel = isComplete ? '\u2713 ' + phase.name : phase.name;
@@ -272,16 +281,33 @@ function renderProjectSwimlane(timeline, globalStart, globalEnd) {
         }
     });
 
-    // Render milestones as colored circles
+    // Horizontal backbone line (full width)
+    html += '<line x1="0" y1="' + lineY + '" x2="100%" y2="' + lineY + '" ' +
+        'stroke="#bbb" stroke-width="2" />';
+
+    // Progress indicator on the backbone line
+    if (overallPercent > 0) {
+        html += '<line x1="0" y1="' + lineY + '" x2="' + overallPercent + '%" y2="' + lineY + '" ' +
+            'stroke="' + greenComplete + '" stroke-width="3" />';
+        // Small circle at the progress endpoint
+        html += '<circle cx="' + overallPercent + '%" cy="' + lineY + '" r="4" ' +
+            'fill="' + greenComplete + '" stroke="#fff" stroke-width="1.5">' +
+            '<title>Overall progress: ' + overallPercent + '%</title></circle>';
+    }
+
+    // End-cap circles on backbone line
+    html += '<circle cx="0" cy="' + lineY + '" r="3" fill="#bbb" />';
+    html += '<circle cx="100%" cy="' + lineY + '" r="3" fill="#bbb" />';
+
+    // Render milestones ON the backbone line (aligned with it)
     timeline.milestones.forEach(milestone => {
         const milestoneDate = new Date(milestone.finish);
         const xPct = ((milestoneDate.getTime() - globalStart.getTime()) / totalMs) * 100;
         const percent = parseFloat(milestone.percent) || 0;
         const isComplete = percent >= 100;
         const color = isComplete ? '#28a745' : '#1976d2';
-        const cy = svgHeight / 2;
 
-        html += '<circle cx="' + xPct + '%" cy="' + cy + '" r="7" fill="' + color + '" ' +
+        html += '<circle cx="' + xPct + '%" cy="' + lineY + '" r="' + milestoneRadius + '" fill="' + color + '" ' +
             'stroke="#fff" stroke-width="2" class="swimlane-milestone-dot">' +
             '<title>' + escapeHtml(milestone.name) + ' (' + milestone.finish + ')</title>' +
             '</circle>';
