@@ -304,7 +304,7 @@ function updateReportTimeline(tasks, projectName) {
         const container = document.getElementById('reportSwimlaneContainer');
         if (!container) return;
 
-        // Build swimlane data from tasks (same logic as portfolio-report.js)
+        // Build swimlane data from tasks
         const phases = tasks.filter(t => t.is_summary && t.start && t.finish);
         const milestones = tasks.filter(t => !t.is_summary && t.duration_days === 0 && t.finish);
 
@@ -332,32 +332,147 @@ function updateReportTimeline(tasks, projectName) {
         const padding = 7 * 24 * 60 * 60 * 1000;
         const globalStart = new Date(projectStart.getTime() - padding);
         const globalEnd = new Date(projectEnd.getTime() + padding);
+        const totalMs = globalEnd.getTime() - globalStart.getTime();
 
-        // Build timeline data object matching renderProjectSwimlane expectations
-        const timeline = {
-            projectId: '',
-            projectName: projectName || 'Project',
-            phases: phases,
-            milestones: milestones,
-            startDate: projectStart,
-            endDate: projectEnd
-        };
+        // Calculate overall project progress from leaf tasks
+        const leafTasks = tasks.filter(t => !t.is_summary);
+        let overallPercent = 0;
+        if (leafTasks.length > 0) {
+            const totalPct = leafTasks.reduce((sum, t) => sum + (parseFloat(t.percent) || 0), 0);
+            overallPercent = Math.round(totalPct / leafTasks.length);
+        }
 
-        // Render using shared portfolio-timeline.js functions
-        let html = '<div class="portfolio-timeline-container" style="position: relative;">';
-        html += renderTimelineScale(globalStart, globalEnd, 'months');
-        html += renderProjectSwimlane(timeline, globalStart, globalEnd);
+        // Assign phase rows using overlap detection
+        const phaseRows = (typeof assignSwimlanePhaseRows === 'function' && phases.length > 0)
+            ? assignSwimlanePhaseRows(phases, globalStart, totalMs) : [];
+        const numRows = phaseRows.length > 0 ? Math.max(...phaseRows.map(p => p.row)) + 1 : 0;
+
+        const barHeight = 22;
+        const rowPadding = 4;
+        const phaseAreaHeight = numRows > 0 ? numRows * (barHeight + rowPadding) + 4 : 0;
+        const lineY = phaseAreaHeight + 16; // horizontal backbone below phases
+        const milestoneRadius = 7;
+        const svgHeight = lineY + milestoneRadius + 4;
+
+        // Blue shades and green for complete
+        const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6'];
+        const greenComplete = '#4caf50';
+
+        let html = '<div class="report-dashboard-timeline" style="position: relative; overflow-x: auto;">';
+        html += '<svg width="100%" height="' + svgHeight + '" preserveAspectRatio="none" style="display: block; min-width: 300px;">';
+
+        // Render phase bars
+        phaseRows.forEach((phaseInfo, index) => {
+            const phase = phaseInfo.phase;
+            const row = phaseInfo.row;
+            const percent = parseFloat(phase.percent) || 0;
+            const isComplete = percent >= 100;
+
+            const phaseStart = new Date(phase.start);
+            const phaseEnd = new Date(phase.finish);
+            const xPct = Math.max(0, ((phaseStart.getTime() - globalStart.getTime()) / totalMs) * 100);
+            const wPct = Math.max(0.3, ((phaseEnd.getTime() - phaseStart.getTime()) / totalMs) * 100);
+            const y = row * (barHeight + rowPadding) + 2;
+
+            const bgColor = isComplete ? greenComplete : blueShades[index % blueShades.length];
+
+            // Background bar
+            html += '<rect x="' + xPct + '%" y="' + y + '" width="' + wPct + '%" height="' + barHeight + '" ' +
+                'rx="3" ry="3" fill="' + bgColor + '" opacity="' + (isComplete ? '0.9' : '0.7') + '">' +
+                '<title>' + escapeHtml(phase.name) + ' (' + percent + '% complete)</title></rect>';
+
+            // Progress overlay
+            if (percent > 0 && percent < 100) {
+                const progressPct = (percent / 100) * wPct;
+                html += '<rect x="' + xPct + '%" y="' + y + '" width="' + progressPct + '%" height="' + barHeight + '" ' +
+                    'rx="3" ry="3" fill="' + greenComplete + '" opacity="0.85">' +
+                    '<title>' + escapeHtml(phase.name) + ' (' + percent + '% complete)</title></rect>';
+            }
+
+            // Phase name text inside bar
+            if (wPct > 5) {
+                const fontSize = Math.min(12, barHeight - 6);
+                const textLabel = isComplete ? '\u2713 ' + phase.name : phase.name;
+                html += '<text x="' + (xPct + 0.3) + '%" y="' + (y + barHeight / 2) + '" ' +
+                    'dominant-baseline="central" font-size="' + fontSize + 'px" fill="#fff" font-weight="500" ' +
+                    'style="pointer-events: none;"><tspan>' + escapeHtml(textLabel) + '</tspan></text>';
+            }
+        });
+
+        // Horizontal backbone line (full width)
+        html += '<line x1="0" y1="' + lineY + '" x2="100%" y2="' + lineY + '" ' +
+            'stroke="#bbb" stroke-width="2" />';
+
+        // Progress indicator on the backbone line
+        if (overallPercent > 0) {
+            html += '<line x1="0" y1="' + lineY + '" x2="' + overallPercent + '%" y2="' + lineY + '" ' +
+                'stroke="' + greenComplete + '" stroke-width="3" />';
+            // Small circle at the progress endpoint
+            html += '<circle cx="' + overallPercent + '%" cy="' + lineY + '" r="4" ' +
+                'fill="' + greenComplete + '" stroke="#fff" stroke-width="1.5">' +
+                '<title>Overall progress: ' + overallPercent + '%</title></circle>';
+        }
+
+        // End-cap circles on backbone line
+        html += '<circle cx="0" cy="' + lineY + '" r="3" fill="#bbb" />';
+        html += '<circle cx="100%" cy="' + lineY + '" r="3" fill="#bbb" />';
+
+        // Milestones ON the backbone line
+        milestones.forEach(milestone => {
+            const milestoneDate = new Date(milestone.finish);
+            const xPct = ((milestoneDate.getTime() - globalStart.getTime()) / totalMs) * 100;
+            const percent = parseFloat(milestone.percent) || 0;
+            const isComplete = percent >= 100;
+            const color = isComplete ? '#28a745' : '#1976d2';
+
+            html += '<circle cx="' + xPct + '%" cy="' + lineY + '" r="' + milestoneRadius + '" fill="' + color + '" ' +
+                'stroke="#fff" stroke-width="2" style="cursor: pointer;" class="report-timeline-milestone-dot">' +
+                '<title>' + escapeHtml(milestone.name) + ' (' + milestone.finish + ')</title></circle>';
+        });
 
         // Today marker
         const today = new Date();
         if (today >= globalStart && today <= globalEnd) {
-            const todayPct = ((today - globalStart) / (globalEnd - globalStart)) * 100;
-            html += '<div class="portfolio-today-line" style="left: calc(200px + (100% - 200px) * ' +
-                (todayPct / 100) + ');"></div>';
+            const todayPct = ((today.getTime() - globalStart.getTime()) / totalMs) * 100;
+            html += '<line x1="' + todayPct + '%" y1="0" x2="' + todayPct + '%" y2="' + svgHeight + '" ' +
+                'stroke="#dc3545" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7" />';
         }
+
+        html += '</svg>';
+
+        // Date labels UNDERNEATH the timeline
+        html += '<div class="report-timeline-dates" style="position: relative; height: 20px; margin-top: 4px;">';
+        const current = new Date(globalStart.getFullYear(), globalStart.getMonth(), 1);
+        while (current <= globalEnd) {
+            const monthStart = new Date(current.getFullYear(), current.getMonth(), 1);
+            const leftPct = Math.max(0, ((monthStart.getTime() - globalStart.getTime()) / totalMs) * 100);
+
+            if (leftPct >= 0 && leftPct <= 100) {
+                const monthName = monthStart.toLocaleString('default', { month: 'short' });
+                const year = monthStart.getFullYear();
+                html += '<span class="report-timeline-date-label" style="position: absolute; left: ' + leftPct +
+                    '%; transform: translateX(-50%); font-size: 0.75em; color: #6c757d; white-space: nowrap;">' +
+                    monthName + ' ' + year + '</span>';
+            }
+            current.setMonth(current.getMonth() + 1);
+        }
+        html += '</div>';
 
         html += '</div>';
         container.innerHTML = html;
+
+        // Attach click handlers to milestone dots
+        container.querySelectorAll('.report-timeline-milestone-dot').forEach(dot => {
+            dot.addEventListener('click', function () {
+                const title = this.querySelector('title');
+                if (title) {
+                    const name = title.textContent.split(' (')[0];
+                    if (name && typeof openMilestoneTaskForm === 'function') {
+                        openMilestoneTaskForm(name);
+                    }
+                }
+            });
+        });
 
     } catch (error) {
         console.error('Error updating report timeline:', error);
