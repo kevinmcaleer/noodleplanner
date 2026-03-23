@@ -1994,6 +1994,13 @@ function showTaskContextMenu(event, task, taskIndex) {
         insertTaskAbove(task, taskIndex);
     }));
 
+    // Insert Below
+    items.push(createContextMenuItem('Insert Task Below', '\u2795', () => {
+        if (typeof insertTaskAtPosition === 'function') {
+            insertTaskAtPosition(task, 'below');
+        }
+    }));
+
     // Assign Resource
     items.push(createContextMenuItem('Assign Resource', '\uD83D\uDC64', () => {
         assignResourceToTask(task, taskIndex);
@@ -2083,6 +2090,13 @@ function showTaskContextMenuAtPosition(event, task, taskIndex) {
     // Insert Above
     items.push(createContextMenuItem('Insert Task Above', '\u2795', () => {
         insertTaskAbove(task, taskIndex);
+    }));
+
+    // Insert Below
+    items.push(createContextMenuItem('Insert Task Below', '\u2795', () => {
+        if (typeof insertTaskAtPosition === 'function') {
+            insertTaskAtPosition(task, 'below');
+        }
     }));
 
     // Assign Resource
@@ -2363,9 +2377,22 @@ function insertTaskAbove(task, taskIndex) {
     editor.value = lines.join('\n');
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // Open the task form for the new line
+    // Open the task form for the new line and focus the title
     setTimeout(() => {
         openTaskForm(lineNumber);
+        // Focus and select the title text so the user can immediately
+        // type a replacement name (fixes #648).
+        setTimeout(() => {
+            const titleEl = document.getElementById('taskFormTitle');
+            if (titleEl) {
+                titleEl.focus();
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(titleEl);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }, 50);
     }, 100);
 }
 
@@ -13228,6 +13255,18 @@ function addNewTaskViaShortcut() {
     for (let i = lines.length - 1; i >= 0; i--) {
         if (lines[i].trim() === 'New Task 1d') {
             openTaskForm(i + 1);
+            // Focus and select the title so the user can start typing immediately
+            setTimeout(() => {
+                const titleEl = document.getElementById('taskFormTitle');
+                if (titleEl) {
+                    titleEl.focus();
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(titleEl);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+            }, 150);
             return;
         }
     }

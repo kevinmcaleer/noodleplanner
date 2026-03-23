@@ -1323,3 +1323,92 @@ input[type="checkbox"] {
     display: none;
 }
 
+/* ── Task Row Add Buttons (hover + icons above/below rows) ──────────── */
+.gantt-info-table tbody tr,
+.tasks-table tbody tr {
+    position: relative;
+}
+
+.task-row-add-btn {
+    display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid #667eea;
+    background: white;
+    color: #667eea;
+    font-size: 14px;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 20;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.task-row-add-btn:hover {
+    background: #667eea;
+    color: white;
+    transform: translateX(-50%) scale(1.15);
+}
+
+.task-row-add-btn.add-above {
+    top: -11px;
+}
+
+.task-row-add-btn.add-below {
+    bottom: -11px;
+}
+
+.gantt-info-table tbody tr:hover > .task-row-add-btn,
+.tasks-table tbody tr:hover > .task-row-add-btn {
+    display: block;
+}
+
+/* ── Drag Handle ───────────────────────────────────────────────────── */
+.task-drag-handle {
+    display: none;
+    cursor: grab;
+    color: #adb5bd;
+    font-size: 14px;
+    padding: 0 2px;
+    user-select: none;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+.task-drag-handle:hover {
+    color: #667eea;
+}
+
+.task-drag-handle:active {
+    cursor: grabbing;
+}
+
+.gantt-info-table tbody tr:hover .task-drag-handle,
+.tasks-table tbody tr:hover .task-drag-handle {
+    display: inline-block;
+}
+
+/* Drag-in-progress visual feedback */
+.gantt-info-table tbody tr.dragging,
+.tasks-table tbody tr.dragging {
+    opacity: 0.4;
+    background: #e3f2fd;
+}
+
+.gantt-info-table tbody tr.drag-over-above,
+.tasks-table tbody tr.drag-over-above {
+    border-top: 2px solid #667eea;
+}
+
+.gantt-info-table tbody tr.drag-over-below,
+.tasks-table tbody tr.drag-over-below {
+    border-bottom: 2px solid #667eea;
+}
+
+

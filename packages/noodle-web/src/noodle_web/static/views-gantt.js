@@ -747,6 +747,11 @@ function renderGanttRows() {
             showTaskContextMenuAtPosition(e, task, index);
         });
 
+        // Hover add-buttons and drag handle
+        if (typeof addRowInteractions === 'function') {
+            addRowInteractions(infoRow, task, index, 'gantt');
+        }
+
         ganttInfoBody.appendChild(infoRow);
 
         // Gantt bar row

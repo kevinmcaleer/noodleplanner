@@ -1871,6 +1871,11 @@ function updateTasksTable(tasks) {
             showTaskContextMenuAtPosition(e, task, index);
         });
 
+        // Hover add-buttons and drag handle
+        if (typeof addRowInteractions === 'function') {
+            addRowInteractions(row, task, index, 'tasks');
+        }
+
         tbody.appendChild(row);
     });
 }
