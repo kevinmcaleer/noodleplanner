@@ -1323,12 +1323,7 @@ input[type="checkbox"] {
     display: none;
 }
 
-/* ── Task Row Add Buttons (hover + icons above/below rows) ──────────── */
-.gantt-info-table tbody tr,
-.tasks-table tbody tr {
-    position: relative;
-}
-
+/* ── Task Row Add Buttons (hover + icons above/below ID cell) ────────── */
 .task-row-add-btn {
     display: none;
     position: absolute;
@@ -1364,8 +1359,8 @@ input[type="checkbox"] {
     bottom: -11px;
 }
 
-.gantt-info-table tbody tr:hover > .task-row-add-btn,
-.tasks-table tbody tr:hover > .task-row-add-btn {
+.gantt-info-table tbody tr:hover .task-row-add-btn,
+.tasks-table tbody tr:hover .task-row-add-btn {
     display: block;
 }
 

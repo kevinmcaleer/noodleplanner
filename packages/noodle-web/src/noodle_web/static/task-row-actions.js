@@ -270,10 +270,15 @@ function addRowInteractions(row, task, index, tableId) {
         row.insertBefore(handleCell, doneCell);
     }
 
-    // Add hover + buttons
+    // Add hover + buttons to the ID cell (3rd cell: drag, done, ID)
     const btns = createRowAddButtons(task, index);
-    row.appendChild(btns.above);
-    row.appendChild(btns.below);
+    const cells = row.querySelectorAll('td');
+    const idCell = cells[2]; // drag=0, done=1, id=2
+    if (idCell) {
+        idCell.style.position = 'relative';
+        idCell.appendChild(btns.above);
+        idCell.appendChild(btns.below);
+    }
 
     // Attach drag-and-drop listeners
     attachRowDragListeners(row, task, index, tableId);
