@@ -136,6 +136,7 @@ def create_driver():
 
 def load_plan(driver, plan_text):
     """Clear the editor, paste *plan_text*, and trigger a render."""
+    dismiss_tour(driver)
     # Make sure we are on the project tab with the editor visible
     driver.execute_script(
         "if (typeof switchTab === 'function') switchTab('project');"
@@ -201,6 +202,20 @@ def capture_element(driver, selector, output_path):
         print(f"  [SKIP]    {output_path} — element not found: {selector} ({exc})")
 
 
+def dismiss_tour(driver):
+    """Dismiss the onboarding tour popup by setting the cookie and hiding overlays."""
+    driver.execute_script(
+        "document.cookie = 'tourCompleted=true; path=/; max-age=31536000';"
+        "var overlay = document.getElementById('tourOverlay');"
+        "if (overlay) overlay.style.display = 'none';"
+        "var popup = document.getElementById('tourPopup');"
+        "if (popup) popup.style.display = 'none';"
+        "var spotlight = document.getElementById('tourSpotlight');"
+        "if (spotlight) spotlight.style.display = 'none';"
+    )
+    time.sleep(0.3)
+
+
 def capture_full(driver, output_path):
     """Take a full-viewport screenshot and save to *output_path*."""
     output_path = Path(output_path)
@@ -224,6 +239,7 @@ def capture_tutorials(driver, base_url):
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.ID, "planEditor"))
     )
+    dismiss_tour(driver)
     time.sleep(1)
     capture_full(driver, section / "gs-01-welcome-screen.png")
 
