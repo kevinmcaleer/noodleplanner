@@ -1571,7 +1571,7 @@ function updateTasksTable(tasks) {
 
     if (placeholder && content) {
         placeholder.style.display = 'none';
-        content.style.display = 'block';
+        content.style.display = 'flex';
     }
 
     const tbody = document.getElementById('tasksTableBody');

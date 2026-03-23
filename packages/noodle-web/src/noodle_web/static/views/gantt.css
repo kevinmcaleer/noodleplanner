@@ -91,13 +91,31 @@
     cursor: pointer;
 }
 
-/* Tasks view */
+/* Tasks view: same flex layout as gantt view */
+#tasks-view.output-tab-content {
+    overflow: hidden;
+}
+
+.tasks-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tasks-content > .embedded-timeline-section {
+    flex-shrink: 0;
+}
+
 .tasks-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 0;
     margin-bottom: 10px;
+    flex-shrink: 0;
 }
 
 .tasks-title {
@@ -108,11 +126,12 @@
 
 .tasks-table-wrapper {
     overflow-x: auto;
-    max-height: calc(100vh - 220px);
     overflow-y: auto;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-height: 0;
 }
 
 .gantt-wrapper {
