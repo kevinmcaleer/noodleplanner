@@ -94,7 +94,24 @@ def create_driver():
     options.add_argument("--window-size=1440,900")
     options.add_argument("--force-device-scale-factor=2")
 
-    # Try webdriver-manager first for automatic chromedriver management
+    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian)
+    chromium_paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
+    for path in chromium_paths:
+        if os.path.exists(path):
+            options.binary_location = path
+            break
+
+    # Try system chromedriver first
+    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver"]
+    for drv_path in chromedriver_paths:
+        if os.path.exists(drv_path):
+            try:
+                service = ChromeService(executable_path=drv_path)
+                return webdriver.Chrome(service=service, options=options)
+            except WebDriverException:
+                continue
+
+    # Try webdriver-manager for automatic chromedriver management
     try:
         from webdriver_manager.chrome import ChromeDriverManager
 
@@ -103,7 +120,7 @@ def create_driver():
     except (ImportError, Exception):
         pass
 
-    # Fall back to system chromedriver
+    # Fall back to default
     try:
         return webdriver.Chrome(options=options)
     except WebDriverException as exc:
