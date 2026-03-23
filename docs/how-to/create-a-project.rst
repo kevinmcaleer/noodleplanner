@@ -76,6 +76,17 @@ Use ``[depends Task Name]`` to make a task wait for another to finish:
      Design @jane 3d
      Development @dev1 5d [depends Design]
 
+**Sequential shorthand with** ``*`` — prefix a task name with ``*`` to make it start the day after the previous task finishes. This is the simplest way to chain tasks:
+
+.. code-block:: text
+
+   Phase One
+     Task A @jane 3d
+     *Task B @dev1 5d
+     *Task C @dev1 2d
+
+Task B starts after Task A finishes, and Task C starts after Task B finishes. This is equivalent to writing ``[depends Task A]`` and ``[depends Task B]``, but much cleaner for simple chains.
+
 You can depend on multiple tasks:
 
 .. code-block:: text
@@ -87,6 +98,20 @@ Use explicit offsets to start before or after the dependency finishes:
 .. code-block:: text
 
      Review @jane 1d [depends Design +1d]
+
+**Dependency types** — by default, dependencies are Finish-Start (the successor starts after the predecessor finishes). You can specify other types:
+
+- ``FS`` — Finish-Start (default): successor starts after predecessor finishes
+- ``SS`` — Start-Start: successor starts when predecessor starts
+- ``FF`` — Finish-Finish: successor finishes when predecessor finishes
+- ``SF`` — Start-Finish: successor finishes when predecessor starts
+
+.. code-block:: text
+
+     Task B 5d [depends Task A:SS]
+     Task C 3d [depends Task B:FF]
+
+The type suffix is only needed for non-default types. ``[depends Task A]`` and ``[depends Task A:FS]`` are equivalent.
 
 Set an Explicit Start Date
 ---------------------------
