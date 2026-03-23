@@ -3,6 +3,47 @@ How the Scheduling Engine Works
 
 NoodlePlanner's scheduling engine converts your plain-text plan into a fully-calculated project schedule. Understanding how it works helps you write better plans and troubleshoot unexpected dates.
 
+.. mermaid::
+
+   flowchart TB
+       subgraph Inputs["Inputs"]
+           direction TB
+           FM["Front Matter\n(project metadata,\nresource definitions,\nholidays)"]
+           PT["Plan Text\n(phases, tasks, durations,\nresources, dependencies,\ndates, progress)"]
+       end
+
+       subgraph Processing["Scheduling Engine Processing"]
+           direction TB
+           P1["Parse plan text\n& extract task lines"]
+           P2["Extract metadata per task\n(duration, resources, progress,\ndependencies, labels, comments)"]
+           P3["Build task graph\n& resolve dependencies\n(FS, SS, FF, SF + lag/lead)"]
+           P4["Detect dependency loops\n& add warnings"]
+           P5["Schedule leaf tasks\n(sequential → dependencies →\nexplicit start → parallel)"]
+           P6["Calculate start & finish dates\n(working days, holidays,\nresource non-working days)"]
+           P7["Calculate summary task dates\n(earliest child start,\nlatest child finish)"]
+           P8["Inherit resources\nfrom parent to children"]
+           P9["Order tasks\n(summaries before children)"]
+
+           P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8 --> P9
+       end
+
+       subgraph Outputs["Outputs"]
+           direction TB
+           O1["Scheduled Tasks\n(start/finish dates,\ndurations, hierarchy)"]
+           O2["Gantt Chart Data\n(bars, milestones,\ndependency lines)"]
+           O3["Resource Allocations\n(who works on what & when)"]
+           O4["RAG Status\n(Complete, On Track,\nBehind Schedule, Overdue)"]
+           O5["Warnings\n(circular dependencies,\nmissing resources)"]
+       end
+
+       FM --> P1
+       PT --> P1
+       P9 --> O1
+       P9 --> O2
+       P9 --> O3
+       P9 --> O4
+       P9 --> O5
+
 Parsing the Plan
 -----------------
 
