@@ -12217,24 +12217,29 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     let latestFinishDate = null;
 
-    // Helper to strip dependency type and lag/lead from an entry to get the task name
-    function extractDepName(entry) {
+    // Helper to strip dependency type and lag/lead from an entry to get the task name and type
+    function extractDepInfo(entry) {
         const lagLeadMatch = entry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
         let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : entry;
         const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
-        return typeMatch ? typeMatch[1].trim() : corePart;
+        const name = typeMatch ? typeMatch[1].trim() : corePart;
+        const depType = typeMatch ? typeMatch[2].toUpperCase() : 'FS';
+        return { name, depType };
     }
 
-    // First pass: find the latest finish date (the driving dependency)
+    // First pass: find the latest effective date (the driving dependency)
+    // For SS/SF types, use startDate; for FS/FF types, use finishDate
+    let latestEffectiveDate = null;
     for (const depEntry of depEntries) {
-        const depName = extractDepName(depEntry);
+        const { name: depName, depType } = extractDepInfo(depEntry);
         const depTask = taskMap.get(depName);
 
         if (depTask) {
             calculateTaskDates(depTask, taskMap, lines);
-            if (depTask.finishDate) {
-                if (!latestFinishDate || depTask.finishDate > latestFinishDate) {
-                    latestFinishDate = depTask.finishDate;
+            const refDate = (depType === 'SS' || depType === 'SF') ? depTask.startDate : depTask.finishDate;
+            if (refDate) {
+                if (!latestEffectiveDate || refDate > latestEffectiveDate) {
+                    latestEffectiveDate = refDate;
                 }
             }
         }
@@ -12242,21 +12247,25 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     // Second pass: build details and mark the driving dependency
     for (const depEntry of depEntries) {
-        const depName = extractDepName(depEntry);
+        const { name: depName, depType } = extractDepInfo(depEntry);
         const depTask = taskMap.get(depName);
+        const refDate = depTask
+            ? ((depType === 'SS' || depType === 'SF') ? depTask.startDate : depTask.finishDate)
+            : null;
 
         const detail = {
             name: depName,
-            finishDate: null,
+            depType: depType,
+            refDate: refDate || null,
+            finishDate: depTask ? (depTask.finishDate || null) : null,
             isDriving: false,
             lineNumber: null,
             rag: null
         };
 
         if (depTask) {
-            detail.finishDate = depTask.finishDate || null;
             detail.lineNumber = depTask.lineNumber || null;
-            detail.isDriving = (depTask.finishDate && depTask.finishDate === latestFinishDate);
+            detail.isDriving = (refDate && refDate === latestEffectiveDate);
 
             // Calculate dep RAG
             const depRag = calculateInspectorRag(depTask);
@@ -12439,7 +12448,9 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
                 html += escapeHtml(dep.name);
             }
             html += '        </span>';
-            html += '        <span class="inspector-dep-date">finishes ' + formatInspectorDate(dep.finishDate) + '</span>';
+            const depTypeLabel = dep.depType === 'SS' ? 'starts' : dep.depType === 'SF' ? 'starts' : dep.depType === 'FF' ? 'finishes' : 'finishes';
+            const depRefDate = dep.refDate || dep.finishDate;
+            html += '        <span class="inspector-dep-date">' + depTypeLabel + ' ' + formatInspectorDate(depRefDate) + '</span>';
             if (dep.rag) {
                 const depRagCol = ragStatusToColour(dep.rag);
                 html += '        <span class="inspector-rag-dot' + (depRagCol ? ' rag-' + depRagCol : '') + '" style="width:10px; height:10px;" title="' + escapeHtml(dep.rag) + '"></span>';
@@ -12452,8 +12463,14 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
         const drivingDep = depDetails.find(d => d.isDriving);
         if (drivingDep) {
             html += '    <div style="font-size: 0.85em; color: #555; margin-top: 8px;">';
-            html += '      The <strong>driving dependency</strong> is "' + escapeHtml(drivingDep.name) + '", finishing on ' + formatInspectorDate(drivingDep.finishDate) + '. ';
-            html += '      This task cannot start until that date.';
+            const drivingRefDate = drivingDep.refDate || drivingDep.finishDate;
+            const drivingVerb = (drivingDep.depType === 'SS' || drivingDep.depType === 'SF') ? 'starting' : 'finishing';
+            const drivingRelation = drivingDep.depType === 'SS' ? 'start when it starts'
+                : drivingDep.depType === 'FF' ? 'finish when it finishes'
+                : drivingDep.depType === 'SF' ? 'finish when it starts'
+                : 'start after it finishes';
+            html += '      The <strong>driving dependency</strong> is "' + escapeHtml(drivingDep.name) + '", ' + drivingVerb + ' on ' + formatInspectorDate(drivingRefDate) + '. ';
+            html += '      This task will ' + drivingRelation + '.';
             if (depDetails.length > 1) {
                 html += ' The other predecessor' + (depDetails.length > 2 ? 's are' : ' is') + ' expected to finish earlier and ' + (depDetails.length > 2 ? 'do' : 'does') + ' not affect the start date.';
             }
