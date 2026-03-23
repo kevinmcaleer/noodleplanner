@@ -228,15 +228,16 @@ function renderProgrammeDependenciesView(containerId, parsedProjects, propagatio
     html += '<h3 style="margin:0;">Programme Dependencies ';
     html += ragCircleHtml(overallRag, 'Overall dependency health: ' + overallRag);
     html += '</h3>';
-    html += '<button class="btn-primary" onclick="showAddDependencyDialog()" style="margin-left:auto;">' +
-        '+ Add Dependency</button>';
+    html += '<a href="javascript:void(0)" class="add-item-link" onclick="showAddDependencyDialog()" style="margin-left:auto;">' +
+        '<span class="add-icon">+</span> Add Dependency</a>';
     html += '</div>';
 
     if (deps.length === 0) {
         html += '<div class="portfolio-empty-state">' +
             '<h3>No Dependencies</h3>' +
             '<p>Add dependencies to track how tasks in one project affect another.</p>' +
-            '<button class="btn-primary" onclick="showAddDependencyDialog()">+ Add Dependency</button>' +
+            '<a href="javascript:void(0)" class="add-item-link" onclick="showAddDependencyDialog()" style="margin-top:8px;display:inline-flex;">' +
+            '<span class="add-icon">+</span> Add Dependency</a>' +
             '</div>';
     } else {
         html += '<table class="dep-table" role="table" aria-label="Programme dependencies">';
@@ -654,7 +655,7 @@ function drawDependencyArrows(timelines, globalStart, globalEnd, propagationResu
         // Simple approach: draw a straight diagonal line from (xPct%, fromY) to (xPct%, toY)
         // SVG doesn't support calc() in attributes so we use a 0-1000 viewBox coordinate space
         // and map dates into it.
-        const svgWidth = overlayDiv.clientWidth || container.clientWidth || 800;
+        const svgWidth = overlaySvg.clientWidth || container.clientWidth || 800;
         // xPixel: approximate pixel offset including the 200px label column
         const trackWidth = svgWidth - 200;
         const xPixel = 200 + (xPct / 100) * trackWidth;

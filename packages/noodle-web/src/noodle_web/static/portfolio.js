@@ -329,10 +329,12 @@ function showImportProjectDialog() {
 /**
  * Show notification
  */
-function showNotification(message) {
-    // Simple notification - can be enhanced with a toast system
-    console.log('Notification:', message);
-    // You could add a toast notification here if the UI supports it
+function showNotification(message, type) {
+    if (typeof showToast === 'function') {
+        showToast(message, type || 'info');
+    } else {
+        console.log('Notification:', message);
+    }
 }
 
 /**
