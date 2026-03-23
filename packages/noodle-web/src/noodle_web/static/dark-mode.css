@@ -1139,6 +1139,15 @@ body {
     color: var(--np-text-muted);
 }
 
+/* Dashboard report timeline */
+[data-theme="dark"] .report-dashboard-timeline line[stroke="#bbb"] {
+    stroke: #666;
+}
+
+[data-theme="dark"] .report-timeline-date-label {
+    color: var(--np-text-muted) !important;
+}
+
 /* ---- Stakeholders Page ---- */
 [data-theme="dark"] .stakeholders-table tbody tr:nth-child(even) {
     background: var(--np-table-stripe);
