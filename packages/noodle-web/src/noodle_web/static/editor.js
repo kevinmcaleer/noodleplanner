@@ -571,6 +571,30 @@ function addDependencyToLine(line, dependencyName) {
 }
 
 /**
+ * Add a dependency to a line using the * prefix approach.
+ * Prepends * before the task name to indicate dependency on the previous task.
+ */
+function addStarDependencyToLine(line) {
+    const indent = line.match(/^\s*/)[0];
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith('*')) {
+        return line; // Already has * prefix
+    }
+    return indent + '*' + trimmed;
+}
+
+/**
+ * Check whether a task line already has any dependency
+ * (either a * prefix or a [depends ...] block).
+ */
+function lineHasDependency(line) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith('*')) return true;
+    if (/\[depends\s+[^\]]+\]/i.test(line)) return true;
+    return false;
+}
+
+/**
  * Link selected tasks as a dependency chain from top to bottom.
  * Each task becomes dependent on the task above it in the selection.
  */
@@ -611,11 +635,17 @@ function linkSelectedTasks() {
     // Need at least 2 tasks to create a chain
     if (taskEntries.length < 2) return;
 
-    // Chain each task to depend on the previous one
+    // Chain each task to depend on the previous one.
+    // Use * prefix when the task has no existing dependencies (single dep).
+    // Use [depends taskname] when the task already has dependencies (multiple deps).
     for (let i = 1; i < taskEntries.length; i++) {
         const prevTaskName = taskEntries[i - 1].name;
         const lineIndex = taskEntries[i].index;
-        lines[lineIndex] = addDependencyToLine(lines[lineIndex], prevTaskName);
+        if (lineHasDependency(lines[lineIndex])) {
+            lines[lineIndex] = addDependencyToLine(lines[lineIndex], prevTaskName);
+        } else {
+            lines[lineIndex] = addStarDependencyToLine(lines[lineIndex]);
+        }
     }
 
     const updatedText = lines.join('\n');
