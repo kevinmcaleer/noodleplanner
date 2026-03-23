@@ -49,8 +49,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen
 
 # Copy application source (ordered from least to most frequently changed)
-COPY alembic.ini .
-COPY alembic ./alembic
 COPY templates ./templates
 COPY packages/noodle-core packages/noodle-core
 COPY packages/noodle-web packages/noodle-web
