@@ -1,3 +1,9 @@
+/* Prevent outer tab container from scrolling on gantt view;
+   scrolling is handled by gantt-table-side and gantt-chart-side */
+#gantt-view.output-tab-content {
+    overflow: hidden;
+}
+
 /* Gantt Chart Styling */
 .gantt-content {
     padding: 20px;
