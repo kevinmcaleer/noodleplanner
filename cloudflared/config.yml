@@ -1,0 +1,9 @@
+tunnel: 58a428ec-415c-4019-b4b9-0c5fa0c59221
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: docs.noodleplanner.com
+    service: http://docs:8008
+  - hostname: noodleplanner.com
+    service: http://noodleplanner:8007
+  - service: http_status:404

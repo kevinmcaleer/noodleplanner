@@ -2,6 +2,9 @@
 test.db
 *.xlsx
 
+# Cloudflared tunnel credentials (sensitive)
+cloudflared/credentials.json
+
 cli_venv
 
 # Byte-compiled / optimized / DLL files
