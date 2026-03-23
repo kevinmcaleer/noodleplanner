@@ -12,6 +12,12 @@ Editor Shortcuts
 
    * - Shortcut
      - Action
+   * - ``Ctrl+S`` / ``Cmd+S``
+     - Save plan as a Markdown file
+   * - ``Ctrl+Z`` / ``Cmd+Z``
+     - Undo last change
+   * - ``Ctrl+Shift+Z`` / ``Cmd+Shift+Z``
+     - Redo last undone change
    * - ``Ctrl+Enter`` / ``Cmd+Enter``
      - Render the plan
    * - ``Tab``

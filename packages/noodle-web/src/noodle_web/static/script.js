@@ -4842,6 +4842,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Ctrl+S - Save plan as markdown file (works from anywhere, including editor)
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            downloadMarkdown();
+        }
+    });
+
     // Global keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         // Skip shortcuts when typing in text inputs, textareas, or contenteditable elements
