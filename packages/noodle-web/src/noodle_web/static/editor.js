@@ -373,6 +373,11 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 clearTimeout(renderDebounceTimer);
             }
 
+            // Record undo snapshot (debounced) for the main editor
+            if (typeof EditorUndoManager !== 'undefined') {
+                EditorUndoManager.scheduleSnapshot(editor.value);
+            }
+
             // Auto-render after 1 second of inactivity
             renderDebounceTimer = setTimeout(() => {
                 renderText();
@@ -448,6 +453,11 @@ function indentSelectedLines() {
     const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
     if (!editor) return;
 
+    // Capture undo snapshot before the change
+    if (editor === mainEditor && typeof EditorUndoManager !== 'undefined') {
+        EditorUndoManager.captureImmediate(editor.value);
+    }
+
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
     const text = editor.value;
@@ -493,6 +503,11 @@ function outdentSelectedLines() {
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
     if (!editor) return;
+
+    // Capture undo snapshot before the change
+    if (editor === mainEditor && typeof EditorUndoManager !== 'undefined') {
+        EditorUndoManager.captureImmediate(editor.value);
+    }
 
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
@@ -608,6 +623,11 @@ function linkSelectedTasks() {
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
     if (!editor) return;
+
+    // Capture undo snapshot before the change
+    if (editor === mainEditor && typeof EditorUndoManager !== 'undefined') {
+        EditorUndoManager.captureImmediate(editor.value);
+    }
 
     const start = editor.selectionStart;
     const end = editor.selectionEnd;

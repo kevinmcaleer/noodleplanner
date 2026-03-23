@@ -644,6 +644,9 @@ window.addEventListener('load', function() {
     initializeUploadTab();
     initializeEditorDragDrop();
     initializeKanbanEditorDragDrop();
+    if (typeof EditorUndoManager !== 'undefined') {
+        EditorUndoManager.init();
+    }
 });
 
 

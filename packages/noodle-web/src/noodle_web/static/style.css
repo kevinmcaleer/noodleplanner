@@ -2615,6 +2615,12 @@ svg.icon {
     background: #2a2a2a;
 }
 
+.toolbar-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
 .toolbar-separator {
     width: 1px;
     background: #3a3a3a;
