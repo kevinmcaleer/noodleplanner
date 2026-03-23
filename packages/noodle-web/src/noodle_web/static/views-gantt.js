@@ -153,6 +153,11 @@ function wouldCreateLoop(taskId, proposedDepIds, tasks) {
     return false;
 }
 
+// Re-size gantt panels on window resize
+window.addEventListener('resize', function() {
+    sizeGanttToViewport();
+});
+
 function updateGantt(tasks) {
     try {
         // Show gantt content, hide placeholder
@@ -253,9 +258,35 @@ function renderGanttChart() {
     // Render dependency lines if toggle is on
     renderDependencyLines();
 
+    // Size the gantt panels to fill the remaining viewport height
+    sizeGanttToViewport();
+
     // Auto-scroll to current date (only in days view)
     if (ganttScale === 'days') {
         scrollGanttToToday();
+    }
+}
+
+/**
+ * Dynamically set the max-height of the gantt table and chart sides
+ * so they fill the remaining viewport height without causing page scroll.
+ */
+function sizeGanttToViewport() {
+    const wrapper = document.querySelector('.gantt-wrapper');
+    if (!wrapper) return;
+
+    const tableSide = wrapper.querySelector('.gantt-table-side');
+    const chartSide = wrapper.querySelector('.gantt-chart-side');
+    if (!tableSide || !chartSide) return;
+
+    // Calculate remaining viewport height from the wrapper's top position
+    const wrapperTop = wrapper.getBoundingClientRect().top;
+    const viewportHeight = window.innerHeight;
+    const availableHeight = viewportHeight - wrapperTop - 20; // 20px bottom margin
+
+    if (availableHeight > 200) { // Sanity check - don't make it too small
+        tableSide.style.maxHeight = availableHeight + 'px';
+        chartSide.style.maxHeight = availableHeight + 'px';
     }
 }
 

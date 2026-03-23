@@ -117,7 +117,6 @@
     flex-shrink: 0;
     overflow-x: auto;
     overflow-y: auto;
-    max-height: calc(100vh - 280px);
 }
 
 .gantt-splitter {
@@ -242,7 +241,6 @@
     flex: 1;
     overflow-x: auto;
     overflow-y: auto;
-    max-height: calc(100vh - 280px);
 }
 
 .gantt-header {
