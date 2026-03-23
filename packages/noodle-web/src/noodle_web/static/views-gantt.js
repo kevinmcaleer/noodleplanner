@@ -239,6 +239,9 @@ function renderGanttChart() {
     // Render task rows
     renderGanttRows();
 
+    // Align task rows with Gantt bars by compensating for header height differences
+    alignGanttRows();
+
     // Render dependency lines if toggle is on
     renderDependencyLines();
 
@@ -246,6 +249,41 @@ function renderGanttChart() {
     if (ganttScale === 'days') {
         scrollGanttToToday();
     }
+}
+
+/**
+ * Align the Gantt chart body rows with the task list rows by compensating
+ * for any difference in header heights (e.g. the month-title row in days view
+ * makes the chart header taller than the table header).
+ *
+ * Both sides scroll vertically in sync. Both have sticky headers (the table
+ * thead and the chart .gantt-header). When the chart header is taller, the
+ * chart body starts lower, so we need to push the table body down by the
+ * same amount. We achieve this by setting the table thead's min-height to
+ * match the chart header height.
+ */
+function alignGanttRows() {
+    const tableHead = document.querySelector('.gantt-info-table thead');
+    const chartHeader = document.getElementById('ganttHeader');
+
+    if (!tableHead || !chartHeader) return;
+
+    // Reset any previous override so we measure natural heights
+    const headRow = tableHead.querySelector('tr');
+    if (headRow) {
+        headRow.style.height = '';
+    }
+
+    // Use requestAnimationFrame to ensure layout is computed after render
+    requestAnimationFrame(() => {
+        const tableHeaderHeight = tableHead.offsetHeight;
+        const chartHeaderHeight = chartHeader.offsetHeight;
+
+        if (chartHeaderHeight > tableHeaderHeight && headRow) {
+            // Make the table header row taller to match the chart header
+            headRow.style.height = chartHeaderHeight + 'px';
+        }
+    });
 }
 
 function scrollGanttToToday() {
