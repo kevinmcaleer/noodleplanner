@@ -1,5 +1,5 @@
-/* Prevent outer tab container from scrolling on gantt view;
-   scrolling is handled by gantt-table-side and gantt-chart-side */
+/* Gantt view: fill available space, no outer scrolling.
+   Scrolling is handled by gantt-table-side and gantt-chart-side. */
 #gantt-view.output-tab-content {
     overflow: hidden;
 }
@@ -7,6 +7,11 @@
 /* Gantt Chart Styling */
 .gantt-content {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .gantt-title {
@@ -16,12 +21,17 @@
     margin-bottom: 0;
 }
 
+.gantt-content > .embedded-timeline-section {
+    flex-shrink: 0;
+}
+
 .gantt-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 0;
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .gantt-scale-selector {
@@ -110,6 +120,9 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .gantt-table-side {

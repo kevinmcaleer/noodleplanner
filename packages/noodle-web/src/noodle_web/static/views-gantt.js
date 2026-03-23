@@ -153,10 +153,6 @@ function wouldCreateLoop(taskId, proposedDepIds, tasks) {
     return false;
 }
 
-// Re-size gantt panels on window resize
-window.addEventListener('resize', function() {
-    sizeGanttToViewport();
-});
 
 function updateGantt(tasks) {
     try {
@@ -166,7 +162,7 @@ function updateGantt(tasks) {
 
         if (placeholder && content) {
             placeholder.style.display = 'none';
-            content.style.display = 'block';
+            content.style.display = 'flex';
         }
 
         // Store tasks globally for editing
@@ -258,8 +254,7 @@ function renderGanttChart() {
     // Render dependency lines if toggle is on
     renderDependencyLines();
 
-    // Size the gantt panels to fill the remaining viewport height
-    sizeGanttToViewport();
+    // Size the gantt panels (handled by CSS flex layout now)
 
     // Auto-scroll to current date (only in days view)
     if (ganttScale === 'days') {
@@ -267,29 +262,6 @@ function renderGanttChart() {
     }
 }
 
-/**
- * Dynamically set the height of the gantt table and chart sides
- * so they fill the remaining viewport height without causing page scroll.
- * Uses fixed height (not max-height) to ensure scrollbars always appear.
- */
-function sizeGanttToViewport() {
-    const wrapper = document.querySelector('.gantt-wrapper');
-    if (!wrapper) return;
-
-    const tableSide = wrapper.querySelector('.gantt-table-side');
-    const chartSide = wrapper.querySelector('.gantt-chart-side');
-    if (!tableSide || !chartSide) return;
-
-    // Calculate remaining viewport height from the wrapper's top position
-    const wrapperTop = wrapper.getBoundingClientRect().top;
-    const viewportHeight = window.innerHeight;
-    const availableHeight = viewportHeight - wrapperTop - 10; // 10px bottom margin
-
-    if (availableHeight > 200) { // Sanity check - don't make it too small
-        tableSide.style.height = availableHeight + 'px';
-        chartSide.style.height = availableHeight + 'px';
-    }
-}
 
 /**
  * Align the Gantt chart body rows with the task list rows by compensating
