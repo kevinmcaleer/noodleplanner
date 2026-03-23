@@ -1633,9 +1633,11 @@ function calculateTaskDates(task, taskMap, lines, visited) {
         let latestFinishDate = null;
 
         for (const depEntry of depEntries) {
-            // Strip lag/lead time (e.g., "+2d", "-1w") from dependency name
+            // Strip lag/lead time and dependency type suffix from dependency name
             const lagLeadMatch = depEntry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
-            const depName = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+            let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+            const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
+            const depName = typeMatch ? typeMatch[1].trim() : corePart;
 
             // Look up dependency in the map
             const depTask = taskMap.get(depName);
@@ -3202,7 +3204,7 @@ function deleteTask() {
 /**
  * Add a new row to the dependencies table
  */
-function addDependencyRow(taskName = '', lagLead = '') {
+function addDependencyRow(taskName = '', depType = 'FS', lagLead = '') {
     const tbody = document.getElementById('dependenciesTableBody');
     const row = document.createElement('tr');
 
@@ -3219,6 +3221,14 @@ function addDependencyRow(taskName = '', lagLead = '') {
                        data-dropdown="${dropdownId}">
                 <div id="${dropdownId}" class="autocomplete-dropdown"></div>
             </div>
+        </td>
+        <td>
+            <select class="dependency-type" onchange="saveTask()">
+                <option value="FS"${depType === 'FS' ? ' selected' : ''}>FS</option>
+                <option value="SS"${depType === 'SS' ? ' selected' : ''}>SS</option>
+                <option value="FF"${depType === 'FF' ? ' selected' : ''}>FF</option>
+                <option value="SF"${depType === 'SF' ? ' selected' : ''}>SF</option>
+            </select>
         </td>
         <td>
             <input type="text" class="dependency-lag-lead" placeholder="e.g., +2d, -1w" value="${lagLead}" oninput="saveTask()">
@@ -3251,21 +3261,30 @@ function populateDependenciesTable(dependenciesStr) {
         return;
     }
 
-    // Parse dependencies string like "Task1, Task2 +2d, Task3 -1w"
-    // This comes from [depends Task1, Task2 +2d] syntax
+    // Parse dependencies string like "Task1, Task2:SS +2d, Task3:FF -1w"
+    // This comes from [depends Task1, Task2:SS +2d] syntax
     const deps = dependenciesStr.split(',').map(d => d.trim()).filter(d => d);
 
     deps.forEach(dep => {
         // Check if this dependency has lag/lead time
         const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
+        let taskName = dep;
+        let lagLead = '';
+        let depType = 'FS';
 
         if (lagLeadMatch) {
-            // Has lag/lead: "Task Name +2d"
-            addDependencyRow(lagLeadMatch[1].trim(), lagLeadMatch[2]);
-        } else {
-            // No lag/lead: just "Task Name"
-            addDependencyRow(dep, '');
+            taskName = lagLeadMatch[1].trim();
+            lagLead = lagLeadMatch[2];
         }
+
+        // Check for dependency type suffix: "TaskName:SS"
+        const typeMatch = taskName.match(/^(.+?):(FS|SS|FF|SF)$/i);
+        if (typeMatch) {
+            taskName = typeMatch[1].trim();
+            depType = typeMatch[2].toUpperCase();
+        }
+
+        addDependencyRow(taskName, depType, lagLead);
     });
 
     // If no dependencies, show empty state
@@ -3284,13 +3303,20 @@ function collectDependenciesFromTable() {
 
     rows.forEach(row => {
         const taskName = row.querySelector('.dependency-task-name').value.trim();
+        const depTypeSelect = row.querySelector('.dependency-type');
+        const depType = depTypeSelect ? depTypeSelect.value : 'FS';
         const lagLead = row.querySelector('.dependency-lag-lead').value.trim();
 
         if (taskName) {
+            // Only include type suffix if not the default (FS)
+            let depStr = taskName;
+            if (depType && depType !== 'FS') {
+                depStr = `${taskName}:${depType}`;
+            }
             if (lagLead) {
-                deps.push(`${taskName} ${lagLead}`);
+                deps.push(`${depStr} ${lagLead}`);
             } else {
-                deps.push(taskName);
+                deps.push(depStr);
             }
         }
     });
@@ -3348,7 +3374,7 @@ function saveTask() {
             const isCompleteLagLead = /^[+\-]\d+[dwmy]$/.test(lagLeadPart);
 
             if (isCompleteLagLead) {
-                // Complete lag/lead: "Task Name +2d"
+                // Complete lag/lead: "Task Name +2d" or "Task Name:SS +2d"
                 // Always use [depends] syntax for lag/lead, even if it's the previous task
                 allDependenciesForBrackets.push(dep);
             } else {
@@ -3357,12 +3383,16 @@ function saveTask() {
                 allDependenciesForBrackets.push(dep);
             }
         } else {
-            // No lag/lead: just "Task Name"
-            if (dep === previousTaskName) {
-                // Simple dependency on previous task - use * notation
+            // No lag/lead - check for dependency type suffix
+            const typeMatch = dep.match(/^(.+?):(FS|SS|FF|SF)$/i);
+            const bareTaskName = typeMatch ? typeMatch[1].trim() : dep;
+            const hasNonDefaultType = typeMatch && typeMatch[2].toUpperCase() !== 'FS';
+
+            if (bareTaskName === previousTaskName && !hasNonDefaultType) {
+                // Simple FS dependency on previous task - use * notation
                 dependsOnPreviousSimple = true;
             } else {
-                // Other task without lag/lead - use [depends] syntax
+                // Other task or non-default type - use [depends] syntax
                 allDependenciesForBrackets.push(dep);
             }
         }
@@ -3745,20 +3775,22 @@ function updateDependencyReferences(lines, oldName, newName) {
             let changed = false;
 
             const updatedDeps = deps.map(dep => {
-                // Check for exact match (with optional lag/lead suffix)
-                // e.g., "OldName" or "OldName +2d"
+                // Check for exact match (with optional type suffix and lag/lead suffix)
+                // e.g., "OldName", "OldName:SS", "OldName +2d", "OldName:SS +2d"
                 const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d*[dwmy]?)$/);
+                let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : dep;
+                let lagLead = lagLeadMatch ? lagLeadMatch[2] : '';
 
-                if (lagLeadMatch) {
-                    const taskName = lagLeadMatch[1].trim();
-                    const lagLead = lagLeadMatch[2];
-                    if (taskName === oldName) {
-                        changed = true;
-                        return newName + ' ' + lagLead;
-                    }
-                } else if (dep === oldName) {
+                // Check for dependency type suffix
+                const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
+                let taskName = typeMatch ? typeMatch[1].trim() : corePart;
+                let typeSuffix = typeMatch ? ':' + typeMatch[2] : '';
+
+                if (taskName === oldName) {
                     changed = true;
-                    return newName;
+                    let result = newName + typeSuffix;
+                    if (lagLead) result += ' ' + lagLead;
+                    return result;
                 }
 
                 return dep;
@@ -12185,10 +12217,17 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     let latestFinishDate = null;
 
+    // Helper to strip dependency type and lag/lead from an entry to get the task name
+    function extractDepName(entry) {
+        const lagLeadMatch = entry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
+        let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : entry;
+        const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
+        return typeMatch ? typeMatch[1].trim() : corePart;
+    }
+
     // First pass: find the latest finish date (the driving dependency)
     for (const depEntry of depEntries) {
-        const lagLeadMatch = depEntry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
-        const depName = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+        const depName = extractDepName(depEntry);
         const depTask = taskMap.get(depName);
 
         if (depTask) {
@@ -12203,8 +12242,7 @@ function getInspectorDependencies(task, taskMap, lines) {
 
     // Second pass: build details and mark the driving dependency
     for (const depEntry of depEntries) {
-        const lagLeadMatch = depEntry.match(/^(.+?)\s+[+\-]\d+[dwmy]$/);
-        const depName = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
+        const depName = extractDepName(depEntry);
         const depTask = taskMap.get(depName);
 
         const detail = {

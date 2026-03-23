@@ -39,6 +39,8 @@ export interface NoodleTask {
   depends: string[];
   /** Lag/lead time for dependencies (e.g., {"TaskA": "+2d"}) */
   lagLead: Record<string, string>;
+  /** Dependency types (e.g., {"TaskA": "SS"}). FS is default and omitted. */
+  dependencyTypes: Record<string, string>;
   /** Whether task is marked sequential (*) */
   sequential: boolean;
   /** Original line number in source (1-indexed) */

@@ -175,7 +175,10 @@ def export_to_msproject_xml(
             ET.SubElement(task_el, "Notes").text = comment
 
         # Dependencies (PredecessorLink)
+        # MS Project dependency types: 0=FF, 1=FS, 2=SF, 3=SS
+        dep_type_to_msp = {'FS': '1', 'FF': '0', 'SF': '2', 'SS': '3'}
         depends = task.get("depends", [])
+        dep_type_map = task.get("dependency_types", {})
         if depends:
             for dep_name in depends:
                 dep_uid = task_name_to_uid.get(dep_name.lower())
@@ -184,7 +187,8 @@ def export_to_msproject_xml(
                     ET.SubElement(pred_el, "PredecessorUID").text = str(
                         dep_uid
                     )
-                    ET.SubElement(pred_el, "Type").text = "1"  # Finish-to-Start
+                    dep_type = dep_type_map.get(dep_name, 'FS')
+                    ET.SubElement(pred_el, "Type").text = dep_type_to_msp.get(dep_type, '1')
 
     # Write Assignments section
     assignments_el = ET.SubElement(root, "Assignments")

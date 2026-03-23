@@ -598,6 +598,7 @@ class PlanService:
                     "phase": task.get("phase", ""),
                     "depends": task.get("depends", []),
                     "lag_lead": task.get("lag_lead", {}),
+                    "dependency_types": task.get("dependency_types", {}),
                     "inherited_resource": task.get("inherited_resource", False),
                     "effort_completed": task.get("effort_completed", ""),
                     "effort_completed_unit": task.get(

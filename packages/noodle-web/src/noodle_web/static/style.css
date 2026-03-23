@@ -2818,6 +2818,11 @@ svg.icon {
     font-weight: 600;
 }
 
+.syntax-dep-type {
+    color: #c586c0;
+    font-weight: 600;
+}
+
 .syntax-error {
     text-decoration: wavy underline #f44336;
     text-underline-offset: 3px;
@@ -4872,6 +4877,15 @@ tr:hover .task-context-btn,
     padding: 8px;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
+}
+
+.dependencies-table select.dependency-type {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: white;
+    font-size: 0.85em;
 }
 
 .dependencies-table .remove-dependency-btn {

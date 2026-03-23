@@ -1880,8 +1880,10 @@ function makeEditable(cell, task, taskIndex) {
                     } else {
                         task.depends = parsed.depends;
                         task.lag_lead = parsed.lag_lead;
+                        task.dependency_types = parsed.dependency_types;
                         ganttTasks[taskIndex].depends = parsed.depends;
                         ganttTasks[taskIndex].lag_lead = parsed.lag_lead;
+                        ganttTasks[taskIndex].dependency_types = parsed.dependency_types;
                         syncGanttPredecessorsToEditor(task, taskIndex);
                         const _nameToId3 = buildTaskNameToIdMap(ganttTasks);
                         cell.textContent = formatPredecessors(task, _nameToId3) || '-';

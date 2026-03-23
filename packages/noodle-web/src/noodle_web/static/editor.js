@@ -182,22 +182,27 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             });
 
             // Highlight dependencies EARLY to protect lag/lead from duration highlighter
-            // (e.g., [depends Task1, Task2 +2d])
+            // (e.g., [depends Task1, Task2:SS +2d])
             highlighted = highlighted.replace(/\[depends\s+([^\]]+)\]/gi, (match, deps) => {
                 // Split dependencies and validate each one
                 const depParts = deps.split(',').map(d => d.trim()).filter(d => d);
                 const highlightedParts = depParts.map(dep => {
-                    // Strip lag/lead to get the task name for validation
+                    // Strip lag/lead to get the core part
                     const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d+[dwmy])$/);
-                    const depTaskName = lagLeadMatch ? lagLeadMatch[1].trim() : dep.trim();
+                    let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : dep.trim();
                     const lagLeadPart = lagLeadMatch ? ' <span class="syntax-lag-lead">' + lagLeadMatch[2] + '</span>' : '';
+
+                    // Strip dependency type suffix (:FS, :SS, :FF, :SF)
+                    const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
+                    const depTaskName = typeMatch ? typeMatch[1].trim() : corePart;
+                    const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
 
                     // Check if the dependency task name exists
                     const isValid = allTaskNames.has(depTaskName);
                     if (isValid) {
-                        return depTaskName + lagLeadPart;
+                        return depTaskName + typePart + lagLeadPart;
                     } else {
-                        return '<span class="syntax-error">' + depTaskName + '</span>' + lagLeadPart;
+                        return '<span class="syntax-error">' + depTaskName + '</span>' + typePart + lagLeadPart;
                     }
                 });
                 return savePlaceholder('<span class="syntax-dependency">[depends ' + highlightedParts.join(', ') + ']</span>');

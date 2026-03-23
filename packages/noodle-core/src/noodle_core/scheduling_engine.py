@@ -343,7 +343,9 @@ def extract_metadata(task_str, task_name=None):
         meta['labels'] = [l.strip() for l in label_matches]
 
     # Extract dependencies using [depends task1, task2, ...] syntax
-    # Now also supports lag/lead time: [depends task1 +2d, task2 -1w]
+    # Supports lag/lead time: [depends task1 +2d, task2 -1w]
+    # Supports dependency types: [depends task1:SS, task2:FF +2d]
+    # Valid types: FS (default), SS, FF, SF
     bracket_dep_pattern = r'\[depends\s*([^\]]*)\]'
     bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
     if bracket_dep_match:
@@ -351,6 +353,7 @@ def extract_metadata(task_str, task_name=None):
         raw_deps = bracket_dep_match.group(1).strip()
         dep_list = []
         lag_lead_map = {}  # Maps dependency name to lag/lead offset
+        dep_type_map = {}  # Maps dependency name to type (FS, SS, FF, SF)
 
         if raw_deps:
             dep_specs = raw_deps.split(',')
@@ -358,19 +361,39 @@ def extract_metadata(task_str, task_name=None):
                 dep_spec = dep_spec.strip()
                 if not dep_spec:
                     continue
-                # Check for lag/lead time: "TaskName +2d" or "TaskName -1w"
+                # Check for lag/lead time: "TaskName +2d" or "TaskName:SS +2d"
                 lag_lead_match = re.search(r'^(.+?)\s+([+\-]\d+[dwmy])$', dep_spec)
                 if lag_lead_match:
                     dep_task_name = lag_lead_match.group(1).strip()
                     lag_lead_str = lag_lead_match.group(2)
+                    # Check for dependency type suffix on the task name
+                    type_match = re.search(r'^(.+?):(FS|SS|FF|SF)$', dep_task_name, re.IGNORECASE)
+                    if type_match:
+                        dep_task_name = type_match.group(1).strip()
+                        dep_type = type_match.group(2).upper()
+                        if dep_type != 'FS':
+                            dep_type_map[dep_task_name] = dep_type
                     dep_list.append(dep_task_name)
                     lag_lead_map[dep_task_name] = lag_lead_str
                 else:
-                    dep_list.append(dep_spec)
+                    # Check for dependency type suffix: "TaskName:SS"
+                    type_match = re.search(r'^(.+?):(FS|SS|FF|SF)$', dep_spec, re.IGNORECASE)
+                    if type_match:
+                        dep_task_name = type_match.group(1).strip()
+                        dep_type = type_match.group(2).upper()
+                        if dep_type != 'FS':
+                            dep_type_map[dep_task_name] = dep_type
+                        dep_list.append(dep_task_name)
+                    else:
+                        dep_list.append(dep_spec)
 
         # Store lag/lead map if any were found
         if lag_lead_map:
             meta['lag_lead'] = lag_lead_map
+
+        # Store dependency type map if any non-default types were found
+        if dep_type_map:
+            meta['dependency_types'] = dep_type_map
 
         meta['depends'] = dep_list
 
@@ -857,36 +880,86 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             # Has dependencies (case-insensitive lookup)
             # Apply lag/lead time if specified
             lag_lead_map = t.get('lag_lead', {})
-
-            dep_finishes_with_offset = []
-            for dep_name in t['depends']:
-                dep_name_lower = dep_name.lower()
-                if dep_name_lower in name_lookup and 'finish' in name_lookup[dep_name_lower]:
-                    dep_finish = name_lookup[dep_name_lower]['finish']
-
-                    # Apply lag/lead time if specified for this dependency
-                    if dep_name in lag_lead_map:
-                        offset_str = lag_lead_map[dep_name]
-                        offset_days = parse_duration_to_days(offset_str)
-                        # Positive offset = lag (wait after), negative = lead (start before)
-                        dep_finish = add_working_days(dep_finish, offset_days, task_holidays)
-
-                    dep_finishes_with_offset.append(dep_finish)
+            dep_type_map = t.get('dependency_types', {})
 
             duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             is_milestone = isinstance(duration, timedelta) and duration.days == 0
+            task_duration_days = duration.days if isinstance(duration, timedelta) else 1
 
-            if dep_finishes_with_offset:
-                latest_dep_finish = max(dep_finishes_with_offset)
-                if is_milestone:
-                    # Milestones (0-duration) align with the end of the dependency.
-                    # Dependency finish is exclusive (day after last working day),
-                    # so use it directly so the milestone lines up with the task end.
-                    dep_start = latest_dep_finish
+            # Collect effective start dates from each dependency based on type
+            dep_start_dates = []
+            for dep_name in t['depends']:
+                dep_name_lower = dep_name.lower()
+                if dep_name_lower not in name_lookup:
+                    continue
+                dep_task = name_lookup[dep_name_lower]
+                if 'finish' not in dep_task or 'start' not in dep_task:
+                    continue
+
+                dep_type = dep_type_map.get(dep_name, 'FS')
+
+                if dep_type == 'FS':
+                    # Finish-Start: successor starts after predecessor finishes
+                    ref_date = dep_task['finish']
+                elif dep_type == 'SS':
+                    # Start-Start: successor starts when predecessor starts
+                    ref_date = dep_task['start']
+                elif dep_type == 'FF':
+                    # Finish-Finish: successor finishes when predecessor finishes
+                    # So successor start = predecessor finish - successor duration
+                    ff_finish = dep_task['finish']
+                    # Apply lag/lead before calculating start from finish
+                    if dep_name in lag_lead_map:
+                        offset_str = lag_lead_map[dep_name]
+                        offset_days = parse_duration_to_days(offset_str)
+                        ff_finish = add_working_days(ff_finish, offset_days, task_holidays)
+                    # Work backwards from required finish to find start
+                    if is_milestone:
+                        dep_start_dates.append(ff_finish)
+                    else:
+                        # Subtract duration to find start (finish is exclusive)
+                        from_finish = add_working_days(ff_finish, -task_duration_days, task_holidays)
+                        dep_start_dates.append(get_next_working_day(from_finish, task_holidays))
+                    continue  # Already handled lag/lead above
+                elif dep_type == 'SF':
+                    # Start-Finish: successor finishes when predecessor starts
+                    sf_finish = dep_task['start']
+                    # Apply lag/lead before calculating start from finish
+                    if dep_name in lag_lead_map:
+                        offset_str = lag_lead_map[dep_name]
+                        offset_days = parse_duration_to_days(offset_str)
+                        sf_finish = add_working_days(sf_finish, offset_days, task_holidays)
+                    # Work backwards from required finish to find start
+                    if is_milestone:
+                        dep_start_dates.append(sf_finish)
+                    else:
+                        from_finish = add_working_days(sf_finish, -task_duration_days, task_holidays)
+                        dep_start_dates.append(get_next_working_day(from_finish, task_holidays))
+                    continue  # Already handled lag/lead above
                 else:
-                    # Regular tasks start the next working day after dependency finishes
-                    # Dependency finish dates are exclusive (day after last working day)
-                    dep_start = get_next_working_day(latest_dep_finish, task_holidays)
+                    ref_date = dep_task['finish']  # Default to FS
+
+                # Apply lag/lead time if specified for this dependency (FS, SS)
+                if dep_name in lag_lead_map:
+                    offset_str = lag_lead_map[dep_name]
+                    offset_days = parse_duration_to_days(offset_str)
+                    ref_date = add_working_days(ref_date, offset_days, task_holidays)
+
+                if dep_type == 'SS':
+                    # For SS, the ref_date is the predecessor start - use directly
+                    dep_start_dates.append(get_next_working_day(ref_date, task_holidays))
+                elif is_milestone:
+                    dep_start_dates.append(ref_date)
+                else:
+                    dep_start_dates.append(get_next_working_day(ref_date, task_holidays))
+
+            if dep_start_dates:
+                latest_start = max(dep_start_dates)
+
+                if is_milestone:
+                    dep_start = latest_start
+                else:
+                    dep_start = latest_start
 
                 # If the task also has an explicit start date, use the later of
                 # the two -- the explicit date acts as a "not before" constraint.

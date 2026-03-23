@@ -79,7 +79,7 @@ export function extractMetadata(taskStr: string, taskName?: string): TaskMetadat
     depends.push(match[1].trim());
   }
 
-  // Extract dependencies using [depends ...] syntax with lag/lead
+  // Extract dependencies using [depends ...] syntax with lag/lead and type
   const bracketMatch = taskStr.match(PATTERNS.bracketDependency);
   if (bracketMatch) {
     const depSpecs = bracketMatch[1].split(',');
@@ -89,12 +89,23 @@ export function extractMetadata(taskStr: string, taskName?: string): TaskMetadat
       const lagLeadMatch = trimmed.match(PATTERNS.lagLead);
 
       if (lagLeadMatch) {
-        const depTaskName = lagLeadMatch[1].trim();
+        let depTaskName = lagLeadMatch[1].trim();
         const lagLeadStr = lagLeadMatch[2];
+        // Check for dependency type suffix
+        const typeMatch = depTaskName.match(/^(.+?):(FS|SS|FF|SF)$/i);
+        if (typeMatch) {
+          depTaskName = typeMatch[1].trim();
+        }
         depends.push(depTaskName);
         lagLeadMap[depTaskName] = lagLeadStr;
       } else {
-        depends.push(trimmed);
+        // Check for dependency type suffix
+        const typeMatch = trimmed.match(/^(.+?):(FS|SS|FF|SF)$/i);
+        if (typeMatch) {
+          depends.push(typeMatch[1].trim());
+        } else {
+          depends.push(trimmed);
+        }
       }
     }
   }

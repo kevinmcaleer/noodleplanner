@@ -58,17 +58,20 @@ function buildIdToTaskNameMap(tasks) {
 }
 
 /**
- * Convert a task's depends[] + lag_lead{} into a display string like "3FS, 5FS+2d".
- * All dependencies are Finish-to-Start (FS) since that is the only type currently supported.
+ * Convert a task's depends[] + lag_lead{} + dependency_types{} into a display
+ * string like "3FS, 5SS+2d".
+ * Dependency types: FS (Finish-Start), SS (Start-Start), FF (Finish-Finish), SF (Start-Finish).
  */
 function formatPredecessors(task, nameToId) {
     if (!task.depends || task.depends.length === 0) return '';
     const lagLead = task.lag_lead || {};
+    const depTypes = task.dependency_types || {};
     const parts = [];
     for (const depName of task.depends) {
         const depId = nameToId[depName.toLowerCase()];
         if (depId === undefined) continue;  // unknown dependency — skip
-        let entry = depId + 'FS';
+        const depType = depTypes[depName] || 'FS';
+        let entry = depId + depType;
         if (lagLead[depName]) {
             // lagLead values look like "+2d" or "-1w"
             entry += lagLead[depName];
@@ -79,30 +82,35 @@ function formatPredecessors(task, nameToId) {
 }
 
 /**
- * Parse a predecessors display string (e.g. "3FS, 5FS+2d") back into
- * { depends: [name1, name2], lag_lead: { name1: '+2d' } }.
+ * Parse a predecessors display string (e.g. "3FS, 5SS+2d") back into
+ * { depends: [name1, name2], lag_lead: { name1: '+2d' }, dependency_types: { name2: 'SS' } }.
  * Returns null if parsing fails.
  */
 function parsePredecessorsString(str, idToName) {
-    if (!str || !str.trim()) return { depends: [], lag_lead: {} };
+    if (!str || !str.trim()) return { depends: [], lag_lead: {}, dependency_types: {} };
     const depends = [];
     const lagLead = {};
+    const depTypes = {};
     const specs = str.split(',');
     for (let spec of specs) {
         spec = spec.trim();
         if (!spec) continue;
-        // Pattern: ID + "FS" + optional lag like "+2d" or "-1w"
-        const m = spec.match(/^(\d+)\s*FS\s*([+-]\d+[dwmy])?$/i);
+        // Pattern: ID + type (FS/SS/FF/SF) + optional lag like "+2d" or "-1w"
+        const m = spec.match(/^(\d+)\s*(FS|SS|FF|SF)\s*([+-]\d+[dwmy])?$/i);
         if (!m) return null;  // invalid format
         const id = parseInt(m[1], 10);
+        const depType = m[2].toUpperCase();
         const name = idToName[id];
         if (!name) return null;  // unknown ID
         depends.push(name);
-        if (m[2]) {
-            lagLead[name] = m[2];
+        if (depType !== 'FS') {
+            depTypes[name] = depType;
+        }
+        if (m[3]) {
+            lagLead[name] = m[3];
         }
     }
-    return { depends, lag_lead: lagLead };
+    return { depends, lag_lead: lagLead, dependency_types: depTypes };
 }
 
 /**

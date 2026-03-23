@@ -21,6 +21,7 @@ interface InternalTask {
   comment: string;
   depends: string[];
   lagLead: Record<string, string>;
+  dependencyTypes: Record<string, string>;
   sequential: boolean;
   duration: number; // in days
   start?: Date;
@@ -96,6 +97,7 @@ export function scheduleTasks(phases: Record<string, NestedTaskDict[]>): NoodleT
         comment: meta.comment || '',
         depends: meta.depends || [],
         lagLead: meta.lagLead || {},
+        dependencyTypes: {},
         sequential: meta.sequential || false,
         duration: meta.duration || 1,
         lineNumber: (node as any)._lineNumber,
@@ -163,6 +165,7 @@ export function scheduleTasks(phases: Record<string, NestedTaskDict[]>): NoodleT
             comment: '',
             depends: [],
             lagLead: {},
+            dependencyTypes: {},
             sequential: false,
             duration: 0
           };
@@ -444,6 +447,7 @@ function convertToNoodleTask(task: InternalTask, index: number): NoodleTask {
     parent: task.parent,
     depends: task.depends,
     lagLead: task.lagLead,
+    dependencyTypes: task.dependencyTypes,
     sequential: task.sequential,
     lineNumber: task.lineNumber || 0,
     rawText: task.rawText || ''
@@ -471,6 +475,7 @@ export function rescheduleAfterChange(
     comment: t.comment,
     depends: t.depends,
     lagLead: t.lagLead,
+    dependencyTypes: t.dependencyTypes,
     sequential: t.sequential,
     duration: t.durationDays,
     start: t.start || undefined,

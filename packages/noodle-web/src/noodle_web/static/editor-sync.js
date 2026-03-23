@@ -495,9 +495,12 @@ function syncGanttPredecessorsToEditor(task, taskIndex) {
             // Build the new [depends ...] string
             let newDependsStr = '';
             if (task.depends && task.depends.length > 0) {
+                const depTypes = task.dependency_types || {};
                 const depParts = task.depends.map(depName => {
+                    const depType = depTypes[depName];
+                    const typeSuffix = (depType && depType !== 'FS') ? ':' + depType : '';
                     const lag = (task.lag_lead && task.lag_lead[depName]) ? ' ' + task.lag_lead[depName] : '';
-                    return depName + lag;
+                    return depName + typeSuffix + lag;
                 });
                 newDependsStr = '[depends ' + depParts.join(', ') + ']';
             }
