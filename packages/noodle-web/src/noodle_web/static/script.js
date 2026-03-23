@@ -1630,7 +1630,7 @@ function calculateTaskDates(task, taskMap, lines, visited) {
     // Try to calculate from dependencies
     if (task.dependencies && !task.startDate) {
         const depEntries = task.dependencies.split(',').map(d => d.trim());
-        let latestFinishDate = null;
+        let latestRefDate = null;
 
         for (const depEntry of depEntries) {
             // Strip lag/lead time and dependency type suffix from dependency name
@@ -1638,26 +1638,28 @@ function calculateTaskDates(task, taskMap, lines, visited) {
             let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : depEntry;
             const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
             const depName = typeMatch ? typeMatch[1].trim() : corePart;
+            const depType = typeMatch ? typeMatch[2].toUpperCase() : 'FS';
 
             // Look up dependency in the map
             const depTask = taskMap.get(depName);
             if (depTask) {
                 // Recursively calculate dependency dates if not set
-                if (!depTask.finishDate) {
+                if (!depTask.finishDate || !depTask.startDate) {
                     calculateTaskDates(depTask, taskMap, lines, visited);
                 }
-                if (depTask.finishDate) {
-                    if (!latestFinishDate || depTask.finishDate > latestFinishDate) {
-                        latestFinishDate = depTask.finishDate;
+                // Use start date for SS/SF, finish date for FS/FF
+                const refDate = (depType === 'SS' || depType === 'SF') ? depTask.startDate : depTask.finishDate;
+                if (refDate) {
+                    if (!latestRefDate || refDate > latestRefDate) {
+                        latestRefDate = refDate;
                     }
                 }
             }
         }
 
-        // If we found a dependency finish date, calculate start date
-        if (latestFinishDate) {
-            // Start on the same day the dependency finishes
-            task.startDate = latestFinishDate;
+        // If we found a dependency reference date, use it as start date
+        if (latestRefDate) {
+            task.startDate = latestRefDate;
         }
     }
 
