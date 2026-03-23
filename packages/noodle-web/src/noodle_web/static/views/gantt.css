@@ -215,8 +215,13 @@
     width: 46px;
     min-width: 46px;
     max-width: 46px;
-    padding: 8px 2px !important;
+    padding: 4px 2px !important;
     white-space: nowrap;
+}
+
+.gantt-done-cell > * {
+    display: inline-block;
+    vertical-align: middle;
 }
 
 /* Gantt checkboxes use .round-checkbox class - these are kept for specificity */
