@@ -622,3 +622,239 @@ class TestXlsSupport:
         result = analyze_workbook(data, "test.xls")
         sheet = result["sheets"][0]
         assert sheet["row_count"] == 2
+
+
+# ---------- TestDatePassthrough ----------
+
+class TestDatePassthrough:
+    """Tests that start and end dates are correctly passed through to markdown."""
+
+    def test_start_date_in_markdown(self):
+        """Start date should appear in markdown output."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish", "Duration (days)"],
+                ["Phase 1", "", "", 0],
+                ["  Task 1", "2025-01-06", "2025-01-10", 5],
+                ["  Task 2", "2025-01-13", "2025-01-17", 5],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+            "duration": "Duration (days)",
+        })
+        md = result["markdown"]
+        assert "start:2025-01-06" in md
+
+    def test_datetime_objects_parsed_as_dates(self):
+        """datetime objects in Excel should be parsed to date strings."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish"],
+                ["Phase 1", "", ""],
+                ["  Task 1", datetime(2025, 3, 15), datetime(2025, 3, 21)],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+        })
+        md = result["markdown"]
+        assert "start:2025-03-15" in md
+        assert "5d" in md  # 5 working days Mon-Fri
+
+    def test_excel_serial_dates_parsed(self):
+        """Excel serial number dates should be converted properly."""
+        # 45663 = 2025-01-06 (Monday)
+        # 45667 = 2025-01-10 (Friday)
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish"],
+                ["Task 1", 45663, 45667],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+        })
+        md = result["markdown"]
+        assert "start:2025-01-06" in md
+        assert "5d" in md
+
+
+# ---------- TestDurationValidation ----------
+
+class TestDurationValidation:
+    """Tests for duration validation and capping."""
+
+    def test_duration_capped_at_200(self):
+        """Durations over 200d should be capped with a warning."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Task 1", 500],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "duration": "Duration",
+        })
+        assert "200d" in result["markdown"]
+        assert any("200 day maximum" in w for w in result["warnings"])
+
+    def test_duration_validated_against_dates(self):
+        """Duration much larger than date range should use date-calculated value."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish", "Duration"],
+                ["Task 1", datetime(2025, 1, 6), datetime(2025, 1, 10), 250],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+            "duration": "Duration",
+        })
+        md = result["markdown"]
+        assert "5d" in md
+        assert any("exceeds date range" in w for w in result["warnings"])
+
+    def test_reasonable_duration_not_capped(self):
+        """Durations within range should not be modified."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Duration"],
+                ["Task 1", 30],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "duration": "Duration",
+        })
+        assert "30d" in result["markdown"]
+        assert result["warnings"] == []
+
+
+# ---------- TestDependencyChain ----------
+
+class TestDependencyChain:
+    """Tests for intelligent dependency chain behavior."""
+
+    def test_first_task_gets_start_date(self):
+        """First task in a phase should have start date in markdown."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish", "Duration (days)"],
+                ["Phase 1", "", "", 0],
+                ["  Task A", "2025-01-06", "2025-01-06", 1],
+                ["  Task B", "2025-01-07", "2025-01-07", 1],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+            "duration": "Duration (days)",
+        })
+        md = result["markdown"]
+        # First task should have start date
+        assert "start:2025-01-06" in md
+        # Second 1d task should use * dependency chain
+        assert "* " in md or "*\n" in md
+
+    def test_subsequent_1d_tasks_use_dependency_chain(self):
+        """Subsequent 1d tasks without deps should use * for chaining."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish", "Duration (days)"],
+                ["Phase 1", "", "", 0],
+                ["  Task A", "2025-01-06", "2025-01-06", 1],
+                ["  Task B", "2025-01-07", "2025-01-07", 1],
+                ["  Task C", "2025-01-08", "2025-01-08", 1],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+            "duration": "Duration (days)",
+        })
+        md = result["markdown"]
+        lines = md.strip().split("\n")
+        # Task B and C should have * dependency chain
+        task_b_line = [l for l in lines if "Task B" in l][0]
+        task_c_line = [l for l in lines if "Task C" in l][0]
+        assert "* " in task_b_line or task_b_line.strip().endswith("*")
+        assert "* " in task_c_line or task_c_line.strip().endswith("*")
+
+    def test_non_1d_task_keeps_start_date(self):
+        """Tasks with duration != 1d should keep their start date."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish", "Duration (days)"],
+                ["Phase 1", "", "", 0],
+                ["  Task A", "2025-01-06", "2025-01-06", 1],
+                ["  Task B", "2025-01-07", "2025-01-10", 4],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+            "duration": "Duration (days)",
+        })
+        md = result["markdown"]
+        lines = md.strip().split("\n")
+        task_b_line = [l for l in lines if "Task B" in l][0]
+        # Non-1d task should have start date, not *
+        assert "start:" in task_b_line
+        assert "4d" in task_b_line
+
+    def test_flat_tasks_dependency_chain(self):
+        """Flat tasks (no hierarchy) should also get dependency chain."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish", "Duration (days)"],
+                ["Task A", "2025-01-06", "2025-01-06", 1],
+                ["Task B", "2025-01-07", "2025-01-07", 1],
+                ["Task C", "2025-01-08", "2025-01-08", 1],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+            "duration": "Duration (days)",
+        })
+        md = result["markdown"]
+        # First task gets start date
+        assert "start:2025-01-06" in md
+        lines = md.strip().split("\n")
+        task_b_line = [l for l in lines if "Task B" in l][0]
+        assert "*" in task_b_line
+
+
+# ---------- TestFinishDateValidation ----------
+
+class TestFinishDateValidation:
+    """Tests for finish date recalculation and validation."""
+
+    def test_start_after_end_warning(self):
+        """Start date after end date should produce warning."""
+        data = _make_xlsx_bytes({
+            "Tasks": [
+                ["Task Name", "Start", "Finish"],
+                ["Task 1", datetime(2025, 1, 10), datetime(2025, 1, 6)],
+            ]
+        })
+        result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", {
+            "task_name": "Task Name",
+            "start_date": "Start",
+            "end_date": "Finish",
+        })
+        assert any("after end date" in w for w in result["warnings"])
