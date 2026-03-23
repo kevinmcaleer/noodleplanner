@@ -58,12 +58,22 @@ After rendering a plan, you can view it in multiple formats:
 ### Editor Features
 
 #### Toolbar
+- **↶ Undo** - Undo the last editor change (Ctrl+Z / Cmd+Z)
+- **↷ Redo** - Redo a previously undone change (Ctrl+Shift+Z / Cmd+Shift+Z, or Ctrl+Y / Cmd+Y)
 - **📋 Project Details** - Open the project details form to set project metadata
 - **⇤ Outdent** - Move selected lines one level left (Cmd+[)
 - **⇥ Indent** - Move selected lines one level right (Cmd+])
 - **📁 Upload** - Switch to upload tab to load a file
 - **💾 Download** - Download the current plan as markdown
 - **⌨️ Shortcuts** - View keyboard shortcuts
+
+#### Undo / Redo
+The editor keeps a history of all changes you make during your browser session. History is stored in browser session storage and is cleared when the tab is closed.
+
+- **Undo** - Press **Ctrl+Z** (or **Cmd+Z** on Mac), or click the undo button in the toolbar to revert the last change.
+- **Redo** - Press **Ctrl+Shift+Z** (or **Ctrl+Y**), or click the redo button in the toolbar to re-apply a reverted change.
+- The undo and redo toolbar buttons are disabled when there is nothing to undo or redo.
+- Changes are captured after a short pause in typing so that each undo step covers a meaningful edit rather than individual keystrokes.
 
 #### Editor Pane
 - **Syntax highlighting** - Color-coded highlighting for plan elements
@@ -418,6 +428,9 @@ Visual presentation with:
 ### Editor Shortcuts
 | Shortcut | Action |
 |----------|--------|
+| Ctrl+Z / Cmd+Z | Undo last change |
+| Ctrl+Shift+Z / Cmd+Shift+Z | Redo last undone change |
+| Ctrl+Y / Cmd+Y | Redo last undone change (alternative) |
 | Cmd+[ | Outdent selected lines |
 | Cmd+] | Indent selected lines |
 | Enter | Render/update the plan |
