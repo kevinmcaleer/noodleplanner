@@ -1,6 +1,20 @@
+/* Gantt view: fill available space without outer page scroll */
+#gantt-view.output-tab-content {
+    overflow: hidden;
+}
+
 /* Gantt Chart Styling */
 .gantt-content {
     padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.gantt-content > .embedded-timeline-section {
+    flex-shrink: 0;
 }
 
 .gantt-title {
@@ -16,6 +30,7 @@
     align-items: center;
     padding: 10px 0;
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .gantt-scale-selector {
@@ -104,6 +119,9 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .gantt-table-side {
@@ -111,7 +129,6 @@
     flex-shrink: 0;
     overflow-x: auto;
     overflow-y: auto;
-    max-height: calc(100vh - 220px);
 }
 
 .gantt-splitter {
@@ -236,7 +253,6 @@
     flex: 1;
     overflow-x: auto;
     overflow-y: auto;
-    max-height: calc(100vh - 220px);
 }
 
 .gantt-header {
