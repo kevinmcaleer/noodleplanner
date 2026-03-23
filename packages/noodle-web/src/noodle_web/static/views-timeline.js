@@ -825,8 +825,6 @@ function updateTimeline(tasks, projectName) {
             });
             const minDate = new Date(Math.min(...allDates));
             const maxDate = new Date(Math.max(...allDates));
-            minDate.setDate(minDate.getDate() - 7);
-            maxDate.setDate(maxDate.getDate() + 7);
 
             const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200;
             const timelineWidth = Math.max(800, availableWidth);
@@ -864,9 +862,7 @@ function updateTimeline(tasks, projectName) {
         const minDate = new Date(Math.min(...allDates));
         const maxDate = new Date(Math.max(...allDates));
 
-        // Add padding
-        minDate.setDate(minDate.getDate() - 7);
-        maxDate.setDate(maxDate.getDate() + 7);
+        // No extra padding — start and end sit at the edges
 
         const availableWidth = timelineWrapper ? timelineWrapper.offsetWidth - 100 : 1200; // Subtract padding
         const timelineWidth = Math.max(800, availableWidth); // Minimum 800px

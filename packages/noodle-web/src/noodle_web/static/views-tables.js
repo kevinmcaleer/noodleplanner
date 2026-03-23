@@ -328,10 +328,9 @@ function updateReportTimeline(tasks, projectName) {
         });
         if (!projectStart || !projectEnd) return;
 
-        // 7-day padding
-        const padding = 7 * 24 * 60 * 60 * 1000;
-        const globalStart = new Date(projectStart.getTime() - padding);
-        const globalEnd = new Date(projectEnd.getTime() + padding);
+        // No extra padding — start and end sit at the edges
+        const globalStart = new Date(projectStart.getTime());
+        const globalEnd = new Date(projectEnd.getTime());
         const totalMs = globalEnd.getTime() - globalStart.getTime();
 
         // Calculate overall project progress from leaf tasks
