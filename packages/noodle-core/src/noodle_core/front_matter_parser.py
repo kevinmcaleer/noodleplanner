@@ -271,6 +271,81 @@ class FrontMatterParser:
                     in_nwd_list = False
         return entries
 
+    def parse_dependencies(self) -> list:
+        """Parse programme dependencies from front matter.
+
+        Supports the list format::
+
+            dependencies:
+              - from: Project A
+                task: Milestone 1
+                to_task: Design Start
+                type: FS
+                lag: 0
+
+        Returns a list of dicts with 'from', 'task', 'to_task', 'type', and 'lag' keys.
+        """
+        entries = []
+        lines = self._extract_front_matter_lines()
+        in_deps = False
+        current_entry = None
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped.lower() == 'dependencies:':
+                in_deps = True
+                continue
+            if in_deps:
+                if stripped.startswith('- '):
+                    # New dependency entry
+                    if current_entry is not None:
+                        entries.append(current_entry)
+                    current_entry = {
+                        'from': '',
+                        'task': '',
+                        'to_task': '',
+                        'type': 'FS',
+                        'lag': 0,
+                    }
+                    # Parse inline key if present: "- from: value"
+                    remainder = stripped[2:].strip()
+                    if ':' in remainder:
+                        key, value = remainder.split(':', 1)
+                        key = key.strip().lower()
+                        if key in current_entry:
+                            val = value.strip()
+                            if key == 'lag':
+                                try:
+                                    val = int(val)
+                                except ValueError:
+                                    val = 0
+                            current_entry[key] = val
+                elif stripped and ':' in stripped and current_entry is not None:
+                    # Continuation key: "  task: value"
+                    key, value = stripped.split(':', 1)
+                    key = key.strip().lower()
+                    if key in current_entry:
+                        val = value.strip()
+                        if key == 'lag':
+                            try:
+                                val = int(val)
+                            except ValueError:
+                                val = 0
+                        current_entry[key] = val
+                elif stripped and not stripped.startswith('#') and not stripped.startswith('-'):
+                    # Non-continuation, non-list line means we left the section
+                    # only if it doesn't look like a key: value
+                    if ':' not in stripped:
+                        in_deps = False
+                        if current_entry is not None:
+                            entries.append(current_entry)
+                            current_entry = None
+
+        if current_entry is not None:
+            entries.append(current_entry)
+
+        return entries
+
     def parse_resource_non_working_days(self) -> dict:
         """Parse resource-level non-working days from resource lines.
 

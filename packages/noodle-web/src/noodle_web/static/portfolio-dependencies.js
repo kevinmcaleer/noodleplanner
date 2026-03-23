@@ -69,6 +69,7 @@ function createProgrammeDependency(fromProjectId, fromTaskName, toProjectId, toT
     };
     deps.push(dep);
     saveAllProgrammeDependencies(deps);
+    syncDependenciesToFrontMatter();
     return dep;
 }
 
@@ -84,6 +85,7 @@ function updateProgrammeDependency(id, updates) {
     if (idx === -1) return null;
     deps[idx] = { ...deps[idx], ...updates, updated_at: Date.now() };
     saveAllProgrammeDependencies(deps);
+    syncDependenciesToFrontMatter();
     return deps[idx];
 }
 
@@ -98,7 +100,136 @@ function deleteProgrammeDependency(id) {
     if (filtered.length === deps.length) return false;
     saveAllProgrammeDependencies(filtered);
     delete dependencyPropagationCache[id];
+    syncDependenciesToFrontMatter();
     return true;
+}
+
+// -------------------------------------------------------------------
+// Front matter sync helpers
+// -------------------------------------------------------------------
+
+/**
+ * Generate the dependencies front matter YAML section for a given project.
+ * Only includes dependencies where this project is the *dependent* (to) project.
+ * @param {string} projectId
+ * @param {Array} deps  All programme dependencies
+ * @returns {string} YAML section text (without outer --- delimiters)
+ */
+function generateDependenciesFrontMatterSection(projectId, deps) {
+    const projectDeps = deps.filter(d => d.to_project_id === projectId);
+    if (projectDeps.length === 0) return '';
+
+    const projects = listProjects();
+    const projectNames = {};
+    projects.forEach(p => { projectNames[p.id] = p.name; });
+
+    let section = 'dependencies:\n';
+    projectDeps.forEach(dep => {
+        const fromName = projectNames[dep.from_project_id] || dep.from_project_id;
+        section += '  - from: ' + fromName + '\n';
+        section += '    task: ' + dep.from_task_name + '\n';
+        section += '    to_task: ' + dep.to_task_name + '\n';
+        section += '    type: FS\n';
+        section += '    lag: ' + (dep.lag_days || 0) + '\n';
+    });
+    return section;
+}
+
+/**
+ * Update a project's plan text front matter with the current dependencies.
+ * @param {string} planText  Current plan text
+ * @param {string} projectId
+ * @param {Array} deps  All programme dependencies
+ * @returns {string} Updated plan text
+ */
+function updateFrontMatterDependencies(planText, projectId, deps) {
+    const newSection = generateDependenciesFrontMatterSection(projectId, deps);
+    const frontMatterMatch = planText.match(/^(---\s*\n)([\s\S]*?)(\n---)/);
+
+    if (!frontMatterMatch) {
+        // No front matter exists — create one with dependencies
+        if (!newSection) return planText;
+        return '---\n' + newSection + '---\n' + planText;
+    }
+
+    const prefix = frontMatterMatch[1];
+    const fmContent = frontMatterMatch[2];
+    const suffix = frontMatterMatch[3];
+
+    // Remove existing dependencies section
+    const lines = fmContent.split('\n');
+    const newLines = [];
+    let inDeps = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.toLowerCase() === 'dependencies:') {
+            inDeps = true;
+            continue;
+        }
+        if (inDeps) {
+            // Stay in deps section while we see list items or indented keys
+            if (trimmed.startsWith('- ') || (trimmed && /^\s/.test(line) && trimmed.match(/^\w+:/))) {
+                continue;
+            }
+            if (trimmed === '') {
+                continue;
+            }
+            inDeps = false;
+        }
+        newLines.push(line);
+    }
+
+    // Add updated dependencies section
+    let newFmContent = newLines.join('\n');
+    if (newSection) {
+        if (!newFmContent.endsWith('\n')) newFmContent += '\n';
+        newFmContent += newSection;
+    }
+
+    return prefix + newFmContent + suffix + planText.substring(frontMatterMatch[0].length);
+}
+
+/**
+ * Sync programme dependencies into the front matter of all affected projects.
+ * Updates the plan text stored in localStorage for each project that is
+ * referenced as a dependent (to_project_id) in any dependency.
+ * Also updates the active editor if the current project is affected.
+ */
+function syncDependenciesToFrontMatter() {
+    const deps = getAllProgrammeDependencies();
+    const projects = listProjects();
+    const currentProjectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : null;
+
+    // Collect all project IDs that appear as to_project_id
+    const affectedIds = new Set(deps.map(d => d.to_project_id));
+    // Also include projects that previously had dependencies but now don't
+    projects.forEach(p => {
+        const project = loadProject(p.id);
+        if (project && project.planText && /^---\s*\n[\s\S]*?dependencies:/m.test(project.planText)) {
+            affectedIds.add(p.id);
+        }
+    });
+
+    affectedIds.forEach(projectId => {
+        const project = loadProject(projectId);
+        if (!project || !project.planText) return;
+
+        const updated = updateFrontMatterDependencies(project.planText, projectId, deps);
+        if (updated !== project.planText) {
+            saveProject(projectId, { planText: updated });
+
+            // If this is the currently active project, also update the editor
+            if (projectId === currentProjectId) {
+                const editor = document.getElementById('planEditor');
+                if (editor && typeof setEditorValuePreservingCursor === 'function') {
+                    setEditorValuePreservingCursor(editor, updated);
+                    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+                    if (kanbanEditor) kanbanEditor.value = updated;
+                }
+            }
+        }
+    });
 }
 
 // -------------------------------------------------------------------

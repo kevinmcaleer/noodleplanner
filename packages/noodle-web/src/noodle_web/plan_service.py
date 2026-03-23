@@ -38,6 +38,7 @@ from noodle_core import (
     strip_budget,
     export_to_msproject_xml,
     import_from_msproject_xml,
+    FrontMatterParser,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ class ParseResult:
     highlights: list
     raid_items: list
     baseline_items: list
+    dependencies: list
     error: Optional[str] = None
 
 
@@ -277,6 +279,8 @@ class PlanService:
         highlights = extract_highlights(plan_text)
         raid_items = self._safe_extract_raid(plan_text)
         baseline_items = self._safe_extract_baseline(plan_text)
+        fm_parser = FrontMatterParser(plan_text)
+        dependencies = fm_parser.parse_dependencies()
 
         try:
             resolved_name = self._resolve_project_name(plan_text, project_name)
@@ -315,6 +319,7 @@ class PlanService:
                 highlights=highlights,
                 raid_items=raid_items,
                 baseline_items=baseline_items,
+                dependencies=dependencies,
             )
 
         except (ValueError, KeyError, TypeError) as e:
@@ -330,6 +335,7 @@ class PlanService:
                 highlights=highlights,
                 raid_items=raid_items,
                 baseline_items=baseline_items,
+                dependencies=dependencies,
                 error=str(e),
             )
 

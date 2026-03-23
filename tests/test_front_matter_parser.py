@@ -433,6 +433,68 @@ Phase 1
         assert len(rnwd['jack']) == 4
 
 
+PLAN_WITH_DEPENDENCIES = """\
+---
+title: Project B
+dependencies:
+  - from: Project A
+    task: Milestone 1
+    to_task: Design Start
+    type: FS
+    lag: 0
+  - from: Project C
+    task: Delivery
+    to_task: Integration Start
+    type: FS
+    lag: 5
+---
+Phase 1
+  Design Start 3d
+  Integration Start 5d
+"""
+
+
+class TestParseDependencies:
+    def test_parses_dependencies(self):
+        parser = FrontMatterParser(PLAN_WITH_DEPENDENCIES)
+        deps = parser.parse_dependencies()
+        assert len(deps) == 2
+        assert deps[0]['from'] == 'Project A'
+        assert deps[0]['task'] == 'Milestone 1'
+        assert deps[0]['to_task'] == 'Design Start'
+        assert deps[0]['type'] == 'FS'
+        assert deps[0]['lag'] == 0
+        assert deps[1]['from'] == 'Project C'
+        assert deps[1]['task'] == 'Delivery'
+        assert deps[1]['to_task'] == 'Integration Start'
+        assert deps[1]['lag'] == 5
+
+    def test_returns_empty_list_without_dependencies(self):
+        parser = FrontMatterParser(PLAN_WITH_TITLE_ONLY)
+        assert parser.parse_dependencies() == []
+
+    def test_returns_empty_list_without_front_matter(self):
+        parser = FrontMatterParser(PLAN_WITHOUT_FRONT_MATTER)
+        assert parser.parse_dependencies() == []
+
+    def test_defaults_type_and_lag(self):
+        plan = """\
+---
+title: Defaults Test
+dependencies:
+  - from: Project X
+    task: Task 1
+    to_task: Task 2
+---
+Task 2 3d
+"""
+        parser = FrontMatterParser(plan)
+        deps = parser.parse_dependencies()
+        assert len(deps) == 1
+        assert deps[0]['type'] == 'FS'
+        assert deps[0]['lag'] == 0
+
+
 class TestParserReuse:
     """Verify that a single parser instance can serve all parsing needs."""
 

@@ -1266,6 +1266,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
+            { name: 'statusBarDeps',           fn: () => { if (typeof updateStatusBarDependencies === 'function') updateStatusBarDependencies(result.dependencies); } },
         ];
 
         for (const { name, fn } of viewUpdates) {
