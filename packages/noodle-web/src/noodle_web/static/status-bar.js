@@ -30,6 +30,71 @@ function setStatusMessage(message, duration) {
 }
 
 /**
+ * Check programme dependencies for the current project and show warnings
+ * in the status bar when dependent activities are non-green or when a
+ * dependent project is missing from local storage.
+ *
+ * Called from updateAllViews after the parse result is available.
+ */
+function updateStatusBarDependencies(dependencies) {
+    const el = document.getElementById('statusBarMessage');
+    if (!el) return;
+    if (!dependencies || dependencies.length === 0) return;
+
+    const projects = (typeof listProjects === 'function') ? listProjects() : [];
+    const projectNames = {};
+    projects.forEach(function (p) { projectNames[p.name] = p; });
+
+    // Also build a lookup keyed by lowercase name for case-insensitive match
+    const projectNamesLower = {};
+    projects.forEach(function (p) { projectNamesLower[p.name.toLowerCase()] = p; });
+
+    const warnings = [];
+    const errors = [];
+
+    dependencies.forEach(function (dep) {
+        var fromName = dep['from'] || '';
+        // Try to find the project (case-insensitive)
+        var fromProject = projectNames[fromName] || projectNamesLower[fromName.toLowerCase()];
+
+        if (!fromProject) {
+            errors.push('Dependent project "' + fromName + '" not found in local storage');
+            return;
+        }
+
+        // Check the propagation cache for RAG status
+        if (typeof dependencyPropagationCache !== 'undefined') {
+            var allDeps = (typeof getAllProgrammeDependencies === 'function') ? getAllProgrammeDependencies() : [];
+            // Find the matching stored dependency
+            for (var i = 0; i < allDeps.length; i++) {
+                var d = allDeps[i];
+                if (d.from_project_id === fromProject.id &&
+                    d.from_task_name === dep.task &&
+                    d.to_task_name === dep.to_task) {
+                    var cached = dependencyPropagationCache[d.id];
+                    if (cached && cached.rag && cached.rag !== 'green' && cached.rag !== 'grey') {
+                        warnings.push(
+                            'Dependency "' + dep.task + '" from "' + fromName +
+                            '" is ' + cached.rag.toUpperCase()
+                        );
+                    }
+                    break;
+                }
+            }
+        }
+    });
+
+    if (errors.length > 0) {
+        el.textContent = '\u26a0 ' + errors[0];
+        el.style.color = '#d32f2f';
+    } else if (warnings.length > 0) {
+        el.textContent = '\u26a0 ' + warnings[0] +
+            (warnings.length > 1 ? ' (+' + (warnings.length - 1) + ' more)' : '');
+        el.style.color = '#f57c00';
+    }
+}
+
+/**
  * Update the status bar RAG indicator based on the current project's tasks
  * and front matter. Called after each render / project switch.
  */
