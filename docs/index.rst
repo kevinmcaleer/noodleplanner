@@ -24,6 +24,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/use-the-2-week-lookahead
    how-to/use-the-timeline-view
    how-to/import-from-excel
+   how-to/import-from-ms-project
 
 .. toctree::
    :maxdepth: 2

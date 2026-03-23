@@ -68,10 +68,20 @@ A printable version of the project report.
 
 - Access: **Tools** → **Export → PDF**
 
+Microsoft Project XML (``.xml``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Exports the plan as a Microsoft Project XML file that can be opened in Microsoft Project.
+
+- Access: **Tools** → **Export to MS Project**
+- Filename: ``{project-name}.xml``
+
 Markdown (``.md``)
 ~~~~~~~~~~~~~~~~~~~
 
 Downloads the raw plan text as a markdown file. Use this to save your plan to disk.
+
+- Access: **Ctrl+S** / **Cmd+S**, or click the save icon in the editor toolbar
 
 RAID Log Excel
 ~~~~~~~~~~~~~~~
