@@ -98,11 +98,76 @@ The Portfolio Look-Ahead shows overdue and upcoming tasks across all projects in
 Portfolio Dependencies
 -----------------------
 
-The Portfolio Dependencies view shows cross-project dependencies in a single map.
+The Portfolio Dependencies view shows cross-project dependencies — tasks or milestones in one project that another project depends on. This is essential for programme management where multiple workstreams need to coordinate.
+
+View Dependencies
+~~~~~~~~~~~~~~~~~~
 
 1. Click the **Dependencies** tab in the portfolio header
-2. Each dependency is shown as a link between tasks in different projects
-3. Use this view to identify inter-project risks and coordinate handoffs between teams
+2. Each dependency is shown as a link between a source task in one project and a dependent task in another
+3. Dependencies are displayed on the portfolio timeline as arrows between projects
+
+Add a Dependency
+~~~~~~~~~~~~~~~~~
+
+1. Click **+ Add Dependency** in the Dependencies view
+2. In the dialog, select:
+
+   - **Source Project** — the project that produces the deliverable
+   - **Source Task / Milestone** — the specific task or milestone in the source project
+   - **Dependent Project** — the project that is waiting for the deliverable
+   - **Dependent Task / Milestone** — the task that cannot start until the source completes
+   - **Lag (days)** — optional delay (positive) or overlap (negative) in working days
+   - **Notes** — optional description of the dependency
+
+3. Click **Add Dependency**
+
+Edit or Delete a Dependency
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Click on an existing dependency row to open the edit dialog
+- Modify the fields as needed and click **Save Changes**
+- Click **Delete** to remove a dependency
+
+Front Matter Storage
+~~~~~~~~~~~~~~~~~~~~~
+
+Dependencies are automatically stored in each project's front matter. When you add or edit a dependency, NoodlePlanner updates the ``dependencies`` section of the affected project(s):
+
+.. code-block:: text
+
+   ---
+   title: My Project
+   dependencies:
+     - from: Infrastructure Project
+       task: Server Setup Complete
+       to_task: Backend Integration
+       type: FS
+       lag: 0
+   ---
+
+This means dependencies travel with the plan file when you save and reload it.
+
+.. note::
+
+   The ``from`` field is the source project name, ``task`` is the source task, ``to_task`` is the task in this project that depends on it, ``type`` is the dependency type (FS, SS, FF, SF), and ``lag`` is the offset in days.
+
+Status Bar Warnings
+~~~~~~~~~~~~~~~~~~~~
+
+NoodlePlanner monitors your programme dependencies and shows warnings in the status bar:
+
+- **Red warning** — a dependent project referenced in the front matter is missing from local storage. This means the project has been deleted or not yet imported.
+- **Amber warning** — a dependent activity has a non-green RAG status (Amber or Red), indicating a risk to your project's schedule.
+
+These warnings help you proactively manage cross-project risks during steering meetings and daily standups.
+
+Tips
+~~~~~
+
+- Use milestones (zero-duration tasks) as dependency points — they make cleaner handoff markers than regular tasks
+- Review the Dependencies view before each steering meeting to check for at-risk cross-project links
+- If you rename a task that is used as a dependency, update the dependency to match
 
 Related
 --------
@@ -110,3 +175,4 @@ Related
 - :doc:`use-the-raid-log` — managing risks and actions per project
 - :doc:`use-the-2-week-lookahead` — upcoming tasks across all projects
 - :doc:`export-your-plan` — exporting individual project plans
+- :doc:`../reference/front-matter` — full front matter field reference

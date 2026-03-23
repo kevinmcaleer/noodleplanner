@@ -99,3 +99,36 @@ Format for each entry:
    - @shortname: Full Name, Role
 
 The short name (without ``@``) is used in task lines. The description is displayed in resource views and the resource form.
+
+``dependencies``
+~~~~~~~~~~~~~~~~~
+
+A list of cross-project (programme) dependencies — tasks or milestones in other projects that this project depends on. These are managed automatically via the Portfolio Dependencies view, but can also be edited directly.
+
+.. code-block:: yaml
+
+   dependencies:
+     - from: Infrastructure Project
+       task: Server Setup Complete
+       to_task: Backend Integration
+       type: FS
+       lag: 0
+     - from: Design Project
+       task: Brand Guidelines Approved
+       to_task: UI Development
+       type: SS
+       lag: 2
+
+Fields for each dependency entry:
+
+- ``from`` — the source project name (the project that produces the deliverable)
+- ``task`` — the source task or milestone name in the source project
+- ``to_task`` — the task in this project that depends on the source
+- ``type`` — dependency type: ``FS`` (Finish-Start, default), ``SS`` (Start-Start), ``FF`` (Finish-Finish), ``SF`` (Start-Finish)
+- ``lag`` — offset in working days (positive = wait, negative = overlap, default ``0``)
+
+.. note::
+
+   Dependencies are updated automatically when you use the Portfolio Dependencies view. The status bar shows warnings if a dependent project is missing or if dependent activities have non-green RAG status.
+
+See :doc:`../how-to/use-the-portfolio-view` for details on managing programme dependencies.
