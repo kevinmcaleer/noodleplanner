@@ -333,7 +333,7 @@ function _showDependencyDialog(dep) {
     const html = '<div id="depModalOverlay" class="modal-overlay active" ' +
         'onclick="if(event.target===this)closeDependencyDialog()" ' +
         'role="dialog" aria-modal="true" aria-labelledby="depModalTitle">' +
-        '<div class="modal" style="max-width:540px;width:min(540px,92vw);">' +
+        '<div class="task-form-modal" style="max-width:540px;width:min(540px,92vw);">' +
         '<div class="modal-header">' +
         '<h3 id="depModalTitle" style="margin:0;">' + title + '</h3>' +
         '<button class="close-btn" onclick="closeDependencyDialog()" aria-label="Close">&times;</button>' +
