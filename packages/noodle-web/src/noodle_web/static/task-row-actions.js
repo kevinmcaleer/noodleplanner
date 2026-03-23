@@ -260,11 +260,14 @@ function moveTaskInEditor(fromIndex, toIndex, insertBelow, tableId) {
  * Call this from renderGanttRows() after creating the <tr>.
  */
 function addRowInteractions(row, task, index, tableId) {
-    // Add drag handle into the done/piechart cell
+    // Add drag handle in its own cell before the done/piechart cell
     const doneCell = row.querySelector('.gantt-done-cell');
     if (doneCell) {
+        const handleCell = document.createElement('td');
+        handleCell.className = 'task-drag-cell';
         const handle = createDragHandle();
-        doneCell.insertBefore(handle, doneCell.firstChild);
+        handleCell.appendChild(handle);
+        row.insertBefore(handleCell, doneCell);
     }
 
     // Add hover + buttons

@@ -205,23 +205,17 @@
 }
 
 .gantt-done-col {
-    width: 46px;
-    min-width: 46px;
-    max-width: 46px;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
 }
 
 .gantt-done-cell {
     text-align: center;
-    width: 46px;
-    min-width: 46px;
-    max-width: 46px;
-    padding: 4px 2px !important;
-    white-space: nowrap;
-}
-
-.gantt-done-cell > * {
-    display: inline-block;
-    vertical-align: middle;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    padding: 8px 4px !important;
 }
 
 /* Gantt checkboxes use .round-checkbox class - these are kept for specificity */
@@ -1375,16 +1369,30 @@ input[type="checkbox"] {
     display: block;
 }
 
-/* ── Drag Handle ───────────────────────────────────────────────────── */
+/* ── Drag Handle Cell ──────────────────────────────────────────────── */
+.task-drag-col {
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    padding: 0 !important;
+}
+
+.task-drag-cell {
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    padding: 0 !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
 .task-drag-handle {
     display: inline-block;
     visibility: hidden;
     cursor: grab;
     color: #adb5bd;
-    font-size: 11px;
-    width: 14px;
+    font-size: 12px;
     padding: 0;
-    margin-right: 1px;
     user-select: none;
     vertical-align: middle;
     line-height: 1;
