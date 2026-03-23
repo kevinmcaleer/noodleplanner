@@ -521,6 +521,25 @@ def convert_planner_to_markdown(file_bytes, filename):
                     duration = calc_dur
                     duration_suffix = "d"
 
+            # Validate duration against dates when both are available
+            if duration is not None and duration_suffix == "d" and start_date and end_date:
+                date_calc_dur = calculate_duration_from_dates(start_date, end_date)
+                if date_calc_dur is not None and duration > date_calc_dur * 2 and date_calc_dur > 0:
+                    warnings.append(
+                        f"Row {row_num}: Duration ({duration}d) exceeds "
+                        f"date range ({date_calc_dur}d from {start_date} to "
+                        f"{end_date}), using date-calculated duration"
+                    )
+                    duration = date_calc_dur
+
+            # Cap unreasonable durations (max 200 working days ~= 40 weeks)
+            if duration is not None and duration_suffix == "d" and duration > 200:
+                warnings.append(
+                    f"Row {row_num}: Duration ({duration}d) exceeds "
+                    f"200 day maximum, capped at 200d"
+                )
+                duration = 200
+
             # Parse resources
             resources = ""
             if "resources" in col_index and col_index["resources"] < len(row):
@@ -580,6 +599,9 @@ def convert_planner_to_markdown(file_bytes, filename):
 
         if not tasks:
             raise ValueError("No tasks found in Planner worksheet")
+
+        # Apply intelligent dependency chain
+        _apply_dependency_chain(tasks)
 
         # Build resource map
         resource_map = {}
@@ -654,6 +676,10 @@ def _build_planner_task_metadata(task, resource_map):
     """Build the metadata suffix for a Planner task line."""
     parts = []
 
+    # Dependency chain marker
+    if task.get("use_dep_chain"):
+        parts.append("*")
+
     # Resources
     if task.get("resources"):
         shortnames = _resource_to_shortname(task["resources"], resource_map)
@@ -661,19 +687,22 @@ def _build_planner_task_metadata(task, resource_map):
             parts.append(shortnames)
 
     # Duration with proper suffix (d, w, m)
-    if task.get("duration") and task["duration"] > 0:
-        suffix = task.get("duration_suffix", "d")
-        parts.append(f"{task['duration']}{suffix}")
+    if task.get("duration") is not None and task["duration"] > 0:
+        # Skip emitting duration for 1d chained tasks (1d is the default)
+        if not (task.get("use_dep_chain") and task["duration"] == 1
+                and task.get("duration_suffix", "d") == "d"):
+            suffix = task.get("duration_suffix", "d")
+            parts.append(f"{task['duration']}{suffix}")
 
-    # Start date (only if no duration)
-    if task.get("start_date") and not task.get("duration"):
+    # Start date
+    if task.get("start_date") and task.get("emit_start", True):
         parts.append(f"start:{task['start_date']}")
 
     # Percent complete
     if task.get("percent") is not None and task["percent"] > 0:
         parts.append(f"{task['percent']}%")
 
-    # Dependencies
+    # Dependencies (explicit)
     if task.get("depends"):
         dep_str = ", ".join(task["depends"])
         parts.append(f"[depends {dep_str}]")
@@ -945,6 +974,25 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
             # Calculate duration from dates if not explicit
             if duration is None and start_date and end_date:
                 duration = calculate_duration_from_dates(start_date, end_date)
+
+            # Validate duration against dates when both are available
+            if duration is not None and duration_suffix == "d" and start_date and end_date:
+                date_calc_dur = calculate_duration_from_dates(start_date, end_date)
+                if date_calc_dur is not None and duration > date_calc_dur * 2 and date_calc_dur > 0:
+                    warnings.append(
+                        f"Row {row_num}: Duration ({duration}d) exceeds "
+                        f"date range ({date_calc_dur}d from {start_date} to "
+                        f"{end_date}), using date-calculated duration"
+                    )
+                    duration = date_calc_dur
+
+            # Cap unreasonable durations (max 200 working days ~= 40 weeks)
+            if duration is not None and duration_suffix == "d" and duration > 200:
+                warnings.append(
+                    f"Row {row_num}: Duration ({duration}d) exceeds "
+                    f"200 day maximum, capped at 200d"
+                )
+                duration = 200
 
             # Parse resources
             resources = ""
@@ -1280,6 +1328,11 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
         tasks[i]["level"] = level
         tasks[i]["name"] = cleaned_name
 
+    # Apply intelligent dependency chain:
+    # - First task in each phase gets a start date
+    # - Subsequent 1d tasks with no explicit dependencies use * (dependency chain)
+    _apply_dependency_chain(tasks)
+
     # Build resource name -> shortname map
     resource_map = {}
     for name in all_resources:
@@ -1350,9 +1403,56 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
     }
 
 
+def _apply_dependency_chain(tasks):
+    """Apply intelligent dependency chain to tasks.
+
+    - The first leaf task (level > 0 or flat) in each phase gets a start date
+    - Subsequent 1d tasks with no explicit dependencies use * (dependency chain)
+    - Tasks with explicit dependencies or non-1d durations keep their start date
+    """
+    prev_leaf_task = None
+    current_phase_level = -1
+
+    for task in tasks:
+        level = task.get("level", 0)
+
+        # Phase headers reset the chain
+        if level == 0 and any(t.get("level", 0) > 0 for t in tasks):
+            prev_leaf_task = None
+            current_phase_level = level
+            continue
+
+        is_leaf = True  # leaf task (not a phase header)
+
+        if is_leaf:
+            has_deps = bool(task.get("depends"))
+            duration = task.get("duration")
+            is_1d = (duration == 1 and task.get("duration_suffix", "d") == "d")
+
+            if prev_leaf_task is not None and is_1d and not has_deps:
+                # Subsequent 1d task with no deps: use * dependency chain
+                task["use_dep_chain"] = True
+                # Don't emit start date for chained tasks
+                task["emit_start"] = False
+            elif prev_leaf_task is None:
+                # First leaf task in phase: always emit start date
+                task["emit_start"] = True
+                task["use_dep_chain"] = False
+            else:
+                # Task with deps or non-1d duration: emit start date
+                task["emit_start"] = True
+                task["use_dep_chain"] = False
+
+            prev_leaf_task = task
+
+
 def _build_task_metadata(task, resource_map):
     """Build the metadata suffix for a task line (resources, duration, percent, comment)."""
     parts = []
+
+    # Dependency chain marker
+    if task.get("use_dep_chain"):
+        parts.append("*")
 
     # Resources
     if task.get("resources"):
@@ -1361,12 +1461,15 @@ def _build_task_metadata(task, resource_map):
             parts.append(shortnames)
 
     # Duration
-    if task.get("duration") and task["duration"] > 0:
-        suffix = task.get("duration_suffix", "d")
-        parts.append(f"{task['duration']}{suffix}")
+    if task.get("duration") is not None and task["duration"] > 0:
+        # Skip emitting duration for 1d chained tasks (1d is the default)
+        if not (task.get("use_dep_chain") and task["duration"] == 1
+                and task.get("duration_suffix", "d") == "d"):
+            suffix = task.get("duration_suffix", "d")
+            parts.append(f"{task['duration']}{suffix}")
 
-    # Start date (only if no duration, as a hint)
-    if task.get("start_date") and not task.get("duration"):
+    # Start date
+    if task.get("start_date") and task.get("emit_start", True):
         parts.append(f"start:{task['start_date']}")
 
     # Percent complete
@@ -1384,7 +1487,7 @@ def _build_task_metadata(task, resource_map):
     if task.get("bucket"):
         parts.append(f"{{{task['bucket']}}}")
 
-    # Dependencies
+    # Dependencies (explicit)
     if task.get("depends"):
         dep_str = ", ".join(task["depends"])
         parts.append(f"[depends {dep_str}]")
