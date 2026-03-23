@@ -205,17 +205,18 @@
 }
 
 .gantt-done-col {
-    width: 30px;
-    min-width: 30px;
-    max-width: 30px;
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
 }
 
 .gantt-done-cell {
     text-align: center;
-    width: 30px;
-    min-width: 30px;
-    max-width: 30px;
-    padding: 8px 4px !important;
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    padding: 8px 2px !important;
+    white-space: nowrap;
 }
 
 /* Gantt checkboxes use .round-checkbox class - these are kept for specificity */
@@ -1375,9 +1376,10 @@ input[type="checkbox"] {
     visibility: hidden;
     cursor: grab;
     color: #adb5bd;
-    font-size: 14px;
-    width: 16px;
-    padding: 0 2px;
+    font-size: 11px;
+    width: 14px;
+    padding: 0;
+    margin-right: 1px;
     user-select: none;
     vertical-align: middle;
     line-height: 1;
