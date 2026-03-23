@@ -116,7 +116,12 @@
     width: 400px;
     flex-shrink: 0;
     overflow-x: auto;
-    overflow-y: auto;
+    overflow-y: scroll;
+    scrollbar-width: none; /* Firefox: hide scrollbar but keep scrollable */
+}
+
+.gantt-table-side::-webkit-scrollbar {
+    display: none; /* Chrome/Safari: hide scrollbar but keep scrollable */
 }
 
 .gantt-splitter {

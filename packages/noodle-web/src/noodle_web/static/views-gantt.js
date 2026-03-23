@@ -268,8 +268,9 @@ function renderGanttChart() {
 }
 
 /**
- * Dynamically set the max-height of the gantt table and chart sides
+ * Dynamically set the height of the gantt table and chart sides
  * so they fill the remaining viewport height without causing page scroll.
+ * Uses fixed height (not max-height) to ensure scrollbars always appear.
  */
 function sizeGanttToViewport() {
     const wrapper = document.querySelector('.gantt-wrapper');
@@ -282,11 +283,11 @@ function sizeGanttToViewport() {
     // Calculate remaining viewport height from the wrapper's top position
     const wrapperTop = wrapper.getBoundingClientRect().top;
     const viewportHeight = window.innerHeight;
-    const availableHeight = viewportHeight - wrapperTop - 20; // 20px bottom margin
+    const availableHeight = viewportHeight - wrapperTop - 10; // 10px bottom margin
 
     if (availableHeight > 200) { // Sanity check - don't make it too small
-        tableSide.style.maxHeight = availableHeight + 'px';
-        chartSide.style.maxHeight = availableHeight + 'px';
+        tableSide.style.height = availableHeight + 'px';
+        chartSide.style.height = availableHeight + 'px';
     }
 }
 
