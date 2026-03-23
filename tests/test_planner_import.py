@@ -15,6 +15,7 @@ from noodle_core.excel_importer import (
     analyze_workbook,
     _read_workbook,
     _is_task_header_row,
+    _split_resource_names,
 )
 
 
@@ -809,3 +810,94 @@ class TestGenericConverterWithPlannerData:
         mapping = {"task_name": "Name", "duration": "Duration"}
         result = convert_excel_to_markdown(data, "test.xlsx", "Tasks", mapping)
         assert "[depends" not in result["markdown"]
+
+
+# ---------- TestSplitResourceNames ----------
+
+
+class TestSplitResourceNames:
+    """Tests for _split_resource_names which splits on comma, semicolon, and slash."""
+
+    def test_comma_separated(self):
+        assert _split_resource_names("Alice, Bob") == ["Alice", "Bob"]
+
+    def test_semicolon_separated(self):
+        assert _split_resource_names("Alice; Bob") == ["Alice", "Bob"]
+
+    def test_slash_separated(self):
+        assert _split_resource_names("Jack/Sandeep") == ["Jack", "Sandeep"]
+
+    def test_mixed_delimiters(self):
+        assert _split_resource_names("Alice, Bob/Charlie; Dan") == [
+            "Alice", "Bob", "Charlie", "Dan",
+        ]
+
+    def test_trims_whitespace(self):
+        assert _split_resource_names("  Alice , Bob  / Charlie ") == [
+            "Alice", "Bob", "Charlie",
+        ]
+
+    def test_empty_string(self):
+        assert _split_resource_names("") == []
+
+    def test_none(self):
+        assert _split_resource_names(None) == []
+
+    def test_single_name(self):
+        assert _split_resource_names("Alice") == ["Alice"]
+
+    def test_skips_empty_segments(self):
+        assert _split_resource_names("Alice,,Bob") == ["Alice", "Bob"]
+
+
+# ---------- TestSlashSeparatedResourcesEndToEnd ----------
+
+
+class TestSlashSeparatedResources:
+    """End-to-end tests for slash-separated resources in Planner imports (issue #650)."""
+
+    def test_planner_slash_resources_old_format(self):
+        """Slash-separated resources like 'Jack/Sandeep' should become @Jack and @Sandeep."""
+        task_rows = [
+            [1, "Phase", "5 days", datetime(2025, 1, 6), datetime(2025, 1, 10), "", "", 0.0, 1],
+            [2, "Task A", "3 days", datetime(2025, 1, 6), datetime(2025, 1, 8), "", "Jack/sandeep", 0.0, 2],
+        ]
+        data = _make_planner_xlsx_bytes(task_rows=task_rows)
+        result = convert_planner_to_markdown(data, "test.xlsx")
+        md = result["markdown"].lower()
+        assert "@jack" in md
+        assert "@sandeep" in md
+        # Should NOT have a combined resource
+        assert "jack/sandeep" not in md
+
+    def test_planner_slash_resources_new_format(self):
+        """Slash-separated resources in new Planner format."""
+        task_rows = [
+            [1, "1", "Phase", "Jack/Sandeep", "Phase 1", "", datetime(2025, 3, 1),
+             datetime(2025, 3, 14), "10 days", 0.0, "Medium", "", "", "", "",
+             "", "", False, "", False, "", "", ""],
+            [2, "1.1", "Task A", "Alice/Bob", "Phase 1", "", datetime(2025, 3, 1),
+             datetime(2025, 3, 7), "5 days", 0.0, "High", "", "", "", "",
+             "", "", False, "", False, "", "", ""],
+        ]
+        data = _make_new_planner_xlsx_bytes(task_rows=task_rows)
+        result = convert_planner_to_markdown(data, "test.xlsx")
+        md = result["markdown"].lower()
+        assert "@jack" in md
+        assert "@sandeep" in md
+        assert "@alice" in md
+        assert "@bob" in md
+
+    def test_generic_converter_slash_resources(self):
+        """Slash-separated resources via the generic convert_excel_to_markdown path."""
+        task_rows = [
+            [1, "Phase", "5 days", datetime(2025, 1, 6), datetime(2025, 1, 10), "", "Jack/Sandeep", 0.0, 1],
+            [2, "Task A", "3 days", datetime(2025, 1, 6), datetime(2025, 1, 8), "", "Alice", 0.0, 2],
+        ]
+        data = _make_planner_xlsx_bytes(task_rows=task_rows)
+        mapping = {"task_name": "Task Name", "duration": "Duration",
+                   "resources": "Resource Names"}
+        result = convert_excel_to_markdown(data, "test.xlsx", "Project tasks", mapping)
+        md = result["markdown"].lower()
+        assert "@jack" in md
+        assert "@sandeep" in md

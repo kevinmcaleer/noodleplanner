@@ -546,10 +546,8 @@ def convert_planner_to_markdown(file_bytes, filename):
                 raw_res = row[col_index["resources"]]
                 if raw_res is not None and str(raw_res).strip():
                     resources = str(raw_res).strip()
-                    for r in resources.split(","):
-                        r = r.strip()
-                        if r:
-                            all_resources.add(r)
+                    for r in _split_resource_names(resources):
+                        all_resources.add(r)
 
             # Parse percent complete
             percent = None
@@ -815,6 +813,13 @@ def _build_resource_section(resource_names):
     return "\n".join(lines)
 
 
+def _split_resource_names(raw):
+    """Split a resource string on common delimiters: comma, semicolon, slash."""
+    if not raw or not isinstance(raw, str):
+        return []
+    return [r.strip() for r in re.split(r"[,;/]", raw) if r.strip()]
+
+
 def _make_shortname(full_name):
     """Generate a shortname from a full resource name."""
     # If it already looks like a shortname (single word, lowercase, no spaces)
@@ -835,11 +840,9 @@ def _resource_to_shortname(resource_str, resource_map):
     if not resource_str or not isinstance(resource_str, str):
         return ""
 
-    resources = [r.strip() for r in resource_str.split(",")]
+    resources = _split_resource_names(resource_str)
     shortnames = []
     for r in resources:
-        if not r:
-            continue
         if r in resource_map:
             shortnames.append(f"@{resource_map[r]}")
         else:
@@ -1001,10 +1004,8 @@ def convert_excel_to_markdown(file_bytes, filename, sheet_name, column_mapping):
                 if raw_res is not None and str(raw_res).strip():
                     resources = str(raw_res).strip()
                     # Collect all unique resource names
-                    for r in resources.split(","):
-                        r = r.strip()
-                        if r:
-                            all_resources.add(r)
+                    for r in _split_resource_names(resources):
+                        all_resources.add(r)
 
             # Parse percent complete
             percent = None
