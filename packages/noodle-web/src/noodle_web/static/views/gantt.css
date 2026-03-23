@@ -1371,10 +1371,12 @@ input[type="checkbox"] {
 
 /* ── Drag Handle ───────────────────────────────────────────────────── */
 .task-drag-handle {
-    display: none;
+    display: inline-block;
+    visibility: hidden;
     cursor: grab;
     color: #adb5bd;
     font-size: 14px;
+    width: 16px;
     padding: 0 2px;
     user-select: none;
     vertical-align: middle;
@@ -1391,7 +1393,7 @@ input[type="checkbox"] {
 
 .gantt-info-table tbody tr:hover .task-drag-handle,
 .tasks-table tbody tr:hover .task-drag-handle {
-    display: inline-block;
+    visibility: visible;
 }
 
 /* Drag-in-progress visual feedback */
