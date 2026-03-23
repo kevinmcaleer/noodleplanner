@@ -8,6 +8,12 @@ Open the Kanban Board
 
 After rendering your plan, click **Board** in the project sub-navigation bar.
 
+.. figure:: /_static/img/how-to/kb-01-kanban-phase.png
+   :alt: Kanban board with tasks grouped by project phase
+   :width: 100%
+
+   The Kanban board grouped by phase, showing task cards in columns.
+
 Choose a Grouping Mode
 -----------------------
 

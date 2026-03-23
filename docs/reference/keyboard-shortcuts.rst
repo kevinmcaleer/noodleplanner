@@ -3,6 +3,12 @@ Keyboard Shortcuts Reference
 
 Press ``?`` at any time in NoodlePlanner to open the keyboard shortcuts help modal.
 
+.. figure:: /_static/img/reference/ks-01-keyboard-shortcuts.png
+   :alt: Keyboard shortcuts modal listing all available shortcuts
+   :width: 100%
+
+   The keyboard shortcuts modal, opened by pressing ``?``.
+
 Editor Shortcuts
 -----------------
 

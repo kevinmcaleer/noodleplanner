@@ -8,6 +8,12 @@ Open the Gantt View
 
 After rendering your plan, click **Gantt** in the project sub-navigation bar.
 
+.. figure:: /_static/img/how-to/gv-01-gantt-full.png
+   :alt: Full Gantt chart view showing tasks as horizontal bars on a timeline
+   :width: 100%
+
+   The Gantt chart displays your project schedule with task bars, dependencies, and a today marker.
+
 Navigate the Timeline
 ----------------------
 

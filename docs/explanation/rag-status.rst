@@ -19,6 +19,12 @@ What RAG Status Means
    * - **Red**
      - Off track. Significant issues are affecting the project and intervention is required. Stakeholders should be informed.
 
+.. figure:: /_static/img/explanation/rs-01-rag-dashboard.png
+   :alt: Dashboard showing Amber RAG status badge and project health indicators
+   :width: 100%
+
+   The dashboard with an Amber RAG status, showing how project health is communicated at a glance.
+
 Where RAG Status Appears
 -------------------------
 

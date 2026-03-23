@@ -8,6 +8,12 @@ Define the Front Matter
 
 Every plan begins with an optional front matter block enclosed in ``---`` lines. This sets project-level metadata:
 
+.. figure:: /_static/img/how-to/cp-01-editor-frontmatter.png
+   :alt: Editor showing the front matter section of a plan
+   :width: 100%
+
+   The editor with front matter defining project metadata at the top of the plan.
+
 .. code-block:: text
 
    ---

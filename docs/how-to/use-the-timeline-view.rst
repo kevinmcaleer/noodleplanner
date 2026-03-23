@@ -8,6 +8,12 @@ Open the Timeline View
 
 Click **Timeline** in the project sub-navigation bar.
 
+.. figure:: /_static/img/how-to/tl-01-timeline.png
+   :alt: Timeline view showing milestones on a horizontal line
+   :width: 100%
+
+   The timeline view displays milestones and key dates on a horizontal axis.
+
 Reading the Timeline
 ---------------------
 

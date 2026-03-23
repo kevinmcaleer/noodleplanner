@@ -53,6 +53,12 @@ View the Resource Table
 
 The resource table shows all tasks grouped by resource, with start date, finish date, duration, and percentage complete.
 
+.. figure:: /_static/img/how-to/mr-01-resource-table.png
+   :alt: Resource table showing tasks grouped by team member
+   :width: 100%
+
+   The resource table view with tasks grouped by assigned resource.
+
 View Resource Workload
 -----------------------
 

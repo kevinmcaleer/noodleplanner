@@ -20,6 +20,12 @@ Prerequisites
 Step 1: Open the Editor
 ------------------------
 
+.. figure:: /_static/img/tutorials/gs-01-welcome-screen.png
+   :alt: NoodlePlanner welcome screen showing the empty editor
+   :width: 100%
+
+   The welcome screen when you first open NoodlePlanner.
+
 When you first open NoodlePlanner you will see the **Project** view with the plan editor on the left. The editor is a plain-text area where you type your project plan.
 
 The main navigation across the top gives you access to:
@@ -51,6 +57,12 @@ Click inside the editor and type the following plan:
      Testing @bob 3d [depends Build MVP]
      Go Live 0d [depends Testing]
 
+.. figure:: /_static/img/tutorials/gs-02-editor-with-plan.png
+   :alt: Editor panel with a sample project plan entered
+   :width: 100%
+
+   The editor with a sample plan ready to render.
+
 What this plan defines:
 
 - A **front matter** block (between ``---`` lines) with the project title and manager
@@ -66,6 +78,12 @@ Step 3: Render Your Plan
 Press **Ctrl+Enter** (Windows/Linux) or **Cmd+Enter** (Mac) to render the plan, or click the **Render** button.
 
 NoodlePlanner will parse your text and calculate all start and finish dates automatically based on dependencies and working days.
+
+.. figure:: /_static/img/tutorials/gs-03-rendered-dashboard.png
+   :alt: Dashboard view showing the rendered project plan
+   :width: 100%
+
+   The dashboard after rendering your plan.
 
 .. note::
 
