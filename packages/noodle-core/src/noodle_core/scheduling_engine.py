@@ -336,6 +336,12 @@ def extract_metadata(task_str, task_name=None):
     if resources:
         meta['resources'] = ', '.join([r.lstrip('@') for r in resources])
 
+    # Extract deliverable/product marker using $ prefix (e.g. $fuselage, $avionics)
+    deliverable_pattern = r'\$([A-Za-z_][A-Za-z0-9_-]*)'
+    deliverable_match = re.search(deliverable_pattern, task_str)
+    if deliverable_match:
+        meta['deliverable'] = deliverable_match.group(1)
+
     # Extract labels/tags using # prefix (e.g. #urgent, #DEV)
     label_pattern = r'#([^@%#!\s]+)'
     label_matches = re.findall(label_pattern, task_str)
@@ -520,7 +526,7 @@ def extract_metadata(task_str, task_name=None):
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)(\$[A-Za-z]|@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
     if desc_match:
         desc = desc_match.group(1).strip()
         # Safety: strip any percent tokens that slipped into the description
@@ -767,12 +773,16 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                             f"{MAX_TASK_NAME_LENGTH} characters. "
                             f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
                         )
-                    # Extract resources from summary text if present
+                    # Extract resources and other metadata from summary text if present
                     summary_resources = ''
+                    summary_deliverable = ''
+                    summary_depends = []
                     summary_text = value.get('_summary_text', '')
                     if summary_text:
                         summary_meta_data = extract_metadata(summary_text, key)
                         summary_resources = summary_meta_data.get('resources', '')
+                        summary_deliverable = summary_meta_data.get('deliverable', '')
+                        summary_depends = summary_meta_data.get('depends', [])
                     summary_meta = {
                         'name': key,
                         'description': key,
@@ -784,6 +794,10 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                         'percent': 0,
                         'comment': ''
                     }
+                    if summary_deliverable:
+                        summary_meta['deliverable'] = summary_deliverable
+                    if summary_depends:
+                        summary_meta['depends'] = summary_depends
                     if len(all_tasks) >= MAX_TASK_COUNT:
                         raise ValueError(
                             f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
@@ -801,6 +815,28 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         traverse_nested_dict(phases)
     else:
         traverse_nested_dict(phases)
+
+    # Build deliverable lookup: $name → task name, for resolving $product dependencies
+    deliverable_lookup = {}
+    for t in all_tasks:
+        if 'deliverable' in t and 'name' in t:
+            deliverable_lookup[t['deliverable'].lower()] = t['name']
+
+    # Resolve $product references in dependencies to actual task names
+    for t in all_tasks:
+        if 'depends' in t and t['depends']:
+            resolved = []
+            for dep in t['depends']:
+                if dep.startswith('$'):
+                    product_name = dep[1:].lower()
+                    if product_name in deliverable_lookup:
+                        resolved.append(deliverable_lookup[product_name])
+                    else:
+                        logger.warning("Product dependency '%s' not found for task '%s'", dep, t.get('name'))
+                        resolved.append(dep)
+                else:
+                    resolved.append(dep)
+            t['depends'] = resolved
 
     # Schedule leaf tasks (non-summary tasks)
     # Use lowercase keys for case-insensitive task name lookup

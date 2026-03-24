@@ -229,6 +229,53 @@ class TestExtractMetadata:
         assert 'depends' in result
         assert 'Task 1' in result['depends']
 
+    def test_extract_deliverable_marker(self):
+        """Test that $ tokens are extracted as deliverable markers."""
+        task = "Fuselage $fuselage @alice 5d"
+        result = extract_metadata(task, "Fuselage")
+        assert result['deliverable'] == 'fuselage'
+        assert result['description'] == 'Fuselage'
+
+    def test_deliverable_with_labels_and_dependencies(self):
+        """Test that deliverable markers coexist with labels and dependencies."""
+        task = "Avionics $avionics #critical [depends $fuselage] @dave 10d"
+        result = extract_metadata(task, "Avionics")
+        assert result['deliverable'] == 'avionics'
+        assert 'critical' in result['labels']
+        assert '$fuselage' in result['depends']
+
+    def test_deliverable_not_in_description(self):
+        """Test that $marker does not leak into the task description."""
+        task = "Wing Assembly $wing 12d"
+        result = extract_metadata(task, "Wing Assembly")
+        assert result['description'] == 'Wing Assembly'
+        assert '$' not in result['description']
+
+    def test_deliverable_dependency_resolution(self):
+        """Test that $product dependencies resolve to task names via schedule_tasks."""
+        plan = {
+            'Programme': {
+                '_level': 0,
+                '_is_summary': True,
+                'Fuselage': {
+                    '_level': 1,
+                    '_is_summary': True,
+                    '_summary_text': 'Fuselage $fuselage',
+                    'Build fuselage': {'_text': 'Build fuselage 5d', '_level': 2},
+                },
+                'Avionics': {
+                    '_level': 1,
+                    '_is_summary': True,
+                    '_summary_text': 'Avionics $avionics [depends $fuselage]',
+                    'Build avionics': {'_text': 'Build avionics 3d', '_level': 2},
+                },
+            }
+        }
+        tasks = schedule_tasks(plan)
+        avionics = next(t for t in tasks if t['name'] == 'Avionics')
+        assert 'depends' in avionics
+        assert 'Fuselage' in avionics['depends']
+
     def test_extract_sequential_marker(self):
         """Test extracting sequential task marker."""
         task = "* Task 1 @john 3d"
