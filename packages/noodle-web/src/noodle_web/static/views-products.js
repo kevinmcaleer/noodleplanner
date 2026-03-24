@@ -1852,8 +1852,13 @@ function openProductForm(task) {
 }
 
 function closeProductForm() {
+    if (productFormSaveTimer) {
+        clearTimeout(productFormSaveTimer);
+        productFormSaveTimer = null;
+    }
     if (typeof closeDetailPane === 'function') closeDetailPane();
     currentProductTask = null;
+    currentProductLineNumber = null;
 }
 
 function saveProductForm() {
@@ -1863,17 +1868,21 @@ function saveProductForm() {
     if (!editor) return;
 
     const lines = editor.value.split('\n');
+
+    // Always re-find the line by $deliverable to ensure we write to the correct one
+    if (currentProductTask.deliverable) {
+        const foundLine = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
+        if (foundLine !== null) {
+            currentProductLineNumber = foundLine;
+        }
+    }
+
     const originalLine = lines[currentProductLineNumber];
     if (originalLine === undefined) return;
 
-    // Safety: verify this line contains the expected $deliverable token
-    // to prevent writing to the wrong line after re-renders shift line numbers
+    // Final safety: verify this line contains the expected $deliverable token
     if (currentProductTask.deliverable && !originalLine.includes('$' + currentProductTask.deliverable)) {
-        // Line number is stale — try to re-find it
-        currentProductLineNumber = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
-        if (currentProductLineNumber === null) return;
-        const refreshedLine = lines[currentProductLineNumber];
-        if (!refreshedLine || !refreshedLine.includes('$' + currentProductTask.deliverable)) return;
+        return; // Can't find the right line — don't write anywhere
     }
 
     const newTitle = (document.getElementById('productTitle').value || '').trim();
