@@ -510,12 +510,12 @@ Press Enter to render..."></textarea>
                                         <h3>Milestones</h3>
                                         <div class="milestones-table-wrapper" style="position: relative;">
                                             <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-                                            <table class="milestones-table quad-table" aria-label="Milestones">
+                                            <table class="milestones-table quad-table" id="reportMilestonesTable" aria-label="Milestones">
                                                 <thead>
                                                     <tr>
-                                                        <th>Milestone</th>
-                                                        <th>Date</th>
-                                                        <th>RAG</th>
+                                                        <th class="col-name">Milestone</th>
+                                                        <th class="col-date">Date</th>
+                                                        <th class="col-rag">RAG</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="reportMilestonesTableBody">
@@ -534,10 +534,10 @@ Press Enter to render..."></textarea>
                                             <table class="milestones-table quad-table" id="reportUpNextTable" aria-label="Up next tasks">
                                                 <thead>
                                                     <tr>
-                                                        <th>Task</th>
-                                                        <th>Start</th>
-                                                        <th>Finish</th>
-                                                        <th>RAG</th>
+                                                        <th class="col-name">Task</th>
+                                                        <th class="col-date">Start</th>
+                                                        <th class="col-date">Finish</th>
+                                                        <th class="col-rag">RAG</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="reportUpNextTableBody">
