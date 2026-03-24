@@ -883,8 +883,8 @@ let pfDragStartPanY = 0;
 
 const PF_NODE_W = 180;
 const PF_NODE_H = 44;
-const PF_H_GAP = 120;
-const PF_V_GAP = 30;
+const PF_H_GAP = 60;
+const PF_V_GAP = 15;
 
 function updateProductFlow(tasks, projectName) {
     const allTasks = tasks || [];
