@@ -3055,6 +3055,10 @@ function onDurationChange() {
 }
 
 function updateTaskNameFromTitle() {
+    // Don't update if the task form is not active
+    const taskSection = document.getElementById('taskFormSection');
+    if (taskSection && !taskSection.classList.contains('active')) return;
+
     const title = document.getElementById('taskFormTitle').innerText.trim();
     document.getElementById('taskName').value = title;
     saveTask();
@@ -3439,6 +3443,11 @@ function collectDependenciesFromTable() {
 
 function saveTask() {
     if (currentTaskLineNumber === null) return;
+
+    // Don't save if the task form is not the active section
+    // (prevents stale saves when switching to the product form)
+    const taskSection = document.getElementById('taskFormSection');
+    if (taskSection && !taskSection.classList.contains('active')) return;
 
     const editor = document.getElementById('planEditor');
     const lines = editor.value.split('\n');
