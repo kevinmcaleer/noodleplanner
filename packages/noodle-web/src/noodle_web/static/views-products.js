@@ -1161,28 +1161,51 @@ function copySvgAsImage(containerId, btn) {
     if (btn) btn.innerHTML = '...';
 
     try {
-        // Clone the SVG and set explicit dimensions
-        const clone = svg.cloneNode(true);
-        const bounds = svg.getBBox ? svg.getBBox() : null;
-        const g = clone.querySelector('g');
+        // Get bounding box from the LIVE g element (not the clone)
+        const liveG = svg.querySelector('g');
+        let gBounds = null;
+        if (liveG) {
+            try { gBounds = liveG.getBBox(); } catch (e) { /* getBBox can fail */ }
+        }
 
-        // Get the current transform to calculate visible area
+        // Clone the SVG
+        const clone = svg.cloneNode(true);
+        const cloneG = clone.querySelector('g');
+
+        // Set viewBox to frame the content, remove pan/zoom transform
+        const padding = 40;
         let viewBox;
-        if (bounds && g) {
-            // Use the group's bounding box for the viewBox
-            const padding = 40;
-            const gBounds = g.getBBox();
+        if (gBounds && gBounds.width > 0 && cloneG) {
             viewBox = `${gBounds.x - padding} ${gBounds.y - padding} ${gBounds.width + padding * 2} ${gBounds.height + padding * 2}`;
-            // Remove the pan/zoom transform so the viewBox controls framing
-            g.removeAttribute('transform');
+            cloneG.removeAttribute('transform');
         } else {
             viewBox = `0 0 ${container.clientWidth} ${container.clientHeight}`;
         }
 
+        // Size the output to match the aspect ratio
+        const parts = viewBox.split(' ').map(Number);
+        const vbW = parts[2] || 2400;
+        const vbH = parts[3] || 1600;
+        const maxDim = 2400;
+        const aspect = vbW / vbH;
+        const outW = aspect >= 1 ? maxDim : Math.round(maxDim * aspect);
+        const outH = aspect >= 1 ? Math.round(maxDim / aspect) : maxDim;
+
         clone.setAttribute('viewBox', viewBox);
-        clone.setAttribute('width', '2400');
-        clone.setAttribute('height', '1600');
-        clone.style.background = getComputedStyle(document.documentElement).getPropertyValue('--surface-primary') || '#1a1a2e';
+        clone.setAttribute('width', String(outW));
+        clone.setAttribute('height', String(outH));
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        // Add explicit background rect (SVG background style doesn't render in img)
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const bgColor = isDark ? '#1a1a2e' : '#ffffff';
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('x', String(parts[0]));
+        bgRect.setAttribute('y', String(parts[1]));
+        bgRect.setAttribute('width', String(vbW));
+        bgRect.setAttribute('height', String(vbH));
+        bgRect.setAttribute('fill', bgColor);
+        clone.insertBefore(bgRect, clone.firstChild);
 
         // Serialize to data URL
         const svgData = new XMLSerializer().serializeToString(clone);
@@ -1194,14 +1217,11 @@ function copySvgAsImage(containerId, btn) {
         img.onload = async () => {
             const scale = 2;
             const canvas = document.createElement('canvas');
-            canvas.width = 2400 * scale;
-            canvas.height = 1600 * scale;
+            canvas.width = outW * scale;
+            canvas.height = outH * scale;
             const ctx = canvas.getContext('2d');
 
-            // Fill background
-            const bgColor = getComputedStyle(container).backgroundColor || '#1a1a2e';
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Background already in SVG as a rect, just draw
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             URL.revokeObjectURL(url);
 
