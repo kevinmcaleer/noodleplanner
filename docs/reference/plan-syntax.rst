@@ -27,7 +27,7 @@ A task line takes the form:
 
 .. code-block:: text
 
-   [*] Task Name [@resource...] [duration] [progress] [date] ["comment"] [depends...]
+   [*] Task Name [$product] [@resource...] [duration] [progress] [date] ["comment"] [depends...]
 
 All fields except the task name are optional and can appear in any order.
 
@@ -123,6 +123,26 @@ Use ``!"note"`` for a comment that is prominently flagged:
 .. code-block:: text
 
    Task A @alice 3d !"High priority deliverable"
+
+Deliverables (Products)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Mark a task as a deliverable or product with the ``$`` prefix:
+
+.. code-block:: text
+
+   Fuselage $fuselage @team-a 4w
+   Avionics $avionics @team-b 3w
+
+The ``$name`` token assigns a product identifier to the task. This enables product-based planning views such as the Product Breakdown Structure, Deliverables Matrix, and Product Flow.
+
+Product-level dependencies are created by referencing a ``$name`` in a ``[depends ...]`` block:
+
+.. code-block:: text
+
+   Avionics $avionics [depends $fuselage]
+
+This means the Avionics task cannot start until the Fuselage deliverable is complete.
 
 Dependencies
 ~~~~~~~~~~~~~
