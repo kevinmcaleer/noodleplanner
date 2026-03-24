@@ -163,6 +163,29 @@
     overflow: hidden;
 }
 
+/* Up Next Table Column Widths */
+#reportUpNextTable {
+    table-layout: fixed;
+    width: 100%;
+}
+
+#reportUpNextTable .up-next-col-task {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#reportUpNextTable .up-next-col-start,
+#reportUpNextTable .up-next-col-finish {
+    width: 7.5em;
+    white-space: nowrap;
+}
+
+#reportUpNextTable .up-next-col-rag {
+    width: 10em;
+    white-space: nowrap;
+}
+
 .up-next-row-clickable {
     cursor: pointer;
     transition: background-color 0.15s ease;

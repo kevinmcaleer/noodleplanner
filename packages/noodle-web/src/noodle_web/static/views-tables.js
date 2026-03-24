@@ -788,7 +788,8 @@ function updateReportUpNext(tasks) {
             });
 
             const nameCell = document.createElement('td');
-            nameCell.classList.add('task-name');
+            nameCell.classList.add('task-name', 'up-next-col-task');
+            nameCell.title = task.name;
             const nameText = document.createTextNode(task.name);
             nameCell.appendChild(nameText);
             if (task.recurrence) {
@@ -801,14 +802,17 @@ function updateReportUpNext(tasks) {
             row.appendChild(nameCell);
 
             const startCell = document.createElement('td');
+            startCell.classList.add('up-next-col-start');
             startCell.textContent = displayStart || task.start || '-';
             row.appendChild(startCell);
 
             const finishCell = document.createElement('td');
+            finishCell.classList.add('up-next-col-finish');
             finishCell.textContent = displayFinish || task.finish || '-';
             row.appendChild(finishCell);
 
             const statusCell = document.createElement('td');
+            statusCell.classList.add('up-next-col-rag');
             const statusBadge = document.createElement('span');
             statusBadge.className = 'up-next-status ' + statusClass;
             statusBadge.textContent = status;
