@@ -885,6 +885,10 @@ let pfCollapsedGroups = new Set(); // collapsed top-level summary IDs
 let pfLastPositions = null;
 let pfLastAllTasks = null;
 let pfLastSummaries = null;
+let pfDragConnection = null;     // { sourceKey, startX, startY } during drag-connect
+let pfDragLine = null;           // SVG path element for live bezier preview
+let pfSelectedArrow = null;      // { sourceKey, targetKey } of selected dependency arrow
+let pfPositionsCache = null;     // cached positions for connector lookups
 
 const PF_NODE_W = 180;
 const PF_NODE_H = 44;
@@ -1169,8 +1173,31 @@ function initProductFlow() {
         pfApplyTransform();
     }, { passive: false });
 
+    // Click on empty space deselects arrows
+    container.addEventListener('click', (e) => {
+        if (!e.target.closest('.pf-node') && !e.target.closest('.pf-arrow') && pfSelectedArrow) {
+            pfGroup.querySelectorAll('.pf-arrow.selected').forEach(el => {
+                el.classList.remove('selected');
+                el.setAttribute('stroke', '#E8833A');
+                el.setAttribute('stroke-width', '2');
+            });
+            pfSelectedArrow = null;
+        }
+    });
+
+    // Delete key removes selected arrow
+    container.setAttribute('tabindex', '0');
+    container.style.outline = 'none';
+    container.addEventListener('keydown', (e) => {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && pfSelectedArrow) {
+            e.preventDefault();
+            pfDeleteSelectedArrow();
+        }
+    });
+
     container.addEventListener('mousedown', (e) => {
         if (e.target.closest('.pf-node')) return;
+        if (e.target.closest('.pf-connector-out')) return;
         pfIsDragging = true;
         pfDragStartX = e.clientX;
         pfDragStartY = e.clientY;
@@ -1271,7 +1298,8 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         }
     }
 
-    // Draw dependency arrows
+    // Draw dependency arrows (clickable for deletion)
+    pfSelectedArrow = null;
     for (const [key, pos] of Object.entries(positions)) {
         for (const dep of pos.deps) {
             const src = positions[dep];
@@ -1281,11 +1309,30 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             const x2 = pos.x;
             const y2 = pos.y + PF_NODE_H / 2;
             const midX = (x1 + x2) / 2;
-            pfGroup.appendChild(pbsCreateSVGElement('path', {
-                'd': `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`,
-                'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
-                'marker-end': 'url(#pf-arrowhead)'
-            }));
+            const d = `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+
+            // Visible arrow
+            const arrow = pbsCreateSVGElement('path', {
+                'd': d, 'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
+                'marker-end': 'url(#pf-arrowhead)', 'class': 'pf-arrow',
+                'data-source': dep, 'data-target': key
+            });
+
+            // Wider invisible hit area for clicking
+            const hitArea = pbsCreateSVGElement('path', {
+                'd': d, 'fill': 'none', 'stroke': 'transparent', 'stroke-width': '12',
+                'style': 'cursor: pointer;'
+            });
+
+            const sourceKey = dep;
+            const targetKey = key;
+            hitArea.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pfSelectArrow(sourceKey, targetKey, arrow);
+            });
+
+            pfGroup.appendChild(arrow);
+            pfGroup.appendChild(hitArea);
         }
     }
 
@@ -1298,6 +1345,14 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const isCollapsedNode = !!pos.isCollapsed;
 
         const g = pbsCreateSVGElement('g', { 'class': 'pf-node', 'style': 'cursor: pointer;' });
+
+        // Invisible hit area for hover (extends to cover connectors)
+        const connPad = 20;
+        g.appendChild(pbsCreateSVGElement('rect', {
+            'x': pos.x - connPad, 'y': pos.y - 4,
+            'width': PF_NODE_W + connPad * 2, 'height': PF_NODE_H + 8,
+            'fill': 'transparent', 'stroke': 'none'
+        }));
 
         if (isCollapsedNode) {
             // Collapsed group placeholder
@@ -1371,8 +1426,260 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             g.appendChild(title);
         }
 
+        // Connection connectors (left = input, right = output)
+        const connR = 8;
+        const connectors = pbsCreateSVGElement('g', { 'class': 'pf-connectors' });
+
+        // Right connector (output — drag FROM here)
+        const rightCx = pos.x + PF_NODE_W + connR + 2;
+        const rightCy = pos.y + PF_NODE_H / 2;
+        const rightConn = pbsCreateSVGElement('g', { 'class': 'pf-connector-out', 'style': 'cursor: crosshair;' });
+        rightConn.appendChild(pbsCreateSVGElement('circle', {
+            'cx': rightCx, 'cy': rightCy, 'r': connR,
+            'fill': '#4A90D9', 'stroke': '#fff', 'stroke-width': '1.5'
+        }));
+        rightConn.appendChild(pbsCreateSVGElement('line', {
+            'x1': rightCx - 3, 'y1': rightCy, 'x2': rightCx + 3, 'y2': rightCy,
+            'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+        }));
+        rightConn.appendChild(pbsCreateSVGElement('line', {
+            'x1': rightCx, 'y1': rightCy - 3, 'x2': rightCx, 'y2': rightCy + 3,
+            'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+        }));
+        const srcKey = key;
+        rightConn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            pfStartDragConnect(srcKey, rightCx, rightCy, e);
+        });
+        connectors.appendChild(rightConn);
+
+        // Left connector (input — drop TO here)
+        const leftCx = pos.x - connR - 2;
+        const leftCy = pos.y + PF_NODE_H / 2;
+        const leftConn = pbsCreateSVGElement('g', { 'class': 'pf-connector-in', 'style': 'cursor: crosshair;', 'data-key': key });
+        leftConn.appendChild(pbsCreateSVGElement('circle', {
+            'cx': leftCx, 'cy': leftCy, 'r': connR,
+            'fill': '#5CB85C', 'stroke': '#fff', 'stroke-width': '1.5'
+        }));
+        leftConn.appendChild(pbsCreateSVGElement('line', {
+            'x1': leftCx - 3, 'y1': leftCy, 'x2': leftCx + 3, 'y2': leftCy,
+            'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+        }));
+        leftConn.appendChild(pbsCreateSVGElement('line', {
+            'x1': leftCx, 'y1': leftCy - 3, 'x2': leftCx, 'y2': leftCy + 3,
+            'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+        }));
+        connectors.appendChild(leftConn);
+
+        g.appendChild(connectors);
         pfGroup.appendChild(g);
     }
+
+    // Cache positions for drag-connect lookups
+    pfPositionsCache = positions;
+}
+
+// ── Product Flow: Drag-to-connect ─────────────────────────────────────
+
+function pfStartDragConnect(sourceKey, startX, startY, e) {
+    pfDragConnection = { sourceKey, startX, startY };
+
+    // Create preview bezier line
+    pfDragLine = pbsCreateSVGElement('path', {
+        'd': `M${startX},${startY} L${startX},${startY}`,
+        'fill': 'none', 'stroke': '#4A90D9', 'stroke-width': '2',
+        'stroke-dasharray': '6,3', 'pointer-events': 'none'
+    });
+    pfGroup.appendChild(pfDragLine);
+
+    const container = document.getElementById('productFlowContainer');
+
+    const onMove = (e) => {
+        if (!pfDragConnection || !pfDragLine) return;
+        // Convert mouse position to SVG coordinates
+        const rect = container.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left - pfPanX) / pfZoom;
+        const mouseY = (e.clientY - rect.top - pfPanY) / pfZoom;
+        const midX = (startX + mouseX) / 2;
+        pfDragLine.setAttribute('d',
+            `M${startX},${startY} C${midX},${startY} ${midX},${mouseY} ${mouseX},${mouseY}`
+        );
+
+        // Highlight nearest input connector
+        pfGroup.querySelectorAll('.pf-connector-in circle').forEach(c => {
+            c.setAttribute('r', '8');
+        });
+        const nearest = pfFindNearestInput(mouseX, mouseY);
+        if (nearest && nearest.key !== pfDragConnection.sourceKey) {
+            const inConn = pfGroup.querySelector(`.pf-connector-in[data-key="${nearest.key}"] circle`);
+            if (inConn) inConn.setAttribute('r', '12');
+        }
+    };
+
+    const onUp = (e) => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+
+        if (pfDragLine) { pfDragLine.remove(); pfDragLine = null; }
+
+        if (!pfDragConnection) return;
+
+        // Find target at drop position
+        const rect = container.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left - pfPanX) / pfZoom;
+        const mouseY = (e.clientY - rect.top - pfPanY) / pfZoom;
+        const target = pfFindNearestInput(mouseX, mouseY);
+
+        if (target && target.key !== pfDragConnection.sourceKey && target.dist < 30) {
+            pfCreateDependency(pfDragConnection.sourceKey, target.key);
+        }
+
+        // Reset connector sizes
+        pfGroup.querySelectorAll('.pf-connector-in circle').forEach(c => {
+            c.setAttribute('r', '8');
+        });
+
+        pfDragConnection = null;
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function pfFindNearestInput(x, y) {
+    if (!pfPositionsCache) return null;
+    let nearest = null;
+    let minDist = Infinity;
+    for (const [key, pos] of Object.entries(pfPositionsCache)) {
+        const cx = pos.x - 10;
+        const cy = pos.y + PF_NODE_H / 2;
+        const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = { key, dist };
+        }
+    }
+    return nearest;
+}
+
+function pfCreateDependency(sourceKey, targetKey) {
+    // sourceKey = the product being depended ON (output)
+    // targetKey = the product that DEPENDS on source (input)
+    // We need to add [depends $sourceId] to target's editor line
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Resolve the source's $deliverable ID
+    const sourcePos = pfPositionsCache[sourceKey];
+    const targetPos = pfPositionsCache[targetKey];
+    if (!sourcePos || !targetPos) return;
+
+    // Get the actual deliverable ID (handle collapsed group placeholders)
+    const sourceId = sourceKey.startsWith('_collapsed_') ? sourceKey.replace('_collapsed_', '') : sourceKey;
+    const targetTask = targetPos.task;
+    const targetId = targetKey.startsWith('_collapsed_') ? targetKey.replace('_collapsed_', '') : targetKey;
+
+    // Find the target task's line in the editor
+    const lineNum = productFindLineNumber(targetTask.name, targetId);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNum];
+    if (!line) return;
+
+    // Check if already has this dependency
+    if (line.includes(`$${sourceId}`)) return;
+
+    // Add or update [depends ...] block
+    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    let newLine;
+    if (dependsMatch) {
+        // Append to existing [depends ...] block
+        const existingDeps = dependsMatch[1].trim();
+        const newDeps = existingDeps ? `${existingDeps}, $${sourceId}` : `$${sourceId}`;
+        newLine = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${newDeps}]`);
+    } else {
+        // Add new [depends $sourceId] before any trailing comment
+        const commentMatch = line.match(/(\s+"[^"]*"\s*)$/);
+        if (commentMatch) {
+            newLine = line.slice(0, -commentMatch[0].length) + ` [depends $${sourceId}]` + commentMatch[0];
+        } else {
+            newLine = line + ` [depends $${sourceId}]`;
+        }
+    }
+
+    lines[lineNum] = newLine;
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => renderText(), 10);
+}
+
+// ── Product Flow: Arrow selection & deletion ──────────────────────────
+
+function pfSelectArrow(sourceKey, targetKey, arrowEl) {
+    // Deselect previous
+    pfGroup.querySelectorAll('.pf-arrow.selected').forEach(el => {
+        el.classList.remove('selected');
+        el.setAttribute('stroke', '#E8833A');
+        el.setAttribute('stroke-width', '2');
+    });
+
+    pfSelectedArrow = { sourceKey, targetKey };
+    arrowEl.classList.add('selected');
+    arrowEl.setAttribute('stroke', '#ff4444');
+    arrowEl.setAttribute('stroke-width', '3');
+
+    // Focus the container so it receives keyboard events
+    const container = document.getElementById('productFlowContainer');
+    if (container) container.focus();
+}
+
+function pfDeleteSelectedArrow() {
+    if (!pfSelectedArrow) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const { sourceKey, targetKey } = pfSelectedArrow;
+    const sourceId = sourceKey.startsWith('_collapsed_') ? sourceKey.replace('_collapsed_', '') : sourceKey;
+    const targetPos = pfPositionsCache ? pfPositionsCache[targetKey] : null;
+    if (!targetPos) return;
+
+    const targetId = targetKey.startsWith('_collapsed_') ? targetKey.replace('_collapsed_', '') : targetKey;
+    const lineNum = productFindLineNumber(targetPos.task.name, targetId);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNum];
+    if (!line) return;
+
+    // Remove $sourceId from [depends ...] block
+    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    if (!dependsMatch) return;
+
+    const deps = dependsMatch[1].split(',').map(d => d.trim()).filter(d => {
+        // Remove the dependency that matches $sourceId (with optional type/lag suffixes)
+        const stripped = d.replace(/:[A-Z]{2}$/i, '').replace(/\s+[+\-]\d+[dwmy]$/i, '').trim();
+        return stripped !== `$${sourceId}`;
+    });
+
+    let newLine;
+    if (deps.length === 0) {
+        // Remove entire [depends ...] block
+        newLine = line.replace(/\s*\[depends\s+[^\]]*\]/i, '');
+    } else {
+        newLine = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${deps.join(', ')}]`);
+    }
+
+    lines[lineNum] = newLine;
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    pfSelectedArrow = null;
+    setTimeout(() => renderText(), 10);
 }
 
 function pfToggleGroup(groupId) {
