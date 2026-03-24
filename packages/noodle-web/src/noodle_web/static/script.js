@@ -1756,6 +1756,13 @@ function openTaskForm(lineNumber) {
     // and the catch-block fallback.
     let parsedTaskName = '';
 
+    // Cancel any pending product form save timer that could trigger
+    // a re-render and interfere with the task form opening
+    if (typeof productFormSaveTimer !== 'undefined' && productFormSaveTimer) {
+        clearTimeout(productFormSaveTimer);
+        productFormSaveTimer = null;
+    }
+
     // Open the detail pane FIRST so the form section becomes visible
     // (display:flex) before we populate its fields. On the very first
     // click this prevents a race where field values are set while the
@@ -1763,6 +1770,12 @@ function openTaskForm(lineNumber) {
     // rendering updates for certain elements (e.g. contenteditable,
     // select dropdowns, date inputs). Fixes #663.
     openDetailPane('taskFormSection');
+
+    // Force a layout reflow so the browser paints the section as visible
+    // before we populate fields. Without this, some browsers may skip
+    // rendering updates for fields set while transitioning.
+    const taskFormEl = document.getElementById('taskFormSection');
+    if (taskFormEl) void taskFormEl.offsetHeight;
 
     try {
         const editor = document.getElementById('planEditor');
@@ -1892,16 +1905,20 @@ function openTaskForm(lineNumber) {
         populateSubtasks(lineNumber, lines);
 
         // Update deliverable/product button
-        const delivBtn = document.getElementById('taskDeliverableBtn');
-        if (delivBtn) {
-            delivBtn.style.display = '';
-            if (task.deliverable) {
-                delivBtn.textContent = '\uD83D\uDCE6 Product';
-                delivBtn.title = 'Open product details';
-            } else {
-                delivBtn.textContent = '\uD83D\uDCE6 Make Deliverable';
-                delivBtn.title = 'Mark this task as a deliverable';
+        try {
+            const delivBtn = document.getElementById('taskDeliverableBtn');
+            if (delivBtn) {
+                delivBtn.style.display = '';
+                if (task.deliverable) {
+                    delivBtn.textContent = '\uD83D\uDCE6 Product';
+                    delivBtn.title = 'Open product details';
+                } else {
+                    delivBtn.textContent = '\uD83D\uDCE6 Make Deliverable';
+                    delivBtn.title = 'Mark this task as a deliverable';
+                }
             }
+        } catch (e) {
+            console.warn('Error updating deliverable button:', e);
         }
 
         // Re-apply title after the browser has painted the now-visible pane.
