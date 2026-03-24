@@ -1148,6 +1148,87 @@ function productFlowZoomFit() {
 
 // ── Product Details Form ──────────────────────────────────────────────
 
+// ── Copy SVG view as high-res image ──────────────────────────────────
+
+function copySvgAsImage(containerId, btn) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '...';
+
+    try {
+        // Clone the SVG and set explicit dimensions
+        const clone = svg.cloneNode(true);
+        const bounds = svg.getBBox ? svg.getBBox() : null;
+        const g = clone.querySelector('g');
+
+        // Get the current transform to calculate visible area
+        let viewBox;
+        if (bounds && g) {
+            // Use the group's bounding box for the viewBox
+            const padding = 40;
+            const gBounds = g.getBBox();
+            viewBox = `${gBounds.x - padding} ${gBounds.y - padding} ${gBounds.width + padding * 2} ${gBounds.height + padding * 2}`;
+            // Remove the pan/zoom transform so the viewBox controls framing
+            g.removeAttribute('transform');
+        } else {
+            viewBox = `0 0 ${container.clientWidth} ${container.clientHeight}`;
+        }
+
+        clone.setAttribute('viewBox', viewBox);
+        clone.setAttribute('width', '2400');
+        clone.setAttribute('height', '1600');
+        clone.style.background = getComputedStyle(document.documentElement).getPropertyValue('--surface-primary') || '#1a1a2e';
+
+        // Serialize to data URL
+        const svgData = new XMLSerializer().serializeToString(clone);
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        // Render to canvas at high resolution
+        const img = new Image();
+        img.onload = async () => {
+            const scale = 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = 2400 * scale;
+            canvas.height = 1600 * scale;
+            const ctx = canvas.getContext('2d');
+
+            // Fill background
+            const bgColor = getComputedStyle(container).backgroundColor || '#1a1a2e';
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+
+            try {
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                if (btn) {
+                    btn.innerHTML = '\u2713';
+                    setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+                }
+            } catch (e) {
+                console.error('Failed to copy image:', e);
+                if (btn) btn.innerHTML = originalText;
+                if (typeof setStatusMessage === 'function') setStatusMessage('Failed to copy image to clipboard', 3000);
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            if (btn) btn.innerHTML = originalText;
+        };
+        img.src = url;
+    } catch (e) {
+        console.error('Error copying SVG:', e);
+        if (btn) btn.innerHTML = originalText;
+    }
+}
+
 // ── Duplicate deliverable identifier detection ───────────────────────
 
 function checkDuplicateDeliverables() {
