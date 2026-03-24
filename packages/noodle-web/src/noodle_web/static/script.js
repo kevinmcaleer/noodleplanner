@@ -3510,6 +3510,12 @@ function saveTask() {
     let taskNamePart = dependsOnPreviousSimple ? '*' + name : name;
     let newLine = indent + taskNamePart;
 
+    // Preserve $deliverable token from original line
+    const deliverableMatch = originalLine.match(/\$([A-Za-z_][A-Za-z0-9_-]*)/);
+    if (deliverableMatch) {
+        newLine += ' ' + deliverableMatch[0];
+    }
+
     // Add duration
     if (duration) newLine += ' ' + duration + 'd';
 

@@ -1276,8 +1276,41 @@ function toggleTaskDeliverable() {
 function switchProductToTaskForm() {
     // Called from the product form's "Task Details" button
     if (!currentProductTask) return;
+    // Cancel any pending product form save to avoid overwriting the line
+    if (productFormSaveTimer) {
+        clearTimeout(productFormSaveTimer);
+        productFormSaveTimer = null;
+    }
     const taskName = currentProductTask.name;
     if (taskName && typeof openTaskFormByName === 'function') {
         openTaskFormByName(taskName);
+    }
+}
+
+function removeDeliverable() {
+    // Remove the $identifier token from the current product's line
+    if (!currentProductTask || currentProductLineNumber === null) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[currentProductLineNumber];
+    if (line === undefined) return;
+
+    // Remove $identifier token
+    const newLine = line.replace(/\s*\$[A-Za-z_][A-Za-z0-9_-]*/, '');
+    lines[currentProductLineNumber] = newLine;
+    editor.value = lines.join('\n');
+
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => renderText(), 10);
+
+    // Switch to task form
+    const taskName = currentProductTask.name;
+    closeProductForm();
+    if (taskName && typeof openTaskFormByName === 'function') {
+        setTimeout(() => openTaskFormByName(taskName), 600);
     }
 }
