@@ -1747,6 +1747,15 @@ function openTaskForm(lineNumber) {
     // Parse task name early so it is available for both the form title
     // and the catch-block fallback.
     let parsedTaskName = '';
+
+    // Open the detail pane FIRST so the form section becomes visible
+    // (display:flex) before we populate its fields. On the very first
+    // click this prevents a race where field values are set while the
+    // section is display:none, which can cause browsers to skip
+    // rendering updates for certain elements (e.g. contenteditable,
+    // select dropdowns, date inputs). Fixes #663.
+    openDetailPane('taskFormSection');
+
     try {
         const editor = document.getElementById('planEditor');
         const lines = editor.value.split('\n');
@@ -1773,7 +1782,9 @@ function openTaskForm(lineNumber) {
 
         // Use backend-calculated dates from last render instead of
         // recalculating in JS (which can diverge from the scheduling engine).
-        const backendTask = lastRenderedTasks.find(bt => bt.name === parsedTaskName);
+        const backendTask = (lastRenderedTasks && lastRenderedTasks.length > 0)
+            ? lastRenderedTasks.find(bt => bt.name === parsedTaskName)
+            : null;
         if (backendTask) {
             task.startDate = backendTask.start || task.startDate;
             task.finishDate = backendTask.finish || task.finishDate;
@@ -1872,19 +1883,26 @@ function openTaskForm(lineNumber) {
         // Populate subtasks
         populateSubtasks(lineNumber, lines);
 
-        openDetailPane('taskFormSection');
         // Re-apply title after the browser has painted the now-visible pane.
         // Using requestAnimationFrame ensures layout is complete before we
         // update the contenteditable element.
         requestAnimationFrame(() => setTaskFormTitle(parsedTaskName));
+
+        // If lastRenderedTasks was empty (first interaction before initial
+        // render completes), trigger a background fetch so the next open
+        // of the form will have accurate backend-calculated data.
+        if (!backendTask && lastRenderedTasks.length === 0) {
+            const planText = editor.value.trim();
+            if (planText && typeof updateAllViews === 'function') {
+                updateAllViews(planText);
+            }
+        }
     } catch (error) {
         console.error('Error opening task form for line', lineNumber, ':', error);
         // Ensure the title is set even when an error occurs during form population
         if (parsedTaskName) {
             document.getElementById('taskName').value = parsedTaskName;
         }
-        // Still try to open the pane even if there was an error populating some fields
-        openDetailPane('taskFormSection');
         // Re-apply title after the browser has painted
         requestAnimationFrame(() => setTaskFormTitle(parsedTaskName));
     }
@@ -3091,10 +3109,14 @@ function updateRagDisplay() {
         reasoning = 'Progress >=80%';
     }
 
-    ragDisplay.textContent = ragStatus;
-    ragDisplay.style.backgroundColor = bgColor;
-    ragDisplay.style.color = textColor;
-    ragReasoning.textContent = reasoning;
+    if (ragDisplay) {
+        ragDisplay.textContent = ragStatus;
+        ragDisplay.style.backgroundColor = bgColor;
+        ragDisplay.style.color = textColor;
+    }
+    if (ragReasoning) {
+        ragReasoning.textContent = reasoning;
+    }
 }
 
 function updateProgressBar() {
@@ -3102,9 +3124,13 @@ function updateProgressBar() {
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
 
+    if (!progressBar) return;
+
     progressBar.style.width = percent + '%';
     progressBar.setAttribute('aria-valuenow', percent);
-    progressText.textContent = percent > 0 ? percent + '%' : '';
+    if (progressText) {
+        progressText.textContent = percent > 0 ? percent + '%' : '';
+    }
 
     // Update color based on percentage
     progressBar.className = 'progress-bar progress-bar-striped';
