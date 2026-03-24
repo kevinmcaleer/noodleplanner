@@ -357,8 +357,8 @@ function updateReportTimeline(tasks, projectName) {
         const blueShades = ['#1565c0', '#1976d2', '#1e88e5', '#2196f3', '#42a5f5', '#64b5f6'];
         const greenComplete = '#4caf50';
 
-        let html = '<div class="report-dashboard-timeline" style="position: relative; overflow-x: auto;">';
-        html += '<svg width="100%" height="' + svgHeight + '" preserveAspectRatio="none" style="display: block; min-width: 300px;">';
+        let html = '<div class="report-dashboard-timeline" style="position: relative; overflow: visible;">';
+        html += '<svg width="100%" height="' + svgHeight + '" preserveAspectRatio="none" style="display: block; min-width: 300px; overflow: visible;">';
 
         // Render phase bars
         phaseRows.forEach((phaseInfo, index) => {

@@ -1229,7 +1229,7 @@ svg.icon {
 }
 
 .report-timeline-wrapper {
-    overflow-x: auto;
+    overflow: visible;
     max-width: 100%;
 }
 
