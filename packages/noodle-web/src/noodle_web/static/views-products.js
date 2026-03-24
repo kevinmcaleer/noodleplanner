@@ -1108,7 +1108,10 @@ function saveProductForm() {
     lines[currentProductLineNumber] = newLine;
     editor.value = lines.join('\n');
 
-    // Trigger re-render (same pattern as saveTask)
+    // Update line numbers display
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+
+    // Trigger input event and re-render (same pattern as saveTask)
     editor.dispatchEvent(new Event('input'));
-    if (typeof renderText === 'function') setTimeout(() => renderText(), 10);
+    setTimeout(() => renderText(), 10);
 }
