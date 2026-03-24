@@ -1757,6 +1757,11 @@ function productFindLineNumber(taskName, deliverableId) {
 
 function openProductForm(task) {
     if (!task) return;
+    // Cancel any pending save from a previous product form
+    if (productFormSaveTimer) {
+        clearTimeout(productFormSaveTimer);
+        productFormSaveTimer = null;
+    }
     currentProductTask = task;
     currentProductLineNumber = productFindLineNumber(task.name, task.deliverable);
 
@@ -1931,6 +1936,14 @@ function saveProductForm() {
 
 function toggleTaskDeliverable() {
     // Called from the task form's "Product" / "Make Deliverable" button
+    // Cancel any pending product form save from a previous interaction
+    if (productFormSaveTimer) {
+        clearTimeout(productFormSaveTimer);
+        productFormSaveTimer = null;
+    }
+    currentProductTask = null;
+    currentProductLineNumber = null;
+
     const editor = document.getElementById('planEditor');
     if (!editor || typeof currentTaskLineNumber === 'undefined' || currentTaskLineNumber === null) return;
 
