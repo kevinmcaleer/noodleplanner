@@ -244,6 +244,20 @@ function moveTaskInEditor(fromIndex, toIndex, insertBelow, tableId) {
         dstIdx += 1; // Insert after the last child
     }
 
+    // Re-indent moved lines to match the target's child indent level
+    const dstIndentLevel = lines[dstLine - 1] ? lines[dstLine - 1].search(/\S/) : 0;
+    const srcIndentLevel = movedLines[0].search(/\S/);
+    const targetChildIndent = dstIndentLevel + 2; // children are indented 2 spaces deeper
+    const indentDiff = targetChildIndent - srcIndentLevel;
+    if (indentDiff !== 0) {
+        for (let i = 0; i < movedLines.length; i++) {
+            if (!movedLines[i].trim()) continue;
+            const currentIndent = movedLines[i].search(/\S/);
+            const newIndent = Math.max(0, currentIndent + indentDiff);
+            movedLines[i] = ' '.repeat(newIndent) + movedLines[i].trimStart();
+        }
+    }
+
     lines.splice(dstIdx, 0, ...movedLines);
 
     editor.value = lines.join('\n');

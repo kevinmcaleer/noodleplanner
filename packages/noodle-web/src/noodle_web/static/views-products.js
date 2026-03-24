@@ -35,7 +35,7 @@ const PBS_NODE_HEIGHT = 44;
 const PBS_NODE_PADDING_X = 14;
 const PBS_NODE_MIN_WIDTH = 120;
 const PBS_NODE_MAX_WIDTH = 220;
-const PBS_DUAL_THRESHOLD = 10; // split into two columns above this many children
+const PBS_DUAL_THRESHOLD = 6;  // split into two columns above this many children
 
 const PBS_COLOURS = [
     '#4A90D9', '#D97B4A', '#5CB85C', '#D95B5B',
