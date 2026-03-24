@@ -561,6 +561,10 @@ function updateReportMilestones(tasks) {
             headers.forEach(h => {
                 const th = document.createElement('th');
                 th.textContent = h;
+                if (h === 'Milestone') th.classList.add('col-name');
+                else if (h === 'Date' || h === 'BL Finish') th.classList.add('col-date');
+                else if (h === 'Variance') th.classList.add('col-variance');
+                else if (h === 'RAG') th.classList.add('col-rag');
                 if (h === 'BL Finish' || h === 'Variance') {
                     th.classList.add('baseline-col');
                 }
@@ -612,11 +616,13 @@ function updateReportMilestones(tasks) {
 
             const nameCell = document.createElement('td');
             nameCell.textContent = task.name;
-            nameCell.classList.add('task-name');
+            nameCell.title = task.name;
+            nameCell.classList.add('task-name', 'col-name');
             row.appendChild(nameCell);
 
             const dateCell = document.createElement('td');
             dateCell.textContent = task.finish || '-';
+            dateCell.classList.add('col-date');
             row.appendChild(dateCell);
 
             // Baseline columns (shown automatically when baseline exists)
@@ -624,12 +630,12 @@ function updateReportMilestones(tasks) {
                 const bl = baselineLookup[task.name];
 
                 const blFinishCell = document.createElement('td');
-                blFinishCell.classList.add('baseline-col');
+                blFinishCell.classList.add('baseline-col', 'col-date');
                 blFinishCell.textContent = bl ? (bl.finish || '-') : '-';
                 row.appendChild(blFinishCell);
 
                 const varianceCell = document.createElement('td');
-                varianceCell.classList.add('baseline-col');
+                varianceCell.classList.add('baseline-col', 'col-variance');
                 if (bl && bl.finish && task.finish) {
                     const currentDate = parseLocalDate(task.finish);
                     const baselineDate = parseLocalDate(bl.finish);
@@ -656,6 +662,7 @@ function updateReportMilestones(tasks) {
             }
 
             const ragCell = document.createElement('td');
+            ragCell.classList.add('col-rag');
             const ragValue = task.rag || '-';
             ragCell.textContent = ragValue;
             const ragColourMs = ragStatusToColour(ragValue);
@@ -788,7 +795,8 @@ function updateReportUpNext(tasks) {
             });
 
             const nameCell = document.createElement('td');
-            nameCell.classList.add('task-name');
+            nameCell.classList.add('task-name', 'col-name');
+            nameCell.title = task.name;
             const nameText = document.createTextNode(task.name);
             nameCell.appendChild(nameText);
             if (task.recurrence) {
@@ -801,14 +809,17 @@ function updateReportUpNext(tasks) {
             row.appendChild(nameCell);
 
             const startCell = document.createElement('td');
+            startCell.classList.add('col-date');
             startCell.textContent = displayStart || task.start || '-';
             row.appendChild(startCell);
 
             const finishCell = document.createElement('td');
+            finishCell.classList.add('col-date');
             finishCell.textContent = displayFinish || task.finish || '-';
             row.appendChild(finishCell);
 
             const statusCell = document.createElement('td');
+            statusCell.classList.add('col-rag');
             const statusBadge = document.createElement('span');
             statusBadge.className = 'up-next-status ' + statusClass;
             statusBadge.textContent = status;

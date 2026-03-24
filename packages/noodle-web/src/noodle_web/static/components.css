@@ -958,11 +958,33 @@
 .quad-table {
     font-size: 0.9em;
     width: 100%;
+    table-layout: fixed;
 }
 
 .quad-table th,
 .quad-table td {
     padding: 6px 10px;
+}
+
+.quad-table .col-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quad-table .col-date {
+    width: 7.5em;
+    white-space: nowrap;
+}
+
+.quad-table .col-variance {
+    width: 5.5em;
+    white-space: nowrap;
+}
+
+.quad-table .col-rag {
+    width: 10em;
+    white-space: nowrap;
 }
 
 .quad-empty-state {
