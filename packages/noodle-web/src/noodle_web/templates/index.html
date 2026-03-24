@@ -2093,7 +2093,7 @@ Build
         <!-- Product Details Form Section -->
         <div id="productFormSection" class="detail-pane-section">
             <div class="detail-pane-header">
-                <div id="productFormTitle" class="detail-pane-title">Product Details</div>
+                <div id="productFormTitle" class="detail-pane-title" contenteditable="true" oninput="updateProductNameFromTitle()">Product Details</div>
                 <button class="task-form-inspect-btn" onclick="switchProductToTaskForm()" title="Open task details" aria-label="Switch to task details">&#128203; Task Details</button>
                 <button class="close-btn" onclick="closeProductForm()" aria-label="Close">&times;</button>
             </div>
@@ -2103,7 +2103,7 @@ Build
 
                     <div class="form-group">
                         <label for="productTitle">Product Title</label>
-                        <input type="text" id="productTitle" class="form-control" placeholder="Product name" oninput="saveProductForm()">
+                        <input type="text" id="productTitle" class="form-control" placeholder="Product name" oninput="updateProductTitleFromInput(); saveProductForm()">
                     </div>
 
                     <div class="form-group">

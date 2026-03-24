@@ -1544,9 +1544,42 @@ function switchProductToTaskForm() {
         clearTimeout(productFormSaveTimer);
         productFormSaveTimer = null;
     }
+
+    // Use the tracked line number (0-based) for precision instead of name search
+    if (currentProductLineNumber !== null && typeof openTaskForm === 'function') {
+        // Re-verify the line still has our deliverable
+        const editor = document.getElementById('planEditor');
+        if (editor) {
+            const lines = editor.value.split('\n');
+            const line = lines[currentProductLineNumber];
+            if (line && currentProductTask.deliverable && line.includes('$' + currentProductTask.deliverable)) {
+                openTaskForm(currentProductLineNumber + 1); // openTaskForm uses 1-based
+                return;
+            }
+        }
+    }
+
+    // Fallback: search by name
     const taskName = currentProductTask.name;
     if (taskName && typeof openTaskFormByName === 'function') {
         openTaskFormByName(taskName);
+    }
+}
+
+function updateProductNameFromTitle() {
+    const titleEl = document.getElementById('productFormTitle');
+    const inputEl = document.getElementById('productTitle');
+    if (titleEl && inputEl) {
+        inputEl.value = titleEl.innerText.trim();
+        saveProductForm();
+    }
+}
+
+function updateProductTitleFromInput() {
+    const inputEl = document.getElementById('productTitle');
+    const titleEl = document.getElementById('productFormTitle');
+    if (inputEl && titleEl) {
+        titleEl.textContent = inputEl.value || 'Product Details';
     }
 }
 
