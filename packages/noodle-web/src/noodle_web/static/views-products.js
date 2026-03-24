@@ -902,16 +902,68 @@ function updateProductFlow(tasks, projectName) {
     if (placeholder) placeholder.style.display = 'none';
     if (content) content.style.display = '';
 
-    // Topological sort to determine build order (columns)
-    const nodes = {};
+    // Identify top-level summary deliverables (those with child deliverables)
+    // These become bounding boxes, not flow nodes.
+    const childDeliverableParents = new Set();
     for (const d of deliverables) {
+        if (d.parent) {
+            const parentDel = deliverables.find(
+                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+            );
+            if (parentDel) {
+                childDeliverableParents.add(parentDel.deliverable);
+            }
+        }
+    }
+
+    // Top-level summaries = deliverables that have child deliverables
+    // and whose own parent is NOT a deliverable (first level only)
+    const topLevelSummaries = {};
+    const hiddenSummaries = new Set();
+    for (const id of childDeliverableParents) {
+        const d = deliverables.find(dd => dd.deliverable === id);
+        if (!d) continue;
+        // Check if this summary's parent is also a deliverable
+        const parentIsDel = d.parent && deliverables.some(
+            p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+        );
+        if (!parentIsDel) {
+            // Top-level summary — show as bounding box
+            topLevelSummaries[id] = { task: d, children: [] };
+        } else {
+            // Deeper summary — hide entirely
+            hiddenSummaries.add(id);
+        }
+    }
+
+    // Build child lists for top-level summaries
+    for (const d of deliverables) {
+        if (d.parent) {
+            const parentDel = deliverables.find(
+                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+            );
+            if (parentDel && topLevelSummaries[parentDel.deliverable]) {
+                topLevelSummaries[parentDel.deliverable].children.push(d.deliverable);
+            }
+        }
+    }
+
+    // Leaf deliverables = not a summary (no child deliverables) and not hidden
+    const leafDeliverables = deliverables.filter(
+        d => !childDeliverableParents.has(d.deliverable) && !hiddenSummaries.has(d.deliverable)
+    );
+
+    // Topological sort to determine build order (columns) — leaf nodes only
+    const nodes = {};
+    for (const d of leafDeliverables) {
         nodes[d.deliverable] = { task: d, deps: [], column: 0 };
     }
+
     // Build dependency edges from explicit [depends] declarations
-    for (const d of deliverables) {
+    for (const d of leafDeliverables) {
         if (d.depends) {
             for (const depName of d.depends) {
-                const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                const depTask = leafDeliverables.find(dt => dt.name === depName || dt.description === depName);
                 if (depTask && nodes[depTask.deliverable]) {
                     nodes[d.deliverable].deps.push(depTask.deliverable);
                 }
@@ -920,15 +972,23 @@ function updateProductFlow(tasks, projectName) {
     }
 
     // Inherit parent dependencies: children get the same deps as their parent
-    // Build parent→children map from the task hierarchy
-    for (const d of deliverables) {
+    for (const d of leafDeliverables) {
         if (d.parent) {
             const parentDeliverable = deliverables.find(
                 p => (p.name === d.parent || p.description === d.parent) && p.deliverable
             );
-            if (parentDeliverable && nodes[parentDeliverable.deliverable] && nodes[d.deliverable]) {
-                for (const parentDep of nodes[parentDeliverable.deliverable].deps) {
-                    // Don't add self-dependency or duplicates
+            if (parentDeliverable) {
+                // Get parent's deps (look at the original deliverable, not just leaf nodes)
+                const parentDeps = [];
+                if (parentDeliverable.depends) {
+                    for (const depName of parentDeliverable.depends) {
+                        const depTask = leafDeliverables.find(dt => dt.name === depName || dt.description === depName);
+                        if (depTask && nodes[depTask.deliverable]) {
+                            parentDeps.push(depTask.deliverable);
+                        }
+                    }
+                }
+                for (const parentDep of parentDeps) {
                     if (parentDep !== d.deliverable && !nodes[d.deliverable].deps.includes(parentDep)) {
                         nodes[d.deliverable].deps.push(parentDep);
                     }
@@ -979,7 +1039,7 @@ function updateProductFlow(tasks, projectName) {
 
     // Render
     initProductFlow();
-    pfRender(positions, allTasks);
+    pfRender(positions, allTasks, topLevelSummaries);
     pfZoomFit(positions);
 }
 
@@ -1041,11 +1101,52 @@ function pfApplyTransform() {
     if (pfGroup) pfGroup.setAttribute('transform', `translate(${pfPanX},${pfPanY}) scale(${pfZoom})`);
 }
 
-function pfRender(positions, allTasks) {
+function pfRender(positions, allTasks, topLevelSummaries) {
     if (!pfSvg) return;
     if (pfGroup) pfGroup.remove();
     pfGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pfPanX},${pfPanY}) scale(${pfZoom})` });
     pfSvg.appendChild(pfGroup);
+
+    // Draw bounding boxes for top-level summaries
+    const pad = 12;
+    if (topLevelSummaries) {
+        let boxIdx = 0;
+        for (const [id, summary] of Object.entries(topLevelSummaries)) {
+            const childPositions = summary.children
+                .map(cid => positions[cid])
+                .filter(Boolean);
+            if (childPositions.length === 0) continue;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const cp of childPositions) {
+                minX = Math.min(minX, cp.x);
+                minY = Math.min(minY, cp.y);
+                maxX = Math.max(maxX, cp.x + PF_NODE_W);
+                maxY = Math.max(maxY, cp.y + PF_NODE_H);
+            }
+
+            const colour = PBS_COLOURS[boxIdx % PBS_COLOURS.length];
+            boxIdx++;
+
+            // Background box
+            pfGroup.appendChild(pbsCreateSVGElement('rect', {
+                'x': minX - pad, 'y': minY - pad - 18,
+                'width': maxX - minX + pad * 2, 'height': maxY - minY + pad * 2 + 18,
+                'rx': '8', 'ry': '8',
+                'fill': 'none',
+                'stroke': colour, 'stroke-width': '1.5',
+                'stroke-dasharray': '6,3',
+                'opacity': '0.5'
+            }));
+
+            // Group label
+            pfGroup.appendChild(pbsCreateSVGElement('text', {
+                'x': minX - pad + 8, 'y': minY - pad - 4,
+                'fill': colour, 'font-size': '11', 'font-weight': 'bold', 'opacity': '0.7',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            })).textContent = summary.task.name || id;
+        }
+    }
 
     // Draw dependency arrows
     for (const [key, pos] of Object.entries(positions)) {
@@ -1113,21 +1214,6 @@ function pfRender(positions, allTasks) {
         pfGroup.appendChild(g);
     }
 
-    // Column labels
-    const columns = {};
-    for (const [key, pos] of Object.entries(positions)) {
-        const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
-        if (!columns[col]) columns[col] = pos.x;
-    }
-    for (const [col, x] of Object.entries(columns)) {
-        const colLabel = pbsCreateSVGElement('text', {
-            'x': x + PF_NODE_W / 2, 'y': 25,
-            'text-anchor': 'middle', 'fill': '#888', 'font-size': '11', 'font-weight': 'bold',
-            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        });
-        colLabel.textContent = `Phase ${parseInt(col) + 1}`;
-        pfGroup.appendChild(colLabel);
-    }
 }
 
 function pfZoomFit(positions) {
