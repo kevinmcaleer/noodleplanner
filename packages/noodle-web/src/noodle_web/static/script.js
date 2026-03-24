@@ -4089,6 +4089,10 @@ function parseTaskLine(line, lineNum) {
             // ISO Date: 2025-11-11
             dates.push(token);
         }
+        else if (token.match(/^\$[A-Za-z_]/)) {
+            // Deliverable marker: $fuselage — store but don't include in name
+            task.deliverable = token.substring(1);
+        }
         else {
             // Part of task name
             nameTokens.push(token);
