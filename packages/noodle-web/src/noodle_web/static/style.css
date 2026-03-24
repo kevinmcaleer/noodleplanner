@@ -2114,19 +2114,22 @@ svg.icon {
 .gantt-dependency-toggle label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.9em;
+    gap: 4px;
+    font-size: 0.85rem;
     color: #495057;
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
 }
 
 .gantt-dependency-toggle input[type="checkbox"] {
     cursor: pointer;
+    margin: 0;
 }
 
 .gantt-set-baseline-btn {
     margin-left: auto;
+    align-self: center;
 }
 
 /* Tasks view */
