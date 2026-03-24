@@ -72,6 +72,12 @@
     gap: 20px;
 }
 
+.gantt-checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
 .gantt-dependency-toggle {
     display: flex;
     align-items: center;
@@ -89,6 +95,10 @@
 
 .gantt-dependency-toggle input[type="checkbox"] {
     cursor: pointer;
+}
+
+.gantt-set-baseline-btn {
+    margin-left: auto;
 }
 
 /* Tasks view: same flex layout as gantt view */
