@@ -880,6 +880,10 @@ let pfDragStartX = 0;
 let pfDragStartY = 0;
 let pfDragStartPanX = 0;
 let pfDragStartPanY = 0;
+let pfCollapsedGroups = new Set(); // collapsed top-level summary IDs
+let pfLastPositions = null;
+let pfLastAllTasks = null;
+let pfLastSummaries = null;
 
 const PF_NODE_W = 180;
 const PF_NODE_H = 44;
@@ -1052,8 +1056,42 @@ function updateProductFlow(tasks, projectName) {
         });
     }
 
+    // Handle collapsed groups: replace children with a single placeholder node
+    for (const [id, summary] of Object.entries(topLevelSummaries)) {
+        if (!pfCollapsedGroups.has(id)) continue;
+
+        // Find the bounding position of children to place the collapsed node
+        const childPositions = summary.children.map(cid => positions[cid]).filter(Boolean);
+        if (childPositions.length === 0) continue;
+
+        let minX = Infinity, minY = Infinity;
+        for (const cp of childPositions) {
+            minX = Math.min(minX, cp.x);
+            minY = Math.min(minY, cp.y);
+        }
+
+        // Remove children from positions
+        for (const cid of summary.children) {
+            delete positions[cid];
+        }
+
+        // Add collapsed placeholder
+        positions['_collapsed_' + id] = {
+            x: minX, y: minY,
+            task: summary.task,
+            deps: [],
+            isCollapsed: true,
+            groupId: id
+        };
+    }
+
+    // Store for re-render on collapse toggle
+    pfLastPositions = positions;
+    pfLastAllTasks = allTasks;
+    pfLastSummaries = topLevelSummaries;
+
     // Render
-    initProductFlow();
+    if (!pfSvg) initProductFlow();
     pfRender(positions, allTasks, topLevelSummaries);
     pfZoomFit(positions);
 }
@@ -1122,11 +1160,16 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     pfGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pfPanX},${pfPanY}) scale(${pfZoom})` });
     pfSvg.appendChild(pfGroup);
 
-    // Draw bounding boxes for top-level summaries
+    // Draw bounding boxes for expanded top-level summaries
     const pad = 12;
     if (topLevelSummaries) {
         let boxIdx = 0;
         for (const [id, summary] of Object.entries(topLevelSummaries)) {
+            const colour = PBS_COLOURS[boxIdx % PBS_COLOURS.length];
+            boxIdx++;
+
+            if (pfCollapsedGroups.has(id)) continue;
+
             const childPositions = summary.children
                 .map(cid => positions[cid])
                 .filter(Boolean);
@@ -1140,13 +1183,10 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 maxY = Math.max(maxY, cp.y + PF_NODE_H);
             }
 
-            const colour = PBS_COLOURS[boxIdx % PBS_COLOURS.length];
-            boxIdx++;
-
             // Background box
             pfGroup.appendChild(pbsCreateSVGElement('rect', {
-                'x': minX - pad, 'y': minY - pad - 18,
-                'width': maxX - minX + pad * 2, 'height': maxY - minY + pad * 2 + 18,
+                'x': minX - pad, 'y': minY - pad - 20,
+                'width': maxX - minX + pad * 2, 'height': maxY - minY + pad * 2 + 20,
                 'rx': '8', 'ry': '8',
                 'fill': 'none',
                 'stroke': colour, 'stroke-width': '1.5',
@@ -1154,12 +1194,31 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 'opacity': '0.5'
             }));
 
-            // Group label
-            pfGroup.appendChild(pbsCreateSVGElement('text', {
-                'x': minX - pad + 8, 'y': minY - pad - 4,
+            // Label with disclosure triangle (expanded = down arrow)
+            const labelG = pbsCreateSVGElement('g', { 'style': 'cursor: pointer;' });
+            labelG.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pfToggleGroup(id);
+            });
+
+            const triX = minX - pad + 6;
+            const triY = minY - pad - 10;
+            labelG.appendChild(pbsCreateSVGElement('polygon', {
+                'points': `${triX},${triY - 4} ${triX + 8},${triY - 4} ${triX + 4},${triY + 4}`,
+                'fill': colour, 'opacity': '0.7'
+            }));
+            const labelEl = pbsCreateSVGElement('text', {
+                'x': triX + 14, 'y': minY - pad - 4,
                 'fill': colour, 'font-size': '11', 'font-weight': 'bold', 'opacity': '0.7',
                 'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-            })).textContent = summary.task.name || id;
+            });
+            labelEl.textContent = summary.task.name || id;
+            labelG.appendChild(labelEl);
+
+            const tip = pbsCreateSVGElement('title', {});
+            tip.textContent = 'Click to collapse';
+            labelG.appendChild(tip);
+            pfGroup.appendChild(labelG);
         }
     }
 
@@ -1187,48 +1246,96 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const task = pos.task;
         const colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
         colourIdx++;
+        const isCollapsedNode = !!pos.isCollapsed;
 
         const g = pbsCreateSVGElement('g', { 'class': 'pf-node', 'style': 'cursor: pointer;' });
-        g.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (typeof openProductForm === 'function') openProductForm(task);
-        });
 
-        // Rectangle
-        g.appendChild(pbsCreateSVGElement('rect', {
-            'x': pos.x, 'y': pos.y, 'width': PF_NODE_W, 'height': PF_NODE_H,
-            'rx': '6', 'ry': '6', 'fill': colour,
-            'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
-        }));
+        if (isCollapsedNode) {
+            // Collapsed group placeholder
+            g.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pfToggleGroup(pos.groupId);
+            });
 
-        // Name
-        const label = pbsCreateSVGElement('text', {
-            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 18,
-            'text-anchor': 'middle', 'fill': '#fff', 'font-size': '12', 'font-weight': 'bold',
-            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        });
-        let name = task.name || key;
-        if (name.length > 22) name = name.substring(0, 21) + '\u2026';
-        label.textContent = name;
-        g.appendChild(label);
+            // Dashed outline box
+            g.appendChild(pbsCreateSVGElement('rect', {
+                'x': pos.x, 'y': pos.y, 'width': PF_NODE_W, 'height': PF_NODE_H,
+                'rx': '6', 'ry': '6', 'fill': 'rgba(74,144,217,0.1)',
+                'stroke': colour, 'stroke-width': '1.5', 'stroke-dasharray': '6,3'
+            }));
 
-        // Product ID
-        const sub = pbsCreateSVGElement('text', {
-            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 34,
-            'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.7)', 'font-size': '10',
-            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        });
-        sub.textContent = `$${key}`;
-        g.appendChild(sub);
+            // Disclosure triangle (right = collapsed)
+            const triX = pos.x + 10;
+            const triY = pos.y + PF_NODE_H / 2;
+            g.appendChild(pbsCreateSVGElement('polygon', {
+                'points': `${triX},${triY - 5} ${triX},${triY + 5} ${triX + 6},${triY}`,
+                'fill': colour, 'opacity': '0.8'
+            }));
 
-        // Tooltip
-        const title = pbsCreateSVGElement('title', {});
-        title.textContent = `${task.name}\n$${key}\nClick to edit`;
-        g.appendChild(title);
+            // Name
+            const label = pbsCreateSVGElement('text', {
+                'x': pos.x + PF_NODE_W / 2 + 6, 'y': pos.y + PF_NODE_H / 2 + 4,
+                'text-anchor': 'middle', 'fill': colour, 'font-size': '12', 'font-weight': 'bold',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            });
+            let name = task.name || key;
+            if (name.length > 20) name = name.substring(0, 19) + '\u2026';
+            label.textContent = name;
+            g.appendChild(label);
+
+            const title = pbsCreateSVGElement('title', {});
+            title.textContent = `${task.name}\nClick to expand`;
+            g.appendChild(title);
+        } else {
+            // Regular node
+            g.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof openProductForm === 'function') openProductForm(task);
+            });
+
+            g.appendChild(pbsCreateSVGElement('rect', {
+                'x': pos.x, 'y': pos.y, 'width': PF_NODE_W, 'height': PF_NODE_H,
+                'rx': '6', 'ry': '6', 'fill': colour,
+                'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
+            }));
+
+            const label = pbsCreateSVGElement('text', {
+                'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 18,
+                'text-anchor': 'middle', 'fill': '#fff', 'font-size': '12', 'font-weight': 'bold',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            });
+            let name = task.name || key;
+            if (name.length > 22) name = name.substring(0, 21) + '\u2026';
+            label.textContent = name;
+            g.appendChild(label);
+
+            const sub = pbsCreateSVGElement('text', {
+                'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 34,
+                'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.7)', 'font-size': '10',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            });
+            sub.textContent = `$${key}`;
+            g.appendChild(sub);
+
+            const title = pbsCreateSVGElement('title', {});
+            title.textContent = `${task.name}\n$${key}\nClick to edit`;
+            g.appendChild(title);
+        }
 
         pfGroup.appendChild(g);
     }
+}
 
+function pfToggleGroup(groupId) {
+    if (pfCollapsedGroups.has(groupId)) {
+        pfCollapsedGroups.delete(groupId);
+    } else {
+        pfCollapsedGroups.add(groupId);
+    }
+    // Re-run the full flow to recalculate layout
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        updateProductFlow(lastRenderedTasks);
+    }
 }
 
 function pfZoomFit(positions) {
