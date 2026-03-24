@@ -1777,6 +1777,12 @@ function openTaskForm(lineNumber) {
     const taskFormEl = document.getElementById('taskFormSection');
     if (taskFormEl) void taskFormEl.offsetHeight;
 
+    // Set the line number IMMEDIATELY — before any field values are set.
+    // Setting field values can trigger oninput → saveTask(), which uses
+    // currentTaskLineNumber. If we set it late, saveTask writes the new
+    // task's name to the OLD task's line.
+    currentTaskLineNumber = lineNumber;
+
     try {
         const editor = document.getElementById('planEditor');
         const lines = editor.value.split('\n');
@@ -1897,7 +1903,7 @@ function openTaskForm(lineNumber) {
         // Populate recurrence fields
         populateRecurrenceForm(task.recurrence || '');
 
-        currentTaskLineNumber = lineNumber;
+        // currentTaskLineNumber already set at the top of openTaskForm
         updateRagDisplay();
         updateProgressBar();
 
