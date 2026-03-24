@@ -936,15 +936,30 @@ function updateProductFlow(tasks, projectName) {
         }
     }
 
-    // Build child lists for top-level summaries
-    for (const d of deliverables) {
-        if (d.parent) {
+    // Build child lists for top-level summaries — walk full descendant tree
+    // to find all leaf deliverables under each top-level summary
+    function findAncestorSummary(d) {
+        // Walk up the parent chain to find which top-level summary this belongs to
+        let current = d;
+        while (current && current.parent) {
             const parentDel = deliverables.find(
-                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+                p => (p.name === current.parent || p.description === current.parent) && p.deliverable
             );
-            if (parentDel && topLevelSummaries[parentDel.deliverable]) {
-                topLevelSummaries[parentDel.deliverable].children.push(d.deliverable);
-            }
+            if (!parentDel) break;
+            if (topLevelSummaries[parentDel.deliverable]) return parentDel.deliverable;
+            current = parentDel;
+        }
+        return null;
+    }
+
+    for (const d of deliverables) {
+        // Only add leaf deliverables (not summaries) to bounding box children
+        if (childDeliverableParents.has(d.deliverable)) continue;
+        if (hiddenSummaries.has(d.deliverable)) continue;
+
+        const ancestorId = findAncestorSummary(d);
+        if (ancestorId && topLevelSummaries[ancestorId]) {
+            topLevelSummaries[ancestorId].children.push(d.deliverable);
         }
     }
 
