@@ -858,6 +858,7 @@ function updateReportRaid() {
             row.addEventListener('click', () => openRaidForm(item.id));
 
             const typeCell = document.createElement('td');
+            typeCell.classList.add('col-type');
             const typeBadge = document.createElement('span');
             typeBadge.className = 'raid-type-badge raid-type-' + item.type;
             typeBadge.textContent = item.type;
@@ -865,10 +866,12 @@ function updateReportRaid() {
             row.appendChild(typeCell);
 
             const titleCell = document.createElement('td');
+            titleCell.classList.add('col-title');
             titleCell.textContent = item.title || item.description || '-';
             row.appendChild(titleCell);
 
             const scoreCell = document.createElement('td');
+            scoreCell.classList.add('col-score');
             const scoreBadge = document.createElement('span');
             const score = item.score || 0;
             const scoreClass = score >= 16 ? 'raid-score-high' : score >= 6 ? 'raid-score-medium' : 'raid-score-low';
