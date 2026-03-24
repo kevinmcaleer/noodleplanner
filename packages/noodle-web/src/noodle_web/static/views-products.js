@@ -762,8 +762,9 @@ function updatePbs(tasks, projectName) {
     pbsTasks = tasks || [];
     const deliverables = pbsExtractDeliverables(pbsTasks);
 
-    // Check for duplicate deliverable identifiers
-    checkDuplicateDeliverables();
+    // Check for duplicate deliverable identifiers (deferred so line numbers
+    // are rebuilt before we add yellow dot classes to them)
+    setTimeout(checkDuplicateDeliverables, 100);
 
     const placeholder = document.querySelector('#pbs-view .pbs-placeholder');
     const content = document.querySelector('#pbs-view .pbs-content');
