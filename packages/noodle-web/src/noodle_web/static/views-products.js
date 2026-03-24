@@ -1378,11 +1378,18 @@ function saveProductForm() {
 
     // Preserve original tokens we don't edit (resources, dates, duration, percent)
     const origText = originalLine.trim().replace(/^\*\s*/, '');
-    // Remove old [depends ...] and "comments" before scanning for preserved tokens
-    const cleaned = origText
+    // Remove task name, old $id, [depends ...], and "comments" to isolate metadata tokens
+    const origTaskName = currentProductTask.name || newTitle || '';
+    let cleaned = origText;
+    // Remove the task name from the front
+    if (origTaskName && cleaned.startsWith(origTaskName)) {
+        cleaned = cleaned.substring(origTaskName.length);
+    }
+    cleaned = cleaned
         .replace(/\[depends\s+[^\]]*\]/i, '')
         .replace(/"[^"]*"/g, '')
-        .replace(/\$[A-Za-z_][A-Za-z0-9_-]*/g, '');
+        .replace(/\$[A-Za-z_][A-Za-z0-9_-]*/g, '')
+        .replace(/\[repeats\s+[^\]]*\]/i, '');
     const origTokens = cleaned.split(/\s+/);
     for (const token of origTokens) {
         if (token.startsWith('@')) newLine += ` ${token}`;
@@ -1397,6 +1404,14 @@ function saveProductForm() {
 
     lines[currentProductLineNumber] = newLine;
     editor.value = lines.join('\n');
+
+    // Keep track of the new identifier so subsequent saves can find the line
+    if (newId && currentProductTask) {
+        currentProductTask.deliverable = newId;
+    }
+    if (newTitle && currentProductTask) {
+        currentProductTask.name = newTitle;
+    }
 
     // Update line numbers display immediately
     if (editor._updateLineNumbers) editor._updateLineNumbers();
