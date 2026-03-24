@@ -617,6 +617,8 @@ class PlanService:
                         "effort_remaining_unit", ""
                     ),
                     "recurrence": task.get("recurrence", None),
+                    "deliverable": task.get("deliverable", ""),
+                    "parent": task.get("parent", ""),
                 }
             )
 

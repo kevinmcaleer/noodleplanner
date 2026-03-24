@@ -462,6 +462,33 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
+    // If switching to PBS view, re-render after layout is ready
+    if (tabName === 'pbs' && typeof updatePbs === 'function') {
+        setTimeout(() => {
+            if (pbsTree) {
+                initPbs();
+                pbsMeasure(pbsTree);
+                pbsLayoutTree(pbsTree, 40, 40);
+                pbsRender();
+                pbsZoomFit();
+            } else {
+                const placeholder = document.querySelector('#pbs-view .pbs-placeholder');
+                const content = document.querySelector('#pbs-view .pbs-content');
+                if (placeholder) placeholder.style.display = '';
+                if (content) content.style.display = 'none';
+            }
+        }, 50);
+    }
+
+    // If switching to deliverables view, re-render
+    if (tabName === 'deliverables' && typeof updateDeliverablesMatrix === 'function') {
+        setTimeout(() => {
+            if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+                updateDeliverablesMatrix(lastRenderedTasks);
+            }
+        }, 50);
+    }
+
     // If switching to stakeholders view, load from front matter if needed and render
     if (tabName === 'stakeholders') {
         if (stakeholderItems.length === 0) {

@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/products.css?v={{ v }}">
     <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
 
@@ -147,6 +148,23 @@
           <line x1="14.5" y1="12" x2="18.5" y2="12"/>
           <line x1="14.5" y1="13.5" x2="18.5" y2="17.5"/>
         </symbol>
+        <!-- pbs (product breakdown structure) -->
+        <symbol id="icon-pbs" viewBox="0 0 24 24">
+          <rect x="8" y="2" width="8" height="5" rx="1"/>
+          <rect x="1" y="17" width="8" height="5" rx="1"/>
+          <rect x="15" y="17" width="8" height="5" rx="1"/>
+          <line x1="12" y1="7" x2="12" y2="12"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <line x1="5" y1="12" x2="5" y2="17"/>
+          <line x1="19" y1="12" x2="19" y2="17"/>
+        </symbol>
+        <!-- deliverables (matrix/table) -->
+        <symbol id="icon-deliverables" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="2" fill="none"/>
+          <line x1="3" y1="9" x2="21" y2="9"/>
+          <line x1="3" y1="15" x2="21" y2="15"/>
+          <line x1="9" y1="3" x2="9" y2="21"/>
+        </symbol>
         <!-- evm (earned value chart) -->
         <symbol id="icon-evm" viewBox="0 0 24 24">
           <polyline points="2,20 7,14 12,16 17,8 22,4" fill="none"/>
@@ -241,6 +259,12 @@
                 </button>
                 <button class="plan-subnav-btn" data-view="mindmap" onclick="switchToView('mindmap')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
+                </button>
+                <button class="plan-subnav-btn" data-view="pbs" onclick="switchToView('pbs')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-pbs"/></svg> PBS
+                </button>
+                <button class="plan-subnav-btn" data-view="deliverables" onclick="switchToView('deliverables')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-deliverables"/></svg> Deliverables
                 </button>
                 <button class="plan-subnav-btn" data-view="stakeholders" onclick="switchToView('stakeholders')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
@@ -1147,6 +1171,65 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="mindmap-canvas-wrapper" id="mindmapContainer" tabindex="0">
                                     <!-- SVG mind map rendered by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product Breakdown Structure View -->
+                        <div id="pbs-view" class="output-tab-content">
+                            <div class="pbs-placeholder placeholder-view">
+                                <h3>Product Breakdown Structure</h3>
+                                <p>Mark tasks as deliverables using the <code>$name</code> token to see the product hierarchy.</p>
+                                <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary, #aaa);">Example: <code>Fuselage $fuselage</code></p>
+                            </div>
+                            <div class="pbs-content" style="display: none;">
+                                <div class="pbs-toolbar">
+                                    <div class="mindmap-toolbar-group">
+                                        <button class="pbs-toolbar-btn" onclick="pbsZoomIn()" title="Zoom in">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <button class="pbs-toolbar-btn" onclick="pbsZoomOut()" title="Zoom out">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <button class="pbs-toolbar-btn" onclick="pbsZoomFit()" title="Fit all">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                                        </button>
+                                        <button class="pbs-toolbar-btn" onclick="pbsZoomReset()" title="Reset zoom">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="pbs-canvas-wrapper" id="pbsContainer">
+                                    <!-- SVG PBS rendered by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deliverables Matrix View -->
+                        <div id="deliverables-view" class="output-tab-content">
+                            <div class="deliverables-placeholder placeholder-view">
+                                <h3>Deliverables Matrix</h3>
+                                <p>Mark tasks as deliverables using the <code>$name</code> token to see the matrix.</p>
+                                <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary, #aaa);">Example: <code>Fuselage $fuselage</code></p>
+                            </div>
+                            <div class="deliverables-content" style="display: none;">
+                                <div class="deliverables-container">
+                                    <table class="deliverables-table">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Deliverable</th>
+                                                <th>Activities</th>
+                                                <th>Skills / Resources</th>
+                                                <th>Dependencies</th>
+                                                <th>Dates</th>
+                                                <th>Status</th>
+                                                <th>Progress</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="deliverablesMatrixBody">
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -2779,6 +2862,7 @@ Build
     <script src="/static/portfolio-dependencies.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
+    <script src="/static/views-products.js?v={{ v }}"></script>
 
     <!-- RAID Delete Confirmation Modal -->
     <div id="raidDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteRaidItem()" role="dialog" aria-modal="true" aria-label="Confirm delete RAID item">

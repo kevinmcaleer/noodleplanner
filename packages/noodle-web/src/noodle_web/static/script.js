@@ -501,7 +501,9 @@ const OUTPUT_VIEWS = {
     'timesheet': 'planTab',
     'user-workload': 'planTab',
     'resource-sheet': 'planTab',
-    'evm': 'planTab'
+    'evm': 'planTab',
+    'pbs': 'planTab',
+    'deliverables': 'planTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -1130,6 +1132,18 @@ function updateMindmapView(result) {
     }
 }
 
+function updatePbsView(result) {
+    if (typeof updatePbs === 'function') {
+        updatePbs(result.tasks || [], result.project_name);
+    }
+}
+
+function updateDeliverablesView(result) {
+    if (typeof updateDeliverablesMatrix === 'function') {
+        updateDeliverablesMatrix(result.tasks || [], result.project_name);
+    }
+}
+
 function updateRaidView(result, planText) {
     const raidFromApi = result.raid_items || [];
     if (raidFromApi.length > 0) {
@@ -1259,6 +1273,8 @@ async function updateAllViews(planText, projectName) {
             { name: 'resourceSheet',           fn: () => updateResourceSheetView(result) },
             { name: 'calendar',                fn: () => updateCalendarView(result) },
             { name: 'mindmap',                 fn: () => updateMindmapView(result) },
+            { name: 'pbs',                     fn: () => updatePbsView(result) },
+            { name: 'deliverables',            fn: () => updateDeliverablesView(result) },
             { name: 'raid',                    fn: () => updateRaidView(result, planText) },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },

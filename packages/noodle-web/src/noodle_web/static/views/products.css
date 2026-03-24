@@ -1,0 +1,172 @@
+/* ── Product Breakdown Structure (PBS) ────────────────────────────── */
+
+.pbs-canvas-wrapper {
+    flex: 1;
+    overflow: hidden;
+    cursor: grab;
+    background:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+    background-size: 24px 24px;
+    min-height: 400px;
+}
+
+.pbs-canvas-wrapper:active {
+    cursor: grabbing;
+}
+
+.pbs-svg {
+    display: block;
+}
+
+.pbs-node-rect {
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+
+.pbs-node-rect:hover {
+    filter: brightness(1.15);
+}
+
+.pbs-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: var(--surface-secondary, #1e1e2e);
+    border-bottom: 1px solid var(--border-color, #333);
+}
+
+.pbs-toolbar-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-secondary, #aaa);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pbs-toolbar-btn:hover {
+    background: var(--surface-hover, #2a2a3e);
+    color: var(--text-primary, #fff);
+}
+
+/* ── Deliverables Matrix ─────────────────────────────────────────── */
+
+.deliverables-container {
+    padding: 16px;
+    overflow: auto;
+    max-height: calc(100vh - 200px);
+}
+
+.deliverables-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.deliverables-table th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--surface-secondary, #1e1e2e);
+    color: var(--text-secondary, #aaa);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--border-color, #333);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.deliverables-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color, #2a2a3e);
+    color: var(--text-primary, #ddd);
+    vertical-align: top;
+}
+
+.deliverables-table tr:hover td {
+    background: var(--surface-hover, rgba(255,255,255,0.03));
+}
+
+.deliverable-id code {
+    background: rgba(74, 144, 217, 0.15);
+    color: #6cb4ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.deliverable-name {
+    font-weight: 500;
+}
+
+.deliverable-activities {
+    max-width: 250px;
+    color: var(--text-secondary, #aaa);
+    font-size: 12px;
+}
+
+.deliverable-resources {
+    white-space: nowrap;
+}
+
+.deliverable-deps code {
+    font-size: 12px;
+}
+
+.deliverable-status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.status-not-started {
+    background: rgba(150, 150, 150, 0.2);
+    color: #999;
+}
+
+.status-in-progress {
+    background: rgba(74, 144, 217, 0.2);
+    color: #6cb4ff;
+}
+
+.status-complete {
+    background: rgba(92, 184, 92, 0.2);
+    color: #6fd66f;
+}
+
+.deliverable-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 100px;
+}
+
+.deliverable-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.deliverable-progress-fill {
+    height: 100%;
+    background: #4A90D9;
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.deliverable-progress-text {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+    min-width: 30px;
+    text-align: right;
+}
