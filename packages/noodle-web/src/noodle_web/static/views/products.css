@@ -46,8 +46,24 @@
     filter: brightness(1.15);
 }
 
-.pbs-add-btn {
+.pbs-add-btns {
+    opacity: 0;
+    pointer-events: none;
     transition: opacity 0.15s;
+}
+
+.pbs-node:hover > .pbs-add-btns {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.pbs-add-btn {
+    opacity: 0.6;
+    transition: opacity 0.1s;
+}
+
+.pbs-add-btn:hover {
+    opacity: 1;
 }
 
 .pbs-add-btn circle {

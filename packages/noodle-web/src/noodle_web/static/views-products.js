@@ -479,9 +479,7 @@ function pbsRenderDependencyArrows() {
 
 function pbsRenderAddBtn(cx, cy, title, onClick) {
     const r = PBS_ADD_BTN_SIZE / 2;
-    const g = pbsCreateSVGElement('g', { 'class': 'pbs-add-btn', 'style': 'cursor: pointer; opacity: 0.4;' });
-    g.addEventListener('mouseenter', () => g.style.opacity = '1');
-    g.addEventListener('mouseleave', () => g.style.opacity = '0.4');
+    const g = pbsCreateSVGElement('g', { 'class': 'pbs-add-btn', 'style': 'cursor: pointer;' });
     g.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
 
     g.appendChild(pbsCreateSVGElement('circle', {
@@ -566,34 +564,31 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
     }
     g.appendChild(title);
 
-    pbsGroup.appendChild(g);
-
-    // Add + buttons (not on root)
+    // Add + buttons (not on root) inside a container that's hidden until hover
     if (!isRoot && node._task) {
+        const btns = pbsCreateSVGElement('g', { 'class': 'pbs-add-btns' });
         const btnGap = PBS_ADD_BTN_SIZE / 2 + 6;
         const taskName = node._task.name || node.name;
 
-        // Below: add child product
-        pbsGroup.appendChild(pbsRenderAddBtn(
+        btns.appendChild(pbsRenderAddBtn(
             node.x + node.width / 2, node.y + node.height + btnGap,
             'Add child product',
             () => pbsCreateProduct(taskName, 'child')
         ));
-
-        // Left: add sibling before
-        pbsGroup.appendChild(pbsRenderAddBtn(
+        btns.appendChild(pbsRenderAddBtn(
             node.x - btnGap, node.y + node.height / 2,
             'Add sibling before',
             () => pbsCreateProduct(taskName, 'before')
         ));
-
-        // Right: add sibling after
-        pbsGroup.appendChild(pbsRenderAddBtn(
+        btns.appendChild(pbsRenderAddBtn(
             node.x + node.width + btnGap, node.y + node.height / 2,
             'Add sibling after',
             () => pbsCreateProduct(taskName, 'after')
         ));
+        g.appendChild(btns);
     }
+
+    pbsGroup.appendChild(g);
 
     for (const child of node.children) {
         pbsRenderNode(child, colour, nextColour, depth + 1);
