@@ -1535,46 +1535,100 @@ function checkDuplicateDeliverables() {
     if (!editor) return;
 
     const lines = editor.value.split('\n');
-    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/;
-    const seen = {}; // id → [line numbers]
+    const warnings = [];
+    const warningLines = new Set();
 
+    // 1. Check for duplicate $identifier tokens
+    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/;
+    const seenIds = {};
     for (let i = 0; i < lines.length; i++) {
         const match = lines[i].match(idRegex);
         if (match) {
             const id = match[1].toLowerCase();
-            if (!seen[id]) seen[id] = [];
-            seen[id].push(i + 1); // 1-based line numbers
+            if (!seenIds[id]) seenIds[id] = [];
+            seenIds[id].push(i + 1);
         }
     }
-
-    const duplicates = [];
-    const duplicateLines = new Set();
-    for (const [id, lineNums] of Object.entries(seen)) {
+    for (const [id, lineNums] of Object.entries(seenIds)) {
         if (lineNums.length > 1) {
-            duplicates.push(`$${id} (lines ${lineNums.join(', ')})`);
-            lineNums.forEach(ln => duplicateLines.add(ln));
+            warnings.push(`Duplicate ID $${id} (lines ${lineNums.join(', ')})`);
+            lineNums.forEach(ln => warningLines.add(ln));
         }
     }
 
-    // Clear previous duplicate indicators
+    // 2. Check for duplicate task names at the same indentation level under the same parent
+    let inFrontMatter = false;
+    let inSection = false;
+    const tasksByParent = {}; // "indent:parentLine" → { name → [line numbers] }
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Skip front matter and special sections
+        if (trimmed === '---') { inFrontMatter = !inFrontMatter; continue; }
+        if (trimmed.startsWith('---') && trimmed.endsWith('---')) { inSection = true; continue; }
+        if (inFrontMatter || inSection) {
+            if (trimmed === '---') inSection = false;
+            continue;
+        }
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        const indent = line.search(/\S/);
+        if (indent < 0) continue;
+
+        // Extract task name (strip * prefix and metadata)
+        let taskText = trimmed.replace(/^\*\s*/, '');
+        // Strip metadata tokens to get just the name
+        const nameMatch = taskText.match(/^([^@#!$"{\d\[~][^@#!$"{\[~]*?)(?:\s+[\$@#!"{~\[]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s*$)/);
+        const taskName = nameMatch ? nameMatch[1].trim() : taskText.split(/\s+/)[0];
+        if (!taskName) continue;
+
+        // Find parent by looking for the nearest line above with less indent
+        let parentKey = 'root';
+        for (let j = i - 1; j >= 0; j--) {
+            const pLine = lines[j];
+            if (!pLine.trim()) continue;
+            const pIndent = pLine.search(/\S/);
+            if (pIndent >= 0 && pIndent < indent) {
+                parentKey = `${pIndent}:${j}`;
+                break;
+            }
+        }
+
+        const scopeKey = `${indent}:${parentKey}`;
+        if (!tasksByParent[scopeKey]) tasksByParent[scopeKey] = {};
+        const nameKey = taskName.toLowerCase();
+        if (!tasksByParent[scopeKey][nameKey]) tasksByParent[scopeKey][nameKey] = [];
+        tasksByParent[scopeKey][nameKey].push(i + 1);
+    }
+
+    for (const [scope, names] of Object.entries(tasksByParent)) {
+        for (const [name, lineNums] of Object.entries(names)) {
+            if (lineNums.length > 1) {
+                warnings.push(`Duplicate task "${name}" (lines ${lineNums.join(', ')})`);
+                lineNums.forEach(ln => warningLines.add(ln));
+            }
+        }
+    }
+
+    // Clear previous indicators
     document.querySelectorAll('.line-number.duplicate-id').forEach(el => {
         el.classList.remove('duplicate-id');
         el.title = '';
     });
 
-    // Add yellow dot to duplicate lines
-    if (duplicateLines.size > 0) {
-        duplicateLines.forEach(ln => {
-            const el = document.querySelector(`.line-number[data-line-number="${ln}"]`);
-            if (el) {
-                el.classList.add('duplicate-id');
-                el.title = 'Duplicate deliverable identifier';
-            }
-        });
-    }
+    // Add yellow dot to warning lines
+    warningLines.forEach(ln => {
+        const el = document.querySelector(`.line-number[data-line-number="${ln}"]`);
+        if (el) {
+            el.classList.add('duplicate-id');
+            el.title = 'Duplicate: task name or deliverable ID conflicts with another line';
+        }
+    });
 
-    if (duplicates.length > 0 && typeof setStatusMessage === 'function') {
-        setStatusMessage('\u26A0 Duplicate deliverable IDs: ' + duplicates.join('; '), 0);
+    if (warnings.length > 0 && typeof setStatusMessage === 'function') {
+        setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
     }
 }
 
