@@ -22,13 +22,13 @@ let pbsDragStartY = 0;
 let pbsDragStartPanX = 0;
 let pbsDragStartPanY = 0;
 
-// Layout constants
-const PBS_H_GAP = 200;
-const PBS_V_GAP = 20;
-const PBS_NODE_HEIGHT = 72;
-const PBS_NODE_PADDING_X = 16;
-const PBS_NODE_MIN_WIDTH = 160;
-const PBS_NODE_MAX_WIDTH = 280;
+// Layout constants (top-down PBS)
+const PBS_H_GAP = 30;
+const PBS_V_GAP = 60;
+const PBS_NODE_HEIGHT = 44;
+const PBS_NODE_PADDING_X = 14;
+const PBS_NODE_MIN_WIDTH = 120;
+const PBS_NODE_MAX_WIDTH = 220;
 
 const PBS_COLOURS = [
     '#4A90D9', '#D97B4A', '#5CB85C', '#D95B5B',
@@ -178,34 +178,35 @@ function pbsMeasureText(text, font) {
 }
 
 function pbsMeasure(node) {
-    const textW = pbsMeasureText(node.name, 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    const textW = pbsMeasureText(node.name, 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
     node.width = Math.min(PBS_NODE_MAX_WIDTH, Math.max(PBS_NODE_MIN_WIDTH, textW + PBS_NODE_PADDING_X * 2 + 8));
 
     if (node.children.length === 0) {
-        node.subtreeHeight = node.height;
+        node.subtreeWidth = node.width;
         return;
     }
 
-    let totalChildrenHeight = 0;
+    let totalChildrenWidth = 0;
     for (const child of node.children) {
         pbsMeasure(child);
-        totalChildrenHeight += child.subtreeHeight;
+        totalChildrenWidth += child.subtreeWidth;
     }
-    totalChildrenHeight += (node.children.length - 1) * PBS_V_GAP;
-    node.subtreeHeight = Math.max(node.height, totalChildrenHeight);
+    totalChildrenWidth += (node.children.length - 1) * PBS_H_GAP;
+    node.subtreeWidth = Math.max(node.width, totalChildrenWidth);
 }
 
 function pbsLayoutTree(node, x, y) {
-    node.x = x;
-    node.y = y + (node.subtreeHeight - node.height) / 2;
+    // Centre the node above its subtree
+    node.x = x + (node.subtreeWidth - node.width) / 2;
+    node.y = y;
 
     if (node.children.length === 0) return;
 
-    let childY = y;
-    const childX = x + node.width + PBS_H_GAP;
+    let childX = x;
+    const childY = y + node.height + PBS_V_GAP;
     for (const child of node.children) {
         pbsLayoutTree(child, childX, childY);
-        childY += child.subtreeHeight + PBS_V_GAP;
+        childX += child.subtreeWidth + PBS_H_GAP;
     }
 }
 
@@ -244,11 +245,8 @@ function pbsRender() {
     pbsGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pbsPanX},${pbsPanY}) scale(${pbsZoom})` });
     pbsSvg.appendChild(pbsGroup);
 
-    // Draw edges first (behind nodes)
+    // Draw edges (parent-child lines)
     pbsRenderEdges(pbsTree);
-
-    // Draw dependency arrows between deliverables
-    pbsRenderDependencyArrows();
 
     // Draw nodes
     let colourIndex = 0;
@@ -260,15 +258,18 @@ function pbsRender() {
 }
 
 function pbsRenderEdges(node) {
+    if (node.children.length === 0) return;
+
+    const parentCx = node.x + node.width / 2;
+    const parentBottom = node.y + node.height;
+
     for (const child of node.children) {
-        const x1 = node.x + node.width;
-        const y1 = node.y + node.height / 2;
-        const x2 = child.x;
-        const y2 = child.y + child.height / 2;
-        const midX = (x1 + x2) / 2;
+        const childCx = child.x + child.width / 2;
+        const childTop = child.y;
+        const midY = (parentBottom + childTop) / 2;
 
         const path = pbsCreateSVGElement('path', {
-            'd': `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`,
+            'd': `M${parentCx},${parentBottom} C${parentCx},${midY} ${childCx},${midY} ${childCx},${childTop}`,
             'fill': 'none',
             'stroke': '#666',
             'stroke-width': '2',
@@ -327,16 +328,9 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
     const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour ? pbsShadeColour(parentColour, 1.3) : '#4A90D9'));
 
-    // Compute rollup status from child activities
-    const rollup = node._task ? pbsComputeRollup(node._task, pbsTasks) : { percent: 0, activityCount: 0 };
-    const pct = rollup.percent;
-    const activities = node._task ? pbsGetActivities(node._task, pbsTasks) : [];
-    const resources = node._task ? pbsGetResources(node._task, pbsTasks) : [];
-
     const g = pbsCreateSVGElement('g', {
         'class': 'pbs-node',
         'data-deliverable': node.deliverable || '',
-        'data-task-name': node.name || '',
         'style': 'cursor: pointer;'
     });
 
@@ -349,28 +343,17 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
     });
 
     // Node rectangle
-    const rect = pbsCreateSVGElement('rect', {
-        'x': node.x,
-        'y': node.y,
-        'width': node.width,
-        'height': node.height,
-        'rx': '8',
-        'ry': '8',
-        'fill': colour,
-        'stroke': pbsShadeColour(colour, 0.7),
-        'stroke-width': '1.5',
+    g.appendChild(pbsCreateSVGElement('rect', {
+        'x': node.x, 'y': node.y, 'width': node.width, 'height': node.height,
+        'rx': '6', 'ry': '6', 'fill': colour,
+        'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5',
         'class': 'pbs-node-rect'
-    });
-    g.appendChild(rect);
+    }));
 
-    // Node label (product name) — line 1
+    // Product name
     const label = pbsCreateSVGElement('text', {
-        'x': node.x + node.width / 2,
-        'y': node.y + 18,
-        'text-anchor': 'middle',
-        'fill': '#fff',
-        'font-size': '13',
-        'font-weight': 'bold',
+        'x': node.x + node.width / 2, 'y': node.y + 18,
+        'text-anchor': 'middle', 'fill': '#fff', 'font-size': '12', 'font-weight': 'bold',
         'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     });
     let displayName = node.name;
@@ -381,67 +364,20 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
     label.textContent = displayName;
     g.appendChild(label);
 
-    // Subtitle line 2: deliverable ID + status
-    if (node._task) {
-        const statusText = pct === 100 ? 'Complete' : pct > 0 ? `${pct}%` : 'Not started';
-        const sub = pbsCreateSVGElement('text', {
-            'x': node.x + node.width / 2,
-            'y': node.y + 33,
-            'text-anchor': 'middle',
-            'fill': 'rgba(255,255,255,0.8)',
-            'font-size': '10',
+    // Product ID
+    if (node.deliverable) {
+        const idLabel = pbsCreateSVGElement('text', {
+            'x': node.x + node.width / 2, 'y': node.y + 34,
+            'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.7)', 'font-size': '10',
             'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         });
-        sub.textContent = `$${node.deliverable} \u00B7 ${statusText}`;
-        g.appendChild(sub);
-
-        // Line 3: activity count + resource count
-        const infoLine = pbsCreateSVGElement('text', {
-            'x': node.x + node.width / 2,
-            'y': node.y + 47,
-            'text-anchor': 'middle',
-            'fill': 'rgba(255,255,255,0.6)',
-            'font-size': '9',
-            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        });
-        const infoParts = [];
-        if (activities.length > 0) infoParts.push(`${activities.length} activities`);
-        if (resources.length > 0) infoParts.push(`${resources.length} resources`);
-        if (node._task.start && node._task.finish) {
-            infoParts.push(`${node._task.start} \u2192 ${node._task.finish}`);
-        }
-        infoLine.textContent = infoParts.join(' \u00B7 ');
-        g.appendChild(infoLine);
-
-        // Progress bar
-        const barY = node.y + node.height - 8;
-        const barWidth = node.width - 16;
-        const barX = node.x + 8;
-        // Background
-        g.appendChild(pbsCreateSVGElement('rect', {
-            'x': barX, 'y': barY, 'width': barWidth, 'height': 4,
-            'rx': '2', 'fill': 'rgba(0,0,0,0.2)'
-        }));
-        // Progress fill
-        if (pct > 0) {
-            const fillColour = pct === 100 ? 'rgba(92,184,92,0.9)' : 'rgba(255,255,255,0.7)';
-            g.appendChild(pbsCreateSVGElement('rect', {
-                'x': barX, 'y': barY, 'width': barWidth * (pct / 100), 'height': 4,
-                'rx': '2', 'fill': fillColour
-            }));
-        }
+        idLabel.textContent = `$${node.deliverable}`;
+        g.appendChild(idLabel);
     }
 
-    // Tooltip on hover
+    // Tooltip
     const title = pbsCreateSVGElement('title', {});
-    let tooltipText = node.name;
-    if (node.deliverable) tooltipText += `\nProduct: $${node.deliverable}`;
-    if (activities.length) tooltipText += `\nActivities: ${activities.length}`;
-    if (resources.length) tooltipText += `\nSkills: ${resources.join(', ')}`;
-    tooltipText += `\nProgress: ${pct}%`;
-    if (node._task && node._task.start) tooltipText += `\nDates: ${node._task.start} \u2192 ${node._task.finish}`;
-    tooltipText += '\n\nClick to edit';
-    title.textContent = tooltipText;
+    title.textContent = `${node.name}${node.deliverable ? '\n$' + node.deliverable : ''}\nClick to edit`;
     g.appendChild(title);
 
     pbsGroup.appendChild(g);
@@ -550,7 +486,7 @@ function pbsZoomFit() {
 }
 
 function pbsGetBounds(node) {
-    let minX = node.x, maxX = node.x + node.width;
+    let minX = node.x, maxX = node.x + (node.subtreeWidth || node.width);
     let minY = node.y, maxY = node.y + node.height;
     for (const child of node.children) {
         const cb = pbsGetBounds(child);
@@ -688,8 +624,8 @@ let pfDragStartY = 0;
 let pfDragStartPanX = 0;
 let pfDragStartPanY = 0;
 
-const PF_NODE_W = 200;
-const PF_NODE_H = 64;
+const PF_NODE_W = 180;
+const PF_NODE_H = 44;
 const PF_H_GAP = 120;
 const PF_V_GAP = 30;
 
@@ -858,8 +794,6 @@ function pfRender(positions, allTasks) {
     let colourIdx = 0;
     for (const [key, pos] of Object.entries(positions)) {
         const task = pos.task;
-        const rollup = pbsComputeRollup(task, allTasks);
-        const pct = rollup.percent;
         const colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
         colourIdx++;
 
@@ -872,48 +806,33 @@ function pfRender(positions, allTasks) {
         // Rectangle
         g.appendChild(pbsCreateSVGElement('rect', {
             'x': pos.x, 'y': pos.y, 'width': PF_NODE_W, 'height': PF_NODE_H,
-            'rx': '8', 'ry': '8', 'fill': colour,
+            'rx': '6', 'ry': '6', 'fill': colour,
             'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
         }));
 
         // Name
         const label = pbsCreateSVGElement('text', {
-            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 22,
-            'text-anchor': 'middle', 'fill': '#fff', 'font-size': '13', 'font-weight': 'bold',
+            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 18,
+            'text-anchor': 'middle', 'fill': '#fff', 'font-size': '12', 'font-weight': 'bold',
             'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         });
         let name = task.name || key;
-        if (name.length > 24) name = name.substring(0, 23) + '\u2026';
+        if (name.length > 22) name = name.substring(0, 21) + '\u2026';
         label.textContent = name;
         g.appendChild(label);
 
-        // Status line
-        const statusText = pct === 100 ? 'Complete' : pct > 0 ? `${pct}%` : 'Not started';
+        // Product ID
         const sub = pbsCreateSVGElement('text', {
-            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 40,
-            'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.8)', 'font-size': '10',
+            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 34,
+            'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.7)', 'font-size': '10',
             'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         });
-        sub.textContent = `$${key} \u00B7 ${statusText}`;
+        sub.textContent = `$${key}`;
         g.appendChild(sub);
-
-        // Progress bar
-        const barX = pos.x + 8;
-        const barY = pos.y + PF_NODE_H - 8;
-        const barW = PF_NODE_W - 16;
-        g.appendChild(pbsCreateSVGElement('rect', {
-            'x': barX, 'y': barY, 'width': barW, 'height': 4, 'rx': '2', 'fill': 'rgba(0,0,0,0.2)'
-        }));
-        if (pct > 0) {
-            g.appendChild(pbsCreateSVGElement('rect', {
-                'x': barX, 'y': barY, 'width': barW * (pct / 100), 'height': 4, 'rx': '2',
-                'fill': pct === 100 ? 'rgba(92,184,92,0.9)' : 'rgba(255,255,255,0.7)'
-            }));
-        }
 
         // Tooltip
         const title = pbsCreateSVGElement('title', {});
-        title.textContent = `${task.name}\n$${key}\nProgress: ${pct}%\nClick to edit`;
+        title.textContent = `${task.name}\n$${key}\nClick to edit`;
         g.appendChild(title);
 
         pfGroup.appendChild(g);
