@@ -294,11 +294,17 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         // Update syntax highlighting
         if (highlightLayer) {
             const highlighted = highlightSyntax(content);
+            // Save scroll position before innerHTML replacement resets it
+            const savedScrollTop = editor.scrollTop;
+            const savedScrollLeft = editor.scrollLeft;
             highlightLayer.innerHTML = highlighted;
+            // Restore immediately (not via rAF) to prevent visual flicker
+            highlightLayer.scrollTop = savedScrollTop;
+            highlightLayer.scrollLeft = savedScrollLeft;
         }
 
-        // Re-sync scroll positions after innerHTML replacement resets them
-        syncScroll();
+        // Sync line numbers scroll
+        lineNumbers.scrollTop = editor.scrollTop;
 
         // Update active line indicator
         updateActiveLine();
