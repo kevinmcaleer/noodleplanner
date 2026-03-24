@@ -293,18 +293,11 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
         // Update syntax highlighting
         if (highlightLayer) {
-            const highlighted = highlightSyntax(content);
-            // Save scroll position before innerHTML replacement resets it
-            const savedScrollTop = editor.scrollTop;
-            const savedScrollLeft = editor.scrollLeft;
-            highlightLayer.innerHTML = highlighted;
-            // Restore immediately (not via rAF) to prevent visual flicker
-            highlightLayer.scrollTop = savedScrollTop;
-            highlightLayer.scrollLeft = savedScrollLeft;
+            highlightLayer.innerHTML = highlightSyntax(content);
         }
 
-        // Sync line numbers scroll
-        lineNumbers.scrollTop = editor.scrollTop;
+        // Sync positions
+        syncScroll();
 
         // Update active line indicator
         updateActiveLine();
@@ -344,12 +337,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     }
 
     // Sync scroll between textarea, line numbers, and highlight overlay.
-    // Sync immediately on every event to prevent visible desync.
+    // Uses CSS top/left offset on the highlight layer instead of scrollTop
+    // to avoid line-height drift between textarea and div rendering.
     function syncScroll() {
         lineNumbers.scrollTop = editor.scrollTop;
         if (highlightLayer) {
-            highlightLayer.scrollTop = editor.scrollTop;
-            highlightLayer.scrollLeft = editor.scrollLeft;
+            highlightLayer.style.top = -editor.scrollTop + 'px';
+            highlightLayer.style.left = -editor.scrollLeft + 'px';
         }
     }
 

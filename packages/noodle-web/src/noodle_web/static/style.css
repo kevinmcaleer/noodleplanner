@@ -2813,19 +2813,12 @@ svg.icon {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    overflow: auto;
-    scrollbar-width: none;       /* Firefox */
-    -ms-overflow-style: none;    /* IE/Edge */
+    width: 100%;
+    overflow: visible;
     pointer-events: none;
     color: #d4d4d4;
     z-index: 1;
     margin: 0;
-}
-
-.editor-highlight-layer::-webkit-scrollbar {
-    display: none;               /* Chrome/Safari */
 }
 
 .editor-textarea {
