@@ -1172,6 +1172,9 @@ function copySvgAsImage(containerId, btn) {
         const clone = svg.cloneNode(true);
         const cloneG = clone.querySelector('g');
 
+        // Remove add-product buttons from the clone
+        clone.querySelectorAll('.pbs-add-btns, .pbs-add-btn').forEach(el => el.remove());
+
         // Set viewBox to frame the content, remove pan/zoom transform
         const padding = 40;
         let viewBox;
