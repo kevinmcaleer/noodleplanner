@@ -1000,7 +1000,7 @@ function openProductForm(task) {
     if (compEl) {
         const activities = pbsGetActivities(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
         if (activities.length === 0) {
-            compEl.innerHTML = '<span style="color: var(--text-secondary, #888);">No child tasks</span>';
+            compEl.innerHTML = '<span>No child tasks</span>';
         } else {
             compEl.innerHTML = activities.map(a => {
                 const pct = parseFloat(a.percent) || 0;
@@ -1018,7 +1018,7 @@ function openProductForm(task) {
     if (resEl) {
         const resources = pbsGetResources(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
         if (resources.length === 0) {
-            resEl.innerHTML = '<span style="color: var(--text-secondary, #888);">No resources assigned</span>';
+            resEl.innerHTML = '<span>No resources assigned</span>';
         } else {
             resEl.innerHTML = resources.map(r =>
                 `<span class="product-resource-badge">${r.replace(/</g, '&lt;')}</span>`
