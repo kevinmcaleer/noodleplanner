@@ -1239,8 +1239,25 @@ function toggleTaskDeliverable() {
     } else {
         // Not a deliverable — add a $identifier token
         const taskName = (document.getElementById('taskName').value || '').trim();
-        const identifier = taskName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        let identifier = taskName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
         if (!identifier) return;
+
+        // Collect all existing $identifiers to avoid duplicates
+        const existingIds = new Set();
+        const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/g;
+        let m;
+        while ((m = idRegex.exec(editor.value)) !== null) {
+            existingIds.add(m[1].toLowerCase());
+        }
+
+        // If duplicate, append a number suffix
+        if (existingIds.has(identifier)) {
+            let counter = 1;
+            while (existingIds.has(`${identifier}_${counter}`)) {
+                counter++;
+            }
+            identifier = `${identifier}_${counter}`;
+        }
 
         // Insert $identifier after the task name
         const trimmed = line.trimStart();
