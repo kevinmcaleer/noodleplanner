@@ -1891,6 +1891,19 @@ function openTaskForm(lineNumber) {
         // Populate subtasks
         populateSubtasks(lineNumber, lines);
 
+        // Update deliverable/product button
+        const delivBtn = document.getElementById('taskDeliverableBtn');
+        if (delivBtn) {
+            delivBtn.style.display = '';
+            if (task.deliverable) {
+                delivBtn.textContent = '\uD83D\uDCE6 Product';
+                delivBtn.title = 'Open product details';
+            } else {
+                delivBtn.textContent = '\uD83D\uDCE6 Make Deliverable';
+                delivBtn.title = 'Mark this task as a deliverable';
+            }
+        }
+
         // Re-apply title after the browser has painted the now-visible pane.
         // Using requestAnimationFrame ensures layout is complete before we
         // update the contenteditable element.

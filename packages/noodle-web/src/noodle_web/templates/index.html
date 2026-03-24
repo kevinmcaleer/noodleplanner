@@ -1868,6 +1868,7 @@ Build
             <div class="detail-pane-header">
                 <div id="taskFormTitle" class="detail-pane-title" contenteditable="true" oninput="updateTaskNameFromTitle()">Task Name</div>
                 <button class="task-form-inspect-btn" onclick="openTaskInspectorFromForm()" title="Inspect task" aria-label="Open task inspector">&#128269; Inspect</button>
+                <button class="task-form-inspect-btn" id="taskDeliverableBtn" onclick="toggleTaskDeliverable()" title="Product details" style="display: none;">&#128230; Product</button>
                 <button class="close-btn" onclick="closeTaskForm()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
@@ -2093,6 +2094,7 @@ Build
         <div id="productFormSection" class="detail-pane-section">
             <div class="detail-pane-header">
                 <div id="productFormTitle" class="detail-pane-title">Product Details</div>
+                <button class="task-form-inspect-btn" onclick="switchProductToTaskForm()" title="Open task details" aria-label="Switch to task details">&#128203; Task Details</button>
                 <button class="close-btn" onclick="closeProductForm()" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">

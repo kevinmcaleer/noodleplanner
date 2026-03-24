@@ -1213,3 +1213,71 @@ function saveProductForm() {
         renderText();
     }, 1500);
 }
+
+// ── Toggle between Task and Product forms ─────────────────────────────
+
+function toggleTaskDeliverable() {
+    // Called from the task form's "Product" / "Make Deliverable" button
+    const editor = document.getElementById('planEditor');
+    if (!editor || typeof currentTaskLineNumber === 'undefined' || currentTaskLineNumber === null) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[currentTaskLineNumber - 1];
+    if (line === undefined) return;
+
+    // Check if this task already has a $deliverable token
+    const delivMatch = line.match(/\$([A-Za-z_][A-Za-z0-9_-]*)/);
+
+    if (delivMatch) {
+        // Already a deliverable — find the matching backend task and open product form
+        const taskName = document.getElementById('taskName').value;
+        const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+        const task = allTasks.find(t => t.name === taskName && t.deliverable);
+        if (task) {
+            openProductForm(task);
+        }
+    } else {
+        // Not a deliverable — add a $identifier token
+        const taskName = (document.getElementById('taskName').value || '').trim();
+        const identifier = taskName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        if (!identifier) return;
+
+        // Insert $identifier after the task name
+        const trimmed = line.trimStart();
+        const indent = line.substring(0, line.length - trimmed.length);
+        // Find first metadata token position to insert before it
+        const metaMatch = trimmed.match(/(\s+[@#!$"{\[\d]|\s+\d+[dwmy]|\s+\d+%)/);
+        let newLine;
+        if (metaMatch) {
+            const pos = metaMatch.index;
+            newLine = indent + trimmed.substring(0, pos) + ` $${identifier}` + trimmed.substring(pos);
+        } else {
+            newLine = line + ` $${identifier}`;
+        }
+
+        lines[currentTaskLineNumber - 1] = newLine;
+        editor.value = lines.join('\n');
+        if (editor._updateLineNumbers) editor._updateLineNumbers();
+        editor.dispatchEvent(new Event('input'));
+        setTimeout(() => {
+            renderText();
+            // After render, find the updated task and open product form
+            setTimeout(() => {
+                const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+                const task = allTasks.find(t => t.name === taskName && t.deliverable);
+                if (task) {
+                    openProductForm(task);
+                }
+            }, 500);
+        }, 10);
+    }
+}
+
+function switchProductToTaskForm() {
+    // Called from the product form's "Task Details" button
+    if (!currentProductTask) return;
+    const taskName = currentProductTask.name;
+    if (taskName && typeof openTaskFormByName === 'function') {
+        openTaskFormByName(taskName);
+    }
+}
