@@ -756,19 +756,19 @@ Press Enter to render..."></textarea>
                                                 <option value="years">Years</option>
                                             </select>
                                         </div>
-                                        <div class="gantt-dependency-toggle">
-                                            <label>
-                                                <input type="checkbox" id="ganttShowDependencies">
-                                                Show Dependencies
-                                            </label>
-                                        </div>
-                                        <div class="gantt-baseline-controls">
-                                            <button class="btn btn-sm btn-outline-secondary" id="setBaselineBtn" onclick="setBaseline()" title="Save current schedule as baseline">Set Baseline</button>
+                                        <div class="gantt-checkbox-group">
+                                            <div class="gantt-dependency-toggle">
+                                                <label>
+                                                    <input type="checkbox" id="ganttShowDependencies">
+                                                    Show Dependencies
+                                                </label>
+                                            </div>
                                             <label class="baseline-toggle-label" id="baselineToggleLabel" style="display: none;">
                                                 <input type="checkbox" id="ganttShowBaseline" onchange="toggleBaselineDisplay()">
                                                 Show Baseline
                                             </label>
                                         </div>
+                                        <button class="btn btn-sm btn-outline-secondary gantt-set-baseline-btn" id="setBaselineBtn" onclick="setBaseline()" title="Save current schedule as baseline">Set Baseline</button>
                                     </div>
                                 </div>
                                 <div class="gantt-wrapper">
