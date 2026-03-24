@@ -182,13 +182,14 @@ function pbsMeasureText(text, font) {
     return _pbsMeasureCtx.measureText(text).width;
 }
 
-function pbsMeasure(node) {
+function pbsMeasure(node, depth) {
+    if (depth === undefined) depth = 0;
     const textW = pbsMeasureText(node.name, 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
     node.width = Math.min(PBS_NODE_MAX_WIDTH, Math.max(PBS_NODE_MIN_WIDTH, textW + PBS_NODE_PADDING_X * 2 + 8));
 
     // Measure all children first
     for (const child of node.children) {
-        pbsMeasure(child);
+        pbsMeasure(child, depth + 1);
     }
 
     if (node.children.length === 0) {
@@ -198,13 +199,26 @@ function pbsMeasure(node) {
     }
 
     const n = node.children.length;
-    const dual = n > PBS_DUAL_THRESHOLD;
+
+    // First level (root's children): horizontal layout
+    // Deeper levels: stacked layout
+    const useHorizontal = (depth === 0);
+    const dual = !useHorizontal && n > PBS_DUAL_THRESHOLD;
     node._dual = dual;
+    node._horizontal = useHorizontal;
 
-    // Children's stacked height
-    const stackH = node.children.reduce((s, c) => s + c.subtreeHeight, 0) + (n - 1) * PBS_STACK_GAP;
-
-    if (dual) {
+    if (useHorizontal) {
+        // Children side by side horizontally
+        let totalChildrenWidth = 0;
+        let maxChildHeight = 0;
+        for (const child of node.children) {
+            totalChildrenWidth += child.subtreeWidth;
+            maxChildHeight = Math.max(maxChildHeight, child.subtreeHeight);
+        }
+        totalChildrenWidth += (n - 1) * PBS_SIBLING_GAP;
+        node.subtreeWidth = Math.max(node.width, totalChildrenWidth);
+        node.subtreeHeight = node.height + PBS_LEVEL_GAP + maxChildHeight;
+    } else if (dual) {
         const half = Math.ceil(n / 2);
         const leftChildren = node.children.slice(0, half);
         const rightChildren = node.children.slice(half);
@@ -219,10 +233,8 @@ function pbsMeasure(node) {
         node.subtreeHeight = node.height + PBS_LEVEL_GAP + childrenHeight;
     } else {
         // Single column to the right of the bus
-        // Subtree width = parent width or (bus offset + child width), whichever is wider
-        // But siblings are arranged horizontally, so subtreeWidth must encompass the children
+        const stackH = node.children.reduce((s, c) => s + c.subtreeHeight, 0) + (n - 1) * PBS_STACK_GAP;
         const maxChildW = Math.max(...node.children.map(c => c.subtreeWidth));
-        // Children sit to the right: half parent + bus offset + child width
         const rightExtent = node.width / 2 + PBS_BUS_OFFSET + maxChildW;
         node.subtreeWidth = Math.max(node.width, rightExtent);
         node.subtreeHeight = node.height + PBS_LEVEL_GAP + stackH;
@@ -230,17 +242,13 @@ function pbsMeasure(node) {
 }
 
 function pbsLayoutTree(node, x, y) {
-    // Place the node — for leaf nodes centre in subtreeWidth, for parents
-    // we may need to offset left to accommodate right-side children
-    if (node.children.length === 0 || node._dual) {
+    if (node.children.length === 0 || node._horizontal || node._dual) {
         node.x = x + (node.subtreeWidth - node.width) / 2;
     } else {
-        // Single column: parent sits so that its centre + BUS_OFFSET aligns
-        // with the left edge of children. Place parent more to the left.
+        // Stacked single column: offset parent left so bus + children fit
         const maxChildW = Math.max(...node.children.map(c => c.subtreeWidth));
         const rightExtent = node.width / 2 + PBS_BUS_OFFSET + maxChildW;
         if (rightExtent > node.width) {
-            // Parent is offset so bus + children fit within subtreeWidth
             node.x = x + (node.subtreeWidth - rightExtent);
         } else {
             node.x = x + (node.subtreeWidth - node.width) / 2;
@@ -254,7 +262,15 @@ function pbsLayoutTree(node, x, y) {
     const n = node.children.length;
     const parentCx = node.x + node.width / 2;
 
-    if (node._dual) {
+    if (node._horizontal) {
+        // Horizontal layout: children side by side
+        let childX = x;
+        for (const child of node.children) {
+            child._colSide = 'centre';
+            pbsLayoutTree(child, childX, childrenTop);
+            childX += child.subtreeWidth + PBS_SIBLING_GAP;
+        }
+    } else if (node._dual) {
         const half = Math.ceil(n / 2);
         const leftChildren = node.children.slice(0, half);
         const rightChildren = node.children.slice(half);
@@ -341,7 +357,29 @@ function pbsRenderEdges(node) {
     const parentBottom = node.y + node.height;
     const strokeAttrs = { 'fill': 'none', 'stroke': '#666', 'stroke-width': '1.5', 'opacity': '0.6' };
 
-    if (node.children.length === 1 && !node._dual) {
+    if (node._horizontal) {
+        // Horizontal first-level: drop from parent, horizontal bus, vertical drops to children
+        const busY = parentBottom + PBS_BUS_DROP;
+        const childCxs = node.children.map(c => c.x + c.width / 2);
+        const minCx = Math.min(...childCxs);
+        const maxCx = Math.max(...childCxs);
+
+        // Vertical drop from parent to bus
+        pbsGroup.appendChild(pbsCreateSVGElement('line', {
+            'x1': parentCx, 'y1': parentBottom, 'x2': parentCx, 'y2': busY, ...strokeAttrs
+        }));
+        // Horizontal bus spanning all children
+        pbsGroup.appendChild(pbsCreateSVGElement('line', {
+            'x1': minCx, 'y1': busY, 'x2': maxCx, 'y2': busY, ...strokeAttrs
+        }));
+        // Vertical drops from bus to each child top
+        for (const child of node.children) {
+            const childCx = child.x + child.width / 2;
+            pbsGroup.appendChild(pbsCreateSVGElement('line', {
+                'x1': childCx, 'y1': busY, 'x2': childCx, 'y2': child.y, ...strokeAttrs
+            }));
+        }
+    } else if (node.children.length === 1 && !node._dual) {
         // Single child: orthogonal L-shaped line
         const child = node.children[0];
         const childLeft = child.x;
@@ -358,18 +396,15 @@ function pbsRenderEdges(node) {
         const allCy = node.children.map(c => c.y + c.height / 2);
         const maxCy = Math.max(...allCy);
 
-        // Vertical bus
         pbsGroup.appendChild(pbsCreateSVGElement('line', {
             'x1': parentCx, 'y1': parentBottom, 'x2': parentCx, 'y2': maxCy, ...strokeAttrs
         }));
-        // Left stubs (child right side to bus)
         for (const child of leftChildren) {
             const cy = child.y + child.height / 2;
             pbsGroup.appendChild(pbsCreateSVGElement('line', {
                 'x1': child.x + child.width, 'y1': cy, 'x2': parentCx, 'y2': cy, ...strokeAttrs
             }));
         }
-        // Right stubs (bus to child left side)
         for (const child of rightChildren) {
             const cy = child.y + child.height / 2;
             pbsGroup.appendChild(pbsCreateSVGElement('line', {
@@ -381,11 +416,9 @@ function pbsRenderEdges(node) {
         const lastChild = node.children[node.children.length - 1];
         const lastCy = lastChild.y + lastChild.height / 2;
 
-        // Vertical bus from parent bottom to last child
         pbsGroup.appendChild(pbsCreateSVGElement('line', {
             'x1': parentCx, 'y1': parentBottom, 'x2': parentCx, 'y2': lastCy, ...strokeAttrs
         }));
-        // Horizontal stubs to each child's left side
         for (const child of node.children) {
             const cy = child.y + child.height / 2;
             pbsGroup.appendChild(pbsCreateSVGElement('line', {
