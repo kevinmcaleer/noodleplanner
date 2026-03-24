@@ -1893,9 +1893,20 @@ function toggleTaskDeliverable() {
         // Already a deliverable — find the matching backend task and open product form
         const delivId = delivMatch[1];
         const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
-        const task = allTasks.find(t => t.deliverable === delivId);
+        let task = allTasks.find(t => t.deliverable === delivId);
+        // Fallback: match by name if deliverable ID not found (can happen with duplicate task names)
+        if (!task) {
+            task = allTasks.find(t => t.name === taskName && t.deliverable);
+        }
         if (task) {
             openProductForm(task);
+        } else {
+            // Last resort: construct a minimal task object from the editor line
+            openProductForm({
+                name: taskName,
+                deliverable: delivId,
+                depends: [], comment: '', start: '', finish: '', percent: 0
+            });
         }
     } else {
         // Not a deliverable — add a $identifier token
