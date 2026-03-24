@@ -158,7 +158,7 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'pbs', 'deliverables', 'stakeholders', 'guide'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'pbs', 'deliverables', 'product-flow', 'stakeholders', 'guide'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
 const TOOLS_VIEWS = ['guide'];

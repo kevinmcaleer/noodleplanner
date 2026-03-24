@@ -489,6 +489,15 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
+    // If switching to product flow view, re-render
+    if (tabName === 'product-flow' && typeof updateProductFlow === 'function') {
+        setTimeout(() => {
+            if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+                updateProductFlow(lastRenderedTasks);
+            }
+        }, 50);
+    }
+
     // If switching to stakeholders view, load from front matter if needed and render
     if (tabName === 'stakeholders') {
         if (stakeholderItems.length === 0) {

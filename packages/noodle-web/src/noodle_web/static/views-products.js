@@ -323,12 +323,11 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
         'style': 'cursor: pointer;'
     });
 
-    // Click handler — open task form
+    // Click handler — open product form
     g.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (node.name && typeof openTaskFormByName === 'function') {
-            if (typeof switchTab === 'function') switchTab('editor');
-            openTaskFormByName(node.name);
+        if (node._task && typeof openProductForm === 'function') {
+            openProductForm(node._task);
         }
     });
 
@@ -632,8 +631,7 @@ function updateDeliverablesMatrix(tasks, projectName) {
         const tr = document.createElement('tr');
         tr.style.cursor = 'pointer';
         tr.addEventListener('click', () => {
-            if (typeof switchTab === 'function') switchTab('editor');
-            if (typeof openTaskFormByName === 'function') openTaskFormByName(task.name);
+            if (typeof openProductForm === 'function') openProductForm(task);
         });
 
         const escapedName = (task.name || task.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -658,4 +656,442 @@ function updateDeliverablesMatrix(tasks, projectName) {
         `;
         container.appendChild(tr);
     }
+}
+
+// ── Product Flow View (dependency graph) ──────────────────────────────
+
+let pfSvg = null;
+let pfGroup = null;
+let pfZoom = 1;
+let pfPanX = 0;
+let pfPanY = 0;
+let pfIsDragging = false;
+let pfDragStartX = 0;
+let pfDragStartY = 0;
+let pfDragStartPanX = 0;
+let pfDragStartPanY = 0;
+
+const PF_NODE_W = 200;
+const PF_NODE_H = 64;
+const PF_H_GAP = 120;
+const PF_V_GAP = 30;
+
+function updateProductFlow(tasks, projectName) {
+    const allTasks = tasks || [];
+    const deliverables = pbsExtractDeliverables(allTasks);
+
+    const placeholder = document.querySelector('#product-flow-view .product-flow-placeholder');
+    const content = document.querySelector('#product-flow-view .product-flow-content');
+
+    if (deliverables.length === 0) {
+        if (placeholder) placeholder.style.display = '';
+        if (content) content.style.display = 'none';
+        return;
+    }
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (content) content.style.display = '';
+
+    // Topological sort to determine build order (columns)
+    const nodes = {};
+    for (const d of deliverables) {
+        nodes[d.deliverable] = { task: d, deps: [], column: 0 };
+    }
+    // Build dependency edges
+    for (const d of deliverables) {
+        if (d.depends) {
+            for (const depName of d.depends) {
+                const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                if (depTask && nodes[depTask.deliverable]) {
+                    nodes[d.deliverable].deps.push(depTask.deliverable);
+                }
+            }
+        }
+    }
+
+    // Assign columns via longest path from roots
+    function assignColumn(key, visited) {
+        if (visited.has(key)) return nodes[key].column;
+        visited.add(key);
+        let maxDepCol = -1;
+        for (const dep of nodes[key].deps) {
+            if (nodes[dep]) {
+                maxDepCol = Math.max(maxDepCol, assignColumn(dep, visited));
+            }
+        }
+        nodes[key].column = maxDepCol + 1;
+        return nodes[key].column;
+    }
+    const visited = new Set();
+    for (const key of Object.keys(nodes)) {
+        assignColumn(key, visited);
+    }
+
+    // Group by column
+    const columns = {};
+    for (const [key, node] of Object.entries(nodes)) {
+        if (!columns[node.column]) columns[node.column] = [];
+        columns[node.column].push({ key, ...node });
+    }
+
+    // Layout: x by column, y by row within column
+    const positions = {};
+    const maxCol = Math.max(...Object.keys(columns).map(Number));
+    for (let col = 0; col <= maxCol; col++) {
+        const items = columns[col] || [];
+        items.forEach((item, row) => {
+            positions[item.key] = {
+                x: 40 + col * (PF_NODE_W + PF_H_GAP),
+                y: 40 + row * (PF_NODE_H + PF_V_GAP),
+                task: item.task,
+                deps: item.deps
+            };
+        });
+    }
+
+    // Render
+    initProductFlow();
+    pfRender(positions, allTasks);
+    pfZoomFit(positions);
+}
+
+function initProductFlow() {
+    const container = document.getElementById('productFlowContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    pfSvg = pbsCreateSVGElement('svg', { 'width': '100%', 'height': '100%', 'class': 'pbs-svg' });
+
+    const defs = pbsCreateSVGElement('defs', {});
+    const marker = pbsCreateSVGElement('marker', {
+        'id': 'pf-arrowhead', 'markerWidth': '10', 'markerHeight': '7',
+        'refX': '10', 'refY': '3.5', 'orient': 'auto'
+    });
+    marker.appendChild(pbsCreateSVGElement('polygon', { 'points': '0 0, 10 3.5, 0 7', 'fill': '#E8833A' }));
+    defs.appendChild(marker);
+    pfSvg.appendChild(defs);
+    container.appendChild(pfSvg);
+
+    // Pan/zoom
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        pfZoom = Math.max(0.1, Math.min(5, pfZoom * (e.deltaY > 0 ? 0.9 : 1.1)));
+        pfApplyTransform();
+    }, { passive: false });
+
+    container.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.pf-node')) return;
+        pfIsDragging = true;
+        pfDragStartX = e.clientX;
+        pfDragStartY = e.clientY;
+        pfDragStartPanX = pfPanX;
+        pfDragStartPanY = pfPanY;
+        container.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    const onMove = (e) => {
+        if (!pfIsDragging) return;
+        pfPanX = pfDragStartPanX + (e.clientX - pfDragStartX);
+        pfPanY = pfDragStartPanY + (e.clientY - pfDragStartY);
+        pfApplyTransform();
+    };
+    const onUp = () => {
+        if (!pfIsDragging) return;
+        pfIsDragging = false;
+        container.style.cursor = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    };
+    container.addEventListener('mousedown', () => {
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+}
+
+function pfApplyTransform() {
+    if (pfGroup) pfGroup.setAttribute('transform', `translate(${pfPanX},${pfPanY}) scale(${pfZoom})`);
+}
+
+function pfRender(positions, allTasks) {
+    if (!pfSvg) return;
+    if (pfGroup) pfGroup.remove();
+    pfGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pfPanX},${pfPanY}) scale(${pfZoom})` });
+    pfSvg.appendChild(pfGroup);
+
+    // Draw dependency arrows
+    for (const [key, pos] of Object.entries(positions)) {
+        for (const dep of pos.deps) {
+            const src = positions[dep];
+            if (!src) continue;
+            const x1 = src.x + PF_NODE_W;
+            const y1 = src.y + PF_NODE_H / 2;
+            const x2 = pos.x;
+            const y2 = pos.y + PF_NODE_H / 2;
+            const midX = (x1 + x2) / 2;
+            pfGroup.appendChild(pbsCreateSVGElement('path', {
+                'd': `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`,
+                'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
+                'marker-end': 'url(#pf-arrowhead)'
+            }));
+        }
+    }
+
+    // Draw nodes
+    let colourIdx = 0;
+    for (const [key, pos] of Object.entries(positions)) {
+        const task = pos.task;
+        const rollup = pbsComputeRollup(task, allTasks);
+        const pct = rollup.percent;
+        const colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
+        colourIdx++;
+
+        const g = pbsCreateSVGElement('g', { 'class': 'pf-node', 'style': 'cursor: pointer;' });
+        g.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof openProductForm === 'function') openProductForm(task);
+        });
+
+        // Rectangle
+        g.appendChild(pbsCreateSVGElement('rect', {
+            'x': pos.x, 'y': pos.y, 'width': PF_NODE_W, 'height': PF_NODE_H,
+            'rx': '8', 'ry': '8', 'fill': colour,
+            'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
+        }));
+
+        // Name
+        const label = pbsCreateSVGElement('text', {
+            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 22,
+            'text-anchor': 'middle', 'fill': '#fff', 'font-size': '13', 'font-weight': 'bold',
+            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        });
+        let name = task.name || key;
+        if (name.length > 24) name = name.substring(0, 23) + '\u2026';
+        label.textContent = name;
+        g.appendChild(label);
+
+        // Status line
+        const statusText = pct === 100 ? 'Complete' : pct > 0 ? `${pct}%` : 'Not started';
+        const sub = pbsCreateSVGElement('text', {
+            'x': pos.x + PF_NODE_W / 2, 'y': pos.y + 40,
+            'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.8)', 'font-size': '10',
+            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        });
+        sub.textContent = `$${key} \u00B7 ${statusText}`;
+        g.appendChild(sub);
+
+        // Progress bar
+        const barX = pos.x + 8;
+        const barY = pos.y + PF_NODE_H - 8;
+        const barW = PF_NODE_W - 16;
+        g.appendChild(pbsCreateSVGElement('rect', {
+            'x': barX, 'y': barY, 'width': barW, 'height': 4, 'rx': '2', 'fill': 'rgba(0,0,0,0.2)'
+        }));
+        if (pct > 0) {
+            g.appendChild(pbsCreateSVGElement('rect', {
+                'x': barX, 'y': barY, 'width': barW * (pct / 100), 'height': 4, 'rx': '2',
+                'fill': pct === 100 ? 'rgba(92,184,92,0.9)' : 'rgba(255,255,255,0.7)'
+            }));
+        }
+
+        // Tooltip
+        const title = pbsCreateSVGElement('title', {});
+        title.textContent = `${task.name}\n$${key}\nProgress: ${pct}%\nClick to edit`;
+        g.appendChild(title);
+
+        pfGroup.appendChild(g);
+    }
+
+    // Column labels
+    const columns = {};
+    for (const [key, pos] of Object.entries(positions)) {
+        const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
+        if (!columns[col]) columns[col] = pos.x;
+    }
+    for (const [col, x] of Object.entries(columns)) {
+        const colLabel = pbsCreateSVGElement('text', {
+            'x': x + PF_NODE_W / 2, 'y': 25,
+            'text-anchor': 'middle', 'fill': '#888', 'font-size': '11', 'font-weight': 'bold',
+            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        });
+        colLabel.textContent = `Phase ${parseInt(col) + 1}`;
+        pfGroup.appendChild(colLabel);
+    }
+}
+
+function pfZoomFit(positions) {
+    if (!pfSvg) return;
+    const container = document.getElementById('productFlowContainer');
+    if (!container) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const pos of Object.values(positions)) {
+        minX = Math.min(minX, pos.x);
+        maxX = Math.max(maxX, pos.x + PF_NODE_W);
+        minY = Math.min(minY, pos.y);
+        maxY = Math.max(maxY, pos.y + PF_NODE_H);
+    }
+    if (!isFinite(minX)) return;
+
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const padding = 60;
+    const bw = maxX - minX + padding * 2;
+    const bh = maxY - minY + padding * 2;
+
+    pfZoom = Math.min(cw / bw, ch / bh, 1.5);
+    pfPanX = (cw - bw * pfZoom) / 2 - minX * pfZoom + padding * pfZoom;
+    pfPanY = (ch - bh * pfZoom) / 2 - minY * pfZoom + padding * pfZoom;
+    pfApplyTransform();
+}
+
+function productFlowZoomIn() { pfZoom = Math.min(5, pfZoom * 1.2); pfApplyTransform(); }
+function productFlowZoomOut() { pfZoom = Math.max(0.1, pfZoom * 0.8); pfApplyTransform(); }
+function productFlowZoomFit() {
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        updateProductFlow(lastRenderedTasks);
+    }
+}
+
+// ── Product Details Form ──────────────────────────────────────────────
+
+let currentProductTask = null;
+
+function openProductForm(task) {
+    if (!task) return;
+    currentProductTask = task;
+
+    openDetailPane('productFormSection');
+
+    // Title
+    const titleEl = document.getElementById('productTitle');
+    if (titleEl) titleEl.value = task.name || '';
+
+    // Form title
+    const formTitle = document.getElementById('productFormTitle');
+    if (formTitle) formTitle.textContent = task.name || 'Product Details';
+
+    // Identifier
+    const idEl = document.getElementById('productIdentifier');
+    if (idEl) idEl.value = task.deliverable || '';
+
+    // Purpose (comment)
+    const purposeEl = document.getElementById('productPurpose');
+    if (purposeEl) purposeEl.value = task.comment || '';
+
+    // Composition (child tasks)
+    const compEl = document.getElementById('productComposition');
+    if (compEl) {
+        const activities = pbsGetActivities(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
+        if (activities.length === 0) {
+            compEl.innerHTML = '<span style="color: var(--text-secondary, #888);">No child tasks</span>';
+        } else {
+            compEl.innerHTML = activities.map(a => {
+                const pct = parseFloat(a.percent) || 0;
+                const name = (a.description || a.name || '').replace(/</g, '&lt;');
+                return `<div class="product-comp-item">
+                    <span class="product-comp-name">${name}</span>
+                    <span class="product-comp-pct">${pct}%</span>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    // Resources
+    const resEl = document.getElementById('productResources');
+    if (resEl) {
+        const resources = pbsGetResources(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
+        if (resources.length === 0) {
+            resEl.innerHTML = '<span style="color: var(--text-secondary, #888);">No resources assigned</span>';
+        } else {
+            resEl.innerHTML = resources.map(r =>
+                `<span class="product-resource-badge">${r.replace(/</g, '&lt;')}</span>`
+            ).join(' ');
+        }
+    }
+
+    // Dependencies
+    const depsEl = document.getElementById('productDependencies');
+    if (depsEl) {
+        const depTokens = [];
+        if (task.depends) {
+            const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+            const deliverables = pbsExtractDeliverables(allTasks);
+            for (const depName of task.depends) {
+                const depTask = deliverables.find(d => d.name === depName || d.description === depName);
+                if (depTask) depTokens.push(`$${depTask.deliverable}`);
+            }
+        }
+        depsEl.value = depTokens.join(', ');
+    }
+
+    // Dates (read-only, from scheduling engine)
+    const startEl = document.getElementById('productStartDate');
+    if (startEl) startEl.textContent = task.start || '\u2014';
+    const finishEl = document.getElementById('productFinishDate');
+    if (finishEl) finishEl.textContent = task.finish || '\u2014';
+
+    // Progress (rolled up)
+    const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+    const rollup = pbsComputeRollup(task, allTasks);
+    const pctEl = document.getElementById('productPercentText');
+    if (pctEl) pctEl.textContent = `${rollup.percent}%`;
+    const barEl = document.getElementById('productProgressBar');
+    if (barEl) {
+        barEl.style.width = `${rollup.percent}%`;
+        barEl.setAttribute('aria-valuenow', rollup.percent);
+    }
+}
+
+function closeProductForm() {
+    if (typeof closeDetailPane === 'function') closeDetailPane();
+    currentProductTask = null;
+}
+
+function saveProductForm() {
+    if (!currentProductTask) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const taskName = currentProductTask.name;
+    const newTitle = (document.getElementById('productTitle').value || '').trim();
+    const newId = (document.getElementById('productIdentifier').value || '').trim();
+    const newPurpose = (document.getElementById('productPurpose').value || '').trim();
+    const newDeps = (document.getElementById('productDependencies').value || '').trim();
+
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim().replace(/^\*\s*/, '');
+
+        // Find the line that contains this task name
+        if (!trimmed.includes(taskName) && !trimmed.includes(currentProductTask.deliverable)) continue;
+
+        // Reconstruct the line
+        const indent = line.match(/^(\s*)/)[1];
+        const star = line.trim().startsWith('*') ? '* ' : '';
+        let newLine = `${indent}${star}${newTitle}`;
+
+        if (newId) newLine += ` $${newId}`;
+        if (newDeps) newLine += ` [depends ${newDeps}]`;
+        if (newPurpose) newLine += ` "${newPurpose}"`;
+
+        // Preserve any other tokens from the original line (resources, dates, duration, percent)
+        const origTokens = trimmed.split(/\s+/);
+        for (const token of origTokens) {
+            if (token.startsWith('@')) newLine += ` ${token}`;
+            else if (token.match(/^\d+[dwmy]$/)) newLine += ` ${token}`;
+            else if (token.match(/^\d+%$/)) newLine += ` ${token}`;
+            else if (token.match(/^\d{4}-\d{2}-\d{2}$/)) newLine += ` ${token}`;
+        }
+
+        lines[i] = newLine;
+        break;
+    }
+
+    editor.value = lines.join('\n');
+
+    // Trigger re-render
+    if (typeof triggerAutoRender === 'function') triggerAutoRender();
 }

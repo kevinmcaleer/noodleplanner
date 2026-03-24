@@ -503,7 +503,8 @@ const OUTPUT_VIEWS = {
     'resource-sheet': 'planTab',
     'evm': 'planTab',
     'pbs': 'planTab',
-    'deliverables': 'planTab'
+    'deliverables': 'planTab',
+    'product-flow': 'planTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -1144,6 +1145,12 @@ function updateDeliverablesView(result) {
     }
 }
 
+function updateProductFlowView(result) {
+    if (typeof updateProductFlow === 'function') {
+        updateProductFlow(result.tasks || [], result.project_name);
+    }
+}
+
 function updateRaidView(result, planText) {
     const raidFromApi = result.raid_items || [];
     if (raidFromApi.length > 0) {
@@ -1275,6 +1282,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'mindmap',                 fn: () => updateMindmapView(result) },
             { name: 'pbs',                     fn: () => updatePbsView(result) },
             { name: 'deliverables',            fn: () => updateDeliverablesView(result) },
+            { name: 'productFlow',             fn: () => updateProductFlowView(result) },
             { name: 'raid',                    fn: () => updateRaidView(result, planText) },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
