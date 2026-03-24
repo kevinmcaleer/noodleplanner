@@ -23,12 +23,13 @@ let pbsDragStartPanX = 0;
 let pbsDragStartPanY = 0;
 
 // Layout constants (top-down PBS with stacked children)
-const PBS_SIBLING_GAP = 40;   // horizontal gap between sibling subtrees
-const PBS_COL_GAP = 30;       // gap between dual columns
-const PBS_STACK_GAP = 6;      // vertical gap between stacked children
-const PBS_LEVEL_GAP = 50;     // vertical gap between parent bottom and children top
-const PBS_BUS_DROP = 20;      // how far the bus line drops below parent before branching
-const PBS_BUS_OFFSET = 14;    // horizontal offset from parent centre to bus line
+const PBS_SIBLING_GAP = 20;   // horizontal gap between sibling subtrees
+const PBS_COL_GAP = 16;       // gap between dual columns
+const PBS_STACK_GAP = 4;      // vertical gap between stacked children
+const PBS_LEVEL_GAP = 4;      // vertical gap between parent bottom and children top
+const PBS_BUS_DROP = 10;      // how far the bus line drops below parent before branching
+const PBS_BUS_OFFSET = 10;    // horizontal offset from parent centre to bus line
+const PBS_ADD_BTN_SIZE = 18;  // size of the + button circles
 const PBS_NODE_HEIGHT = 44;
 const PBS_NODE_PADDING_X = 14;
 const PBS_NODE_MIN_WIDTH = 120;
@@ -476,6 +477,33 @@ function pbsRenderDependencyArrows() {
     }
 }
 
+function pbsRenderAddBtn(cx, cy, title, onClick) {
+    const r = PBS_ADD_BTN_SIZE / 2;
+    const g = pbsCreateSVGElement('g', { 'class': 'pbs-add-btn', 'style': 'cursor: pointer; opacity: 0.4;' });
+    g.addEventListener('mouseenter', () => g.style.opacity = '1');
+    g.addEventListener('mouseleave', () => g.style.opacity = '0.4');
+    g.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+
+    g.appendChild(pbsCreateSVGElement('circle', {
+        'cx': cx, 'cy': cy, 'r': r,
+        'fill': '#4A90D9', 'stroke': '#fff', 'stroke-width': '1.5'
+    }));
+    // Plus sign
+    const s = r * 0.5;
+    g.appendChild(pbsCreateSVGElement('line', {
+        'x1': cx - s, 'y1': cy, 'x2': cx + s, 'y2': cy,
+        'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+    g.appendChild(pbsCreateSVGElement('line', {
+        'x1': cx, 'y1': cy - s, 'x2': cx, 'y2': cy + s,
+        'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+    const t = pbsCreateSVGElement('title', {});
+    t.textContent = title;
+    g.appendChild(t);
+    return g;
+}
+
 function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
     const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour ? pbsShadeColour(parentColour, 1.3) : '#4A90D9'));
@@ -486,10 +514,12 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
         'style': 'cursor: pointer;'
     });
 
-    // Click handler — open product form
+    // Click handler
     g.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (node._task && typeof openProductForm === 'function') {
+        if (isRoot && typeof toggleProjectDetails === 'function') {
+            toggleProjectDetails();
+        } else if (node._task && typeof openProductForm === 'function') {
             openProductForm(node._task);
         }
     });
@@ -529,10 +559,41 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
 
     // Tooltip
     const title = pbsCreateSVGElement('title', {});
-    title.textContent = `${node.name}${node.deliverable ? '\n$' + node.deliverable : ''}\nClick to edit`;
+    if (isRoot) {
+        title.textContent = `${node.name}\nClick to open project details`;
+    } else {
+        title.textContent = `${node.name}${node.deliverable ? '\n$' + node.deliverable : ''}\nClick to edit`;
+    }
     g.appendChild(title);
 
     pbsGroup.appendChild(g);
+
+    // Add + buttons (not on root)
+    if (!isRoot && node._task) {
+        const btnGap = PBS_ADD_BTN_SIZE / 2 + 6;
+        const taskName = node._task.name || node.name;
+
+        // Below: add child product
+        pbsGroup.appendChild(pbsRenderAddBtn(
+            node.x + node.width / 2, node.y + node.height + btnGap,
+            'Add child product',
+            () => pbsCreateProduct(taskName, 'child')
+        ));
+
+        // Left: add sibling before
+        pbsGroup.appendChild(pbsRenderAddBtn(
+            node.x - btnGap, node.y + node.height / 2,
+            'Add sibling before',
+            () => pbsCreateProduct(taskName, 'before')
+        ));
+
+        // Right: add sibling after
+        pbsGroup.appendChild(pbsRenderAddBtn(
+            node.x + node.width + btnGap, node.y + node.height / 2,
+            'Add sibling after',
+            () => pbsCreateProduct(taskName, 'after')
+        ));
+    }
 
     for (const child of node.children) {
         pbsRenderNode(child, colour, nextColour, depth + 1);
@@ -1075,6 +1136,62 @@ function checkDuplicateDeliverables() {
     if (duplicates.length > 0 && typeof setStatusMessage === 'function') {
         setStatusMessage('\u26A0 Duplicate deliverable IDs: ' + duplicates.join('; '), 0);
     }
+}
+
+function pbsCreateProduct(anchorTaskName, position) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Find the anchor task's line
+    const lines = editor.value.split('\n');
+    let anchorLine = -1;
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim().replace(/^\*\s*/, '');
+        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+        const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
+        if (lineName === anchorTaskName) { anchorLine = i; break; }
+    }
+    if (anchorLine < 0) return;
+
+    const anchorIndent = lines[anchorLine].match(/^(\s*)/)[1];
+
+    // Generate unique identifier
+    let id = 'new_product';
+    const existingIds = new Set();
+    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/g;
+    let m;
+    while ((m = idRegex.exec(editor.value)) !== null) {
+        existingIds.add(m[1].toLowerCase());
+    }
+    let counter = 1;
+    while (existingIds.has(id)) {
+        id = `new_product_${counter}`;
+        counter++;
+    }
+
+    const newTaskName = 'New Product';
+
+    if (position === 'child') {
+        // Insert as child: indented under anchor
+        const childIndent = anchorIndent + '  ';
+        // Find the end of anchor's children to insert after them
+        let insertAt = anchorLine + 1;
+        while (insertAt < lines.length) {
+            const lineIndent = lines[insertAt].match(/^(\s*)/)[1];
+            if (lines[insertAt].trim() === '' || lineIndent.length <= anchorIndent.length) break;
+            insertAt++;
+        }
+        lines.splice(insertAt, 0, `${childIndent}${newTaskName} $${id}`);
+    } else {
+        // Sibling: same indent as anchor
+        const insertAt = position === 'before' ? anchorLine : anchorLine + 1;
+        lines.splice(insertAt, 0, `${anchorIndent}${newTaskName} $${id}`);
+    }
+
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => renderText(), 10);
 }
 
 function productIdentifierOnInput(el) {

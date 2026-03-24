@@ -46,6 +46,18 @@
     filter: brightness(1.15);
 }
 
+.pbs-add-btn {
+    transition: opacity 0.15s;
+}
+
+.pbs-add-btn circle {
+    transition: fill 0.15s;
+}
+
+.pbs-add-btn:hover circle {
+    fill: #3a7bc8;
+}
+
 .pbs-toolbar {
     display: flex;
     align-items: center;
