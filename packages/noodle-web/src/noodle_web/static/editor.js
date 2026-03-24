@@ -261,6 +261,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     // Inner wrapper for line numbers — positioned via CSS top for scroll sync
     let lineNumbersInner = lineNumbers.querySelector('.line-numbers-inner');
     if (!lineNumbersInner) {
+        lineNumbers.textContent = ''; // clear initial "1" text node
         lineNumbersInner = document.createElement('div');
         lineNumbersInner.className = 'line-numbers-inner';
         lineNumbers.appendChild(lineNumbersInner);

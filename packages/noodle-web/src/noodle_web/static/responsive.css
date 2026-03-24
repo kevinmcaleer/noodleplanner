@@ -448,6 +448,9 @@
         /* Must match .editor-textarea font-size so line heights stay in sync */
         font-size: 16px;
         min-width: 35px;
+    }
+
+    .line-numbers-inner {
         padding: 15px 5px;
     }
 

@@ -2925,14 +2925,16 @@ svg.icon {
     min-width: 50px;
     white-space: pre;
     position: relative;
+    flex-shrink: 0;
 }
 
 .line-numbers-inner {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
+    width: 100%;
     padding: 15px 10px;
+    box-sizing: border-box;
 }
 
 .line-number {
@@ -3675,6 +3677,9 @@ input[type="checkbox"] {
     .line-numbers {
         font-size: 16px;
         min-width: 35px;
+    }
+
+    .line-numbers-inner {
         padding: 15px 5px;
     }
 
