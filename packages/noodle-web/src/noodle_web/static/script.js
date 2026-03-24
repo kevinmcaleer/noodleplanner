@@ -3924,6 +3924,52 @@ function updateDependencyReferences(lines, oldName, newName) {
 }
 
 /**
+ * Update all dependency references in the editor when a $deliverable identifier
+ * is renamed.  Scans all lines for [depends ...] blocks containing $oldId and
+ * replaces them with $newId, handling comma-separated lists and lag/lead or
+ * type suffixes (e.g., "$oldId:SS +2d" becomes "$newId:SS +2d").
+ */
+function updateDeliverableReferences(lines, oldId, newId) {
+    const oldToken = '$' + oldId;
+    const newToken = '$' + newId;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!/\[depends\s+[^\]]+\]/i.test(line)) continue;
+
+        lines[i] = line.replace(/\[depends\s+([^\]]+)\]/gi, function(match, depsContent) {
+            const deps = depsContent.split(',').map(d => d.trim());
+            let changed = false;
+
+            const updatedDeps = deps.map(dep => {
+                // Strip optional lag/lead suffix  e.g. "$foo +2d"
+                const lagLeadMatch = dep.match(/^(.+?)\s+([+\-]\d*[dwmy]?)$/);
+                let corePart = lagLeadMatch ? lagLeadMatch[1].trim() : dep;
+                let lagLead = lagLeadMatch ? lagLeadMatch[2] : '';
+
+                // Strip optional dependency type suffix  e.g. "$foo:SS"
+                const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
+                let depName = typeMatch ? typeMatch[1].trim() : corePart;
+                let typeSuffix = typeMatch ? ':' + typeMatch[2] : '';
+
+                if (depName === oldToken) {
+                    changed = true;
+                    let result = newToken + typeSuffix;
+                    if (lagLead) result += ' ' + lagLead;
+                    return result;
+                }
+
+                return dep;
+            });
+
+            if (changed) {
+                return '[depends ' + updatedDeps.join(', ') + ']';
+            }
+            return match;
+        });
+    }
+}
+
+/**
  * Check if a line in the plan is a summary task (phase/parent).
  * A summary task is a non-empty line that has a subsequent non-empty line
  * with greater indentation (i.e., it has children).

@@ -1924,6 +1924,19 @@ function saveProductForm() {
     if (newPurpose) newLine += ` "${newPurpose}"`;
 
     lines[currentProductLineNumber] = newLine;
+
+    // Auto-update dependency references if the $identifier was renamed
+    const oldId = currentProductTask ? currentProductTask.deliverable : null;
+    if (oldId && newId && oldId !== newId && typeof updateDeliverableReferences === 'function') {
+        updateDeliverableReferences(lines, oldId, newId);
+    }
+
+    // Auto-update dependency references if the task name was renamed
+    const oldName = currentProductTask ? currentProductTask.name : null;
+    if (oldName && newTitle && oldName !== newTitle && typeof updateDependencyReferences === 'function') {
+        updateDependencyReferences(lines, oldName, newTitle);
+    }
+
     editor.value = lines.join('\n');
 
     // Keep track of the new identifier so subsequent saves can find the line
