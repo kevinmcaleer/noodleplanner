@@ -25,10 +25,10 @@ let pbsDragStartPanY = 0;
 // Layout constants
 const PBS_H_GAP = 200;
 const PBS_V_GAP = 20;
-const PBS_NODE_HEIGHT = 56;
+const PBS_NODE_HEIGHT = 72;
 const PBS_NODE_PADDING_X = 16;
-const PBS_NODE_MIN_WIDTH = 140;
-const PBS_NODE_MAX_WIDTH = 260;
+const PBS_NODE_MIN_WIDTH = 160;
+const PBS_NODE_MAX_WIDTH = 280;
 
 const PBS_COLOURS = [
     '#4A90D9', '#D97B4A', '#5CB85C', '#D95B5B',
@@ -129,6 +129,23 @@ function pbsGetResources(deliverableTask, allTasks) {
         }
     }
     return [...resources];
+}
+
+// ── PBS: Status rollup from child activities ──────────────────────────
+
+function pbsComputeRollup(deliverableTask, allTasks) {
+    const activities = pbsGetActivities(deliverableTask, allTasks);
+    if (activities.length === 0) {
+        return { percent: deliverableTask.percent || 0, activityCount: 0 };
+    }
+    let totalPct = 0;
+    for (const a of activities) {
+        totalPct += parseFloat(a.percent) || 0;
+    }
+    return {
+        percent: Math.round(totalPct / activities.length),
+        activityCount: activities.length
+    };
 }
 
 // ── PBS: Layout ───────────────────────────────────────────────────────
@@ -293,7 +310,27 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
     const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour ? pbsShadeColour(parentColour, 1.3) : '#4A90D9'));
 
-    const g = pbsCreateSVGElement('g', { 'class': 'pbs-node', 'data-deliverable': node.deliverable || '' });
+    // Compute rollup status from child activities
+    const rollup = node._task ? pbsComputeRollup(node._task, pbsTasks) : { percent: 0, activityCount: 0 };
+    const pct = rollup.percent;
+    const activities = node._task ? pbsGetActivities(node._task, pbsTasks) : [];
+    const resources = node._task ? pbsGetResources(node._task, pbsTasks) : [];
+
+    const g = pbsCreateSVGElement('g', {
+        'class': 'pbs-node',
+        'data-deliverable': node.deliverable || '',
+        'data-task-name': node.name || '',
+        'style': 'cursor: pointer;'
+    });
+
+    // Click handler — open task form
+    g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (node.name && typeof openTaskFormByName === 'function') {
+            if (typeof switchTab === 'function') switchTab('editor');
+            openTaskFormByName(node.name);
+        }
+    });
 
     // Node rectangle
     const rect = pbsCreateSVGElement('rect', {
@@ -310,66 +347,84 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
     });
     g.appendChild(rect);
 
-    // Node label (product name)
+    // Node label (product name) — line 1
     const label = pbsCreateSVGElement('text', {
         'x': node.x + node.width / 2,
-        'y': node.y + 20,
+        'y': node.y + 18,
         'text-anchor': 'middle',
         'fill': '#fff',
-        'font-size': '14',
+        'font-size': '13',
         'font-weight': 'bold',
         'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     });
-    // Truncate if needed
     let displayName = node.name;
-    const maxChars = Math.floor((node.width - PBS_NODE_PADDING_X * 2) / 8);
+    const maxChars = Math.floor((node.width - PBS_NODE_PADDING_X * 2) / 7);
     if (displayName.length > maxChars) {
         displayName = displayName.substring(0, maxChars - 1) + '\u2026';
     }
     label.textContent = displayName;
     g.appendChild(label);
 
-    // Subtitle: deliverable ID or status
+    // Subtitle line 2: deliverable ID + status
     if (node._task) {
-        const pct = node._task.percent || 0;
-        const status = pct === 100 ? 'Complete' : pct > 0 ? `${pct}%` : 'Not started';
+        const statusText = pct === 100 ? 'Complete' : pct > 0 ? `${pct}%` : 'Not started';
         const sub = pbsCreateSVGElement('text', {
             'x': node.x + node.width / 2,
-            'y': node.y + 38,
+            'y': node.y + 33,
             'text-anchor': 'middle',
             'fill': 'rgba(255,255,255,0.8)',
-            'font-size': '11',
+            'font-size': '10',
             'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         });
-        sub.textContent = `$${node.deliverable} \u00B7 ${status}`;
+        sub.textContent = `$${node.deliverable} \u00B7 ${statusText}`;
         g.appendChild(sub);
 
+        // Line 3: activity count + resource count
+        const infoLine = pbsCreateSVGElement('text', {
+            'x': node.x + node.width / 2,
+            'y': node.y + 47,
+            'text-anchor': 'middle',
+            'fill': 'rgba(255,255,255,0.6)',
+            'font-size': '9',
+            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        });
+        const infoParts = [];
+        if (activities.length > 0) infoParts.push(`${activities.length} activities`);
+        if (resources.length > 0) infoParts.push(`${resources.length} resources`);
+        if (node._task.start && node._task.finish) {
+            infoParts.push(`${node._task.start} \u2192 ${node._task.finish}`);
+        }
+        infoLine.textContent = infoParts.join(' \u00B7 ');
+        g.appendChild(infoLine);
+
         // Progress bar
+        const barY = node.y + node.height - 8;
+        const barWidth = node.width - 16;
+        const barX = node.x + 8;
+        // Background
+        g.appendChild(pbsCreateSVGElement('rect', {
+            'x': barX, 'y': barY, 'width': barWidth, 'height': 4,
+            'rx': '2', 'fill': 'rgba(0,0,0,0.2)'
+        }));
+        // Progress fill
         if (pct > 0) {
-            const barY = node.y + node.height - 6;
-            const barWidth = node.width - 16;
-            const barX = node.x + 8;
-            // Background
+            const fillColour = pct === 100 ? 'rgba(92,184,92,0.9)' : 'rgba(255,255,255,0.7)';
             g.appendChild(pbsCreateSVGElement('rect', {
-                'x': barX, 'y': barY, 'width': barWidth, 'height': 3,
-                'rx': '1.5', 'fill': 'rgba(0,0,0,0.2)'
-            }));
-            // Progress
-            g.appendChild(pbsCreateSVGElement('rect', {
-                'x': barX, 'y': barY, 'width': barWidth * (pct / 100), 'height': 3,
-                'rx': '1.5', 'fill': 'rgba(255,255,255,0.7)'
+                'x': barX, 'y': barY, 'width': barWidth * (pct / 100), 'height': 4,
+                'rx': '2', 'fill': fillColour
             }));
         }
     }
 
     // Tooltip on hover
     const title = pbsCreateSVGElement('title', {});
-    const activities = node._task ? pbsGetActivities(node._task, pbsTasks) : [];
-    const resources = node._task ? pbsGetResources(node._task, pbsTasks) : [];
     let tooltipText = node.name;
     if (node.deliverable) tooltipText += `\nProduct: $${node.deliverable}`;
     if (activities.length) tooltipText += `\nActivities: ${activities.length}`;
     if (resources.length) tooltipText += `\nSkills: ${resources.join(', ')}`;
+    tooltipText += `\nProgress: ${pct}%`;
+    if (node._task && node._task.start) tooltipText += `\nDates: ${node._task.start} \u2192 ${node._task.finish}`;
+    tooltipText += '\n\nClick to edit';
     title.textContent = tooltipText;
     g.appendChild(title);
 
@@ -550,7 +605,8 @@ function updateDeliverablesMatrix(tasks, projectName) {
     for (const task of deliverables) {
         const activities = pbsGetActivities(task, tasks);
         const resources = pbsGetResources(task, tasks);
-        const pct = task.percent || 0;
+        const rollup = pbsComputeRollup(task, tasks);
+        const pct = rollup.percent;
 
         // Find product dependencies
         const deps = [];
@@ -574,10 +630,21 @@ function updateDeliverablesMatrix(tasks, projectName) {
         }
 
         const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', () => {
+            if (typeof switchTab === 'function') switchTab('editor');
+            if (typeof openTaskFormByName === 'function') openTaskFormByName(task.name);
+        });
+
+        const escapedName = (task.name || task.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const escapedActivities = activities.length > 0
+            ? activities.map(a => (a.description || a.name).replace(/</g, '&lt;').replace(/>/g, '&gt;')).join(', ')
+            : '\u2014';
+
         tr.innerHTML = `
             <td class="deliverable-id"><code>$${task.deliverable}</code></td>
-            <td class="deliverable-name">${task.name || task.description || ''}</td>
-            <td class="deliverable-activities">${activities.length > 0 ? activities.map(a => a.description || a.name).join(', ') : '\u2014'}</td>
+            <td class="deliverable-name">${escapedName}</td>
+            <td class="deliverable-activities" title="${escapedActivities}">${escapedActivities}</td>
             <td class="deliverable-resources">${resources.length > 0 ? resources.join(', ') : '\u2014'}</td>
             <td class="deliverable-deps">${deps.length > 0 ? deps.join(', ') : '\u2014'}</td>
             <td class="deliverable-dates">${task.start || '\u2014'} \u2192 ${task.finish || '\u2014'}</td>
