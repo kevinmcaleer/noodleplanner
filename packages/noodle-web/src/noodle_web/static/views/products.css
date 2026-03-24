@@ -104,8 +104,8 @@
 .deliverables-table td {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border-color, #2a2a3e);
-    color: var(--text-primary, #ddd);
-    vertical-align: top;
+    color: var(--text-primary, #333);
+    vertical-align: middle;
 }
 
 .deliverables-table tr:hover td {
@@ -126,7 +126,7 @@
 
 .deliverable-activities {
     max-width: 250px;
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary, #555);
     font-size: 12px;
 }
 
@@ -147,31 +147,36 @@
 }
 
 .status-not-started {
-    background: rgba(150, 150, 150, 0.2);
-    color: #999;
+    background: rgba(150, 150, 150, 0.15);
+    color: #666;
 }
 
 .status-in-progress {
-    background: rgba(74, 144, 217, 0.2);
-    color: #6cb4ff;
+    background: rgba(74, 144, 217, 0.15);
+    color: #2a6cb0;
 }
 
 .status-complete {
-    background: rgba(92, 184, 92, 0.2);
-    color: #6fd66f;
+    background: rgba(92, 184, 92, 0.15);
+    color: #2d8a2d;
 }
 
+[data-theme="dark"] .status-not-started { color: #999; }
+[data-theme="dark"] .status-in-progress { color: #6cb4ff; }
+[data-theme="dark"] .status-complete { color: #6fd66f; }
+
 .deliverable-progress {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
     min-width: 100px;
+    width: 100%;
 }
 
 .deliverable-progress-bar {
     flex: 1;
     height: 6px;
-    background: rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.1);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -185,7 +190,32 @@
 
 .deliverable-progress-text {
     font-size: 11px;
-    color: var(--text-secondary, #aaa);
+    color: var(--text-secondary, #555);
     min-width: 30px;
     text-align: right;
+}
+
+/* ── Ribbon title spacing ────────────────────────────────────────── */
+
+.pbs-title,
+.deliverables-title {
+    margin: 12px 16px 8px;
+}
+
+/* ── Dark mode overrides ─────────────────────────────────────────── */
+
+[data-theme="dark"] .deliverables-table td {
+    color: #ddd;
+}
+
+[data-theme="dark"] .deliverable-activities {
+    color: #aaa;
+}
+
+[data-theme="dark"] .deliverable-progress-bar {
+    background: rgba(255,255,255,0.1);
+}
+
+[data-theme="dark"] .deliverable-progress-text {
+    color: #aaa;
 }
