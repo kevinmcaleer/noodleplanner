@@ -956,10 +956,26 @@ function productFlowZoomFit() {
 // ── Product Details Form ──────────────────────────────────────────────
 
 let currentProductTask = null;
+let currentProductLineNumber = null;
+
+function productFindLineNumber(taskName) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !taskName) return null;
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim().replace(/^\*\s*/, '');
+        // Strip metadata to get just the task name
+        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+        const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
+        if (lineName === taskName) return i;
+    }
+    return null;
+}
 
 function openProductForm(task) {
     if (!task) return;
     currentProductTask = task;
+    currentProductLineNumber = productFindLineNumber(task.name);
 
     openDetailPane('productFormSection');
 
@@ -1049,49 +1065,50 @@ function closeProductForm() {
 }
 
 function saveProductForm() {
-    if (!currentProductTask) return;
+    if (!currentProductTask || currentProductLineNumber === null) return;
 
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
-    const taskName = currentProductTask.name;
+    const lines = editor.value.split('\n');
+    const originalLine = lines[currentProductLineNumber];
+    if (originalLine === undefined) return;
+
     const newTitle = (document.getElementById('productTitle').value || '').trim();
     const newId = (document.getElementById('productIdentifier').value || '').trim();
     const newPurpose = (document.getElementById('productPurpose').value || '').trim();
     const newDeps = (document.getElementById('productDependencies').value || '').trim();
 
-    const lines = editor.value.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim().replace(/^\*\s*/, '');
+    // Preserve indent and * prefix from original line
+    const indent = originalLine.match(/^(\s*)/)[1];
+    const star = originalLine.trim().startsWith('*') ? '* ' : '';
+    let newLine = `${indent}${star}${newTitle || currentProductTask.name}`;
 
-        // Find the line that contains this task name
-        if (!trimmed.includes(taskName) && !trimmed.includes(currentProductTask.deliverable)) continue;
+    if (newId) newLine += ` $${newId}`;
 
-        // Reconstruct the line
-        const indent = line.match(/^(\s*)/)[1];
-        const star = line.trim().startsWith('*') ? '* ' : '';
-        let newLine = `${indent}${star}${newTitle}`;
-
-        if (newId) newLine += ` $${newId}`;
-        if (newDeps) newLine += ` [depends ${newDeps}]`;
-        if (newPurpose) newLine += ` "${newPurpose}"`;
-
-        // Preserve any other tokens from the original line (resources, dates, duration, percent)
-        const origTokens = trimmed.split(/\s+/);
-        for (const token of origTokens) {
-            if (token.startsWith('@')) newLine += ` ${token}`;
-            else if (token.match(/^\d+[dwmy]$/)) newLine += ` ${token}`;
-            else if (token.match(/^\d+%$/)) newLine += ` ${token}`;
-            else if (token.match(/^\d{4}-\d{2}-\d{2}$/)) newLine += ` ${token}`;
-        }
-
-        lines[i] = newLine;
-        break;
+    // Preserve original tokens we don't edit (resources, dates, duration, percent)
+    const origText = originalLine.trim().replace(/^\*\s*/, '');
+    // Remove old [depends ...] and "comments" before scanning for preserved tokens
+    const cleaned = origText
+        .replace(/\[depends\s+[^\]]*\]/i, '')
+        .replace(/"[^"]*"/g, '')
+        .replace(/\$[A-Za-z_][A-Za-z0-9_-]*/g, '');
+    const origTokens = cleaned.split(/\s+/);
+    for (const token of origTokens) {
+        if (token.startsWith('@')) newLine += ` ${token}`;
+        else if (token.match(/^\d+[dwmy]$/)) newLine += ` ${token}`;
+        else if (token.match(/^\d+%$/)) newLine += ` ${token}`;
+        else if (token.match(/^\d{4}-\d{2}-\d{2}$/)) newLine += ` ${token}`;
+        else if (token.startsWith('#')) newLine += ` ${token}`;
     }
 
+    if (newDeps) newLine += ` [depends ${newDeps}]`;
+    if (newPurpose) newLine += ` "${newPurpose}"`;
+
+    lines[currentProductLineNumber] = newLine;
     editor.value = lines.join('\n');
 
-    // Trigger re-render
-    if (typeof triggerAutoRender === 'function') triggerAutoRender();
+    // Trigger re-render (same pattern as saveTask)
+    editor.dispatchEvent(new Event('input'));
+    if (typeof renderText === 'function') setTimeout(() => renderText(), 10);
 }
