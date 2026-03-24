@@ -889,13 +889,31 @@ function updateProductFlow(tasks, projectName) {
     for (const d of deliverables) {
         nodes[d.deliverable] = { task: d, deps: [], column: 0 };
     }
-    // Build dependency edges
+    // Build dependency edges from explicit [depends] declarations
     for (const d of deliverables) {
         if (d.depends) {
             for (const depName of d.depends) {
                 const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
                 if (depTask && nodes[depTask.deliverable]) {
                     nodes[d.deliverable].deps.push(depTask.deliverable);
+                }
+            }
+        }
+    }
+
+    // Inherit parent dependencies: children get the same deps as their parent
+    // Build parent→children map from the task hierarchy
+    for (const d of deliverables) {
+        if (d.parent) {
+            const parentDeliverable = deliverables.find(
+                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+            );
+            if (parentDeliverable && nodes[parentDeliverable.deliverable] && nodes[d.deliverable]) {
+                for (const parentDep of nodes[parentDeliverable.deliverable].deps) {
+                    // Don't add self-dependency or duplicates
+                    if (parentDep !== d.deliverable && !nodes[d.deliverable].deps.includes(parentDep)) {
+                        nodes[d.deliverable].deps.push(parentDep);
+                    }
                 }
             }
         }
