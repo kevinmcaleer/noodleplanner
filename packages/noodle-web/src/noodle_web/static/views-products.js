@@ -1864,6 +1864,10 @@ function closeProductForm() {
 function saveProductForm() {
     if (!currentProductTask || currentProductLineNumber === null) return;
 
+    // Don't save if the product form is not the active section
+    const productSection = document.getElementById('productFormSection');
+    if (productSection && !productSection.classList.contains('active')) return;
+
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
