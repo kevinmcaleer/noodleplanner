@@ -27,6 +27,7 @@ const PBS_SIBLING_GAP = 20;   // horizontal gap between sibling subtrees
 const PBS_COL_GAP = 16;       // gap between dual columns
 const PBS_STACK_GAP = 4;      // vertical gap between stacked children
 const PBS_LEVEL_GAP = 4;      // vertical gap between parent bottom and children top
+const PBS_ROOT_GAP = 40;      // vertical gap between root and first level (for visible connectors)
 const PBS_BUS_DROP = 10;      // how far the bus line drops below parent before branching
 const PBS_BUS_OFFSET = 10;    // horizontal offset from parent centre to bus line
 const PBS_ADD_BTN_SIZE = 18;  // size of the + button circles
@@ -208,6 +209,8 @@ function pbsMeasure(node, depth) {
     node._dual = dual;
     node._horizontal = useHorizontal;
 
+    const levelGap = useHorizontal ? PBS_ROOT_GAP : PBS_LEVEL_GAP;
+
     if (useHorizontal) {
         // Children side by side horizontally
         let totalChildrenWidth = 0;
@@ -218,7 +221,7 @@ function pbsMeasure(node, depth) {
         }
         totalChildrenWidth += (n - 1) * PBS_SIBLING_GAP;
         node.subtreeWidth = Math.max(node.width, totalChildrenWidth);
-        node.subtreeHeight = node.height + PBS_LEVEL_GAP + maxChildHeight;
+        node.subtreeHeight = node.height + levelGap + maxChildHeight;
     } else if (dual) {
         const half = Math.ceil(n / 2);
         const leftChildren = node.children.slice(0, half);
@@ -231,14 +234,14 @@ function pbsMeasure(node, depth) {
         const childrenWidth = leftW + PBS_COL_GAP + rightW;
         const childrenHeight = Math.max(leftH, rightH);
         node.subtreeWidth = Math.max(node.width, childrenWidth);
-        node.subtreeHeight = node.height + PBS_LEVEL_GAP + childrenHeight;
+        node.subtreeHeight = node.height + levelGap + childrenHeight;
     } else {
         // Single column to the right of the bus
         const stackH = node.children.reduce((s, c) => s + c.subtreeHeight, 0) + (n - 1) * PBS_STACK_GAP;
         const maxChildW = Math.max(...node.children.map(c => c.subtreeWidth));
         const rightExtent = node.width / 2 + PBS_BUS_OFFSET + maxChildW;
         node.subtreeWidth = Math.max(node.width, rightExtent);
-        node.subtreeHeight = node.height + PBS_LEVEL_GAP + stackH;
+        node.subtreeHeight = node.height + levelGap + stackH;
     }
 }
 
@@ -259,7 +262,8 @@ function pbsLayoutTree(node, x, y) {
 
     if (node.children.length === 0) return;
 
-    const childrenTop = y + node.height + PBS_LEVEL_GAP;
+    const gap = node._horizontal ? PBS_ROOT_GAP : PBS_LEVEL_GAP;
+    const childrenTop = y + node.height + gap;
     const n = node.children.length;
     const parentCx = node.x + node.width / 2;
 
@@ -522,13 +526,37 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
         }
     });
 
-    // Node rectangle
-    g.appendChild(pbsCreateSVGElement('rect', {
-        'x': node.x, 'y': node.y, 'width': node.width, 'height': node.height,
-        'rx': '6', 'ry': '6', 'fill': colour,
-        'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5',
-        'class': 'pbs-node-rect'
-    }));
+    // Invisible hit area extending beyond the node to keep hover active for + buttons
+    if (!isRoot) {
+        const pad = PBS_ADD_BTN_SIZE + 8;
+        g.appendChild(pbsCreateSVGElement('rect', {
+            'x': node.x - pad, 'y': node.y - pad,
+            'width': node.width + pad * 2, 'height': node.height + pad * 2,
+            'fill': 'transparent', 'stroke': 'none'
+        }));
+    }
+
+    // Node shape: parallelogram for parents with children, rounded rect for leaves
+    const hasChildren = node.children && node.children.length > 0;
+    const skew = 10;
+    if (hasChildren && !isRoot) {
+        // Parallelogram
+        const x = node.x, y = node.y, w = node.width, h = node.height;
+        const points = `${x + skew},${y} ${x + w},${y} ${x + w - skew},${y + h} ${x},${y + h}`;
+        g.appendChild(pbsCreateSVGElement('polygon', {
+            'points': points, 'fill': colour,
+            'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5',
+            'class': 'pbs-node-rect'
+        }));
+    } else {
+        // Rounded rectangle
+        g.appendChild(pbsCreateSVGElement('rect', {
+            'x': node.x, 'y': node.y, 'width': node.width, 'height': node.height,
+            'rx': '6', 'ry': '6', 'fill': colour,
+            'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5',
+            'class': 'pbs-node-rect'
+        }));
+    }
 
     // Product name
     const label = pbsCreateSVGElement('text', {
