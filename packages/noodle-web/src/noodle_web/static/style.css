@@ -1513,6 +1513,20 @@ svg.icon {
     white-space: nowrap;
 }
 
+#reportRaidTable .col-type {
+    width: 5em;
+}
+
+#reportRaidTable .col-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#reportRaidTable .col-score {
+    width: 4em;
+}
+
 .quad-empty-state {
     color: #adb5bd;
     font-style: italic;
