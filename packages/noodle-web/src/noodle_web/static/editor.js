@@ -259,21 +259,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Update line numbers and syntax highlighting
     // Inner wrapper for line numbers — positioned via CSS top for scroll sync
-    let lineNumbersInner = lineNumbers.querySelector('.line-numbers-inner');
-    if (!lineNumbersInner) {
-        lineNumbers.textContent = ''; // clear initial "1" text node
-        lineNumbersInner = document.createElement('div');
-        lineNumbersInner.className = 'line-numbers-inner';
-        lineNumbers.appendChild(lineNumbersInner);
-    }
-
     function updateLineNumbers() {
         const content = editor.value || editor.placeholder || '';
         const lines = content.split('\n');
         const lineCount = lines.length;
 
-        // Create line number elements inside the inner wrapper
-        lineNumbersInner.innerHTML = '';
+        // Create line number elements
+        lineNumbers.innerHTML = '';
         for (let i = 1; i <= lineCount; i++) {
             const lineNumSpan = document.createElement('div');
             lineNumSpan.className = 'line-number';
@@ -297,7 +289,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             lineNumSpan.appendChild(lineNumText);
 
             lineNumSpan.dataset.lineNumber = i;
-            lineNumbersInner.appendChild(lineNumSpan);
+            lineNumbers.appendChild(lineNumSpan);
         }
 
         // Update syntax highlighting
@@ -353,9 +345,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             highlightLayer.style.top = -editor.scrollTop + 'px';
             highlightLayer.style.left = -editor.scrollLeft + 'px';
         }
-        if (lineNumbersInner) {
-            lineNumbersInner.style.top = -editor.scrollTop + 'px';
-        }
+        lineNumbers.scrollTop = editor.scrollTop;
     }
 
     // Expose updateLineNumbers on the editor element so external code can call it

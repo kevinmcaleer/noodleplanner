@@ -2916,6 +2916,7 @@ svg.icon {
 .line-numbers {
     background: #2d2d2d;
     color: #858585;
+    padding: 15px 10px;
     text-align: right;
     font-family: 'Courier New', monospace;
     font-size: 14px;
@@ -2924,17 +2925,6 @@ svg.icon {
     overflow: hidden;
     min-width: 50px;
     white-space: pre;
-    position: relative;
-    flex-shrink: 0;
-}
-
-.line-numbers-inner {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 15px 10px;
-    box-sizing: border-box;
 }
 
 .line-number {
@@ -3677,9 +3667,6 @@ input[type="checkbox"] {
     .line-numbers {
         font-size: 16px;
         min-width: 35px;
-    }
-
-    .line-numbers-inner {
         padding: 15px 5px;
     }
 
