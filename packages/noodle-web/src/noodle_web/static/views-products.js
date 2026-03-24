@@ -660,6 +660,9 @@ function updatePbs(tasks, projectName) {
     pbsTasks = tasks || [];
     const deliverables = pbsExtractDeliverables(pbsTasks);
 
+    // Check for duplicate deliverable identifiers
+    checkDuplicateDeliverables();
+
     const placeholder = document.querySelector('#pbs-view .pbs-placeholder');
     const content = document.querySelector('#pbs-view .pbs-content');
 
@@ -1042,6 +1045,37 @@ function productFlowZoomFit() {
 }
 
 // ── Product Details Form ──────────────────────────────────────────────
+
+// ── Duplicate deliverable identifier detection ───────────────────────
+
+function checkDuplicateDeliverables() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/;
+    const seen = {}; // id → [line numbers]
+
+    for (let i = 0; i < lines.length; i++) {
+        const match = lines[i].match(idRegex);
+        if (match) {
+            const id = match[1].toLowerCase();
+            if (!seen[id]) seen[id] = [];
+            seen[id].push(i + 1); // 1-based line numbers
+        }
+    }
+
+    const duplicates = [];
+    for (const [id, lineNums] of Object.entries(seen)) {
+        if (lineNums.length > 1) {
+            duplicates.push(`$${id} (lines ${lineNums.join(', ')})`);
+        }
+    }
+
+    if (duplicates.length > 0 && typeof setStatusMessage === 'function') {
+        setStatusMessage('\u26A0 Duplicate deliverable IDs: ' + duplicates.join('; '), 0);
+    }
+}
 
 function productIdentifierOnInput(el) {
     const pos = el.selectionStart;
