@@ -1751,10 +1751,14 @@ function setTaskFormTitle(title) {
     el.textContent = displayTitle;
 }
 
+// Flag to prevent saveTask from firing while openTaskForm is populating fields
+let _taskFormPopulating = false;
+
 function openTaskForm(lineNumber) {
     // Parse task name early so it is available for both the form title
     // and the catch-block fallback.
     let parsedTaskName = '';
+    _taskFormPopulating = true;
 
     // Cancel any pending product form save timer that could trigger
     // a re-render and interfere with the task form opening
@@ -1950,6 +1954,7 @@ function openTaskForm(lineNumber) {
         // Re-apply title after the browser has painted
         requestAnimationFrame(() => setTaskFormTitle(parsedTaskName));
     }
+    _taskFormPopulating = false;
 }
 
 /** Line number of the task currently shown in the inspector. */
@@ -3449,6 +3454,10 @@ function collectDependenciesFromTable() {
 
 function saveTask() {
     if (currentTaskLineNumber === null) return;
+
+    // Don't save while openTaskForm is populating fields — form values
+    // are in a mixed state (some old, some new) and would corrupt the line
+    if (_taskFormPopulating) return;
 
     // Don't save if the task form is not the active section
     // (prevents stale saves when switching to the product form)
