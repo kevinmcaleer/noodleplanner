@@ -1618,8 +1618,12 @@ function checkDuplicateDeliverables() {
     // Apply yellow background highlights to the editor highlight layer
     applyDuplicateHighlights();
 
-    if (warnings.length > 0 && typeof setStatusMessage === 'function') {
-        setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
+    if (typeof setStatusMessage === 'function') {
+        if (warnings.length > 0) {
+            setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
+        } else {
+            setStatusMessage('', 0);
+        }
     }
 }
 
