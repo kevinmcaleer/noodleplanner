@@ -1,13 +1,32 @@
 /* ── Product Breakdown Structure (PBS) ────────────────────────────── */
 
+#pbs-view {
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
+.pbs-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+#pbs-view .pbs-content {
+    flex: 1;
+    min-height: 0;
+}
+
 .pbs-canvas-wrapper {
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     cursor: grab;
+    position: relative;
     background:
         radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
     background-size: 24px 24px;
-    min-height: 400px;
 }
 
 .pbs-canvas-wrapper:active {
