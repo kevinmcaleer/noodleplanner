@@ -1612,24 +1612,56 @@ function checkDuplicateDeliverables() {
         }
     }
 
-    // Clear previous indicators
-    document.querySelectorAll('.line-number.duplicate-id').forEach(el => {
-        el.classList.remove('duplicate-id');
-        el.title = '';
-    });
+    // Store warning lines globally for the highlight layer to pick up
+    window._duplicateWarningLines = warningLines;
 
-    // Add yellow dot to warning lines
-    warningLines.forEach(ln => {
-        const el = document.querySelector(`.line-number[data-line-number="${ln}"]`);
-        if (el) {
-            el.classList.add('duplicate-id');
-            el.title = 'Duplicate: task name or deliverable ID conflicts with another line';
-        }
-    });
+    // Apply yellow background highlights to the editor highlight layer
+    applyDuplicateHighlights();
 
     if (warnings.length > 0 && typeof setStatusMessage === 'function') {
         setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
     }
+}
+
+function applyDuplicateHighlights() {
+    const warningLines = window._duplicateWarningLines;
+
+    // Find or create the warning overlay container inside the highlight layer
+    const highlightLayer = document.getElementById('highlightLayer');
+    if (!highlightLayer) return;
+
+    let overlay = highlightLayer.querySelector('.duplicate-overlay');
+    if (overlay) overlay.remove();
+
+    if (!warningLines || warningLines.size === 0) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Calculate line height from the editor's computed style
+    const style = getComputedStyle(editor);
+    const lineHeight = parseFloat(style.lineHeight) || (parseFloat(style.fontSize) * 1.5);
+    const paddingTop = parseFloat(style.paddingTop) || 15;
+
+    overlay = document.createElement('div');
+    overlay.className = 'duplicate-overlay';
+    overlay.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;';
+
+    warningLines.forEach(ln => {
+        const bar = document.createElement('div');
+        bar.style.cssText = `
+            position: absolute;
+            left: 0; right: 0;
+            top: ${paddingTop + (ln - 1) * lineHeight}px;
+            height: ${lineHeight}px;
+            background: rgba(240, 173, 78, 0.25);
+            pointer-events: none;
+        `;
+        overlay.appendChild(bar);
+    });
+
+    // Insert at the start of highlight layer so it's behind the text
+    highlightLayer.insertBefore(overlay, highlightLayer.firstChild);
 }
 
 function pbsCreateProduct(anchorTaskName, position) {

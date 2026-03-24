@@ -2951,22 +2951,8 @@ svg.icon {
     box-shadow: 0 0 4px rgba(16, 139, 185, 0.5);
 }
 
-.line-number.duplicate-id {
-    color: #f0ad4e;
-}
-
-.line-number.duplicate-id::after {
-    content: '';
-    position: absolute;
-    left: 2px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 6px;
-    height: 6px;
-    background: #f0ad4e;
-    border-radius: 50%;
-    box-shadow: 0 0 3px rgba(240, 173, 78, 0.6);
-}
+/* Duplicate line highlights are rendered as absolute-positioned overlays
+   by applyDuplicateHighlights() in views-products.js */
 
 /* Manually scheduled task indicator */
 .line-number.manually-scheduled {
