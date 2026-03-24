@@ -109,8 +109,25 @@ function pbsGetActivities(deliverableTask, allTasks) {
     if (!deliverableTask || !allTasks) return [];
     const activities = [];
     const parentName = deliverableTask.name || deliverableTask.description;
+
+    // Collect all descendant names (not just direct children) so we find
+    // leaf tasks nested under intermediate summary tasks.
+    const descendantNames = new Set([parentName]);
+    let added = true;
+    while (added) {
+        added = false;
+        for (const t of allTasks) {
+            if (t.parent && descendantNames.has(t.parent) && !descendantNames.has(t.name)) {
+                // Stop at other deliverables — they are separate products
+                if (t.deliverable) continue;
+                descendantNames.add(t.name);
+                added = true;
+            }
+        }
+    }
+
     for (const t of allTasks) {
-        if (t.parent === parentName && !t.deliverable && !t.is_summary) {
+        if (t.parent && descendantNames.has(t.parent) && !t.deliverable && !t.is_summary) {
             activities.push(t);
         }
     }
