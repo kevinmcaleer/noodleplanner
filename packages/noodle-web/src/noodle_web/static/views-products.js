@@ -1393,8 +1393,43 @@ function toggleTaskDeliverable() {
     const editor = document.getElementById('planEditor');
     if (!editor || typeof currentTaskLineNumber === 'undefined' || currentTaskLineNumber === null) return;
 
+    const taskName = (document.getElementById('taskName').value || '').trim();
+    if (!taskName) return;
+
+    // Re-find the correct line by name to avoid stale line numbers
     const lines = editor.value.split('\n');
-    const line = lines[currentTaskLineNumber - 1];
+    let lineIdx = currentTaskLineNumber - 1;
+
+    // Verify the line at currentTaskLineNumber actually contains this task
+    const verifyLine = lines[lineIdx] || '';
+    const verifyTrimmed = verifyLine.trim().replace(/^\*\s*/, '');
+    const verifyMatch = verifyTrimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+    const verifyName = verifyMatch ? verifyMatch[1].trim() : '';
+    if (verifyName !== taskName) {
+        // Line number is stale — search for the correct line
+        let found = false;
+        for (let i = 0; i < lines.length; i++) {
+            const t = lines[i].trim().replace(/^\*\s*/, '');
+            const nm = t.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+            const n = nm ? nm[1].trim() : '';
+            if (n === taskName && !lines[i].match(/\$[A-Za-z_]/)) {
+                lineIdx = i;
+                found = true;
+                break;
+            }
+        }
+        // If still not found, try matching with $deliverable (already a product)
+        if (!found) {
+            for (let i = 0; i < lines.length; i++) {
+                const t = lines[i].trim().replace(/^\*\s*/, '');
+                const nm = t.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+                const n = nm ? nm[1].trim() : '';
+                if (n === taskName) { lineIdx = i; break; }
+            }
+        }
+    }
+
+    const line = lines[lineIdx];
     if (line === undefined) return;
 
     // Check if this task already has a $deliverable token
@@ -1402,15 +1437,14 @@ function toggleTaskDeliverable() {
 
     if (delivMatch) {
         // Already a deliverable — find the matching backend task and open product form
-        const taskName = document.getElementById('taskName').value;
+        const delivId = delivMatch[1];
         const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
-        const task = allTasks.find(t => t.name === taskName && t.deliverable);
+        const task = allTasks.find(t => t.deliverable === delivId);
         if (task) {
             openProductForm(task);
         }
     } else {
         // Not a deliverable — add a $identifier token
-        const taskName = (document.getElementById('taskName').value || '').trim();
         let identifier = taskName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
         if (!identifier) return;
 
@@ -1444,16 +1478,18 @@ function toggleTaskDeliverable() {
             newLine = line + ` $${identifier}`;
         }
 
-        lines[currentTaskLineNumber - 1] = newLine;
+        lines[lineIdx] = newLine;
         editor.value = lines.join('\n');
         if (editor._updateLineNumbers) editor._updateLineNumbers();
         editor.dispatchEvent(new Event('input'));
+
+        // Use the identifier we just created to find the task after render
+        const createdId = identifier;
         setTimeout(() => {
             renderText();
-            // After render, find the updated task and open product form
             setTimeout(() => {
                 const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
-                const task = allTasks.find(t => t.name === taskName && t.deliverable);
+                const task = allTasks.find(t => t.deliverable === createdId);
                 if (task) {
                     openProductForm(task);
                 }
