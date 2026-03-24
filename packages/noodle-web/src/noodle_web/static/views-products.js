@@ -1053,13 +1053,24 @@ let currentProductTask = null;
 let currentProductLineNumber = null;
 let productFormSaveTimer = null;
 
-function productFindLineNumber(taskName) {
+function productFindLineNumber(taskName, deliverableId) {
     const editor = document.getElementById('planEditor');
     if (!editor || !taskName) return null;
     const lines = editor.value.split('\n');
+    // First pass: match by both name AND $deliverable (most precise)
+    if (deliverableId) {
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes('$' + deliverableId)) {
+                const trimmed = lines[i].trim().replace(/^\*\s*/, '');
+                const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+                const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
+                if (lineName === taskName) return i;
+            }
+        }
+    }
+    // Fallback: match by name only
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim().replace(/^\*\s*/, '');
-        // Strip metadata to get just the task name
         const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
         const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
         if (lineName === taskName) return i;
@@ -1070,7 +1081,7 @@ function productFindLineNumber(taskName) {
 function openProductForm(task) {
     if (!task) return;
     currentProductTask = task;
-    currentProductLineNumber = productFindLineNumber(task.name);
+    currentProductLineNumber = productFindLineNumber(task.name, task.deliverable);
 
     openDetailPane('productFormSection');
 
@@ -1168,6 +1179,16 @@ function saveProductForm() {
     const lines = editor.value.split('\n');
     const originalLine = lines[currentProductLineNumber];
     if (originalLine === undefined) return;
+
+    // Safety: verify this line contains the expected $deliverable token
+    // to prevent writing to the wrong line after re-renders shift line numbers
+    if (currentProductTask.deliverable && !originalLine.includes('$' + currentProductTask.deliverable)) {
+        // Line number is stale — try to re-find it
+        currentProductLineNumber = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
+        if (currentProductLineNumber === null) return;
+        const refreshedLine = lines[currentProductLineNumber];
+        if (!refreshedLine || !refreshedLine.includes('$' + currentProductTask.deliverable)) return;
+    }
 
     const newTitle = (document.getElementById('productTitle').value || '').trim();
     const newId = (document.getElementById('productIdentifier').value || '').trim();
