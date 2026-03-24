@@ -1391,10 +1391,29 @@ function checkDuplicateDeliverables() {
     }
 
     const duplicates = [];
+    const duplicateLines = new Set();
     for (const [id, lineNums] of Object.entries(seen)) {
         if (lineNums.length > 1) {
             duplicates.push(`$${id} (lines ${lineNums.join(', ')})`);
+            lineNums.forEach(ln => duplicateLines.add(ln));
         }
+    }
+
+    // Clear previous duplicate indicators
+    document.querySelectorAll('.line-number.duplicate-id').forEach(el => {
+        el.classList.remove('duplicate-id');
+        el.title = '';
+    });
+
+    // Add yellow dot to duplicate lines
+    if (duplicateLines.size > 0) {
+        duplicateLines.forEach(ln => {
+            const el = document.querySelector(`.line-number[data-line-number="${ln}"]`);
+            if (el) {
+                el.classList.add('duplicate-id');
+                el.title = 'Duplicate deliverable identifier';
+            }
+        });
     }
 
     if (duplicates.length > 0 && typeof setStatusMessage === 'function') {
