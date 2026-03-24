@@ -957,6 +957,7 @@ function productFlowZoomFit() {
 
 let currentProductTask = null;
 let currentProductLineNumber = null;
+let productFormSaveTimer = null;
 
 function productFindLineNumber(taskName) {
     const editor = document.getElementById('planEditor');
@@ -1108,10 +1109,13 @@ function saveProductForm() {
     lines[currentProductLineNumber] = newLine;
     editor.value = lines.join('\n');
 
-    // Update line numbers display
+    // Update line numbers display immediately
     if (editor._updateLineNumbers) editor._updateLineNumbers();
 
-    // Trigger input event and re-render (same pattern as saveTask)
-    editor.dispatchEvent(new Event('input'));
-    setTimeout(() => renderText(), 10);
+    // Debounce the render to avoid "Too many requests" from rapid keystrokes
+    if (productFormSaveTimer) clearTimeout(productFormSaveTimer);
+    productFormSaveTimer = setTimeout(() => {
+        editor.dispatchEvent(new Event('input'));
+        renderText();
+    }, 1500);
 }
