@@ -2916,16 +2916,20 @@ svg.icon {
 .line-numbers {
     background: #2d2d2d;
     color: #858585;
-    padding: 15px 10px;
     text-align: right;
     font-family: 'Courier New', monospace;
     font-size: 14px;
     line-height: 1.5;
     user-select: none;
-    overflow-y: hidden;
-    overflow-x: hidden;
+    overflow: hidden;
     min-width: 50px;
     white-space: pre;
+    position: relative;
+}
+
+.line-numbers-inner {
+    position: relative;
+    padding: 15px 10px;
 }
 
 .line-number {

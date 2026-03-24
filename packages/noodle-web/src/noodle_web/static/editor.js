@@ -258,13 +258,21 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     }
 
     // Update line numbers and syntax highlighting
+    // Inner wrapper for line numbers — positioned via CSS top for scroll sync
+    let lineNumbersInner = lineNumbers.querySelector('.line-numbers-inner');
+    if (!lineNumbersInner) {
+        lineNumbersInner = document.createElement('div');
+        lineNumbersInner.className = 'line-numbers-inner';
+        lineNumbers.appendChild(lineNumbersInner);
+    }
+
     function updateLineNumbers() {
         const content = editor.value || editor.placeholder || '';
         const lines = content.split('\n');
         const lineCount = lines.length;
 
-        // Create line number elements instead of plain text
-        lineNumbers.innerHTML = '';
+        // Create line number elements inside the inner wrapper
+        lineNumbersInner.innerHTML = '';
         for (let i = 1; i <= lineCount; i++) {
             const lineNumSpan = document.createElement('div');
             lineNumSpan.className = 'line-number';
@@ -288,7 +296,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             lineNumSpan.appendChild(lineNumText);
 
             lineNumSpan.dataset.lineNumber = i;
-            lineNumbers.appendChild(lineNumSpan);
+            lineNumbersInner.appendChild(lineNumSpan);
         }
 
         // Update syntax highlighting
@@ -337,13 +345,15 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     }
 
     // Sync scroll between textarea, line numbers, and highlight overlay.
-    // Uses CSS top/left offset on the highlight layer instead of scrollTop
-    // to avoid line-height drift between textarea and div rendering.
+    // Uses CSS top/left offset instead of scrollTop to avoid line-height
+    // drift between textarea and div text rendering.
     function syncScroll() {
-        lineNumbers.scrollTop = editor.scrollTop;
         if (highlightLayer) {
             highlightLayer.style.top = -editor.scrollTop + 'px';
             highlightLayer.style.left = -editor.scrollLeft + 'px';
+        }
+        if (lineNumbersInner) {
+            lineNumbersInner.style.top = -editor.scrollTop + 'px';
         }
     }
 
