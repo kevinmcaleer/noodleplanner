@@ -2815,11 +2815,17 @@ svg.icon {
     left: 0;
     right: 0;
     bottom: 0;
-    overflow: hidden;
+    overflow: auto;
+    scrollbar-width: none;       /* Firefox */
+    -ms-overflow-style: none;    /* IE/Edge */
     pointer-events: none;
     color: #d4d4d4;
     z-index: 1;
     margin: 0;
+}
+
+.editor-highlight-layer::-webkit-scrollbar {
+    display: none;               /* Chrome/Safari */
 }
 
 .editor-textarea {

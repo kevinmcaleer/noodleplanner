@@ -344,19 +344,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
     }
 
     // Sync scroll between textarea, line numbers, and highlight overlay.
-    // Uses requestAnimationFrame to batch updates and avoid layout thrashing.
-    let scrollSyncPending = false;
+    // Sync immediately on every event to prevent visible desync.
     function syncScroll() {
-        if (scrollSyncPending) return;
-        scrollSyncPending = true;
-        requestAnimationFrame(() => {
-            lineNumbers.scrollTop = editor.scrollTop;
-            if (highlightLayer) {
-                highlightLayer.scrollTop = editor.scrollTop;
-                highlightLayer.scrollLeft = editor.scrollLeft;
-            }
-            scrollSyncPending = false;
-        });
+        lineNumbers.scrollTop = editor.scrollTop;
+        if (highlightLayer) {
+            highlightLayer.scrollTop = editor.scrollTop;
+            highlightLayer.scrollLeft = editor.scrollLeft;
+        }
     }
 
     // Expose updateLineNumbers on the editor element so external code can call it
