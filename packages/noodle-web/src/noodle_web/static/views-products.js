@@ -972,44 +972,124 @@ function updateProductFlow(tasks, projectName) {
         d => !childDeliverableParents.has(d.deliverable) && !hiddenSummaries.has(d.deliverable)
     );
 
-    // Topological sort to determine build order (columns) — leaf nodes only
+    // Build a set of children belonging to each collapsed group
+    const collapsedChildren = new Set();
+    for (const [id, summary] of Object.entries(topLevelSummaries)) {
+        if (pfCollapsedGroups.has(id)) {
+            summary.children.forEach(cid => collapsedChildren.add(cid));
+        }
+    }
+
+    // Build the flow graph: leaf nodes + collapsed group placeholders
     const nodes = {};
+
+    // Add leaf nodes that are NOT inside a collapsed group
     for (const d of leafDeliverables) {
+        if (collapsedChildren.has(d.deliverable)) continue;
         nodes[d.deliverable] = { task: d, deps: [], column: 0 };
     }
 
-    // Build dependency edges from explicit [depends] declarations
+    // Add collapsed group placeholders as single nodes
+    for (const [id, summary] of Object.entries(topLevelSummaries)) {
+        if (!pfCollapsedGroups.has(id)) continue;
+        const placeholderId = '_collapsed_' + id;
+        nodes[placeholderId] = {
+            task: summary.task, deps: [], column: 0,
+            isCollapsed: true, groupId: id, childIds: summary.children
+        };
+    }
+
+    // Helper: resolve a deliverable ID to its flow node key
+    // (a leaf's own key, or its collapsed group's placeholder key)
+    function resolveFlowKey(delId) {
+        if (nodes[delId]) return delId;
+        // Check if this deliverable belongs to a collapsed group
+        for (const [id, summary] of Object.entries(topLevelSummaries)) {
+            if (pfCollapsedGroups.has(id) && summary.children.includes(delId)) {
+                return '_collapsed_' + id;
+            }
+        }
+        return null;
+    }
+
+    // Build dependency edges — for leaf nodes
     for (const d of leafDeliverables) {
+        if (collapsedChildren.has(d.deliverable)) continue;
         if (d.depends) {
             for (const depName of d.depends) {
-                const depTask = leafDeliverables.find(dt => dt.name === depName || dt.description === depName);
-                if (depTask && nodes[depTask.deliverable]) {
-                    nodes[d.deliverable].deps.push(depTask.deliverable);
+                const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                if (depTask) {
+                    const flowKey = resolveFlowKey(depTask.deliverable);
+                    if (flowKey && flowKey !== d.deliverable && !nodes[d.deliverable].deps.includes(flowKey)) {
+                        nodes[d.deliverable].deps.push(flowKey);
+                    }
+                }
+            }
+        }
+        // Inherit parent dependencies
+        if (d.parent) {
+            const parentDel = deliverables.find(
+                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+            );
+            if (parentDel && parentDel.depends) {
+                for (const depName of parentDel.depends) {
+                    const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                    if (depTask) {
+                        const flowKey = resolveFlowKey(depTask.deliverable);
+                        if (flowKey && flowKey !== d.deliverable && !nodes[d.deliverable].deps.includes(flowKey)) {
+                            nodes[d.deliverable].deps.push(flowKey);
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Inherit parent dependencies: children get the same deps as their parent
-    for (const d of leafDeliverables) {
-        if (d.parent) {
-            const parentDeliverable = deliverables.find(
-                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
-            );
-            if (parentDeliverable) {
-                // Get parent's deps (look at the original deliverable, not just leaf nodes)
-                const parentDeps = [];
-                if (parentDeliverable.depends) {
-                    for (const depName of parentDeliverable.depends) {
-                        const depTask = leafDeliverables.find(dt => dt.name === depName || dt.description === depName);
-                        if (depTask && nodes[depTask.deliverable]) {
-                            parentDeps.push(depTask.deliverable);
+    // Build dependency edges for collapsed group placeholders
+    for (const [id, summary] of Object.entries(topLevelSummaries)) {
+        if (!pfCollapsedGroups.has(id)) continue;
+        const placeholderId = '_collapsed_' + id;
+
+        // Aggregate deps from all children in this group + the summary itself
+        const allGroupDels = [summary.task, ...summary.children.map(
+            cid => deliverables.find(dd => dd.deliverable === cid)
+        ).filter(Boolean)];
+
+        for (const d of allGroupDels) {
+            if (d.depends) {
+                for (const depName of d.depends) {
+                    const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                    if (depTask) {
+                        const flowKey = resolveFlowKey(depTask.deliverable);
+                        if (flowKey && flowKey !== placeholderId && !nodes[placeholderId].deps.includes(flowKey)) {
+                            nodes[placeholderId].deps.push(flowKey);
                         }
                     }
                 }
-                for (const parentDep of parentDeps) {
-                    if (parentDep !== d.deliverable && !nodes[d.deliverable].deps.includes(parentDep)) {
-                        nodes[d.deliverable].deps.push(parentDep);
+            }
+        }
+
+        // Also find nodes that depend on children in this group (output connections)
+        for (const [nodeKey, node] of Object.entries(nodes)) {
+            if (nodeKey === placeholderId) continue;
+            // Check if any of this node's deps reference children in the collapsed group
+            const newDeps = [];
+            for (const dep of node.deps) {
+                if (dep === placeholderId) {
+                    newDeps.push(dep);
+                } else {
+                    newDeps.push(dep);
+                }
+            }
+            // Check if this node's original task depends on anything in the collapsed group
+            const nodeTask = node.task;
+            if (nodeTask && nodeTask.depends) {
+                for (const depName of nodeTask.depends) {
+                    const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                    if (depTask && summary.children.includes(depTask.deliverable)) {
+                        if (!node.deps.includes(placeholderId)) {
+                            node.deps.push(placeholderId);
+                        }
                     }
                 }
             }
@@ -1043,7 +1123,7 @@ function updateProductFlow(tasks, projectName) {
 
     // Layout: x by column, y by row within column
     const positions = {};
-    const maxCol = Math.max(...Object.keys(columns).map(Number));
+    const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
     for (let col = 0; col <= maxCol; col++) {
         const items = columns[col] || [];
         items.forEach((item, row) => {
@@ -1051,44 +1131,12 @@ function updateProductFlow(tasks, projectName) {
                 x: 40 + col * (PF_NODE_W + PF_H_GAP),
                 y: 40 + row * (PF_NODE_H + PF_V_GAP),
                 task: item.task,
-                deps: item.deps
+                deps: item.deps,
+                isCollapsed: item.isCollapsed || false,
+                groupId: item.groupId || null
             };
         });
     }
-
-    // Handle collapsed groups: replace children with a single placeholder node
-    for (const [id, summary] of Object.entries(topLevelSummaries)) {
-        if (!pfCollapsedGroups.has(id)) continue;
-
-        // Find the bounding position of children to place the collapsed node
-        const childPositions = summary.children.map(cid => positions[cid]).filter(Boolean);
-        if (childPositions.length === 0) continue;
-
-        let minX = Infinity, minY = Infinity;
-        for (const cp of childPositions) {
-            minX = Math.min(minX, cp.x);
-            minY = Math.min(minY, cp.y);
-        }
-
-        // Remove children from positions
-        for (const cid of summary.children) {
-            delete positions[cid];
-        }
-
-        // Add collapsed placeholder
-        positions['_collapsed_' + id] = {
-            x: minX, y: minY,
-            task: summary.task,
-            deps: [],
-            isCollapsed: true,
-            groupId: id
-        };
-    }
-
-    // Store for re-render on collapse toggle
-    pfLastPositions = positions;
-    pfLastAllTasks = allTasks;
-    pfLastSummaries = topLevelSummaries;
 
     // Render
     if (!pfSvg) initProductFlow();
