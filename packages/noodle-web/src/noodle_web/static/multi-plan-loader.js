@@ -62,7 +62,7 @@ function updateCachedProject(projectId, updates) {
 /**
  * Load project into editor
  */
-function loadProjectIntoEditor(projectId) {
+async function loadProjectIntoEditor(projectId) {
     if (!projectId) {
         return false;
     }
@@ -110,11 +110,17 @@ function loadProjectIntoEditor(projectId) {
 
     // Trigger the full render pipeline for the new project.
     // updateAllViews updates dashboard/table views immediately via /api/parse.
+    // Await the call so that lastRenderedTasks is populated before the user
+    // can interact with tasks — fixes first-click form population (#663).
     // Dispatching an input event on the editor triggers the debounced
     // renderText → render → /render pipeline which updates the rendered
     // markdown output.
     if (typeof updateAllViews === 'function') {
-        updateAllViews(planText, project.name);
+        try {
+            await updateAllViews(planText, project.name);
+        } catch (e) {
+            console.error('Initial updateAllViews failed:', e);
+        }
     }
     if (planEditor) {
         planEditor.dispatchEvent(new Event('input'));
