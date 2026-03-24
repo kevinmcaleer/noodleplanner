@@ -32,9 +32,8 @@ const PBS_BUS_DROP = 10;      // how far the bus line drops below parent before 
 const PBS_BUS_OFFSET = 10;    // horizontal offset from parent centre to bus line
 const PBS_ADD_BTN_SIZE = 18;  // size of the + button circles
 const PBS_NODE_HEIGHT = 44;
-const PBS_NODE_PADDING_X = 14;
-const PBS_NODE_MIN_WIDTH = 120;
-const PBS_NODE_MAX_WIDTH = 220;
+const PBS_NODE_PADDING_X = 10;
+const PBS_NODE_WIDTH = 140;    // fixed width for all PBS nodes
 const PBS_DUAL_THRESHOLD = 6;  // split into two columns above this many children
 
 const PBS_COLOURS = [
@@ -186,8 +185,7 @@ function pbsMeasureText(text, font) {
 
 function pbsMeasure(node, depth) {
     if (depth === undefined) depth = 0;
-    const textW = pbsMeasureText(node.name, 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
-    node.width = Math.min(PBS_NODE_MAX_WIDTH, Math.max(PBS_NODE_MIN_WIDTH, textW + PBS_NODE_PADDING_X * 2 + 8));
+    node.width = PBS_NODE_WIDTH;
 
     // Measure all children first
     for (const child of node.children) {
@@ -558,29 +556,49 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
         }));
     }
 
-    // Product name
-    const label = pbsCreateSVGElement('text', {
-        'x': node.x + node.width / 2, 'y': node.y + 18,
-        'text-anchor': 'middle', 'fill': '#fff', 'font-size': '12', 'font-weight': 'bold',
-        'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    });
-    let displayName = node.name;
-    const maxChars = Math.floor((node.width - PBS_NODE_PADDING_X * 2) / 7);
-    if (displayName.length > maxChars) {
-        displayName = displayName.substring(0, maxChars - 1) + '\u2026';
+    // Product name — word-wrap onto up to 2 lines
+    const fontSize = 11;
+    const fontSpec = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    const maxTextW = node.width - PBS_NODE_PADDING_X * 2;
+    const words = (node.name || '').split(/\s+/);
+    const lines = [];
+    let currentLine = '';
+    for (const word of words) {
+        const testLine = currentLine ? currentLine + ' ' + word : word;
+        if (pbsMeasureText(testLine, fontSpec) <= maxTextW || !currentLine) {
+            currentLine = testLine;
+        } else {
+            lines.push(currentLine);
+            currentLine = word;
+        }
     }
-    label.textContent = displayName;
-    g.appendChild(label);
+    if (currentLine) lines.push(currentLine);
 
-    // Product ID
-    if (node.deliverable) {
-        const idLabel = pbsCreateSVGElement('text', {
-            'x': node.x + node.width / 2, 'y': node.y + 34,
-            'text-anchor': 'middle', 'fill': 'rgba(255,255,255,0.7)', 'font-size': '10',
+    // Limit to 2 lines, truncate second line if needed
+    if (lines.length > 2) {
+        lines.length = 2;
+        lines[1] = lines[1].substring(0, lines[1].length - 1) + '\u2026';
+    }
+    if (lines.length === 2 && pbsMeasureText(lines[1], fontSpec) > maxTextW) {
+        while (lines[1].length > 1 && pbsMeasureText(lines[1] + '\u2026', fontSpec) > maxTextW) {
+            lines[1] = lines[1].substring(0, lines[1].length - 1);
+        }
+        lines[1] += '\u2026';
+    }
+
+    const lineHeight = fontSize + 3;
+    const totalTextH = lines.length * lineHeight;
+    const textStartY = node.y + (node.height - totalTextH) / 2 + fontSize;
+
+    for (let i = 0; i < lines.length; i++) {
+        const tspan = pbsCreateSVGElement('text', {
+            'x': node.x + node.width / 2,
+            'y': textStartY + i * lineHeight,
+            'text-anchor': 'middle', 'fill': '#fff', 'font-size': String(fontSize), 'font-weight': 'bold',
             'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         });
-        idLabel.textContent = `$${node.deliverable}`;
-        g.appendChild(idLabel);
+        tspan.textContent = lines[i];
+        g.appendChild(tspan);
     }
 
     // Tooltip
