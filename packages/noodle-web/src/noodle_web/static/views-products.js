@@ -1251,24 +1251,53 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 .filter(Boolean);
             if (childPositions.length === 0) continue;
 
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            // Group children by contiguous column clusters to avoid wide spanning boxes
+            const childCols = childPositions.map(cp => Math.round((cp.x - 40) / (PF_NODE_W + PF_H_GAP)));
+            const uniqueCols = [...new Set(childCols)].sort((a, b) => a - b);
+
+            // Split into clusters of contiguous columns (gap > 1 = new cluster)
+            const clusters = [[]];
+            for (let ci = 0; ci < uniqueCols.length; ci++) {
+                if (ci > 0 && uniqueCols[ci] - uniqueCols[ci - 1] > 1) {
+                    clusters.push([]);
+                }
+                clusters[clusters.length - 1].push(uniqueCols[ci]);
+            }
+
+            // Draw a bounding box for each cluster
+            for (const cluster of clusters) {
+                const clusterPositions = childPositions.filter(cp => {
+                    const col = Math.round((cp.x - 40) / (PF_NODE_W + PF_H_GAP));
+                    return cluster.includes(col);
+                });
+                if (clusterPositions.length === 0) continue;
+
+                let cMinX = Infinity, cMinY = Infinity, cMaxX = -Infinity, cMaxY = -Infinity;
+                for (const cp of clusterPositions) {
+                    cMinX = Math.min(cMinX, cp.x);
+                    cMinY = Math.min(cMinY, cp.y);
+                    cMaxX = Math.max(cMaxX, cp.x + PF_NODE_W);
+                    cMaxY = Math.max(cMaxY, cp.y + PF_NODE_H);
+                }
+
+                pfGroup.appendChild(pbsCreateSVGElement('rect', {
+                    'x': cMinX - pad, 'y': cMinY - pad - 20,
+                    'width': cMaxX - cMinX + pad * 2, 'height': cMaxY - cMinY + pad * 2 + 20,
+                    'rx': '8', 'ry': '8',
+                    'fill': pbsShadeColour(colour, 1.8),
+                    'fill-opacity': '0.08',
+                    'stroke': colour, 'stroke-width': '1.5',
+                    'stroke-dasharray': '6,3',
+                    'opacity': '0.5'
+                }));
+            }
+
+            // Use the full bounds for the label position
+            let minX = Infinity, minY = Infinity;
             for (const cp of childPositions) {
                 minX = Math.min(minX, cp.x);
                 minY = Math.min(minY, cp.y);
-                maxX = Math.max(maxX, cp.x + PF_NODE_W);
-                maxY = Math.max(maxY, cp.y + PF_NODE_H);
             }
-
-            // Background box
-            pfGroup.appendChild(pbsCreateSVGElement('rect', {
-                'x': minX - pad, 'y': minY - pad - 20,
-                'width': maxX - minX + pad * 2, 'height': maxY - minY + pad * 2 + 20,
-                'rx': '8', 'ry': '8',
-                'fill': 'none',
-                'stroke': colour, 'stroke-width': '1.5',
-                'stroke-dasharray': '6,3',
-                'opacity': '0.5'
-            }));
 
             // Label with disclosure triangle (expanded = down arrow)
             const labelG = pbsCreateSVGElement('g', { 'style': 'cursor: pointer;' });
