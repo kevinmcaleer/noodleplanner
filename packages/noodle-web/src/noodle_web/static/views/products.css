@@ -80,6 +80,16 @@
     filter: brightness(1.3);
 }
 
+.pf-orphan-indicator {
+    animation: pf-orphan-pulse 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes pf-orphan-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
 .pf-arrow {
     transition: stroke 0.15s, stroke-width 0.15s;
 }

@@ -1522,6 +1522,57 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 
     // Cache positions for drag-connect lookups
     pfPositionsCache = positions;
+
+    // Orphan detection: highlight nodes that are dead-ends in the flow
+    // (no outgoing deps except the last column, no incoming deps except the first column)
+    const allKeys = Object.keys(positions);
+    const hasIncoming = new Set();
+    const hasOutgoing = new Set();
+    for (const [key, pos] of Object.entries(positions)) {
+        for (const dep of pos.deps) {
+            hasOutgoing.add(dep);    // dep has an outgoing connection (something depends on it)
+            hasIncoming.add(key);     // key has an incoming connection (it depends on something)
+        }
+    }
+
+    // Find min/max columns to identify first/last products
+    let minCol = Infinity, maxCol = -Infinity;
+    for (const pos of Object.values(positions)) {
+        const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
+        minCol = Math.min(minCol, col);
+        maxCol = Math.max(maxCol, col);
+    }
+
+    for (const [key, pos] of Object.entries(positions)) {
+        const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
+        const isFirst = col === minCol;
+        const isLast = col === maxCol;
+        const noIncoming = !hasIncoming.has(key) && !isFirst;
+        const noOutgoing = !hasOutgoing.has(key) && !isLast;
+
+        if (noIncoming || noOutgoing) {
+            // Draw orphan indicator — orange dashed border around the node
+            const cx = pos.x + PF_NODE_W / 2;
+            const cy = pos.y + PF_NODE_H / 2;
+            if (pos.isDiamond && pos._diamondW) {
+                const dw = pos._diamondW + 6;
+                const dh = 24;
+                pfGroup.appendChild(pbsCreateSVGElement('polygon', {
+                    'points': `${cx},${cy - dh} ${cx + dw},${cy} ${cx},${cy + dh} ${cx - dw},${cy}`,
+                    'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
+                    'stroke-dasharray': '4,3', 'class': 'pf-orphan-indicator'
+                }));
+            } else {
+                pfGroup.appendChild(pbsCreateSVGElement('rect', {
+                    'x': pos.x - 3, 'y': pos.y - 3,
+                    'width': PF_NODE_W + 6, 'height': PF_NODE_H + 6,
+                    'rx': '8', 'ry': '8',
+                    'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
+                    'stroke-dasharray': '4,3', 'class': 'pf-orphan-indicator'
+                }));
+            }
+        }
+    }
 }
 
 // ── Product Flow: Drag-to-connect ─────────────────────────────────────
@@ -1550,14 +1601,18 @@ function pfStartDragConnect(sourceKey, startX, startY, e) {
             `M${startX},${startY} C${midX},${startY} ${midX},${mouseY} ${mouseX},${mouseY}`
         );
 
-        // Highlight nearest input connector
-        pfGroup.querySelectorAll('.pf-connector-in circle').forEach(c => {
-            c.setAttribute('r', '8');
-        });
+        // Highlight nearest target node
+        pfGroup.querySelectorAll('.pf-node').forEach(n => n.style.filter = '');
         const nearest = pfFindNearestInput(mouseX, mouseY);
-        if (nearest && nearest.key !== pfDragConnection.sourceKey) {
-            const inConn = pfGroup.querySelector(`.pf-connector-in[data-key="${nearest.key}"] circle`);
-            if (inConn) inConn.setAttribute('r', '12');
+        if (nearest && nearest.key !== pfDragConnection.sourceKey && nearest.dist < 50) {
+            const targetNode = pfGroup.querySelectorAll('.pf-node');
+            // Find the node group by matching position
+            targetNode.forEach(n => {
+                const delivAttr = n.querySelector('[data-key]');
+                if (delivAttr && delivAttr.getAttribute('data-key') === nearest.key) {
+                    n.style.filter = 'brightness(1.3)';
+                }
+            });
         }
     };
 
@@ -1575,14 +1630,12 @@ function pfStartDragConnect(sourceKey, startX, startY, e) {
         const mouseY = (e.clientY - rect.top - pfPanY) / pfZoom;
         const target = pfFindNearestInput(mouseX, mouseY);
 
-        if (target && target.key !== pfDragConnection.sourceKey && target.dist < 30) {
+        if (target && target.key !== pfDragConnection.sourceKey && target.dist < 50) {
             pfCreateDependency(pfDragConnection.sourceKey, target.key);
         }
 
-        // Reset connector sizes
-        pfGroup.querySelectorAll('.pf-connector-in circle').forEach(c => {
-            c.setAttribute('r', '8');
-        });
+        // Reset node highlights
+        pfGroup.querySelectorAll('.pf-node').forEach(n => n.style.filter = '');
 
         pfDragConnection = null;
     };
@@ -1596,9 +1649,12 @@ function pfFindNearestInput(x, y) {
     let nearest = null;
     let minDist = Infinity;
     for (const [key, pos] of Object.entries(pfPositionsCache)) {
-        const cx = pos.x - 10;
+        // Check if cursor is inside or near the node body
+        const cx = pos.x + PF_NODE_W / 2;
         const cy = pos.y + PF_NODE_H / 2;
-        const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+        const insideX = x >= pos.x - 10 && x <= pos.x + PF_NODE_W + 10;
+        const insideY = y >= pos.y - 10 && y <= pos.y + PF_NODE_H + 10;
+        const dist = insideX && insideY ? 0 : Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
         if (dist < minDist) {
             minDist = dist;
             nearest = { key, dist };
