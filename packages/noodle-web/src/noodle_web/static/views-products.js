@@ -928,6 +928,7 @@ let pfDragStartPanX = 0;
 let pfDragStartPanY = 0;
 let pfCollapsedGroups = new Set(); // legacy — replaced by pfExpandedStages
 let pfExpandedStages = new Set();  // stages that are expanded to show children
+let pfUserToggledExpand = false;   // true once user explicitly collapses/expands
 let pfLastPositions = null;
 let pfLastAllTasks = null;
 let pfLastSummaries = null;
@@ -979,9 +980,11 @@ function updateProductFlow(tasks, projectName) {
         stageNodes[id] = { task: d, children: [] };
     }
 
-    // Auto-expand all stages by default
-    for (const id of Object.keys(stageNodes)) {
-        pfExpandedStages.add(id);
+    // Auto-expand all stages on first render only (when user hasn't made a choice)
+    if (!pfUserToggledExpand) {
+        for (const id of Object.keys(stageNodes)) {
+            pfExpandedStages.add(id);
+        }
     }
 
     // Build child lists — find leaf deliverables under each stage
@@ -1802,6 +1805,7 @@ function pfDeleteSelectedArrow() {
 }
 
 function pfToggleGroup(groupId) {
+    pfUserToggledExpand = true;
     if (pfExpandedStages.has(groupId)) {
         pfExpandedStages.delete(groupId);
     } else {
@@ -1842,6 +1846,22 @@ function productFlowZoomIn() { pfZoom = Math.min(5, pfZoom * 1.2); pfApplyTransf
 function productFlowZoomOut() { pfZoom = Math.max(0.1, pfZoom * 0.8); pfApplyTransform(); }
 function productFlowZoomReset() { pfZoom = 1; pfPanX = 0; pfPanY = 0; pfApplyTransform(); }
 function productFlowZoomFit() {
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        updateProductFlow(lastRenderedTasks);
+    }
+}
+
+function productFlowCollapseAll() {
+    pfUserToggledExpand = true;
+    pfExpandedStages.clear();
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        updateProductFlow(lastRenderedTasks);
+    }
+}
+
+function productFlowExpandAll() {
+    pfUserToggledExpand = false; // let auto-expand re-populate all
+    pfExpandedStages.clear();
     if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
         updateProductFlow(lastRenderedTasks);
     }
