@@ -1396,8 +1396,8 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 'text-anchor': 'middle', 'fill': colour, 'font-size': '10', 'font-weight': 'bold',
                 'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             });
-            let name = task.name || key;
-            if (name.length > 20) name = name.substring(0, 19) + '\u2026';
+            let name = (task.name || key) + ' complete';
+            if (name.length > 28) name = name.substring(0, 27) + '\u2026';
             label.textContent = name;
             g.appendChild(label);
 
