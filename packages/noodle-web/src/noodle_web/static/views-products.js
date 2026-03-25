@@ -1182,69 +1182,6 @@ function updateProductFlow(tasks, projectName) {
         });
     }
 
-    // Resolve bounding box overlaps: push nodes down to prevent vertical overlap
-    // between expanded stage boxes that share the same column
-    if (Object.keys(topLevelSummaries).length > 0) {
-        const boxPad = 4;
-        const boxLabelH = 16;
-        const boxGap = 6;
-
-        // Calculate bounding box for each expanded stage
-        const boxes = [];
-        for (const [id, summary] of Object.entries(topLevelSummaries)) {
-            const childPos = summary.children.map(cid => positions[cid]).filter(Boolean);
-            if (childPos.length === 0) continue;
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (const cp of childPos) {
-                minX = Math.min(minX, cp.x);
-                minY = Math.min(minY, cp.y);
-                maxX = Math.max(maxX, cp.x + PF_NODE_W);
-                maxY = Math.max(maxY, cp.y + PF_NODE_H);
-            }
-            boxes.push({
-                id, childIds: summary.children,
-                top: minY - boxPad - boxLabelH,
-                bottom: maxY + boxPad,
-                left: minX - boxPad,
-                right: maxX + boxPad
-            });
-        }
-
-        // Sort boxes by top position
-        boxes.sort((a, b) => a.top - b.top);
-
-        // Check each pair of boxes for vertical overlap in the same column range
-        for (let i = 0; i < boxes.length; i++) {
-            for (let j = i + 1; j < boxes.length; j++) {
-                const a = boxes[i];
-                const b = boxes[j];
-
-                // Check horizontal overlap
-                if (a.right <= b.left || b.right <= a.left) continue;
-
-                // Check vertical overlap
-                const overlap = a.bottom + boxGap - b.top;
-                if (overlap <= 0) continue;
-
-                // Push box B and all its children down
-                for (const cid of b.childIds) {
-                    if (positions[cid]) positions[cid].y += overlap;
-                }
-                // Also push any non-stage nodes in the same rows down
-                const bMinCol = Math.round((b.left - 40) / (PF_NODE_W + PF_H_GAP));
-                const bMaxCol = Math.round((b.right - 40) / (PF_NODE_W + PF_H_GAP));
-                for (const [key, pos] of Object.entries(positions)) {
-                    if (b.childIds.includes(key)) continue; // already moved
-                    const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
-                    if (col >= bMinCol && col <= bMaxCol && pos.y >= b.top && pos.y < b.top + overlap) {
-                        pos.y += overlap;
-                    }
-                }
-                b.top += overlap;
-                b.bottom += overlap;
-            }
-        }
-    }
 
     // Render
     if (!pfSvg) initProductFlow();
@@ -1339,91 +1276,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     pfGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pfPanX},${pfPanY}) scale(${pfZoom})` });
     pfSvg.appendChild(pfGroup);
 
-    // Draw bounding boxes for expanded top-level summaries
-    // Use tight padding that doesn't overlap neighbouring boxes
-    const pad = 4;
-    const labelH = 16;
-    if (topLevelSummaries) {
-        let boxIdx = 0;
-        for (const [id, summary] of Object.entries(topLevelSummaries)) {
-            const colour = PBS_COLOURS[boxIdx % PBS_COLOURS.length];
-            boxIdx++;
-
-            const childPositions = summary.children
-                .map(cid => positions[cid])
-                .filter(Boolean);
-            if (childPositions.length === 0) continue;
-
-            // Group children by contiguous column clusters
-            const childCols = childPositions.map(cp => Math.round((cp.x - 40) / (PF_NODE_W + PF_H_GAP)));
-            const uniqueCols = [...new Set(childCols)].sort((a, b) => a - b);
-            const clusters = [[]];
-            for (let ci = 0; ci < uniqueCols.length; ci++) {
-                if (ci > 0 && uniqueCols[ci] - uniqueCols[ci - 1] > 1) clusters.push([]);
-                clusters[clusters.length - 1].push(uniqueCols[ci]);
-            }
-
-            for (const cluster of clusters) {
-                const clusterPositions = childPositions.filter(cp => {
-                    const col = Math.round((cp.x - 40) / (PF_NODE_W + PF_H_GAP));
-                    return cluster.includes(col);
-                });
-                if (clusterPositions.length === 0) continue;
-
-                let cMinX = Infinity, cMinY = Infinity, cMaxX = -Infinity, cMaxY = -Infinity;
-                for (const cp of clusterPositions) {
-                    cMinX = Math.min(cMinX, cp.x);
-                    cMinY = Math.min(cMinY, cp.y);
-                    cMaxX = Math.max(cMaxX, cp.x + PF_NODE_W);
-                    cMaxY = Math.max(cMaxY, cp.y + PF_NODE_H);
-                }
-
-                pfGroup.appendChild(pbsCreateSVGElement('rect', {
-                    'x': cMinX - pad, 'y': cMinY - pad - labelH,
-                    'width': cMaxX - cMinX + pad * 2, 'height': cMaxY - cMinY + pad * 2 + labelH,
-                    'rx': '4', 'ry': '4',
-                    'fill': pbsShadeColour(colour, 1.8),
-                    'fill-opacity': '0.06',
-                    'stroke': colour, 'stroke-width': '1',
-                    'stroke-dasharray': '4,3',
-                    'opacity': '0.4'
-                }));
-            }
-
-            // Use the full bounds for the label position
-            let minX = Infinity, minY = Infinity;
-            for (const cp of childPositions) {
-                minX = Math.min(minX, cp.x);
-                minY = Math.min(minY, cp.y);
-            }
-
-            // Label with disclosure triangle inside the top of the box
-            const labelG = pbsCreateSVGElement('g', { 'style': 'cursor: pointer;' });
-            labelG.addEventListener('click', (e) => {
-                e.stopPropagation();
-                pfToggleGroup(id);
-            });
-
-            const triX = minX - pad + 4;
-            const triY = minY - pad - labelH + 8;
-            labelG.appendChild(pbsCreateSVGElement('polygon', {
-                'points': `${triX},${triY - 3} ${triX + 6},${triY - 3} ${triX + 3},${triY + 3}`,
-                'fill': colour, 'opacity': '0.6'
-            }));
-            const labelEl = pbsCreateSVGElement('text', {
-                'x': triX + 10, 'y': triY + 2,
-                'fill': colour, 'font-size': '10', 'font-weight': 'bold', 'opacity': '0.6',
-                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-            });
-            labelEl.textContent = summary.task.name || id;
-            labelG.appendChild(labelEl);
-
-            const tip = pbsCreateSVGElement('title', {});
-            tip.textContent = 'Click to collapse';
-            labelG.appendChild(tip);
-            pfGroup.appendChild(labelG);
-        }
-    }
+    // No bounding boxes — diamonds represent summaries instead
 
     // Draw dependency arrows (clickable for deletion)
     pfSelectedArrow = null;
@@ -1431,10 +1284,25 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         for (const dep of pos.deps) {
             const src = positions[dep];
             if (!src) continue;
-            const x1 = src.x + PF_NODE_W;
-            const y1 = src.y + PF_NODE_H / 2;
-            const x2 = pos.x;
-            const y2 = pos.y + PF_NODE_H / 2;
+
+            // Route arrows to/from diamond points (right/left tips) instead of rectangle edges
+            const srcCy = src.y + PF_NODE_H / 2;
+            const dstCy = pos.y + PF_NODE_H / 2;
+            let x1, y1, x2, y2;
+            if (src.isDiamond && src._diamondCx) {
+                x1 = src._diamondCx + src._diamondW; // right tip of diamond
+                y1 = srcCy;
+            } else {
+                x1 = src.x + PF_NODE_W;
+                y1 = srcCy;
+            }
+            if (pos.isDiamond && pos._diamondCx) {
+                x2 = pos._diamondCx - pos._diamondW; // left tip of diamond
+                y2 = dstCy;
+            } else {
+                x2 = pos.x;
+                y2 = dstCy;
+            }
             const midX = (x1 + x2) / 2;
             const d = `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
 
@@ -1486,7 +1354,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             // Diamond gate node — represents stage completion
             g.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (pos.groupId) pfToggleGroup(pos.groupId);
+                if (task && typeof openProductForm === 'function') openProductForm(task);
             });
 
             // Diamond shape centred at node position
@@ -1494,6 +1362,11 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             const cy = pos.y + PF_NODE_H / 2;
             const dw = 22; // half-width
             const dh = 18; // half-height
+            // Store diamond centre for arrow routing
+            pos._diamondCx = cx;
+            pos._diamondCy = cy;
+            pos._diamondW = dw;
+
             g.appendChild(pbsCreateSVGElement('polygon', {
                 'points': `${cx},${cy - dh} ${cx + dw},${cy} ${cx},${cy + dh} ${cx - dw},${cy}`,
                 'fill': colour, 'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
