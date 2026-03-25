@@ -1015,14 +1015,21 @@ function updateProductFlow(tasks, projectName) {
     // Build the flow graph
     const nodes = {};
 
-    // Stage nodes: collapsed = single node, expanded = bounding box with children
+    // Stage nodes: collapsed = single node, expanded = children + diamond gate
     for (const [id, stage] of Object.entries(stageNodes)) {
         const isExpanded = pfExpandedStages.has(id);
         if (isExpanded) {
+            // Add children as individual nodes
             for (const cid of stage.children) {
                 const childDel = deliverables.find(dd => dd.deliverable === cid);
                 if (childDel && !nodes[cid]) nodes[cid] = { task: childDel, deps: [], column: 0 };
             }
+            // Add diamond gate node — depends on all children in this stage
+            const gateId = '_gate_' + id;
+            nodes[gateId] = {
+                task: stage.task, deps: [...stage.children], column: 0,
+                isDiamond: true, groupId: id, childIds: stage.children
+            };
         } else {
             nodes[id] = {
                 task: stage.task, deps: [], column: 0,
@@ -1042,7 +1049,15 @@ function updateProductFlow(tasks, projectName) {
     function resolveFlowKey(delId) {
         if (nodes[delId]) return delId;
         for (const [id, stage] of Object.entries(stageNodes)) {
-            if (!pfExpandedStages.has(id) && stage.children.includes(delId)) return id;
+            if (pfExpandedStages.has(id)) {
+                // Expanded stage: if delId is the stage itself, point to its diamond gate
+                if (delId === id) return '_gate_' + id;
+                // If delId is a child inside the expanded stage, it should be in nodes already
+                if (stage.children.includes(delId)) return delId;
+            } else {
+                // Collapsed stage: children resolve to the stage node
+                if (stage.children.includes(delId) || delId === id) return id;
+            }
         }
         return null;
     }
@@ -1440,6 +1455,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
         colourIdx++;
         const isCollapsedNode = !!pos.isCollapsed;
+        const isDiamondNode = !!pos.isDiamond;
 
         const g = pbsCreateSVGElement('g', { 'class': 'pf-node', 'style': 'cursor: pointer;' });
 
@@ -1451,7 +1467,38 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             'fill': 'transparent', 'stroke': 'none'
         }));
 
-        if (isCollapsedNode) {
+        if (isDiamondNode) {
+            // Diamond gate node — represents stage completion
+            g.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (pos.groupId) pfToggleGroup(pos.groupId);
+            });
+
+            // Diamond shape centred at node position
+            const cx = pos.x + PF_NODE_W / 2;
+            const cy = pos.y + PF_NODE_H / 2;
+            const dw = 22; // half-width
+            const dh = 18; // half-height
+            g.appendChild(pbsCreateSVGElement('polygon', {
+                'points': `${cx},${cy - dh} ${cx + dw},${cy} ${cx},${cy + dh} ${cx - dw},${cy}`,
+                'fill': colour, 'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
+            }));
+
+            // Stage name below diamond
+            const label = pbsCreateSVGElement('text', {
+                'x': cx, 'y': cy + dh + 14,
+                'text-anchor': 'middle', 'fill': colour, 'font-size': '10', 'font-weight': 'bold',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            });
+            let name = task.name || key;
+            if (name.length > 20) name = name.substring(0, 19) + '\u2026';
+            label.textContent = name;
+            g.appendChild(label);
+
+            const title = pbsCreateSVGElement('title', {});
+            title.textContent = `${task.name}\nStage gate \u2014 click to collapse`;
+            g.appendChild(title);
+        } else if (isCollapsedNode) {
             // Collapsed group placeholder
             g.addEventListener('click', (e) => {
                 e.stopPropagation();
