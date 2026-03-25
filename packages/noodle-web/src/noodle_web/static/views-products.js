@@ -968,24 +968,25 @@ function updateProductFlow(tasks, projectName) {
         }
     }
 
-    // Stage nodes: summaries with [depends] — shown as flow nodes (collapsed by default)
-    // Intermediate summaries: summaries without [depends] — hidden
-    // Leaf products: no child deliverables — always shown
+    // ALL summaries with child deliverables become stage nodes.
+    // They are always expanded — children shown as flow nodes, with a
+    // diamond gate node representing the summary's completion.
     const stageNodes = {};
-    const hiddenSummaries = new Set();
+    const hiddenSummaries = new Set(); // kept empty — no summaries are hidden now
     for (const id of childDeliverableParents) {
         const d = deliverables.find(dd => dd.deliverable === id);
         if (!d) continue;
-        const hasDeps = d.depends && d.depends.length > 0;
-        if (hasDeps) {
-            stageNodes[id] = { task: d, children: [] };
-        } else {
-            hiddenSummaries.add(id);
-        }
+        stageNodes[id] = { task: d, children: [] };
+    }
+
+    // Auto-expand all stages by default
+    for (const id of Object.keys(stageNodes)) {
+        pfExpandedStages.add(id);
     }
 
     // Build child lists — find leaf deliverables under each stage
     function findAncestorStage(d) {
+        // Find the nearest parent that is a stage node
         let current = d;
         while (current && current.parent) {
             const parentDel = deliverables.find(
@@ -993,8 +994,7 @@ function updateProductFlow(tasks, projectName) {
             );
             if (!parentDel) break;
             if (stageNodes[parentDel.deliverable]) return parentDel.deliverable;
-            if (hiddenSummaries.has(parentDel.deliverable)) { current = parentDel; continue; }
-            break;
+            current = parentDel;
         }
         return null;
     }
@@ -1176,6 +1176,7 @@ function updateProductFlow(tasks, projectName) {
                 task: item.task,
                 deps: item.deps,
                 isCollapsed: item.isCollapsed || false,
+                isDiamond: item.isDiamond || false,
                 groupId: item.groupId || null
             };
         });
