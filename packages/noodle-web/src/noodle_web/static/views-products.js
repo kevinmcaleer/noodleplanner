@@ -1025,9 +1025,15 @@ function updateProductFlow(tasks, projectName) {
                 if (childDel && !nodes[cid]) nodes[cid] = { task: childDel, deps: [], column: 0 };
             }
             // Add diamond gate node — depends on all children in this stage
+            // Resolve child IDs to their flow keys (e.g. child stages → their gates)
             const gateId = '_gate_' + id;
+            const gateDeps = stage.children.map(cid => {
+                // If child is itself a stage, depend on its gate
+                if (stageNodes[cid]) return '_gate_' + cid;
+                return cid;
+            });
             nodes[gateId] = {
-                task: stage.task, deps: [...stage.children], column: 0,
+                task: stage.task, deps: gateDeps, column: 0,
                 isDiamond: true, groupId: id, childIds: stage.children
             };
         } else {

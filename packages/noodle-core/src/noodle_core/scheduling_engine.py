@@ -1088,10 +1088,13 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             summary_task['finish'] = max(finishes)
             summary_task['duration'] = summary_task['finish'] - summary_task['start']
 
-            # Calculate average percent complete
+        # Always calculate average percent complete from children
+        percents = [c.get('percent', 0) for c in children if not c.get('summary')]
+        if not percents:
+            # If no leaf children, include summary children
             percents = [c.get('percent', 0) for c in children]
-            if percents:
-                summary_task['percent'] = int(sum(percents) / len(percents))
+        if percents:
+            summary_task['percent'] = int(sum(percents) / len(percents))
 
     # Calculate dates for all summary tasks
     for t in all_tasks:
