@@ -939,7 +939,7 @@ let pfPositionsCache = null;     // cached positions for connector lookups
 const PF_NODE_W = 180;
 const PF_NODE_H = 44;
 const PF_H_GAP = 60;
-const PF_V_GAP = 15;
+const PF_V_GAP = 10;
 
 function updateProductFlow(tasks, projectName) {
     const allTasks = tasks || [];
@@ -1057,6 +1057,20 @@ function updateProductFlow(tasks, projectName) {
             } else {
                 // Collapsed stage: children resolve to the stage node
                 if (stage.children.includes(delId) || delId === id) return id;
+            }
+        }
+        // Hidden intermediate without [depends]: find its last leaf descendant as proxy
+        if (hiddenSummaries.has(delId)) {
+            for (let i = leafDeliverables.length - 1; i >= 0; i--) {
+                const ld = leafDeliverables[i];
+                if (!nodes[ld.deliverable]) continue;
+                let cur = ld;
+                while (cur && cur.parent) {
+                    const p = deliverables.find(pp => (pp.name === cur.parent || pp.description === cur.parent) && pp.deliverable);
+                    if (!p) break;
+                    if (p.deliverable === delId) return ld.deliverable;
+                    cur = p;
+                }
             }
         }
         return null;
