@@ -937,8 +937,9 @@ let pfSelectedArrow = null;      // { sourceKey, targetKey } of selected depende
 let pfPositionsCache = null;     // cached positions for connector lookups
 
 const PF_NODE_W = 180;
+const PF_DIAMOND_W = 70;  // narrower column width for diamond nodes
 const PF_NODE_H = 44;
-const PF_H_GAP = 60;
+const PF_H_GAP = 40;
 const PF_V_GAP = 10;
 
 function updateProductFlow(tasks, projectName) {
@@ -1170,22 +1171,41 @@ function updateProductFlow(tasks, projectName) {
         columns[node.column].push({ key, ...node });
     }
 
-    // Layout: x by column, y cumulative (diamonds get extra space for label)
-    const PF_DIAMOND_EXTRA = 20; // extra vertical space after a diamond for its label
+    // Layout: variable column widths (diamonds are narrower)
+    const PF_DIAMOND_EXTRA = 20;
     const positions = {};
     const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
+
+    // Calculate column x positions using variable widths
+    const colX = {};
+    let xPos = 40;
+    for (let col = 0; col <= maxCol; col++) {
+        colX[col] = xPos;
+        const items = columns[col] || [];
+        // Column width = narrower if ALL items are diamonds, otherwise normal
+        const allDiamonds = items.length > 0 && items.every(item => item.isDiamond);
+        const colWidth = allDiamonds ? PF_DIAMOND_W : PF_NODE_W;
+        xPos += colWidth + PF_H_GAP;
+    }
+
     for (let col = 0; col <= maxCol; col++) {
         const items = columns[col] || [];
+        const allDiamonds = items.length > 0 && items.every(item => item.isDiamond);
+        const colWidth = allDiamonds ? PF_DIAMOND_W : PF_NODE_W;
         let y = 40;
         for (const item of items) {
+            // Centre the node within the column width
+            const nodeW = item.isDiamond ? PF_DIAMOND_W : PF_NODE_W;
+            const xOffset = (colWidth - nodeW) / 2;
             positions[item.key] = {
-                x: 40 + col * (PF_NODE_W + PF_H_GAP),
+                x: colX[col] + xOffset,
                 y: y,
                 task: item.task,
                 deps: item.deps,
                 isCollapsed: item.isCollapsed || false,
                 isDiamond: item.isDiamond || false,
-                groupId: item.groupId || null
+                groupId: item.groupId || null,
+                nodeWidth: nodeW
             };
             y += PF_NODE_H + PF_V_GAP;
             if (item.isDiamond) y += PF_DIAMOND_EXTRA;
@@ -1290,7 +1310,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     const diamondW = 22;
     for (const [key, pos] of Object.entries(positions)) {
         if (pos.isDiamond) {
-            pos._diamondCx = pos.x + PF_NODE_W / 2;
+            pos._diamondCx = pos.x + (pos.nodeWidth || PF_DIAMOND_W) / 2;
             pos._diamondCy = pos.y + PF_NODE_H / 2;
             pos._diamondW = diamondW;
         }
@@ -1311,7 +1331,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 x1 = src._diamondCx + src._diamondW; // right tip of diamond
                 y1 = srcCy;
             } else {
-                x1 = src.x + PF_NODE_W;
+                x1 = src.x + (src.nodeWidth || PF_NODE_W);
                 y1 = srcCy;
             }
             if (pos.isDiamond && pos._diamondCx) {
@@ -1362,9 +1382,10 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 
         // Invisible hit area for hover (extends to cover connectors)
         const connPad = 20;
+        const nw = pos.nodeWidth || PF_NODE_W;
         g.appendChild(pbsCreateSVGElement('rect', {
             'x': pos.x - connPad, 'y': pos.y - 4,
-            'width': PF_NODE_W + connPad * 2, 'height': PF_NODE_H + 8,
+            'width': nw + connPad * 2, 'height': PF_NODE_H + 8,
             'fill': 'transparent', 'stroke': 'none'
         }));
 
@@ -1376,7 +1397,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             });
 
             // Diamond shape centred at node position
-            const cx = pos.x + PF_NODE_W / 2;
+            const cx = pos.x + (pos.nodeWidth || PF_DIAMOND_W) / 2;
             const cy = pos.y + PF_NODE_H / 2;
             const dw = 22; // half-width
             const dh = 18; // half-height
@@ -1390,15 +1411,25 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 'fill': colour, 'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5'
             }));
 
-            // Stage name below diamond
-            const label = pbsCreateSVGElement('text', {
-                'x': cx, 'y': cy + dh + 14,
-                'text-anchor': 'middle', 'fill': colour, 'font-size': '10', 'font-weight': 'bold',
+            // Stage name below diamond — wrap onto two lines
+            const fullName = (task.name || key);
+            const line1 = fullName.length > 14 ? fullName.substring(0, 13) + '\u2026' : fullName;
+            const line2 = 'complete';
+
+            const label1 = pbsCreateSVGElement('text', {
+                'x': cx, 'y': cy + dh + 12,
+                'text-anchor': 'middle', 'fill': colour, 'font-size': '9', 'font-weight': 'bold',
                 'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             });
-            let name = (task.name || key) + ' complete';
-            if (name.length > 28) name = name.substring(0, 27) + '\u2026';
-            label.textContent = name;
+            label1.textContent = line1;
+            g.appendChild(label1);
+
+            const label2 = pbsCreateSVGElement('text', {
+                'x': cx, 'y': cy + dh + 23,
+                'text-anchor': 'middle', 'fill': colour, 'font-size': '9', 'opacity': '0.7',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            });
+            label2.textContent = line2;
             g.appendChild(label);
 
             const title = pbsCreateSVGElement('title', {});
@@ -1481,7 +1512,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const connectors = pbsCreateSVGElement('g', { 'class': 'pf-connectors' });
 
         // Right connector (output — drag FROM here)
-        const rightCx = pos.x + PF_NODE_W + connR + 2;
+        const rightCx = pos.x + nw + connR + 2;
         const rightCy = pos.y + PF_NODE_H / 2;
         const rightConn = pbsCreateSVGElement('g', { 'class': 'pf-connector-out', 'style': 'cursor: crosshair;' });
         rightConn.appendChild(pbsCreateSVGElement('circle', {
@@ -1558,7 +1589,8 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 
         if (noIncoming || noOutgoing) {
             // Draw orphan indicator — orange dashed border around the node
-            const cx = pos.x + PF_NODE_W / 2;
+            const nodeW = pos.nodeWidth || PF_NODE_W;
+            const cx = pos.x + nodeW / 2;
             const cy = pos.y + PF_NODE_H / 2;
             if (pos.isDiamond && pos._diamondW) {
                 const dw = pos._diamondW + 6;
@@ -1571,7 +1603,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             } else {
                 pfGroup.appendChild(pbsCreateSVGElement('rect', {
                     'x': pos.x - 3, 'y': pos.y - 3,
-                    'width': PF_NODE_W + 6, 'height': PF_NODE_H + 6,
+                    'width': nodeW + 6, 'height': PF_NODE_H + 6,
                     'rx': '8', 'ry': '8',
                     'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
                     'stroke-dasharray': '4,3', 'class': 'pf-orphan-indicator'
@@ -1656,9 +1688,10 @@ function pfFindNearestInput(x, y) {
     let minDist = Infinity;
     for (const [key, pos] of Object.entries(pfPositionsCache)) {
         // Check if cursor is inside or near the node body
-        const cx = pos.x + PF_NODE_W / 2;
+        const nodeW = pos.nodeWidth || PF_NODE_W;
+        const cx = pos.x + nodeW / 2;
         const cy = pos.y + PF_NODE_H / 2;
-        const insideX = x >= pos.x - 10 && x <= pos.x + PF_NODE_W + 10;
+        const insideX = x >= pos.x - 10 && x <= pos.x + nodeW + 10;
         const insideY = y >= pos.y - 10 && y <= pos.y + PF_NODE_H + 10;
         const dist = insideX && insideY ? 0 : Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
         if (dist < minDist) {
