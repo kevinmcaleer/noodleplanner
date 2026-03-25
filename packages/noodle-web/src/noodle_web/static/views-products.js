@@ -1018,23 +1018,41 @@ function updateProductFlow(tasks, projectName) {
     // Build the flow graph
     const nodes = {};
 
+    // Check if a stage is inside a collapsed ancestor stage
+    function isStageInsideCollapsed(stageId) {
+        const stageDel = deliverables.find(dd => dd.deliverable === stageId);
+        if (!stageDel) return false;
+        let current = stageDel;
+        while (current && current.parent) {
+            const parentDel = deliverables.find(
+                p => (p.name === current.parent || p.description === current.parent) && p.deliverable
+            );
+            if (!parentDel) break;
+            if (stageNodes[parentDel.deliverable] && !pfExpandedStages.has(parentDel.deliverable)) return true;
+            current = parentDel;
+        }
+        return false;
+    }
+
     // Stage nodes: collapsed = single node, expanded = children + diamond gate
     for (const [id, stage] of Object.entries(stageNodes)) {
+        // Skip stages that are inside a collapsed ancestor
+        if (isStageInsideCollapsed(id)) continue;
+
         const isExpanded = pfExpandedStages.has(id);
         if (isExpanded) {
-            // Add children as individual nodes
+            // Add children as individual nodes (only if not inside collapsed ancestor)
             for (const cid of stage.children) {
                 const childDel = deliverables.find(dd => dd.deliverable === cid);
                 if (childDel && !nodes[cid]) nodes[cid] = { task: childDel, deps: [], column: 0 };
             }
-            // Add diamond gate node — depends on all children in this stage
-            // Resolve child IDs to their flow keys (e.g. child stages → their gates)
+            // Add diamond gate node
             const gateId = '_gate_' + id;
             const gateDeps = stage.children.map(cid => {
-                // If child is itself a stage, depend on its gate
-                if (stageNodes[cid]) return '_gate_' + cid;
+                if (stageNodes[cid] && !isStageInsideCollapsed(cid)) return '_gate_' + cid;
+                if (stageNodes[cid]) return cid; // collapsed child stage
                 return cid;
-            });
+            }).filter(dep => nodes[dep] || nodes['_gate_' + dep.replace('_gate_', '')]);
             nodes[gateId] = {
                 task: stage.task, deps: gateDeps, column: 0,
                 isDiamond: true, groupId: id, childIds: stage.children
@@ -1047,10 +1065,22 @@ function updateProductFlow(tasks, projectName) {
         }
     }
 
-    // Leaf deliverables not inside any stage, or inside expanded stages
+    // Leaf deliverables: hide if ANY ancestor stage is collapsed
+    function isInsideCollapsedStage(d) {
+        let current = d;
+        while (current && current.parent) {
+            const parentDel = deliverables.find(
+                p => (p.name === current.parent || p.description === current.parent) && p.deliverable
+            );
+            if (!parentDel) break;
+            if (stageNodes[parentDel.deliverable] && !pfExpandedStages.has(parentDel.deliverable)) return true;
+            current = parentDel;
+        }
+        return false;
+    }
+
     for (const d of leafDeliverables) {
-        const ancestorId = findAncestorStage(d);
-        if (ancestorId && stageNodes[ancestorId] && !pfExpandedStages.has(ancestorId)) continue;
+        if (isInsideCollapsedStage(d)) continue;
         if (!nodes[d.deliverable]) nodes[d.deliverable] = { task: d, deps: [], column: 0 };
     }
 
