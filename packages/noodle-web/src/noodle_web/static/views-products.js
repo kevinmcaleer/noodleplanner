@@ -1164,22 +1164,26 @@ function updateProductFlow(tasks, projectName) {
         columns[node.column].push({ key, ...node });
     }
 
-    // Layout: x by column, y by row within column
+    // Layout: x by column, y cumulative (diamonds get extra space for label)
+    const PF_DIAMOND_EXTRA = 20; // extra vertical space after a diamond for its label
     const positions = {};
     const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
     for (let col = 0; col <= maxCol; col++) {
         const items = columns[col] || [];
-        items.forEach((item, row) => {
+        let y = 40;
+        for (const item of items) {
             positions[item.key] = {
                 x: 40 + col * (PF_NODE_W + PF_H_GAP),
-                y: 40 + row * (PF_NODE_H + PF_V_GAP),
+                y: y,
                 task: item.task,
                 deps: item.deps,
                 isCollapsed: item.isCollapsed || false,
                 isDiamond: item.isDiamond || false,
                 groupId: item.groupId || null
             };
-        });
+            y += PF_NODE_H + PF_V_GAP;
+            if (item.isDiamond) y += PF_DIAMOND_EXTRA;
+        }
     }
 
 
@@ -1276,7 +1280,15 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     pfGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pfPanX},${pfPanY}) scale(${pfZoom})` });
     pfSvg.appendChild(pfGroup);
 
-    // No bounding boxes — diamonds represent summaries instead
+    // Pre-calculate diamond centres for arrow routing
+    const diamondW = 22;
+    for (const [key, pos] of Object.entries(positions)) {
+        if (pos.isDiamond) {
+            pos._diamondCx = pos.x + PF_NODE_W / 2;
+            pos._diamondCy = pos.y + PF_NODE_H / 2;
+            pos._diamondW = diamondW;
+        }
+    }
 
     // Draw dependency arrows (clickable for deletion)
     pfSelectedArrow = null;
