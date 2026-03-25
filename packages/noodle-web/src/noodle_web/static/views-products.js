@@ -1246,34 +1246,29 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     pfSvg.appendChild(pfGroup);
 
     // Draw bounding boxes for expanded top-level summaries
-    const pad = 12;
+    // Use tight padding that doesn't overlap neighbouring boxes
+    const pad = 4;
+    const labelH = 16;
     if (topLevelSummaries) {
         let boxIdx = 0;
         for (const [id, summary] of Object.entries(topLevelSummaries)) {
             const colour = PBS_COLOURS[boxIdx % PBS_COLOURS.length];
             boxIdx++;
 
-            // topLevelSummaries only contains expanded stages, so no need to check
-
             const childPositions = summary.children
                 .map(cid => positions[cid])
                 .filter(Boolean);
             if (childPositions.length === 0) continue;
 
-            // Group children by contiguous column clusters to avoid wide spanning boxes
+            // Group children by contiguous column clusters
             const childCols = childPositions.map(cp => Math.round((cp.x - 40) / (PF_NODE_W + PF_H_GAP)));
             const uniqueCols = [...new Set(childCols)].sort((a, b) => a - b);
-
-            // Split into clusters of contiguous columns (gap > 1 = new cluster)
             const clusters = [[]];
             for (let ci = 0; ci < uniqueCols.length; ci++) {
-                if (ci > 0 && uniqueCols[ci] - uniqueCols[ci - 1] > 1) {
-                    clusters.push([]);
-                }
+                if (ci > 0 && uniqueCols[ci] - uniqueCols[ci - 1] > 1) clusters.push([]);
                 clusters[clusters.length - 1].push(uniqueCols[ci]);
             }
 
-            // Draw a bounding box for each cluster
             for (const cluster of clusters) {
                 const clusterPositions = childPositions.filter(cp => {
                     const col = Math.round((cp.x - 40) / (PF_NODE_W + PF_H_GAP));
@@ -1290,14 +1285,14 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 }
 
                 pfGroup.appendChild(pbsCreateSVGElement('rect', {
-                    'x': cMinX - pad, 'y': cMinY - pad - 20,
-                    'width': cMaxX - cMinX + pad * 2, 'height': cMaxY - cMinY + pad * 2 + 20,
-                    'rx': '8', 'ry': '8',
+                    'x': cMinX - pad, 'y': cMinY - pad - labelH,
+                    'width': cMaxX - cMinX + pad * 2, 'height': cMaxY - cMinY + pad * 2 + labelH,
+                    'rx': '4', 'ry': '4',
                     'fill': pbsShadeColour(colour, 1.8),
-                    'fill-opacity': '0.08',
-                    'stroke': colour, 'stroke-width': '1.5',
-                    'stroke-dasharray': '6,3',
-                    'opacity': '0.5'
+                    'fill-opacity': '0.06',
+                    'stroke': colour, 'stroke-width': '1',
+                    'stroke-dasharray': '4,3',
+                    'opacity': '0.4'
                 }));
             }
 
@@ -1308,22 +1303,22 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 minY = Math.min(minY, cp.y);
             }
 
-            // Label with disclosure triangle (expanded = down arrow)
+            // Label with disclosure triangle inside the top of the box
             const labelG = pbsCreateSVGElement('g', { 'style': 'cursor: pointer;' });
             labelG.addEventListener('click', (e) => {
                 e.stopPropagation();
                 pfToggleGroup(id);
             });
 
-            const triX = minX - pad + 6;
-            const triY = minY - pad - 10;
+            const triX = minX - pad + 4;
+            const triY = minY - pad - labelH + 8;
             labelG.appendChild(pbsCreateSVGElement('polygon', {
-                'points': `${triX},${triY - 4} ${triX + 8},${triY - 4} ${triX + 4},${triY + 4}`,
-                'fill': colour, 'opacity': '0.7'
+                'points': `${triX},${triY - 3} ${triX + 6},${triY - 3} ${triX + 3},${triY + 3}`,
+                'fill': colour, 'opacity': '0.6'
             }));
             const labelEl = pbsCreateSVGElement('text', {
-                'x': triX + 14, 'y': minY - pad - 4,
-                'fill': colour, 'font-size': '11', 'font-weight': 'bold', 'opacity': '0.7',
+                'x': triX + 10, 'y': triY + 2,
+                'fill': colour, 'font-size': '10', 'font-weight': 'bold', 'opacity': '0.6',
                 'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             });
             labelEl.textContent = summary.task.name || id;
