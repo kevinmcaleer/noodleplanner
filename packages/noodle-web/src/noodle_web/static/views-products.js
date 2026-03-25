@@ -936,10 +936,9 @@ let pfDragLine = null;           // SVG path element for live bezier preview
 let pfSelectedArrow = null;      // { sourceKey, targetKey } of selected dependency arrow
 let pfPositionsCache = null;     // cached positions for connector lookups
 
-const PF_NODE_W = 180;
-const PF_DIAMOND_W = 70;  // narrower column width for diamond nodes
+const PF_NODE_W = 140;
 const PF_NODE_H = 44;
-const PF_H_GAP = 40;
+const PF_H_GAP = 30;
 const PF_V_GAP = 10;
 
 function updateProductFlow(tasks, projectName) {
@@ -1171,41 +1170,22 @@ function updateProductFlow(tasks, projectName) {
         columns[node.column].push({ key, ...node });
     }
 
-    // Layout: variable column widths (diamonds are narrower)
+    // Layout: x by column, y cumulative (diamonds get extra space for label)
     const PF_DIAMOND_EXTRA = 20;
     const positions = {};
     const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
-
-    // Calculate column x positions using variable widths
-    const colX = {};
-    let xPos = 40;
-    for (let col = 0; col <= maxCol; col++) {
-        colX[col] = xPos;
-        const items = columns[col] || [];
-        // Column width = narrower if ALL items are diamonds, otherwise normal
-        const allDiamonds = items.length > 0 && items.every(item => item.isDiamond);
-        const colWidth = allDiamonds ? PF_DIAMOND_W : PF_NODE_W;
-        xPos += colWidth + PF_H_GAP;
-    }
-
     for (let col = 0; col <= maxCol; col++) {
         const items = columns[col] || [];
-        const allDiamonds = items.length > 0 && items.every(item => item.isDiamond);
-        const colWidth = allDiamonds ? PF_DIAMOND_W : PF_NODE_W;
         let y = 40;
         for (const item of items) {
-            // Centre the node within the column width
-            const nodeW = item.isDiamond ? PF_DIAMOND_W : PF_NODE_W;
-            const xOffset = (colWidth - nodeW) / 2;
             positions[item.key] = {
-                x: colX[col] + xOffset,
+                x: 40 + col * (PF_NODE_W + PF_H_GAP),
                 y: y,
                 task: item.task,
                 deps: item.deps,
                 isCollapsed: item.isCollapsed || false,
                 isDiamond: item.isDiamond || false,
-                groupId: item.groupId || null,
-                nodeWidth: nodeW
+                groupId: item.groupId || null
             };
             y += PF_NODE_H + PF_V_GAP;
             if (item.isDiamond) y += PF_DIAMOND_EXTRA;
@@ -1310,7 +1290,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     const diamondW = 22;
     for (const [key, pos] of Object.entries(positions)) {
         if (pos.isDiamond) {
-            pos._diamondCx = pos.x + (pos.nodeWidth || PF_DIAMOND_W) / 2;
+            pos._diamondCx = pos.x + PF_NODE_W / 2;
             pos._diamondCy = pos.y + PF_NODE_H / 2;
             pos._diamondW = diamondW;
         }
@@ -1331,7 +1311,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 x1 = src._diamondCx + src._diamondW; // right tip of diamond
                 y1 = srcCy;
             } else {
-                x1 = src.x + (src.nodeWidth || PF_NODE_W);
+                x1 = src.x + PF_NODE_W;
                 y1 = srcCy;
             }
             if (pos.isDiamond && pos._diamondCx) {
@@ -1382,7 +1362,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 
         // Invisible hit area for hover (extends to cover connectors)
         const connPad = 20;
-        const nw = pos.nodeWidth || PF_NODE_W;
+        const nw = PF_NODE_W;
         g.appendChild(pbsCreateSVGElement('rect', {
             'x': pos.x - connPad, 'y': pos.y - 4,
             'width': nw + connPad * 2, 'height': PF_NODE_H + 8,
@@ -1397,7 +1377,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             });
 
             // Diamond shape centred at node position
-            const cx = pos.x + (pos.nodeWidth || PF_DIAMOND_W) / 2;
+            const cx = pos.x + PF_NODE_W / 2;
             const cy = pos.y + PF_NODE_H / 2;
             const dw = 22; // half-width
             const dh = 18; // half-height
@@ -1512,7 +1492,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const connectors = pbsCreateSVGElement('g', { 'class': 'pf-connectors' });
 
         // Right connector (output — drag FROM here)
-        const rightCx = pos.x + nw + connR + 2;
+        const rightCx = pos.x + PF_NODE_W + connR + 2;
         const rightCy = pos.y + PF_NODE_H / 2;
         const rightConn = pbsCreateSVGElement('g', { 'class': 'pf-connector-out', 'style': 'cursor: crosshair;' });
         rightConn.appendChild(pbsCreateSVGElement('circle', {
@@ -1589,7 +1569,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 
         if (noIncoming || noOutgoing) {
             // Draw orphan indicator — orange dashed border around the node
-            const nodeW = pos.nodeWidth || PF_NODE_W;
+            const nodeW = PF_NODE_W;
             const cx = pos.x + nodeW / 2;
             const cy = pos.y + PF_NODE_H / 2;
             if (pos.isDiamond && pos._diamondW) {
@@ -1688,7 +1668,7 @@ function pfFindNearestInput(x, y) {
     let minDist = Infinity;
     for (const [key, pos] of Object.entries(pfPositionsCache)) {
         // Check if cursor is inside or near the node body
-        const nodeW = pos.nodeWidth || PF_NODE_W;
+        const nodeW = PF_NODE_W;
         const cx = pos.x + nodeW / 2;
         const cy = pos.y + PF_NODE_H / 2;
         const insideX = x >= pos.x - 10 && x <= pos.x + nodeW + 10;
