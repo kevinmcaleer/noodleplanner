@@ -515,7 +515,7 @@ function pbsRenderAddBtn(cx, cy, title, onClick) {
 
 function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
-    const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour ? pbsShadeColour(parentColour, 1.3) : '#4A90D9'));
+    const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour || '#4A90D9'));
 
     const g = pbsCreateSVGElement('g', {
         'class': 'pbs-node',
