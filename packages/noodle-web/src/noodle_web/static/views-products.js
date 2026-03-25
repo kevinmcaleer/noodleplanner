@@ -2177,6 +2177,65 @@ function openProductForm(task) {
         }
     }
 
+    // Mini flow diagram — inputs → [this] → outputs
+    const flowEl = document.getElementById('productFlowDiagram');
+    if (flowEl) {
+        const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+        const deliverables = pbsExtractDeliverables(allTasks);
+        const thisId = task.deliverable;
+
+        // Find inputs: products that this product depends on
+        const inputs = [];
+        if (task.depends) {
+            for (const depName of task.depends) {
+                const depTask = deliverables.find(d => d.name === depName || d.description === depName);
+                if (depTask) inputs.push(depTask);
+            }
+        }
+
+        // Find outputs: products that depend on this product
+        const outputs = [];
+        for (const d of deliverables) {
+            if (d.depends && d.deliverable !== thisId) {
+                const dependsOnThis = d.depends.some(depName => {
+                    const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                    return depTask && depTask.deliverable === thisId;
+                });
+                if (dependsOnThis) outputs.push(d);
+            }
+        }
+
+        let html = '';
+
+        // Input nodes
+        if (inputs.length > 0) {
+            for (const inp of inputs) {
+                const name = (inp.name || '').replace(/</g, '&lt;');
+                html += `<div class="pf-mini-node pf-mini-node-input" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${inp.deliverable}'))" title="$${inp.deliverable}">${name}</div>`;
+                html += '<span class="pf-mini-arrow">\u2192</span>';
+            }
+        }
+
+        // Current node
+        const currentName = (task.name || '').replace(/</g, '&lt;');
+        html += `<div class="pf-mini-node pf-mini-node-current" title="$${thisId}">${currentName}</div>`;
+
+        // Output nodes
+        if (outputs.length > 0) {
+            for (const out of outputs) {
+                const name = (out.name || '').replace(/</g, '&lt;');
+                html += '<span class="pf-mini-arrow">\u2192</span>';
+                html += `<div class="pf-mini-node pf-mini-node-output" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${out.deliverable}'))" title="$${out.deliverable}">${name}</div>`;
+            }
+        }
+
+        if (inputs.length === 0 && outputs.length === 0) {
+            html = `<div class="pf-mini-node pf-mini-node-current">${currentName}</div><span class="pf-mini-arrow" style="color: var(--text-secondary, #888); font-size: 11px; padding-left: 8px;">No connections</span>`;
+        }
+
+        flowEl.innerHTML = html;
+    }
+
     // Resources
     const resEl = document.getElementById('productResources');
     if (resEl) {
