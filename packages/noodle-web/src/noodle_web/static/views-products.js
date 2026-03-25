@@ -1152,6 +1152,70 @@ function updateProductFlow(tasks, projectName) {
         });
     }
 
+    // Resolve bounding box overlaps: push nodes down to prevent vertical overlap
+    // between expanded stage boxes that share the same column
+    if (Object.keys(topLevelSummaries).length > 0) {
+        const boxPad = 4;
+        const boxLabelH = 16;
+        const boxGap = 6;
+
+        // Calculate bounding box for each expanded stage
+        const boxes = [];
+        for (const [id, summary] of Object.entries(topLevelSummaries)) {
+            const childPos = summary.children.map(cid => positions[cid]).filter(Boolean);
+            if (childPos.length === 0) continue;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const cp of childPos) {
+                minX = Math.min(minX, cp.x);
+                minY = Math.min(minY, cp.y);
+                maxX = Math.max(maxX, cp.x + PF_NODE_W);
+                maxY = Math.max(maxY, cp.y + PF_NODE_H);
+            }
+            boxes.push({
+                id, childIds: summary.children,
+                top: minY - boxPad - boxLabelH,
+                bottom: maxY + boxPad,
+                left: minX - boxPad,
+                right: maxX + boxPad
+            });
+        }
+
+        // Sort boxes by top position
+        boxes.sort((a, b) => a.top - b.top);
+
+        // Check each pair of boxes for vertical overlap in the same column range
+        for (let i = 0; i < boxes.length; i++) {
+            for (let j = i + 1; j < boxes.length; j++) {
+                const a = boxes[i];
+                const b = boxes[j];
+
+                // Check horizontal overlap
+                if (a.right <= b.left || b.right <= a.left) continue;
+
+                // Check vertical overlap
+                const overlap = a.bottom + boxGap - b.top;
+                if (overlap <= 0) continue;
+
+                // Push box B and all its children down
+                for (const cid of b.childIds) {
+                    if (positions[cid]) positions[cid].y += overlap;
+                }
+                // Also push any non-stage nodes in the same rows down
+                const bMinCol = Math.round((b.left - 40) / (PF_NODE_W + PF_H_GAP));
+                const bMaxCol = Math.round((b.right - 40) / (PF_NODE_W + PF_H_GAP));
+                for (const [key, pos] of Object.entries(positions)) {
+                    if (b.childIds.includes(key)) continue; // already moved
+                    const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
+                    if (col >= bMinCol && col <= bMaxCol && pos.y >= b.top && pos.y < b.top + overlap) {
+                        pos.y += overlap;
+                    }
+                }
+                b.top += overlap;
+                b.bottom += overlap;
+            }
+        }
+    }
+
     // Render
     if (!pfSvg) initProductFlow();
     pfRender(positions, allTasks, topLevelSummaries);
