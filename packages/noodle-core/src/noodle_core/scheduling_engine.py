@@ -526,7 +526,7 @@ def extract_metadata(task_str, task_name=None):
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(\$[A-Za-z]|@|#|!|\"|{|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)(\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
     if desc_match:
         desc = desc_match.group(1).strip()
         # Safety: strip any percent tokens that slipped into the description
@@ -1790,13 +1790,14 @@ def natural_language_to_yaml(text, project_name="Project"):
         has_duration = re.search(r'\b\d+[dwmy]\b', stripped) is not None
         has_quotes = '"' in stripped or "'" in stripped
         has_deliverable = re.search(r'\$[A-Za-z_]', stripped) is not None
-        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes or has_deliverable
+        has_brackets = '[' in stripped
+        has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes or has_deliverable or has_brackets
 
         # Extract task name (everything before metadata)
         if has_details:
             # Find where metadata starts
             metadata_start = len(stripped)
-            for char in ['@', '#', '!', '$']:
+            for char in ['@', '#', '!', '$', '[']:
                 pos = stripped.find(char)
                 if pos > 0:
                     metadata_start = min(metadata_start, pos)
