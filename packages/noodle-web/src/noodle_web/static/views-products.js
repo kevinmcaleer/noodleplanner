@@ -1677,9 +1677,9 @@ function pfCreateDependency(sourceKey, targetKey) {
     if (!sourcePos || !targetPos) return;
 
     // Get the actual deliverable ID (handle collapsed group placeholders)
-    const sourceId = sourceKey.startsWith('_collapsed_') ? sourceKey.replace('_collapsed_', '') : sourceKey;
+    const sourceId = sourceKey.replace(/^_collapsed_|^_gate_/, '');
     const targetTask = targetPos.task;
-    const targetId = targetKey.startsWith('_collapsed_') ? targetKey.replace('_collapsed_', '') : targetKey;
+    const targetId = targetKey.replace(/^_collapsed_|^_gate_/, '');
 
     // Find the target task's line in the editor
     const lineNum = productFindLineNumber(targetTask.name, targetId);
@@ -1744,11 +1744,11 @@ function pfDeleteSelectedArrow() {
     if (!editor) return;
 
     const { sourceKey, targetKey } = pfSelectedArrow;
-    const sourceId = sourceKey.startsWith('_collapsed_') ? sourceKey.replace('_collapsed_', '') : sourceKey;
+    const sourceId = sourceKey.replace(/^_collapsed_|^_gate_/, '');
     const targetPos = pfPositionsCache ? pfPositionsCache[targetKey] : null;
     if (!targetPos) return;
 
-    const targetId = targetKey.startsWith('_collapsed_') ? targetKey.replace('_collapsed_', '') : targetKey;
+    const targetId = targetKey.replace(/^_collapsed_|^_gate_/, '');
     const lineNum = productFindLineNumber(targetPos.task.name, targetId);
     if (lineNum === null) return;
 
