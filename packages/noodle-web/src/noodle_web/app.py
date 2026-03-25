@@ -334,6 +334,7 @@ async def parse_plan(data: RenderRequest):
         "updated_plan_text": result.updated_plan_text,
         "highlights": result.highlights,
         "raid_items": result.raid_items,
+        "comms_items": result.comms_items,
         "baseline_items": result.baseline_items,
         "dependencies": result.dependencies,
     }
