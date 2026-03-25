@@ -2143,6 +2143,28 @@ function openProductForm(task) {
         }
     }
 
+    // Child products (deliverables that are direct children of this product)
+    const childProdsEl = document.getElementById('productChildProducts');
+    if (childProdsEl) {
+        const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+        const parentName = task.name || task.description;
+        const childProducts = allTasks.filter(t =>
+            t.deliverable && t.parent === parentName
+        );
+        if (childProducts.length === 0) {
+            childProdsEl.innerHTML = '<span>No child products</span>';
+        } else {
+            childProdsEl.innerHTML = childProducts.map(cp => {
+                const name = (cp.name || cp.description || '').replace(/</g, '&lt;');
+                const id = cp.deliverable || '';
+                return `<div class="product-comp-item" style="cursor: pointer;" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))">
+                    <span class="product-comp-name">${name}</span>
+                    <span class="product-comp-pct" style="color: var(--text-secondary, #888); font-family: monospace;">$${id}</span>
+                </div>`;
+            }).join('');
+        }
+    }
+
     // Resources
     const resEl = document.getElementById('productResources');
     if (resEl) {
