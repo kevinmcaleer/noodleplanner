@@ -11686,9 +11686,10 @@ function parseStakeholdersFromFrontMatter(frontMatterStr) {
             break;
         }
 
-        if (inStakeholders && trimmed.startsWith('- @')) {
-            const entry = trimmed.substring(2).trim(); // Remove "- "
-            const item = parseStakeholderEntry(entry);
+        if (inStakeholders && trimmed.startsWith('-')) {
+            const entry = trimmed.substring(1).trim(); // Remove "- "
+            // Accept with or without @ prefix
+            const item = parseStakeholderEntry(entry.startsWith('@') ? entry : '@' + entry);
             if (item) {
                 item.id = stakeholderNextId++;
                 items.push(item);
@@ -11709,10 +11710,10 @@ function parseStakeholderEntry(entry) {
     // Split on first colon to separate name from rest
     const colonIndex = entry.indexOf(':');
     if (colonIndex === -1) {
-        return { name: entry.trim(), role: '', interest: 'low', influence: 'low' };
+        return { name: entry.replace(/^@/, '').trim(), role: '', interest: 'low', influence: 'low' };
     }
 
-    const name = entry.substring(0, colonIndex).trim();
+    const name = entry.substring(0, colonIndex).replace(/^@/, '').trim();
     const rest = entry.substring(colonIndex + 1).trim();
 
     // Parse comma-separated values
