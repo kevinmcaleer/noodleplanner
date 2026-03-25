@@ -1410,7 +1410,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
                 'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             });
             label2.textContent = line2;
-            g.appendChild(label);
+            g.appendChild(label2);
 
             const title = pbsCreateSVGElement('title', {});
             title.textContent = `${task.name}\nStage gate \u2014 click to collapse`;
