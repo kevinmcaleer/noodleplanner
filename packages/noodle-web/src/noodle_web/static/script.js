@@ -2676,14 +2676,20 @@ function populateSubtasks(parentLineNumber, lines) {
         subtasksList.appendChild(item);
     });
 
+    // Only auto-calculate percent for actual summary tasks (confirmed by backend)
+    const taskName = document.getElementById('taskName').value;
+    const backendConfirmed = lastRenderedTasks && lastRenderedTasks.find(
+        t => t.name === taskName && t.is_summary
+    );
+
     // Calculate average completion for summary tasks
     const totalPercent = subtasks.reduce((sum, task) => sum + (parseInt(task.percent) || 0), 0);
     const avgPercent = Math.round(totalPercent / subtasks.length);
 
-    // Update percent field and make it read-only
+    // Update percent field — only override if backend confirms this is a summary
     const percentInput = document.getElementById('taskPercent');
     const helperText = document.getElementById('percentHelperText');
-    if (percentInput) {
+    if (percentInput && backendConfirmed) {
         percentInput.value = avgPercent;
         percentInput.readOnly = true;
         percentInput.dataset.isSummary = 'true';
