@@ -363,57 +363,29 @@
 }
 
 .pf-mini-node {
-    padding: 4px 10px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 11px;
+    font-weight: bold;
     white-space: nowrap;
     cursor: pointer;
     flex-shrink: 0;
+    color: #fff;
 }
 
 .pf-mini-node:hover {
     filter: brightness(1.15);
 }
 
-.pf-mini-node-input {
-    background: rgba(74, 144, 217, 0.15);
-    color: #2a6cb0;
-    border: 1px solid rgba(74, 144, 217, 0.3);
-}
-
-.pf-mini-node-current {
-    background: #4A90D9;
-    color: #fff;
-    font-weight: bold;
-    border: 1px solid #3a7bc8;
-}
-
-.pf-mini-node-current.pf-mini-diamond {
-    background: #4A90D9;
-    transform: rotate(45deg) scale(0.7);
-    padding: 6px;
-    margin: 0 4px;
-}
-
-.pf-mini-node-current.pf-mini-diamond span {
-    display: inline-block;
-    transform: rotate(-45deg);
-}
-
-.pf-mini-node-output {
-    background: rgba(92, 184, 92, 0.15);
-    color: #2d8a2d;
-    border: 1px solid rgba(92, 184, 92, 0.3);
-}
-
-[data-theme="dark"] .pf-mini-node-input { color: #6cb4ff; }
-[data-theme="dark"] .pf-mini-node-output { color: #6fd66f; }
-
 .pf-mini-arrow {
-    color: var(--text-secondary, #888);
-    font-size: 14px;
-    padding: 0 4px;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.pf-mini-arrow svg {
+    width: 30px;
+    height: 12px;
 }
 
 .product-composition-list,

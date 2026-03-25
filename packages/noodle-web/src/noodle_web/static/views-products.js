@@ -2280,32 +2280,41 @@ function openProductForm(task) {
             }
         }
 
+        const arrowSvg = '<span class="pf-mini-arrow"><svg viewBox="0 0 30 12"><path d="M0,6 L22,6" fill="none" stroke="#E8833A" stroke-width="2"/><polygon points="20,2 28,6 20,10" fill="#E8833A"/></svg></span>';
+
         let html = '';
+        let colIdx = 0;
 
         // Input nodes
         if (inputs.length > 0) {
             for (const inp of inputs) {
                 const name = (inp.name || '').replace(/</g, '&lt;');
-                html += `<div class="pf-mini-node pf-mini-node-input" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${inp.deliverable}'))" title="$${inp.deliverable}">${name}</div>`;
-                html += '<span class="pf-mini-arrow">\u2192</span>';
+                const colour = PBS_COLOURS[colIdx % PBS_COLOURS.length];
+                colIdx++;
+                html += `<div class="pf-mini-node" style="background:${colour};" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${inp.deliverable}'))" title="${name}">${name}</div>`;
+                html += arrowSvg;
             }
         }
 
         // Current node
         const currentName = (task.name || '').replace(/</g, '&lt;');
-        html += `<div class="pf-mini-node pf-mini-node-current" title="$${thisId}">${currentName}</div>`;
+        const currentColour = PBS_COLOURS[colIdx % PBS_COLOURS.length];
+        colIdx++;
+        html += `<div class="pf-mini-node" style="background:${currentColour}; box-shadow: 0 0 0 2px #fff, 0 0 0 4px ${currentColour};" title="${currentName}">${currentName}</div>`;
 
         // Output nodes
         if (outputs.length > 0) {
             for (const out of outputs) {
                 const name = (out.name || '').replace(/</g, '&lt;');
-                html += '<span class="pf-mini-arrow">\u2192</span>';
-                html += `<div class="pf-mini-node pf-mini-node-output" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${out.deliverable}'))" title="$${out.deliverable}">${name}</div>`;
+                const colour = PBS_COLOURS[colIdx % PBS_COLOURS.length];
+                colIdx++;
+                html += arrowSvg;
+                html += `<div class="pf-mini-node" style="background:${colour};" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${out.deliverable}'))" title="${name}">${name}</div>`;
             }
         }
 
         if (inputs.length === 0 && outputs.length === 0) {
-            html = `<div class="pf-mini-node pf-mini-node-current">${currentName}</div><span class="pf-mini-arrow" style="color: var(--text-secondary, #888); font-size: 11px; padding-left: 8px;">No connections</span>`;
+            html = `<div class="pf-mini-node" style="background:${currentColour};">${currentName}</div><span style="color: var(--text-secondary, #888); font-size: 11px; padding-left: 8px;">No connections</span>`;
         }
 
         flowEl.innerHTML = html;
