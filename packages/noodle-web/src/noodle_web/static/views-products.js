@@ -23,7 +23,7 @@ let pbsDragStartPanX = 0;
 let pbsDragStartPanY = 0;
 
 // Layout constants (top-down PBS with stacked children)
-const PBS_SIBLING_GAP = 20;   // horizontal gap between sibling subtrees
+const PBS_SIBLING_GAP = 8;    // horizontal gap between sibling subtrees
 const PBS_COL_GAP = 16;       // gap between dual columns
 const PBS_STACK_GAP = 4;      // vertical gap between stacked children
 const PBS_LEVEL_GAP = 36;     // vertical gap between parent bottom and children top (room for + button)
@@ -219,11 +219,12 @@ function pbsMeasure(node, depth) {
     const levelGap = useHorizontal ? PBS_ROOT_GAP : PBS_LEVEL_GAP;
 
     if (useHorizontal) {
-        // Children side by side horizontally
+        // Children side by side horizontally — subtract left margins for tighter packing
         let totalChildrenWidth = 0;
         let maxChildHeight = 0;
         for (const child of node.children) {
-            totalChildrenWidth += child.subtreeWidth;
+            const leftMargin = child._leftMargin || 0;
+            totalChildrenWidth += child.subtreeWidth - leftMargin;
             maxChildHeight = Math.max(maxChildHeight, child.subtreeHeight);
         }
         totalChildrenWidth += (n - 1) * PBS_SIBLING_GAP;
@@ -243,11 +244,14 @@ function pbsMeasure(node, depth) {
         node.subtreeWidth = Math.max(node.width, childrenWidth);
         node.subtreeHeight = node.height + levelGap + childrenHeight;
     } else {
-        // Single column to the right of the bus
+        // Single column to one side of the bus
         const stackH = node.children.reduce((s, c) => s + c.subtreeHeight, 0) + (n - 1) * PBS_STACK_GAP;
         const maxChildW = Math.max(...node.children.map(c => c.subtreeWidth));
-        const rightExtent = node.width / 2 + PBS_BUS_OFFSET + maxChildW;
-        node.subtreeWidth = Math.max(node.width, rightExtent);
+        const sideExtent = node.width / 2 + PBS_BUS_OFFSET + maxChildW;
+        node.subtreeWidth = Math.max(node.width, sideExtent);
+        // Track how much of the subtreeWidth is empty on the left
+        // (parent is offset right, children extend further right)
+        node._leftMargin = Math.max(0, (node.subtreeWidth - node.width) / 2 - PBS_BUS_OFFSET);
         node.subtreeHeight = node.height + levelGap + stackH;
     }
 }
@@ -288,12 +292,15 @@ function pbsLayoutTree(node, x, y) {
     const parentCx = node.x + node.width / 2;
 
     if (node._horizontal) {
-        // Horizontal layout: children side by side
+        // Horizontal layout: children side by side, tightened by overlapping left margins
         let childX = x;
-        for (const child of node.children) {
+        for (let ci = 0; ci < node.children.length; ci++) {
+            const child = node.children[ci];
             child._colSide = 'centre';
-            pbsLayoutTree(child, childX, childrenTop);
-            childX += child.subtreeWidth + PBS_SIBLING_GAP;
+            // Shift left by this child's left margin (empty space on its left side)
+            const leftMargin = child._leftMargin || 0;
+            pbsLayoutTree(child, childX - leftMargin, childrenTop);
+            childX += child.subtreeWidth - leftMargin + PBS_SIBLING_GAP;
         }
     } else if (node._dual) {
         const half = Math.ceil(n / 2);
