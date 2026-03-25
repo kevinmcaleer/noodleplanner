@@ -4722,6 +4722,41 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             ws_evm.column_dimensions['A'].width = 35
             ws_evm.column_dimensions['B'].width = 25
 
+    # Add Communications Plan worksheet if comms data exists
+    if original_text:
+        try:
+            from .format_converter import extract_comms_plan, parse_comms_markdown
+            comms_text = extract_comms_plan(original_text)
+            if comms_text:
+                comms_items = parse_comms_markdown(comms_text)
+                if comms_items:
+                    ws_comms = wb.create_sheet("Comms Plan")
+                    comms_headers = ['ID', 'Activity', 'Audience', 'Content', 'Frequency', 'Channel', 'Owner', 'Status']
+                    comms_header_fill = PatternFill(start_color="4A90D9", end_color="4A90D9", fill_type="solid")
+                    comms_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+                    for col, header in enumerate(comms_headers, 1):
+                        cell = ws_comms.cell(row=1, column=col, value=header)
+                        cell.fill = comms_header_fill
+                        cell.font = comms_header_font
+                        cell.alignment = Alignment(horizontal='center')
+
+                    for row_idx, item in enumerate(comms_items, 2):
+                        ws_comms.cell(row=row_idx, column=1, value=item.get('id', row_idx - 1))
+                        ws_comms.cell(row=row_idx, column=2, value=item.get('activity', ''))
+                        ws_comms.cell(row=row_idx, column=3, value=item.get('audience', ''))
+                        ws_comms.cell(row=row_idx, column=4, value=item.get('content', ''))
+                        ws_comms.cell(row=row_idx, column=5, value=item.get('frequency', ''))
+                        ws_comms.cell(row=row_idx, column=6, value=item.get('channel', ''))
+                        ws_comms.cell(row=row_idx, column=7, value=item.get('owner', ''))
+                        ws_comms.cell(row=row_idx, column=8, value=item.get('status', ''))
+
+                    comms_col_widths = {'A': 5, 'B': 25, 'C': 20, 'D': 30, 'E': 12, 'F': 12, 'G': 18, 'H': 10}
+                    for col_letter, width in comms_col_widths.items():
+                        ws_comms.column_dimensions[col_letter].width = width
+        except Exception as e:
+            logger.warning(f"Failed to add comms plan worksheet: {e}")
+
     # Save workbook
     wb.save(output_path)
     logger.info(f"Exported project data to {output_path}")
