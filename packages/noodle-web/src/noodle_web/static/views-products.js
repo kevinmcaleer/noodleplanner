@@ -253,10 +253,23 @@ function pbsMeasure(node, depth) {
 }
 
 function pbsLayoutTree(node, x, y) {
+    // Determine if this node should place children to the left (mirrored)
+    const side = node._colSide || 'right';
+    const placeLeft = (side === 'left');
+
     if (node.children.length === 0 || node._horizontal || node._dual) {
         node.x = x + (node.subtreeWidth - node.width) / 2;
+    } else if (placeLeft) {
+        // Stacked single column to the LEFT: offset parent right
+        const maxChildW = Math.max(...node.children.map(c => c.subtreeWidth));
+        const leftExtent = maxChildW + PBS_BUS_OFFSET + node.width / 2;
+        if (leftExtent > node.width) {
+            node.x = x + maxChildW + PBS_BUS_OFFSET - node.width / 2;
+        } else {
+            node.x = x + (node.subtreeWidth - node.width) / 2;
+        }
     } else {
-        // Stacked single column: offset parent left so bus + children fit
+        // Stacked single column to the RIGHT: offset parent left
         const maxChildW = Math.max(...node.children.map(c => c.subtreeWidth));
         const rightExtent = node.width / 2 + PBS_BUS_OFFSET + maxChildW;
         if (rightExtent > node.width) {
@@ -301,6 +314,15 @@ function pbsLayoutTree(node, x, y) {
         for (const child of rightChildren) {
             child._colSide = 'right';
             pbsLayoutTree(child, startX + leftW + PBS_COL_GAP, cy);
+            cy += child.subtreeHeight + PBS_STACK_GAP;
+        }
+    } else if (placeLeft) {
+        // Single column: children to the LEFT of the bus line
+        const childX = parentCx - PBS_BUS_OFFSET - PBS_NODE_WIDTH;
+        let cy = childrenTop;
+        for (const child of node.children) {
+            child._colSide = 'left';
+            pbsLayoutTree(child, childX, cy);
             cy += child.subtreeHeight + PBS_STACK_GAP;
         }
     } else {
@@ -394,10 +416,11 @@ function pbsRenderEdges(node) {
     } else if (node.children.length === 1 && !node._dual) {
         // Single child: orthogonal L-shaped line
         const child = node.children[0];
-        const childLeft = child.x;
+        const isLeft = child._colSide === 'left';
+        const childEdge = isLeft ? child.x + child.width : child.x;
         const childMidY = child.y + child.height / 2;
         pbsGroup.appendChild(pbsCreateSVGElement('path', {
-            'd': `M${parentCx},${parentBottom} L${parentCx},${childMidY} L${childLeft},${childMidY}`,
+            'd': `M${parentCx},${parentBottom} L${parentCx},${childMidY} L${childEdge},${childMidY}`,
             ...strokeAttrs
         }));
     } else if (node._dual) {
@@ -411,12 +434,14 @@ function pbsRenderEdges(node) {
         pbsGroup.appendChild(pbsCreateSVGElement('line', {
             'x1': parentCx, 'y1': parentBottom, 'x2': parentCx, 'y2': maxCy, ...strokeAttrs
         }));
+        // Left column: stubs from child's right edge to bus
         for (const child of leftChildren) {
             const cy = child.y + child.height / 2;
             pbsGroup.appendChild(pbsCreateSVGElement('line', {
                 'x1': child.x + child.width, 'y1': cy, 'x2': parentCx, 'y2': cy, ...strokeAttrs
             }));
         }
+        // Right column: stubs from bus to child's left edge
         for (const child of rightChildren) {
             const cy = child.y + child.height / 2;
             pbsGroup.appendChild(pbsCreateSVGElement('line', {
@@ -424,17 +449,21 @@ function pbsRenderEdges(node) {
             }));
         }
     } else {
-        // Single column to the right: vertical bus + horizontal stubs
+        // Single column: children to one side of the bus
+        const isLeft = node._colSide === 'left';
         const lastChild = node.children[node.children.length - 1];
         const lastCy = lastChild.y + lastChild.height / 2;
 
+        // Vertical bus
         pbsGroup.appendChild(pbsCreateSVGElement('line', {
             'x1': parentCx, 'y1': parentBottom, 'x2': parentCx, 'y2': lastCy, ...strokeAttrs
         }));
+        // Horizontal stubs
         for (const child of node.children) {
             const cy = child.y + child.height / 2;
+            const childEdge = isLeft ? child.x + child.width : child.x;
             pbsGroup.appendChild(pbsCreateSVGElement('line', {
-                'x1': parentCx, 'y1': cy, 'x2': child.x, 'y2': cy, ...strokeAttrs
+                'x1': parentCx, 'y1': cy, 'x2': childEdge, 'y2': cy, ...strokeAttrs
             }));
         }
     }
