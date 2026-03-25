@@ -192,9 +192,21 @@ class KanbanBoard {
             const trimmed = line.trim();
             const hasMetadata = /@|#|\d+[dmw]|\d+%|\d{4}-\d{2}-\d{2}/.test(trimmed);
 
+            // Clean phase name: strip $tokens, [depends ...], [repeats ...], "comments", * prefix
+            function cleanPhaseName(raw) {
+                return raw
+                    .replace(/^\*\s*/, '')
+                    .replace(/\$[A-Za-z_][A-Za-z0-9_-]*/g, '')
+                    .replace(/\[depends\s+[^\]]*\]/gi, '')
+                    .replace(/\[repeats\s+[^\]]*\]/gi, '')
+                    .replace(/"[^"]*"/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+
             // If not indented (or minimally) and no metadata, it's likely a phase
             if (indent === 0 && !hasMetadata && trimmed.length > 0) {
-                currentPhase = trimmed;
+                currentPhase = cleanPhaseName(trimmed);
                 currentIndent = indent;
                 this.phases.push(currentPhase);
                 continue;
@@ -208,7 +220,7 @@ class KanbanBoard {
                     // For now, treat as task under current phase
                 } else {
                     // New phase at same or higher level
-                    currentPhase = trimmed;
+                    currentPhase = cleanPhaseName(trimmed);
                     currentIndent = indent;
                     this.phases.push(currentPhase);
                     continue;
