@@ -5312,10 +5312,49 @@ function openResourceForm(existingShortname = null) {
 
     openDetailPane('resourceFormSection');
 
+    // Populate assigned tasks
+    populateResourceAssignedTasks(existingShortname);
+
     // Focus on first field
     setTimeout(() => {
         document.getElementById('resourceShortname').focus();
     }, 100);
+}
+
+function populateResourceAssignedTasks(shortname) {
+    const el = document.getElementById('resourceAssignedTasks');
+    if (!el) return;
+
+    if (!shortname || !lastRenderedTasks || lastRenderedTasks.length === 0) {
+        el.innerHTML = '<span style="color: var(--text-secondary, #888); font-style: italic;">No tasks assigned</span>';
+        return;
+    }
+
+    const sn = shortname.toLowerCase();
+    const assigned = lastRenderedTasks.filter(t => {
+        if (t.is_summary) return false;
+        const res = (t.resources || '').toLowerCase();
+        return res.split(',').some(r => {
+            const trimmed = r.trim().toLowerCase();
+            return trimmed === sn || trimmed === globalResourceMap[sn]?.toLowerCase();
+        });
+    });
+
+    if (assigned.length === 0) {
+        el.innerHTML = '<span style="color: var(--text-secondary, #888); font-style: italic;">No tasks assigned</span>';
+        return;
+    }
+
+    el.innerHTML = assigned.map(t => {
+        const name = (t.name || '').replace(/</g, '&lt;');
+        const pct = t.percent || 0;
+        const rag = t.rag || '';
+        const ragClass = rag ? 'rag-' + (typeof ragStatusToColour === 'function' ? ragStatusToColour(rag) : '') : '';
+        return `<div class="product-comp-item" style="cursor: pointer;" onclick="openTaskFormByName('${name.replace(/'/g, "\\'")}')">
+            <span class="product-comp-name">${name}</span>
+            <span class="product-comp-pct">${pct}%</span>
+        </div>`;
+    }).join('');
 }
 
 function closeResourceForm() {
