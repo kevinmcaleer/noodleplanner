@@ -919,7 +919,8 @@ let pfDragStartX = 0;
 let pfDragStartY = 0;
 let pfDragStartPanX = 0;
 let pfDragStartPanY = 0;
-let pfCollapsedGroups = new Set(); // collapsed top-level summary IDs
+let pfCollapsedGroups = new Set(); // legacy — replaced by pfExpandedStages
+let pfExpandedStages = new Set();  // stages that are expanded to show children
 let pfLastPositions = null;
 let pfLastAllTasks = null;
 let pfLastSummaries = null;
@@ -949,138 +950,141 @@ function updateProductFlow(tasks, projectName) {
     if (placeholder) placeholder.style.display = 'none';
     if (content) content.style.display = '';
 
-    // Identify top-level summary deliverables (those with child deliverables)
-    // These become bounding boxes, not flow nodes.
+    // Classify deliverables into stages, intermediates, and leaves
     const childDeliverableParents = new Set();
     for (const d of deliverables) {
         if (d.parent) {
             const parentDel = deliverables.find(
                 p => (p.name === d.parent || p.description === d.parent) && p.deliverable
             );
-            if (parentDel) {
-                childDeliverableParents.add(parentDel.deliverable);
-            }
+            if (parentDel) childDeliverableParents.add(parentDel.deliverable);
         }
     }
 
-    // Top-level summaries = deliverables that have child deliverables
-    // and whose own parent is NOT a deliverable (first level only)
-    const topLevelSummaries = {};
+    // Stage nodes: summaries with [depends] — shown as flow nodes (collapsed by default)
+    // Intermediate summaries: summaries without [depends] — hidden
+    // Leaf products: no child deliverables — always shown
+    const stageNodes = {};
     const hiddenSummaries = new Set();
     for (const id of childDeliverableParents) {
         const d = deliverables.find(dd => dd.deliverable === id);
         if (!d) continue;
-        // Check if this summary's parent is also a deliverable
-        const parentIsDel = d.parent && deliverables.some(
-            p => (p.name === d.parent || p.description === d.parent) && p.deliverable
-        );
-        if (!parentIsDel) {
-            // Top-level summary — show as bounding box
-            topLevelSummaries[id] = { task: d, children: [] };
+        const hasDeps = d.depends && d.depends.length > 0;
+        if (hasDeps) {
+            stageNodes[id] = { task: d, children: [] };
         } else {
-            // Deeper summary — hide entirely
             hiddenSummaries.add(id);
         }
     }
 
-    // Build child lists for top-level summaries — walk full descendant tree
-    // to find all leaf deliverables under each top-level summary
-    function findAncestorSummary(d) {
-        // Walk up the parent chain to find which top-level summary this belongs to
+    // Build child lists — find leaf deliverables under each stage
+    function findAncestorStage(d) {
         let current = d;
         while (current && current.parent) {
             const parentDel = deliverables.find(
                 p => (p.name === current.parent || p.description === current.parent) && p.deliverable
             );
             if (!parentDel) break;
-            if (topLevelSummaries[parentDel.deliverable]) return parentDel.deliverable;
-            current = parentDel;
+            if (stageNodes[parentDel.deliverable]) return parentDel.deliverable;
+            if (hiddenSummaries.has(parentDel.deliverable)) { current = parentDel; continue; }
+            break;
         }
         return null;
     }
 
     for (const d of deliverables) {
-        // Only add leaf deliverables (not summaries) to bounding box children
         if (childDeliverableParents.has(d.deliverable)) continue;
         if (hiddenSummaries.has(d.deliverable)) continue;
-
-        const ancestorId = findAncestorSummary(d);
-        if (ancestorId && topLevelSummaries[ancestorId]) {
-            topLevelSummaries[ancestorId].children.push(d.deliverable);
+        const ancestorId = findAncestorStage(d);
+        if (ancestorId && stageNodes[ancestorId]) {
+            stageNodes[ancestorId].children.push(d.deliverable);
         }
     }
 
-    // Leaf deliverables = not a summary (no child deliverables) and not hidden
     const leafDeliverables = deliverables.filter(
         d => !childDeliverableParents.has(d.deliverable) && !hiddenSummaries.has(d.deliverable)
     );
 
-    // Build a set of children belonging to each collapsed group
-    const collapsedChildren = new Set();
-    for (const [id, summary] of Object.entries(topLevelSummaries)) {
-        if (pfCollapsedGroups.has(id)) {
-            summary.children.forEach(cid => collapsedChildren.add(cid));
+    // Build the flow graph
+    const nodes = {};
+
+    // Stage nodes: collapsed = single node, expanded = bounding box with children
+    for (const [id, stage] of Object.entries(stageNodes)) {
+        const isExpanded = pfExpandedStages.has(id);
+        if (isExpanded) {
+            for (const cid of stage.children) {
+                const childDel = deliverables.find(dd => dd.deliverable === cid);
+                if (childDel && !nodes[cid]) nodes[cid] = { task: childDel, deps: [], column: 0 };
+            }
+        } else {
+            nodes[id] = {
+                task: stage.task, deps: [], column: 0,
+                isStage: true, isCollapsed: true, groupId: id, childIds: stage.children
+            };
         }
     }
 
-    // Build the flow graph: leaf nodes + collapsed group placeholders
-    const nodes = {};
-
-    // Add leaf nodes that are NOT inside a collapsed group
+    // Leaf deliverables not inside any stage, or inside expanded stages
     for (const d of leafDeliverables) {
-        if (collapsedChildren.has(d.deliverable)) continue;
-        nodes[d.deliverable] = { task: d, deps: [], column: 0 };
+        const ancestorId = findAncestorStage(d);
+        if (ancestorId && stageNodes[ancestorId] && !pfExpandedStages.has(ancestorId)) continue;
+        if (!nodes[d.deliverable]) nodes[d.deliverable] = { task: d, deps: [], column: 0 };
     }
 
-    // Add collapsed group placeholders as single nodes
-    for (const [id, summary] of Object.entries(topLevelSummaries)) {
-        if (!pfCollapsedGroups.has(id)) continue;
-        const placeholderId = '_collapsed_' + id;
-        nodes[placeholderId] = {
-            task: summary.task, deps: [], column: 0,
-            isCollapsed: true, groupId: id, childIds: summary.children
-        };
-    }
-
-    // Helper: resolve a deliverable ID to its flow node key
-    // (a leaf's own key, or its collapsed group's placeholder key)
+    // Resolve deliverable ID to flow node key
     function resolveFlowKey(delId) {
         if (nodes[delId]) return delId;
-        // Check if this deliverable belongs to a collapsed group
-        for (const [id, summary] of Object.entries(topLevelSummaries)) {
-            if (pfCollapsedGroups.has(id) && summary.children.includes(delId)) {
-                return '_collapsed_' + id;
-            }
+        for (const [id, stage] of Object.entries(stageNodes)) {
+            if (!pfExpandedStages.has(id) && stage.children.includes(delId)) return id;
         }
         return null;
     }
 
-    // Build dependency edges — for leaf nodes
-    for (const d of leafDeliverables) {
-        if (collapsedChildren.has(d.deliverable)) continue;
-        if (d.depends) {
-            for (const depName of d.depends) {
+    // Build dependency edges
+    for (const [nodeKey, node] of Object.entries(nodes)) {
+        const task = node.task;
+        if (!task) continue;
+
+        // Direct dependencies
+        if (task.depends) {
+            for (const depName of task.depends) {
                 const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
                 if (depTask) {
                     const flowKey = resolveFlowKey(depTask.deliverable);
-                    if (flowKey && flowKey !== d.deliverable && !nodes[d.deliverable].deps.includes(flowKey)) {
-                        nodes[d.deliverable].deps.push(flowKey);
-                    }
+                    if (flowKey && flowKey !== nodeKey && !node.deps.includes(flowKey))
+                        node.deps.push(flowKey);
                 }
             }
         }
-        // Inherit parent dependencies
-        if (d.parent) {
+
+        // Inherit parent dependencies (for nodes inside expanded stages)
+        if (!node.isStage && task.parent) {
             const parentDel = deliverables.find(
-                p => (p.name === d.parent || p.description === d.parent) && p.deliverable
+                p => (p.name === task.parent || p.description === task.parent) && p.deliverable
             );
             if (parentDel && parentDel.depends) {
                 for (const depName of parentDel.depends) {
                     const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
                     if (depTask) {
                         const flowKey = resolveFlowKey(depTask.deliverable);
-                        if (flowKey && flowKey !== d.deliverable && !nodes[d.deliverable].deps.includes(flowKey)) {
-                            nodes[d.deliverable].deps.push(flowKey);
+                        if (flowKey && flowKey !== nodeKey && !node.deps.includes(flowKey))
+                            node.deps.push(flowKey);
+                    }
+                }
+            }
+        }
+
+        // Collapsed stages: aggregate children deps
+        if (node.isCollapsed && node.childIds) {
+            for (const cid of node.childIds) {
+                const childDel = deliverables.find(dd => dd.deliverable === cid);
+                if (childDel && childDel.depends) {
+                    for (const depName of childDel.depends) {
+                        const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
+                        if (depTask) {
+                            const flowKey = resolveFlowKey(depTask.deliverable);
+                            if (flowKey && flowKey !== nodeKey && !node.deps.includes(flowKey))
+                                node.deps.push(flowKey);
                         }
                     }
                 }
@@ -1088,55 +1092,15 @@ function updateProductFlow(tasks, projectName) {
         }
     }
 
-    // Build dependency edges for collapsed group placeholders
-    for (const [id, summary] of Object.entries(topLevelSummaries)) {
-        if (!pfCollapsedGroups.has(id)) continue;
-        const placeholderId = '_collapsed_' + id;
+    // Deduplicate and clean deps
+    for (const [nodeKey, node] of Object.entries(nodes)) {
+        node.deps = [...new Set(node.deps.map(d => resolveFlowKey(d) || d))].filter(d => d !== nodeKey);
+    }
 
-        // Aggregate deps from all children in this group + the summary itself
-        const allGroupDels = [summary.task, ...summary.children.map(
-            cid => deliverables.find(dd => dd.deliverable === cid)
-        ).filter(Boolean)];
-
-        for (const d of allGroupDels) {
-            if (d.depends) {
-                for (const depName of d.depends) {
-                    const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
-                    if (depTask) {
-                        const flowKey = resolveFlowKey(depTask.deliverable);
-                        if (flowKey && flowKey !== placeholderId && !nodes[placeholderId].deps.includes(flowKey)) {
-                            nodes[placeholderId].deps.push(flowKey);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Also find nodes that depend on children in this group (output connections)
-        for (const [nodeKey, node] of Object.entries(nodes)) {
-            if (nodeKey === placeholderId) continue;
-            // Check if any of this node's deps reference children in the collapsed group
-            const newDeps = [];
-            for (const dep of node.deps) {
-                if (dep === placeholderId) {
-                    newDeps.push(dep);
-                } else {
-                    newDeps.push(dep);
-                }
-            }
-            // Check if this node's original task depends on anything in the collapsed group
-            const nodeTask = node.task;
-            if (nodeTask && nodeTask.depends) {
-                for (const depName of nodeTask.depends) {
-                    const depTask = deliverables.find(dt => dt.name === depName || dt.description === depName);
-                    if (depTask && summary.children.includes(depTask.deliverable)) {
-                        if (!node.deps.includes(placeholderId)) {
-                            node.deps.push(placeholderId);
-                        }
-                    }
-                }
-            }
-        }
+    // Build topLevelSummaries for bounding box rendering (expanded stages only)
+    const topLevelSummaries = {};
+    for (const [id, stage] of Object.entries(stageNodes)) {
+        if (pfExpandedStages.has(id)) topLevelSummaries[id] = stage;
     }
 
     // Assign columns via longest path from roots
@@ -1282,7 +1246,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             const colour = PBS_COLOURS[boxIdx % PBS_COLOURS.length];
             boxIdx++;
 
-            if (pfCollapsedGroups.has(id)) continue;
+            // topLevelSummaries only contains expanded stages, so no need to check
 
             const childPositions = summary.children
                 .map(cid => positions[cid])
@@ -1750,12 +1714,11 @@ function pfDeleteSelectedArrow() {
 }
 
 function pfToggleGroup(groupId) {
-    if (pfCollapsedGroups.has(groupId)) {
-        pfCollapsedGroups.delete(groupId);
+    if (pfExpandedStages.has(groupId)) {
+        pfExpandedStages.delete(groupId);
     } else {
-        pfCollapsedGroups.add(groupId);
+        pfExpandedStages.add(groupId);
     }
-    // Re-run the full flow to recalculate layout
     if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
         updateProductFlow(lastRenderedTasks);
     }
