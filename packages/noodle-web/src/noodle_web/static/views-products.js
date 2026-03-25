@@ -200,10 +200,19 @@ function pbsMeasure(node, depth) {
 
     const n = node.children.length;
 
+    // Count total visible nodes in the subtree (not just direct children)
+    function countDescendants(nd) {
+        let count = 1;
+        for (const c of nd.children) count += countDescendants(c);
+        return count;
+    }
+    const totalNodes = countDescendants(node) - 1; // exclude self
+
     // First level (root's children): horizontal layout
-    // Deeper levels: stacked layout
+    // Deeper levels: stacked layout — use dual columns if too many direct
+    // children OR if the total descendant count exceeds the threshold
     const useHorizontal = (depth === 0);
-    const dual = !useHorizontal && n > PBS_DUAL_THRESHOLD;
+    const dual = !useHorizontal && (n > PBS_DUAL_THRESHOLD || totalNodes > PBS_DUAL_THRESHOLD);
     node._dual = dual;
     node._horizontal = useHorizontal;
 
