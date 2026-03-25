@@ -473,6 +473,23 @@ function loadBudgetItemsIfEmpty() {
     }
 }
 
+// Shared helper: load comms items from plan text if currently empty
+function loadCommsItemsIfEmpty() {
+    if (commsItems.length === 0) {
+        try {
+            const editor = document.getElementById('planEditor');
+            if (editor && editor.value) {
+                const items = extractCommsItemsFromPlanText(editor.value);
+                if (items.length > 0) {
+                    loadCommsItemsFromData(items);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading comms items on tab switch:', error);
+        }
+    }
+}
+
 // Shared deactivate hook: sync kanban editor state back to main if leaving kanban
 function deactivateKanban() {
     const kanbanTab = document.getElementById('kanban-tab');
@@ -574,6 +591,19 @@ NavigationController.register('budget', {
         closeAllNavMenus();
         setActiveNavTab('planTab');
         updatePlanSubnav('budget');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('comms', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('comms');
+        updateRaidExportVisibility('comms');
+        loadCommsItemsIfEmpty();
+        closeAllNavMenus();
+        setActiveNavTab('planTab');
+        updatePlanSubnav('comms');
     },
     deactivate() {}
 });
@@ -1166,6 +1196,16 @@ function updateBudgetView(planText) {
     loadBudgetItemsFromData(budgetFromText);
 }
 
+function updateCommsView(result, planText) {
+    const commsFromApi = result.comms_items || [];
+    if (commsFromApi.length > 0) {
+        loadCommsItemsFromData(commsFromApi);
+    } else {
+        const commsFromText = extractCommsItemsFromPlanText(planText);
+        loadCommsItemsFromData(commsFromText);
+    }
+}
+
 function updateStakeholdersView() {
     loadStakeholdersFromPlanText();
 }
@@ -1284,6 +1324,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'deliverables',            fn: () => updateDeliverablesView(result) },
             { name: 'productFlow',             fn: () => updateProductFlowView(result) },
             { name: 'raid',                    fn: () => updateRaidView(result, planText) },
+            { name: 'comms',                   fn: () => updateCommsView(result, planText) },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
             { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
@@ -9965,6 +10006,445 @@ document.addEventListener('DOMContentLoaded', function() {
  * Budget Tracker System
  * Tracks project costs, forecasts, and spending.
  */
+
+// =====================================================================
+// Communications Plan
+// =====================================================================
+
+function clearCommsEntries() {
+    commsItems = [];
+    commsNextId = 1;
+    renderCommsTable();
+}
+
+function addCommsItem() {
+    openCommsForm(null);
+}
+
+function openCommsForm(itemId) {
+    const title = document.getElementById('commsFormTitle');
+    const idField = document.getElementById('commsItemId');
+    const deleteRow = document.getElementById('commsDeleteButtonRow');
+
+    if (itemId != null) {
+        const item = commsItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit Comms Item';
+        idField.value = item.id;
+        document.getElementById('commsItemActivity').value = item.activity || '';
+        document.getElementById('commsItemAudience').value = item.audience || '';
+        document.getElementById('commsItemContent').value = item.content || '';
+        document.getElementById('commsItemFrequency').value = item.frequency || 'Weekly';
+        document.getElementById('commsItemChannel').value = item.channel || '';
+        document.getElementById('commsItemOwner').value = item.owner || '';
+        document.getElementById('commsItemStatus').value = item.status || 'Planned';
+        if (deleteRow) deleteRow.style.display = 'block';
+    } else {
+        title.textContent = 'New Comms Item';
+        idField.value = '';
+        document.getElementById('commsItemActivity').value = '';
+        document.getElementById('commsItemAudience').value = '';
+        document.getElementById('commsItemContent').value = '';
+        document.getElementById('commsItemFrequency').value = 'Weekly';
+        document.getElementById('commsItemChannel').value = '';
+        document.getElementById('commsItemOwner').value = '';
+        document.getElementById('commsItemStatus').value = 'Planned';
+        if (deleteRow) deleteRow.style.display = 'none';
+    }
+
+    openDetailPane('commsFormSection');
+}
+
+function closeCommsForm() {
+    closeDetailPane();
+}
+
+function saveCommsItemFromForm() {
+    const idField = document.getElementById('commsItemId').value;
+    const activity = document.getElementById('commsItemActivity').value.trim();
+
+    if (!activity) {
+        alert('Please enter an activity for the comms item.');
+        return;
+    }
+
+    const itemData = {
+        activity: activity,
+        audience: document.getElementById('commsItemAudience').value.trim(),
+        content: document.getElementById('commsItemContent').value.trim(),
+        frequency: document.getElementById('commsItemFrequency').value,
+        channel: document.getElementById('commsItemChannel').value.trim(),
+        owner: document.getElementById('commsItemOwner').value.trim(),
+        status: document.getElementById('commsItemStatus').value,
+    };
+
+    if (idField) {
+        const existingId = parseInt(idField);
+        const index = commsItems.findIndex(i => i.id === existingId);
+        if (index >= 0) {
+            commsItems[index] = { ...commsItems[index], ...itemData };
+        }
+    } else {
+        itemData.id = commsNextId++;
+        commsItems.push(itemData);
+    }
+
+    closeCommsForm();
+    renderCommsTable();
+    syncCommsLogToPlanText();
+}
+
+function deleteCommsItem(id) {
+    if (!confirm('Are you sure you want to delete this comms item?')) return;
+    commsItems = commsItems.filter(i => i.id !== id);
+    renderCommsTable();
+    syncCommsLogToPlanText();
+}
+
+function confirmDeleteCommsItem() {
+    const idField = document.getElementById('commsItemId').value;
+    if (!idField) return;
+
+    commsItemPendingDeleteId = parseInt(idField);
+    const item = commsItems.find(i => i.id === commsItemPendingDeleteId);
+    const itemTitle = item ? item.activity : 'this item';
+
+    const msg = document.getElementById('commsDeleteConfirmMessage');
+    if (msg) {
+        msg.textContent = 'Are you sure you want to delete "' + itemTitle + '"? This action cannot be undone.';
+    }
+
+    const overlay = document.getElementById('commsDeleteConfirmOverlay');
+    if (overlay) overlay.classList.add('active');
+}
+
+function cancelDeleteCommsItem() {
+    commsItemPendingDeleteId = null;
+    const overlay = document.getElementById('commsDeleteConfirmOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+function executeDeleteCommsItem() {
+    if (commsItemPendingDeleteId == null) return;
+
+    commsItems = commsItems.filter(i => i.id !== commsItemPendingDeleteId);
+    commsItemPendingDeleteId = null;
+
+    const overlay = document.getElementById('commsDeleteConfirmOverlay');
+    if (overlay) overlay.classList.remove('active');
+
+    closeCommsForm();
+    renderCommsTable();
+    syncCommsLogToPlanText();
+}
+
+function renderCommsTable() {
+    try {
+        const tbody = document.getElementById('commsTableBody');
+        const emptyState = document.getElementById('commsEmptyState');
+        if (!tbody || !emptyState) {
+            console.warn('Comms table elements not found in DOM');
+            return;
+        }
+        const filterStatusEl = document.getElementById('commsFilterStatus');
+        const filterStatus = filterStatusEl ? filterStatusEl.value : 'all';
+
+        let filtered = commsItems.filter(item => {
+            if (filterStatus !== 'all' && item.status !== filterStatus) return false;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            let valA = a[commsSortColumn];
+            let valB = b[commsSortColumn];
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return commsSortAsc ? -1 : 1;
+            if (valA > valB) return commsSortAsc ? 1 : -1;
+            return 0;
+        });
+
+        tbody.innerHTML = '';
+
+        if (commsItems.length === 0) {
+            emptyState.style.display = 'block';
+            document.getElementById('commsTable').style.display = 'none';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        document.getElementById('commsTable').style.display = 'table';
+
+        filtered.forEach(item => {
+            try {
+                const row = document.createElement('tr');
+                const statusClass = (item.status || 'Planned').toLowerCase();
+
+                row.innerHTML = `
+                    <td>${item.id || ''}</td>
+                    <td title="${escapeHtml(item.activity)}">${escapeHtml(item.activity)}</td>
+                    <td title="${escapeHtml(item.audience)}">${escapeHtml(item.audience)}</td>
+                    <td title="${escapeHtml(item.content)}">${escapeHtml(item.content)}</td>
+                    <td>${escapeHtml(item.frequency)}</td>
+                    <td>${escapeHtml(item.channel)}</td>
+                    <td>${escapeHtml(item.owner)}</td>
+                    <td><span class="raid-status-badge raid-status-${statusClass}">${escapeHtml(item.status)}</span></td>
+                    <td>
+                        <button class="raid-action-btn" onclick="openCommsForm(${item.id})" title="Edit">&#9998;&#65039;</button>
+                        <button class="raid-action-btn delete" onclick="deleteCommsItem(${item.id})" title="Delete">&#128465;&#65039;</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            } catch (itemError) {
+                console.warn('Skipping malformed comms item during render:', item, itemError);
+            }
+        });
+
+        updateCommsSortIndicators();
+        syncCommsLogToPlanText();
+    } catch (error) {
+        console.error('Error rendering comms table:', error);
+    }
+}
+
+function sortCommsTable(column) {
+    if (commsSortColumn === column) {
+        commsSortAsc = !commsSortAsc;
+    } else {
+        commsSortColumn = column;
+        commsSortAsc = true;
+    }
+    renderCommsTable();
+}
+
+function updateCommsSortIndicators() {
+    const table = document.getElementById('commsTable');
+    if (!table) return;
+    const headers = table.querySelectorAll('th');
+    headers.forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (indicator) {
+            const onclick = th.getAttribute('onclick');
+            if (onclick && onclick.includes(`'${commsSortColumn}'`)) {
+                indicator.textContent = commsSortAsc ? '\u25B2' : '\u25BC';
+            } else {
+                indicator.textContent = '';
+            }
+        }
+    });
+}
+
+function loadCommsItemsFromData(items) {
+    try {
+        if (!items || items.length === 0) return;
+        if (commsItems.length > 0) return;
+
+        commsItems = items;
+        commsNextId = Math.max(...items.map(i => i.id || 0)) + 1;
+        renderCommsTable();
+    } catch (error) {
+        console.error('Error loading comms items:', error);
+    }
+}
+
+function extractCommsItemsFromPlanText(planText) {
+    try {
+        const commsText = extractCommsFromPlanText(planText);
+        if (!commsText) return [];
+        return parseCommsMarkdown(commsText);
+    } catch (error) {
+        console.error('Error extracting comms items from plan text:', error);
+        return [];
+    }
+}
+
+function extractCommsFromPlanText(planText) {
+    const startIdx = planText.indexOf(COMMS_START);
+    if (startIdx === -1) return '';
+
+    const afterStart = startIdx + COMMS_START.length;
+
+    let endIdx = planText.length;
+    const blIdx = planText.indexOf(BASELINE_START, afterStart);
+    if (blIdx !== -1 && blIdx < endIdx) endIdx = blIdx;
+
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+function parseCommsMarkdown(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+    let headerIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+        const lower = lines[i].toLowerCase();
+        if (lower.includes('|') && (lower.includes('activity') || lower.includes('audience'))) {
+            headerIndex = i;
+            break;
+        }
+    }
+
+    if (headerIndex === -1) return [];
+
+    function parseRow(line) {
+        const parts = line.split('|');
+        const cells = [];
+        for (let i = 0; i < parts.length; i++) {
+            const stripped = parts[i].trim();
+            if (i === 0 && !stripped) continue;
+            if (i === parts.length - 1 && !stripped) continue;
+            cells.push(stripped);
+        }
+        return cells;
+    }
+
+    const headers = parseRow(lines[headerIndex]).map(h => h.toLowerCase());
+
+    const colMap = {};
+    const aliases = {
+        'id': 'id', 'activity': 'activity', 'audience': 'audience',
+        'content': 'content', 'frequency': 'frequency',
+        'channel': 'channel', 'owner': 'owner', 'status': 'status'
+    };
+
+    headers.forEach((h, idx) => {
+        for (const [alias, field] of Object.entries(aliases)) {
+            if (h.includes(alias)) {
+                colMap[field] = idx;
+                break;
+            }
+        }
+    });
+
+    const items = [];
+    let maxId = 0;
+
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (line.replace(/[|\- ]/g, '') === '') continue;
+
+        const cells = parseRow(line);
+        if (!cells.length) continue;
+
+        function getCell(field, def) {
+            const idx = colMap[field];
+            if (idx !== undefined && idx < cells.length) {
+                return cells[idx].replace(/\\\|/g, '|');
+            }
+            return def || '';
+        }
+
+        const idStr = getCell('id', '');
+        let itemId = (idStr && /^\d+$/.test(idStr)) ? parseInt(idStr) : maxId + 1;
+        maxId = Math.max(maxId, itemId);
+
+        items.push({
+            id: itemId,
+            activity: getCell('activity', ''),
+            audience: getCell('audience', ''),
+            content: getCell('content', ''),
+            frequency: getCell('frequency', 'Weekly'),
+            channel: getCell('channel', ''),
+            owner: getCell('owner', ''),
+            status: getCell('status', 'Planned'),
+        });
+    }
+
+    return items;
+}
+
+function generateCommsMarkdown() {
+    if (commsItems.length === 0) return '';
+
+    const headers = ['ID', 'Activity', 'Audience', 'Content', 'Frequency', 'Channel', 'Owner', 'Status'];
+    const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const rows = commsItems.map(item => [
+        String(item.id),
+        escPipe(item.activity),
+        escPipe(item.audience),
+        escPipe(item.content),
+        escPipe(item.frequency),
+        escPipe(item.channel),
+        escPipe(item.owner),
+        escPipe(item.status),
+    ]);
+
+    // Calculate column widths
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => {
+        row.forEach((cell, i) => {
+            widths[i] = Math.max(widths[i], cell.length);
+        });
+    });
+
+    const pad = (s, w) => s + ' '.repeat(Math.max(0, w - s.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+
+    return lines.join('\n');
+}
+
+function syncCommsLogToPlanText() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const planText = editor.value;
+    const updatedText = updatePlanCommsText(planText, commsItems);
+
+    if (updatedText !== planText) {
+        setEditorValuePreservingCursor(editor, updatedText);
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) {
+            kanbanEditor.value = updatedText;
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+function updatePlanCommsText(planText, items) {
+    // Preserve the baseline section if present
+    let baselineSection = '';
+    const blIdx = planText.indexOf(BASELINE_START);
+    if (blIdx !== -1) {
+        baselineSection = planText.substring(blIdx);
+    }
+
+    // Strip existing comms and baseline sections
+    let base = planText;
+    const commsIdx = base.indexOf(COMMS_START);
+    if (commsIdx !== -1) {
+        const afterComms = base.indexOf(BASELINE_START, commsIdx);
+        if (afterComms !== -1) {
+            base = base.substring(0, commsIdx).replace(/\n+$/, '');
+        } else {
+            base = base.substring(0, commsIdx).replace(/\n+$/, '');
+        }
+    } else if (blIdx !== -1) {
+        base = base.substring(0, blIdx).replace(/\n+$/, '');
+    }
+
+    let result = base;
+
+    // Add comms section if there are items
+    const table = generateCommsMarkdown();
+    if (table) {
+        result = result + '\n\n' + COMMS_START + '\n' + table;
+    }
+
+    // Re-append baseline
+    if (baselineSection) {
+        result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
+    }
+
+    return result;
+}
 
 // Budget state is now in state.js
 

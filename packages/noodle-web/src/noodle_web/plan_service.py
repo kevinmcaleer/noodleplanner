@@ -31,6 +31,9 @@ from noodle_core import (
     extract_highlights,
     extract_raid_log,
     parse_raid_markdown,
+    extract_comms_plan,
+    strip_comms,
+    parse_comms_markdown,
     extract_baseline,
     parse_baseline_markdown,
     strip_highlights,
@@ -71,6 +74,7 @@ class ParseResult:
     updated_plan_text: Optional[str]
     highlights: list
     raid_items: list
+    comms_items: list
     baseline_items: list
     dependencies: list
     error: Optional[str] = None
@@ -152,11 +156,12 @@ def collect_labels_from_plan(plan_text: str) -> set:
 
     Labels use hashtag syntax like #High #test #Risk.
     """
-    # Strip highlights, budget, and RAID log sections so their content
+    # Strip highlights, budget, RAID log, and comms sections so their content
     # is not treated as labels
     plan_text = strip_highlights(plan_text)
     plan_text = strip_budget(plan_text)
     plan_text = strip_raid_log(plan_text)
+    plan_text = strip_comms(plan_text)
 
     labels = set()
     lines = plan_text.split("\n")
@@ -278,6 +283,7 @@ class PlanService:
         # Extract supplementary sections first (always available)
         highlights = extract_highlights(plan_text)
         raid_items = self._safe_extract_raid(plan_text)
+        comms_items = self._safe_extract_comms(plan_text)
         baseline_items = self._safe_extract_baseline(plan_text)
         fm_parser = FrontMatterParser(plan_text)
         dependencies = fm_parser.parse_dependencies()
@@ -318,6 +324,7 @@ class PlanService:
                 updated_plan_text=updated_plan_text if labels else None,
                 highlights=highlights,
                 raid_items=raid_items,
+                comms_items=comms_items,
                 baseline_items=baseline_items,
                 dependencies=dependencies,
             )
@@ -334,6 +341,7 @@ class PlanService:
                 updated_plan_text=None,
                 highlights=highlights,
                 raid_items=raid_items,
+                comms_items=comms_items,
                 baseline_items=baseline_items,
                 dependencies=dependencies,
                 error=str(e),
@@ -533,6 +541,16 @@ class PlanService:
                 return parse_raid_markdown(raid_log_text)
         except (ValueError, KeyError) as e:
             logger.warning(f"Failed to parse RAID log from plan text: {e}")
+        return []
+
+    def _safe_extract_comms(self, plan_text: str) -> list:
+        """Extract comms plan items, returning an empty list on failure."""
+        try:
+            comms_text = extract_comms_plan(plan_text)
+            if comms_text:
+                return parse_comms_markdown(comms_text)
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse comms plan from plan text: {e}")
         return []
 
     def _safe_extract_baseline(self, plan_text: str) -> list:

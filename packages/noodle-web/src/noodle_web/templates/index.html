@@ -277,7 +277,7 @@
                 <!-- Tracking dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="trackingDropdownBtn"
-                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm"
+                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,comms"
                             onclick="toggleDropdownMenu('trackingDropdownMenu', 'trackingDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="trackingDropdownMenu">
                         Tracking &#9662;
@@ -303,6 +303,9 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="evm" onclick="switchToView('evm'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-evm"/></svg> EVM
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="comms" onclick="switchToView('comms'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Comms Plan
                         </div>
                     </div>
                 </div>
@@ -1598,6 +1601,52 @@ Build
                 </div>
             </div>
 
+            <!-- Comms Plan Tab -->
+            <div id="comms-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+                <div class="raid-container">
+                    <!-- Toolbar -->
+                    <div class="raid-toolbar">
+                        <a class="subtle-add-btn" onclick="addCommsItem()" title="Add comms item">+ Add Item</a>
+                        <div class="raid-toolbar-separator"></div>
+                        <div class="raid-filter-group">
+                            <label for="commsFilterStatus">Status:</label>
+                            <select id="commsFilterStatus" onchange="renderCommsTable()">
+                                <option value="all">All</option>
+                                <option value="Active">Active</option>
+                                <option value="Planned">Planned</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Comms Table -->
+                    <div class="raid-table-wrapper">
+                        <table class="raid-table" id="commsTable" aria-label="Communications plan">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortCommsTable('id')">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('activity')">Activity <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('audience')">Audience <span class="sort-indicator"></span></th>
+                                    <th>Content</th>
+                                    <th onclick="sortCommsTable('frequency')">Frequency <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('channel')">Channel <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('owner')">Owner <span class="sort-indicator"></span></th>
+                                    <th onclick="sortCommsTable('status')">Status <span class="sort-indicator"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="commsTableBody">
+                            </tbody>
+                        </table>
+                        <div class="raid-empty-state" id="commsEmptyState">
+                            <h3>Communications Plan</h3>
+                            <p>Plan and track stakeholder communications.</p>
+                            <p>Click <strong>"+ Add Item"</strong> to get started.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Budget Tracker Tab -->
             <div id="budget-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
                 <div class="budget-container">
@@ -2316,6 +2365,78 @@ Build
             </div>
         </div>
 
+        <!-- Comms Item Form Section -->
+        <div id="commsFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="commsFormTitle">New Comms Item</h2>
+                <button class="close-btn" onclick="closeCommsForm()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="commsItemId">
+
+                    <div class="form-group">
+                        <label for="commsItemActivity">Activity</label>
+                        <input type="text" id="commsItemActivity" class="form-control" placeholder="e.g. Weekly Status Update">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="commsItemAudience">Audience</label>
+                        <input type="text" id="commsItemAudience" class="form-control" placeholder="e.g. Project Sponsor, Steering Committee">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="commsItemContent">Content</label>
+                        <textarea id="commsItemContent" class="form-control" placeholder="What information to share" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="commsItemFrequency">Frequency</label>
+                            <select id="commsItemFrequency" class="form-control">
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly" selected>Weekly</option>
+                                <option value="Fortnightly">Fortnightly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Quarterly">Quarterly</option>
+                                <option value="Ad-hoc">Ad-hoc</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="commsItemChannel">Channel</label>
+                            <input type="text" id="commsItemChannel" class="form-control" placeholder="e.g. Email, Meeting, Report">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="commsItemOwner">Owner</label>
+                            <input type="text" id="commsItemOwner" class="form-control" placeholder="Person responsible">
+                        </div>
+                        <div class="form-group">
+                            <label for="commsItemStatus">Status</label>
+                            <select id="commsItemStatus" class="form-control">
+                                <option value="Active">Active</option>
+                                <option value="Planned" selected>Planned</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeCommsForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveCommsItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+
+                    <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn-danger" onclick="confirmDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this comms item">
+                            &#128465; Delete Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Budget Item Form Section -->
         <div id="budgetFormSection" class="detail-pane-section">
             <div class="modal-header">
@@ -3026,6 +3147,23 @@ Build
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button type="button" class="btn-secondary" onclick="cancelDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
                     <button type="button" class="btn-danger" onclick="executeDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comms Delete Confirmation Modal -->
+    <div id="commsDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteCommsItem()" role="dialog" aria-modal="true" aria-label="Confirm delete comms item">
+        <div class="task-form-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Delete Comms Item</h2>
+                <button class="close-btn" onclick="cancelDeleteCommsItem()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="commsDeleteConfirmMessage">Are you sure you want to delete this comms item? This action cannot be undone.</p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-secondary" onclick="cancelDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
+                    <button type="button" class="btn-danger" onclick="executeDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
                 </div>
             </div>
         </div>

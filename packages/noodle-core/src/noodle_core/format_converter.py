@@ -7,6 +7,7 @@ HIGHLIGHTS_START = '---highlights---'
 HIGHLIGHTS_END = '---end-highlights---'
 BUDGET_START = '---budget---'
 RAID_LOG_START = '---raid log---'
+COMMS_START = '---comms---'
 BASELINE_START = '---baseline---'
 
 
@@ -81,10 +82,11 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights, budget, RAID log, and baseline sections before processing
+    # Strip highlights, budget, RAID log, comms, and baseline sections before processing
     text = strip_highlights(text)
     text = strip_budget(text)
     text = strip_raid_log(text)
+    text = strip_comms(text)
     text = strip_baseline(text)
     lines = text.split('\n')
     output_lines = []
@@ -169,9 +171,9 @@ def extract_highlights(text: str) -> list:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, budget, raid log section, baseline, or EOF
+    # Find the end: explicit end marker, budget, raid log section, comms, baseline, or EOF
     end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -233,10 +235,10 @@ def strip_highlights(text: str) -> str:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, budget, raid log section, baseline, or EOF
+    # Find the end: explicit end marker, budget, raid log section, comms, baseline, or EOF
     end_idx = len(text)
     end_len = 0
-    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -292,11 +294,12 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve any existing budget, RAID log, and baseline that follow highlights
+    # Preserve any existing budget, RAID log, comms, and baseline that follow highlights
     budget_text = extract_budget(plan_text)
     raid_log_text = extract_raid_log(plan_text)
+    comms_text = extract_comms_plan(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_raid_log(strip_budget(strip_highlights(plan_text)))).rstrip('\n')
+    base = strip_baseline(strip_comms(strip_raid_log(strip_budget(strip_highlights(plan_text))))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
@@ -311,6 +314,10 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     # Re-append the RAID log if it was present
     if raid_log_text:
         result = result.rstrip('\n') + '\n\n' + RAID_LOG_START + '\n' + raid_log_text
+
+    # Re-append the comms plan if it was present
+    if comms_text:
+        result = result.rstrip('\n') + '\n\n' + COMMS_START + '\n' + comms_text
 
     # Re-append the baseline if it was present
     if baseline_text:
@@ -332,11 +339,12 @@ def extract_raid_log(text: str) -> str:
 
     after_start = start_idx + len(RAID_LOG_START)
 
-    # Find the end: baseline section or EOF
+    # Find the end: comms, baseline section, or EOF
     end_idx = len(text)
-    baseline_idx = text.find(BASELINE_START, after_start)
-    if baseline_idx != -1 and baseline_idx < end_idx:
-        end_idx = baseline_idx
+    for marker in (COMMS_START, BASELINE_START):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
 
     return text[after_start:end_idx].strip()
 
@@ -354,11 +362,12 @@ def strip_raid_log(text: str) -> str:
 
     before = text[:start_idx].rstrip('\n')
 
-    # Preserve the baseline section if it follows the RAID log
-    baseline_idx = text.find(BASELINE_START, start_idx)
-    if baseline_idx != -1:
-        after = text[baseline_idx:]
-        return before + '\n\n' + after
+    # Preserve the comms and baseline sections if they follow the RAID log
+    for marker in (COMMS_START, BASELINE_START):
+        idx = text.find(marker, start_idx)
+        if idx != -1:
+            after = text[idx:]
+            return before + '\n\n' + after
 
     return before
 
@@ -376,9 +385,9 @@ def extract_budget(text: str) -> str:
 
     after_start = start_idx + len(BUDGET_START)
 
-    # Find the end: RAID log, baseline, or EOF
+    # Find the end: RAID log, comms, baseline, or EOF
     end_idx = len(text)
-    for marker in (RAID_LOG_START, BASELINE_START):
+    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -399,7 +408,7 @@ def strip_budget(text: str) -> str:
     before = text[:start_idx].rstrip('\n')
 
     # Preserve sections that follow the budget
-    for marker in (RAID_LOG_START, BASELINE_START):
+    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, start_idx)
         if idx != -1:
             after = text[idx:]
@@ -790,14 +799,240 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the baseline section
+    # Preserve the comms and baseline sections
+    comms_text = extract_comms_plan(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_raid_log(plan_text)).rstrip('\n')
+    base = strip_baseline(strip_comms(strip_raid_log(plan_text))).rstrip('\n')
     table = generate_raid_log_text(raid_items)
 
     result = base
     if table:
         result = result + '\n\n' + RAID_LOG_START + '\n' + table
+
+    # Re-append the comms plan if it was present
+    if comms_text:
+        result = result.rstrip('\n') + '\n\n' + COMMS_START + '\n' + comms_text
+
+    # Re-append the baseline if it was present
+    if baseline_text:
+        result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
+
+    return result
+
+
+def extract_comms_plan(text: str) -> str:
+    """Extract the comms plan section text from plan text.
+
+    Returns the raw text between ``---comms---`` and the next section
+    marker (``---baseline---``) or EOF, or an empty string if no comms
+    section is present.
+    """
+    start_idx = text.find(COMMS_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(COMMS_START)
+
+    # Find the end: baseline section or EOF
+    end_idx = len(text)
+    baseline_idx = text.find(BASELINE_START, after_start)
+    if baseline_idx != -1 and baseline_idx < end_idx:
+        end_idx = baseline_idx
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_comms(text: str) -> str:
+    """Remove the comms plan section from plan text.
+
+    Returns the plan text without the ``---comms---`` block.
+    Preserves any baseline section that follows.
+    """
+    start_idx = text.find(COMMS_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+
+    # Preserve the baseline section if it follows
+    baseline_idx = text.find(BASELINE_START, start_idx)
+    if baseline_idx != -1:
+        after = text[baseline_idx:]
+        return before + '\n\n' + after
+
+    return before
+
+
+def parse_comms_markdown(text: str) -> list:
+    """Parse comms plan markdown table into a list of comms items.
+
+    Args:
+        text: Markdown text containing a comms plan table
+
+    Returns:
+        List of dicts with keys: id, activity, audience, content,
+        frequency, channel, owner, status
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Find header row
+    header_index = -1
+    for i, line in enumerate(lines):
+        lower = line.lower()
+        if '|' in lower and any(kw in lower for kw in ['activity', 'audience', 'content']):
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        parts = line.split('|')
+        cells = []
+        for i, p in enumerate(parts):
+            stripped = p.strip()
+            if i == 0 and not stripped:
+                continue
+            if i == len(parts) - 1 and not stripped:
+                continue
+            cells.append(stripped)
+        return cells
+
+    headers = [h.lower() for h in parse_row(lines[header_index])]
+
+    aliases = {
+        'id': 'id', 'activity': 'activity', 'audience': 'audience',
+        'content': 'content', 'frequency': 'frequency',
+        'channel': 'channel', 'owner': 'owner', 'status': 'status',
+    }
+
+    col_map = {}
+    for idx, h in enumerate(headers):
+        for alias, field in aliases.items():
+            if alias in h:
+                col_map[field] = idx
+                break
+
+    valid_frequencies = ['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'Ad-hoc']
+    valid_statuses = ['Active', 'Planned', 'Completed']
+    items = []
+    max_id = 0
+
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        if all(c in '-| ' for c in line):
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        id_str = get_cell('id', '')
+        item_id = int(id_str) if id_str and id_str.isdigit() else max_id + 1
+        max_id = max(max_id, item_id)
+
+        item_frequency = get_cell('frequency', 'Weekly')
+        item_status = get_cell('status', 'Planned')
+
+        items.append({
+            'id': item_id,
+            'activity': get_cell('activity', ''),
+            'audience': get_cell('audience', ''),
+            'content': get_cell('content', ''),
+            'frequency': item_frequency if item_frequency in valid_frequencies else 'Weekly',
+            'channel': get_cell('channel', ''),
+            'owner': get_cell('owner', ''),
+            'status': item_status if item_status in valid_statuses else 'Planned',
+        })
+
+    return items
+
+
+def generate_comms_plan_text(comms_items: list) -> str:
+    """Generate a formatted markdown table from comms plan items.
+
+    Each column is padded to the width of its widest entry for
+    clean, readable markdown output.
+
+    Args:
+        comms_items: List of dicts with all comms item fields.
+
+    Returns:
+        The formatted markdown table string, or empty string if
+        there are no items.
+    """
+    if not comms_items:
+        return ''
+
+    headers = ['ID', 'Activity', 'Audience', 'Content', 'Frequency',
+               'Channel', 'Owner', 'Status']
+
+    def escape_pipe(value):
+        return str(value).replace('|', '\\|').replace('\n', ' ')
+
+    rows = []
+    for item in comms_items:
+        rows.append([
+            escape_pipe(str(item.get('id', ''))),
+            escape_pipe(item.get('activity', '')),
+            escape_pipe(item.get('audience', '')),
+            escape_pipe(item.get('content', '')),
+            escape_pipe(item.get('frequency', '')),
+            escape_pipe(item.get('channel', '')),
+            escape_pipe(item.get('owner', '')),
+            escape_pipe(item.get('status', '')),
+        ])
+
+    # Calculate column widths (minimum of header width)
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def format_row(cells):
+        padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
+        return '| ' + ' | '.join(padded) + ' |'
+
+    separator = '|' + '|'.join('-' * (widths[i] + 2) for i in range(len(headers))) + '|'
+
+    lines = [format_row(headers), separator]
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)
+
+
+def update_plan_comms(plan_text: str, comms_items: list) -> str:
+    """Update plan text with the given comms plan table.
+
+    Replaces the existing ``---comms---`` section or appends a new
+    one after the RAID log section.  If *comms_items* is empty, any
+    existing comms section is removed.  Preserves any baseline
+    section that follows.
+
+    Args:
+        plan_text: The full plan text.
+        comms_items: List of comms item dicts.
+
+    Returns:
+        Updated plan text.
+    """
+    # Preserve the baseline section
+    baseline_text = extract_baseline(plan_text)
+    base = strip_baseline(strip_comms(plan_text)).rstrip('\n')
+    table = generate_comms_plan_text(comms_items)
+
+    result = base
+    if table:
+        result = result + '\n\n' + COMMS_START + '\n' + table
 
     # Re-append the baseline if it was present
     if baseline_text:
@@ -954,6 +1189,7 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     Returns:
         Updated plan text.
     """
+    # Preserve the comms section when updating baseline
     base = strip_baseline(plan_text).rstrip('\n')
     table = generate_baseline_text(baseline_items)
 
