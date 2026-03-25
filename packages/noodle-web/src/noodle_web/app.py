@@ -693,6 +693,31 @@ class BudgetExportRequest(BaseModel):
     project_name: Optional[str] = Field("Project", max_length=200)
 
 
+class CommsExportRequest(BaseModel):
+    items: list = []
+    project_name: str = "Project"
+
+
+@app.post("/api/comms/export-docx")
+async def export_comms_docx(data: CommsExportRequest):
+    """Export comms plan to a Word document."""
+    from noodle_core import export_comms_to_docx
+
+    docx_bytes = export_comms_to_docx(
+        [item.dict() if hasattr(item, 'dict') else item for item in data.items],
+        data.project_name
+    )
+
+    safe_name = "".join(c for c in data.project_name if c.isalnum() or c in " -_").strip()
+    filename = f"{safe_name} - Communications Plan.docx"
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 @app.post("/api/budget/export-excel")
 async def export_budget_excel(data: BudgetExportRequest):
     """Export budget items to an Excel file."""

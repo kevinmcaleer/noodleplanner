@@ -1197,3 +1197,97 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
         return base
 
     return base + '\n\n' + BASELINE_START + '\n' + table
+
+
+def export_comms_to_docx(comms_items: list, project_name: str = "Project") -> bytes:
+    """Export the communications plan as a Word document with a landscape table.
+
+    Args:
+        comms_items: List of comms plan item dicts.
+        project_name: Project name for the document title.
+
+    Returns:
+        The .docx file content as bytes.
+    """
+    from docx import Document
+    from docx.shared import Inches, Pt, Cm, RGBColor
+    from docx.enum.section import WD_ORIENT
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    import io
+
+    doc = Document()
+
+    # Set landscape orientation
+    section = doc.sections[0]
+    section.orientation = WD_ORIENT.LANDSCAPE
+    new_width, new_height = section.page_height, section.page_width
+    section.page_width = new_width
+    section.page_height = new_height
+    section.left_margin = Cm(1.5)
+    section.right_margin = Cm(1.5)
+    section.top_margin = Cm(1.5)
+    section.bottom_margin = Cm(1.5)
+
+    # Title
+    title = doc.add_heading(f'{project_name} — Communications Plan', level=1)
+    title.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+    if not comms_items:
+        doc.add_paragraph('No communications plan items defined.')
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue()
+
+    # Create table
+    headers = ['#', 'Activity', 'Audience', 'Content', 'Frequency', 'Channel', 'Owner', 'Status']
+    table = doc.add_table(rows=1, cols=len(headers))
+    table.style = 'Table Grid'
+    table.alignment = WD_TABLE_ALIGNMENT.LEFT
+
+    # Header row
+    hdr_cells = table.rows[0].cells
+    for i, header in enumerate(headers):
+        hdr_cells[i].text = header
+        p = hdr_cells[i].paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        run = p.runs[0]
+        run.bold = True
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        from docx.oxml.ns import qn
+        shading = hdr_cells[i]._element.get_or_add_tcPr()
+        shading_el = shading.makeelement(qn('w:shd'), {
+            qn('w:val'): 'clear',
+            qn('w:color'): 'auto',
+            qn('w:fill'): '4A90D9'
+        })
+        shading.append(shading_el)
+
+    # Data rows
+    for idx, item in enumerate(comms_items):
+        row_cells = table.add_row().cells
+        row_cells[0].text = str(item.get('id', idx + 1))
+        row_cells[1].text = item.get('activity', '')
+        row_cells[2].text = item.get('audience', '')
+        row_cells[3].text = item.get('content', '')
+        row_cells[4].text = item.get('frequency', '')
+        row_cells[5].text = item.get('channel', '')
+        row_cells[6].text = item.get('owner', '')
+        row_cells[7].text = item.get('status', '')
+
+        for cell in row_cells:
+            for p in cell.paragraphs:
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                for run in p.runs:
+                    run.font.size = Pt(9)
+
+    # Set column widths
+    col_widths = [Cm(1), Cm(4), Cm(3.5), Cm(5), Cm(2.5), Cm(2.5), Cm(3), Cm(2)]
+    for row in table.rows:
+        for i, width in enumerate(col_widths):
+            row.cells[i].width = width
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()

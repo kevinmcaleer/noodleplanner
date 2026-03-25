@@ -10017,6 +10017,39 @@ function clearCommsEntries() {
     renderCommsTable();
 }
 
+async function exportCommsToWord() {
+    if (commsItems.length === 0) {
+        if (typeof setStatusMessage === 'function') setStatusMessage('No comms items to export', 3000);
+        return;
+    }
+
+    try {
+        const projectName = document.getElementById('reportProjectTitle')?.textContent || 'Project';
+        const response = await fetch('/api/comms/export-docx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: commsItems, project_name: projectName })
+        });
+
+        if (!response.ok) throw new Error('Export failed');
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = response.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'Communications Plan.docx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        if (typeof setStatusMessage === 'function') setStatusMessage('Comms plan exported', 3000);
+    } catch (e) {
+        console.error('Comms export error:', e);
+        if (typeof setStatusMessage === 'function') setStatusMessage('Failed to export comms plan', 3000);
+    }
+}
+
 function addCommsItem() {
     openCommsForm(null);
 }
