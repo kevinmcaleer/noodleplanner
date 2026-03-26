@@ -182,7 +182,7 @@
 }
 
 .deliverables-table td {
-    padding: 10px 12px;
+    padding: 5px 6px;
     border: 1px solid var(--border-color, #ddd);
     color: var(--text-primary, #333);
     vertical-align: middle;
