@@ -302,38 +302,24 @@
     background: var(--surface-secondary, #1e1e2e);
 }
 
-.dm-role-cell select.role-P { color: #4A90D9; }
-.dm-role-cell select.role-R { color: #D94A4A; }
-.dm-role-cell select.role-A { color: #2d8a2d; }
+.dm-role-cell select.role-P { color: #fff; background: #4A90D9; border-radius: 4px; }
+.dm-role-cell select.role-R { color: #fff; background: #D94A4A; border-radius: 4px; }
+.dm-role-cell select.role-A { color: #fff; background: #2d8a2d; border-radius: 4px; }
 
-.dm-role-label {
-    display: inline-block;
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
-    border-radius: 4px;
-    font-weight: 700;
-    font-size: 12px;
-    text-align: center;
+.dm-role-cell select.role-P:hover,
+.dm-role-cell select.role-P:focus { color: #4A90D9; background: var(--surface-primary, #fff); }
+.dm-role-cell select.role-R:hover,
+.dm-role-cell select.role-R:focus { color: #D94A4A; background: var(--surface-primary, #fff); }
+.dm-role-cell select.role-A:hover,
+.dm-role-cell select.role-A:focus { color: #2d8a2d; background: var(--surface-primary, #fff); }
+
+/* Completed row highlight */
+.deliverables-table tr.dm-row-complete td {
+    background: rgba(74, 144, 217, 0.06);
 }
 
-.dm-role-producer .dm-role-label {
-    background: rgba(74, 144, 217, 0.2);
-    color: #4A90D9;
-}
-
-.dm-role-reviewer .dm-role-label {
-    background: rgba(217, 74, 74, 0.2);
-    color: #D94A4A;
-}
-
-.dm-role-approver .dm-role-label {
-    background: rgba(74, 184, 92, 0.2);
-    color: #2d8a2d;
-}
-
-.dm-role-empty .dm-role-label {
-    color: transparent;
+.deliverables-table tr.dm-row-complete:hover td {
+    background: rgba(74, 144, 217, 0.1);
 }
 
 /* ── Quality Assured column ──────────────────────────────────────── */

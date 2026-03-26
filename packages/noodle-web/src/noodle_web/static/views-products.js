@@ -1045,6 +1045,7 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
         const isQA = hasP && hasR && hasA;
 
         const tr = document.createElement('tr');
+        if (pct === 100) tr.classList.add('dm-row-complete');
         tr.style.cursor = 'pointer';
         tr.addEventListener('click', (e) => {
             // Don't open product form if clicking a role cell dropdown
