@@ -216,13 +216,30 @@
 
 .dm-col-person {
     text-align: center;
-    min-width: 60px;
+    min-width: 36px;
+    max-width: 36px;
+    padding: 4px 2px !important;
+    vertical-align: bottom;
+    height: 120px;
+}
+
+.dm-person-label {
+    display: block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 110px;
+    letter-spacing: 0;
 }
 
 .dm-role-cell {
     text-align: center;
     cursor: pointer;
-    min-width: 60px;
+    min-width: 36px;
+    max-width: 36px;
     transition: background 0.15s;
     user-select: none;
 }

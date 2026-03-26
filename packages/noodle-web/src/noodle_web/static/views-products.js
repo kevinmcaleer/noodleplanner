@@ -877,8 +877,26 @@ function _dmCollectPeople(deliverables, allTasks, resourceMap, stakeholders) {
         }
     }
 
+    // Look up roles from globalResourceDetails and stakeholders
+    const roleMap = {};
+    if (typeof globalResourceDetails !== 'undefined') {
+        for (const [key, details] of Object.entries(globalResourceDetails)) {
+            if (details && details.role) roleMap[key.toLowerCase()] = details.role;
+        }
+    }
+    if (stakeholders && stakeholders.length > 0) {
+        for (const s of stakeholders) {
+            const key = (s.name || '').replace(/^@/, '').toLowerCase();
+            if (s.role && !roleMap[key]) roleMap[key] = s.role;
+        }
+    }
+
     return Object.entries(people)
-        .map(([shortname, displayName]) => ({ shortname, displayName }))
+        .map(([shortname, displayName]) => ({
+            shortname,
+            displayName,
+            role: roleMap[shortname] || ''
+        }))
         .sort((a, b) => a.shortname.localeCompare(b.shortname));
 }
 
@@ -953,12 +971,15 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
             headerRow.appendChild(th);
         }
 
-        // One column per person
+        // One column per person — rotated header showing role, tooltip shows full name
         for (const p of people) {
             const th = document.createElement('th');
             th.className = 'dm-col-person';
-            th.textContent = p.displayName;
-            th.title = p.shortname;
+            const span = document.createElement('span');
+            span.className = 'dm-person-label';
+            span.textContent = p.role || p.shortname;
+            th.appendChild(span);
+            th.title = p.displayName;
             headerRow.appendChild(th);
         }
 
