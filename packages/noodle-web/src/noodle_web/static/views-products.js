@@ -1042,13 +1042,12 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
             else if (role === 'R') { roleLabel = 'R'; roleClass = 'dm-role-reviewer'; }
             else if (role === 'A') { roleLabel = 'A'; roleClass = 'dm-role-approver'; }
 
-            html += `<td class="dm-role-cell ${roleClass}" title="${p.displayName}: ${roleLabel || 'none'}">
-                <span class="dm-role-label">${roleLabel}</span>
-                <select data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
+            html += `<td class="dm-role-cell" title="${p.displayName}">
+                <select class="role-${role}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
                     <option value=""${role === '' ? ' selected' : ''}>—</option>
-                    <option value="P"${role === 'P' ? ' selected' : ''}>P - Producer</option>
-                    <option value="R"${role === 'R' ? ' selected' : ''}>R - Reviewer</option>
-                    <option value="A"${role === 'A' ? ' selected' : ''}>A - Approver</option>
+                    <option value="P"${role === 'P' ? ' selected' : ''}>P</option>
+                    <option value="R"${role === 'R' ? ' selected' : ''}>R</option>
+                    <option value="A"${role === 'A' ? ' selected' : ''}>A</option>
                 </select>
             </td>`;
         }
@@ -1079,6 +1078,9 @@ function dmUpdateRole(selectEl) {
     const deliverable = selectEl.dataset.deliverable;
     const person = selectEl.dataset.person;
     const newRole = selectEl.value;
+
+    // Update colour class
+    selectEl.className = newRole ? 'role-' + newRole : '';
 
     const editor = document.getElementById('planEditor');
     if (!editor || !deliverable || !person) return;
