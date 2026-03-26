@@ -1540,10 +1540,7 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 
         if (isDiamondNode) {
             // Diamond gate node — represents stage completion
-            g.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (task && typeof openProductForm === 'function') openProductForm(task);
-            });
+            // No default click — popup handles actions
 
             // Diamond shape centred at node position
             const cx = pos.x + PF_NODE_W / 2;
@@ -1581,9 +1578,59 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             label2.textContent = line2;
             g.appendChild(label2);
 
-            const title = pbsCreateSVGElement('title', {});
-            title.textContent = `${task.name}\nStage gate \u2014 click to collapse`;
-            g.appendChild(title);
+            // Hover popup with collapse/edit options
+            const popupG = pbsCreateSVGElement('g', { 'class': 'pf-diamond-popup' });
+            const popupY = cy - dh - 36;
+            const popupW = 120;
+            const popupX = cx - popupW / 2;
+
+            // Popup background
+            popupG.appendChild(pbsCreateSVGElement('rect', {
+                'x': popupX, 'y': popupY, 'width': popupW, 'height': 28,
+                'rx': '4', 'ry': '4', 'fill': '#333', 'opacity': '0.95'
+            }));
+
+            // Collapse button
+            const collapseBtn = pbsCreateSVGElement('g', { 'style': 'cursor: pointer;' });
+            collapseBtn.appendChild(pbsCreateSVGElement('text', {
+                'x': popupX + 12, 'y': popupY + 18,
+                'fill': '#fff', 'font-size': '11',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            })).textContent = '\u25B2 Collapse';
+            const groupId = pos.groupId;
+            collapseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (groupId) pfToggleGroup(groupId);
+            });
+            popupG.appendChild(collapseBtn);
+
+            // Separator
+            popupG.appendChild(pbsCreateSVGElement('line', {
+                'x1': cx, 'y1': popupY + 4, 'x2': cx, 'y2': popupY + 24,
+                'stroke': '#555', 'stroke-width': '1'
+            }));
+
+            // Edit button
+            const editBtn = pbsCreateSVGElement('g', { 'style': 'cursor: pointer;' });
+            editBtn.appendChild(pbsCreateSVGElement('text', {
+                'x': cx + 8, 'y': popupY + 18,
+                'fill': '#fff', 'font-size': '11',
+                'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            })).textContent = '\u270E Edit';
+            const editTask = task;
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (editTask && typeof openProductForm === 'function') openProductForm(editTask);
+            });
+            popupG.appendChild(editBtn);
+
+            // Arrow pointing down to diamond
+            popupG.appendChild(pbsCreateSVGElement('polygon', {
+                'points': `${cx - 5},${popupY + 28} ${cx + 5},${popupY + 28} ${cx},${popupY + 34}`,
+                'fill': '#333', 'opacity': '0.95'
+            }));
+
+            g.appendChild(popupG);
         } else if (isCollapsedNode) {
             // Collapsed group placeholder
             g.addEventListener('click', (e) => {

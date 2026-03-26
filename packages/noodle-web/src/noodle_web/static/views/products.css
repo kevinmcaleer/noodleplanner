@@ -80,6 +80,17 @@
     filter: brightness(1.3);
 }
 
+.pf-diamond-popup {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.pf-node:hover > .pf-diamond-popup {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .pf-orphan-indicator {
     animation: pf-orphan-pulse 2s ease-in-out infinite;
     pointer-events: none;
