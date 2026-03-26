@@ -802,6 +802,9 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                         summary_deliverable = summary_meta_data.get('deliverable', '')
                         summary_depends = summary_meta_data.get('depends', [])
                         summary_quality_roles = summary_meta_data.get('quality_roles', {})
+                        summary_comment = summary_meta_data.get('comment', '')
+                    else:
+                        summary_comment = ''
                     summary_meta = {
                         'name': key,
                         'description': key,
@@ -811,7 +814,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                         'summary': True,
                         'resources': summary_resources,
                         'percent': 0,
-                        'comment': ''
+                        'comment': summary_comment
                     }
                     if summary_deliverable:
                         summary_meta['deliverable'] = summary_deliverable
