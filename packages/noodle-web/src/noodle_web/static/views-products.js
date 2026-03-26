@@ -3088,10 +3088,14 @@ function productDeleteChild(delivId) {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
-    const lineNum = productFindLineNumber(null, delivId);
-    if (lineNum === null) return;
-
     const lines = editor.value.split('\n');
+    const token = '$' + delivId;
+    let lineNum = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(token)) { lineNum = i; break; }
+    }
+    if (lineNum < 0) return;
+
     lines.splice(lineNum, 1);
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
