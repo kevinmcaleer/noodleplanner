@@ -375,6 +375,10 @@ function updateReportTimeline(tasks, projectName) {
 
             const bgColor = isComplete ? greenComplete : blueShades[index % blueShades.length];
 
+            // Clickable group for the phase bar
+            const safeName = escapeHtml(phase.name).replace(/'/g, '&#39;');
+            html += '<g class="timeline-phase-bar" data-task-name="' + safeName + '" style="cursor: pointer;">';
+
             // Background bar
             html += '<rect x="' + xPct + '%" y="' + y + '" width="' + wPct + '%" height="' + barHeight + '" ' +
                 'rx="3" ry="3" fill="' + bgColor + '" opacity="' + (isComplete ? '0.9' : '0.7') + '">' +
@@ -396,6 +400,8 @@ function updateReportTimeline(tasks, projectName) {
                     'dominant-baseline="central" font-size="' + fontSize + 'px" fill="#fff" font-weight="500" ' +
                     'style="pointer-events: none;"><tspan>' + escapeHtml(textLabel) + '</tspan></text>';
             }
+
+            html += '</g>';
         });
 
         // Horizontal backbone line (full width)
@@ -469,6 +475,17 @@ function updateReportTimeline(tasks, projectName) {
                     if (name && typeof openMilestoneTaskForm === 'function') {
                         openMilestoneTaskForm(name);
                     }
+                }
+            });
+        });
+
+        // Attach click handlers to phase bars
+        container.querySelectorAll('.timeline-phase-bar').forEach(bar => {
+            bar.addEventListener('click', function () {
+                const taskName = this.getAttribute('data-task-name');
+                if (taskName && typeof openTaskFormByName === 'function') {
+                    switchTab('editor');
+                    openTaskFormByName(taskName);
                 }
             });
         });
