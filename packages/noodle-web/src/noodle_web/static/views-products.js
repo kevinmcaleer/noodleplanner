@@ -908,6 +908,19 @@ function _dmCollectPeople(deliverables, allTasks, resourceMap, stakeholders) {
 function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
     const merged = {};
 
+    // Build reverse lookup: full name → shortname
+    const reverseMap = {};
+    if (typeof globalResourceMap !== 'undefined') {
+        for (const [sn, fullName] of Object.entries(globalResourceMap)) {
+            reverseMap[fullName.toLowerCase()] = sn.toLowerCase();
+        }
+    }
+
+    function resolveShortname(name) {
+        const lower = name.toLowerCase();
+        return reverseMap[lower] || lower;
+    }
+
     // From the deliverable task's quality_roles (explicit :P/:R/:A)
     const qr = deliverableTask.quality_roles;
     if (qr && typeof qr === 'object') {
@@ -918,9 +931,10 @@ function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
 
     // Regular resources on the deliverable default to Producer
     if (deliverableTask.resources) {
-        const resList = deliverableTask.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
+        const resList = deliverableTask.resources.split(',').map(r => r.trim()).filter(r => r);
         for (const res of resList) {
-            if (!merged[res]) merged[res] = 'P';
+            const key = resolveShortname(res);
+            if (!merged[key]) merged[key] = 'P';
         }
     }
 
@@ -936,9 +950,10 @@ function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
         }
         // Regular resources on activities default to Producer
         if (act.resources) {
-            const resList = act.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
+            const resList = act.resources.split(',').map(r => r.trim()).filter(r => r);
             for (const res of resList) {
-                if (!merged[res]) merged[res] = 'P';
+                const key = resolveShortname(res);
+                if (!merged[key]) merged[key] = 'P';
             }
         }
     }
