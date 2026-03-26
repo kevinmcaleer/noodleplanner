@@ -231,11 +231,13 @@
 .deliverable-dates {
     white-space: nowrap;
     font-size: 12px;
+    text-align: center;
 }
 
 .deliverable-status {
     white-space: nowrap;
     font-size: 12px;
+    text-align: center;
 }
 
 /* ── Quality Role Cells ─────────────────────────────────────────── */
