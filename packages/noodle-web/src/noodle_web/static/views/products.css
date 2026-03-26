@@ -246,23 +246,25 @@
     max-width: 36px;
     padding: 4px 2px !important;
     vertical-align: bottom;
-    height: 120px;
 }
 
 .dm-person-label {
-    display: block;
+    display: inline-block;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     font-size: 11px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-height: 110px;
     letter-spacing: 0;
+    text-align: center;
+}
+
+.dm-col-fixed {
+    vertical-align: middle;
 }
 
 .dm-role-cell {
     text-align: center;
+    vertical-align: middle;
     min-width: 36px;
     max-width: 36px;
     padding: 4px 2px !important;
