@@ -3075,6 +3075,7 @@ function productAddActivity(name) {
 
 function productDeleteActivity(taskName) {
     if (!taskName) return;
+    if (!confirm(`Remove activity "${taskName}"?`)) return;
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
@@ -3132,6 +3133,11 @@ function productAddChild(name) {
 
 function productDeleteChild(delivId) {
     if (!delivId) return;
+    // Find the product name for the confirmation message
+    const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+    const product = allTasks.find(t => t.deliverable === delivId);
+    const productName = product ? product.name : delivId;
+    if (!confirm(`Remove product "${productName}" and its contents?`)) return;
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
