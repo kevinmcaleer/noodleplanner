@@ -28,6 +28,7 @@ from noodle_core import (
     schedule_tasks,
     calculate_rag_status,
     parse_resource_mappings,
+    parse_stakeholders_from_frontmatter,
     extract_highlights,
     extract_raid_log,
     parse_raid_markdown,
@@ -77,6 +78,7 @@ class ParseResult:
     comms_items: list
     baseline_items: list
     dependencies: list
+    stakeholders: list = None
     error: Optional[str] = None
 
 
@@ -288,6 +290,13 @@ class PlanService:
         fm_parser = FrontMatterParser(plan_text)
         dependencies = fm_parser.parse_dependencies()
 
+        # Extract stakeholders (always available)
+        stakeholders = []
+        try:
+            stakeholders = parse_stakeholders_from_frontmatter(plan_text)
+        except Exception as e:
+            logger.warning(f"Failed to parse stakeholders: {e}")
+
         try:
             resolved_name = self._resolve_project_name(plan_text, project_name)
             converted = convert_plan_format_to_standard(plan_text)
@@ -327,6 +336,7 @@ class PlanService:
                 comms_items=comms_items,
                 baseline_items=baseline_items,
                 dependencies=dependencies,
+                stakeholders=stakeholders,
             )
 
         except (ValueError, KeyError, TypeError) as e:
@@ -344,6 +354,7 @@ class PlanService:
                 comms_items=comms_items,
                 baseline_items=baseline_items,
                 dependencies=dependencies,
+                stakeholders=stakeholders,
                 error=str(e),
             )
 
@@ -637,6 +648,7 @@ class PlanService:
                     "recurrence": task.get("recurrence", None),
                     "deliverable": task.get("deliverable", ""),
                     "parent": task.get("parent", ""),
+                    "quality_roles": task.get("quality_roles", {}),
                 }
             )
 

@@ -836,12 +836,94 @@ function updatePbs(tasks, projectName) {
 
 // ── Deliverables Matrix ───────────────────────────────────────────────
 
-function updateDeliverablesMatrix(tasks, projectName) {
+/**
+ * Collect all unique stakeholder/resource shortnames across deliverables.
+ * Sources: task quality_roles, front-matter Resources, and Key Stakeholders.
+ * Returns an array of { shortname, displayName } sorted alphabetically.
+ */
+function _dmCollectPeople(deliverables, allTasks, resourceMap, stakeholders) {
+    const people = {};  // shortname -> displayName
+
+    // 1. From quality_roles on all tasks (including deliverables)
+    for (const t of allTasks) {
+        const qr = t.quality_roles;
+        if (qr && typeof qr === 'object') {
+            for (const name of Object.keys(qr)) {
+                const key = name.toLowerCase();
+                if (!people[key]) {
+                    people[key] = resourceMap[key] || name;
+                }
+            }
+        }
+    }
+
+    // 2. From front-matter Resources (resourceMap)
+    if (resourceMap) {
+        for (const [key, fullName] of Object.entries(resourceMap)) {
+            if (!people[key]) {
+                people[key] = fullName;
+            }
+        }
+    }
+
+    // 3. From Key Stakeholders
+    if (stakeholders && stakeholders.length > 0) {
+        for (const s of stakeholders) {
+            const rawName = (s.name || '').replace(/^@/, '');
+            const key = rawName.toLowerCase();
+            if (!people[key]) {
+                people[key] = rawName;
+            }
+        }
+    }
+
+    return Object.entries(people)
+        .map(([shortname, displayName]) => ({ shortname, displayName }))
+        .sort((a, b) => a.shortname.localeCompare(b.shortname));
+}
+
+/**
+ * For a given deliverable task, collect all quality roles from the task
+ * itself and its child activities.
+ * Returns: { shortname: role_letter } merged map.
+ */
+function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
+    const merged = {};
+    // From the deliverable task itself
+    const qr = deliverableTask.quality_roles;
+    if (qr && typeof qr === 'object') {
+        for (const [name, role] of Object.entries(qr)) {
+            merged[name.toLowerCase()] = role;
+        }
+    }
+    // From child activities
+    const activities = pbsGetActivities(deliverableTask, allTasks);
+    for (const act of activities) {
+        const aqr = act.quality_roles;
+        if (aqr && typeof aqr === 'object') {
+            for (const [name, role] of Object.entries(aqr)) {
+                const key = name.toLowerCase();
+                // Don't override if already set (deliverable-level takes precedence)
+                if (!merged[key]) {
+                    merged[key] = role;
+                }
+            }
+        }
+    }
+    return merged;
+}
+
+function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders) {
     const container = document.getElementById('deliverablesMatrixBody');
+    const thead = document.getElementById('deliverablesMatrixHead');
     const placeholder = document.querySelector('#deliverables-view .deliverables-placeholder');
     const content = document.querySelector('#deliverables-view .deliverables-content');
 
     if (!container) return;
+
+    // Fall back to globals if not passed
+    resourceMap = resourceMap || (typeof globalResourceMap !== 'undefined' ? globalResourceMap : {});
+    stakeholders = stakeholders || window._lastStakeholders || [];
 
     const deliverables = pbsExtractDeliverables(tasks || []);
 
@@ -855,62 +937,213 @@ function updateDeliverablesMatrix(tasks, projectName) {
     if (placeholder) placeholder.style.display = 'none';
     if (content) content.style.display = '';
 
+    // Collect all people (resources + stakeholders) for column headers
+    const people = _dmCollectPeople(deliverables, tasks || [], resourceMap, stakeholders);
+
+    // Rebuild thead with dynamic person columns
+    if (thead) {
+        const headerRow = thead.querySelector('tr') || document.createElement('tr');
+        headerRow.innerHTML = '';
+
+        const fixedHeaders = ['ID', 'Deliverable', 'Dates', 'Status'];
+        for (const h of fixedHeaders) {
+            const th = document.createElement('th');
+            th.className = 'dm-col-fixed';
+            th.textContent = h;
+            headerRow.appendChild(th);
+        }
+
+        // One column per person
+        for (const p of people) {
+            const th = document.createElement('th');
+            th.className = 'dm-col-person';
+            th.textContent = p.displayName;
+            th.title = p.shortname;
+            headerRow.appendChild(th);
+        }
+
+        // Quality Assured column
+        const qaHeader = document.createElement('th');
+        qaHeader.className = 'dm-col-qa';
+        qaHeader.textContent = 'QA';
+        qaHeader.title = 'Quality Assured — tick when Producer, Reviewer, and Approver are all assigned';
+        headerRow.appendChild(qaHeader);
+
+        if (!thead.contains(headerRow)) thead.appendChild(headerRow);
+    }
+
     container.innerHTML = '';
 
     for (const task of deliverables) {
-        const activities = pbsGetActivities(task, tasks);
-        const resources = pbsGetResources(task, tasks);
         const rollup = pbsComputeRollup(task, tasks);
         const pct = rollup.percent;
 
-        // Find product dependencies
-        const deps = [];
-        if (task.depends) {
-            for (const depName of task.depends) {
-                const depTask = deliverables.find(d => d.name === depName || d.description === depName);
-                if (depTask) {
-                    deps.push(`$${depTask.deliverable}`);
-                }
-            }
-        }
-
         let status = 'Not Started';
-        let statusClass = 'status-not-started';
         if (pct === 100) {
             status = 'Complete';
-            statusClass = 'status-complete';
         } else if (pct > 0) {
             status = 'In Progress';
-            statusClass = 'status-in-progress';
         }
+
+        const rolesMap = _dmGetRolesForDeliverable(task, tasks);
+
+        // Check quality-assured: has at least one P, one R, one A
+        const roleValues = Object.values(rolesMap);
+        const hasP = roleValues.includes('P');
+        const hasR = roleValues.includes('R');
+        const hasA = roleValues.includes('A');
+        const isQA = hasP && hasR && hasA;
 
         const tr = document.createElement('tr');
         tr.style.cursor = 'pointer';
-        tr.addEventListener('click', () => {
+        tr.addEventListener('click', (e) => {
+            // Don't open product form if clicking a role cell dropdown
+            if (e.target.closest('.dm-role-cell')) return;
             if (typeof openProductForm === 'function') openProductForm(task);
         });
 
         const escapedName = (task.name || task.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const escapedActivities = activities.length > 0
-            ? activities.map(a => (a.description || a.name).replace(/</g, '&lt;').replace(/>/g, '&gt;')).join(', ')
-            : '\u2014';
 
-        tr.innerHTML = `
-            <td class="deliverable-id"><code>$${task.deliverable}</code></td>
-            <td class="deliverable-name">${escapedName}</td>
-            <td class="deliverable-activities" title="${escapedActivities}">${escapedActivities}</td>
-            <td class="deliverable-resources">${resources.length > 0 ? resources.join(', ') : '\u2014'}</td>
-            <td class="deliverable-deps">${deps.length > 0 ? deps.join(', ') : '\u2014'}</td>
-            <td class="deliverable-dates">${task.start || '\u2014'} \u2192 ${task.finish || '\u2014'}</td>
-            <td class="deliverable-status"><span class="deliverable-status-badge ${statusClass}">${status}</span></td>
-            <td class="deliverable-progress">
-                <div class="deliverable-progress-bar">
-                    <div class="deliverable-progress-fill" style="width: ${pct}%"></div>
-                </div>
-                <span class="deliverable-progress-text">${pct}%</span>
-            </td>
+        // Fixed columns: ID (plain text), Deliverable, Dates, Status (plain text)
+        let html = `
+            <td class="deliverable-id dm-col-fixed">$${task.deliverable}</td>
+            <td class="deliverable-name dm-col-fixed">${escapedName}</td>
+            <td class="deliverable-dates dm-col-fixed">${task.start || '\u2014'} \u2192 ${task.finish || '\u2014'}</td>
+            <td class="deliverable-status dm-col-fixed">${status}</td>
         `;
+
+        // Person/role columns
+        for (const p of people) {
+            const role = rolesMap[p.shortname] || '';
+            let roleLabel = '';
+            let roleClass = 'dm-role-empty';
+            if (role === 'P') { roleLabel = 'P'; roleClass = 'dm-role-producer'; }
+            else if (role === 'R') { roleLabel = 'R'; roleClass = 'dm-role-reviewer'; }
+            else if (role === 'A') { roleLabel = 'A'; roleClass = 'dm-role-approver'; }
+
+            html += `<td class="dm-role-cell ${roleClass}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" data-role="${role}" title="${p.displayName}: ${roleLabel || 'none'}">
+                <span class="dm-role-label">${roleLabel}</span>
+            </td>`;
+        }
+
+        // QA column
+        html += `<td class="dm-col-qa-cell">${isQA ? '<span class="dm-qa-tick">&#10003;</span>' : ''}</td>`;
+
+        tr.innerHTML = html;
+
+        // Attach click handlers for role cells (interactive dropdown)
+        tr.querySelectorAll('.dm-role-cell').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _dmShowRoleDropdown(cell, task, tasks, resourceMap, stakeholders);
+            });
+        });
+
         container.appendChild(tr);
+    }
+}
+
+/**
+ * Show a dropdown to select P/R/A/empty for a role cell.
+ */
+function _dmShowRoleDropdown(cell, deliverableTask, allTasks, resourceMap, stakeholders) {
+    // Remove any existing dropdown
+    const existing = document.querySelector('.dm-role-dropdown');
+    if (existing) existing.remove();
+
+    const deliverable = cell.dataset.deliverable;
+    const person = cell.dataset.person;
+    const currentRole = cell.dataset.role;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'dm-role-dropdown';
+
+    const options = [
+        { value: '', label: '\u2014 None', cls: '' },
+        { value: 'P', label: 'P \u2013 Producer', cls: 'dm-role-producer' },
+        { value: 'R', label: 'R \u2013 Reviewer', cls: 'dm-role-reviewer' },
+        { value: 'A', label: 'A \u2013 Approver', cls: 'dm-role-approver' },
+    ];
+
+    for (const opt of options) {
+        const item = document.createElement('div');
+        item.className = 'dm-role-dropdown-item' + (opt.value === currentRole ? ' active' : '') + (opt.cls ? ' ' + opt.cls : '');
+        item.textContent = opt.label;
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.remove();
+            _dmApplyRoleChange(deliverable, person, opt.value, allTasks, resourceMap, stakeholders);
+        });
+        dropdown.appendChild(item);
+    }
+
+    // Position the dropdown below the cell
+    const rect = cell.getBoundingClientRect();
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.top = rect.bottom + 'px';
+    dropdown.style.zIndex = '9999';
+    document.body.appendChild(dropdown);
+
+    // Close on outside click
+    const closeHandler = (e) => {
+        if (!dropdown.contains(e.target)) {
+            dropdown.remove();
+            document.removeEventListener('click', closeHandler, true);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+}
+
+/**
+ * Apply a role change by updating the plan text in the editor.
+ * Finds the deliverable task line and adds/changes/removes the @person:ROLE token.
+ */
+function _dmApplyRoleChange(deliverable, person, newRole, allTasks, resourceMap, stakeholders) {
+    // Get the editor content
+    const editor = typeof getEditorContent === 'function' ? getEditorContent() : null;
+    if (!editor) return;
+
+    const lines = editor.split('\n');
+    let updated = false;
+
+    // Find the deliverable task in allTasks
+    const deliverableTask = (allTasks || []).find(t => t.deliverable === deliverable);
+    if (!deliverableTask) return;
+
+    const taskName = deliverableTask.name || deliverableTask.description || '';
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Match lines containing the deliverable marker
+        if (!line.includes('$' + deliverable)) continue;
+
+        // Remove existing @person:P/R/A token for this person
+        let newLine = line.replace(new RegExp('\\s*@' + person + ':[PRApraPRA]', 'gi'), '');
+        // Also remove plain @person if we're adding a quality role (they might have had a regular assignment)
+        // Only remove if we're adding a quality role
+        if (newRole) {
+            // Don't remove plain @person — quality roles are separate
+        }
+
+        if (newRole) {
+            // Add the new role token before any trailing whitespace/newline
+            newLine = newLine.trimEnd() + ' @' + person + ':' + newRole;
+        }
+
+        if (newLine !== line) {
+            lines[i] = newLine;
+            updated = true;
+            break;
+        }
+    }
+
+    if (updated && typeof setEditorContent === 'function') {
+        setEditorContent(lines.join('\n'));
+        // Trigger a re-render
+        if (typeof debouncedRender === 'function') {
+            debouncedRender();
+        }
     }
 }
 

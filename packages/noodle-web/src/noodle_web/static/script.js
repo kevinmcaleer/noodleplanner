@@ -1095,6 +1095,7 @@ function updateGlobalState(result, planText) {
     globalResourceMap = result.resource_map || {};
     globalResourceDetails = parseResourceDetails(planText);
     lastRenderedTasks = result.tasks || [];
+    window._lastStakeholders = result.stakeholders || [];
 }
 
 function updateMilestonesView(result) {
@@ -1171,7 +1172,7 @@ function updatePbsView(result) {
 
 function updateDeliverablesView(result) {
     if (typeof updateDeliverablesMatrix === 'function') {
-        updateDeliverablesMatrix(result.tasks || [], result.project_name);
+        updateDeliverablesMatrix(result.tasks || [], result.project_name, result.resource_map || {}, result.stakeholders || []);
     }
 }
 

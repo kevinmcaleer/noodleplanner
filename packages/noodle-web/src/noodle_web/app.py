@@ -337,6 +337,7 @@ async def parse_plan(data: RenderRequest):
         "comms_items": result.comms_items,
         "baseline_items": result.baseline_items,
         "dependencies": result.dependencies,
+        "stakeholders": result.stakeholders or [],
     }
     if result.error:
         response["error"] = result.error

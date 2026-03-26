@@ -2922,5 +2922,51 @@ class TestDrawTimelineGraphic:
         )
 
 
+class TestQualityRoles:
+    """Tests for quality role parsing (@resource:P/R/A syntax)."""
+
+    def test_quality_role_producer(self):
+        """@alice:P should be parsed as a quality role, not a regular resource."""
+        meta = extract_metadata("Design document @alice:P 5d")
+        assert meta.get('quality_roles') == {'alice': 'P'}
+        assert 'resources' not in meta or 'alice' not in meta.get('resources', '')
+
+    def test_quality_role_reviewer(self):
+        meta = extract_metadata("Design document @bob:R 5d")
+        assert meta.get('quality_roles') == {'bob': 'R'}
+
+    def test_quality_role_approver(self):
+        meta = extract_metadata("Design document @carol:A 5d")
+        assert meta.get('quality_roles') == {'carol': 'A'}
+
+    def test_quality_role_case_insensitive(self):
+        """Role letter should be normalised to uppercase."""
+        meta = extract_metadata("Task @dave:p @eve:r @frank:a")
+        qr = meta.get('quality_roles', {})
+        assert qr == {'dave': 'P', 'eve': 'R', 'frank': 'A'}
+
+    def test_mixed_regular_and_quality_roles(self):
+        """Regular @resources and quality-role @resources should coexist."""
+        meta = extract_metadata("Task @alice @bob:R @carol:A 3d")
+        assert 'alice' in meta.get('resources', '')
+        assert 'bob' not in meta.get('resources', '')
+        qr = meta.get('quality_roles', {})
+        assert qr == {'bob': 'R', 'carol': 'A'}
+
+    def test_no_quality_roles(self):
+        """When no :P/:R/:A suffix, quality_roles should be absent."""
+        meta = extract_metadata("Task @alice @bob 3d")
+        assert meta.get('quality_roles') is None or meta.get('quality_roles') == {}
+        assert 'alice' in meta.get('resources', '')
+        assert 'bob' in meta.get('resources', '')
+
+    def test_quality_role_with_deliverable(self):
+        """Quality roles should work alongside deliverable markers."""
+        meta = extract_metadata("Fuselage $fuselage @kev:P @jane:R @boss:A")
+        assert meta.get('deliverable') == 'fuselage'
+        qr = meta.get('quality_roles', {})
+        assert qr == {'kev': 'P', 'jane': 'R', 'boss': 'A'}
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
