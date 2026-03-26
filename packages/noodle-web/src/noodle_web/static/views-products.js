@@ -2467,16 +2467,18 @@ function openProductForm(task) {
         const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
         const parentName = task.name || task.description;
         const childProducts = allTasks.filter(t => t.deliverable && t.parent === parentName);
+        let cpIdx = 0;
         let html = childProducts.map(cp => {
             const name = (cp.name || cp.description || '').replace(/</g, '&lt;');
             const id = cp.deliverable || '';
             const comment = (cp.comment || '').replace(/</g, '&lt;');
-            return `<div class="product-comp-item" style="cursor: pointer;">
-                <span class="product-comp-name" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))">${name}</span>
+            const colour = PBS_COLOURS[cpIdx % PBS_COLOURS.length];
+            cpIdx++;
+            return `<div class="product-comp-item" style="cursor: pointer; padding: 4px 6px;">
+                <div class="pf-mini-node" style="background:${colour}; flex-shrink: 0;" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="$${id}">${name}</div>
                 ${comment ? `<span class="product-comp-comment" title="${comment}">${comment}</span>` : ''}
                 <div class="product-comp-actions">
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="Edit">&#9998;</button>
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove">&#10005;</button>
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove" style="color:#fff;">&#10005;</button>
                 </div>
             </div>`;
         }).join('');

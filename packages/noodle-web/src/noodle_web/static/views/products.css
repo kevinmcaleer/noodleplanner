@@ -361,6 +361,10 @@
     padding: 4px 10px;
 }
 
+/* Borderless input style for product form fields */
+#productFormSection input[type="text"].form-control,
+#productFormSection textarea.form-control,
+#productFormSection .product-deps-input,
 .product-comp-add input[type="text"],
 .product-comp-add input {
     flex: 1;
@@ -374,6 +378,10 @@
     transition: border-color 0.15s;
 }
 
+#productFormSection input[type="text"].form-control:hover,
+#productFormSection input[type="text"].form-control:focus,
+#productFormSection textarea.form-control:hover,
+#productFormSection textarea.form-control:focus,
 .product-comp-add input[type="text"]:hover,
 .product-comp-add input[type="text"]:focus,
 .product-comp-add input:hover,
@@ -381,6 +389,10 @@
     border-color: #ced4da !important;
 }
 
+[data-theme="dark"] #productFormSection input[type="text"].form-control:hover,
+[data-theme="dark"] #productFormSection input[type="text"].form-control:focus,
+[data-theme="dark"] #productFormSection textarea.form-control:hover,
+[data-theme="dark"] #productFormSection textarea.form-control:focus,
 [data-theme="dark"] .product-comp-add input:hover,
 [data-theme="dark"] .product-comp-add input:focus {
     border-color: var(--border-color, #444) !important;
