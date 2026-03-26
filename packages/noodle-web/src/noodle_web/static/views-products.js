@@ -1121,29 +1121,33 @@ function dmUpdateRole(selectEl) {
     const editor = document.getElementById('planEditor');
     if (!editor || !deliverable || !person) return;
 
+    // Find the exact line for this deliverable (not a [depends] reference)
     const lines = editor.value.split('\n');
-    let updated = false;
-
+    let lineIdx = -1;
+    const token = '$' + deliverable;
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (!line.includes('$' + deliverable)) continue;
-
-        // Remove existing @person:P/R/A token for this person
-        let newLine = line.replace(new RegExp('\\s*@' + person + ':[PRA]', 'gi'), '');
-
-        if (newRole) {
-            // Add the new role token
-            newLine = newLine.trimEnd() + ' @' + person + ':' + newRole;
-        }
-
-        if (newLine !== line) {
-            lines[i] = newLine;
-            updated = true;
+        if (!line.includes(token)) continue;
+        // Ensure this is the task's own $token, not inside [depends ...]
+        const depsMatch = line.match(/\[depends\s+[^\]]*\]/gi);
+        const lineWithoutDeps = depsMatch ? depsMatch.reduce((l, d) => l.replace(d, ''), line) : line;
+        if (lineWithoutDeps.includes(token)) {
+            lineIdx = i;
             break;
         }
     }
+    if (lineIdx < 0) return;
 
-    if (updated) {
+    const line = lines[lineIdx];
+    // Remove existing @person:P/R/A token for this person
+    let newLine = line.replace(new RegExp('\\s*@' + person + ':[PRA]', 'gi'), '');
+
+    if (newRole) {
+        newLine = newLine.trimEnd() + ' @' + person + ':' + newRole;
+    }
+
+    if (newLine !== line) {
+        lines[lineIdx] = newLine;
         editor.value = lines.join('\n');
         if (editor._updateLineNumbers) editor._updateLineNumbers();
         editor.dispatchEvent(new Event('input'));
