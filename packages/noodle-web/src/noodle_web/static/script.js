@@ -10125,14 +10125,28 @@ function saveCommsItemFromForm() {
 
     closeCommsForm();
     renderCommsTable();
+    forceCommsSync();
+}
+
+function forceCommsSync() {
     syncCommsLogToPlanText();
+    // Verify the sync happened — if not, force append
+    const editor = document.getElementById('planEditor');
+    if (editor && commsItems.length > 0 && !editor.value.includes(COMMS_START)) {
+        const table = generateCommsMarkdown();
+        if (table) {
+            editor.value = editor.value.trimEnd() + '\n\n' + COMMS_START + '\n' + table;
+            if (editor._updateLineNumbers) editor._updateLineNumbers();
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
 }
 
 function deleteCommsItem(id) {
     if (!confirm('Are you sure you want to delete this comms item?')) return;
     commsItems = commsItems.filter(i => i.id !== id);
     renderCommsTable();
-    syncCommsLogToPlanText();
+    forceCommsSync();
 }
 
 function confirmDeleteCommsItem() {
