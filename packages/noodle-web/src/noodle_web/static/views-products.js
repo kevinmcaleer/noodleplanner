@@ -2425,6 +2425,26 @@ function openProductForm(task) {
 
     openDetailPane('productFormSection');
 
+    // Parent product
+    const parentGroup = document.getElementById('productParentGroup');
+    const parentEl = document.getElementById('productParent');
+    if (parentGroup && parentEl) {
+        const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+        const parentProduct = task.parent ? allTasks.find(t =>
+            t.deliverable && (t.name === task.parent || t.description === task.parent)
+        ) : null;
+
+        if (parentProduct) {
+            parentGroup.style.display = '';
+            const colour = PBS_COLOURS[0];
+            const name = (parentProduct.name || '').replace(/</g, '&lt;');
+            parentEl.innerHTML = `<div class="pf-mini-node" style="background:${colour}; display: inline-block; cursor: pointer;" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${parentProduct.deliverable}'))" title="$${parentProduct.deliverable}">${name}</div>`;
+        } else {
+            parentGroup.style.display = 'none';
+            parentEl.innerHTML = '';
+        }
+    }
+
     // Title
     const titleEl = document.getElementById('productTitle');
     if (titleEl) titleEl.value = task.name || '';
