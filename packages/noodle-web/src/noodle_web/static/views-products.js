@@ -1121,23 +1121,10 @@ function dmUpdateRole(selectEl) {
     const editor = document.getElementById('planEditor');
     if (!editor || !deliverable || !person) return;
 
-    // Find the exact line for this deliverable (not a [depends] reference)
-    const lines = editor.value.split('\n');
-    let lineIdx = -1;
-    const token = '$' + deliverable;
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.includes(token)) continue;
-        // Ensure this is the task's own $token, not inside [depends ...]
-        const depsMatch = line.match(/\[depends\s+[^\]]*\]/gi);
-        const lineWithoutDeps = depsMatch ? depsMatch.reduce((l, d) => l.replace(d, ''), line) : line;
-        if (lineWithoutDeps.includes(token)) {
-            lineIdx = i;
-            break;
-        }
-    }
+    const lineIdx = _findDeliverableLineIdx(editor.value, deliverable);
     if (lineIdx < 0) return;
 
+    const lines = editor.value.split('\n');
     const line = lines[lineIdx];
     // Remove existing @person:P/R/A token for this person
     let newLine = line.replace(new RegExp('\\s*@' + person + ':[PRA]', 'gi'), '');
@@ -3571,25 +3558,36 @@ function productUpdateQARole(selectEl) {
     if (!editor) return;
 
     const deliverable = currentProductTask.deliverable;
+    const lineIdx = _findDeliverableLineIdx(editor.value, deliverable);
+    if (lineIdx < 0) return;
+
     const lines = editor.value.split('\n');
+    // Remove any existing @xxx:ROLE for this role code
+    let newLine = lines[lineIdx].replace(new RegExp('\\s*@\\S+:' + roleCode, 'gi'), '');
 
-    for (let i = 0; i < lines.length; i++) {
-        if (!lines[i].includes('$' + deliverable)) continue;
-
-        // Remove any existing @xxx:ROLE for this role code
-        let newLine = lines[i].replace(new RegExp('\\s*@\\S+:' + roleCode, 'gi'), '');
-
-        if (person) {
-            newLine = newLine.trimEnd() + ' @' + person + ':' + roleCode;
-        }
-
-        if (newLine !== lines[i]) {
-            lines[i] = newLine;
-            editor.value = lines.join('\n');
-            if (editor._updateLineNumbers) editor._updateLineNumbers();
-            editor.dispatchEvent(new Event('input'));
-            setTimeout(() => renderText(), 10);
-        }
-        break;
+    if (person) {
+        newLine = newLine.trimEnd() + ' @' + person + ':' + roleCode;
     }
+
+    if (newLine !== lines[lineIdx]) {
+        lines[lineIdx] = newLine;
+        editor.value = lines.join('\n');
+        if (editor._updateLineNumbers) editor._updateLineNumbers();
+        editor.dispatchEvent(new Event('input'));
+        setTimeout(() => renderText(), 10);
+    }
+}
+
+// Find the line index where $deliverable is the task's OWN token (not in [depends])
+function _findDeliverableLineIdx(text, deliverable) {
+    const lines = text.split('\n');
+    const token = '$' + deliverable;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes(token)) continue;
+        // Strip [depends ...] blocks and check if token remains
+        const withoutDeps = line.replace(/\[depends\s+[^\]]*\]/gi, '');
+        if (withoutDeps.includes(token)) return i;
+    }
+    return -1;
 }
