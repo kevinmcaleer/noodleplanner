@@ -1196,6 +1196,24 @@ function updateProductFlow(tasks, projectName) {
         assignColumn(key, visited);
     }
 
+    // Shift independent nodes (no deps) to be one column before their
+    // earliest downstream dependent, so they sit close to what needs them
+    for (const [key, node] of Object.entries(nodes)) {
+        if (node.deps.length > 0) continue; // has upstream deps — column is correct
+
+        // Find the earliest column of anything that depends on this node
+        let minDownstreamCol = Infinity;
+        for (const [otherKey, otherNode] of Object.entries(nodes)) {
+            if (otherNode.deps.includes(key)) {
+                minDownstreamCol = Math.min(minDownstreamCol, otherNode.column);
+            }
+        }
+
+        if (minDownstreamCol !== Infinity && minDownstreamCol > 0) {
+            node.column = minDownstreamCol - 1;
+        }
+    }
+
     // Group by column
     const columns = {};
     for (const [key, node] of Object.entries(nodes)) {
