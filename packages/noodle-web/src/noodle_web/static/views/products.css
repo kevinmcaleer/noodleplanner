@@ -154,10 +154,12 @@
     padding: 16px;
     overflow: auto;
     max-height: calc(100vh - 200px);
+    max-width: 100%;
 }
 
 .deliverables-table {
-    width: 100%;
+    width: max-content;
+    min-width: 100%;
     border-collapse: collapse;
     font-size: 13px;
 }
@@ -175,6 +177,7 @@
     position: sticky;
     top: 0;
     z-index: 1;
+    white-space: nowrap;
 }
 
 .deliverables-table td {
@@ -188,88 +191,136 @@
     background: var(--surface-hover, rgba(255,255,255,0.03));
 }
 
-.deliverable-id code {
-    background: rgba(74, 144, 217, 0.15);
-    color: #6cb4ff;
-    padding: 2px 6px;
-    border-radius: 3px;
+.deliverable-id {
+    font-family: monospace;
     font-size: 12px;
+    color: var(--text-secondary, #888);
+    white-space: nowrap;
 }
 
 .deliverable-name {
     font-weight: 500;
 }
 
-.deliverable-activities {
-    max-width: 250px;
-    color: var(--text-secondary, #555);
-    font-size: 12px;
-}
-
-.deliverable-resources {
+.deliverable-dates {
     white-space: nowrap;
-}
-
-.deliverable-deps code {
     font-size: 12px;
 }
 
-.deliverable-status-badge {
+.deliverable-status {
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+/* ── Quality Role Cells ─────────────────────────────────────────── */
+
+.dm-col-person {
+    text-align: center;
+    min-width: 60px;
+}
+
+.dm-role-cell {
+    text-align: center;
+    cursor: pointer;
+    min-width: 60px;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.dm-role-cell:hover {
+    background: var(--surface-hover, rgba(255,255,255,0.06)) !important;
+}
+
+.dm-role-label {
     display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    text-align: center;
 }
 
-.status-not-started {
-    background: rgba(150, 150, 150, 0.15);
-    color: #666;
+.dm-role-producer .dm-role-label {
+    background: rgba(74, 144, 217, 0.2);
+    color: #4A90D9;
 }
 
-.status-in-progress {
-    background: rgba(74, 144, 217, 0.15);
-    color: #2a6cb0;
+.dm-role-reviewer .dm-role-label {
+    background: rgba(217, 74, 74, 0.2);
+    color: #D94A4A;
 }
 
-.status-complete {
-    background: rgba(92, 184, 92, 0.15);
+.dm-role-approver .dm-role-label {
+    background: rgba(74, 184, 92, 0.2);
     color: #2d8a2d;
 }
 
-[data-theme="dark"] .status-not-started { color: #999; }
-[data-theme="dark"] .status-in-progress { color: #6cb4ff; }
-[data-theme="dark"] .status-complete { color: #6fd66f; }
-
-.deliverable-progress {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 100px;
-    width: 100%;
+.dm-role-empty .dm-role-label {
+    color: transparent;
 }
 
-.deliverable-progress-bar {
-    flex: 1;
-    height: 6px;
-    background: rgba(0,0,0,0.1);
-    border-radius: 3px;
+/* ── Quality Assured column ──────────────────────────────────────── */
+
+.dm-col-qa,
+.dm-col-qa-cell {
+    text-align: center;
+    min-width: 40px;
+}
+
+.dm-qa-tick {
+    color: #222;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+[data-theme="dark"] .dm-qa-tick {
+    color: #fff;
+}
+
+/* ── Role Dropdown ───────────────────────────────────────────────── */
+
+.dm-role-dropdown {
+    background: var(--surface-primary, #fff);
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    min-width: 140px;
     overflow: hidden;
 }
 
-.deliverable-progress-fill {
-    height: 100%;
-    background: #4A90D9;
-    border-radius: 3px;
-    transition: width 0.3s;
+[data-theme="dark"] .dm-role-dropdown {
+    background: var(--surface-secondary, #1e1e2e);
+    border-color: var(--border-color, #444);
 }
 
-.deliverable-progress-text {
-    font-size: 11px;
-    color: var(--text-secondary, #555);
-    min-width: 30px;
-    text-align: right;
+.dm-role-dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary, #333);
+    transition: background 0.1s;
 }
+
+.dm-role-dropdown-item:hover {
+    background: var(--surface-hover, rgba(74, 144, 217, 0.1));
+}
+
+.dm-role-dropdown-item.active {
+    font-weight: 700;
+}
+
+.dm-role-dropdown-item.dm-role-producer { color: #4A90D9; }
+.dm-role-dropdown-item.dm-role-reviewer { color: #D94A4A; }
+.dm-role-dropdown-item.dm-role-approver { color: #2d8a2d; }
+
+[data-theme="dark"] .dm-role-dropdown-item {
+    color: #ddd;
+}
+[data-theme="dark"] .dm-role-dropdown-item.dm-role-producer { color: #6cb4ff; }
+[data-theme="dark"] .dm-role-dropdown-item.dm-role-reviewer { color: #ff6b6b; }
+[data-theme="dark"] .dm-role-dropdown-item.dm-role-approver { color: #6fd66f; }
 
 /* ── Ribbon title spacing ────────────────────────────────────────── */
 
@@ -651,14 +702,6 @@ input[type="text"].product-deps-input {
     color: #ddd;
 }
 
-[data-theme="dark"] .deliverable-activities {
-    color: #aaa;
-}
-
-[data-theme="dark"] .deliverable-progress-bar {
-    background: rgba(255,255,255,0.1);
-}
-
-[data-theme="dark"] .deliverable-progress-text {
-    color: #aaa;
+[data-theme="dark"] .deliverable-id {
+    color: #888;
 }

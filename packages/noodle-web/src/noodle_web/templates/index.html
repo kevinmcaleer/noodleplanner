@@ -1226,17 +1226,13 @@ Press Enter to render..."></textarea>
                             <div class="deliverables-content" style="display: none;">
                                 <h2 class="deliverables-title"><span class="ribbon-banner ribbon-banner--green">Deliverables Matrix</span></h2>
                                 <div class="deliverables-container">
-                                    <table class="deliverables-table">
-                                        <thead>
+                                    <table class="deliverables-table" id="deliverablesMatrixTable">
+                                        <thead id="deliverablesMatrixHead">
                                             <tr>
-                                                <th>ID</th>
-                                                <th>Deliverable</th>
-                                                <th>Activities</th>
-                                                <th>Skills / Resources</th>
-                                                <th>Dependencies</th>
-                                                <th>Dates</th>
-                                                <th>Status</th>
-                                                <th>Progress</th>
+                                                <th class="dm-col-fixed">ID</th>
+                                                <th class="dm-col-fixed">Deliverable</th>
+                                                <th class="dm-col-fixed">Dates</th>
+                                                <th class="dm-col-fixed">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody id="deliverablesMatrixBody">

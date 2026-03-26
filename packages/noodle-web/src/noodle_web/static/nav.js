@@ -484,7 +484,7 @@ function switchOutputTab(tabName) {
     if (tabName === 'deliverables' && typeof updateDeliverablesMatrix === 'function') {
         setTimeout(() => {
             if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
-                updateDeliverablesMatrix(lastRenderedTasks);
+                updateDeliverablesMatrix(lastRenderedTasks, undefined, typeof globalResourceMap !== 'undefined' ? globalResourceMap : {}, window._lastStakeholders || []);
             }
         }, 50);
     }

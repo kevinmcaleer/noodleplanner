@@ -333,8 +333,25 @@ def extract_metadata(task_str, task_name=None):
     meta = {}
     tokens = re.split(r'(?<!\\)\s+', task_str)
     resources = [t for t in tokens if t.startswith('@')]
-    if resources:
-        meta['resources'] = ', '.join([r.lstrip('@') for r in resources])
+
+    # Separate quality-role assignments (@resource:P/R/A) from regular resources
+    quality_roles = {}  # {resource_shortname: role_letter}
+    regular_resources = []
+    for r in resources:
+        name = r.lstrip('@')
+        # Check for :P, :R, or :A suffix (case-insensitive)
+        qr_match = re.match(r'^(.+?):(P|R|A)$', name, re.IGNORECASE)
+        if qr_match:
+            res_name = qr_match.group(1)
+            role_letter = qr_match.group(2).upper()
+            quality_roles[res_name] = role_letter
+        else:
+            regular_resources.append(name)
+
+    if regular_resources:
+        meta['resources'] = ', '.join(regular_resources)
+    if quality_roles:
+        meta['quality_roles'] = quality_roles
 
     # Extract deliverable/product marker using $ prefix (e.g. $fuselage, $avionics)
     deliverable_pattern = r'\$([A-Za-z_][A-Za-z0-9_-]*)'
@@ -777,12 +794,14 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                     summary_resources = ''
                     summary_deliverable = ''
                     summary_depends = []
+                    summary_quality_roles = {}
                     summary_text = value.get('_summary_text', '')
                     if summary_text:
                         summary_meta_data = extract_metadata(summary_text, key)
                         summary_resources = summary_meta_data.get('resources', '')
                         summary_deliverable = summary_meta_data.get('deliverable', '')
                         summary_depends = summary_meta_data.get('depends', [])
+                        summary_quality_roles = summary_meta_data.get('quality_roles', {})
                     summary_meta = {
                         'name': key,
                         'description': key,
@@ -798,6 +817,8 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                         summary_meta['deliverable'] = summary_deliverable
                     if summary_depends:
                         summary_meta['depends'] = summary_depends
+                    if summary_quality_roles:
+                        summary_meta['quality_roles'] = summary_quality_roles
                     if len(all_tasks) >= MAX_TASK_COUNT:
                         raise ValueError(
                             f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
