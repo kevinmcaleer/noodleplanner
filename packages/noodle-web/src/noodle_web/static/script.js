@@ -11867,6 +11867,7 @@ function openStakeholderForm(itemId) {
 
         title.textContent = 'Edit Stakeholder';
         idField.value = item.id;
+        document.getElementById('stakeholderItemShortname').value = item.shortname || '';
         document.getElementById('stakeholderItemName').value = item.name;
         document.getElementById('stakeholderItemRole').value = item.role;
         document.getElementById('stakeholderItemInterest').value = item.interest;
@@ -11874,6 +11875,7 @@ function openStakeholderForm(itemId) {
     } else {
         title.textContent = 'New Stakeholder';
         idField.value = '';
+        document.getElementById('stakeholderItemShortname').value = '';
         document.getElementById('stakeholderItemName').value = '';
         document.getElementById('stakeholderItemRole').value = '';
         document.getElementById('stakeholderItemInterest').value = 'high';
@@ -11895,6 +11897,7 @@ function closeStakeholderForm() {
  */
 function saveStakeholderFromForm() {
     const idField = document.getElementById('stakeholderItemId').value;
+    const shortname = document.getElementById('stakeholderItemShortname').value.trim();
     const name = document.getElementById('stakeholderItemName').value.trim();
 
     if (!name) {
@@ -11903,6 +11906,7 @@ function saveStakeholderFromForm() {
     }
 
     const itemData = {
+        shortname: shortname || name.split(' ')[0].toLowerCase(),
         name: name,
         role: document.getElementById('stakeholderItemRole').value.trim(),
         interest: document.getElementById('stakeholderItemInterest').value,
@@ -12238,10 +12242,12 @@ function parseStakeholderEntry(entry) {
     // Split on first colon to separate name from rest
     const colonIndex = entry.indexOf(':');
     if (colonIndex === -1) {
-        return { name: entry.replace(/^@/, '').trim(), role: '', interest: 'low', influence: 'low' };
+        const fullName = entry.replace(/^@/, '').trim();
+        return { shortname: fullName.split(' ')[0].toLowerCase(), name: fullName, role: '', interest: 'low', influence: 'low' };
     }
 
     const name = entry.substring(0, colonIndex).replace(/^@/, '').trim();
+    const shortname = name.split(' ')[0].toLowerCase();
     const rest = entry.substring(colonIndex + 1).trim();
 
     // Parse comma-separated values
@@ -12269,7 +12275,7 @@ function parseStakeholderEntry(entry) {
 
     role = roleParts.join(', ');
 
-    return { name, role, interest, influence };
+    return { shortname, name, role, interest, influence };
 }
 
 /**
@@ -12348,7 +12354,8 @@ function generateStakeholdersFrontMatterSection(items) {
 
     let section = 'Key Stakeholders:\n';
     items.forEach(item => {
-        let line = `- ${item.name}: ${item.role}`;
+        const prefix = item.shortname ? `@${item.shortname} ` : '@';
+        let line = `- ${prefix}${item.name}: ${item.role}`;
         line += `, interest:${item.interest}`;
         line += `, influence:${item.influence}`;
         section += line + '\n';

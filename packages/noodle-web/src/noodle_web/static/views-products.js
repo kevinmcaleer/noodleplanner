@@ -866,13 +866,13 @@ function _dmCollectPeople(deliverables, allTasks, resourceMap, stakeholders) {
         }
     }
 
-    // 3. From Key Stakeholders
+    // 3. From Key Stakeholders — use shortname if available
     if (stakeholders && stakeholders.length > 0) {
         for (const s of stakeholders) {
-            const rawName = (s.name || '').replace(/^@/, '');
-            const key = rawName.toLowerCase();
+            const key = (s.shortname || s.name || '').replace(/^@/, '').toLowerCase();
+            const displayName = s.name || key;
             if (!people[key]) {
-                people[key] = rawName;
+                people[key] = displayName;
             }
         }
     }
@@ -886,7 +886,7 @@ function _dmCollectPeople(deliverables, allTasks, resourceMap, stakeholders) {
     }
     if (stakeholders && stakeholders.length > 0) {
         for (const s of stakeholders) {
-            const key = (s.name || '').replace(/^@/, '').toLowerCase();
+            const key = (s.shortname || s.name || '').replace(/^@/, '').toLowerCase();
             if (s.role && !roleMap[key]) roleMap[key] = s.role;
         }
     }
