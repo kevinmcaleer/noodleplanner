@@ -1216,52 +1216,69 @@ function updateProductFlow(tasks, projectName) {
         }
     }
 
-    // Assign initial row indices
+    // Combined barycenter: use both upstream AND downstream connections
+    // Run multiple passes for convergence
     const rowIndex = {};
     for (let col = 0; col <= maxCol; col++) {
-        const items = columns[col] || [];
-        items.forEach((item, idx) => { rowIndex[item.key] = idx; });
+        (columns[col] || []).forEach((item, idx) => { rowIndex[item.key] = idx; });
     }
 
-    // Forward pass: sort each column by average row of dependencies
-    for (let col = 1; col <= maxCol; col++) {
-        const items = columns[col] || [];
-        if (items.length <= 1) continue;
+    for (let pass = 0; pass < 3; pass++) {
+        // Forward pass
+        for (let col = 0; col <= maxCol; col++) {
+            const items = columns[col] || [];
+            if (items.length <= 1) continue;
 
-        items.sort((a, b) => {
-            const aAvg = a.deps.length > 0
-                ? a.deps.reduce((s, d) => s + (rowIndex[d] || 0), 0) / a.deps.length
-                : Infinity;
-            const bAvg = b.deps.length > 0
-                ? b.deps.reduce((s, d) => s + (rowIndex[d] || 0), 0) / b.deps.length
-                : Infinity;
-            return aAvg - bAvg;
-        });
+            items.sort((a, b) => {
+                const aUp = a.deps.filter(d => rowIndex[d] !== undefined);
+                const aDown = (dependedOnBy[a.key] || []).filter(d => rowIndex[d] !== undefined);
+                const bUp = b.deps.filter(d => rowIndex[d] !== undefined);
+                const bDown = (dependedOnBy[b.key] || []).filter(d => rowIndex[d] !== undefined);
 
-        // Update row indices
-        items.forEach((item, idx) => { rowIndex[item.key] = idx; });
-        columns[col] = items;
-    }
+                const aAll = [...aUp, ...aDown];
+                const bAll = [...bUp, ...bDown];
 
-    // Backward pass: refine ordering based on downstream connections
-    for (let col = maxCol - 1; col >= 0; col--) {
-        const items = columns[col] || [];
-        if (items.length <= 1) continue;
+                const aAvg = aAll.length > 0
+                    ? aAll.reduce((s, d) => s + rowIndex[d], 0) / aAll.length
+                    : rowIndex[a.key];
+                const bAvg = bAll.length > 0
+                    ? bAll.reduce((s, d) => s + rowIndex[d], 0) / bAll.length
+                    : rowIndex[b.key];
 
-        items.sort((a, b) => {
-            const aDownstream = dependedOnBy[a.key] || [];
-            const bDownstream = dependedOnBy[b.key] || [];
-            const aAvg = aDownstream.length > 0
-                ? aDownstream.reduce((s, d) => s + (rowIndex[d] || 0), 0) / aDownstream.length
-                : rowIndex[a.key] || 0;
-            const bAvg = bDownstream.length > 0
-                ? bDownstream.reduce((s, d) => s + (rowIndex[d] || 0), 0) / bDownstream.length
-                : rowIndex[b.key] || 0;
-            return aAvg - bAvg;
-        });
+                return aAvg - bAvg;
+            });
 
-        items.forEach((item, idx) => { rowIndex[item.key] = idx; });
-        columns[col] = items;
+            items.forEach((item, idx) => { rowIndex[item.key] = idx; });
+            columns[col] = items;
+        }
+
+        // Backward pass
+        for (let col = maxCol; col >= 0; col--) {
+            const items = columns[col] || [];
+            if (items.length <= 1) continue;
+
+            items.sort((a, b) => {
+                const aUp = a.deps.filter(d => rowIndex[d] !== undefined);
+                const aDown = (dependedOnBy[a.key] || []).filter(d => rowIndex[d] !== undefined);
+                const bUp = b.deps.filter(d => rowIndex[d] !== undefined);
+                const bDown = (dependedOnBy[b.key] || []).filter(d => rowIndex[d] !== undefined);
+
+                const aAll = [...aUp, ...aDown];
+                const bAll = [...bUp, ...bDown];
+
+                const aAvg = aAll.length > 0
+                    ? aAll.reduce((s, d) => s + rowIndex[d], 0) / aAll.length
+                    : rowIndex[a.key];
+                const bAvg = bAll.length > 0
+                    ? bAll.reduce((s, d) => s + rowIndex[d], 0) / bAll.length
+                    : rowIndex[b.key];
+
+                return aAvg - bAvg;
+            });
+
+            items.forEach((item, idx) => { rowIndex[item.key] = idx; });
+            columns[col] = items;
+        }
     }
 
     // Layout: x by column, y cumulative (diamonds get extra space for label)
@@ -1285,6 +1302,47 @@ function updateProductFlow(tasks, projectName) {
         }
     }
 
+
+    // Post-layout: adjust y positions so nodes sit at the average y of their connections
+    // This makes e.g. Test sit halfway between Build and Training Materials
+    for (let pass = 0; pass < 2; pass++) {
+        for (const [key, pos] of Object.entries(positions)) {
+            const upstream = pos.deps.map(d => positions[d]).filter(Boolean);
+            const downstream = (dependedOnBy[key] || []).map(d => positions[d]).filter(Boolean);
+            const connected = [...upstream, ...downstream];
+            if (connected.length === 0) continue;
+
+            const avgY = connected.reduce((s, p) => s + p.y, 0) / connected.length;
+
+            // Only move if it doesn't overlap with neighbours in the same column
+            const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
+            const sameCol = Object.values(positions).filter(p =>
+                p !== pos && Math.round((p.x - 40) / (PF_NODE_W + PF_H_GAP)) === col
+            );
+
+            let targetY = avgY;
+            // Ensure no overlap with same-column nodes
+            for (const other of sameCol) {
+                if (Math.abs(targetY - other.y) < PF_NODE_H + PF_V_GAP) {
+                    // Too close — nudge away
+                    if (targetY < other.y) {
+                        targetY = Math.min(targetY, other.y - PF_NODE_H - PF_V_GAP);
+                    } else {
+                        targetY = Math.max(targetY, other.y + PF_NODE_H + PF_V_GAP);
+                    }
+                }
+            }
+            pos.y = targetY;
+        }
+    }
+
+    // Normalize: shift all positions so minimum y is 40
+    let minY = Infinity;
+    for (const pos of Object.values(positions)) minY = Math.min(minY, pos.y);
+    if (minY < 40) {
+        const shift = 40 - minY;
+        for (const pos of Object.values(positions)) pos.y += shift;
+    }
 
     // Render
     if (!pfSvg) initProductFlow();
