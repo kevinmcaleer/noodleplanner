@@ -113,7 +113,7 @@ def _static_version():
     """Generate a cache-busting version string from static file contents."""
     static_dir = package_dir / "static"
     h = hashlib.md5()
-    for f in sorted(static_dir.glob("*")):
+    for f in sorted(static_dir.rglob("*")):
         if f.is_file():
             h.update(str(f.stat().st_mtime_ns).encode())
     return h.hexdigest()[:8]
