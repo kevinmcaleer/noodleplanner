@@ -1187,6 +1187,7 @@ Press Enter to render..."></textarea>
                                 <h3>Product Breakdown Structure</h3>
                                 <p>Mark tasks as deliverables using the <code>$name</code> token to see the product hierarchy.</p>
                                 <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary, #aaa);">Example: <code>Fuselage $fuselage</code></p>
+                                <button class="mindmap-toolbar-btn" onclick="pbsAddFirstProduct()" style="margin-top: 16px; width: auto; padding: 8px 20px; font-size: 14px;">+ Add first product</button>
                             </div>
                             <div class="pbs-content" style="display: none;">
                                 <h2 class="pbs-title"><span class="ribbon-banner ribbon-banner--blue">Product Breakdown Structure</span></h2>
@@ -1250,6 +1251,7 @@ Press Enter to render..."></textarea>
                             <div class="product-flow-placeholder placeholder-view">
                                 <h3>Product Flow</h3>
                                 <p>Mark tasks as deliverables using the <code>$name</code> token and add <code>[depends $product]</code> to see the build order.</p>
+                                <button class="mindmap-toolbar-btn" onclick="pbsAddFirstProduct()" style="margin-top: 16px; width: auto; padding: 8px 20px; font-size: 14px;">+ Add first product</button>
                             </div>
                             <div class="product-flow-content" style="display: none;">
                                 <h2 class="product-flow-title"><span class="ribbon-banner ribbon-banner--orange">Product Flow</span></h2>

@@ -1203,10 +1203,70 @@ function updateProductFlow(tasks, projectName) {
         columns[node.column].push({ key, ...node });
     }
 
+    // Barycenter ordering: sort nodes within each column to minimize
+    // vertical distance to their connected nodes
+    const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
+
+    // Build reverse dependency map (key → list of nodes that depend on it)
+    const dependedOnBy = {};
+    for (const [key, node] of Object.entries(nodes)) {
+        for (const dep of node.deps) {
+            if (!dependedOnBy[dep]) dependedOnBy[dep] = [];
+            dependedOnBy[dep].push(key);
+        }
+    }
+
+    // Assign initial row indices
+    const rowIndex = {};
+    for (let col = 0; col <= maxCol; col++) {
+        const items = columns[col] || [];
+        items.forEach((item, idx) => { rowIndex[item.key] = idx; });
+    }
+
+    // Forward pass: sort each column by average row of dependencies
+    for (let col = 1; col <= maxCol; col++) {
+        const items = columns[col] || [];
+        if (items.length <= 1) continue;
+
+        items.sort((a, b) => {
+            const aAvg = a.deps.length > 0
+                ? a.deps.reduce((s, d) => s + (rowIndex[d] || 0), 0) / a.deps.length
+                : Infinity;
+            const bAvg = b.deps.length > 0
+                ? b.deps.reduce((s, d) => s + (rowIndex[d] || 0), 0) / b.deps.length
+                : Infinity;
+            return aAvg - bAvg;
+        });
+
+        // Update row indices
+        items.forEach((item, idx) => { rowIndex[item.key] = idx; });
+        columns[col] = items;
+    }
+
+    // Backward pass: refine ordering based on downstream connections
+    for (let col = maxCol - 1; col >= 0; col--) {
+        const items = columns[col] || [];
+        if (items.length <= 1) continue;
+
+        items.sort((a, b) => {
+            const aDownstream = dependedOnBy[a.key] || [];
+            const bDownstream = dependedOnBy[b.key] || [];
+            const aAvg = aDownstream.length > 0
+                ? aDownstream.reduce((s, d) => s + (rowIndex[d] || 0), 0) / aDownstream.length
+                : rowIndex[a.key] || 0;
+            const bAvg = bDownstream.length > 0
+                ? bDownstream.reduce((s, d) => s + (rowIndex[d] || 0), 0) / bDownstream.length
+                : rowIndex[b.key] || 0;
+            return aAvg - bAvg;
+        });
+
+        items.forEach((item, idx) => { rowIndex[item.key] = idx; });
+        columns[col] = items;
+    }
+
     // Layout: x by column, y cumulative (diamonds get extra space for label)
     const PF_DIAMOND_EXTRA = 20;
     const positions = {};
-    const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
     for (let col = 0; col <= maxCol; col++) {
         const items = columns[col] || [];
         let y = 40;
@@ -2141,6 +2201,49 @@ function applyDuplicateHighlights() {
 
     // Insert at the start of highlight layer so it's behind the text
     highlightLayer.insertBefore(overlay, highlightLayer.firstChild);
+}
+
+function pbsAddFirstProduct() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Generate unique identifier
+    let id = 'new_product';
+    const existingIds = new Set();
+    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/g;
+    let m;
+    while ((m = idRegex.exec(editor.value)) !== null) {
+        existingIds.add(m[1].toLowerCase());
+    }
+    let counter = 1;
+    while (existingIds.has(id)) {
+        id = `new_product_${counter}`;
+        counter++;
+    }
+
+    // Find the end of the task section (before --- sections)
+    const lines = editor.value.split('\n');
+    let insertAt = lines.length;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '---' && i > 0) {
+            // Skip the first --- (front matter start), find the second one
+            let fmCount = 0;
+            for (let j = 0; j <= i; j++) {
+                if (lines[j].trim() === '---') fmCount++;
+            }
+            if (fmCount > 2) { insertAt = i; break; }
+        }
+        if (lines[i].trim().startsWith('---') && lines[i].trim().endsWith('---') && lines[i].trim().length > 3) {
+            insertAt = i;
+            break;
+        }
+    }
+
+    lines.splice(insertAt, 0, `\nNew Product $${id}`);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => renderText(), 10);
 }
 
 function pbsCreateProduct(anchorTaskName, position) {
