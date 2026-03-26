@@ -2478,7 +2478,8 @@ function openProductForm(task) {
                 <div class="pf-mini-node" style="background:${colour}; flex-shrink: 0;" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="$${id}">${name}</div>
                 ${comment ? `<span class="product-comp-comment" title="${comment}">${comment}</span>` : ''}
                 <div class="product-comp-actions">
-                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove" style="color:#fff;">&#10005;</button>
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="Edit">&#9998;</button>
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove">&#10005;</button>
                 </div>
             </div>`;
         }).join('');
