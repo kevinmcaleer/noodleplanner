@@ -913,7 +913,7 @@ def parse_comms_markdown(text: str) -> list:
                 col_map[field] = idx
                 break
 
-    valid_frequencies = ['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'Ad-hoc']
+    valid_frequencies = ['Daily', 'Weekly', 'Fortnightly', 'Monthly', 'Quarterly', 'Annually', 'Ad-hoc', 'Once']
     valid_statuses = ['Active', 'Planned', 'Completed']
     items = []
     max_id = 0
