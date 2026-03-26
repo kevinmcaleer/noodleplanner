@@ -2331,23 +2331,24 @@ def parse_stakeholders_from_frontmatter(original_text):
 def _parse_stakeholder_entry(entry):
     """Parse a single stakeholder entry string.
 
-    Format: ``@Name: Role, interest:high, influence:low``
+    Format: ``@shortname: Full Name, Role, interest:high, influence:low``
 
-    Returns a dict with keys: name, role, interest, influence.
+    Returns a dict with keys: shortname, name, role, interest, influence.
     """
     if not entry or not entry.startswith('@'):
         return None
 
     colon_idx = entry.find(':')
     if colon_idx == -1:
-        return {'name': entry.strip(), 'role': '', 'interest': 'low', 'influence': 'low'}
+        raw = entry[1:].strip()  # strip @
+        return {'shortname': raw.split()[0].lower() if raw else raw, 'name': raw, 'role': '', 'interest': 'low', 'influence': 'low'}
 
-    name = entry[:colon_idx].strip()
+    shortname = entry[1:colon_idx].strip().lower()  # after @ before :
     rest = entry[colon_idx + 1:].strip()
 
     parts = [p.strip() for p in rest.split(',')]
 
-    role_parts = []
+    text_parts = []
     interest = 'low'
     influence = 'low'
 
@@ -2362,11 +2363,13 @@ def _parse_stakeholder_entry(entry):
                 influence = val
         else:
             if part:
-                role_parts.append(part)
+                text_parts.append(part)
 
-    role = ', '.join(role_parts)
+    # First text part is name, rest is role
+    name = text_parts[0] if text_parts else shortname
+    role = ', '.join(text_parts[1:]) if len(text_parts) > 1 else ''
 
-    return {'name': name, 'role': role, 'interest': interest, 'influence': influence}
+    return {'shortname': shortname, 'name': name, 'role': role, 'interest': interest, 'influence': influence}
 
 
 def calculate_evm(tasks, budget_items=None):

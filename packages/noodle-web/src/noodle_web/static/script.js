@@ -11969,6 +11969,7 @@ function renderStakeholderTable() {
         const influenceClass = item.influence === 'high' ? 'stakeholder-level-high' : 'stakeholder-level-low';
 
         row.innerHTML = `
+            <td><code>@${escapeHtml(item.shortname || '')}</code></td>
             <td>${escapeHtml(item.name)}</td>
             <td>${escapeHtml(item.role)}</td>
             <td><span class="stakeholder-level-badge ${interestClass}">${interestLabel}</span></td>
@@ -12239,26 +12240,26 @@ function parseStakeholdersFromFrontMatter(frontMatterStr) {
 function parseStakeholderEntry(entry) {
     if (!entry || !entry.startsWith('@')) return null;
 
-    // Split on first colon to separate name from rest
+    // Format: @shortname: Full Name, Role, interest:high, influence:low
     const colonIndex = entry.indexOf(':');
     if (colonIndex === -1) {
         const fullName = entry.replace(/^@/, '').trim();
         return { shortname: fullName.split(' ')[0].toLowerCase(), name: fullName, role: '', interest: 'low', influence: 'low' };
     }
 
-    const name = entry.substring(0, colonIndex).replace(/^@/, '').trim();
-    const shortname = name.split(' ')[0].toLowerCase();
+    const shortname = entry.substring(1, colonIndex).trim().toLowerCase(); // after @ before :
     const rest = entry.substring(colonIndex + 1).trim();
 
     // Parse comma-separated values
+    // Format: Full Name, Role, interest:high, influence:low
     const parts = rest.split(',').map(p => p.trim());
 
+    let name = '';
     let role = '';
     let interest = 'low';
     let influence = 'low';
 
-    const keyValueParts = [];
-    const roleParts = [];
+    const textParts = [];
 
     for (const part of parts) {
         const kvMatch = part.match(/^(interest|influence):\s*(high|low)$/i);
@@ -12269,11 +12270,16 @@ function parseStakeholderEntry(entry) {
                 influence = kvMatch[2].toLowerCase();
             }
         } else {
-            roleParts.push(part);
+            textParts.push(part);
         }
     }
 
-    role = roleParts.join(', ');
+    // First text part is the name, rest is the role
+    if (textParts.length > 0) name = textParts[0];
+    if (textParts.length > 1) role = textParts.slice(1).join(', ');
+
+    // Fallback: if no name parsed, use shortname
+    if (!name) name = shortname;
 
     return { shortname, name, role, interest, influence };
 }
@@ -12354,8 +12360,8 @@ function generateStakeholdersFrontMatterSection(items) {
 
     let section = 'Key Stakeholders:\n';
     items.forEach(item => {
-        const prefix = item.shortname ? `@${item.shortname} ` : '@';
-        let line = `- ${prefix}${item.name}: ${item.role}`;
+        const sn = item.shortname || item.name.split(' ')[0].toLowerCase();
+        let line = `- @${sn}: ${item.name}, ${item.role}`;
         line += `, interest:${item.interest}`;
         line += `, influence:${item.influence}`;
         section += line + '\n';
