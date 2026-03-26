@@ -2441,44 +2441,48 @@ function openProductForm(task) {
     const purposeEl = document.getElementById('productPurpose');
     if (purposeEl) purposeEl.value = task.comment || '';
 
-    // Composition (child tasks)
-    const compEl = document.getElementById('productComposition');
-    if (compEl) {
-        const activities = pbsGetActivities(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
-        if (activities.length === 0) {
-            compEl.innerHTML = '<span>No child tasks</span>';
-        } else {
-            compEl.innerHTML = activities.map(a => {
-                const pct = parseFloat(a.percent) || 0;
-                const name = (a.description || a.name || '').replace(/</g, '&lt;');
-                return `<div class="product-comp-item">
-                    <span class="product-comp-name">${name}</span>
-                    <span class="product-comp-pct">${pct}%</span>
-                </div>`;
-            }).join('');
-        }
-    }
-
-    // Child products (deliverables that are direct children of this product)
+    // Composition (child products)
     const childProdsEl = document.getElementById('productChildProducts');
     if (childProdsEl) {
         const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
         const parentName = task.name || task.description;
-        const childProducts = allTasks.filter(t =>
-            t.deliverable && t.parent === parentName
-        );
-        if (childProducts.length === 0) {
-            childProdsEl.innerHTML = '<span>No child products</span>';
-        } else {
-            childProdsEl.innerHTML = childProducts.map(cp => {
-                const name = (cp.name || cp.description || '').replace(/</g, '&lt;');
-                const id = cp.deliverable || '';
-                return `<div class="product-comp-item" style="cursor: pointer;" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))">
-                    <span class="product-comp-name">${name}</span>
-                    <span class="product-comp-pct" style="color: var(--text-secondary, #888); font-family: monospace;">$${id}</span>
-                </div>`;
-            }).join('');
-        }
+        const childProducts = allTasks.filter(t => t.deliverable && t.parent === parentName);
+        let html = childProducts.map(cp => {
+            const name = (cp.name || cp.description || '').replace(/</g, '&lt;');
+            const id = cp.deliverable || '';
+            const comment = (cp.comment || '').replace(/</g, '&lt;');
+            return `<div class="product-comp-item" style="cursor: pointer;">
+                <span class="product-comp-name" onclick="openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))">${name}</span>
+                ${comment ? `<span class="product-comp-comment" title="${comment}">${comment}</span>` : ''}
+                <div class="product-comp-actions">
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); openProductForm(lastRenderedTasks.find(t => t.deliverable === '${id}'))" title="Edit">&#9998;</button>
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteChild('${id}')" title="Remove">&#10005;</button>
+                </div>
+            </div>`;
+        }).join('');
+        html += `<div class="product-comp-add"><input type="text" placeholder="Add child product..." onkeydown="if(event.key==='Enter'){productAddChild(this.value);this.value='';event.preventDefault();}"></div>`;
+        childProdsEl.innerHTML = html;
+    }
+
+    // Activities (child tasks — non-deliverable leaf tasks)
+    const compEl = document.getElementById('productComposition');
+    if (compEl) {
+        const activities = pbsGetActivities(task, pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []));
+        let html = activities.map(a => {
+            const pct = parseFloat(a.percent) || 0;
+            const name = (a.description || a.name || '').replace(/</g, '&lt;');
+            const safeName = (a.name || '').replace(/'/g, "\\'");
+            return `<div class="product-comp-item">
+                <span class="product-comp-name">${name}</span>
+                <span class="product-comp-pct">${pct}%</span>
+                <div class="product-comp-actions">
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); openTaskFormByName('${safeName}')" title="Edit">&#9998;</button>
+                    <button class="product-comp-action-btn" onclick="event.stopPropagation(); productDeleteActivity('${safeName}')" title="Remove">&#10005;</button>
+                </div>
+            </div>`;
+        }).join('');
+        html += `<div class="product-comp-add"><input type="text" placeholder="Add activity..." onkeydown="if(event.key==='Enter'){productAddActivity(this.value);this.value='';event.preventDefault();}"></div>`;
+        compEl.innerHTML = html;
     }
 
     // Mini flow diagram — inputs → [this] → outputs
@@ -2562,19 +2566,61 @@ function openProductForm(task) {
         }
     }
 
-    // Dependencies
-    const depsEl = document.getElementById('productDependencies');
-    if (depsEl) {
-        const depTokens = [];
+    // Dependencies — tag input with autocomplete
+    const depsTagsEl = document.getElementById('productDependenciesTags');
+    const depsInputEl = document.getElementById('productDependenciesInput');
+    if (depsTagsEl && depsInputEl) {
+        const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+        const deliverables = pbsExtractDeliverables(allTasks);
+
+        // Render existing dependency tags
+        depsTagsEl.innerHTML = '';
         if (task.depends) {
-            const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
-            const deliverables = pbsExtractDeliverables(allTasks);
+            let tagIdx = 0;
             for (const depName of task.depends) {
                 const depTask = deliverables.find(d => d.name === depName || d.description === depName);
-                if (depTask) depTokens.push(`$${depTask.deliverable}`);
+                if (depTask) {
+                    const colour = PBS_COLOURS[tagIdx % PBS_COLOURS.length];
+                    tagIdx++;
+                    const tag = document.createElement('span');
+                    tag.className = 'product-dep-tag';
+                    tag.style.background = colour;
+                    tag.innerHTML = `${depTask.name.replace(/</g, '&lt;')}<span class="dep-tag-remove" onclick="productRemoveDep('${depTask.deliverable}')">&times;</span>`;
+                    tag.title = `$${depTask.deliverable}`;
+                    tag.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('dep-tag-remove')) return;
+                        openProductForm(depTask);
+                    });
+                    depsTagsEl.appendChild(tag);
+                }
             }
         }
-        depsEl.value = depTokens.join(', ');
+
+        // Setup autocomplete on the input
+        depsInputEl.value = '';
+        depsInputEl.oninput = () => productDepsAutocomplete(depsInputEl, deliverables);
+        depsInputEl.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const acItems = document.querySelectorAll('.product-deps-autocomplete-item.active');
+                if (acItems.length > 0) {
+                    acItems[0].click();
+                } else {
+                    // Try exact match
+                    const val = depsInputEl.value.trim();
+                    const match = deliverables.find(d => d.name.toLowerCase() === val.toLowerCase());
+                    if (match) productAddDep(match.deliverable);
+                }
+            } else if (e.key === 'Backspace' && !depsInputEl.value) {
+                // Remove last tag
+                const tags = depsTagsEl.querySelectorAll('.product-dep-tag');
+                if (tags.length > 0) {
+                    const lastTag = tags[tags.length - 1];
+                    const id = lastTag.title.replace('$', '');
+                    productRemoveDep(id);
+                }
+            }
+        };
     }
 
     // Dates (read-only, from scheduling engine)
@@ -2636,7 +2682,7 @@ function saveProductForm() {
     const newTitle = (document.getElementById('productTitle').value || '').trim();
     const newId = (document.getElementById('productIdentifier').value || '').trim();
     const newPurpose = (document.getElementById('productPurpose').value || '').trim();
-    const newDeps = (document.getElementById('productDependencies').value || '').trim();
+    const newDeps = productGetDepsFromTags();
 
     // Preserve indent and * prefix from original line
     const indent = originalLine.match(/^(\s*)/)[1];
@@ -2910,4 +2956,212 @@ function removeDeliverable() {
     if (taskName && typeof openTaskFormByName === 'function') {
         setTimeout(() => openTaskFormByName(taskName), 600);
     }
+}
+
+// ── Product form helpers: add/delete activities, child products, deps ──
+
+function productAddActivity(name) {
+    if (!name.trim() || !currentProductTask) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNum = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    const parentIndent = lines[lineNum].match(/^(\s*)/)[1];
+    const childIndent = parentIndent + '  ';
+
+    // Find end of this task's children
+    let insertAt = lineNum + 1;
+    while (insertAt < lines.length) {
+        const li = lines[insertAt];
+        if (!li.trim()) { insertAt++; continue; }
+        const indent = li.search(/\S/);
+        if (indent <= parentIndent.length) break;
+        insertAt++;
+    }
+
+    lines.splice(insertAt, 0, `${childIndent}*${name.trim()}`);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+}
+
+function productDeleteActivity(taskName) {
+    if (!taskName) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim().replace(/^\*\s*/, '');
+        const nm = t.match(/^([^@#!$"{\d\[~][^@#!$"{\[~]*?)(?:\s+[\$@#!"{~\[]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s*$)/);
+        const n = nm ? nm[1].trim() : t.split(/\s+/)[0];
+        if (n === taskName) {
+            lines.splice(i, 1);
+            break;
+        }
+    }
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+}
+
+function productAddChild(name) {
+    if (!name.trim() || !currentProductTask) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Generate unique id
+    let id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const existingIds = new Set();
+    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/g;
+    let m;
+    while ((m = idRegex.exec(editor.value)) !== null) existingIds.add(m[1].toLowerCase());
+    if (existingIds.has(id)) { let c = 1; while (existingIds.has(`${id}_${c}`)) c++; id = `${id}_${c}`; }
+
+    const lineNum = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    const parentIndent = lines[lineNum].match(/^(\s*)/)[1];
+    const childIndent = parentIndent + '  ';
+
+    let insertAt = lineNum + 1;
+    while (insertAt < lines.length) {
+        const li = lines[insertAt];
+        if (!li.trim()) { insertAt++; continue; }
+        const indent = li.search(/\S/);
+        if (indent <= parentIndent.length) break;
+        insertAt++;
+    }
+
+    lines.splice(insertAt, 0, `${childIndent}${name.trim()} $${id}`);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+}
+
+function productDeleteChild(delivId) {
+    if (!delivId) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNum = productFindLineNumber(null, delivId);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    lines.splice(lineNum, 1);
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+}
+
+function productAddDep(delivId) {
+    if (!delivId || !currentProductTask) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNum = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNum];
+    if (line.includes(`$${delivId}`)) return; // already has this dep
+
+    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    if (dependsMatch) {
+        const existing = dependsMatch[1].trim();
+        lines[lineNum] = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${existing}, $${delivId}]`);
+    } else {
+        const commentMatch = line.match(/(\s+"[^"]*"\s*)$/);
+        if (commentMatch) {
+            lines[lineNum] = line.slice(0, -commentMatch[0].length) + ` [depends $${delivId}]` + commentMatch[0];
+        } else {
+            lines[lineNum] = line + ` [depends $${delivId}]`;
+        }
+    }
+
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+
+    const depsInput = document.getElementById('productDependenciesInput');
+    if (depsInput) depsInput.value = '';
+    const acEl = document.getElementById('productDepsAutocomplete');
+    if (acEl) acEl.style.display = 'none';
+
+    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+}
+
+function productRemoveDep(delivId) {
+    if (!delivId || !currentProductTask) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lineNum = productFindLineNumber(currentProductTask.name, currentProductTask.deliverable);
+    if (lineNum === null) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNum];
+    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    if (!dependsMatch) return;
+
+    const deps = dependsMatch[1].split(',').map(d => d.trim()).filter(d => {
+        const stripped = d.replace(/:[A-Z]{2}$/i, '').replace(/\s+[+\-]\d+[dwmy]$/i, '').trim();
+        return stripped !== `$${delivId}`;
+    });
+
+    if (deps.length === 0) {
+        lines[lineNum] = line.replace(/\s*\[depends\s+[^\]]*\]/i, '');
+    } else {
+        lines[lineNum] = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${deps.join(', ')}]`);
+    }
+
+    editor.value = lines.join('\n');
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+}
+
+function productDepsAutocomplete(inputEl, deliverables) {
+    const acEl = document.getElementById('productDepsAutocomplete');
+    if (!acEl) return;
+
+    const query = inputEl.value.trim().toLowerCase();
+    if (!query) { acEl.style.display = 'none'; return; }
+
+    // Filter deliverables matching query, excluding current product and existing deps
+    const currentDeps = new Set();
+    const tags = document.querySelectorAll('#productDependenciesTags .product-dep-tag');
+    tags.forEach(t => currentDeps.add(t.title.replace('$', '')));
+    if (currentProductTask) currentDeps.add(currentProductTask.deliverable);
+
+    const matches = deliverables.filter(d =>
+        !currentDeps.has(d.deliverable) &&
+        (d.name.toLowerCase().includes(query) || d.deliverable.toLowerCase().includes(query))
+    ).slice(0, 8);
+
+    if (matches.length === 0) { acEl.style.display = 'none'; return; }
+
+    acEl.style.display = 'block';
+    acEl.innerHTML = matches.map((d, i) => {
+        const colour = PBS_COLOURS[i % PBS_COLOURS.length];
+        const name = (d.name || '').replace(/</g, '&lt;');
+        return `<div class="product-deps-autocomplete-item${i === 0 ? ' active' : ''}" onclick="productAddDep('${d.deliverable}')">
+            <span class="dep-ac-swatch" style="background:${colour};"></span>
+            <span>${name}</span>
+        </div>`;
+    }).join('');
+}
+
+// Update saveProductForm to read deps from tags instead of input
+function productGetDepsFromTags() {
+    const tags = document.querySelectorAll('#productDependenciesTags .product-dep-tag');
+    return [...tags].map(t => t.title.replace('$', '')).map(id => `$${id}`).join(', ');
 }

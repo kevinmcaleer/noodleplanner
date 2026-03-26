@@ -2195,18 +2195,16 @@ Build
 
                     <div class="form-group">
                         <label>Composition</label>
-                        <div id="productComposition" class="product-composition-list">
-                            <!-- Populated by JS -->
-                        </div>
-                        <small>Child tasks that make up this deliverable</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Child Products</label>
                         <div id="productChildProducts" class="product-composition-list">
                             <!-- Populated by JS -->
                         </div>
-                        <small>Sub-products within this deliverable</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Activities</label>
+                        <div id="productComposition" class="product-composition-list">
+                            <!-- Populated by JS -->
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -2217,9 +2215,12 @@ Build
                     </div>
 
                     <div class="form-group">
-                        <label for="productDependencies">Depends On</label>
-                        <input type="text" id="productDependencies" class="form-control" placeholder="e.g. $fuselage, $avionics" oninput="saveProductForm()">
-                        <small>Comma-separated product identifiers (use $name syntax)</small>
+                        <label>Depends On</label>
+                        <div id="productDependenciesContainer" class="product-deps-container">
+                            <div id="productDependenciesTags" class="product-deps-tags"></div>
+                            <input type="text" id="productDependenciesInput" class="product-deps-input" placeholder="Type product name..." autocomplete="off">
+                            <div id="productDepsAutocomplete" class="product-deps-autocomplete" style="display:none;"></div>
+                        </div>
                     </div>
 
                     <div class="form-grid-2col">
