@@ -18,7 +18,11 @@ File Structure
    ---raid log---
    <RAID log markdown table>
 
-Front matter is optional. The RAID log section is appended automatically when you save the RAID log.
+   ---comms---
+   <Communications plan markdown table>
+
+Front matter is optional. The RAID log and communications plan sections are
+appended automatically when you save from their respective views.
 
 Task Line Syntax
 -----------------
@@ -127,22 +131,37 @@ Use ``!"note"`` for a comment that is prominently flagged:
 Deliverables (Products)
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Mark a task as a deliverable or product with the ``$`` prefix:
+Mark a task as a deliverable or product with the ``$`` prefix followed by a
+short identifier:
 
 .. code-block:: text
 
    Fuselage $fuselage @team-a 4w
    Avionics $avionics @team-b 3w
 
-The ``$name`` token assigns a product identifier to the task. This enables product-based planning views such as the Product Breakdown Structure, Deliverables Matrix, and Product Flow.
+The ``$identifier`` token assigns a product identifier to the task. The
+identifier must be unique across the plan -- duplicate ``$identifier`` tokens
+are flagged in the editor with a yellow highlight and a status-bar warning
+showing the affected line numbers. Spaces typed in an identifier are
+automatically replaced with underscores.
 
-Product-level dependencies are created by referencing a ``$name`` in a ``[depends ...]`` block:
+Adding a ``$identifier`` enables the product-based planning views: Product
+Breakdown Structure, Deliverables Matrix, and Product Flow.
+
+Product-level dependencies are created by referencing a ``$identifier`` in a
+``[depends ...]`` block:
 
 .. code-block:: text
 
    Avionics $avionics [depends $fuselage]
 
-This means the Avionics task cannot start until the Fuselage deliverable is complete.
+This means the Avionics task cannot start until the Fuselage deliverable is
+complete. You can mix product dependencies (``$identifier``) with task-name
+dependencies in the same ``[depends ...]`` block:
+
+.. code-block:: text
+
+   Final Assembly $assembly [depends $avionics, Structural Review]
 
 Dependencies
 ~~~~~~~~~~~~~
@@ -194,3 +213,22 @@ The RAID log is embedded in the plan after a ``---raid log---`` separator as a m
    | 1  | Risk | ...   | ... | Open   |
 
 This section is managed automatically by the RAID Log view. Do not edit it manually unless you are confident of the format.
+
+Communications Plan Section
+-----------------------------
+
+The communications plan is embedded in the plan after a ``---comms---``
+separator as a markdown table:
+
+.. code-block:: markdown
+
+   ---comms---
+
+   # Communications Plan
+
+   | ID | Activity | Audience | Content | Frequency | Channel | Owner | Status |
+   |----|----------|----------|---------|-----------|---------|-------|--------|
+   | 1  | Weekly Status Update | Steering Board | Progress summary | Weekly | Email | PM | Active |
+
+This section is managed by the Comms Plan view. See
+:doc:`../how-to/communications-plan` for usage details.
