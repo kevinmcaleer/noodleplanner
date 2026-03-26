@@ -579,7 +579,20 @@
     height: 12px;
 }
 
-.product-composition-list,
+.product-composition-list {
+    border: none;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary, #333);
+}
+
+[data-theme="dark"] .product-composition-list {
+    color: #ddd;
+}
+
 .product-resources-list {
     border: 1px solid #ced4da;
     border-radius: 4px;
@@ -592,7 +605,6 @@
     background: #fff;
 }
 
-[data-theme="dark"] .product-composition-list,
 [data-theme="dark"] .product-resources-list {
     border-color: var(--border-color, #444);
     background: var(--surface-secondary, #1e1e2e);
