@@ -354,10 +354,18 @@ def extract_metadata(task_str, task_name=None):
         meta['quality_roles'] = quality_roles
 
     # Extract deliverable/product marker using $ prefix (e.g. $fuselage, $avionics)
-    deliverable_pattern = r'\$([A-Za-z_][A-Za-z0-9_-]*)'
+    # Supports product type prefixes: /$name (group), ^$name (external), $name (internal)
+    deliverable_pattern = r'([/^])?\$([A-Za-z_][A-Za-z0-9_-]*)'
     deliverable_match = re.search(deliverable_pattern, task_str)
     if deliverable_match:
-        meta['deliverable'] = deliverable_match.group(1)
+        meta['deliverable'] = deliverable_match.group(2)
+        prefix = deliverable_match.group(1)
+        if prefix == '/':
+            meta['product_type'] = 'group'
+        elif prefix == '^':
+            meta['product_type'] = 'external'
+        else:
+            meta['product_type'] = 'internal'
 
     # Extract labels/tags using # prefix (e.g. #urgent, #DEV)
     label_pattern = r'#([^@%#!\s]+)'
@@ -543,7 +551,7 @@ def extract_metadata(task_str, task_name=None):
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)(\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
+    desc_match = re.match(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
     if desc_match:
         desc = desc_match.group(1).strip()
         # Safety: strip any percent tokens that slipped into the description
@@ -818,6 +826,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                     }
                     if summary_deliverable:
                         summary_meta['deliverable'] = summary_deliverable
+                        summary_meta['product_type'] = summary_meta_data.get('product_type', 'internal')
                     if summary_depends:
                         summary_meta['depends'] = summary_depends
                     if summary_quality_roles:
@@ -1813,7 +1822,7 @@ def natural_language_to_yaml(text, project_name="Project"):
         # Check if has task details
         has_duration = re.search(r'\b\d+[dwmy]\b', stripped) is not None
         has_quotes = '"' in stripped or "'" in stripped
-        has_deliverable = re.search(r'\$[A-Za-z_]', stripped) is not None
+        has_deliverable = re.search(r'[/^]?\$[A-Za-z_]', stripped) is not None
         has_brackets = '[' in stripped
         has_details = '@' in stripped or '%' in stripped or '!' in stripped or '#' in stripped or '2025-' in stripped or '2024-' in stripped or '2026-' in stripped or has_duration or has_quotes or has_deliverable or has_brackets
 
@@ -1823,6 +1832,11 @@ def natural_language_to_yaml(text, project_name="Project"):
             metadata_start = len(stripped)
             for char in ['@', '#', '!', '$', '[']:
                 pos = stripped.find(char)
+                if pos > 0:
+                    metadata_start = min(metadata_start, pos)
+            # Also check for /$ and ^$ product type prefixes
+            for prefix in ['/$', '^$']:
+                pos = stripped.find(prefix)
                 if pos > 0:
                     metadata_start = min(metadata_start, pos)
 
