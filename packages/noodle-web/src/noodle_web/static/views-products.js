@@ -1033,7 +1033,7 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
             <td class="deliverable-status dm-col-fixed">${status}</td>
         `;
 
-        // Person/role columns
+        // Person/role columns with inline select
         for (const p of people) {
             const role = rolesMap[p.shortname] || '';
             let roleLabel = '';
@@ -1042,8 +1042,14 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
             else if (role === 'R') { roleLabel = 'R'; roleClass = 'dm-role-reviewer'; }
             else if (role === 'A') { roleLabel = 'A'; roleClass = 'dm-role-approver'; }
 
-            html += `<td class="dm-role-cell ${roleClass}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" data-role="${role}" title="${p.displayName}: ${roleLabel || 'none'}">
+            html += `<td class="dm-role-cell ${roleClass}" title="${p.displayName}: ${roleLabel || 'none'}">
                 <span class="dm-role-label">${roleLabel}</span>
+                <select data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
+                    <option value=""${role === '' ? ' selected' : ''}>—</option>
+                    <option value="P"${role === 'P' ? ' selected' : ''}>P - Producer</option>
+                    <option value="R"${role === 'R' ? ' selected' : ''}>R - Reviewer</option>
+                    <option value="A"${role === 'A' ? ' selected' : ''}>A - Approver</option>
+                </select>
             </td>`;
         }
 
@@ -1052,12 +1058,10 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
 
         tr.innerHTML = html;
 
-        // Attach click handlers for role cells (interactive dropdown)
+        // No click handlers needed — selects handle role changes
         tr.querySelectorAll('.dm-role-cell').forEach(cell => {
-            cell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                _dmShowRoleDropdown(cell, task, tasks, resourceMap, stakeholders);
-            });
+            // Prevent row click when interacting with role cells
+            cell.addEventListener('click', (e) => { e.stopPropagation(); });
         });
 
         container.appendChild(tr);
@@ -1067,88 +1071,30 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
 /**
  * Show a dropdown to select P/R/A/empty for a role cell.
  */
-function _dmShowRoleDropdown(cell, deliverableTask, allTasks, resourceMap, stakeholders) {
-    // Remove any existing dropdown
-    const existing = document.querySelector('.dm-role-dropdown');
-    if (existing) existing.remove();
-
-    const deliverable = cell.dataset.deliverable;
-    const person = cell.dataset.person;
-    const currentRole = cell.dataset.role;
-
-    const dropdown = document.createElement('div');
-    dropdown.className = 'dm-role-dropdown';
-
-    const options = [
-        { value: '', label: '\u2014 None', cls: '' },
-        { value: 'P', label: 'P \u2013 Producer', cls: 'dm-role-producer' },
-        { value: 'R', label: 'R \u2013 Reviewer', cls: 'dm-role-reviewer' },
-        { value: 'A', label: 'A \u2013 Approver', cls: 'dm-role-approver' },
-    ];
-
-    for (const opt of options) {
-        const item = document.createElement('div');
-        item.className = 'dm-role-dropdown-item' + (opt.value === currentRole ? ' active' : '') + (opt.cls ? ' ' + opt.cls : '');
-        item.textContent = opt.label;
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.remove();
-            _dmApplyRoleChange(deliverable, person, opt.value, allTasks, resourceMap, stakeholders);
-        });
-        dropdown.appendChild(item);
-    }
-
-    // Position the dropdown below the cell
-    const rect = cell.getBoundingClientRect();
-    dropdown.style.position = 'fixed';
-    dropdown.style.left = rect.left + 'px';
-    dropdown.style.top = rect.bottom + 'px';
-    dropdown.style.zIndex = '9999';
-    document.body.appendChild(dropdown);
-
-    // Close on outside click
-    const closeHandler = (e) => {
-        if (!dropdown.contains(e.target)) {
-            dropdown.remove();
-            document.removeEventListener('click', closeHandler, true);
-        }
-    };
-    setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
-}
-
 /**
- * Apply a role change by updating the plan text in the editor.
- * Finds the deliverable task line and adds/changes/removes the @person:ROLE token.
+ * Handle role change from inline select dropdown.
+ * Updates the plan text in the editor with the new @person:ROLE token.
  */
-function _dmApplyRoleChange(deliverable, person, newRole, allTasks, resourceMap, stakeholders) {
-    // Get the editor content
-    const editor = typeof getEditorContent === 'function' ? getEditorContent() : null;
-    if (!editor) return;
+function dmUpdateRole(selectEl) {
+    const deliverable = selectEl.dataset.deliverable;
+    const person = selectEl.dataset.person;
+    const newRole = selectEl.value;
 
-    const lines = editor.split('\n');
+    const editor = document.getElementById('planEditor');
+    if (!editor || !deliverable || !person) return;
+
+    const lines = editor.value.split('\n');
     let updated = false;
-
-    // Find the deliverable task in allTasks
-    const deliverableTask = (allTasks || []).find(t => t.deliverable === deliverable);
-    if (!deliverableTask) return;
-
-    const taskName = deliverableTask.name || deliverableTask.description || '';
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        // Match lines containing the deliverable marker
         if (!line.includes('$' + deliverable)) continue;
 
         // Remove existing @person:P/R/A token for this person
-        let newLine = line.replace(new RegExp('\\s*@' + person + ':[PRApraPRA]', 'gi'), '');
-        // Also remove plain @person if we're adding a quality role (they might have had a regular assignment)
-        // Only remove if we're adding a quality role
-        if (newRole) {
-            // Don't remove plain @person — quality roles are separate
-        }
+        let newLine = line.replace(new RegExp('\\s*@' + person + ':[PRA]', 'gi'), '');
 
         if (newRole) {
-            // Add the new role token before any trailing whitespace/newline
+            // Add the new role token
             newLine = newLine.trimEnd() + ' @' + person + ':' + newRole;
         }
 
@@ -1159,12 +1105,11 @@ function _dmApplyRoleChange(deliverable, person, newRole, allTasks, resourceMap,
         }
     }
 
-    if (updated && typeof setEditorContent === 'function') {
-        setEditorContent(lines.join('\n'));
-        // Trigger a re-render
-        if (typeof debouncedRender === 'function') {
-            debouncedRender();
-        }
+    if (updated) {
+        editor.value = lines.join('\n');
+        if (editor._updateLineNumbers) editor._updateLineNumbers();
+        editor.dispatchEvent(new Event('input'));
+        setTimeout(() => renderText(), 10);
     }
 }
 
