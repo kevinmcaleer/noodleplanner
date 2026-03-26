@@ -925,16 +925,16 @@ function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
     const qr = deliverableTask.quality_roles;
     if (qr && typeof qr === 'object') {
         for (const [name, role] of Object.entries(qr)) {
-            merged[name.toLowerCase()] = role;
+            merged[name.toLowerCase()] = { role, inferred: false };
         }
     }
 
-    // Regular resources on the deliverable default to Producer
+    // Regular resources on the deliverable default to Producer (inferred)
     if (deliverableTask.resources) {
         const resList = deliverableTask.resources.split(',').map(r => r.trim()).filter(r => r);
         for (const res of resList) {
             const key = resolveShortname(res);
-            if (!merged[key]) merged[key] = 'P';
+            if (!merged[key]) merged[key] = { role: 'P', inferred: true };
         }
     }
 
@@ -945,15 +945,15 @@ function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
         if (aqr && typeof aqr === 'object') {
             for (const [name, role] of Object.entries(aqr)) {
                 const key = name.toLowerCase();
-                if (!merged[key]) merged[key] = role;
+                if (!merged[key]) merged[key] = { role, inferred: false };
             }
         }
-        // Regular resources on activities default to Producer
+        // Regular resources on activities default to Producer (inferred)
         if (act.resources) {
             const resList = act.resources.split(',').map(r => r.trim()).filter(r => r);
             for (const res of resList) {
                 const key = resolveShortname(res);
-                if (!merged[key]) merged[key] = 'P';
+                if (!merged[key]) merged[key] = { role: 'P', inferred: true };
             }
         }
     }
@@ -1038,10 +1038,10 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
         const rolesMap = _dmGetRolesForDeliverable(task, tasks);
 
         // Check quality-assured: has at least one P, one R, one A
-        const roleValues = Object.values(rolesMap);
-        const hasP = roleValues.includes('P');
-        const hasR = roleValues.includes('R');
-        const hasA = roleValues.includes('A');
+        const roleLetters = Object.values(rolesMap).map(r => r.role || r);
+        const hasP = roleLetters.includes('P');
+        const hasR = roleLetters.includes('R');
+        const hasA = roleLetters.includes('A');
         const isQA = hasP && hasR && hasA;
 
         const tr = document.createElement('tr');
@@ -1068,15 +1068,18 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
 
         // Person/role columns with inline select
         for (const p of people) {
-            const role = rolesMap[p.shortname] || '';
+            const roleObj = rolesMap[p.shortname];
+            const role = roleObj ? roleObj.role : '';
+            const isInferred = roleObj ? roleObj.inferred : false;
             let roleLabel = '';
             let roleClass = 'dm-role-empty';
             if (role === 'P') { roleLabel = 'P'; roleClass = 'dm-role-producer'; }
             else if (role === 'R') { roleLabel = 'R'; roleClass = 'dm-role-reviewer'; }
             else if (role === 'A') { roleLabel = 'A'; roleClass = 'dm-role-approver'; }
+            const inferredStyle = isInferred ? ' font-style: italic;' : '';
 
             html += `<td class="dm-role-cell" title="${p.displayName}">
-                <select class="role-${role}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
+                <select class="role-${role}" style="${inferredStyle}" data-deliverable="${task.deliverable}" data-person="${p.shortname}" onchange="dmUpdateRole(this)">
                     <option value=""${role === '' ? ' selected' : ''}>—</option>
                     <option value="P"${role === 'P' ? ' selected' : ''}>P</option>
                     <option value="R"${role === 'R' ? ' selected' : ''}>R</option>
