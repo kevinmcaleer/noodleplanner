@@ -538,6 +538,55 @@
     font-style: italic;
 }
 
+/* ── QA Roles in product form ─────────────────────────────────────── */
+
+.product-qa-roles {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.product-qa-role-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.product-qa-role-label {
+    width: 70px;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.product-qa-role-label.role-P { color: #4A90D9; }
+.product-qa-role-label.role-R { color: #D94A4A; }
+.product-qa-role-label.role-A { color: #2d8a2d; }
+
+.product-qa-role-select {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid transparent !important;
+    border-radius: 4px;
+    font-size: 13px;
+    background: transparent;
+    color: var(--text-primary, #333);
+    outline: none;
+    cursor: pointer;
+}
+
+.product-qa-role-select:hover,
+.product-qa-role-select:focus {
+    border-color: #ced4da !important;
+    background: var(--surface-primary, #fff);
+}
+
+[data-theme="dark"] .product-qa-role-select:hover,
+[data-theme="dark"] .product-qa-role-select:focus {
+    border-color: var(--border-color, #444) !important;
+    background: var(--surface-secondary, #1e1e2e);
+}
+
 /* ── Dependencies tag input ──────────────────────────────────────── */
 
 .product-deps-container {

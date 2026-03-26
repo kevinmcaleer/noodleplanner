@@ -2854,6 +2854,59 @@ function openProductForm(task) {
         }
     }
 
+    // Quality Assurance roles
+    const qaEl = document.getElementById('productQARoles');
+    if (qaEl) {
+        const allTasks = pbsTasks.length > 0 ? pbsTasks : (lastRenderedTasks || []);
+        const qr = task.quality_roles || {};
+
+        // Build list of all available people (resources + stakeholders)
+        const availablePeople = [];
+        if (typeof globalResourceMap !== 'undefined') {
+            for (const [sn, fullName] of Object.entries(globalResourceMap)) {
+                availablePeople.push({ shortname: sn.toLowerCase(), displayName: fullName });
+            }
+        }
+        const stakeholders = window._lastStakeholders || [];
+        for (const s of stakeholders) {
+            const sn = (s.shortname || s.name || '').replace(/^@/, '').toLowerCase();
+            if (!availablePeople.find(p => p.shortname === sn)) {
+                availablePeople.push({ shortname: sn, displayName: s.name || sn });
+            }
+        }
+        availablePeople.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+        // Find current assignments
+        const currentP = Object.entries(qr).find(([, r]) => r === 'P');
+        const currentR = Object.entries(qr).find(([, r]) => r === 'R');
+        const currentA = Object.entries(qr).find(([, r]) => r === 'A');
+
+        // Also check regular resources as default producers
+        let producerName = currentP ? currentP[0].toLowerCase() : '';
+        if (!producerName && task.resources) {
+            const firstRes = task.resources.split(',')[0].trim().toLowerCase();
+            if (firstRes) producerName = firstRes;
+        }
+
+        function buildRoleSelect(roleCode, roleLabel, currentShortname) {
+            const options = availablePeople.map(p =>
+                `<option value="${p.shortname}"${p.shortname === currentShortname ? ' selected' : ''}>${p.displayName}</option>`
+            ).join('');
+            return `<div class="product-qa-role-row">
+                <span class="product-qa-role-label role-${roleCode}">${roleLabel}</span>
+                <select class="product-qa-role-select" data-role="${roleCode}" onchange="productUpdateQARole(this)">
+                    <option value="">— None</option>
+                    ${options}
+                </select>
+            </div>`;
+        }
+
+        qaEl.innerHTML =
+            buildRoleSelect('P', 'Producer', producerName) +
+            buildRoleSelect('R', 'Reviewer', currentR ? currentR[0].toLowerCase() : '') +
+            buildRoleSelect('A', 'Approver', currentA ? currentA[0].toLowerCase() : '');
+    }
+
     // Dependencies — tag input with autocomplete
     const depsTagsEl = document.getElementById('productDependenciesTags');
     const depsInputEl = document.getElementById('productDependenciesInput');
@@ -3476,4 +3529,37 @@ function productDepsAutocomplete(inputEl, deliverables) {
 function productGetDepsFromTags() {
     const tags = document.querySelectorAll('#productDependenciesTags .product-dep-tag');
     return [...tags].map(t => t.title.replace('$', '')).map(id => `$${id}`).join(', ');
+}
+
+function productUpdateQARole(selectEl) {
+    const roleCode = selectEl.dataset.role;
+    const person = selectEl.value;
+
+    if (!currentProductTask || !currentProductTask.deliverable) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const deliverable = currentProductTask.deliverable;
+    const lines = editor.value.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].includes('$' + deliverable)) continue;
+
+        // Remove any existing @xxx:ROLE for this role code
+        let newLine = lines[i].replace(new RegExp('\\s*@\\S+:' + roleCode, 'gi'), '');
+
+        if (person) {
+            newLine = newLine.trimEnd() + ' @' + person + ':' + roleCode;
+        }
+
+        if (newLine !== lines[i]) {
+            lines[i] = newLine;
+            editor.value = lines.join('\n');
+            if (editor._updateLineNumbers) editor._updateLineNumbers();
+            editor.dispatchEvent(new Event('input'));
+            setTimeout(() => renderText(), 10);
+        }
+        break;
+    }
 }
