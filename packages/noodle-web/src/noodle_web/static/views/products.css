@@ -330,14 +330,15 @@
 }
 
 .product-comp-actions {
-    display: none;
+    display: flex;
+    visibility: hidden;
     gap: 4px;
     margin-left: 6px;
     flex-shrink: 0;
 }
 
 .product-comp-item:hover .product-comp-actions {
-    display: flex;
+    visibility: visible;
 }
 
 .product-comp-action-btn {

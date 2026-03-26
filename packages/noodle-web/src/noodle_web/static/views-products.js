@@ -2958,6 +2958,20 @@ function removeDeliverable() {
     }
 }
 
+function productFormRefresh() {
+    // Re-render then reopen the product form with refreshed task data
+    const delivId = currentProductTask ? currentProductTask.deliverable : null;
+    setTimeout(() => {
+        renderText();
+        setTimeout(() => {
+            if (!delivId) return;
+            const allTasks = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+            const refreshed = allTasks.find(t => t.deliverable === delivId);
+            if (refreshed) openProductForm(refreshed);
+        }, 500);
+    }, 10);
+}
+
 // ── Product form helpers: add/delete activities, child products, deps ──
 
 function productAddActivity(name) {
@@ -2986,7 +3000,7 @@ function productAddActivity(name) {
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
-    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+    productFormRefresh();
 }
 
 function productDeleteActivity(taskName) {
@@ -3007,7 +3021,7 @@ function productDeleteActivity(taskName) {
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
-    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+    productFormRefresh();
 }
 
 function productAddChild(name) {
@@ -3043,7 +3057,7 @@ function productAddChild(name) {
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
-    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+    productFormRefresh();
 }
 
 function productDeleteChild(delivId) {
@@ -3059,7 +3073,7 @@ function productDeleteChild(delivId) {
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
-    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+    productFormRefresh();
 }
 
 function productAddDep(delivId) {
@@ -3096,7 +3110,7 @@ function productAddDep(delivId) {
     const acEl = document.getElementById('productDepsAutocomplete');
     if (acEl) acEl.style.display = 'none';
 
-    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+    productFormRefresh();
 }
 
 function productRemoveDep(delivId) {
@@ -3126,7 +3140,7 @@ function productRemoveDep(delivId) {
     editor.value = lines.join('\n');
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
-    setTimeout(() => { renderText(); setTimeout(() => { if (currentProductTask) openProductForm(currentProductTask); }, 500); }, 10);
+    productFormRefresh();
 }
 
 function productDepsAutocomplete(inputEl, deliverables) {
