@@ -907,13 +907,23 @@ function _dmCollectPeople(deliverables, allTasks, resourceMap, stakeholders) {
  */
 function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
     const merged = {};
-    // From the deliverable task itself
+
+    // From the deliverable task's quality_roles (explicit :P/:R/:A)
     const qr = deliverableTask.quality_roles;
     if (qr && typeof qr === 'object') {
         for (const [name, role] of Object.entries(qr)) {
             merged[name.toLowerCase()] = role;
         }
     }
+
+    // Regular resources on the deliverable default to Producer
+    if (deliverableTask.resources) {
+        const resList = deliverableTask.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
+        for (const res of resList) {
+            if (!merged[res]) merged[res] = 'P';
+        }
+    }
+
     // From child activities
     const activities = pbsGetActivities(deliverableTask, allTasks);
     for (const act of activities) {
@@ -921,10 +931,14 @@ function _dmGetRolesForDeliverable(deliverableTask, allTasks) {
         if (aqr && typeof aqr === 'object') {
             for (const [name, role] of Object.entries(aqr)) {
                 const key = name.toLowerCase();
-                // Don't override if already set (deliverable-level takes precedence)
-                if (!merged[key]) {
-                    merged[key] = role;
-                }
+                if (!merged[key]) merged[key] = role;
+            }
+        }
+        // Regular resources on activities default to Producer
+        if (act.resources) {
+            const resList = act.resources.split(',').map(r => r.trim().toLowerCase()).filter(r => r);
+            for (const res of resList) {
+                if (!merged[res]) merged[res] = 'P';
             }
         }
     }
@@ -963,7 +977,7 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
         const headerRow = thead.querySelector('tr') || document.createElement('tr');
         headerRow.innerHTML = '';
 
-        const fixedHeaders = ['ID', 'Deliverable', 'Dates', 'Status'];
+        const fixedHeaders = ['ID', 'Deliverable', 'Description', 'Dates', 'Status'];
         for (const h of fixedHeaders) {
             const th = document.createElement('th');
             th.className = 'dm-col-fixed';
@@ -1025,10 +1039,13 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
 
         const escapedName = (task.name || task.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // Fixed columns: ID (plain text), Deliverable, Dates, Status (plain text)
+        const escapedComment = (task.comment || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        // Fixed columns: ID, Deliverable, Description, Dates, Status
         let html = `
             <td class="deliverable-id dm-col-fixed">$${task.deliverable}</td>
             <td class="deliverable-name dm-col-fixed">${escapedName}</td>
+            <td class="deliverable-desc dm-col-fixed">${escapedComment}</td>
             <td class="deliverable-dates dm-col-fixed">${task.start || '\u2014'} \u2192 ${task.finish || '\u2014'}</td>
             <td class="deliverable-status dm-col-fixed">${status}</td>
         `;
