@@ -2884,8 +2884,15 @@ function openProductForm(task) {
         // Also check regular resources as default producers
         let producerName = currentP ? currentP[0].toLowerCase() : '';
         if (!producerName && task.resources) {
-            const firstRes = task.resources.split(',')[0].trim().toLowerCase();
-            if (firstRes) producerName = firstRes;
+            const firstRes = task.resources.split(',')[0].trim();
+            if (firstRes) {
+                // Reverse lookup: find the shortname for this full name
+                const match = availablePeople.find(p =>
+                    p.displayName.toLowerCase() === firstRes.toLowerCase() ||
+                    p.shortname === firstRes.toLowerCase()
+                );
+                producerName = match ? match.shortname : firstRes.toLowerCase();
+            }
         }
 
         function buildRoleSelect(roleCode, roleLabel, currentShortname) {
