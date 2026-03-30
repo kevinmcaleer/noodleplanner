@@ -4832,7 +4832,7 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                         if t.get('deliverable') and t.get('product_type', 'internal') != 'group']
 
         if deliverables:
-            # Collect all people who have quality roles across all tasks
+            # Collect all people from quality roles, regular resources, and resource_map
             people = {}  # shortname -> display name
             for t in tasks:
                 qr = t.get('quality_roles', {})
@@ -4841,113 +4841,127 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                         key = name.lower()
                         if key not in people:
                             people[key] = resource_map.get(key, name)
+                # Also collect from regular resource assignments
+                res_str = t.get('resources', '')
+                if res_str:
+                    for r in res_str.split(','):
+                        key = r.strip().lower()
+                        if key and key not in people:
+                            people[key] = resource_map.get(key, r.strip())
             # Also include resources from resource_map
             for short, full in resource_map.items():
                 if short.lower() not in people:
                     people[short.lower()] = full
 
-            if people:
-                people_list = sorted(people.items(), key=lambda x: x[0])
+            people_list = sorted(people.items(), key=lambda x: x[0])
 
-                ws_dm = wb.create_sheet("Deliverables Matrix")
+            ws_dm = wb.create_sheet("Deliverables Matrix")
 
-                # Fixed columns + one per person + QA
-                fixed_headers = ['ID', 'Deliverable', 'Status']
-                person_headers = [display for _, display in people_list]
-                dm_headers = fixed_headers + person_headers + ['QA']
+            # Fixed columns + one per person + QA
+            fixed_headers = ['ID', 'Deliverable', 'Status']
+            person_headers = [display for _, display in people_list]
+            dm_headers = fixed_headers + person_headers + ['QA']
 
-                # Write headers
-                dm_header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-                dm_header_font = Font(bold=True, color="FFFFFF", size=10)
-                ws_dm.row_dimensions[1].height = 80
+            # Write headers
+            dm_header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            dm_header_font = Font(bold=True, color="FFFFFF", size=10)
+            ws_dm.row_dimensions[1].height = 80
 
-                for col, header in enumerate(dm_headers, 1):
-                    cell = ws_dm.cell(row=1, column=col, value=header)
-                    cell.fill = dm_header_fill
-                    cell.font = dm_header_font
-                    if col > len(fixed_headers) and col <= len(fixed_headers) + len(person_headers):
-                        # Rotated text for person columns
-                        cell.alignment = Alignment(text_rotation=90, horizontal='center', vertical='bottom')
-                    else:
-                        cell.alignment = Alignment(horizontal='center', vertical='center')
+            for col, header in enumerate(dm_headers, 1):
+                cell = ws_dm.cell(row=1, column=col, value=header)
+                cell.fill = dm_header_fill
+                cell.font = dm_header_font
+                if col > len(fixed_headers) and col <= len(fixed_headers) + len(person_headers):
+                    # Rotated text for person columns
+                    cell.alignment = Alignment(text_rotation=90, horizontal='center', vertical='bottom')
+                else:
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
 
-                # Role colour fills
-                role_fills = {
-                    'P': PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid"),  # blue
-                    'R': PatternFill(start_color="ED7D31", end_color="ED7D31", fill_type="solid"),  # orange
-                    'A': PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid"),  # green
-                }
-                role_font = Font(bold=True, color="FFFFFF")
+            # Role colour fills
+            role_fills = {
+                'P': PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid"),  # blue
+                'R': PatternFill(start_color="ED7D31", end_color="ED7D31", fill_type="solid"),  # orange
+                'A': PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid"),  # green
+            }
+            role_font = Font(bold=True, color="FFFFFF")
 
-                for d_idx, dtask in enumerate(deliverables, start=1):
-                    row_num = d_idx + 1
+            for d_idx, dtask in enumerate(deliverables, start=1):
+                row_num = d_idx + 1
 
-                    # Gather roles from deliverable + child activities
-                    merged_roles = {}
-                    qr = dtask.get('quality_roles', {})
-                    if qr and isinstance(qr, dict):
-                        for name, role in qr.items():
-                            merged_roles[name.lower()] = role
-                    # Infer Producer from resources if not explicitly assigned
-                    res_str = dtask.get('resources', '')
-                    if res_str:
-                        for r in res_str.split(','):
-                            key = r.strip().lower()
-                            if key and key not in merged_roles:
-                                merged_roles[key] = 'P'
-                    # Child activities
-                    dtask_name = dtask.get('name', '').lower()
-                    for t in tasks:
-                        if t.get('parent', '').lower() == dtask_name:
-                            child_qr = t.get('quality_roles', {})
-                            if child_qr and isinstance(child_qr, dict):
-                                for name, role in child_qr.items():
-                                    if name.lower() not in merged_roles:
-                                        merged_roles[name.lower()] = role
+                # Gather roles from deliverable + child activities
+                merged_roles = {}
+                qr = dtask.get('quality_roles', {})
+                if qr and isinstance(qr, dict):
+                    for name, role in qr.items():
+                        merged_roles[name.lower()] = role
+                # Infer Producer from resources if not explicitly assigned
+                res_str = dtask.get('resources', '')
+                if res_str:
+                    for r in res_str.split(','):
+                        key = r.strip().lower()
+                        if key and key not in merged_roles:
+                            merged_roles[key] = 'P'
+                # Child activities
+                dtask_name = (dtask.get('name') or '').lower()
+                for t in tasks:
+                    if (t.get('parent') or '').lower() == dtask_name:
+                        child_qr = t.get('quality_roles', {})
+                        if child_qr and isinstance(child_qr, dict):
+                            for name, role in child_qr.items():
+                                if name.lower() not in merged_roles:
+                                    merged_roles[name.lower()] = role
+                        # Also infer Producer from child resources
+                        child_res = t.get('resources', '')
+                        if child_res:
+                            for r in child_res.split(','):
+                                key = r.strip().lower()
+                                if key and key not in merged_roles:
+                                    merged_roles[key] = 'P'
 
-                    ws_dm.cell(row=row_num, column=1, value=d_idx)
-                    deliverable_name = dtask.get('deliverable', dtask.get('name', ''))
-                    ws_dm.cell(row=row_num, column=2, value=deliverable_name.replace('_', ' '))
-                    status = 'Complete' if dtask.get('percent', 0) == 100 else ('In Progress' if dtask.get('percent', 0) else '')
-                    status_cell = ws_dm.cell(row=row_num, column=3, value=status)
-                    if status == 'Complete':
-                        status_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
-                        status_cell.font = Font(color="FFFFFF")
-                    elif status == 'In Progress':
-                        status_cell.fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
+                ws_dm.cell(row=row_num, column=1, value=d_idx)
+                deliverable_name = dtask.get('deliverable', dtask.get('name', ''))
+                ws_dm.cell(row=row_num, column=2, value=deliverable_name.replace('_', ' '))
+                status = 'Complete' if dtask.get('percent', 0) == 100 else ('In Progress' if dtask.get('percent', 0) else '')
+                status_cell = ws_dm.cell(row=row_num, column=3, value=status)
+                if status == 'Complete':
+                    status_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
+                    status_cell.font = Font(color="FFFFFF")
+                elif status == 'In Progress':
+                    status_cell.fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
 
-                    # Person columns
-                    role_letters = []
-                    for p_idx, (shortname, _) in enumerate(people_list):
-                        col_num = len(fixed_headers) + p_idx + 1
-                        role = merged_roles.get(shortname)
-                        if role:
-                            cell = ws_dm.cell(row=row_num, column=col_num, value=role)
-                            if role in role_fills:
-                                cell.fill = role_fills[role]
-                                cell.font = role_font
-                            cell.alignment = Alignment(horizontal='center')
-                            role_letters.append(role)
+                # Person columns
+                role_letters = []
+                for p_idx, (shortname, _) in enumerate(people_list):
+                    col_num = len(fixed_headers) + p_idx + 1
+                    role = merged_roles.get(shortname)
+                    if role:
+                        cell = ws_dm.cell(row=row_num, column=col_num, value=role)
+                        if role in role_fills:
+                            cell.fill = role_fills[role]
+                            cell.font = role_font
+                        cell.alignment = Alignment(horizontal='center')
+                        role_letters.append(role)
 
-                    # QA column — check if P, R, and A are all present
-                    has_p = 'P' in role_letters
-                    has_r = 'R' in role_letters
-                    has_a = 'A' in role_letters
-                    qa_col = len(dm_headers)
-                    qa_cell = ws_dm.cell(row=row_num, column=qa_col,
-                                         value='\u2713' if (has_p and has_r and has_a) else '')
-                    if has_p and has_r and has_a:
-                        qa_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
-                        qa_cell.font = Font(color="FFFFFF", bold=True)
-                    qa_cell.alignment = Alignment(horizontal='center')
+                # QA column — check if P, R, and A are all present
+                has_p = 'P' in role_letters
+                has_r = 'R' in role_letters
+                has_a = 'A' in role_letters
+                qa_col = len(dm_headers)
+                qa_cell = ws_dm.cell(row=row_num, column=qa_col,
+                                     value='\u2713' if (has_p and has_r and has_a) else '')
+                if has_p and has_r and has_a:
+                    qa_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
+                    qa_cell.font = Font(color="FFFFFF", bold=True)
+                qa_cell.alignment = Alignment(horizontal='center')
 
-                # Column widths
-                ws_dm.column_dimensions['A'].width = 5
-                ws_dm.column_dimensions['B'].width = 25
-                ws_dm.column_dimensions['C'].width = 12
-                for p_idx in range(len(people_list)):
-                    col_letter = get_column_letter(len(fixed_headers) + p_idx + 1)
-                    ws_dm.column_dimensions[col_letter].width = 4
+            # Column widths
+            ws_dm.column_dimensions['A'].width = 5
+            ws_dm.column_dimensions['B'].width = 25
+            ws_dm.column_dimensions['C'].width = 12
+            for p_idx in range(len(people_list)):
+                col_letter = get_column_letter(len(fixed_headers) + p_idx + 1)
+                ws_dm.column_dimensions[col_letter].width = 4
+            if dm_headers:
                 qa_letter = get_column_letter(len(dm_headers))
                 ws_dm.column_dimensions[qa_letter].width = 5
     except Exception as e:
