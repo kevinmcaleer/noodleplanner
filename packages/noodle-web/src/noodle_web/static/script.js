@@ -1,5 +1,46 @@
 // Global state is now in state.js
 
+// ---- Version management helpers for front matter ----
+
+function getVersionFromFrontMatter(text) {
+    const match = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return null;
+    const vmatch = match[1].match(/^version:\s*(.+)$/m);
+    return vmatch ? vmatch[1].trim() : null;
+}
+
+function incrementVersion(ver) {
+    if (!ver) return '1.1';
+    const parts = ver.split('.');
+    if (parts.length === 1) return parts[0] + '.1';
+    const minor = parseInt(parts[1], 10);
+    return parts[0] + '.' + (isNaN(minor) ? 1 : minor + 1);
+}
+
+function setVersionInFrontMatter(text, newVersion) {
+    const fmMatch = text.match(/^(---\n)([\s\S]*?)(\n---)/);
+    if (fmMatch) {
+        let body = fmMatch[2];
+        if (/^version:/m.test(body)) {
+            body = body.replace(/^version:.*$/m, `version: ${newVersion}`);
+        } else {
+            body += `\nversion: ${newVersion}`;
+        }
+        return fmMatch[1] + body + fmMatch[3] + text.slice(fmMatch[0].length);
+    }
+    // No front matter — create one
+    return `---\nversion: ${newVersion}\n---\n${text}`;
+}
+
+function incrementPlanVersion(editor) {
+    const text = editor.value;
+    const currentVersion = getVersionFromFrontMatter(text) || '1.0';
+    const newVersion = incrementVersion(currentVersion);
+    const updated = setVersionInFrontMatter(text, newVersion);
+    editor.value = updated;
+    return updated;
+}
+
 /**
  * Update the plan editor value while preserving cursor position and scroll state.
  * Use this whenever programmatically changing editor.value to prevent cursor drift.
@@ -1402,11 +1443,20 @@ function downloadMarkdown() {
     const a = document.createElement('a');
     a.href = url;
 
-    // Use project name for filename, falling back to timestamp
+    // Increment version in front matter before saving
+    const versionedContent = incrementPlanVersion(editor);
+    // Re-create the blob with updated content
+    const versionedBlob = new Blob([versionedContent], { type: 'text/markdown' });
+    const versionedUrl = window.URL.createObjectURL(versionedBlob);
+    a.href = versionedUrl;
+    window.URL.revokeObjectURL(url);
+
+    // Use project name + version for filename, falling back to timestamp
     const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
+    const version = getVersionFromFrontMatter(versionedContent);
     if (currentProject && currentProject.name) {
         const safeName = currentProject.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        a.download = `${safeName}.md`;
+        a.download = version ? `${safeName}_plan_v${version}.md` : `${safeName}.md`;
     } else {
         const now = new Date();
         const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
@@ -3599,8 +3649,8 @@ function saveTask() {
     let taskNamePart = dependsOnPreviousSimple ? '*' + name : name;
     let newLine = indent + taskNamePart;
 
-    // Preserve $deliverable token from original line
-    const deliverableMatch = originalLine.match(/\$([A-Za-z_][A-Za-z0-9_-]*)/);
+    // Preserve $deliverable token (with product type prefix) from original line
+    const deliverableMatch = originalLine.match(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/);
     if (deliverableMatch) {
         newLine += ' ' + deliverableMatch[0];
     }
@@ -4251,9 +4301,18 @@ function parseTaskLine(line, lineNum) {
             // ISO Date: 2025-11-11
             dates.push(token);
         }
-        else if (token.match(/^\$[A-Za-z_]/)) {
-            // Deliverable marker: $fuselage — store but don't include in name
-            task.deliverable = token.substring(1);
+        else if (token.match(/^[/^]?\$[A-Za-z_]/)) {
+            // Deliverable marker: $fuselage, /$group, ^$external
+            if (token.startsWith('/')) {
+                task.product_type = 'group';
+                task.deliverable = token.substring(2); // strip /$
+            } else if (token.startsWith('^')) {
+                task.product_type = 'external';
+                task.deliverable = token.substring(2); // strip ^$
+            } else {
+                task.product_type = 'internal';
+                task.deliverable = token.substring(1); // strip $
+            }
         }
         else {
             // Part of task name

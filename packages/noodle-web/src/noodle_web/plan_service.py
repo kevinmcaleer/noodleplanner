@@ -647,6 +647,7 @@ class PlanService:
                     ),
                     "recurrence": task.get("recurrence", None),
                     "deliverable": task.get("deliverable", ""),
+                    "product_type": task.get("product_type", "internal"),
                     "parent": task.get("parent", ""),
                     "quality_roles": task.get("quality_roles", {}),
                 }

@@ -4175,7 +4175,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
 
     # Task headers (removed Phase column, added RAG, Priority, Bucket)
     task_headers = ['ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
-                    'Resources', '% Complete', 'RAG', 'Priority', 'Bucket', 'Comment']
+                    'Resources', '% Complete', 'RAG', 'Priority', 'Bucket',
+                    'Dependencies', 'Comment']
     ws_tasks.append(task_headers)
 
     # Style header row
@@ -4184,6 +4185,13 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         cell.fill = header_fill
         cell.font = header_font
         cell.alignment = header_alignment
+
+    # Build name-to-ID lookup for dependency references
+    name_to_id = {}
+    for _idx, _task in enumerate(tasks, start=1):
+        _name = _task.get('name', '')
+        if _name:
+            name_to_id[_name.lower()] = _idx
 
     # Add task data
     task_row_num = 2
@@ -4223,6 +4231,24 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         else:
             rag_status = calculate_rag_status(task)
 
+        # Build dependencies string (e.g. "3FS, 5SS+2d")
+        deps_str = ''
+        if task.get('depends'):
+            dep_type_map = task.get('dependency_types', {})
+            lag_lead_map = task.get('lag_lead', {})
+            dep_parts = []
+            for dep_name in task['depends']:
+                dep_id = name_to_id.get(dep_name.lower())
+                if dep_id is None:
+                    continue
+                dep_type = dep_type_map.get(dep_name, 'FS')
+                entry = f"{dep_id}{dep_type}"
+                lag = lag_lead_map.get(dep_name, '')
+                if lag:
+                    entry += lag
+                dep_parts.append(entry)
+            deps_str = ', '.join(dep_parts)
+
         row = [
             idx,
             task_name,
@@ -4234,6 +4260,7 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             rag_status,
             task.get('priority', 'Low'),
             task.get('bucket', ''),
+            deps_str,
             task.get('comment', '')
         ]
         ws_tasks.append(row)
@@ -4797,6 +4824,170 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                         ws_comms.column_dimensions[col_letter].width = width
         except Exception as e:
             logger.warning(f"Failed to add comms plan worksheet: {e}")
+
+    # Add Deliverables Matrix worksheet
+    try:
+        # Collect deliverables (tasks with a deliverable token, excluding groups)
+        deliverables = [t for t in tasks
+                        if t.get('deliverable') and t.get('product_type', 'internal') != 'group']
+
+        if deliverables:
+            # Collect all people who have quality roles across all tasks
+            people = {}  # shortname -> display name
+            for t in tasks:
+                qr = t.get('quality_roles', {})
+                if qr and isinstance(qr, dict):
+                    for name in qr:
+                        key = name.lower()
+                        if key not in people:
+                            people[key] = resource_map.get(key, name)
+            # Also include resources from resource_map
+            for short, full in resource_map.items():
+                if short.lower() not in people:
+                    people[short.lower()] = full
+
+            if people:
+                people_list = sorted(people.items(), key=lambda x: x[0])
+
+                ws_dm = wb.create_sheet("Deliverables Matrix")
+
+                # Fixed columns + one per person + QA
+                fixed_headers = ['ID', 'Deliverable', 'Status']
+                person_headers = [display for _, display in people_list]
+                dm_headers = fixed_headers + person_headers + ['QA']
+
+                # Write headers
+                dm_header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                dm_header_font = Font(bold=True, color="FFFFFF", size=10)
+                ws_dm.row_dimensions[1].height = 80
+
+                for col, header in enumerate(dm_headers, 1):
+                    cell = ws_dm.cell(row=1, column=col, value=header)
+                    cell.fill = dm_header_fill
+                    cell.font = dm_header_font
+                    if col > len(fixed_headers) and col <= len(fixed_headers) + len(person_headers):
+                        # Rotated text for person columns
+                        cell.alignment = Alignment(text_rotation=90, horizontal='center', vertical='bottom')
+                    else:
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                # Role colour fills
+                role_fills = {
+                    'P': PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid"),  # blue
+                    'R': PatternFill(start_color="ED7D31", end_color="ED7D31", fill_type="solid"),  # orange
+                    'A': PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid"),  # green
+                }
+                role_font = Font(bold=True, color="FFFFFF")
+
+                for d_idx, dtask in enumerate(deliverables, start=1):
+                    row_num = d_idx + 1
+
+                    # Gather roles from deliverable + child activities
+                    merged_roles = {}
+                    qr = dtask.get('quality_roles', {})
+                    if qr and isinstance(qr, dict):
+                        for name, role in qr.items():
+                            merged_roles[name.lower()] = role
+                    # Infer Producer from resources if not explicitly assigned
+                    res_str = dtask.get('resources', '')
+                    if res_str:
+                        for r in res_str.split(','):
+                            key = r.strip().lower()
+                            if key and key not in merged_roles:
+                                merged_roles[key] = 'P'
+                    # Child activities
+                    dtask_name = dtask.get('name', '').lower()
+                    for t in tasks:
+                        if t.get('parent', '').lower() == dtask_name:
+                            child_qr = t.get('quality_roles', {})
+                            if child_qr and isinstance(child_qr, dict):
+                                for name, role in child_qr.items():
+                                    if name.lower() not in merged_roles:
+                                        merged_roles[name.lower()] = role
+
+                    ws_dm.cell(row=row_num, column=1, value=d_idx)
+                    deliverable_name = dtask.get('deliverable', dtask.get('name', ''))
+                    ws_dm.cell(row=row_num, column=2, value=deliverable_name.replace('_', ' '))
+                    status = 'Complete' if dtask.get('percent', 0) == 100 else ('In Progress' if dtask.get('percent', 0) else '')
+                    status_cell = ws_dm.cell(row=row_num, column=3, value=status)
+                    if status == 'Complete':
+                        status_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
+                        status_cell.font = Font(color="FFFFFF")
+                    elif status == 'In Progress':
+                        status_cell.fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
+
+                    # Person columns
+                    role_letters = []
+                    for p_idx, (shortname, _) in enumerate(people_list):
+                        col_num = len(fixed_headers) + p_idx + 1
+                        role = merged_roles.get(shortname)
+                        if role:
+                            cell = ws_dm.cell(row=row_num, column=col_num, value=role)
+                            if role in role_fills:
+                                cell.fill = role_fills[role]
+                                cell.font = role_font
+                            cell.alignment = Alignment(horizontal='center')
+                            role_letters.append(role)
+
+                    # QA column — check if P, R, and A are all present
+                    has_p = 'P' in role_letters
+                    has_r = 'R' in role_letters
+                    has_a = 'A' in role_letters
+                    qa_col = len(dm_headers)
+                    qa_cell = ws_dm.cell(row=row_num, column=qa_col,
+                                         value='\u2713' if (has_p and has_r and has_a) else '')
+                    if has_p and has_r and has_a:
+                        qa_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
+                        qa_cell.font = Font(color="FFFFFF", bold=True)
+                    qa_cell.alignment = Alignment(horizontal='center')
+
+                # Column widths
+                ws_dm.column_dimensions['A'].width = 5
+                ws_dm.column_dimensions['B'].width = 25
+                ws_dm.column_dimensions['C'].width = 12
+                for p_idx in range(len(people_list)):
+                    col_letter = get_column_letter(len(fixed_headers) + p_idx + 1)
+                    ws_dm.column_dimensions[col_letter].width = 4
+                qa_letter = get_column_letter(len(dm_headers))
+                ws_dm.column_dimensions[qa_letter].width = 5
+    except Exception as e:
+        logger.warning(f"Failed to add Deliverables Matrix worksheet: {e}")
+
+    # Add Summary worksheet with project metadata
+    if original_text:
+        try:
+            from .front_matter_parser import FrontMatterParser
+            fm = FrontMatterParser(original_text)
+            kv = fm.parse_key_values()
+            title = fm.parse_title() or kv.get('title', project_name)
+
+            ws_summary = wb.create_sheet("Summary", 0)  # first tab
+            summary_label_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            summary_label_font = Font(bold=True, color="FFFFFF", size=11)
+            summary_value_font = Font(size=11)
+
+            summary_rows = [
+                ('Project Name', title),
+                ('Version', kv.get('version', '')),
+                ('Start Date', kv.get('start date', kv.get('start', ''))),
+                ('Project Manager', kv.get('project manager', kv.get('pm', ''))),
+                ('Budget', kv.get('budget', '')),
+                ('Sponsor', kv.get('sponsor', '')),
+                ('Date Exported', datetime.now().strftime('%Y-%m-%d %H:%M')),
+            ]
+
+            for row_idx, (label, value) in enumerate(summary_rows, 1):
+                label_cell = ws_summary.cell(row=row_idx, column=1, value=label)
+                label_cell.fill = summary_label_fill
+                label_cell.font = summary_label_font
+                label_cell.alignment = Alignment(horizontal='right')
+                value_cell = ws_summary.cell(row=row_idx, column=2, value=value)
+                value_cell.font = summary_value_font
+
+            ws_summary.column_dimensions['A'].width = 20
+            ws_summary.column_dimensions['B'].width = 35
+        except Exception as e:
+            logger.warning(f"Failed to add Summary worksheet: {e}")
 
     # Save workbook
     wb.save(output_path)

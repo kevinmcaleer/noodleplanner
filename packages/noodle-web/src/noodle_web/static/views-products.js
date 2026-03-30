@@ -579,11 +579,13 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
         }));
     }
 
-    // Node shape: parallelogram for parents with children, rounded rect for leaves
+    // Node shape based on product type:
+    //   group (/) → parallelogram, external (^) → ellipse, internal → rounded rect
     const hasChildren = node.children && node.children.length > 0;
+    const productType = (node._task && node._task.product_type) || 'internal';
     const skew = 10;
-    if (hasChildren && !isRoot) {
-        // Parallelogram
+    if ((!isRoot && productType === 'group') || (hasChildren && !isRoot && productType === 'internal')) {
+        // Parallelogram for groups and internal parents with children
         const x = node.x, y = node.y, w = node.width, h = node.height;
         const points = `${x + skew},${y} ${x + w},${y} ${x + w - skew},${y + h} ${x},${y + h}`;
         g.appendChild(pbsCreateSVGElement('polygon', {
@@ -591,8 +593,19 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
             'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5',
             'class': 'pbs-node-rect'
         }));
+    } else if (!isRoot && productType === 'external') {
+        // Ellipse for external products
+        const cx = node.x + node.width / 2;
+        const cy = node.y + node.height / 2;
+        g.appendChild(pbsCreateSVGElement('ellipse', {
+            'cx': cx, 'cy': cy,
+            'rx': node.width / 2, 'ry': node.height / 2,
+            'fill': colour,
+            'stroke': pbsShadeColour(colour, 0.7), 'stroke-width': '1.5',
+            'class': 'pbs-node-rect'
+        }));
     } else {
-        // Rounded rectangle
+        // Rounded rectangle for internal leaf products
         g.appendChild(pbsCreateSVGElement('rect', {
             'x': node.x, 'y': node.y, 'width': node.width, 'height': node.height,
             'rx': '6', 'ry': '6', 'fill': colour,
@@ -972,7 +985,8 @@ function updateDeliverablesMatrix(tasks, projectName, resourceMap, stakeholders)
     resourceMap = resourceMap || (typeof globalResourceMap !== 'undefined' ? globalResourceMap : {});
     stakeholders = stakeholders || window._lastStakeholders || [];
 
-    const deliverables = pbsExtractDeliverables(tasks || []);
+    // Exclude group products from the deliverables matrix — they are just containers
+    const deliverables = pbsExtractDeliverables(tasks || []).filter(t => (t.product_type || 'internal') !== 'group');
 
     if (deliverables.length === 0) {
         if (placeholder) placeholder.style.display = '';
@@ -2606,7 +2620,7 @@ function pbsCreateProduct(anchorTaskName, position) {
     let anchorLine = -1;
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim().replace(/^\*\s*/, '');
-        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
         const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
         if (lineName === anchorTaskName) { anchorLine = i; break; }
     }
@@ -2662,6 +2676,23 @@ function productIdentifierOnInput(el) {
 let currentProductTask = null;
 let currentProductLineNumber = null;
 let productFormSaveTimer = null;
+let currentProductType = 'internal';
+
+function productSetType(type) {
+    currentProductType = type;
+    const toggleBtns = document.querySelectorAll('#productTypeToggle .product-type-btn');
+    for (const btn of toggleBtns) {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    }
+    const prefixEl = document.getElementById('productIdentifierPrefix');
+    if (prefixEl) {
+        prefixEl.textContent = type === 'group' ? '/$' : type === 'external' ? '^$' : '$';
+    }
+    if (currentProductTask) {
+        currentProductTask.product_type = type;
+    }
+    saveProductForm();
+}
 
 function productFindLineNumber(taskName, deliverableId) {
     const editor = document.getElementById('planEditor');
@@ -2672,7 +2703,7 @@ function productFindLineNumber(taskName, deliverableId) {
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].includes('$' + deliverableId)) {
                 const trimmed = lines[i].trim().replace(/^\*\s*/, '');
-                const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+                const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
                 const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
                 if (lineName === taskName) return i;
             }
@@ -2681,7 +2712,7 @@ function productFindLineNumber(taskName, deliverableId) {
     // Fallback: match by name only
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim().replace(/^\*\s*/, '');
-        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+        const nameMatch = trimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
         const lineName = nameMatch ? nameMatch[1].trim() : trimmed.split(/\s+/)[0];
         if (lineName === taskName) return i;
     }
@@ -2731,6 +2762,18 @@ function openProductForm(task) {
     // Identifier
     const idEl = document.getElementById('productIdentifier');
     if (idEl) idEl.value = task.deliverable || '';
+
+    // Product type toggle
+    const pType = task.product_type || 'internal';
+    currentProductType = pType;
+    const toggleBtns = document.querySelectorAll('#productTypeToggle .product-type-btn');
+    for (const btn of toggleBtns) {
+        btn.classList.toggle('active', btn.dataset.type === pType);
+    }
+    const prefixEl = document.getElementById('productIdentifierPrefix');
+    if (prefixEl) {
+        prefixEl.textContent = pType === 'group' ? '/$' : pType === 'external' ? '^$' : '$';
+    }
 
     // Purpose (comment)
     const purposeEl = document.getElementById('productPurpose');
@@ -3047,7 +3090,10 @@ function saveProductForm() {
     const star = originalLine.trim().startsWith('*') ? '* ' : '';
     let newLine = `${indent}${star}${newTitle || currentProductTask.name}`;
 
-    if (newId) newLine += ` $${newId}`;
+    if (newId) {
+        const typePrefix = currentProductType === 'group' ? '/' : currentProductType === 'external' ? '^' : '';
+        newLine += ` ${typePrefix}$${newId}`;
+    }
 
     // Preserve original tokens we don't edit (resources, dates, duration, percent)
     const origText = originalLine.trim().replace(/^\*\s*/, '');
@@ -3061,7 +3107,7 @@ function saveProductForm() {
     cleaned = cleaned
         .replace(/\[depends\s+[^\]]*\]/i, '')
         .replace(/"[^"]*"/g, '')
-        .replace(/\$[A-Za-z_][A-Za-z0-9_-]*/g, '')
+        .replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '')
         .replace(/\[repeats\s+[^\]]*\]/i, '');
     const origTokens = cleaned.split(/\s+/);
     for (const token of origTokens) {
@@ -3135,14 +3181,14 @@ function toggleTaskDeliverable() {
     // Verify the line at currentTaskLineNumber actually contains this task
     const verifyLine = lines[lineIdx] || '';
     const verifyTrimmed = verifyLine.trim().replace(/^\*\s*/, '');
-    const verifyMatch = verifyTrimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+    const verifyMatch = verifyTrimmed.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
     const verifyName = verifyMatch ? verifyMatch[1].trim() : '';
     if (verifyName !== taskName) {
         // Line number is stale — search for the correct line
         let found = false;
         for (let i = 0; i < lines.length; i++) {
             const t = lines[i].trim().replace(/^\*\s*/, '');
-            const nm = t.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+            const nm = t.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
             const n = nm ? nm[1].trim() : '';
             if (n === taskName && !lines[i].match(/\$[A-Za-z_]/)) {
                 lineIdx = i;
@@ -3154,7 +3200,7 @@ function toggleTaskDeliverable() {
         if (!found) {
             for (let i = 0; i < lines.length; i++) {
                 const t = lines[i].trim().replace(/^\*\s*/, '');
-                const nm = t.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[\$@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
+                const nm = t.match(/^([^@#!$"{\d][^@#!$"{]*?)(?:\s+[/^]?\$|\s+[@#!"{]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s+\[|\s*$)/);
                 const n = nm ? nm[1].trim() : '';
                 if (n === taskName) { lineIdx = i; break; }
             }
@@ -3581,13 +3627,16 @@ function productUpdateQARole(selectEl) {
 // Find the line index where $deliverable is the task's OWN token (not in [depends])
 function _findDeliverableLineIdx(text, deliverable) {
     const lines = text.split('\n');
-    const token = '$' + deliverable;
+    // Use regex with word boundary to avoid $proposal matching $proposal_stage
+    // Also handles product type prefixes: /$name (group), ^$name (external)
+    const escaped = deliverable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const tokenRe = new RegExp('[/^]?\\$' + escaped + '(?![\\w])', 'i');
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (!line.includes(token)) continue;
+        if (!tokenRe.test(line)) continue;
         // Strip [depends ...] blocks and check if token remains
         const withoutDeps = line.replace(/\[depends\s+[^\]]*\]/gi, '');
-        if (withoutDeps.includes(token)) return i;
+        if (tokenRe.test(withoutDeps)) return i;
     }
     return -1;
 }

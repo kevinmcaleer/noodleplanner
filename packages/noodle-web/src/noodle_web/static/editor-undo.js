@@ -4,12 +4,14 @@
  * persists within the browser session but NOT across sessions or in the
  * markdown file itself.
  *
- * Depends on: state.js (globals), editor.js (setupEditor)
+ * Undo/redo stacks are per-project so that switching plans does not cause
+ * Ctrl+Z to overwrite the current plan with content from a different one.
+ *
+ * Depends on: state.js (globals), editor.js (setupEditor),
+ *             project-storage.js (getCurrentProjectId)
  */
 
 const EditorUndoManager = (function () {
-    const STORAGE_KEY = 'noodle_undo_history';
-    const REDO_KEY = 'noodle_redo_history';
     const MAX_HISTORY = 100; // cap to avoid unbounded growth
 
     let debounceTimer = null;
@@ -19,27 +21,63 @@ const EditorUndoManager = (function () {
     let undoStack = [];
     let redoStack = [];
 
+    // Track which project the current stacks belong to
+    let _currentProjectId = null;
+
+    // ------- storage key helpers -------
+
+    function undoKey(projectId) {
+        return `noodle_undo_${projectId}_history`;
+    }
+
+    function redoKey(projectId) {
+        return `noodle_undo_${projectId}_redo`;
+    }
+
     // ------- persistence helpers -------
 
     function persist() {
+        if (!_currentProjectId) return;
         try {
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(undoStack));
-            sessionStorage.setItem(REDO_KEY, JSON.stringify(redoStack));
+            sessionStorage.setItem(undoKey(_currentProjectId), JSON.stringify(undoStack));
+            sessionStorage.setItem(redoKey(_currentProjectId), JSON.stringify(redoStack));
         } catch (_) {
             // sessionStorage might be full – silently ignore
         }
     }
 
-    function load() {
+    function loadForProject(projectId) {
         try {
-            const u = sessionStorage.getItem(STORAGE_KEY);
-            const r = sessionStorage.getItem(REDO_KEY);
+            const u = sessionStorage.getItem(undoKey(projectId));
+            const r = sessionStorage.getItem(redoKey(projectId));
             undoStack = u ? JSON.parse(u) : [];
             redoStack = r ? JSON.parse(r) : [];
         } catch (_) {
             undoStack = [];
             redoStack = [];
         }
+    }
+
+    /**
+     * Ensure the in-memory stacks match the given project.  If the active
+     * project has changed, save the old stacks and load the new ones.
+     */
+    function ensureProject(projectId) {
+        if (!projectId) projectId = 'default';
+        if (projectId === _currentProjectId) return;
+
+        // Save current stacks for the old project
+        if (_currentProjectId) persist();
+
+        // Load stacks for the new project
+        _currentProjectId = projectId;
+        loadForProject(projectId);
+    }
+
+    function activeProjectId() {
+        return (typeof getCurrentProjectId === 'function')
+            ? (getCurrentProjectId() || 'default')
+            : 'default';
     }
 
     // ------- public API -------
@@ -49,6 +87,8 @@ const EditorUndoManager = (function () {
      * event (debounced) so that trivial intermediate states are collapsed.
      */
     function pushSnapshot(content) {
+        ensureProject(activeProjectId());
+
         // Don't push duplicates
         if (undoStack.length > 0 && undoStack[undoStack.length - 1] === content) {
             return;
@@ -89,6 +129,8 @@ const EditorUndoManager = (function () {
     }
 
     function undo() {
+        ensureProject(activeProjectId());
+
         const editor = document.getElementById('planEditor');
         if (!editor || undoStack.length === 0) return;
 
@@ -112,6 +154,8 @@ const EditorUndoManager = (function () {
     }
 
     function redo() {
+        ensureProject(activeProjectId());
+
         const editor = document.getElementById('planEditor');
         if (!editor || redoStack.length === 0) return;
 
@@ -139,11 +183,35 @@ const EditorUndoManager = (function () {
     }
 
     /**
+     * Called when the user switches to a different project.
+     * Saves current stacks, loads the new project's stacks, and seeds an
+     * initial snapshot if necessary.
+     */
+    function onProjectSwitch(projectId) {
+        ensureProject(projectId || 'default');
+
+        const editor = document.getElementById('planEditor');
+        if (editor && editor.value) {
+            if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== editor.value) {
+                undoStack.push(editor.value);
+                persist();
+            }
+        }
+        refreshButtons();
+    }
+
+    /**
      * Initialise: restore stacks from sessionStorage, seed the initial
      * snapshot if the undo stack is empty, and wire up keyboard shortcuts.
      */
     function init() {
-        load();
+        // Migrate legacy single-pair keys (may contain mixed-project data)
+        sessionStorage.removeItem('noodle_undo_history');
+        sessionStorage.removeItem('noodle_redo_history');
+
+        // Load stacks for the current project
+        _currentProjectId = activeProjectId();
+        loadForProject(_currentProjectId);
 
         const editor = document.getElementById('planEditor');
         if (editor && editor.value) {
@@ -156,6 +224,12 @@ const EditorUndoManager = (function () {
         }
 
         refreshButtons();
+
+        // Listen for project switches
+        window.addEventListener('projectLoaded', function (e) {
+            const projectId = e.detail && e.detail.projectId;
+            if (projectId) onProjectSwitch(projectId);
+        });
 
         // Global keyboard shortcut (works even when editor is not focused)
         document.addEventListener('keydown', function (e) {
@@ -190,5 +264,6 @@ const EditorUndoManager = (function () {
         canUndo,
         canRedo,
         refreshButtons,
+        onProjectSwitch,
     };
 })();
