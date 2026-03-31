@@ -1356,7 +1356,7 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="mindmap-toolbar-hint">
-                                        Scroll to pan &middot; Ctrl+Scroll to zoom &middot; Click to select
+                                        Scroll to pan &middot; Ctrl+Scroll to zoom &middot; Click to select &middot; Double-click to edit &middot; Del to remove
                                     </div>
                                 </div>
                                 <div class="mindmap-canvas-wrapper" id="benefitsContainer" tabindex="0" role="application" aria-label="Benefits map canvas">
@@ -2473,6 +2473,100 @@ Build
 
                     <div id="raidDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
                         <button type="button" class="btn-danger" onclick="confirmDeleteRaidItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this RAID item">
+                            &#128465; Delete Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Benefits Item Form Section -->
+        <div id="benefitsFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="benefitsFormTitle">New Benefit Item</h2>
+                <button class="close-btn" onclick="closeBenefitForm()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="benefitItemId">
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="benefitItemType">Type</label>
+                            <select id="benefitItemType" class="form-control" onchange="benefitTypeChanged()">
+                                <option value="objective">Objective</option>
+                                <option value="enabler">Enabler</option>
+                                <option value="change">Business Change</option>
+                                <option value="benefit">Benefit</option>
+                                <option value="disbenefit">Disbenefit</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="benefitObjectiveTypeGroup">
+                            <label for="benefitObjectiveType">Objective Type</label>
+                            <select id="benefitObjectiveType" class="form-control">
+                                <option value="">-- Select --</option>
+                                <option value="compliance">Compliance</option>
+                                <option value="risk_reduction">Risk Reduction</option>
+                                <option value="productivity">Productivity</option>
+                                <option value="cost_reduction">Cost Reduction</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitItemTitle">Title</label>
+                        <input type="text" id="benefitItemTitle" class="form-control" placeholder="Brief title for this item">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitItemDescription">Description</label>
+                        <textarea id="benefitItemDescription" class="form-control" placeholder="Detailed description" rows="3"></textarea>
+                    </div>
+
+                    <div id="benefitMeasurementFields">
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="benefitTargetValue">Target Value</label>
+                                <input type="text" id="benefitTargetValue" class="form-control" placeholder="e.g. 10% savings per year">
+                            </div>
+                            <div class="form-group">
+                                <label for="benefitCurrentValue">Current Value</label>
+                                <input type="text" id="benefitCurrentValue" class="form-control" placeholder="e.g. 0%">
+                            </div>
+                        </div>
+
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="benefitTargetDate">Target Date</label>
+                                <input type="date" id="benefitTargetDate" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="benefitMeasurementMethod">Measurement Method</label>
+                                <input type="text" id="benefitMeasurementMethod" class="form-control" placeholder="How this will be measured">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitLinkedTo">Linked To</label>
+                        <div class="benefit-linked-tags" id="benefitLinkedTags" role="listbox" aria-label="Linked items"></div>
+                        <select id="benefitLinkedToSelect" class="form-control" onchange="addBenefitLink()" aria-label="Select item to link">
+                            <option value="">-- Add link --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitContribution">Contribution %</label>
+                        <input type="number" id="benefitContribution" class="form-control" min="0" max="100" value="0" placeholder="0-100">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeBenefitForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+
+                    <div id="benefitDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn-danger" onclick="deleteBenefitItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this benefit item">
                             &#128465; Delete Item
                         </button>
                     </div>

@@ -5080,6 +5080,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     switch (activeSection.id) {
                         case 'taskFormSection': closeTaskForm(); break;
                         case 'raidFormSection': closeRaidForm(); break;
+                        case 'benefitsFormSection': closeBenefitForm(); break;
                         case 'highlightFormSection': closeHighlightForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
@@ -5126,6 +5127,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     switch (activeSection.id) {
                         case 'taskFormSection': closeTaskForm(); break;
                         case 'raidFormSection': closeRaidForm(); break;
+                        case 'benefitsFormSection': closeBenefitForm(); break;
                         case 'highlightFormSection': closeHighlightForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
