@@ -409,6 +409,126 @@ function benHandleTouchEnd() {
     benTouchStartDist = 0;
 }
 
+// ── Scoring algorithm ───────────────────────────────────────────────
+
+/**
+ * Format a numeric score with abbreviations (1M, 500K, 250K, etc.).
+ */
+function benFormatScore(value) {
+    if (value >= 1000000) {
+        const m = value / 1000000;
+        return (m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)) + 'M';
+    }
+    if (value >= 1000) {
+        const k = value / 1000;
+        return (k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)) + 'K';
+    }
+    return String(Math.round(value));
+}
+
+/**
+ * Calculate benefit scores by cascading value backwards from objectives.
+ *
+ * Algorithm:
+ *  1. Each objective gets a base score of 1,000,000.
+ *  2. For each benefit/disbenefit linked to an objective:
+ *     benefit.score = objective.score * (benefit.contributionPercent / 100)
+ *  3. For each business change linked to benefits:
+ *     change.score = sum of linked benefit scores
+ *  4. For each enabler linked to changes:
+ *     enabler.score = sum of linked change scores
+ *
+ * Links go forward (enabler -> change -> benefit -> objective) via linkedTo.
+ * Scoring flows backward (objective -> benefit -> change -> enabler).
+ */
+function calculateBenefitScores() {
+    const BASE_SCORE = 1000000;
+
+    // Reset all scores
+    for (const item of benefitItems) {
+        item.score = 0;
+    }
+
+    // Build lookup by id
+    const itemById = {};
+    for (const item of benefitItems) {
+        itemById[item.id] = item;
+    }
+
+    // Step 1: Assign base score to objectives
+    for (const item of benefitItems) {
+        if (item.type === 'objective') {
+            item.score = BASE_SCORE;
+        }
+    }
+
+    // Step 2: Benefits/disbenefits get score from linked objectives
+    // A benefit links TO an objective, so benefit.linkedTo contains objective IDs
+    for (const item of benefitItems) {
+        if (item.type === 'benefit' || item.type === 'disbenefit') {
+            let totalScore = 0;
+            for (const targetId of item.linkedTo) {
+                const target = itemById[targetId];
+                if (target && target.type === 'objective') {
+                    totalScore += target.score * (item.contributionPercent / 100);
+                }
+            }
+            item.score = totalScore;
+        }
+    }
+
+    // Step 3: Business changes get score from linked benefits
+    // A change links TO benefits, so change.linkedTo contains benefit IDs
+    for (const item of benefitItems) {
+        if (item.type === 'change') {
+            let totalScore = 0;
+            for (const targetId of item.linkedTo) {
+                const target = itemById[targetId];
+                if (target && (target.type === 'benefit' || target.type === 'disbenefit')) {
+                    totalScore += target.score;
+                }
+            }
+            item.score = totalScore;
+        }
+    }
+
+    // Step 4: Enablers get score from linked changes
+    // An enabler links TO changes, so enabler.linkedTo contains change IDs
+    for (const item of benefitItems) {
+        if (item.type === 'enabler') {
+            let totalScore = 0;
+            for (const targetId of item.linkedTo) {
+                const target = itemById[targetId];
+                if (target && target.type === 'change') {
+                    totalScore += target.score;
+                }
+            }
+            item.score = totalScore;
+        }
+    }
+}
+
+/**
+ * Validate that contributions from all benefits to each objective do not exceed 100%.
+ * Returns an object mapping objective IDs to their total contribution percentage.
+ */
+function benValidateContributions() {
+    const objectiveTotals = {};
+
+    for (const item of benefitItems) {
+        if (item.type !== 'benefit' && item.type !== 'disbenefit') continue;
+        for (const targetId of item.linkedTo) {
+            const target = benefitItems.find(i => i.id === targetId);
+            if (target && target.type === 'objective') {
+                if (!objectiveTotals[targetId]) objectiveTotals[targetId] = 0;
+                objectiveTotals[targetId] += item.contributionPercent;
+            }
+        }
+    }
+
+    return objectiveTotals;
+}
+
 // ── Layout algorithm ─────────────────────────────────────────────────
 
 /**
@@ -526,6 +646,46 @@ function benRenderNode(item, x, y) {
     const maxChars = 22;
     titleText.textContent = item.title.length > maxChars ? item.title.substring(0, maxChars) + '...' : item.title;
     g.appendChild(titleText);
+
+    // Score label (shown below title if score > 0)
+    if (item.score > 0) {
+        const scoreLabel = benSvgEl('text', {
+            x: x + BEN_NODE_WIDTH / 2,
+            y: y + 52,
+            'text-anchor': 'middle',
+            'font-size': '10',
+            'font-weight': '700',
+            fill: colours.text,
+            opacity: '0.85',
+            'pointer-events': 'none',
+            'class': 'ben-score-label'
+        });
+        scoreLabel.textContent = benFormatScore(item.score);
+        g.appendChild(scoreLabel);
+    }
+
+    // Contribution over-100% warning icon on objective nodes
+    if (item.type === 'objective') {
+        const contributions = benValidateContributions();
+        if (contributions[item.id] > 100) {
+            const warningIcon = benSvgEl('text', {
+                x: x + BEN_NODE_WIDTH - 8,
+                y: y + 16,
+                'text-anchor': 'middle',
+                'font-size': '14',
+                fill: '#FFA500',
+                'pointer-events': 'none',
+                'class': 'ben-warning-icon'
+            });
+            warningIcon.textContent = '\u26A0';
+
+            const warningTitle = benSvgEl('title', {});
+            warningTitle.textContent = 'Contributions total ' + contributions[item.id] + '% (exceeds 100%)';
+            warningIcon.appendChild(warningTitle);
+
+            g.appendChild(warningIcon);
+        }
+    }
 
     // Selection highlight (invisible by default)
     if (item.type === 'enabler') {
@@ -718,6 +878,9 @@ function benRenderAll() {
     }
 
     if (benefitItems.length === 0) return;
+
+    // Calculate scores before rendering
+    calculateBenefitScores();
 
     // Compute layout
     const layout = benComputeLayout();
@@ -1001,6 +1164,23 @@ function saveBenefitItemFromForm() {
         benefitItems.push(data);
     }
 
+    // Recalculate scores after saving
+    calculateBenefitScores();
+
+    // Validate contributions and warn if any objective exceeds 100%
+    const contributions = benValidateContributions();
+    const warnings = [];
+    for (const objId in contributions) {
+        if (contributions[objId] > 100) {
+            const obj = benefitItems.find(i => i.id === parseInt(objId, 10));
+            const objName = obj ? obj.title : 'ID ' + objId;
+            warnings.push(objName + ': ' + contributions[objId] + '%');
+        }
+    }
+    if (warnings.length > 0) {
+        alert('Warning: The following objectives have contributions exceeding 100%:\n\n' + warnings.join('\n'));
+    }
+
     syncBenefitsToPlanText();
     benRenderAll();
     closeBenefitForm();
@@ -1032,6 +1212,9 @@ function deleteBenefitItem(idOverride) {
     if (benSelectedNodeId === id) {
         benSelectedNodeId = null;
     }
+
+    // Recalculate scores after deletion
+    calculateBenefitScores();
 
     syncBenefitsToPlanText();
     benRenderAll();
@@ -1153,6 +1336,9 @@ function updateBenefits() {
         if (placeholder) placeholder.style.display = 'none';
         if (content) content.style.display = '';
     }
+
+    // Calculate scores after parsing
+    calculateBenefitScores();
 
     // Initialize canvas if needed
     initBenefitsCanvas();
