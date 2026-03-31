@@ -149,7 +149,7 @@ function escapeHtmlForChat(text) {
 // Counter for unique plan update IDs
 let aiPlanUpdateCounter = 0;
 
-function renderAIChatMarkdown(text) {
+function renderAIChatMarkdown(text, finalRender) {
     if (!text) return '';
 
     // Extract plan-update blocks before escaping HTML
@@ -160,24 +160,22 @@ function renderAIChatMarkdown(text) {
         return '%%PLAN_UPDATE_' + (planUpdates.length - 1) + '%%';
     });
 
-    // Detect if the response contains a raw plan (starts with --- front matter)
-    // Small models like llama3.2 often output the plan as plain text without code blocks or tags
-    if (planUpdates.length === 0) {
+    // Only detect raw plan text on the final render (not during streaming)
+    // Small models like llama3.2 output plans as plain text without code blocks or tags
+    if (finalRender && planUpdates.length === 0) {
         const trimmedText = text.trim();
-        // Match if starts with --- (possibly with blank lines) and contains title:
-        const planMatch = trimmedText.match(/^(---[\s\S]*?(?:---|\n\n)[\s\S]*)/);
-        if (planMatch && trimmedText.includes('title:')) {
+        if (trimmedText.startsWith('---') && trimmedText.includes('title:')) {
             const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-            // If the model forgot the closing ---, add it after the last front matter field
-            let planContent = planMatch[1].trim();
-            if (planContent.startsWith('---') && (planContent.match(/---/g) || []).length < 2) {
-                // Find where front matter ends (first blank line or first task line)
+            let planContent = trimmedText;
+            // If the model forgot the closing ---, add it
+            if ((planContent.match(/---/g) || []).length < 2) {
                 const lines = planContent.split('\n');
                 let insertIdx = -1;
                 for (let i = 1; i < lines.length; i++) {
                     const l = lines[i].trim();
+                    // Blank line after some content, or a line starting with uppercase that's not a key:value
                     if (l === '' && i > 2) { insertIdx = i; break; }
-                    if (/^[A-Z]/.test(l) && !l.includes(':')) { insertIdx = i; break; }
+                    if (/^[A-Z]/.test(l) && !l.includes(':') && !l.startsWith('-')) { insertIdx = i; break; }
                 }
                 if (insertIdx > 0) {
                     lines.splice(insertIdx, 0, '---');
@@ -430,8 +428,9 @@ async function sendAIChatMessage() {
             }
         }
 
-        // Add to history
+        // Final re-render with plan detection (streaming renders skip raw plan detection)
         if (fullContent) {
+            assistantBubble.innerHTML = renderAIChatMarkdown(fullContent, true);
             aiMessages.push({ role: 'assistant', content: fullContent });
         }
 
