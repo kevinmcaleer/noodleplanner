@@ -34,16 +34,35 @@ function getProviderPresets() {
 }
 
 /**
+ * Returns the default AI configuration (Ollama via Cloudflare tunnel).
+ */
+function getDefaultAIConfig() {
+    const preset = getProviderPresets().ollama;
+    return {
+        provider: 'ollama',
+        endpoint: preset.endpoint,
+        apiKey: '',
+        model: preset.model,
+        enabled: true,
+    };
+}
+
+/**
  * Reads the current AI configuration from localStorage.
- * Returns null if not configured.
+ * Returns the default Ollama config if not yet configured.
  */
 function getAIConfig() {
     try {
         const raw = localStorage.getItem(AI_CONFIG_KEY);
-        if (!raw) return null;
+        if (!raw) {
+            // Auto-configure with Ollama defaults on first access
+            const defaults = getDefaultAIConfig();
+            saveAIConfig(defaults);
+            return defaults;
+        }
         return JSON.parse(raw);
     } catch {
-        return null;
+        return getDefaultAIConfig();
     }
 }
 
@@ -60,7 +79,10 @@ function saveAIConfig(config) {
  */
 function isAIConfigured() {
     const config = getAIConfig();
-    return !!(config && config.provider && config.endpoint && config.enabled);
+    if (!config || !config.provider || !config.endpoint || !config.enabled) return false;
+    // Ollama doesn't require an API key; other providers do
+    if (config.provider !== 'ollama' && !config.apiKey) return false;
+    return true;
 }
 
 /**
