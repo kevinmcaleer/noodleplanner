@@ -173,6 +173,14 @@
           <line x1="2" y1="20" x2="2" y2="2"/>
           <line x1="2" y1="20" x2="22" y2="20"/>
         </symbol>
+        <!-- benefits: flow chart with arrows -->
+        <symbol id="icon-benefits" viewBox="0 0 24 24">
+          <rect x="2" y="4" width="6" height="4" rx="1"/>
+          <rect x="2" y="14" width="6" height="4" rx="1"/>
+          <rect x="16" y="9" width="6" height="4" rx="2"/>
+          <line x1="8" y1="6" x2="16" y2="11"/>
+          <line x1="8" y1="16" x2="16" y2="11"/>
+        </symbol>
         <!-- stakeholders -->
         <symbol id="icon-stakeholders" viewBox="0 0 24 24">
           <circle cx="8" cy="6" r="3"/>
@@ -268,6 +276,9 @@
                 </button>
                 <button class="plan-subnav-btn" data-view="product-flow" onclick="switchToView('product-flow')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-pbs"/></svg> Product Flow
+                </button>
+                <button class="plan-subnav-btn" data-view="benefits" onclick="switchToView('benefits')">
+                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-benefits"/></svg> Benefits
                 </button>
                 <button class="plan-subnav-btn" data-view="stakeholders" onclick="switchToView('stakeholders')">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Stakeholders
@@ -1279,6 +1290,97 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="pbs-canvas-wrapper" id="productFlowContainer">
                                     <!-- SVG product flow rendered by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Benefits Realisation View -->
+                        <div id="benefits-view" class="output-tab-content">
+                            <div class="benefits-placeholder placeholder-view">
+                                <h3>Benefits Map</h3>
+                                <p>Visualise how enablers drive business changes that deliver benefits and objectives.</p>
+                                <button class="mindmap-toolbar-btn" onclick="addBenefitElement('objective')" style="margin-top: 16px; width: auto; padding: 8px 20px; font-size: 14px;">+ Add first item</button>
+                            </div>
+                            <div class="benefits-content" style="display: none;">
+                                <div class="benefits-toolbar" role="toolbar" aria-label="Benefits map controls">
+                                    <div class="mindmap-toolbar-group">
+                                        <button class="mindmap-toolbar-btn" onclick="benefitsZoomIn()" title="Zoom in" aria-label="Zoom in">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <span class="mindmap-zoom-label" id="benefitsZoomLabel">100%</span>
+                                        <button class="mindmap-toolbar-btn" onclick="benefitsZoomOut()" title="Zoom out" aria-label="Zoom out">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn" onclick="benefitsZoomFit()" title="Fit all" aria-label="Fit all nodes in view">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn" onclick="benefitsZoomReset()" title="Reset zoom" aria-label="Reset zoom to 100%">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="mindmap-toolbar-separator"></div>
+                                    <div class="mindmap-toolbar-group benefits-add-group">
+                                        <button class="mindmap-toolbar-btn benefits-add-btn benefits-add-btn--enabler" onclick="addBenefitElement('enabler')" title="Add Enabler" aria-label="Add enabler node">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            <span class="ben-btn-label">Enabler</span>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn benefits-add-btn benefits-add-btn--change" onclick="addBenefitElement('change')" title="Add Business Change" aria-label="Add business change node">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            <span class="ben-btn-label">Change</span>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn benefits-add-btn benefits-add-btn--benefit" onclick="addBenefitElement('benefit')" title="Add Benefit" aria-label="Add benefit node">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            <span class="ben-btn-label">Benefit</span>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn benefits-add-btn benefits-add-btn--disbenefit" onclick="addBenefitElement('disbenefit')" title="Add Disbenefit" aria-label="Add disbenefit node">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            <span class="ben-btn-label">Disbenefit</span>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn benefits-add-btn benefits-add-btn--objective" onclick="addBenefitElement('objective')" title="Add Objective" aria-label="Add objective node">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            <span class="ben-btn-label">Objective</span>
+                                        </button>
+                                    </div>
+                                    <div class="mindmap-toolbar-separator"></div>
+                                    <div class="mindmap-toolbar-group">
+                                        <button class="mindmap-toolbar-btn" onclick="copyBenefitsAsImage()" title="Copy as PNG" aria-label="Copy benefits map as PNG image">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn" onclick="exportBenefitsExcel()" title="Export to Excel" aria-label="Export benefits to Excel spreadsheet">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="mindmap-toolbar-separator"></div>
+                                    <div class="mindmap-toolbar-group ben-view-toggle" role="tablist" aria-label="Benefits view mode">
+                                        <button class="mindmap-toolbar-btn ben-view-btn ben-view-btn--active" id="benViewMapBtn" role="tab" aria-selected="true" aria-controls="benefitsContainer" onclick="benSwitchView('map')" title="Map view">Map</button>
+                                        <button class="mindmap-toolbar-btn ben-view-btn" id="benViewTrackingBtn" role="tab" aria-selected="false" aria-controls="benefitsTrackingContainer" onclick="benSwitchView('tracking')" title="Tracking table">Tracking</button>
+                                    </div>
+                                    <div class="mindmap-toolbar-hint" id="benToolbarHint">
+                                        Scroll to pan &middot; Ctrl+Scroll to zoom &middot; Click to select &middot; Double-click to edit &middot; Del to remove
+                                    </div>
+                                </div>
+                                <div class="mindmap-canvas-wrapper" id="benefitsContainer" tabindex="0" role="application" aria-label="Benefits map canvas">
+                                    <!-- SVG benefits map rendered by JavaScript -->
+                                </div>
+                                <div class="ben-tracking-container" id="benefitsTrackingContainer" style="display: none;" role="tabpanel" aria-label="Benefits tracking table">
+                                    <div class="ben-tracking-wrapper">
+                                        <table class="table table-sm table-hover ben-tracking-table" id="benefitsTrackingTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Title</th>
+                                                    <th>Target Value</th>
+                                                    <th>Current Value</th>
+                                                    <th>Target Date</th>
+                                                    <th>Measurement Method</th>
+                                                    <th>Status</th>
+                                                    <th>Last Updated</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="benefitsTrackingBody">
+                                                <!-- Populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2614,6 +2716,99 @@ Build
             </div>
         </div>
 
+        <!-- Benefits Form Section -->
+        <div id="benefitsFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="benefitsFormTitle">New Benefit Item</h2>
+                <button class="close-btn" onclick="closeBenefitForm()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="benefitItemId">
+
+                    <div class="form-group">
+                        <label for="benefitItemType">Type *</label>
+                        <select id="benefitItemType" class="form-control" onchange="benefitTypeChanged()">
+                            <option value="benefit">Benefit</option>
+                            <option value="disbenefit">Disbenefit</option>
+                            <option value="enabler">Enabler</option>
+                            <option value="change">Business Change</option>
+                            <option value="objective">Objective</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitItemTitle">Title *</label>
+                        <input type="text" id="benefitItemTitle" class="form-control" placeholder="Enter title">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitItemDescription">Description</label>
+                        <textarea id="benefitItemDescription" class="form-control" rows="3" placeholder="Describe this item"></textarea>
+                    </div>
+
+                    <div class="form-group" id="benefitObjectiveTypeGroup" style="display:none;">
+                        <label for="benefitObjectiveType">Objective Type</label>
+                        <select id="benefitObjectiveType" class="form-control">
+                            <option value="">-- Select --</option>
+                            <option value="strategic">Strategic</option>
+                            <option value="operational">Operational</option>
+                            <option value="financial">Financial</option>
+                            <option value="customer">Customer</option>
+                        </select>
+                    </div>
+
+                    <div id="benefitMeasurementFields" style="display:none;">
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="benefitTargetValue">Target Value</label>
+                                <input type="text" id="benefitTargetValue" class="form-control" placeholder="e.g. 10% savings">
+                            </div>
+                            <div class="form-group">
+                                <label for="benefitCurrentValue">Current Value</label>
+                                <input type="text" id="benefitCurrentValue" class="form-control" placeholder="e.g. 3% savings">
+                            </div>
+                        </div>
+                        <div class="form-grid-2col">
+                            <div class="form-group">
+                                <label for="benefitTargetDate">Target Date</label>
+                                <input type="date" id="benefitTargetDate" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="benefitMeasurementMethod">Measurement Method</label>
+                                <input type="text" id="benefitMeasurementMethod" class="form-control" placeholder="How will this be measured?">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="benefitContribution">Contribution %</label>
+                        <input type="number" id="benefitContribution" class="form-control" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Linked To</label>
+                        <div id="benefitLinkedTags" class="benefit-linked-tags" role="listbox" aria-label="Linked items"></div>
+                        <div style="display: flex; gap: 8px; margin-top: 4px;">
+                            <select id="benefitLinkedToSelect" class="form-control" style="flex: 1;">
+                                <option value="">-- Select item to link --</option>
+                            </select>
+                            <button type="button" class="btn-secondary" onclick="addBenefitLink()" style="padding: 4px 12px; min-height: 44px;">+ Link</button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeBenefitForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveBenefitItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+
+                    <div id="benefitDeleteButtonRow" class="form-actions" style="display:none; margin-top: 12px; justify-content: flex-end;">
+                        <button type="button" class="btn-danger" onclick="deleteBenefitItem()" style="padding: 8px 20px;">Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Action Form Section -->
         <div id="actionFormSection" class="detail-pane-section">
             <div class="modal-header">
@@ -3037,6 +3232,7 @@ Build
                 <table class="help-table">
                     <tr><td><kbd>Alt+D</kbd></td><td>Go to Project Dashboard</td></tr>
                     <tr><td><kbd>Alt+P</kbd></td><td>Go to Portfolio</td></tr>
+                    <tr><td><kbd>Alt+B</kbd></td><td>Go to Benefits Map</td></tr>
                 </table>
 
                 <h3>Create Items</h3>
@@ -3157,6 +3353,7 @@ Build
     <script src="/static/views-gantt.js?v={{ v }}"></script>
     <script src="/static/views-timeline.js?v={{ v }}"></script>
     <script src="/static/views-tables.js?v={{ v }}"></script>
+    <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
