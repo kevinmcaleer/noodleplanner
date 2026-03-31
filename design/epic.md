@@ -1515,4 +1515,4 @@ Nine built-in agents, each with a system prompt that receives `{{plan_markdown}}
 | `static/ai-chat.css` | Chat panel, message bubbles, agent chips, typing indicator styles |
 | `agents/*/agent.yml` | Agent metadata (name, description, icon, category, order) |
 | `agents/*/system-prompt.md` | Agent system prompt with `{{plan_markdown}}` placeholder |
-| `tests/test_ai_service.py` | 60+ tests: models, payloads, headers, URLs, tokens, SSE, agents, connection, security, validation |
+| `tests/test_ai_service.py` | 76 tests: models, payloads, headers, URLs, tokens, SSE, agents, connection, security, validation |

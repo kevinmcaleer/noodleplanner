@@ -223,7 +223,7 @@ class TestAgentDiscovery:
         assert ids == expected
 
 
-# ── Phase 5: Additional tests ───────────────────────────────
+# -- Phase 5: Additional tests -----------------------------------------------
 
 
 class TestAnthropicFormatTranslation:
