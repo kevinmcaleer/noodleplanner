@@ -1448,3 +1448,71 @@ Response:
 | `templates/index.html` | Dependencies sub-nav button and `portfolioDependenciesView` div |
 | `packages/noodle-web/src/noodle_web/app.py` | `POST /api/programme-dependencies/propagate` endpoint + helpers |
 | `tests/test_programme_dependencies.py` | 21 tests covering helper functions and API endpoint |
+
+---
+
+### Agentic AI Capabilities (Issue #679)
+
+NoodlePlanner supports AI-powered project management agents via a BYOK (Bring Your Own Key) architecture. Users configure their own AI provider (OpenAI, Anthropic, Ollama, or a custom endpoint) in the browser, and the backend proxies requests without storing API keys.
+
+#### Architecture
+
+- **BYOK model**: API keys stored in browser `localStorage`, sent per-request, never persisted server-side.
+- **OpenAI-compatible interface**: All providers are accessed through an OpenAI-compatible chat completion format, with automatic translation for Anthropic's native format.
+- **FastAPI proxy**: The backend (`ai_service.py`) proxies requests via `httpx`, adding provider-specific headers and payload translation.
+- **Server-side agent templates**: Nine specialised agents defined as `agent.yml` + `system-prompt.md` files, loaded at runtime.
+- **SSE streaming**: Responses stream token-by-token via Server-Sent Events.
+- **No database changes**: All configuration in `localStorage`, all chat state in-memory.
+
+#### Providers
+
+| Provider | Endpoint | Key Required | Notes |
+|----------|----------|:---:|-------|
+| OpenAI | `https://api.openai.com/v1` | Yes | Default: `gpt-4o` |
+| Anthropic | `https://api.anthropic.com/v1` | Yes | Default: `claude-sonnet-4-20250514`. Payload translated to Anthropic format. |
+| Ollama | `http://localhost:11434/v1` | No | Must run on same machine as server. Default: `llama3`. |
+| Custom | User-defined | Varies | Any OpenAI-compatible endpoint. |
+
+#### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/ai/chat` | Proxy chat completion (SSE streaming response) |
+| `POST` | `/api/ai/test` | Test provider connectivity |
+| `GET` | `/api/ai/agents` | List all 9 agent metadata entries |
+| `GET` | `/api/ai/agents/{id}` | Get agent metadata + system prompt |
+
+#### Agents
+
+Nine built-in agents, each with a system prompt that receives `{{plan_markdown}}`:
+
+| ID | Name | Category |
+|----|------|----------|
+| `planning-agent` | Planning Agent | planning |
+| `risk-manager` | Risk Manager | tracking |
+| `reporting-analyst` | Reporting Analyst | reporting |
+| `benefits-manager` | Benefits Realisation Manager | tracking |
+| `stakeholder-engagement` | Stakeholder Engagement | planning |
+| `accountant` | Accountant | tracking |
+| `resource-manager` | Resource Manager | resources |
+| `pm-assistant` | PM Assistant | planning |
+| `meeting-actions` | Meeting Actions | reporting |
+
+#### Frontend
+
+- **AI Settings Modal**: Provider selection (radio buttons), endpoint, API key (toggleable visibility), model, test button.
+- **Chat Panel**: Slide-in from right, agent chips at top, streaming markdown display, Ctrl+Shift+A toggle.
+- **Visibility gating**: AI features hidden until a provider is configured and enabled.
+- **Plan context injection**: Current plan text injected into agent prompt (truncated at 100 KB).
+
+#### Files
+
+| File | Purpose |
+|------|---------|
+| `ai_service.py` | Backend proxy: payload builders, headers, SSE streaming, connection test, agent discovery |
+| `static/ai-config.js` | Provider presets, localStorage read/write, settings modal, test connection UI |
+| `static/ai-chat.js` | Chat panel open/close, agent selection, message send/stream, markdown render |
+| `static/ai-chat.css` | Chat panel, message bubbles, agent chips, typing indicator styles |
+| `agents/*/agent.yml` | Agent metadata (name, description, icon, category, order) |
+| `agents/*/system-prompt.md` | Agent system prompt with `{{plan_markdown}}` placeholder |
+| `tests/test_ai_service.py` | 76 tests: models, payloads, headers, URLs, tokens, SSE, agents, connection, security, validation |
