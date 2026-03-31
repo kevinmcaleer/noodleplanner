@@ -39,6 +39,7 @@
     <link rel="stylesheet" href="/static/animations.css?v={{ v }}">
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/ai-chat.css?v={{ v }}">
 </head>
 <body>
     <!-- SVG Icon Sprite (hidden, reference with use#id) -->
@@ -3144,6 +3145,11 @@ Build
                     <tr><td><kbd>Ctrl+Enter</kbd></td><td>Render plan</td></tr>
                 </table>
 
+                <h3>AI</h3>
+                <table class="help-table">
+                    <tr><td><kbd>Ctrl+Shift+A</kbd></td><td>Toggle AI Chat panel</td></tr>
+                </table>
+
                 <h3>General</h3>
                 <table class="help-table">
                     <tr><td><kbd>?</kbd></td><td>Show this help dialog</td></tr>
@@ -3257,6 +3263,7 @@ Build
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/views-products.js?v={{ v }}"></script>
     <script src="/static/ai-config.js?v={{ v }}"></script>
+    <script src="/static/ai-chat.js?v={{ v }}"></script>
 
     <!-- AI Settings Modal -->
     <div id="aiSettingsOverlay" class="modal-overlay" onclick="if(event.target===this) closeAISettingsModal()" role="dialog" aria-modal="true" aria-label="AI Provider Settings">
@@ -3322,6 +3329,42 @@ Build
             </div>
         </div>
     </div>
+
+    <!-- AI Chat Panel -->
+    <div id="aiChatOverlay" class="ai-chat-overlay" onclick="if(event.target===this) closeAIChat()"></div>
+    <aside id="aiChatPanel" class="ai-chat-panel" role="complementary" aria-label="AI Chat">
+        <div class="ai-chat-header">
+            <div class="ai-chat-header-title">
+                <i class="bi bi-robot" aria-hidden="true"></i>
+                <span>AI Chat</span>
+                <span class="ai-chat-header-agent" id="aiChatAgentName"></span>
+            </div>
+            <button class="ai-chat-header-btn" onclick="openAISettingsModal()" aria-label="AI Settings" title="AI Settings">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+            </button>
+            <button class="ai-chat-header-btn" onclick="closeAIChat()" aria-label="Close AI Chat" title="Close">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="ai-agent-selector" id="aiAgentSelector" role="toolbar" aria-label="Select AI Agent"></div>
+        <div class="ai-chat-messages" id="aiChatMessages" aria-live="polite"></div>
+        <div class="ai-chat-setup" id="aiChatSetup" style="display:none;">
+            <i class="bi bi-robot" aria-hidden="true"></i>
+            <p>Configure an AI provider to start chatting with project agents.</p>
+            <button class="ai-chat-setup-btn" onclick="openAISettingsModal()">Configure AI Provider</button>
+        </div>
+        <div class="ai-chat-input-area" id="aiChatInputArea">
+            <div class="ai-chat-input-wrapper">
+                <textarea id="aiChatInput" class="ai-chat-textarea" rows="1"
+                          placeholder="Ask the AI agent a question..."
+                          aria-label="Chat message"
+                          onkeydown="handleAIChatKeydown(event)"></textarea>
+            </div>
+            <button id="aiChatSendBtn" class="ai-chat-send-btn" onclick="sendAIChatMessage()" aria-label="Send message" title="Send">
+                <i class="bi bi-send" aria-hidden="true"></i>
+            </button>
+        </div>
+    </aside>
 
     <!-- RAID Delete Confirmation Modal -->
     <div id="raidDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteRaidItem()" role="dialog" aria-modal="true" aria-label="Confirm delete RAID item">

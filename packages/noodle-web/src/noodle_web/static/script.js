@@ -5096,6 +5096,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close detail pane when pressing Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            // Check if AI chat panel is open - close it first
+            if (typeof aiChatOpen !== 'undefined' && aiChatOpen) {
+                closeAIChat();
+                return;
+            }
+
             // First check if keyboard shortcuts modal is open - close it
             const kbOverlay = document.getElementById('keyboardShortcutsOverlay');
             if (kbOverlay && kbOverlay.classList.contains('active')) {
@@ -5144,6 +5150,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey) {
             e.preventDefault();
             downloadMarkdown();
+        }
+    });
+
+    // Ctrl+Shift+A - Toggle AI Chat panel
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a') && !e.altKey) {
+            e.preventDefault();
+            if (typeof toggleAIChat === 'function') {
+                toggleAIChat();
+            }
         }
     });
 
