@@ -564,6 +564,20 @@ function benRenderNode(item, x, y) {
         benSelectNode(item.id);
     });
 
+    // Double-click handler to open edit form
+    g.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        openBenefitForm(item.id);
+    });
+
+    // Enter key to open edit form when focused
+    g.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            openBenefitForm(item.id);
+        }
+    });
+
     // Focus styling
     g.addEventListener('focus', () => {
         g.querySelector('.ben-selection-ring').setAttribute('visibility', 'visible');
@@ -757,6 +771,283 @@ function addBenefitElement(type) {
     const content = document.querySelector('#benefits-view .benefits-content');
     if (placeholder) placeholder.style.display = 'none';
     if (content) content.style.display = '';
+
+    // Open the form for the new item
+    openBenefitForm(item.id);
+}
+
+// ── CRUD functions ──────────────────────────────────────────────────
+
+/**
+ * Create a new benefit item with pre-selected type and open the form.
+ */
+function addBenefitItem(type) {
+    addBenefitElement(type || 'benefit');
+}
+
+/**
+ * Open the benefit form in the detail pane for editing an existing item.
+ */
+function openBenefitForm(itemId) {
+    const title = document.getElementById('benefitsFormTitle');
+    const idField = document.getElementById('benefitItemId');
+    const deleteRow = document.getElementById('benefitDeleteButtonRow');
+
+    if (itemId != null) {
+        const item = benefitItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        title.textContent = 'Edit Benefit Item';
+        idField.value = item.id;
+        document.getElementById('benefitItemType').value = item.type;
+        document.getElementById('benefitItemTitle').value = item.title;
+        document.getElementById('benefitItemDescription').value = item.description;
+        document.getElementById('benefitObjectiveType').value = item.objectiveType || '';
+        document.getElementById('benefitTargetValue').value = item.targetValue || '';
+        document.getElementById('benefitCurrentValue').value = item.currentValue || '';
+        document.getElementById('benefitTargetDate').value = item.targetDate || '';
+        document.getElementById('benefitMeasurementMethod').value = item.measurementMethod || '';
+        document.getElementById('benefitContribution').value = item.contributionPercent || 0;
+
+        if (deleteRow) deleteRow.style.display = 'block';
+
+        // Render linked tags
+        benRenderLinkedTags(item.linkedTo);
+    } else {
+        title.textContent = 'New Benefit Item';
+        idField.value = '';
+        document.getElementById('benefitItemType').value = 'benefit';
+        document.getElementById('benefitItemTitle').value = '';
+        document.getElementById('benefitItemDescription').value = '';
+        document.getElementById('benefitObjectiveType').value = '';
+        document.getElementById('benefitTargetValue').value = '';
+        document.getElementById('benefitCurrentValue').value = '';
+        document.getElementById('benefitTargetDate').value = '';
+        document.getElementById('benefitMeasurementMethod').value = '';
+        document.getElementById('benefitContribution').value = 0;
+
+        if (deleteRow) deleteRow.style.display = 'none';
+
+        // Clear linked tags
+        benRenderLinkedTags([]);
+    }
+
+    // Update conditional field visibility
+    benefitTypeChanged();
+
+    // Populate the "Linked To" select with available items
+    benPopulateLinkedToSelect(itemId);
+
+    openDetailPane('benefitsFormSection');
+}
+
+/**
+ * Show/hide conditional fields based on selected type.
+ */
+function benefitTypeChanged() {
+    const type = document.getElementById('benefitItemType').value;
+    const objectiveGroup = document.getElementById('benefitObjectiveTypeGroup');
+    const measurementFields = document.getElementById('benefitMeasurementFields');
+
+    // Objective type only visible for objectives
+    if (objectiveGroup) {
+        objectiveGroup.style.display = type === 'objective' ? '' : 'none';
+    }
+
+    // Measurement fields only visible for benefit/disbenefit
+    if (measurementFields) {
+        measurementFields.style.display = (type === 'benefit' || type === 'disbenefit') ? '' : 'none';
+    }
+}
+
+/**
+ * Populate the linked-to select dropdown with available items (excluding self).
+ */
+function benPopulateLinkedToSelect(excludeId) {
+    const select = document.getElementById('benefitLinkedToSelect');
+    if (!select) return;
+
+    // Clear existing options except the placeholder
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+
+    for (const item of benefitItems) {
+        if (item.id === excludeId) continue;
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.type.charAt(0).toUpperCase() + item.type.slice(1) + ': ' + item.title;
+        select.appendChild(opt);
+    }
+}
+
+/**
+ * Add a link from the dropdown to the current item's linked tags.
+ */
+function addBenefitLink() {
+    const select = document.getElementById('benefitLinkedToSelect');
+    if (!select || !select.value) return;
+
+    const linkId = parseInt(select.value, 10);
+    const tagsContainer = document.getElementById('benefitLinkedTags');
+    if (!tagsContainer) return;
+
+    // Check if already linked
+    const existing = tagsContainer.querySelectorAll('.benefit-link-tag');
+    for (const tag of existing) {
+        if (parseInt(tag.dataset.linkId, 10) === linkId) {
+            select.value = '';
+            return;
+        }
+    }
+
+    const item = benefitItems.find(i => i.id === linkId);
+    if (!item) return;
+
+    const tag = document.createElement('span');
+    tag.className = 'benefit-link-tag';
+    tag.dataset.linkId = linkId;
+    tag.setAttribute('role', 'option');
+    tag.setAttribute('aria-label', 'Linked to ' + item.title + '. Press to remove.');
+    tag.innerHTML = '<span class="benefit-link-tag-text">' +
+        (item.type.charAt(0).toUpperCase() + item.type.slice(1)) + ': ' + item.title +
+        '</span><button type="button" class="benefit-link-tag-remove" onclick="removeBenefitLink(this)" aria-label="Remove link">&times;</button>';
+    tagsContainer.appendChild(tag);
+
+    select.value = '';
+}
+
+/**
+ * Remove a linked tag.
+ */
+function removeBenefitLink(btn) {
+    const tag = btn.closest('.benefit-link-tag');
+    if (tag) tag.remove();
+}
+
+/**
+ * Render linked tags from an array of IDs.
+ */
+function benRenderLinkedTags(linkedIds) {
+    const tagsContainer = document.getElementById('benefitLinkedTags');
+    if (!tagsContainer) return;
+    tagsContainer.innerHTML = '';
+
+    for (const linkId of linkedIds) {
+        const item = benefitItems.find(i => i.id === linkId);
+        if (!item) continue;
+
+        const tag = document.createElement('span');
+        tag.className = 'benefit-link-tag';
+        tag.dataset.linkId = linkId;
+        tag.setAttribute('role', 'option');
+        tag.setAttribute('aria-label', 'Linked to ' + item.title + '. Press to remove.');
+        tag.innerHTML = '<span class="benefit-link-tag-text">' +
+            (item.type.charAt(0).toUpperCase() + item.type.slice(1)) + ': ' + item.title +
+            '</span><button type="button" class="benefit-link-tag-remove" onclick="removeBenefitLink(this)" aria-label="Remove link">&times;</button>';
+        tagsContainer.appendChild(tag);
+    }
+}
+
+/**
+ * Validate and save the benefit item from the form fields.
+ */
+function saveBenefitItemFromForm() {
+    const idField = document.getElementById('benefitItemId').value;
+    const title = document.getElementById('benefitItemTitle').value.trim();
+
+    if (!title) {
+        alert('Please enter a title for the benefit item.');
+        return;
+    }
+
+    const type = document.getElementById('benefitItemType').value;
+
+    // Collect linked IDs from tags
+    const tags = document.querySelectorAll('#benefitLinkedTags .benefit-link-tag');
+    const linkedTo = [];
+    for (const tag of tags) {
+        const linkId = parseInt(tag.dataset.linkId, 10);
+        if (!isNaN(linkId)) linkedTo.push(linkId);
+    }
+
+    const data = {
+        type: type,
+        title: title,
+        description: document.getElementById('benefitItemDescription').value.trim(),
+        objectiveType: type === 'objective' ? document.getElementById('benefitObjectiveType').value : '',
+        targetValue: (type === 'benefit' || type === 'disbenefit') ? document.getElementById('benefitTargetValue').value.trim() : '',
+        currentValue: (type === 'benefit' || type === 'disbenefit') ? document.getElementById('benefitCurrentValue').value.trim() : '',
+        targetDate: (type === 'benefit' || type === 'disbenefit') ? document.getElementById('benefitTargetDate').value : '',
+        measurementMethod: (type === 'benefit' || type === 'disbenefit') ? document.getElementById('benefitMeasurementMethod').value.trim() : '',
+        linkedTo: linkedTo,
+        contributionPercent: parseInt(document.getElementById('benefitContribution').value, 10) || 0,
+        score: 0
+    };
+
+    if (idField) {
+        // Update existing item
+        const id = parseInt(idField, 10);
+        const item = benefitItems.find(i => i.id === id);
+        if (item) {
+            Object.assign(item, data);
+        }
+    } else {
+        // Create new item
+        data.id = benefitNextId++;
+        benefitItems.push(data);
+    }
+
+    syncBenefitsToPlanText();
+    benRenderAll();
+    closeBenefitForm();
+}
+
+/**
+ * Delete the currently edited benefit item with confirmation.
+ */
+function deleteBenefitItem(idOverride) {
+    const id = idOverride !== undefined ? idOverride : parseInt(document.getElementById('benefitItemId').value, 10);
+    if (isNaN(id)) return;
+
+    const item = benefitItems.find(i => i.id === id);
+    const itemTitle = item ? item.title : 'this item';
+
+    if (!confirm('Are you sure you want to delete "' + itemTitle + '"? This action cannot be undone.')) {
+        return;
+    }
+
+    // Remove the item
+    benefitItems = benefitItems.filter(i => i.id !== id);
+
+    // Remove references to this item from other items' linkedTo arrays
+    for (const other of benefitItems) {
+        other.linkedTo = other.linkedTo.filter(linkId => linkId !== id);
+    }
+
+    // Deselect if it was selected
+    if (benSelectedNodeId === id) {
+        benSelectedNodeId = null;
+    }
+
+    syncBenefitsToPlanText();
+    benRenderAll();
+    closeBenefitForm();
+
+    // Show placeholder if no items remain
+    if (benefitItems.length === 0) {
+        const placeholder = document.querySelector('#benefits-view .benefits-placeholder');
+        const content = document.querySelector('#benefits-view .benefits-content');
+        if (placeholder) placeholder.style.display = '';
+        if (content) content.style.display = 'none';
+    }
+}
+
+/**
+ * Close the benefit form detail pane section.
+ */
+function closeBenefitForm() {
+    closeDetailPane();
 }
 
 // ── Initialization ───────────────────────────────────────────────────
@@ -796,6 +1087,13 @@ function initBenefitsCanvas() {
 
         // Click on background to deselect
         benSvg.addEventListener('click', (e) => {
+            if (e.target === benSvg) {
+                benDeselectAll();
+            }
+        });
+
+        // Double-click on background to deselect and close form
+        benSvg.addEventListener('dblclick', (e) => {
             if (e.target === benSvg) {
                 benDeselectAll();
             }
@@ -853,6 +1151,20 @@ function updateBenefits() {
 
     // Initialize canvas if needed
     initBenefitsCanvas();
+
+    // Attach Delete key handler to benefits container (once)
+    const container = document.getElementById('benefitsContainer');
+    if (container && !container._benKeydownAttached) {
+        container.addEventListener('keydown', (e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && benSelectedNodeId !== null) {
+                // Only if not focused on an input inside the form
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                e.preventDefault();
+                deleteBenefitItem(benSelectedNodeId);
+            }
+        });
+        container._benKeydownAttached = true;
+    }
 
     // Render
     benRenderAll();
