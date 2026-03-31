@@ -17,6 +17,7 @@ from noodle_core import (
     parse_baseline_markdown,
     generate_baseline_text,
     update_plan_baseline,
+    parse_benefits_markdown,
 )
 
 
@@ -1596,6 +1597,74 @@ Phase 1
         assert '---budget---' not in result
         assert 'Dev work' not in result
         assert 'Task 1' in result
+
+
+class TestParseBenefitsMarkdown:
+    """Test suite for parse_benefits_markdown function."""
+
+    def test_parse_benefits_markdown_basic(self):
+        """Well-formed table with all columns parses correctly."""
+        text = """| ID | Type | Title | Description | Objective Type | Target Value | Current Value | Target Date | Measurement | Linked To | Contribution % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | benefit | Faster delivery | Reduce cycle time | efficiency | 20% | 5% | 2026-06-01 | Sprint metrics | 2, 3 | 40 |
+| 2 | dis-benefit | Higher cost | Increased hosting | cost | 500 | 200 | 2026-12-01 | Monthly bill |  | 10 |"""
+
+        items = parse_benefits_markdown(text)
+        assert len(items) == 2
+        assert items[0]['id'] == 1
+        assert items[0]['type'] == 'benefit'
+        assert items[0]['title'] == 'Faster delivery'
+        assert items[0]['description'] == 'Reduce cycle time'
+        assert items[0]['objective_type'] == 'efficiency'
+        assert items[0]['target_value'] == '20%'
+        assert items[0]['current_value'] == '5%'
+        assert items[0]['target_date'] == '2026-06-01'
+        assert items[0]['measurement_method'] == 'Sprint metrics'
+        assert items[0]['contribution_percent'] == 40
+        assert items[1]['id'] == 2
+        assert items[1]['type'] == 'dis-benefit'
+
+    def test_parse_benefits_markdown_empty(self):
+        """Empty string returns empty list."""
+        assert parse_benefits_markdown('') == []
+
+    def test_parse_benefits_markdown_no_header(self):
+        """Text without table headers returns empty list."""
+        text = """Some random text
+without any table structure."""
+        assert parse_benefits_markdown(text) == []
+
+    def test_parse_benefits_markdown_linked_to(self):
+        """Comma-separated linked_to parsed as list of ints."""
+        text = """| ID | Type | Title | Description | Objective Type | Target Value | Current Value | Target Date | Measurement | Linked To | Contribution % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | benefit | Test | Desc | perf | 100 | 50 | 2026-01-01 | KPI | 2, 5, 8 | 30 |
+| 2 | benefit | No links | Desc2 | cost | 10 | 0 | 2026-02-01 | Report |  | 20 |"""
+
+        items = parse_benefits_markdown(text)
+        assert items[0]['linked_to'] == [2, 5, 8]
+        assert items[1]['linked_to'] == []
+
+    def test_parse_benefits_round_trip(self):
+        """Verify all fields parse correctly in a round trip."""
+        text = """| ID | Type | Title | Description | Objective Type | Target Value | Current Value | Target Date | Measurement | Linked To | Contribution % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | benefit | Revenue growth | Increase monthly revenue | financial | 50000 | 30000 | 2026-09-15 | Financial report | 1 | 75 |"""
+
+        items = parse_benefits_markdown(text)
+        assert len(items) == 1
+        item = items[0]
+        assert item['id'] == 3
+        assert item['type'] == 'benefit'
+        assert item['title'] == 'Revenue growth'
+        assert item['description'] == 'Increase monthly revenue'
+        assert item['objective_type'] == 'financial'
+        assert item['target_value'] == '50000'
+        assert item['current_value'] == '30000'
+        assert item['target_date'] == '2026-09-15'
+        assert item['measurement_method'] == 'Financial report'
+        assert item['linked_to'] == [1]
+        assert item['contribution_percent'] == 75
 
 
 if __name__ == "__main__":
