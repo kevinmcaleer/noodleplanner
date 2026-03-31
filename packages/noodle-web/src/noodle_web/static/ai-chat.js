@@ -436,12 +436,48 @@ async function getAgentSystemPrompt() {
 
     prompt = prompt.replace(/\{\{plan_markdown\}\}/g, truncatedPlan);
 
-    // Append instruction for plan updates
-    prompt += '\n\n## Plan Update Instructions\n\n' +
+    // Append plan format reference and update instructions
+    prompt += '\n\n## NoodlePlanner Format Reference\n\n' +
+        'The plan uses YAML front matter between `---` markers, followed by tasks as indented markdown.\n\n' +
+        '### Front matter fields\n' +
+        '```\n---\n' +
+        'title: Project Name\n' +
+        'project manager: Name\n' +
+        'start date: YYYY-MM-DD\n' +
+        'budget: £amount\n' +
+        'stakeholders:\n' +
+        '  - @Stakeholder Name {interest} {influence}\n' +
+        '  - @Another Person {interest} {influence}\n' +
+        'resources:\n' +
+        '  - @Resource Name {role}\n' +
+        'non-working-days:\n' +
+        '  - Holiday Name: YYYY-MM-DD:YYYY-MM-DD\n' +
+        '---\n```\n\n' +
+        'Stakeholders MUST be in the front matter under `stakeholders:` as a YAML list with `- @Name` entries. ' +
+        'They are NOT in a table. Interest/influence use curly braces: `{High}` `{Low}` etc.\n\n' +
+        '### Task syntax\n' +
+        '- Indentation = hierarchy (2 spaces per level)\n' +
+        '- Duration: `5d` (days), `2w` (weeks), `1m` (months)\n' +
+        '- Resources: `@Name`\n' +
+        '- Dependencies: `[depends TaskName]` or `[depends Task1, Task2:SS +2d]`\n' +
+        '- Completion: `%50`\n' +
+        '- Sequential tasks: `*` prefix\n' +
+        '- Milestones: `0d` duration\n' +
+        '- Comments: `!"comment text"`\n' +
+        '- Deliverables: `$deliverable_name`\n' +
+        '- Labels: `#label`\n\n' +
+        '### Sections after tasks\n' +
+        '- `---benefits---` — benefits realisation table\n' +
+        '- `---budget---` — budget table\n' +
+        '- `---raid log---` — risks, assumptions, issues, dependencies table\n' +
+        '- `---comms---` — communications plan table\n' +
+        '- `---baseline---` — baseline snapshot\n\n' +
+        '## Plan Update Instructions\n\n' +
         'When the user asks you to modify, update, or change the plan, output the complete updated plan ' +
         'wrapped in <plan-update> tags. Include the FULL plan text (not just the changed parts), ' +
         'so it can replace the current plan entirely. Example:\n\n' +
-        '<plan-update>\n# Project Name\n- Task 1 5d\n- Task 2 3d\n</plan-update>\n\n' +
+        '<plan-update>\n---\ntitle: My Project\nstakeholders:\n  - @John Smith {High} {High}\n---\n\n' +
+        'Design\n  *HLD 5d\n  *LLD 10d\n</plan-update>\n\n' +
         'Only use <plan-update> tags when the user explicitly asks you to make changes to the plan. ' +
         'For reviews, suggestions, and analysis, just respond with text — do not include plan-update tags.';
 
