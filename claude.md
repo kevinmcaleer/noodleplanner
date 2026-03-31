@@ -1,50 +1,38 @@
-- simplicity over complexity
-- clarity over cleverness
-- maintainability over optimization
-- self-documenting code over comments
-- small functions over large functions
-- functions with single responsibility over multi-purpose functions
-- sql should be stored in .sql files over inline sql
-- all functions should have tests over no tests
-- code coverage should be at least 80%
-- add the plan of tasks to the todo.md and make sure its alwasys up to date
-- use bootstrap for formatting and layout for web apps
-- store html, css, js in separate files over inline in python code
-- use jinja2 templating for html generation over string concatenation
-- use alembic for database migrations over manual scripts
-- use environment variables for configuration over hardcoding values
-- use logging module for logging over print statements
-- database changes should be documented in the design/database.dbml file over no documentation
-- database changes should be managed using migrations over manual changes
-- the noodleplanner database should be used on 192.168.2.1:5433 over other databases
- database migration documentation should be stored in design/migrations/ over other locations
-- ensure the database.dbml is always updated with any schema changes over neglecting it
-- document how new features work in design/epic.md over no documentation (and update this for existing features too)
-- ensure deployment_tasks is updated with any new deployment steps over neglecting it
-- keep the interface tour (script.js lines 2384-2589) updated with any significant interface changes over neglecting it
-- Tidy up any markdown files created for analysing features or design decisions and move them to the design/ directory over leaving them in the root directory
-- use consistent naming conventions for functions, variables, and files over inconsistent naming
-- when a new subagent task is requested, also create a new worktree for it to work on over just creating the task
-- when a new subagent task is requested, also create a new branch for it to work on over just creating the task
-- when a subagent has completed it task and all the tests pass, merge the branch and delete the worktree over leaving it in place
-- when a subagent has completed it task and all the tests pass, also update the interface tour if there are any significant interface changes over neglecting to do so
-- always update an issue with progress when a subagent is working on it over leaving the issue without updates
-- when an issue is completed, update the issue with a comment summarizing the changes made and close the issue over leaving it open without a summary
-- when an issue is completed, also update the todo.md with progress and next steps over leaving the todo.md outdated
-- update user documentation in docs/ when new features are added or existing ones changed over leaving docs outdated
-- documentation follows the Diataxis methodology: tutorials/ (learning), how-to/ (task-oriented), reference/ (information), explanation/ (understanding) over unstructured docs
+# CLAUDE.md — Notes for AI-assisted development
 
-## UI/UX Rules
+## Project overview
 
-- minimum touch target size of 44x44px on mobile devices over smaller targets
-- use CSS classes for layout (e.g. form-grid-2col, form-grid-3col) over inline style attributes for grid/flex layouts
-- responsive breakpoints at 480px, 768px, and 1024px over using only one or two breakpoints
-- use focus-visible outlines (2px solid #108BB9) over outline:none on interactive elements
-- all interactive elements must be keyboard accessible over mouse-only interactions
-- use ARIA attributes (role, aria-label, aria-expanded, etc.) on custom widgets over no accessibility markup
-- colour contrast ratio of at least 4.5:1 for normal text and 3:1 for large text (WCAG AA) over lower contrast
-- form layouts should stack to single column on mobile (< 768px) over maintaining multi-column on small screens
-- detail pane width should use min(600px, 90vw) over fixed pixel widths
-- provide visible loading states and feedback for async operations over no feedback
-- use semantic HTML elements (nav, main, aside, button) over generic div elements
-- provide skip-to-content links for keyboard navigation over no bypass mechanism
+NoodlePlanner is a browser-based project planning tool. The main app is a
+FastAPI backend (`packages/noodle-web`) serving a single-page HTML/JS frontend.
+Documentation is built with Sphinx and lives in `docs/`.
+
+## Key directories
+
+- `packages/noodle-web/src/noodle_web/` — web app (templates, static assets, API)
+- `docs/` — Sphinx documentation (tutorials, how-to, reference, explanation)
+- `tests/` — pytest test suite including Selenium usability tests
+
+## Documentation screenshots
+
+Screenshots used in the Sphinx docs are stored in `docs/_static/img/` and are
+captured automatically by `docs/capture_screenshots.py`.
+
+**When to re-capture:** after any change to the UI layout, navigation, views,
+or front-matter handling, run:
+
+```bash
+cd docs && make screenshots
+```
+
+This requires a running NoodlePlanner instance at `http://localhost:8007`
+(or pass `--base-url` to the script).
+
+The screenshot script uses headless Chrome via Selenium — the same setup as
+`tests/test_usability.py`.
+
+## Reminders
+
+- **Update screenshots when features change.** If you modify a view, add a
+  navigation element, or change the editor, re-run `make screenshots` so the
+  docs stay accurate. Check the RST files under `docs/` for `.. figure::`
+  directives that reference screenshots.

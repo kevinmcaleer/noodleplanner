@@ -5366,18 +5366,18 @@ tr:hover .task-context-btn,
    ======================================== */
 
 #benefits-view {
-    --mm-toolbar-bg: #1e1e1e;
-    --mm-toolbar-border: #333;
-    --mm-btn-bg: #2a2a2a;
-    --mm-btn-border: #444;
-    --mm-btn-text: #ccc;
-    --mm-btn-hover-bg: #3a3a3a;
-    --mm-btn-hover-text: #fff;
-    --mm-zoom-label-text: #999;
-    --mm-hint-text: #666;
-    --mm-canvas-bg: #1a1a1a;
+    --mm-toolbar-bg: #f5f5f5;
+    --mm-toolbar-border: #ddd;
+    --mm-btn-bg: #fff;
+    --mm-btn-border: #ccc;
+    --mm-btn-text: #333;
+    --mm-btn-hover-bg: #e8e8e8;
+    --mm-btn-hover-text: #000;
+    --mm-zoom-label-text: #666;
+    --mm-hint-text: #999;
+    --mm-canvas-bg: #ffffff;
     --mm-placeholder-text: #888;
-    --mm-placeholder-heading: #aaa;
+    --mm-placeholder-heading: #333;
 }
 
 #benefits-view.active {
@@ -5437,10 +5437,9 @@ tr:hover .task-context-btn,
 /* Add buttons with type-coloured left border */
 .benefits-add-btn {
     width: auto !important;
-    padding: 4px 12px !important;
+    height: 32px;
+    padding: 0 10px !important;
     gap: 4px;
-    min-height: 44px;
-    min-width: 44px;
 }
 
 .benefits-add-btn .ben-btn-label {

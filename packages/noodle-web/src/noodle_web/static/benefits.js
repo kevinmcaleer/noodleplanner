@@ -25,11 +25,11 @@ const BEN_COLUMNS = {
 
 // Node colours per type
 const BEN_COLOURS = {
-    benefit:    { fill: '#3B82F6', text: '#FFFFFF', stroke: '#2563EB' },
-    enabler:    { fill: '#EAB308', text: '#1A1A1A', stroke: '#CA8A04' },
-    change:     { fill: '#FFFFFF', text: '#1A1A1A', stroke: '#6B7280' },
-    disbenefit: { fill: '#EF4444', text: '#FFFFFF', stroke: '#DC2626' },
-    objective:  { fill: '#22C55E', text: '#FFFFFF', stroke: '#16A34A' }
+    benefit:    { fill: '#3B82F6', text: '#FFFFFF', stroke: 'none' },
+    enabler:    { fill: '#EAB308', text: '#1A1A1A', stroke: 'none' },
+    change:     { fill: '#F3F4F6', text: '#1A1A1A', stroke: 'none' },
+    disbenefit: { fill: '#EF4444', text: '#FFFFFF', stroke: 'none' },
+    objective:  { fill: '#22C55E', text: '#FFFFFF', stroke: 'none' }
 };
 
 // Column labels
@@ -449,6 +449,17 @@ function calculateBenefitScores() {
         item.score = 0;
     }
 
+    // Build a reverse link map: targetId -> [sourceItems]
+    // linkedTo means "this item links TO that target"
+    const reverseLinks = {};
+    for (const item of benefitItems) {
+        for (const targetId of item.linkedTo) {
+            if (!reverseLinks[targetId]) reverseLinks[targetId] = [];
+            reverseLinks[targetId].push(item);
+        }
+    }
+
+
     // Build lookup by id
     const itemById = {};
     for (const item of benefitItems) {
@@ -819,8 +830,8 @@ function benRenderColumnLabels() {
             'text-anchor': 'middle',
             'font-size': '14',
             'font-weight': '600',
-            fill: 'var(--text-primary, #E0E0E0)',
-            opacity: '0.6',
+            fill: '#666',
+            opacity: '1',
             'pointer-events': 'none'
         });
         label.textContent = BEN_COL_LABELS[col];
