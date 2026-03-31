@@ -5526,6 +5526,158 @@ tr:hover .task-context-btn,
     color: #EF4444;
 }
 
+/* Benefits view toggle buttons */
+.ben-view-toggle {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--mm-btn-border, #ccc);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.ben-view-btn {
+    border-radius: 0 !important;
+    border: none !important;
+    border-right: 1px solid var(--mm-btn-border, #ccc) !important;
+    min-width: 70px;
+    font-size: 13px;
+    min-height: 32px;
+}
+
+.ben-view-btn:last-child {
+    border-right: none !important;
+}
+
+.ben-view-btn--active {
+    background: #108BB9 !important;
+    color: #fff !important;
+}
+
+.ben-view-btn--active:hover {
+    background: #0d7aa5 !important;
+}
+
+/* Benefits tracking table container */
+.ben-tracking-container {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+    background: var(--mm-canvas-bg, #ffffff);
+}
+
+.ben-tracking-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.ben-tracking-table {
+    background: #fff;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.ben-tracking-table th {
+    background: var(--mm-toolbar-bg, #f5f5f5);
+    border-bottom: 2px solid var(--mm-toolbar-border, #ddd);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.ben-tracking-table td {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+    color: #333;
+}
+
+.ben-tracking-table td.ben-cell-editable {
+    cursor: text;
+    transition: background 0.15s;
+}
+
+.ben-tracking-table td.ben-cell-editable:hover {
+    background: #f0f7ff;
+}
+
+.ben-tracking-table td.ben-cell-editable:focus-within {
+    background: #e8f4fd;
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+.ben-tracking-table .ben-cell-input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    padding: 2px 0;
+    color: inherit;
+    outline: none;
+}
+
+.ben-tracking-table .ben-cell-select {
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 13px;
+    padding: 2px 4px;
+    color: #333;
+    cursor: pointer;
+}
+
+.ben-tracking-table .ben-cell-select:focus {
+    border-color: #108BB9;
+    outline: 2px solid #108BB9;
+    outline-offset: -2px;
+}
+
+.ben-tracking-table .ben-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ben-status-badge--not-started {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.ben-status-badge--in-progress {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.ben-status-badge--achieved {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.ben-status-badge--partially-achieved {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.ben-status-badge--not-achieved {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.ben-tracking-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-size: 14px;
+}
+
 /* Hide add button labels on small screens */
 @media (max-width: 768px) {
     .benefits-add-btn .ben-btn-label {
@@ -5535,6 +5687,22 @@ tr:hover .task-context-btn,
     .benefits-toolbar {
         gap: 8px;
         padding: 8px;
+    }
+
+    .ben-tracking-container {
+        padding: 8px;
+    }
+
+    .ben-tracking-table th,
+    .ben-tracking-table td {
+        padding: 4px 6px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .ben-tracking-wrapper {
+        overflow-x: auto;
     }
 }
 

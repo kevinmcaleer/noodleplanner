@@ -1356,12 +1356,37 @@ Press Enter to render..."></textarea>
                                             <span class="ben-btn-label">Objective</span>
                                         </button>
                                     </div>
-                                    <div class="mindmap-toolbar-hint">
+                                    <div class="mindmap-toolbar-separator"></div>
+                                    <div class="mindmap-toolbar-group ben-view-toggle" role="tablist" aria-label="Benefits view mode">
+                                        <button class="mindmap-toolbar-btn ben-view-btn ben-view-btn--active" id="benViewMapBtn" role="tab" aria-selected="true" aria-controls="benefitsContainer" onclick="benSwitchView('map')" title="Map view">Map</button>
+                                        <button class="mindmap-toolbar-btn ben-view-btn" id="benViewTrackingBtn" role="tab" aria-selected="false" aria-controls="benefitsTrackingContainer" onclick="benSwitchView('tracking')" title="Tracking table">Tracking</button>
+                                    </div>
+                                    <div class="mindmap-toolbar-hint" id="benToolbarHint">
                                         Scroll to pan &middot; Ctrl+Scroll to zoom &middot; Click to select &middot; Double-click to edit &middot; Del to remove
                                     </div>
                                 </div>
                                 <div class="mindmap-canvas-wrapper" id="benefitsContainer" tabindex="0" role="application" aria-label="Benefits map canvas">
                                     <!-- SVG benefits map rendered by JavaScript -->
+                                </div>
+                                <div class="ben-tracking-container" id="benefitsTrackingContainer" style="display: none;" role="tabpanel" aria-label="Benefits tracking table">
+                                    <div class="ben-tracking-wrapper">
+                                        <table class="table table-sm table-hover ben-tracking-table" id="benefitsTrackingTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Title</th>
+                                                    <th>Target Value</th>
+                                                    <th>Current Value</th>
+                                                    <th>Target Date</th>
+                                                    <th>Measurement Method</th>
+                                                    <th>Status</th>
+                                                    <th>Last Updated</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="benefitsTrackingBody">
+                                                <!-- Populated by JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>

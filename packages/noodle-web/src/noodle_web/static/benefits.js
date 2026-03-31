@@ -94,7 +94,9 @@ function parseBenefitsMarkdown(text) {
         'target date': 'targetDate',
         'measurement': 'measurementMethod',
         'linked to': 'linkedTo',
-        'contribution %': 'contributionPercent'
+        'contribution %': 'contributionPercent',
+        'status': 'status',
+        'last updated': 'lastUpdated'
     };
 
     headers.forEach((h, idx) => {
@@ -138,6 +140,8 @@ function parseBenefitsMarkdown(text) {
             measurementMethod: get('measurementMethod'),
             linkedTo: linkedTo,
             contributionPercent: parseInt(get('contributionPercent'), 10) || 0,
+            status: get('status') || '',
+            lastUpdated: get('lastUpdated') || '',
             score: 0
         });
     }
@@ -149,7 +153,7 @@ function parseBenefitsMarkdown(text) {
  * Generate benefits markdown table from benefitItems.
  */
 function generateBenefitsMarkdown() {
-    const headers = ['ID', 'Type', 'Title', 'Description', 'Objective Type', 'Target Value', 'Current Value', 'Target Date', 'Measurement', 'Linked To', 'Contribution %'];
+    const headers = ['ID', 'Type', 'Title', 'Description', 'Objective Type', 'Target Value', 'Current Value', 'Target Date', 'Measurement', 'Linked To', 'Contribution %', 'Status', 'Last Updated'];
 
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
@@ -164,7 +168,9 @@ function generateBenefitsMarkdown() {
         escPipe(item.targetDate || ''),
         escPipe(item.measurementMethod || ''),
         item.linkedTo.length > 0 ? item.linkedTo.join(', ') : '',
-        String(item.contributionPercent || 0)
+        String(item.contributionPercent || 0),
+        escPipe(item.status || ''),
+        escPipe(item.lastUpdated || '')
     ]);
 
     const widths = headers.map(h => h.length);
@@ -935,6 +941,8 @@ function addBenefitElement(type) {
         measurementMethod: '',
         linkedTo: [],
         contributionPercent: 0,
+        status: '',
+        lastUpdated: '',
         score: 0
     };
 
@@ -1163,15 +1171,19 @@ function saveBenefitItemFromForm() {
     };
 
     if (idField) {
-        // Update existing item
+        // Update existing item — preserve status and lastUpdated
         const id = parseInt(idField, 10);
         const item = benefitItems.find(i => i.id === id);
         if (item) {
+            data.status = item.status || '';
+            data.lastUpdated = item.lastUpdated || '';
             Object.assign(item, data);
         }
     } else {
         // Create new item
         data.id = benefitNextId++;
+        data.status = '';
+        data.lastUpdated = '';
         benefitItems.push(data);
     }
 
@@ -1370,4 +1382,193 @@ function updateBenefits() {
 
     // Render
     benRenderAll();
+
+    // If tracking view is active, also render tracking table
+    if (benCurrentView === 'tracking') {
+        benRenderTrackingTable();
+    }
+}
+
+// ── Benefits view toggle (Map / Tracking) ───────────────────────────
+
+let benCurrentView = 'map';
+
+/**
+ * Switch between Map and Tracking views.
+ */
+function benSwitchView(view) {
+    benCurrentView = view;
+
+    const mapBtn = document.getElementById('benViewMapBtn');
+    const trackingBtn = document.getElementById('benViewTrackingBtn');
+    const mapContainer = document.getElementById('benefitsContainer');
+    const trackingContainer = document.getElementById('benefitsTrackingContainer');
+    const hint = document.getElementById('benToolbarHint');
+    const addGroup = document.querySelector('.benefits-add-group');
+
+    if (view === 'map') {
+        if (mapBtn) { mapBtn.classList.add('ben-view-btn--active'); mapBtn.setAttribute('aria-selected', 'true'); }
+        if (trackingBtn) { trackingBtn.classList.remove('ben-view-btn--active'); trackingBtn.setAttribute('aria-selected', 'false'); }
+        if (mapContainer) mapContainer.style.display = '';
+        if (trackingContainer) trackingContainer.style.display = 'none';
+        if (hint) hint.style.display = '';
+        if (addGroup) addGroup.style.display = '';
+    } else {
+        if (trackingBtn) { trackingBtn.classList.add('ben-view-btn--active'); trackingBtn.setAttribute('aria-selected', 'true'); }
+        if (mapBtn) { mapBtn.classList.remove('ben-view-btn--active'); mapBtn.setAttribute('aria-selected', 'false'); }
+        if (mapContainer) mapContainer.style.display = 'none';
+        if (trackingContainer) trackingContainer.style.display = '';
+        if (hint) hint.style.display = 'none';
+        if (addGroup) addGroup.style.display = 'none';
+        benRenderTrackingTable();
+    }
+}
+
+// ── Benefits Tracking Table ─────────────────────────────────────────
+
+const BEN_STATUS_OPTIONS = [
+    '',
+    'Not Started',
+    'In Progress',
+    'Achieved',
+    'Partially Achieved',
+    'Not Achieved'
+];
+
+/**
+ * Get the CSS modifier class for a status value.
+ */
+function benStatusClass(status) {
+    if (!status) return '';
+    return 'ben-status-badge--' + status.toLowerCase().replace(/\s+/g, '-');
+}
+
+/**
+ * Get today's date in YYYY-MM-DD format.
+ */
+function benTodayDate() {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+}
+
+/**
+ * Render the benefits tracking table with inline-editable cells.
+ * Only shows benefit and disbenefit items.
+ */
+function benRenderTrackingTable() {
+    const tbody = document.getElementById('benefitsTrackingBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    const trackableItems = benefitItems.filter(i => i.type === 'benefit' || i.type === 'disbenefit');
+
+    if (trackableItems.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.className = 'ben-tracking-empty';
+        td.textContent = 'No benefits or disbenefits to track. Add items in the Map view.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    for (const item of trackableItems) {
+        const tr = document.createElement('tr');
+        tr.dataset.itemId = item.id;
+
+        // Title (read-only, click to open form)
+        const titleTd = document.createElement('td');
+        titleTd.textContent = item.title;
+        titleTd.style.cursor = 'pointer';
+        titleTd.style.fontWeight = '500';
+        titleTd.title = 'Click to edit details';
+        titleTd.addEventListener('click', () => openBenefitForm(item.id));
+        tr.appendChild(titleTd);
+
+        // Editable text cells
+        const textFields = [
+            { field: 'targetValue', value: item.targetValue },
+            { field: 'currentValue', value: item.currentValue },
+            { field: 'targetDate', value: item.targetDate },
+            { field: 'measurementMethod', value: item.measurementMethod }
+        ];
+
+        for (const { field, value } of textFields) {
+            const td = document.createElement('td');
+            td.className = 'ben-cell-editable';
+
+            if (field === 'targetDate') {
+                const input = document.createElement('input');
+                input.type = 'date';
+                input.className = 'ben-cell-input';
+                input.value = value || '';
+                input.addEventListener('change', () => benTrackingCellChanged(item.id, field, input.value));
+                td.appendChild(input);
+            } else {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'ben-cell-input';
+                input.value = value || '';
+                input.placeholder = field === 'targetValue' ? 'e.g. 10% savings' :
+                                    field === 'currentValue' ? 'e.g. 3% savings' :
+                                    field === 'measurementMethod' ? 'e.g. monthly review' : '';
+                input.addEventListener('change', () => benTrackingCellChanged(item.id, field, input.value));
+                td.appendChild(input);
+            }
+
+            tr.appendChild(td);
+        }
+
+        // Status dropdown
+        const statusTd = document.createElement('td');
+        statusTd.className = 'ben-cell-editable';
+        const select = document.createElement('select');
+        select.className = 'ben-cell-select';
+        for (const opt of BEN_STATUS_OPTIONS) {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt || '-- Select --';
+            if (opt === (item.status || '')) option.selected = true;
+            select.appendChild(option);
+        }
+        select.addEventListener('change', () => benTrackingCellChanged(item.id, 'status', select.value));
+        statusTd.appendChild(select);
+        tr.appendChild(statusTd);
+
+        // Last Updated (read-only, auto-set)
+        const updatedTd = document.createElement('td');
+        updatedTd.textContent = item.lastUpdated || '';
+        updatedTd.style.color = '#999';
+        updatedTd.style.fontSize = '12px';
+        tr.appendChild(updatedTd);
+
+        tbody.appendChild(tr);
+    }
+}
+
+/**
+ * Handle a change in a tracking table cell.
+ * Updates the item, sets lastUpdated, and syncs to plan text.
+ */
+function benTrackingCellChanged(itemId, field, value) {
+    const item = benefitItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    item[field] = value.trim();
+    item.lastUpdated = benTodayDate();
+
+    syncBenefitsToPlanText();
+
+    // Update the Last Updated cell in the same row
+    const row = document.querySelector('#benefitsTrackingBody tr[data-item-id="' + itemId + '"]');
+    if (row) {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 7) {
+            cells[6].textContent = item.lastUpdated;
+        }
+    }
 }
