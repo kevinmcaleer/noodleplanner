@@ -1722,3 +1722,71 @@ function benGetTaskCompletion(taskTitle) {
     const pct = parseInt(task.percent, 10);
     return isNaN(pct) ? 0 : pct;
 }
+
+// ── Copy canvas as PNG ──────────────────────────────────────────────
+
+async function copyBenefitsAsImage() {
+    if (!benSvg) { alert('No benefits map to copy.'); return; }
+    try {
+        const serializer = new XMLSerializer();
+        const svgRect = benSvg.getBoundingClientRect();
+        const svgClone = benSvg.cloneNode(true);
+        svgClone.setAttribute('width', svgRect.width);
+        svgClone.setAttribute('height', svgRect.height);
+        svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', '#ffffff');
+        svgClone.insertBefore(bgRect, svgClone.firstChild);
+        svgClone.querySelectorAll('text').forEach(el => {
+            el.setAttribute('font-family', 'system-ui, -apple-system, sans-serif');
+        });
+        const svgString = serializer.serializeToString(svgClone);
+        const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+        const img = new Image();
+        img.width = svgRect.width;
+        img.height = svgRect.height;
+        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = svgDataUrl; });
+        const canvas = document.createElement('canvas');
+        const scale = 2;
+        canvas.width = svgRect.width * scale;
+        canvas.height = svgRect.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0, svgRect.width, svgRect.height);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        const copyBtn = document.querySelector('#benefits-view .mindmap-toolbar-btn[onclick*="copyBenefitsAsImage"]');
+        if (copyBtn) {
+            const original = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(() => { copyBtn.innerHTML = original; }, 1500);
+        }
+    } catch (err) { alert('Failed to copy image: ' + err.message); }
+}
+
+// ── Export benefits to Excel ────────────────────────────────────────
+
+async function exportBenefitsExcel() {
+    if (benefitItems.length === 0) { alert('No benefit items to export.'); return; }
+    try {
+        const projectName = document.getElementById('projectName')
+            ? document.getElementById('projectName').textContent.trim() : 'Benefits';
+        const response = await fetch('/api/benefits/export-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: benefitItems, project_name: projectName })
+        });
+        if (!response.ok) throw new Error('Export failed');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (projectName || 'benefits') + '-benefits.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (error) { alert('Failed to export: ' + error.message); }
+}

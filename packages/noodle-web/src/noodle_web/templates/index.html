@@ -1334,6 +1334,15 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="mindmap-toolbar-separator"></div>
+                                    <div class="mindmap-toolbar-group">
+                                        <button class="mindmap-toolbar-btn" onclick="copyBenefitsAsImage()" title="Copy as image" aria-label="Copy benefits map as image">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                        </button>
+                                        <button class="mindmap-toolbar-btn" onclick="exportBenefitsExcel()" title="Export to Excel" aria-label="Export benefits to Excel">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="mindmap-toolbar-separator"></div>
                                     <div class="mindmap-toolbar-group benefits-add-group">
                                         <button class="mindmap-toolbar-btn benefits-add-btn benefits-add-btn--enabler" onclick="addBenefitElement('enabler')" title="Add Enabler" aria-label="Add enabler node">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
