@@ -681,6 +681,25 @@ function benRenderNode(item, x, y) {
         g.appendChild(scoreLabel);
     }
 
+    // Phase 5: Show task completion % on change nodes
+    if (item.type === 'change') {
+        const taskPercent = benGetTaskCompletion(item.title);
+        if (taskPercent !== null) {
+            const pctLabel = benSvgEl('text', {
+                x: x + BEN_NODE_WIDTH - 8,
+                y: y + BEN_NODE_HEIGHT - 6,
+                'text-anchor': 'end',
+                'font-size': '10',
+                'font-weight': '700',
+                fill: taskPercent >= 100 ? '#22C55E' : '#6B7280',
+                'pointer-events': 'none',
+                'class': 'ben-completion-label'
+            });
+            pctLabel.textContent = taskPercent + '%';
+            g.appendChild(pctLabel);
+        }
+    }
+
     // Contribution over-100% warning icon on objective nodes
     if (item.type === 'objective') {
         const contributions = benValidateContributions();
@@ -1170,6 +1189,16 @@ function saveBenefitItemFromForm() {
         score: 0
     };
 
+    // Capture old title for rename synchronisation
+    let oldTitle = null;
+    if (idField) {
+        const id = parseInt(idField, 10);
+        const item = benefitItems.find(i => i.id === id);
+        if (item) {
+            oldTitle = item.title;
+        }
+    }
+
     if (idField) {
         // Update existing item — preserve status and lastUpdated
         const id = parseInt(idField, 10);
@@ -1205,6 +1234,12 @@ function saveBenefitItemFromForm() {
     }
 
     syncBenefitsToPlanText();
+
+    // Phase 5: Task linkage for change-type items
+    if (data.type === 'change') {
+        benSyncChangeTaskToEditor(data.title, oldTitle);
+    }
+
     benRenderAll();
     closeBenefitForm();
 }
@@ -1218,9 +1253,18 @@ function deleteBenefitItem(idOverride) {
 
     const item = benefitItems.find(i => i.id === id);
     const itemTitle = item ? item.title : 'this item';
+    const itemType = item ? item.type : '';
 
     if (!confirm('Are you sure you want to delete "' + itemTitle + '"? This action cannot be undone.')) {
         return;
+    }
+
+    // Phase 5: Offer to remove the corresponding task from the plan editor
+    if (itemType === 'change' && item) {
+        const removeTask = confirm('Also remove the corresponding task "' + item.title + '" from the plan?');
+        if (removeTask) {
+            benRemoveTaskFromEditor(item.title);
+        }
     }
 
     // Remove the item
@@ -1571,4 +1615,110 @@ function benTrackingCellChanged(itemId, field, value) {
             cells[6].textContent = item.lastUpdated;
         }
     }
+}
+
+// ── Phase 5: Task Linkage helpers ──────────────────────────────────
+
+/**
+ * Section markers used to find insertion points in the plan editor.
+ */
+const BEN_SECTION_MARKERS = [
+    '---benefits---',
+    '---raid log---',
+    '---budget---',
+    '---baseline---',
+    '---comms---'
+];
+
+/**
+ * Sync a change-type benefit item to a task in the plan editor.
+ * If the change is new (no oldTitle or oldTitle matches title), create a task
+ * line if it doesn't already exist. If the title was renamed, update the
+ * existing task line and cascade into [depends] blocks.
+ */
+function benSyncChangeTaskToEditor(newTitle, oldTitle) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+
+    if (oldTitle && oldTitle !== newTitle) {
+        // Rename: find existing task line and update it
+        benRenameTaskInLines(lines, oldTitle, newTitle);
+        if (typeof updateDependencyReferences === 'function') {
+            updateDependencyReferences(lines, oldTitle, newTitle);
+        }
+        editor.value = lines.join('\n');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+        // Create: only if a matching task doesn't already exist
+        const taskExists = lines.some(line => line.trim() === newTitle);
+        if (!taskExists) {
+            benInsertTaskLine(lines, newTitle);
+            editor.value = lines.join('\n');
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+}
+
+/**
+ * Find a task line matching oldTitle and rename it to newTitle.
+ */
+function benRenameTaskInLines(lines, oldTitle, newTitle) {
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === oldTitle) {
+            const indent = lines[i].match(/^(\s*)/)[1];
+            lines[i] = indent + newTitle;
+            return;
+        }
+    }
+}
+
+/**
+ * Insert a new task line (indented with 2 spaces) before the first section
+ * marker found in the plan editor lines.
+ */
+function benInsertTaskLine(lines, taskTitle) {
+    let insertIdx = lines.length;
+
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim().toLowerCase();
+        if (BEN_SECTION_MARKERS.some(marker => trimmed === marker)) {
+            insertIdx = i;
+            break;
+        }
+    }
+
+    lines.splice(insertIdx, 0, '  ' + taskTitle);
+}
+
+/**
+ * Remove a task line matching the given title from the plan editor.
+ */
+function benRemoveTaskFromEditor(taskTitle) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const lines = editor.value.split('\n');
+    const idx = lines.findIndex(line => line.trim() === taskTitle);
+    if (idx !== -1) {
+        lines.splice(idx, 1);
+        editor.value = lines.join('\n');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+/**
+ * Look up the completion percentage for a task matching the given title
+ * from the last parsed task list.
+ * Returns a number (0-100) or null if no matching task is found.
+ */
+function benGetTaskCompletion(taskTitle) {
+    if (typeof lastRenderedTasks === 'undefined' || !lastRenderedTasks) return null;
+
+    const task = lastRenderedTasks.find(t => t.name === taskTitle);
+    if (!task) return null;
+
+    const pct = parseInt(task.percent, 10);
+    return isNaN(pct) ? 0 : pct;
 }
