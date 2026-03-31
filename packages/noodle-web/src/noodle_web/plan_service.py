@@ -37,6 +37,8 @@ from noodle_core import (
     parse_comms_markdown,
     extract_baseline,
     parse_baseline_markdown,
+    extract_benefits,
+    parse_benefits_markdown,
     strip_highlights,
     strip_raid_log,
     strip_budget,
@@ -78,6 +80,7 @@ class ParseResult:
     comms_items: list
     baseline_items: list
     dependencies: list
+    benefits_items: list
     stakeholders: list = None
     error: Optional[str] = None
 
@@ -287,6 +290,7 @@ class PlanService:
         raid_items = self._safe_extract_raid(plan_text)
         comms_items = self._safe_extract_comms(plan_text)
         baseline_items = self._safe_extract_baseline(plan_text)
+        benefits_items = self._safe_extract_benefits(plan_text)
         fm_parser = FrontMatterParser(plan_text)
         dependencies = fm_parser.parse_dependencies()
 
@@ -336,6 +340,7 @@ class PlanService:
                 comms_items=comms_items,
                 baseline_items=baseline_items,
                 dependencies=dependencies,
+                benefits_items=benefits_items,
                 stakeholders=stakeholders,
             )
 
@@ -354,6 +359,7 @@ class PlanService:
                 comms_items=comms_items,
                 baseline_items=baseline_items,
                 dependencies=dependencies,
+                benefits_items=benefits_items,
                 stakeholders=stakeholders,
                 error=str(e),
             )
@@ -572,6 +578,16 @@ class PlanService:
                 return parse_baseline_markdown(baseline_text)
         except (ValueError, KeyError) as e:
             logger.warning(f"Failed to parse baseline from plan text: {e}")
+        return []
+
+    def _safe_extract_benefits(self, plan_text: str) -> list:
+        """Extract benefits items, returning an empty list on failure."""
+        try:
+            benefits_text = extract_benefits(plan_text)
+            if benefits_text:
+                return parse_benefits_markdown(benefits_text)
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse benefits from plan text: {e}")
         return []
 
     def _schedule_and_build_tasks(

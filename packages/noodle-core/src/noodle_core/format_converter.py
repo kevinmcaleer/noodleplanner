@@ -9,6 +9,7 @@ BUDGET_START = '---budget---'
 RAID_LOG_START = '---raid log---'
 COMMS_START = '---comms---'
 BASELINE_START = '---baseline---'
+BENEFITS_START = '---benefits---'
 
 
 def _is_valid_yaml_value(value: str) -> bool:
@@ -1291,3 +1292,171 @@ def export_comms_to_docx(comms_items: list, project_name: str = "Project") -> by
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def extract_benefits(text: str) -> str:
+    """Extract the benefits section text from plan text.
+
+    Returns the raw text between ``---benefits---`` and the next section
+    marker or EOF, or an empty string if no benefits section is present.
+    """
+    start_idx = text.find(BENEFITS_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(BENEFITS_START)
+
+    # Find the end: next section marker or EOF
+    end_idx = len(text)
+    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_benefits(text: str) -> str:
+    """Remove the benefits section from plan text.
+
+    Returns the plan text without the ``---benefits---`` block.
+    """
+    start_idx = text.find(BENEFITS_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+
+    # Preserve any section that follows the benefits block
+    after_start = start_idx + len(BENEFITS_START)
+    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+        idx = text.find(marker, after_start)
+        if idx != -1:
+            after = text[idx:]
+            return before + '\n\n' + after
+
+    return before
+
+
+def parse_benefits_markdown(text: str) -> list:
+    """Parse benefits markdown table into a list of benefit items.
+
+    Expects a markdown table with columns matching the benefits schema.
+
+    Args:
+        text: Markdown text containing a benefits table
+
+    Returns:
+        List of dicts with keys: id, type, title, description,
+        objective_type, target_value, current_value, target_date,
+        measurement_method, linked_to, contribution_percent
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Find header row
+    header_index = -1
+    for i, line in enumerate(lines):
+        if '|' in line and any(
+            keyword in line.lower() for keyword in ['id', 'title', 'type']
+        ):
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        """Parse a markdown table row into cells."""
+        parts = re.split(r'(?<!\\)\|', line)
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        cells = [cell.strip() for cell in parts]
+        return cells
+
+    headers = [h.strip().lower() for h in parse_row(lines[header_index])]
+
+    # Build column mapping with EXACT header match
+    col_map = {}
+    header_aliases = {
+        'id': 'id',
+        'type': 'type',
+        'title': 'title',
+        'description': 'description',
+        'objective type': 'objective_type',
+        'target value': 'target_value',
+        'current value': 'current_value',
+        'target date': 'target_date',
+        'measurement': 'measurement_method',
+        'linked to': 'linked_to',
+        'contribution %': 'contribution_percent',
+    }
+
+    for idx, header in enumerate(headers):
+        if header in header_aliases:
+            col_map[header_aliases[header]] = idx
+
+    items = []
+
+    # Parse data rows (skip header and separator)
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        # Skip separator row (all dashes)
+        if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        # Parse linked_to as list of ints
+        linked_to_str = get_cell('linked_to', '')
+        linked_to = []
+        if linked_to_str:
+            for part in linked_to_str.split(','):
+                part = part.strip()
+                if part:
+                    try:
+                        linked_to.append(int(part))
+                    except (ValueError, TypeError):
+                        pass
+
+        # Parse contribution_percent as int
+        contrib_str = get_cell('contribution_percent', '0')
+        try:
+            contribution_percent = int(contrib_str)
+        except (ValueError, TypeError):
+            contribution_percent = 0
+
+        # Parse id
+        id_str = get_cell('id', '')
+        try:
+            item_id = int(id_str) if id_str else len(items) + 1
+        except (ValueError, TypeError):
+            item_id = len(items) + 1
+
+        item = {
+            'id': item_id,
+            'type': get_cell('type', ''),
+            'title': get_cell('title', ''),
+            'description': get_cell('description', ''),
+            'objective_type': get_cell('objective_type', ''),
+            'target_value': get_cell('target_value', ''),
+            'current_value': get_cell('current_value', ''),
+            'target_date': get_cell('target_date', ''),
+            'measurement_method': get_cell('measurement_method', ''),
+            'linked_to': linked_to,
+            'contribution_percent': contribution_percent,
+        }
+        items.append(item)
+
+    return items

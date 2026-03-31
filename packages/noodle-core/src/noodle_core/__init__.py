@@ -57,6 +57,9 @@ from .format_converter import (
     parse_baseline_markdown,
     generate_baseline_text,
     update_plan_baseline,
+    extract_benefits,
+    strip_benefits,
+    parse_benefits_markdown,
 )
 
 from .excel_importer import (
@@ -132,6 +135,9 @@ __all__ = [
     "parse_baseline_markdown",
     "generate_baseline_text",
     "update_plan_baseline",
+    "extract_benefits",
+    "strip_benefits",
+    "parse_benefits_markdown",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",
