@@ -193,8 +193,7 @@ function saveAISettingsFromModal() {
 
 function onAIButtonClick() {
     if (isAIConfigured()) {
-        aiChatOpen = !aiChatOpen;
-        // Chat panel toggle will be implemented in Phase 4
+        toggleAIChat();
     } else {
         openAISettingsModal();
     }
