@@ -1,4 +1,7 @@
 services:
+  # Full Ollama in Docker — use this if Ollama is NOT installed natively.
+  # If Ollama is already running on the host, comment this out and use
+  # the tunnel-only profile below (docker compose up tunnel -d).
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -9,6 +12,7 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
     restart: unless-stopped
+    profiles: ["docker-ollama"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
@@ -26,17 +30,19 @@ services:
     entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-llama3.2}"]
     environment:
       - OLLAMA_HOST=ollama:11434
+    profiles: ["docker-ollama"]
     restart: "no"
 
+  # Cloudflare tunnel — exposes Ollama (native or Docker) via a subdomain.
+  # Points at host.docker.internal so it works with native Ollama.
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: ollama-tunnel
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      ollama:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:
