@@ -445,7 +445,11 @@ async function sendAIChatMessage() {
 
         // Final re-render with plan detection (streaming renders skip raw plan detection)
         if (fullContent) {
-            assistantBubble.innerHTML = renderAIChatMarkdown(fullContent, true);
+            console.log('[AI Chat] Final render, content starts with:', JSON.stringify(fullContent.substring(0, 80)));
+            console.log('[AI Chat] Has title:', fullContent.includes('title:'), 'Has ---:', fullContent.includes('---'));
+            const finalHtml = renderAIChatMarkdown(fullContent, true);
+            console.log('[AI Chat] Plan update detected:', finalHtml.includes('ai-plan-update'));
+            assistantBubble.innerHTML = finalHtml;
             aiMessages.push({ role: 'assistant', content: fullContent });
         }
 
