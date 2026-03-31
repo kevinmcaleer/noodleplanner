@@ -164,9 +164,15 @@ function renderAIChatMarkdown(text, finalRender) {
     // Small models like llama3.2 output plans as plain text without code blocks or tags
     if (finalRender && planUpdates.length === 0) {
         const trimmedText = text.trim();
-        if (trimmedText.startsWith('---') && trimmedText.includes('title:')) {
+        const looksLikeRawPlan = trimmedText.includes('title:') &&
+            (trimmedText.startsWith('---') || (trimmedText.includes('---') && /^\s{2,}\*?\w/m.test(trimmedText)));
+        if (looksLikeRawPlan) {
             const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
             let planContent = trimmedText;
+            // Ensure it starts with ---
+            if (!planContent.startsWith('---')) {
+                planContent = '---\n' + planContent;
+            }
             // If the model forgot the closing ---, add it
             if ((planContent.match(/---/g) || []).length < 2) {
                 const lines = planContent.split('\n');
@@ -193,10 +199,19 @@ function renderAIChatMarkdown(text, finalRender) {
     // Code blocks (``` ... ```) — add "Apply to Plan" button if content looks like a plan
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
         const trimmed = code.trim();
-        const looksLikePlan = trimmed.startsWith('---') && trimmed.includes('title:');
+        // Detect plan content: has title: and either front matter (---) or task-like lines
+        const hasTitle = trimmed.includes('title:');
+        const hasFrontMatter = trimmed.includes('---');
+        const hasTaskLines = /^\s{2,}\*?\w/m.test(trimmed);
+        const looksLikePlan = hasTitle && (hasFrontMatter || hasTaskLines);
         if (looksLikePlan) {
             const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-            planUpdates.push({ id: id, content: trimmed });
+            // Ensure it starts with --- if it doesn't already
+            let planContent = trimmed;
+            if (!planContent.startsWith('---')) {
+                planContent = '---\n' + planContent;
+            }
+            planUpdates.push({ id: id, content: planContent });
             return '%%PLAN_UPDATE_' + (planUpdates.length - 1) + '%%';
         }
         return '<pre><code>' + trimmed + '</code></pre>';
