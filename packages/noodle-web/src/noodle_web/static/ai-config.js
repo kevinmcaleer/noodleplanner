@@ -10,6 +10,11 @@ const AI_CONFIG_KEY = 'noodleplanner_ai_config';
  */
 function getProviderPresets() {
     return {
+        ollama: {
+            label: 'Ollama',
+            endpoint: 'https://ai.noodleplanner.com/v1',
+            model: 'llama3.2',
+        },
         openai: {
             label: 'OpenAI',
             endpoint: 'https://api.openai.com/v1',
@@ -19,11 +24,6 @@ function getProviderPresets() {
             label: 'Anthropic',
             endpoint: 'https://api.anthropic.com/v1',
             model: 'claude-sonnet-4-20250514',
-        },
-        ollama: {
-            label: 'Ollama (Local)',
-            endpoint: 'http://localhost:11434/v1',
-            model: 'llama3',
         },
         custom: {
             label: 'Custom',
@@ -80,12 +80,12 @@ function openAISettingsModal() {
     const presets = getProviderPresets();
 
     // Set provider radio
-    const provider = config?.provider || 'openai';
+    const provider = config?.provider || 'ollama';
     const radio = document.querySelector(`input[name="aiProvider"][value="${provider}"]`);
     if (radio) radio.checked = true;
 
     // Fill fields
-    const preset = presets[provider] || presets.openai;
+    const preset = presets[provider] || presets.ollama;
     document.getElementById('aiEndpoint').value = config?.endpoint || preset.endpoint;
     document.getElementById('aiApiKey').value = config?.apiKey || '';
     document.getElementById('aiModel').value = config?.model || preset.model;
@@ -112,6 +112,13 @@ function onAIProviderChange(providerValue) {
     if (!preset) return;
     document.getElementById('aiEndpoint').value = preset.endpoint;
     document.getElementById('aiModel').value = preset.model;
+
+    // API key is optional for Ollama
+    const keyGroup = document.getElementById('aiApiKeyGroup');
+    if (keyGroup) {
+        const label = keyGroup.querySelector('label');
+        if (label) label.textContent = providerValue === 'ollama' ? 'API Key (optional)' : 'API Key';
+    }
 }
 
 function toggleAIKeyVisibility() {
@@ -136,7 +143,7 @@ async function testAIConnection() {
     const endpoint = document.getElementById('aiEndpoint').value.trim();
     const apiKey = document.getElementById('aiApiKey').value.trim();
     const model = document.getElementById('aiModel').value.trim();
-    const provider = document.querySelector('input[name="aiProvider"]:checked')?.value || 'openai';
+    const provider = document.querySelector('input[name="aiProvider"]:checked')?.value || 'ollama';
 
     if (!endpoint) {
         status.textContent = 'Please enter an endpoint URL.';
@@ -171,7 +178,7 @@ async function testAIConnection() {
 }
 
 function saveAISettingsFromModal() {
-    const provider = document.querySelector('input[name="aiProvider"]:checked')?.value || 'openai';
+    const provider = document.querySelector('input[name="aiProvider"]:checked')?.value || 'ollama';
     const endpoint = document.getElementById('aiEndpoint').value.trim();
     const apiKey = document.getElementById('aiApiKey').value.trim();
     const model = document.getElementById('aiModel').value.trim();

@@ -3414,16 +3414,16 @@ Build
                     <legend>Provider</legend>
                     <div class="ai-provider-radios">
                         <label class="ai-provider-radio">
-                            <input type="radio" name="aiProvider" value="openai" checked onchange="onAIProviderChange('openai')">
+                            <input type="radio" name="aiProvider" value="ollama" checked onchange="onAIProviderChange('ollama')">
+                            <span>Ollama</span>
+                        </label>
+                        <label class="ai-provider-radio">
+                            <input type="radio" name="aiProvider" value="openai" onchange="onAIProviderChange('openai')">
                             <span>OpenAI</span>
                         </label>
                         <label class="ai-provider-radio">
                             <input type="radio" name="aiProvider" value="anthropic" onchange="onAIProviderChange('anthropic')">
                             <span>Anthropic</span>
-                        </label>
-                        <label class="ai-provider-radio">
-                            <input type="radio" name="aiProvider" value="ollama" onchange="onAIProviderChange('ollama')">
-                            <span>Ollama (Local)</span>
                         </label>
                         <label class="ai-provider-radio">
                             <input type="radio" name="aiProvider" value="custom" onchange="onAIProviderChange('custom')">
