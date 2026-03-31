@@ -8,6 +8,7 @@ HIGHLIGHTS_END = '---end-highlights---'
 BUDGET_START = '---budget---'
 RAID_LOG_START = '---raid log---'
 COMMS_START = '---comms---'
+BENEFITS_START = '---benefits---'
 BASELINE_START = '---baseline---'
 
 
@@ -87,6 +88,7 @@ def convert_plan_format_to_standard(text: str) -> str:
     text = strip_budget(text)
     text = strip_raid_log(text)
     text = strip_comms(text)
+    text = strip_benefits(text)
     text = strip_baseline(text)
     lines = text.split('\n')
     output_lines = []
@@ -173,7 +175,7 @@ def extract_highlights(text: str) -> list:
 
     # Find the end: explicit end marker, budget, raid log section, comms, baseline, or EOF
     end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -238,7 +240,7 @@ def strip_highlights(text: str) -> str:
     # Find the end: explicit end marker, budget, raid log section, comms, baseline, or EOF
     end_idx = len(text)
     end_len = 0
-    for marker in (HIGHLIGHTS_END, BUDGET_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -294,12 +296,13 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve any existing budget, RAID log, comms, and baseline that follow highlights
+    # Preserve any existing budget, benefits, RAID log, comms, and baseline that follow highlights
     budget_text = extract_budget(plan_text)
+    benefits_text = extract_benefits(plan_text)
     raid_log_text = extract_raid_log(plan_text)
     comms_text = extract_comms_plan(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_comms(strip_raid_log(strip_budget(strip_highlights(plan_text))))).rstrip('\n')
+    base = strip_baseline(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text)))))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
@@ -310,6 +313,10 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     # Re-append the budget if it was present
     if budget_text:
         result = result.rstrip('\n') + '\n\n' + BUDGET_START + '\n' + budget_text
+
+    # Re-append the benefits if present
+    if benefits_text:
+        result = result.rstrip('\n') + '\n\n' + BENEFITS_START + '\n' + benefits_text
 
     # Re-append the RAID log if it was present
     if raid_log_text:
@@ -385,9 +392,9 @@ def extract_budget(text: str) -> str:
 
     after_start = start_idx + len(BUDGET_START)
 
-    # Find the end: RAID log, comms, baseline, or EOF
+    # Find the end: benefits, RAID log, comms, baseline, or EOF
     end_idx = len(text)
-    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -408,6 +415,49 @@ def strip_budget(text: str) -> str:
     before = text[:start_idx].rstrip('\n')
 
     # Preserve sections that follow the budget
+    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+        idx = text.find(marker, start_idx)
+        if idx != -1:
+            after = text[idx:]
+            return before + '\n\n' + after
+
+    return before
+
+
+def extract_benefits(text: str) -> str:
+    """Extract the benefits section text from plan text.
+
+    Returns the raw text between ``---benefits---`` and the next section
+    marker or EOF, or an empty string if no benefits section is present.
+    """
+    start_idx = text.find(BENEFITS_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(BENEFITS_START)
+
+    end_idx = len(text)
+    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_benefits(text: str) -> str:
+    """Remove the benefits section from plan text.
+
+    Returns the plan text without the ``---benefits---`` block.
+    Preserves any RAID log, comms, and baseline sections that follow.
+    """
+    start_idx = text.find(BENEFITS_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+
+    # Preserve sections that follow the benefits
     for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, start_idx)
         if idx != -1:

@@ -33,6 +33,7 @@ from noodle_core import (
     extract_raid_log,
     parse_raid_markdown,
     extract_comms_plan,
+    strip_benefits,
     strip_comms,
     parse_comms_markdown,
     extract_baseline,
@@ -164,6 +165,7 @@ def collect_labels_from_plan(plan_text: str) -> set:
     plan_text = strip_budget(plan_text)
     plan_text = strip_raid_log(plan_text)
     plan_text = strip_comms(plan_text)
+    plan_text = strip_benefits(plan_text)
 
     labels = set()
     lines = plan_text.split("\n")

@@ -11186,9 +11186,35 @@ tr:hover .task-context-btn,
     color: var(--text-primary, #ccc);
 }
 
+#benefits-view {
+    --mm-toolbar-bg: #1e1e1e;
+    --mm-toolbar-border: #333;
+    --mm-btn-bg: #2a2a2a;
+    --mm-btn-border: #444;
+    --mm-btn-text: #ccc;
+    --mm-btn-hover-bg: #3a3a3a;
+    --mm-btn-hover-text: #fff;
+    --mm-zoom-label-text: #999;
+    --mm-hint-text: #666;
+    --mm-canvas-bg: #1a1a1a;
+    --mm-placeholder-text: #888;
+    --mm-placeholder-heading: #aaa;
+}
+
+#benefits-view.active {
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
 #benefits-view .benefits-content {
     flex: 1;
     min-height: 0;
+}
+
+#benefits-view .benefits-placeholder {
+    flex: 1;
+    padding: 40px;
 }
 
 #benefits-view .benefits-placeholder .mindmap-toolbar-btn {

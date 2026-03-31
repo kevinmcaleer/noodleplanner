@@ -222,8 +222,7 @@ class RenderRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Serve the main HTML page."""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "v": STATIC_VERSION,
     })
 
@@ -231,8 +230,7 @@ async def index(request: Request):
 @app.post("/", response_class=HTMLResponse)
 async def index_with_template(request: Request, template_content: str = Form(None)):
     """Serve the main HTML page with template content pre-loaded."""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "v": STATIC_VERSION,
         "template_content": template_content,
     })
@@ -1158,8 +1156,7 @@ async def get_template_hero(template_id: str, ext: str):
 @app.get("/templates", response_class=HTMLResponse)
 async def templates_page(request: Request):
     """Serve the templates page."""
-    return templates.TemplateResponse("templates.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "templates.html", {
         "v": STATIC_VERSION,
     })
 

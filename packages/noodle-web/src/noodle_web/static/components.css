@@ -5362,6 +5362,184 @@ tr:hover .task-context-btn,
 
 
 /* ========================================
+   Benefits Realisation Map
+   ======================================== */
+
+#benefits-view {
+    --mm-toolbar-bg: #1e1e1e;
+    --mm-toolbar-border: #333;
+    --mm-btn-bg: #2a2a2a;
+    --mm-btn-border: #444;
+    --mm-btn-text: #ccc;
+    --mm-btn-hover-bg: #3a3a3a;
+    --mm-btn-hover-text: #fff;
+    --mm-zoom-label-text: #999;
+    --mm-hint-text: #666;
+    --mm-canvas-bg: #1a1a1a;
+    --mm-placeholder-text: #888;
+    --mm-placeholder-heading: #aaa;
+}
+
+#benefits-view.active {
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
+.benefits-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+#benefits-view .benefits-content {
+    flex: 1;
+    min-height: 0;
+}
+
+.benefits-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: var(--mm-toolbar-bg);
+    border-bottom: 1px solid var(--mm-toolbar-border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.benefits-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary, #aaa);
+}
+
+.benefits-placeholder h3 {
+    margin-bottom: 8px;
+    color: var(--text-primary, #ccc);
+}
+
+#benefits-view .benefits-placeholder {
+    flex: 1;
+    padding: 40px;
+}
+
+#benefits-view .benefits-placeholder .mindmap-toolbar-btn {
+    min-height: 44px;
+}
+
+/* Add buttons with type-coloured left border */
+.benefits-add-btn {
+    width: auto !important;
+    padding: 4px 12px !important;
+    gap: 4px;
+    min-height: 44px;
+    min-width: 44px;
+}
+
+.benefits-add-btn .ben-btn-label {
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+.benefits-add-btn--enabler {
+    border-left: 3px solid #EAB308 !important;
+}
+
+.benefits-add-btn--change {
+    border-left: 3px solid #6B7280 !important;
+}
+
+.benefits-add-btn--benefit {
+    border-left: 3px solid #3B82F6 !important;
+}
+
+.benefits-add-btn--disbenefit {
+    border-left: 3px solid #EF4444 !important;
+}
+
+.benefits-add-btn--objective {
+    border-left: 3px solid #22C55E !important;
+}
+
+/* SVG node hover effects */
+.ben-node:hover .ben-shape {
+    filter: brightness(1.15);
+}
+
+.ben-node:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 2px;
+}
+
+/* Connection hover */
+.ben-connection-group:hover .ben-connection {
+    stroke-opacity: 1;
+    stroke-width: 3;
+}
+
+.ben-connection-group:hover .ben-arrow {
+    fill-opacity: 1;
+}
+
+/* Benefits SVG */
+.ben-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Linked-to tags in detail pane */
+.benefit-linked-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.benefit-link-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--mm-btn-bg, #2a2a2a);
+    border: 1px solid var(--mm-btn-border, #444);
+    font-size: 12px;
+    color: var(--mm-btn-text, #ccc);
+}
+
+.benefit-link-tag-remove {
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.6;
+}
+
+.benefit-link-tag-remove:hover {
+    opacity: 1;
+    color: #EF4444;
+}
+
+/* Hide add button labels on small screens */
+@media (max-width: 768px) {
+    .benefits-add-btn .ben-btn-label {
+        display: none;
+    }
+
+    .benefits-toolbar {
+        gap: 8px;
+        padding: 8px;
+    }
+}
+
+/* ========================================
    Keyboard Shortcuts Modal
    ======================================== */
 .shortcuts-modal-overlay {

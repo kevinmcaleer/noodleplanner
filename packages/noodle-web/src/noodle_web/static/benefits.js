@@ -83,20 +83,23 @@ function parseBenefitsMarkdown(text) {
 
     // Build column mapping
     const colMap = {};
-    const aliases = {
-        'id': 'id', 'type': 'type', 'title': 'title',
-        'description': 'description', 'objective type': 'objectiveType',
-        'target value': 'targetValue', 'current value': 'currentValue',
-        'target date': 'targetDate', 'measurement': 'measurementMethod',
-        'linked to': 'linkedTo', 'contribution %': 'contributionPercent'
+    const aliasMap = {
+        'id': 'id',
+        'type': 'type',
+        'title': 'title',
+        'description': 'description',
+        'objective type': 'objectiveType',
+        'target value': 'targetValue',
+        'current value': 'currentValue',
+        'target date': 'targetDate',
+        'measurement': 'measurementMethod',
+        'linked to': 'linkedTo',
+        'contribution %': 'contributionPercent'
     };
 
     headers.forEach((h, idx) => {
-        for (const [alias, field] of Object.entries(aliases)) {
-            if (h.includes(alias)) {
-                colMap[field] = idx;
-                break;
-            }
+        if (aliasMap[h] !== undefined) {
+            colMap[aliasMap[h]] = idx;
         }
     });
 
@@ -115,7 +118,7 @@ function parseBenefitsMarkdown(text) {
         const cells = parseRow(line);
         if (cells.length < 3) continue;
 
-        const get = (field) => (colMap[field] !== undefined && cells[colMap[field]]) ? cells[colMap[field]].replace(/\\\\\\|/g, '|').trim() : '';
+        const get = (field) => (colMap[field] !== undefined && cells[colMap[field]]) ? cells[colMap[field]].replace(/\\\|/g, '|').trim() : '';
 
         const id = parseInt(get('id'), 10) || 0;
         if (id > maxId) maxId = id;
@@ -1130,15 +1133,17 @@ function updateBenefits() {
             benefitNextId = (parsed.maxId || 0) + 1;
         }
     } else {
-        // No benefits section in plan text
-        if (benefitItems.length === 0) {
-            // Show placeholder
-            const placeholder = document.querySelector('#benefits-view .benefits-placeholder');
-            const content = document.querySelector('#benefits-view .benefits-content');
-            if (placeholder) placeholder.style.display = '';
-            if (content) content.style.display = 'none';
-            return;
+        // No benefits section in plan text — clear items
+        benefitItems = [];
+        benefitNextId = 1;
+        const placeholder = document.querySelector('#benefits-view .benefits-placeholder');
+        const content = document.querySelector('#benefits-view .benefits-content');
+        if (placeholder) placeholder.style.display = '';
+        if (content) content.style.display = 'none';
+        if (benGroup) {
+            while (benGroup.firstChild) benGroup.removeChild(benGroup.firstChild);
         }
+        return;
     }
 
     // Show content, hide placeholder

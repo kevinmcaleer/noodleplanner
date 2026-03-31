@@ -52,6 +52,8 @@ from .format_converter import (
     generate_comms_plan_text,
     update_plan_comms,
     export_comms_to_docx,
+    extract_benefits,
+    strip_benefits,
     extract_baseline,
     strip_baseline,
     parse_baseline_markdown,
