@@ -161,35 +161,22 @@ function renderAIChatMarkdown(text, finalRender) {
     });
 
     // Only detect raw plan text on the final render (not during streaming)
-    // Small models like llama3.2 output plans as plain text without code blocks or tags
+    // Small models like llama3.2 output plans as plain text without code blocks or tags.
+    // The model may include preamble text before the actual plan front matter.
+    // Look for a ---...title:...--- block anywhere in the response.
     if (finalRender && planUpdates.length === 0) {
         const trimmedText = text.trim();
-        const looksLikeRawPlan = trimmedText.includes('title:') &&
-            (trimmedText.startsWith('---') || (trimmedText.includes('---') && /^\s{2,}\*?\w/m.test(trimmedText)));
-        if (looksLikeRawPlan) {
+        // Find front matter: --- immediately followed by YAML keys (title:, project manager:, etc.)
+        // Use a regex that requires a YAML key on the line after ---
+        const fmMatch = trimmedText.match(/(---\s*\n\s*(?:title|project manager|start date|budget|stakeholders|resources):[\s\S]*?\n---)/);
+        if (fmMatch) {
+            const fmStart = trimmedText.indexOf(fmMatch[1]);
+            const planContent = trimmedText.substring(fmStart).trim();
+            const preamble = trimmedText.substring(0, fmStart).trim();
+
             const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-            let planContent = trimmedText;
-            // Ensure it starts with ---
-            if (!planContent.startsWith('---')) {
-                planContent = '---\n' + planContent;
-            }
-            // If the model forgot the closing ---, add it
-            if ((planContent.match(/---/g) || []).length < 2) {
-                const lines = planContent.split('\n');
-                let insertIdx = -1;
-                for (let i = 1; i < lines.length; i++) {
-                    const l = lines[i].trim();
-                    // Blank line after some content, or a line starting with uppercase that's not a key:value
-                    if (l === '' && i > 2) { insertIdx = i; break; }
-                    if (/^[A-Z]/.test(l) && !l.includes(':') && !l.startsWith('-')) { insertIdx = i; break; }
-                }
-                if (insertIdx > 0) {
-                    lines.splice(insertIdx, 0, '---');
-                    planContent = lines.join('\n');
-                }
-            }
             planUpdates.push({ id: id, content: planContent });
-            text = '%%PLAN_UPDATE_0%%';
+            text = (preamble ? preamble + '\n\n' : '') + '%%PLAN_UPDATE_0%%';
         }
     }
 
@@ -445,11 +432,7 @@ async function sendAIChatMessage() {
 
         // Final re-render with plan detection (streaming renders skip raw plan detection)
         if (fullContent) {
-            console.log('[AI Chat] Final render, content starts with:', JSON.stringify(fullContent.substring(0, 80)));
-            console.log('[AI Chat] Has title:', fullContent.includes('title:'), 'Has ---:', fullContent.includes('---'));
-            const finalHtml = renderAIChatMarkdown(fullContent, true);
-            console.log('[AI Chat] Plan update detected:', finalHtml.includes('ai-plan-update'));
-            assistantBubble.innerHTML = finalHtml;
+            assistantBubble.innerHTML = renderAIChatMarkdown(fullContent, true);
             aiMessages.push({ role: 'assistant', content: fullContent });
         }
 
