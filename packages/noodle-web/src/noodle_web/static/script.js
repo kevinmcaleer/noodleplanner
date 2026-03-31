@@ -562,7 +562,8 @@ const OUTPUT_VIEWS = {
     'evm': 'planTab',
     'pbs': 'planTab',
     'deliverables': 'planTab',
-    'product-flow': 'planTab'
+    'product-flow': 'planTab',
+    'benefits': 'planTab'
 };
 
 Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
@@ -1365,6 +1366,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'pbs',                     fn: () => updatePbsView(result) },
             { name: 'deliverables',            fn: () => updateDeliverablesView(result) },
             { name: 'productFlow',             fn: () => updateProductFlowView(result) },
+            { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'raid',                    fn: () => updateRaidView(result, planText) },
             { name: 'comms',                   fn: () => updateCommsView(result, planText) },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
