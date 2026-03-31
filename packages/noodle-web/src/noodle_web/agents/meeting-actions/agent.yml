@@ -1,0 +1,5 @@
+name: Meeting Actions
+description: Extracts action items, decisions, and key points from meeting transcripts or notes.
+icon: bi-chat-square-text
+category: reporting
+order: 9

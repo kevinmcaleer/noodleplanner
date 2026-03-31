@@ -14,6 +14,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "bcrypt>=4.2.1",
     "pyjwt>=2.10.1",
+    "httpx>=0.27.0",
 ]
 
 [tool.uv.sources]
@@ -29,3 +30,4 @@ packages = ["src/noodle_web"]
 [tool.hatch.build.targets.wheel.force-include]
 "src/noodle_web/static" = "noodle_web/static"
 "src/noodle_web/templates" = "noodle_web/templates"
+"src/noodle_web/agents" = "noodle_web/agents"

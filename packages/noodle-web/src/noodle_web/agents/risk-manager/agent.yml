@@ -1,0 +1,5 @@
+name: Risk Manager
+description: Reviews RAID items, checks mitigations are adequate, identifies unrecognised risks.
+icon: bi-shield-exclamation
+category: tracking
+order: 2

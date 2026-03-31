@@ -1,0 +1,5 @@
+name: Benefits Realisation Manager
+description: Tracks value delivery, reviews benefits against business case, identifies realisation gaps.
+icon: bi-graph-up-arrow
+category: tracking
+order: 4

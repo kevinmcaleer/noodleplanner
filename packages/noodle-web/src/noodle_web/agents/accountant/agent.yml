@@ -1,0 +1,5 @@
+name: Accountant
+description: Checks budget health, forecasts spend, identifies cost risks and variances.
+icon: bi-currency-pound
+category: tracking
+order: 6

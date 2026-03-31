@@ -1,0 +1,5 @@
+name: Reporting Analyst
+description: Creates status reports, summaries, and analysis from project activity and completion data.
+icon: bi-bar-chart-line
+category: reporting
+order: 3

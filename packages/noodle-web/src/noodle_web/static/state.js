@@ -161,6 +161,10 @@ let highlightsData = [];
 let actionsSortColumn = 'id';
 let actionsSortAsc = true;
 
+// AI chat state
+let aiChatOpen = false;
+let aiChatHistory = [];
+
 // Keyboard shortcut state
 let pendingGoKey = false;
 let goKeyTimeout = null;
