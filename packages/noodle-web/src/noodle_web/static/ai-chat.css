@@ -515,6 +515,14 @@
     color: #333;
 }
 
+.ai-plan-update-warning {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #856404;
+    background: #fff3cd;
+    border-top: 1px solid #ffc107;
+}
+
 .ai-plan-update-btn {
     display: block;
     width: 100%;

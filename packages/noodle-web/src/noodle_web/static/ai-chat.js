@@ -171,11 +171,37 @@ function renderAIChatMarkdown(text, finalRender) {
         const fmMatch = trimmedText.match(/(---\s*\n\s*(?:title|project manager|start date|budget|stakeholders|resources):[\s\S]*?\n---)/);
         if (fmMatch) {
             const fmStart = trimmedText.indexOf(fmMatch[1]);
-            const planContent = trimmedText.substring(fmStart).trim();
+            let planContent = trimmedText.substring(fmStart).trim();
             const preamble = trimmedText.substring(0, fmStart).trim();
 
+            // Strip any trailing commentary after the plan
+            // (text after closing --- that doesn't look like tasks)
+            const closingIdx = planContent.indexOf('---', 3);
+            if (closingIdx > 0) {
+                const afterFm = planContent.substring(closingIdx + 3).trim();
+                const lines = afterFm.split('\n');
+                const taskLines = [];
+                let hitNonTask = false;
+                for (const line of lines) {
+                    const t = line.trim();
+                    // Task lines: start with letter/number/*, indented lines, or blank
+                    if (t === '' || /^[\s]*[*\-]?\s*\w/.test(line) || /^\[depends/.test(t)) {
+                        if (!hitNonTask) taskLines.push(line);
+                    } else {
+                        hitNonTask = true;
+                    }
+                }
+                const tasksText = taskLines.join('\n').trim();
+                planContent = planContent.substring(0, closingIdx + 3) +
+                    (tasksText ? '\n\n' + tasksText : '');
+            }
+
+            // Warn if no tasks found (model only output front matter)
+            const hasTasksAfterFm = planContent.indexOf('---', 3) > 0 &&
+                planContent.substring(planContent.indexOf('---', 3) + 3).trim().length > 0;
+
             const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-            planUpdates.push({ id: id, content: planContent });
+            planUpdates.push({ id: id, content: planContent, noTasks: !hasTasksAfterFm });
             text = (preamble ? preamble + '\n\n' : '') + '%%PLAN_UPDATE_0%%';
         }
     }
@@ -255,6 +281,7 @@ function renderAIChatMarkdown(text, finalRender) {
             '<path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
             ' Plan Update</div>' +
             '<pre class="ai-plan-update-preview"><code>' + preview + '</code></pre>' +
+            (update.noTasks ? '<div class="ai-plan-update-warning">Warning: No tasks found — applying this will replace your plan with only front matter. Ask the AI to include all tasks.</div>' : '') +
             '<button class="ai-plan-update-btn" onclick="applyPlanUpdate(\'' + update.id + '\')">' +
             'Apply to Plan</button>' +
             '<textarea class="ai-plan-update-data" style="display:none">' +
@@ -509,11 +536,15 @@ async function getAgentSystemPrompt() {
         '- `---raid log---` — risks, assumptions, issues, dependencies table\n' +
         '- `---comms---` — communications plan table\n' +
         '- `---baseline---` — baseline snapshot\n\n' +
-        '## When asked to update the plan\n\n' +
-        'If the user asks you to change the plan, output the COMPLETE updated plan inside a markdown code block (triple backticks). ' +
-        'The code block MUST start with the `---` front matter. Include ALL of the plan, not just changed parts. ' +
-        'You can also wrap it in <plan-update> tags instead. Either format works.\n\n' +
-        'For reviews and suggestions, do NOT output a code block with the full plan — just describe the changes in plain text.';
+        '## CRITICAL: When asked to update the plan\n\n' +
+        'If the user asks you to change the plan, you MUST output the COMPLETE plan — front matter AND all tasks. ' +
+        'Do NOT output only the front matter. Do NOT omit tasks. The output replaces the entire plan.\n\n' +
+        'CORRECT format (front matter + tasks):\n' +
+        '```\n---\ntitle: Project Name\nstakeholders:\n  - @Name {High} {High}\n---\n\n' +
+        'Phase 1\n  *Task 1 5d\n  *Task 2 3d\n\nPhase 2 [depends Phase 1]\n  *Task 3 10d\n```\n\n' +
+        'WRONG (missing tasks — NEVER do this):\n' +
+        '```\n---\ntitle: Project Name\nstakeholders:\n  - @Name {High} {High}\n---\n```\n\n' +
+        'For reviews and suggestions, do NOT output the full plan — just describe the changes in plain text.';
 
     return prompt;
 }
