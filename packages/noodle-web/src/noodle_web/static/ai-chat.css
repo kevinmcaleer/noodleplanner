@@ -22,7 +22,7 @@
     top: 0;
     right: 0;
     width: 100%;
-    height: 100%;
+    height: calc(100% - 36px);
     background: #fff;
     z-index: 1025;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
