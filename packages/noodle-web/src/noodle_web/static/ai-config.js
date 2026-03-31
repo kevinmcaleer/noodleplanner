@@ -13,7 +13,7 @@ function getProviderPresets() {
         ollama: {
             label: 'Ollama',
             endpoint: 'https://ai.noodleplanner.com/v1',
-            model: 'llama3.2',
+            model: 'llama3.1:8b',
         },
         openai: {
             label: 'OpenAI',
