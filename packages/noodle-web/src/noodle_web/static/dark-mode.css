@@ -2428,3 +2428,67 @@ body {
 [data-theme="dark"] .portfolio-lookahead-daterange {
     color: var(--np-text-secondary);
 }
+
+/* ---- Benefits Realisation Map ---- */
+[data-theme="dark"] #benefits-view {
+    --mm-toolbar-bg: #2a2a2a;
+    --mm-toolbar-border: #444;
+    --mm-btn-bg: #3a3a3a;
+    --mm-btn-border: #555;
+    --mm-btn-text: #ddd;
+    --mm-btn-hover-bg: #4a4a4a;
+    --mm-btn-hover-text: #fff;
+    --mm-zoom-label-text: #aaa;
+    --mm-hint-text: #777;
+    --mm-canvas-bg: #1e1e1e;
+    --mm-placeholder-text: #888;
+    --mm-placeholder-heading: #ddd;
+}
+
+[data-theme="dark"] .ben-connection { stroke: #9CA3AF; }
+[data-theme="dark"] .ben-arrow { fill: #9CA3AF; }
+
+[data-theme="dark"] .ben-tracking-table {
+    background: var(--np-surface);
+}
+
+[data-theme="dark"] .ben-tracking-table th {
+    color: var(--np-text);
+    background: var(--np-bg-alt);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .ben-tracking-table td {
+    color: var(--np-text);
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .ben-tracking-table td.ben-cell-editable:hover {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .ben-tracking-table td.ben-cell-editable:focus-within {
+    background: var(--np-bg-hover);
+}
+
+[data-theme="dark"] .ben-tracking-table .ben-cell-input {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .ben-tracking-table .ben-cell-select {
+    background: var(--np-surface);
+    color: var(--np-text);
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .ben-tracking-empty {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .benefits-placeholder {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .benefits-placeholder h3 {
+    color: var(--np-text);
+}

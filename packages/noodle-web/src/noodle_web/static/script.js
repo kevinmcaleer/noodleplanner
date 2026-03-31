@@ -552,6 +552,7 @@ const OUTPUT_VIEWS = {
     'milestones': 'planTab',
     'mindmap': 'planTab',
     'stakeholders': 'planTab',
+    'benefits': 'planTab',
     'highlights': 'planTab',
     'lookahead': 'planTab',
     'analysis': 'planTab',
@@ -1371,6 +1372,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'comms',                   fn: () => updateCommsView(result, planText) },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
+            { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'evm',                     fn: () => updateEVM(result.tasks || []) },
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
@@ -5082,6 +5084,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 'raidFormSection': closeRaidForm(); break;
                         case 'benefitsFormSection': closeBenefitForm(); break;
                         case 'highlightFormSection': closeHighlightForm(); break;
+                        case 'benefitsFormSection': closeBenefitForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
                         case 'taskInspectorSection': closeTaskInspector(); break;
@@ -5135,6 +5138,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 'raidFormSection': closeRaidForm(); break;
                         case 'benefitsFormSection': closeBenefitForm(); break;
                         case 'highlightFormSection': closeHighlightForm(); break;
+                        case 'benefitsFormSection': closeBenefitForm(); break;
                         case 'projectDetailsSection': closeProjectDetailsForm(); break;
                         case 'resourceFormSection': saveResource(); break;
                         case 'taskInspectorSection': closeTaskInspector(); break;
@@ -5229,6 +5233,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     case 'e':  // Alt+E - Export to Excel
                         e.preventDefault();
                         exportFile('excel', 'editor');
+                        return;
+                    case 'b':  // Alt+B - Go to Benefits Map
+                        e.preventDefault();
+                        switchToView('benefits');
                         return;
                 }
             }

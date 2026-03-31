@@ -530,6 +530,122 @@ class RaidExportRequest(BaseModel):
     project_name: Optional[str] = Field("Project", max_length=200)
 
 
+class BenefitItem(BaseModel):
+    """Single benefit item for Excel export."""
+    id: int
+    type: str = Field("benefit", pattern=r'^(benefit|disbenefit|enabler|change|objective)$')
+    title: str = Field("", max_length=500)
+    description: str = Field("", max_length=5000)
+    objectiveType: str = Field("", max_length=200)
+    targetValue: str = Field("", max_length=500)
+    currentValue: str = Field("", max_length=500)
+    targetDate: str = Field("", max_length=50)
+    measurementMethod: str = Field("", max_length=1000)
+    linkedTo: List[int] = Field(default_factory=list)
+    contributionPercent: int = Field(0, ge=0, le=100)
+    status: str = Field("", max_length=100)
+    lastUpdated: str = Field("", max_length=50)
+    score: int = Field(0)
+
+
+class BenefitsExportRequest(BaseModel):
+    """Request body for Benefits Excel export."""
+    items: List[BenefitItem]
+    project_name: Optional[str] = Field("Benefits", max_length=200)
+
+
+@app.post("/api/benefits/export-excel")
+async def export_benefits_excel(data: BenefitsExportRequest):
+    """Export benefit items to an Excel file with two sheets."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+
+    # Sheet 1: Benefits Map (all items)
+    ws_map = wb.active
+    ws_map.title = "Benefits Map"
+
+    map_headers = [
+        'ID', 'Type', 'Title', 'Description', 'Objective Type',
+        'Target Value', 'Current Value', 'Target Date', 'Measurement',
+        'Linked To', 'Contribution %', 'Status', 'Last Updated', 'Score'
+    ]
+
+    header_fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+
+    for col, header in enumerate(map_headers, 1):
+        cell = ws_map.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    for row_idx, item in enumerate(data.items, 2):
+        ws_map.cell(row=row_idx, column=1, value=item.id)
+        ws_map.cell(row=row_idx, column=2, value=item.type.capitalize())
+        ws_map.cell(row=row_idx, column=3, value=item.title)
+        ws_map.cell(row=row_idx, column=4, value=item.description)
+        ws_map.cell(row=row_idx, column=5, value=item.objectiveType)
+        ws_map.cell(row=row_idx, column=6, value=item.targetValue)
+        ws_map.cell(row=row_idx, column=7, value=item.currentValue)
+        ws_map.cell(row=row_idx, column=8, value=item.targetDate)
+        ws_map.cell(row=row_idx, column=9, value=item.measurementMethod)
+        ws_map.cell(row=row_idx, column=10, value=', '.join(str(lid) for lid in item.linkedTo))
+        ws_map.cell(row=row_idx, column=11, value=item.contributionPercent)
+        ws_map.cell(row=row_idx, column=12, value=item.status)
+        ws_map.cell(row=row_idx, column=13, value=item.lastUpdated)
+        ws_map.cell(row=row_idx, column=14, value=item.score)
+
+    map_widths = [6, 14, 25, 35, 16, 14, 14, 14, 20, 12, 14, 16, 14, 10]
+    for col, width in enumerate(map_widths, 1):
+        ws_map.column_dimensions[get_column_letter(col)].width = width
+
+    # Sheet 2: Tracking (benefits and disbenefits only)
+    ws_track = wb.create_sheet("Tracking")
+
+    track_headers = [
+        'ID', 'Type', 'Title', 'Target Value', 'Current Value',
+        'Target Date', 'Measurement', 'Status', 'Last Updated'
+    ]
+
+    for col, header in enumerate(track_headers, 1):
+        cell = ws_track.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    track_row = 2
+    for item in data.items:
+        if item.type not in ('benefit', 'disbenefit'):
+            continue
+        ws_track.cell(row=track_row, column=1, value=item.id)
+        ws_track.cell(row=track_row, column=2, value=item.type.capitalize())
+        ws_track.cell(row=track_row, column=3, value=item.title)
+        ws_track.cell(row=track_row, column=4, value=item.targetValue)
+        ws_track.cell(row=track_row, column=5, value=item.currentValue)
+        ws_track.cell(row=track_row, column=6, value=item.targetDate)
+        ws_track.cell(row=track_row, column=7, value=item.measurementMethod)
+        ws_track.cell(row=track_row, column=8, value=item.status)
+        ws_track.cell(row=track_row, column=9, value=item.lastUpdated)
+        track_row += 1
+
+    track_widths = [6, 14, 25, 16, 16, 14, 20, 16, 14]
+    for col, width in enumerate(track_widths, 1):
+        ws_track.column_dimensions[get_column_letter(col)].width = width
+
+    project_name = data.project_name or "Benefits"
+    file_bytes = export_to_file(wb.save, suffix='.xlsx')
+    return Response(
+        content=file_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{project_name}-benefits.xlsx"'
+        }
+    )
+
+
 @app.post("/api/raid/export-excel")
 async def export_raid_excel(data: RaidExportRequest):
     """Export RAID log items to an Excel file."""
