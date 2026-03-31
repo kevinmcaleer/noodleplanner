@@ -12325,3 +12325,197 @@ body.no-animations .np-fade-in {
         padding: 8px;
     }
 }
+
+/* ── AI Settings ─────────────────────────────────────────── */
+
+.ai-btn-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.ai-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary, #333);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    position: relative;
+    transition: background 0.15s;
+}
+
+.ai-toggle-btn:hover {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.08));
+}
+
+.ai-toggle-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 2px;
+}
+
+.ai-configured-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #28a745;
+}
+
+.ai-settings-modal {
+    max-width: min(500px, 90vw);
+}
+
+.ai-provider-fieldset {
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.ai-provider-fieldset legend {
+    font-weight: 600;
+    font-size: 0.9em;
+    padding: 0 6px;
+}
+
+.ai-provider-radios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.ai-provider-radio {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    min-height: 44px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.ai-provider-radio:focus-within {
+    outline: 2px solid #108BB9;
+    outline-offset: 2px;
+}
+
+.ai-provider-radio input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.ai-settings-field {
+    margin-bottom: 14px;
+}
+
+.ai-settings-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+}
+
+.ai-settings-field input[type="url"],
+.ai-settings-field input[type="text"],
+.ai-settings-field input[type="password"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 6px;
+    font-size: 0.95em;
+    min-height: 44px;
+    box-sizing: border-box;
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #333);
+}
+
+.ai-settings-field input:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+.ai-key-input-wrapper {
+    position: relative;
+    display: flex;
+}
+
+.ai-key-input-wrapper input {
+    flex: 1;
+    padding-right: 44px;
+}
+
+.ai-key-toggle {
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary, #666);
+}
+
+.ai-key-toggle:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+.ai-settings-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.ai-test-status {
+    font-size: 0.9em;
+}
+
+.ai-test-pending {
+    color: var(--text-secondary, #666);
+}
+
+.ai-test-success {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.ai-test-error {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.ai-settings-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color, #dee2e6);
+}
+
+@media (max-width: 480px) {
+    .ai-provider-radios {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .ai-settings-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

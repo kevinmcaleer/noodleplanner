@@ -212,8 +212,18 @@
                    title="Documentation">
                     <i class="bi bi-book" aria-hidden="true"></i> Docs
                 </a>
+                <!-- AI button -->
+                <div class="ai-btn-wrapper" style="margin-left: auto; position: relative;">
+                    <button class="ai-toggle-btn" id="aiToggleBtn"
+                            onclick="onAIButtonClick()"
+                            aria-label="AI Assistant"
+                            title="AI Assistant">
+                        <i class="bi bi-robot" aria-hidden="true"></i>
+                        <span class="ai-configured-dot" id="aiConfiguredDot" style="display:none;" aria-hidden="true"></span>
+                    </button>
+                </div>
                 <!-- Theme toggle -->
-                <div class="theme-toggle-wrapper" style="margin-left: auto; position: relative;">
+                <div class="theme-toggle-wrapper" style="position: relative;">
                     <button class="theme-toggle-btn" id="themeToggleBtn"
                             onclick="toggleThemeMenu(event)"
                             aria-haspopup="true" aria-expanded="false"
@@ -354,6 +364,10 @@
                         Tools &#9662;
                     </button>
                     <div class="nav-menu" id="toolsDropdownMenu" role="menu" aria-label="Tools">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openAISettingsModal(); event.stopPropagation();">
+                            <i class="bi bi-robot" aria-hidden="true"></i> AI Settings
+                        </div>
+                        <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openTemplatesModal(); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-board"/></svg> Templates
                         </div>
@@ -3242,6 +3256,72 @@ Build
     <script src="/static/mindmap.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/views-products.js?v={{ v }}"></script>
+    <script src="/static/ai-config.js?v={{ v }}"></script>
+
+    <!-- AI Settings Modal -->
+    <div id="aiSettingsOverlay" class="modal-overlay" onclick="if(event.target===this) closeAISettingsModal()" role="dialog" aria-modal="true" aria-label="AI Provider Settings">
+        <div class="task-form-modal ai-settings-modal">
+            <div class="modal-header">
+                <h2><i class="bi bi-robot" aria-hidden="true"></i> AI Provider Settings</h2>
+                <button class="close-btn" onclick="closeAISettingsModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <fieldset class="ai-provider-fieldset">
+                    <legend>Provider</legend>
+                    <div class="ai-provider-radios">
+                        <label class="ai-provider-radio">
+                            <input type="radio" name="aiProvider" value="openai" checked onchange="onAIProviderChange('openai')">
+                            <span>OpenAI</span>
+                        </label>
+                        <label class="ai-provider-radio">
+                            <input type="radio" name="aiProvider" value="anthropic" onchange="onAIProviderChange('anthropic')">
+                            <span>Anthropic</span>
+                        </label>
+                        <label class="ai-provider-radio">
+                            <input type="radio" name="aiProvider" value="ollama" onchange="onAIProviderChange('ollama')">
+                            <span>Ollama (Local)</span>
+                        </label>
+                        <label class="ai-provider-radio">
+                            <input type="radio" name="aiProvider" value="custom" onchange="onAIProviderChange('custom')">
+                            <span>Custom</span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <div class="ai-settings-field">
+                    <label for="aiEndpoint">Endpoint URL</label>
+                    <input type="url" id="aiEndpoint" placeholder="https://api.openai.com/v1" autocomplete="off">
+                </div>
+
+                <div class="ai-settings-field">
+                    <label for="aiApiKey">API Key</label>
+                    <div class="ai-key-input-wrapper">
+                        <input type="password" id="aiApiKey" placeholder="sk-..." autocomplete="off">
+                        <button type="button" id="aiKeyToggle" class="ai-key-toggle" onclick="toggleAIKeyVisibility()" aria-label="Show API key">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ai-settings-field">
+                    <label for="aiModel">Model</label>
+                    <input type="text" id="aiModel" placeholder="gpt-4o" autocomplete="off">
+                </div>
+
+                <div class="ai-settings-actions">
+                    <button type="button" id="aiTestBtn" class="btn-secondary" onclick="testAIConnection()">
+                        <i class="bi bi-plug" aria-hidden="true"></i> Test Connection
+                    </button>
+                    <span id="aiTestStatus" class="ai-test-status"></span>
+                </div>
+
+                <div class="ai-settings-buttons">
+                    <button type="button" class="btn-secondary" onclick="closeAISettingsModal()" style="min-height: 44px;">Cancel</button>
+                    <button type="button" class="btn-primary" onclick="saveAISettingsFromModal()" style="min-height: 44px;">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- RAID Delete Confirmation Modal -->
     <div id="raidDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteRaidItem()" role="dialog" aria-modal="true" aria-label="Confirm delete RAID item">

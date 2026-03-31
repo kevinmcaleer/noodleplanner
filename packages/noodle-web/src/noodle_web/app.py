@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional, List
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
-from fastapi.responses import Response, HTMLResponse, FileResponse
+from fastapi.responses import Response, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -49,6 +49,14 @@ from noodle_core import (
 )
 import json
 from .plan_service import PlanService, export_to_file
+from .ai_service import (
+    AIChatRequest,
+    AITestRequest,
+    proxy_chat_completion,
+    test_connection,
+    list_agents,
+    get_agent,
+)
 from .security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
@@ -1366,6 +1374,61 @@ async def propagate_programme_dependencies(data: DependencyPropagateRequest):
         "overall_rag": overall_rag,
         "dependency_count": len(results),
     }
+
+
+# ── AI Routes ─────────────────────────────────────────────────
+
+
+@app.post("/api/ai/chat")
+async def ai_chat(request: AIChatRequest):
+    """Proxy a chat completion request to the configured AI provider.
+
+    Streams the response as Server-Sent Events.
+    """
+    return StreamingResponse(
+        proxy_chat_completion(
+            endpoint=request.endpoint,
+            api_key=request.api_key,
+            model=request.model,
+            messages=request.messages,
+            provider=request.provider,
+            stream=request.stream,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/ai/test")
+async def ai_test(request: AITestRequest):
+    """Test connectivity to an AI provider."""
+    result = await test_connection(
+        endpoint=request.endpoint,
+        api_key=request.api_key,
+        model=request.model,
+        provider=request.provider,
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    return result
+
+
+@app.get("/api/ai/agents")
+async def ai_agents_list():
+    """List all available AI agent templates."""
+    return list_agents()
+
+
+@app.get("/api/ai/agents/{agent_id}")
+async def ai_agent_detail(agent_id: str):
+    """Get a single agent's metadata and system prompt."""
+    agent = get_agent(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return agent
 
 
 if __name__ == "__main__":

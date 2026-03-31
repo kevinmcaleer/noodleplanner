@@ -1,0 +1,5 @@
+name: PM Assistant
+description: Reviews project metrics, suggests focus areas, provides general project management advice.
+icon: bi-person-workspace
+category: planning
+order: 8

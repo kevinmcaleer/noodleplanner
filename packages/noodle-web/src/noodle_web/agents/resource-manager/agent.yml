@@ -1,0 +1,5 @@
+name: Resource Manager
+description: Identifies skill gaps, checks resource allocation, flags over-utilisation and load balancing issues.
+icon: bi-person-badge
+category: resources
+order: 7

@@ -1,0 +1,5 @@
+name: Planning Agent
+description: Reviews plan quality, suggests improvements, identifies gaps in scope, schedule and dependencies.
+icon: bi-clipboard-check
+category: planning
+order: 1
