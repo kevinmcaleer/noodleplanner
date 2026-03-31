@@ -17,6 +17,9 @@ services:
       # Mount packages for development (optional - comment out for production)
       - ./packages:/app/packages
       - ./templates:/app/templates
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health').read()"]
