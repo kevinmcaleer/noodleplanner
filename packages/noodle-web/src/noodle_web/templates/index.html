@@ -1976,6 +1976,10 @@ Build
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                                     Dependencies
                                 </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('benefits')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                    Benefits
+                                </button>
                             </div>
                         </div>
                         <div class="portfolio-actions">
@@ -2029,6 +2033,10 @@ Build
 
                     <div id="portfolioDependenciesView" class="portfolio-content portfolio-view">
                         <!-- Programme dependencies view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioBenefitsView" class="portfolio-content portfolio-view" style="display: none;">
+                        <!-- Portfolio benefits view will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -3377,6 +3385,7 @@ Build
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>
     <script src="/static/portfolio-dependencies.js?v={{ v }}"></script>
+    <script src="/static/portfolio-benefits.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>

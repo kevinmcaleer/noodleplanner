@@ -6467,3 +6467,239 @@ tr:hover .task-context-btn,
     }
 }
 
+/* =========================================
+   Portfolio Benefits View
+   ========================================= */
+.portfolio-benefits-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-benefits-header h2 {
+    margin: 0;
+    font-size: 1.4em;
+}
+
+.portfolio-benefits-summary {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.benefits-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.benefits-summary-item .summary-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.benefits-summary-item .summary-value {
+    font-size: 1.6em;
+    font-weight: 700;
+}
+
+.portfolio-benefits-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.portfolio-benefits-filters label {
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.portfolio-benefits-filters select {
+    padding: 8px 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 0.9em;
+    background: white;
+    min-width: 140px;
+    min-height: 44px;
+}
+
+.portfolio-benefits-filters select:focus-visible {
+    outline: 2px solid #108BB9;
+}
+
+.portfolio-benefits-table-wrapper {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.portfolio-benefits-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portfolio-benefits-table thead {
+    background: #f8f9fa;
+}
+
+.portfolio-benefits-table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.portfolio-benefits-table th:hover {
+    background: #e9ecef;
+}
+
+.portfolio-benefits-table td {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.portfolio-benefits-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.portfolio-benefits-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.benefits-project-name {
+    font-weight: 600;
+    color: #2c3e50;
+    white-space: nowrap;
+}
+
+.benefits-title {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.benefits-numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.benefit-type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+
+/* Consistency section */
+.portfolio-benefits-consistency {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-benefits-consistency h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.1em;
+    color: #2c3e50;
+}
+
+.consistency-ok {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.consistency-missing {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .portfolio-benefits-summary {
+        gap: 10px;
+    }
+
+    .portfolio-benefits-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .portfolio-benefits-filters select {
+        width: 100%;
+    }
+
+    .portfolio-benefits-table-wrapper {
+        overflow-x: auto;
+    }
+}
+
+/* Dark mode */
+[data-theme="dark"] .portfolio-benefits-header {
+    background: #1e1e2e;
+}
+
+[data-theme="dark"] .portfolio-benefits-table-wrapper {
+    background: #1e1e2e;
+}
+
+[data-theme="dark"] .portfolio-benefits-table thead {
+    background: #2a2a3e;
+}
+
+[data-theme="dark"] .portfolio-benefits-table th {
+    color: #a0a0b0;
+}
+
+[data-theme="dark"] .portfolio-benefits-table th:hover {
+    background: #333348;
+}
+
+[data-theme="dark"] .portfolio-benefits-table td {
+    border-bottom-color: #2a2a3e;
+}
+
+[data-theme="dark"] .portfolio-benefits-table tbody tr:hover {
+    background: #2a2a3e;
+}
+
+[data-theme="dark"] .benefits-project-name {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .portfolio-benefits-consistency {
+    background: #1e1e2e;
+}
+
+[data-theme="dark"] .portfolio-benefits-consistency h3 {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .portfolio-benefits-filters select {
+    background: #2a2a3e;
+    border-color: #444;
+    color: #e0e0e0;
+}
+
