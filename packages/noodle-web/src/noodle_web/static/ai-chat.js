@@ -163,9 +163,16 @@ function renderAIChatMarkdown(text) {
     // Escape HTML first
     let html = escapeHtmlForChat(text);
 
-    // Code blocks (``` ... ```)
+    // Code blocks (``` ... ```) — add "Apply to Plan" button if content looks like a plan
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
-        return '<pre><code>' + code.trim() + '</code></pre>';
+        const trimmed = code.trim();
+        const looksLikePlan = trimmed.startsWith('---') && trimmed.includes('title:');
+        if (looksLikePlan) {
+            const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
+            planUpdates.push({ id: id, content: trimmed });
+            return '%%PLAN_UPDATE_' + (planUpdates.length - 1) + '%%';
+        }
+        return '<pre><code>' + trimmed + '</code></pre>';
     });
 
     // Inline code
@@ -472,14 +479,11 @@ async function getAgentSystemPrompt() {
         '- `---raid log---` — risks, assumptions, issues, dependencies table\n' +
         '- `---comms---` — communications plan table\n' +
         '- `---baseline---` — baseline snapshot\n\n' +
-        '## Plan Update Instructions\n\n' +
-        'When the user asks you to modify, update, or change the plan, output the complete updated plan ' +
-        'wrapped in <plan-update> tags. Include the FULL plan text (not just the changed parts), ' +
-        'so it can replace the current plan entirely. Example:\n\n' +
-        '<plan-update>\n---\ntitle: My Project\nstakeholders:\n  - @John Smith {High} {High}\n---\n\n' +
-        'Design\n  *HLD 5d\n  *LLD 10d\n</plan-update>\n\n' +
-        'Only use <plan-update> tags when the user explicitly asks you to make changes to the plan. ' +
-        'For reviews, suggestions, and analysis, just respond with text — do not include plan-update tags.';
+        '## When asked to update the plan\n\n' +
+        'If the user asks you to change the plan, output the COMPLETE updated plan inside a markdown code block (triple backticks). ' +
+        'The code block MUST start with the `---` front matter. Include ALL of the plan, not just changed parts. ' +
+        'You can also wrap it in <plan-update> tags instead. Either format works.\n\n' +
+        'For reviews and suggestions, do NOT output a code block with the full plan — just describe the changes in plain text.';
 
     return prompt;
 }
