@@ -480,6 +480,81 @@
     color: #555;
 }
 
+/* ── Plan Update Block ─────────────────────────── */
+
+.ai-plan-update {
+    margin: 8px 0;
+    border: 1px solid #d1e7dd;
+    border-radius: 8px;
+    background: #f0faf4;
+    overflow: hidden;
+}
+
+.ai-plan-update-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #198754;
+    border-bottom: 1px solid #d1e7dd;
+}
+
+.ai-plan-update-preview {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+    background: #f8fdf9;
+}
+
+.ai-plan-update-preview code {
+    white-space: pre-wrap;
+    color: #333;
+}
+
+.ai-plan-update-btn {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background: #198754;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ai-plan-update-btn:hover {
+    background: #146c43;
+}
+
+.ai-plan-update-btn.applied {
+    background: #6c757d;
+    cursor: default;
+}
+
+[data-theme="dark"] .ai-plan-update {
+    background: #1a2e1a;
+    border-color: #2d5a2d;
+}
+
+[data-theme="dark"] .ai-plan-update-header {
+    color: #75b798;
+    border-bottom-color: #2d5a2d;
+}
+
+[data-theme="dark"] .ai-plan-update-preview {
+    background: #1e331e;
+}
+
+[data-theme="dark"] .ai-plan-update-preview code {
+    color: #ccc;
+}
+
 [data-theme="dark"] .ai-chat-overlay {
     background: rgba(0, 0, 0, 0.6);
 }

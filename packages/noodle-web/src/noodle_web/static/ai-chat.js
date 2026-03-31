@@ -146,8 +146,19 @@ function escapeHtmlForChat(text) {
 
 /* ── Simple Markdown renderer ────────────────────────────────── */
 
+// Counter for unique plan update IDs
+let aiPlanUpdateCounter = 0;
+
 function renderAIChatMarkdown(text) {
     if (!text) return '';
+
+    // Extract plan-update blocks before escaping HTML
+    const planUpdates = [];
+    text = text.replace(/<plan-update>([\s\S]*?)<\/plan-update>/g, function(match, planContent) {
+        const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
+        planUpdates.push({ id: id, content: planContent.trim() });
+        return '%%PLAN_UPDATE_' + (planUpdates.length - 1) + '%%';
+    });
 
     // Escape HTML first
     let html = escapeHtmlForChat(text);
@@ -193,6 +204,27 @@ function renderAIChatMarkdown(text) {
     html = html.replace(/(<\/pre>)<\/p>/g, '$1');
     html = html.replace(/<p>(<ul>)/g, '$1');
     html = html.replace(/(<\/ul>)<\/p>/g, '$1');
+
+    // Replace plan update placeholders with styled blocks and apply buttons
+    for (let i = 0; i < planUpdates.length; i++) {
+        const update = planUpdates[i];
+        const escapedContent = escapeHtmlForChat(update.content);
+        const preview = escapeHtmlForChat(update.content.substring(0, 200)) +
+            (update.content.length > 200 ? '...' : '');
+        html = html.replace('%%PLAN_UPDATE_' + i + '%%',
+            '<div class="ai-plan-update" id="' + update.id + '">' +
+            '<div class="ai-plan-update-header">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>' +
+            '<path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+            ' Plan Update</div>' +
+            '<pre class="ai-plan-update-preview"><code>' + preview + '</code></pre>' +
+            '<button class="ai-plan-update-btn" onclick="applyPlanUpdate(\'' + update.id + '\')">' +
+            'Apply to Plan</button>' +
+            '<textarea class="ai-plan-update-data" style="display:none">' +
+            escapedContent + '</textarea>' +
+            '</div>');
+    }
 
     return html;
 }
@@ -404,7 +436,55 @@ async function getAgentSystemPrompt() {
 
     prompt = prompt.replace(/\{\{plan_markdown\}\}/g, truncatedPlan);
 
+    // Append instruction for plan updates
+    prompt += '\n\n## Plan Update Instructions\n\n' +
+        'When the user asks you to modify, update, or change the plan, output the complete updated plan ' +
+        'wrapped in <plan-update> tags. Include the FULL plan text (not just the changed parts), ' +
+        'so it can replace the current plan entirely. Example:\n\n' +
+        '<plan-update>\n# Project Name\n- Task 1 5d\n- Task 2 3d\n</plan-update>\n\n' +
+        'Only use <plan-update> tags when the user explicitly asks you to make changes to the plan. ' +
+        'For reviews, suggestions, and analysis, just respond with text — do not include plan-update tags.';
+
     return prompt;
+}
+
+/* ── Apply plan update ────────────────────────────────────────── */
+
+function applyPlanUpdate(updateId) {
+    const container = document.getElementById(updateId);
+    if (!container) return;
+
+    const dataEl = container.querySelector('.ai-plan-update-data');
+    if (!dataEl) return;
+
+    // Decode HTML entities back to raw text
+    const tmp = document.createElement('textarea');
+    tmp.innerHTML = dataEl.value;
+    const planText = tmp.value;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    if (!confirm('Replace the current plan with the AI-suggested version?')) return;
+
+    if (typeof setEditorValuePreservingCursor === 'function') {
+        setEditorValuePreservingCursor(editor, planText);
+    } else {
+        editor.value = planText;
+    }
+
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = planText;
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Visual feedback on the button
+    const btn = container.querySelector('.ai-plan-update-btn');
+    if (btn) {
+        btn.textContent = 'Applied!';
+        btn.disabled = true;
+        btn.classList.add('applied');
+    }
 }
 
 /* ── Input auto-grow ──────────────────────────────────────────── */
