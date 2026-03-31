@@ -551,6 +551,22 @@ async function getAgentSystemPrompt() {
 
 /* ── Apply plan update ────────────────────────────────────────── */
 
+/**
+ * Extract front matter and body from plan text.
+ * Returns { frontMatter: string, body: string }.
+ */
+function splitPlanParts(text) {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('---')) return { frontMatter: '', body: trimmed };
+
+    const closingIdx = trimmed.indexOf('---', 3);
+    if (closingIdx === -1) return { frontMatter: trimmed, body: '' };
+
+    const frontMatter = trimmed.substring(0, closingIdx + 3);
+    const body = trimmed.substring(closingIdx + 3).trim();
+    return { frontMatter, body };
+}
+
 function applyPlanUpdate(updateId) {
     const container = document.getElementById(updateId);
     if (!container) return;
@@ -561,21 +577,34 @@ function applyPlanUpdate(updateId) {
     // Decode HTML entities back to raw text
     const tmp = document.createElement('textarea');
     tmp.innerHTML = dataEl.value;
-    const planText = tmp.value;
+    const aiPlan = tmp.value;
 
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
-    if (!confirm('Replace the current plan with the AI-suggested version?')) return;
+    // Split the AI output and current plan into front matter + body
+    const aiParts = splitPlanParts(aiPlan);
+    const currentParts = splitPlanParts(editor.value);
+
+    let finalPlan;
+    if (aiParts.body && aiParts.body.length > 20) {
+        // AI included tasks — use the full AI output
+        finalPlan = aiPlan;
+    } else {
+        // AI only output front matter — merge with existing tasks
+        finalPlan = aiParts.frontMatter + '\n\n' + currentParts.body;
+    }
+
+    if (!confirm('Apply the AI-suggested changes to your plan?')) return;
 
     if (typeof setEditorValuePreservingCursor === 'function') {
-        setEditorValuePreservingCursor(editor, planText);
+        setEditorValuePreservingCursor(editor, finalPlan);
     } else {
-        editor.value = planText;
+        editor.value = finalPlan;
     }
 
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
-    if (kanbanEditor) kanbanEditor.value = planText;
+    if (kanbanEditor) kanbanEditor.value = finalPlan;
 
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
