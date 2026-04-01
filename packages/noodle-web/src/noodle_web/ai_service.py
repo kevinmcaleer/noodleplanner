@@ -272,6 +272,13 @@ async def proxy_chat_with_tools(
                 message = choice.get("message", {})
                 finish_reason = choice.get("finish_reason", "")
 
+                logger.info(
+                    "AI response: finish_reason=%s, has_tool_calls=%s, content_len=%d",
+                    finish_reason,
+                    bool(message.get("tool_calls")),
+                    len(message.get("content", "")),
+                )
+
                 has_tool_calls = (
                     finish_reason == "tool_calls"
                     or bool(message.get("tool_calls"))
