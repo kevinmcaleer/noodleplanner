@@ -14,20 +14,26 @@ from noodle_core.format_converter import (
     BENEFITS_START,
     BUDGET_START,
     COMMS_START,
+    HIGHLIGHTS_START,
+    HIGHLIGHTS_END,
     RAID_LOG_START,
     extract_baseline,
     extract_benefits,
     extract_budget,
     extract_comms_plan,
+    extract_highlights,
     extract_raid_log,
     generate_baseline_text,
     generate_comms_plan_text,
+    generate_highlights_text,
     generate_raid_log_text,
     parse_benefits_markdown,
     parse_budget_markdown,
     parse_comms_markdown,
     parse_raid_markdown,
     strip_baseline,
+    strip_highlights,
+    update_plan_highlights,
     strip_benefits,
     strip_budget,
     strip_comms,
@@ -1390,6 +1396,214 @@ def _create_baseline(plan_text: str) -> tuple[str, str]:
         f"Created baseline with {len(baseline_items)} tasks."
 
 
+# ── Highlights ────────────────────────────────────────────────
+
+
+def _add_highlight(plan_text: str, date: str, author: str,
+                   content: str) -> tuple[str, str]:
+    """Add a highlight/status update entry."""
+    highlights = extract_highlights(plan_text)
+    highlights.append({'date': date, 'author': author, 'content': content})
+    updated = update_plan_highlights(plan_text, highlights)
+    return updated, f"Added highlight for {date} by @{author}."
+
+
+def _update_highlight(plan_text: str, date: str, author: str,
+                      content: str) -> tuple[str, str]:
+    """Update an existing highlight by date and author."""
+    highlights = extract_highlights(plan_text)
+    found = False
+    for h in highlights:
+        if h['date'] == date and h['author'].lower() == author.lower():
+            h['content'] = content
+            found = True
+            break
+    if not found:
+        return plan_text, f"Highlight for {date} by @{author} not found."
+    return update_plan_highlights(plan_text, highlights), f"Updated highlight for {date} by @{author}."
+
+
+def _remove_highlight(plan_text: str, date: str,
+                      author: str) -> tuple[str, str]:
+    """Remove a highlight by date and author."""
+    highlights = extract_highlights(plan_text)
+    original_len = len(highlights)
+    highlights = [
+        h for h in highlights
+        if not (h['date'] == date and h['author'].lower() == author.lower())
+    ]
+    if len(highlights) == original_len:
+        return plan_text, f"Highlight for {date} by @{author} not found."
+    return update_plan_highlights(plan_text, highlights), f"Removed highlight for {date} by @{author}."
+
+
+# ── Milestones ────────────────────────────────────────────────
+
+
+def _add_milestone(plan_text: str, name: str,
+                   parent: str | None = None,
+                   date: str | None = None) -> tuple[str, str]:
+    """Add a milestone (a task with 0d duration)."""
+    extra = ''
+    if date:
+        extra = f' start:{date}'
+    return _add_task(plan_text, name=name, parent=parent, duration='0d',
+                     comment=None, resource=None, depends_on=None,
+                     sequential=False)
+
+
+def _update_milestone(plan_text: str, name: str,
+                      new_name: str | None = None,
+                      date: str | None = None) -> tuple[str, str]:
+    """Update a milestone name or date."""
+    return _update_task(plan_text, name=name, new_name=new_name,
+                        duration=None, resource=None, completion=None,
+                        comment=None)
+
+
+# ── Labels ────────────────────────────────────────────────────
+
+
+def _add_label(plan_text: str, task_name: str,
+               label: str) -> tuple[str, str]:
+    """Add a #label tag to a task."""
+    task_area, before, after = _get_task_area(plan_text)
+    lines = task_area.split('\n')
+    tag = f'#{label}' if not label.startswith('#') else label
+
+    for i, line in enumerate(lines):
+        stripped = line.strip().lstrip('*').strip()
+        tokens = stripped.split()
+        t_name = []
+        for t in tokens:
+            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends)', t):
+                break
+            t_name.append(t)
+        if ' '.join(t_name).lower() == task_name.lower():
+            if tag.lower() in line.lower():
+                return plan_text, f"Task '{task_name}' already has label {tag}."
+            lines[i] = line.rstrip() + f' {tag}'
+            return before + '\n'.join(lines) + after, f"Added {tag} to '{task_name}'."
+
+    return plan_text, f"Task '{task_name}' not found."
+
+
+def _remove_label(plan_text: str, task_name: str,
+                  label: str) -> tuple[str, str]:
+    """Remove a #label tag from a task."""
+    task_area, before, after = _get_task_area(plan_text)
+    lines = task_area.split('\n')
+    tag = f'#{label}' if not label.startswith('#') else label
+
+    for i, line in enumerate(lines):
+        stripped = line.strip().lstrip('*').strip()
+        tokens = stripped.split()
+        t_name = []
+        for t in tokens:
+            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends)', t):
+                break
+            t_name.append(t)
+        if ' '.join(t_name).lower() == task_name.lower():
+            # Remove the label tag (case-insensitive)
+            new_line = re.sub(r'\s*' + re.escape(tag), '', line, flags=re.IGNORECASE)
+            if new_line == line:
+                return plan_text, f"Task '{task_name}' does not have label {tag}."
+            lines[i] = new_line
+            return before + '\n'.join(lines) + after, f"Removed {tag} from '{task_name}'."
+
+    return plan_text, f"Task '{task_name}' not found."
+
+
+# ── Recurrence ────────────────────────────────────────────────
+
+
+def _set_recurrence(plan_text: str, task_name: str,
+                    pattern: str) -> tuple[str, str]:
+    """Set a recurrence pattern on a task. Pattern examples: 'weekly', 'monthly', 'every 2 weeks'."""
+    task_area, before, after = _get_task_area(plan_text)
+    lines = task_area.split('\n')
+
+    for i, line in enumerate(lines):
+        stripped = line.strip().lstrip('*').strip()
+        tokens = stripped.split()
+        t_name = []
+        for t in tokens:
+            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends|\[repeats)', t):
+                break
+            t_name.append(t)
+        if ' '.join(t_name).lower() == task_name.lower():
+            # Remove existing recurrence
+            new_line = re.sub(r'\s*\[repeats\s+[^\]]*\]', '', line)
+            new_line = new_line.rstrip() + f' [repeats {pattern}]'
+            lines[i] = new_line
+            return before + '\n'.join(lines) + after, f"Set recurrence '{pattern}' on '{task_name}'."
+
+    return plan_text, f"Task '{task_name}' not found."
+
+
+def _remove_recurrence(plan_text: str, task_name: str) -> tuple[str, str]:
+    """Remove recurrence from a task."""
+    task_area, before, after = _get_task_area(plan_text)
+    lines = task_area.split('\n')
+
+    for i, line in enumerate(lines):
+        stripped = line.strip().lstrip('*').strip()
+        tokens = stripped.split()
+        t_name = []
+        for t in tokens:
+            if re.match(r'^(\d+[dwmy]|@|!\"|%\d|#|\$|\[depends|\[repeats)', t):
+                break
+            t_name.append(t)
+        if ' '.join(t_name).lower() == task_name.lower():
+            new_line = re.sub(r'\s*\[repeats\s+[^\]]*\]', '', line)
+            if new_line == line:
+                return plan_text, f"Task '{task_name}' has no recurrence."
+            lines[i] = new_line
+            return before + '\n'.join(lines) + after, f"Removed recurrence from '{task_name}'."
+
+    return plan_text, f"Task '{task_name}' not found."
+
+
+# ── Update non-working day ────────────────────────────────────
+
+
+def _update_non_working_day(plan_text: str, name: str,
+                            new_name: str | None = None,
+                            start_date: str | None = None,
+                            end_date: str | None = None) -> tuple[str, str]:
+    """Update an existing non-working day entry."""
+    fm, body = _split_front_matter(plan_text)
+    lines = fm.split('\n')
+    in_nwd = False
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.lower() in ('non-working-days:', 'holidays:'):
+            in_nwd = True
+            continue
+        if in_nwd and stripped.startswith('- '):
+            entry = stripped[2:].strip()
+            if entry.lower().startswith(name.lower()):
+                n = new_name or name
+                s = start_date
+                e = end_date
+                # Parse existing dates if not provided
+                match = re.match(r'^[^:]+:\s*(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?', entry)
+                if match:
+                    s = s or match.group(1)
+                    e = e or match.group(2) or ''
+                new_entry = f'  - {n}: {s}'
+                if e:
+                    new_entry += f':{e}'
+                lines[i] = new_entry
+                updated_fm = '\n'.join(lines)
+                return updated_fm + '\n' + body, f"Updated non-working day '{name}'."
+        elif in_nwd and not stripped.startswith('-') and stripped and ':' in stripped:
+            in_nwd = False
+
+    return plan_text, f"Non-working day '{name}' not found."
+
+
 # ===================================================================
 # Tool definitions (OpenAI function calling format)
 # ===================================================================
@@ -1960,6 +2174,166 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    # --- Highlights ---
+    {
+        "type": "function",
+        "function": {
+            "name": "add_highlight",
+            "description": "Add a status update/highlight entry with date, author, and content (RAG status, key updates, risks)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {"type": "string", "description": "Date (YYYY-MM-DD)"},
+                    "author": {"type": "string", "description": "Author name (without @)"},
+                    "content": {"type": "string", "description": "Highlight content (markdown text with RAG status, updates, etc.)"},
+                },
+                "required": ["date", "author", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_highlight",
+            "description": "Update an existing highlight entry by date and author",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {"type": "string", "description": "Date of the highlight (YYYY-MM-DD)"},
+                    "author": {"type": "string", "description": "Author name"},
+                    "content": {"type": "string", "description": "New content"},
+                },
+                "required": ["date", "author", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remove_highlight",
+            "description": "Remove a highlight entry by date and author",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {"type": "string", "description": "Date of the highlight (YYYY-MM-DD)"},
+                    "author": {"type": "string", "description": "Author name"},
+                },
+                "required": ["date", "author"],
+            },
+        },
+    },
+    # --- Milestones ---
+    {
+        "type": "function",
+        "function": {
+            "name": "add_milestone",
+            "description": "Add a milestone (a task with zero duration marking a key date)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Milestone name"},
+                    "parent": {"type": "string", "description": "Parent task/phase name to nest under"},
+                    "date": {"type": "string", "description": "Target date (YYYY-MM-DD)"},
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_milestone",
+            "description": "Update a milestone name or date",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Current milestone name"},
+                    "new_name": {"type": "string", "description": "New name"},
+                    "date": {"type": "string", "description": "New target date (YYYY-MM-DD)"},
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    # --- Labels ---
+    {
+        "type": "function",
+        "function": {
+            "name": "add_label",
+            "description": "Add a #label tag to a task for categorisation",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "Task name to add the label to"},
+                    "label": {"type": "string", "description": "Label name (without #)"},
+                },
+                "required": ["task_name", "label"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remove_label",
+            "description": "Remove a #label tag from a task",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "Task name"},
+                    "label": {"type": "string", "description": "Label name to remove (without #)"},
+                },
+                "required": ["task_name", "label"],
+            },
+        },
+    },
+    # --- Recurrence ---
+    {
+        "type": "function",
+        "function": {
+            "name": "set_recurrence",
+            "description": "Set a recurrence pattern on a task (e.g. weekly, monthly, every 2 weeks)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "Task name"},
+                    "pattern": {"type": "string", "description": "Recurrence pattern (e.g. 'weekly', 'monthly', 'every 2 weeks')"},
+                },
+                "required": ["task_name", "pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remove_recurrence",
+            "description": "Remove recurrence from a task",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "Task name"},
+                },
+                "required": ["task_name"],
+            },
+        },
+    },
+    # --- Update Non-working day ---
+    {
+        "type": "function",
+        "function": {
+            "name": "update_non_working_day",
+            "description": "Update an existing non-working day entry (name, dates)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Current name of the non-working day"},
+                    "new_name": {"type": "string", "description": "New name"},
+                    "start_date": {"type": "string", "description": "New start date (YYYY-MM-DD)"},
+                    "end_date": {"type": "string", "description": "New end date (YYYY-MM-DD)"},
+                },
+                "required": ["name"],
+            },
+        },
+    },
 ]
 
 
@@ -2001,6 +2375,16 @@ TOOL_EXECUTORS = {
     "create_baseline": _create_baseline,
     "add_non_working_day": _add_non_working_day,
     "remove_non_working_day": _remove_non_working_day,
+    "update_non_working_day": _update_non_working_day,
+    "add_highlight": _add_highlight,
+    "update_highlight": _update_highlight,
+    "remove_highlight": _remove_highlight,
+    "add_milestone": _add_milestone,
+    "update_milestone": _update_milestone,
+    "add_label": _add_label,
+    "remove_label": _remove_label,
+    "set_recurrence": _set_recurrence,
+    "remove_recurrence": _remove_recurrence,
 }
 
 
