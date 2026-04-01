@@ -1502,6 +1502,9 @@ async def ai_chat(request: AIChatRequest):
     When plan_text is provided, uses tool-calling flow so the model can
     modify the plan via deterministic tool functions.
     """
+    logger.info("AI chat: plan_text length=%d, using %s",
+                len(request.plan_text) if request.plan_text else 0,
+                "tools" if request.plan_text else "regular")
     if request.plan_text:
         generator = proxy_chat_with_tools(
             endpoint=request.endpoint,
