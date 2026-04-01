@@ -35,6 +35,7 @@ class AIChatRequest(BaseModel):
     provider: str = "openai"
     messages: list[AIChatMessage]
     stream: bool = True
+    plan_text: str = ""
 
 
 class AITestRequest(BaseModel):
@@ -194,6 +195,157 @@ def _extract_token(data: dict, provider: str) -> Optional[str]:
 def _sse_event(data: dict) -> str:
     """Format a dict as an SSE data line."""
     return f"data: {json.dumps(data)}\n\n"
+
+
+# ── Tool-calling chat ────────────────────────────────────────
+
+MAX_TOOL_ITERATIONS = 10
+
+
+def _load_ai_tools() -> tuple:
+    """Lazily import ai_tools module. Returns (TOOL_DEFINITIONS, execute_tool) or (None, None)."""
+    try:
+        from . import ai_tools
+        return ai_tools.TOOL_DEFINITIONS, ai_tools.execute_tool
+    except (ImportError, AttributeError):
+        return None, None
+
+
+async def proxy_chat_with_tools(
+    endpoint: str,
+    api_key: str,
+    model: str,
+    provider: str,
+    messages: list[AIChatMessage],
+    plan_text: str,
+) -> AsyncIterator[str]:
+    """Chat with tool calling support. Yields SSE events.
+
+    Sends the request with tool definitions. When the model responds with
+    tool_calls, executes them via ai_tools.execute_tool(), feeds results
+    back, and loops until the model gives a final text response.
+
+    The final SSE stream includes a plan_update event if the plan was modified.
+    """
+    tool_definitions, execute_tool = _load_ai_tools()
+
+    if tool_definitions is None or execute_tool is None:
+        logger.warning("ai_tools module not available, falling back to regular chat")
+        async for event in proxy_chat_completion(
+            endpoint, api_key, model, messages, provider, stream=True,
+        ):
+            yield event
+        return
+
+    url = _get_chat_url(provider, endpoint)
+    headers = _get_headers(provider, api_key)
+
+    # Build initial payload with tools (non-streaming for tool-call round)
+    conv_messages = [{"role": m.role, "content": m.content} for m in messages]
+    payload = {
+        "model": model,
+        "messages": conv_messages,
+        "tools": tool_definitions,
+        "stream": False,
+    }
+
+    current_plan = plan_text
+
+    logger.info(
+        "AI tool-calling request to %s (provider=%s, model=%s)",
+        url, provider, model,
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=AI_PROXY_TIMEOUT) as client:
+            for _iteration in range(MAX_TOOL_ITERATIONS):
+                resp = await client.post(url, json=payload, headers=headers)
+
+                if resp.status_code != 200:
+                    error_text = resp.text
+                    logger.warning("AI proxy error %d from %s", resp.status_code, url)
+                    yield _sse_event({"error": error_text, "status": resp.status_code, "done": True})
+                    return
+
+                data = resp.json()
+                choice = data.get("choices", [{}])[0]
+                message = choice.get("message", {})
+                finish_reason = choice.get("finish_reason", "")
+
+                has_tool_calls = (
+                    finish_reason == "tool_calls"
+                    or bool(message.get("tool_calls"))
+                )
+
+                if has_tool_calls:
+                    tool_calls = message.get("tool_calls", [])
+
+                    # Append the assistant's tool-call message to the conversation
+                    payload["messages"].append(message)
+
+                    for tc in tool_calls:
+                        func = tc.get("function", {})
+                        func_name = func.get("name", "")
+                        try:
+                            args = json.loads(func.get("arguments", "{}"))
+                        except json.JSONDecodeError:
+                            args = {}
+
+                        # Execute the tool against the current plan
+                        current_plan, result_msg = execute_tool(
+                            func_name, current_plan, args,
+                        )
+
+                        # Yield progress so the user sees what is happening
+                        yield _sse_event({
+                            "tool_call": func_name,
+                            "result": result_msg,
+                            "done": False,
+                        })
+
+                        # Feed tool result back to model
+                        payload["messages"].append({
+                            "role": "tool",
+                            "tool_call_id": tc.get("id", ""),
+                            "content": result_msg,
+                        })
+
+                    # On the last allowed iteration, drop tools to force a text reply
+                    if _iteration == MAX_TOOL_ITERATIONS - 2:
+                        payload.pop("tools", None)
+
+                    continue  # let the model respond again
+
+                # No tool calls — final text response
+                content = message.get("content", "")
+                if content:
+                    yield _sse_event({"content": content, "done": False})
+
+                # If the plan was modified, send the updated text
+                if current_plan != plan_text:
+                    yield _sse_event({"plan_update": current_plan, "done": False})
+
+                yield _sse_event({"content": "", "done": True})
+                return
+
+        # Exhausted iterations without a text response
+        yield _sse_event({
+            "content": "Tool calling reached the maximum number of iterations.",
+            "done": False,
+        })
+        if current_plan != plan_text:
+            yield _sse_event({"plan_update": current_plan, "done": False})
+        yield _sse_event({"content": "", "done": True})
+
+    except httpx.TimeoutException:
+        logger.warning("AI tool-calling request timed out to %s", url)
+        yield _sse_event({"error": "Request timed out.", "done": True})
+    except httpx.ConnectError:
+        logger.warning("AI tool-calling connection failed to %s", url)
+        yield _sse_event({"error": "Could not connect to the AI endpoint.", "done": True})
+    except Exception as exc:
+        logger.warning("AI tool-calling error: %s", type(exc).__name__)
+        yield _sse_event({"error": "Unexpected error during tool calling.", "done": True})
 
 
 # ── Connection test ───────────────────────────────────────────
