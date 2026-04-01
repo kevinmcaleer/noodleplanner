@@ -472,15 +472,9 @@ async function getAgentSystemPrompt() {
         '- `---raid log---` — risks, assumptions, issues, dependencies table\n' +
         '- `---comms---` — communications plan table\n' +
         '- `---baseline---` — baseline snapshot\n\n' +
-        '## CRITICAL: When asked to update the plan\n\n' +
-        'If the user asks you to change the plan, you MUST output the COMPLETE plan — front matter AND all tasks. ' +
-        'Do NOT output only the front matter. Do NOT omit tasks. The output replaces the entire plan.\n\n' +
-        'CORRECT format (front matter + tasks):\n' +
-        '```\n---\ntitle: Project Name\nstakeholders:\n  - @Name {High} {High}\n---\n\n' +
-        'Phase 1\n  *Task 1 5d\n  *Task 2 3d\n\nPhase 2 [depends Phase 1]\n  *Task 3 10d\n```\n\n' +
-        'WRONG (missing tasks — NEVER do this):\n' +
-        '```\n---\ntitle: Project Name\nstakeholders:\n  - @Name {High} {High}\n---\n```\n\n' +
-        'For reviews and suggestions, do NOT output the full plan — just describe the changes in plain text.';
+        '## How to make changes to the plan\n\n' +
+        'You have tools available to modify the plan. ALWAYS use the provided tools (like add_stakeholder, add_task, etc.) ' +
+        'to make changes. NEVER output plan text directly. Just call the appropriate tool and then explain what you did.';
 
     return prompt;
 }
