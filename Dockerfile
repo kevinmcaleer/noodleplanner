@@ -39,6 +39,7 @@ COPY packages/noodle-cli/pyproject.toml packages/noodle-cli/pyproject.toml
 RUN mkdir -p packages/noodle-core/src/noodle_core \
              packages/noodle-web/src/noodle_web/static \
              packages/noodle-web/src/noodle_web/templates \
+             packages/noodle-web/src/noodle_web/agents \
              packages/noodle-cli/src/noodle_cli && \
     touch packages/noodle-core/src/noodle_core/__init__.py \
           packages/noodle-web/src/noodle_web/__init__.py \
