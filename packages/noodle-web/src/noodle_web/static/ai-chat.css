@@ -480,87 +480,94 @@
     color: #555;
 }
 
-/* ── Plan Update Block ─────────────────────────── */
+/* ── Tool Call Message ────────────────────────────── */
 
-.ai-plan-update {
-    margin: 8px 0;
-    border: 1px solid #d1e7dd;
-    border-radius: 8px;
-    background: #f0faf4;
-    overflow: hidden;
-}
-
-.ai-plan-update-header {
+.ai-tool-call {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px;
+    padding: 4px 10px;
+    margin: 4px 0;
+    font-size: 12px;
+    color: #666;
+    background: #f5f5f5;
+    border-radius: 6px;
+    border-left: 3px solid #198754;
+}
+
+.ai-tool-call-icon {
+    flex-shrink: 0;
+}
+
+.ai-tool-call-name {
     font-weight: 600;
-    font-size: 13px;
+    font-family: monospace;
+}
+
+.ai-tool-call-result {
     color: #198754;
-    border-bottom: 1px solid #d1e7dd;
 }
 
-.ai-plan-update-preview {
-    margin: 0;
+/* ── Plan Applied Banner ─────────────────────────── */
+
+.ai-plan-applied {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 8px 12px;
-    font-size: 12px;
-    max-height: 120px;
-    overflow-y: auto;
-    background: #f8fdf9;
-}
-
-.ai-plan-update-preview code {
-    white-space: pre-wrap;
-    color: #333;
-}
-
-.ai-plan-update-warning {
-    padding: 6px 12px;
-    font-size: 12px;
-    color: #856404;
-    background: #fff3cd;
-    border-top: 1px solid #ffc107;
-}
-
-.ai-plan-update-btn {
-    display: block;
-    width: 100%;
-    padding: 8px;
-    border: none;
-    background: #198754;
-    color: #fff;
-    font-weight: 600;
+    margin: 8px 0;
+    background: #d1e7dd;
+    border-radius: 6px;
     font-size: 13px;
+    color: #0f5132;
+}
+
+.ai-plan-applied-undo {
     cursor: pointer;
-    transition: background 0.2s;
+    text-decoration: underline;
+    font-weight: 600;
 }
 
-.ai-plan-update-btn:hover {
-    background: #146c43;
+.ai-plan-applied-undo:hover {
+    color: #0a3622;
 }
 
-.ai-plan-update-btn.applied {
-    background: #6c757d;
-    cursor: default;
+.ai-plan-applied-undo:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 2px;
 }
 
-[data-theme="dark"] .ai-plan-update {
-    background: #1a2e1a;
-    border-color: #2d5a2d;
+.ai-plan-applied-reverted {
+    background: #f8f9fa;
+    color: #6c757d;
 }
 
-[data-theme="dark"] .ai-plan-update-header {
+/* ── Dark Mode: Tool Call ────────────────────────── */
+
+[data-theme="dark"] .ai-tool-call {
+    background: #2a2a2a;
+    color: #999;
+    border-left-color: #75b798;
+}
+
+[data-theme="dark"] .ai-tool-call-result {
     color: #75b798;
-    border-bottom-color: #2d5a2d;
 }
 
-[data-theme="dark"] .ai-plan-update-preview {
-    background: #1e331e;
+/* ── Dark Mode: Plan Applied Banner ──────────────── */
+
+[data-theme="dark"] .ai-plan-applied {
+    background: #1a2e1a;
+    color: #75b798;
 }
 
-[data-theme="dark"] .ai-plan-update-preview code {
-    color: #ccc;
+[data-theme="dark"] .ai-plan-applied-undo:hover {
+    color: #a3d9b1;
+}
+
+[data-theme="dark"] .ai-plan-applied-reverted {
+    background: #2a2a2a;
+    color: #777;
 }
 
 [data-theme="dark"] .ai-chat-overlay {

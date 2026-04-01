@@ -146,88 +146,15 @@ function escapeHtmlForChat(text) {
 
 /* ── Simple Markdown renderer ────────────────────────────────── */
 
-// Counter for unique plan update IDs
-let aiPlanUpdateCounter = 0;
-
-function renderAIChatMarkdown(text, finalRender) {
+function renderAIChatMarkdown(text) {
     if (!text) return '';
-
-    // Extract plan-update blocks before escaping HTML
-    const planUpdates = [];
-    text = text.replace(/<plan-update>([\s\S]*?)<\/plan-update>/g, function(match, planContent) {
-        const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-        planUpdates.push({ id: id, content: planContent.trim() });
-        return '%%PLAN_UPDATE_' + (planUpdates.length - 1) + '%%';
-    });
-
-    // Only detect raw plan text on the final render (not during streaming)
-    // Small models like llama3.2 output plans as plain text without code blocks or tags.
-    // The model may include preamble text before the actual plan front matter.
-    // Look for a ---...title:...--- block anywhere in the response.
-    if (finalRender && planUpdates.length === 0) {
-        const trimmedText = text.trim();
-        // Find front matter: --- immediately followed by YAML keys (title:, project manager:, etc.)
-        // Use a regex that requires a YAML key on the line after ---
-        const fmMatch = trimmedText.match(/(---\s*\n\s*(?:title|project manager|start date|budget|stakeholders|resources):[\s\S]*?\n---)/);
-        if (fmMatch) {
-            const fmStart = trimmedText.indexOf(fmMatch[1]);
-            let planContent = trimmedText.substring(fmStart).trim();
-            const preamble = trimmedText.substring(0, fmStart).trim();
-
-            // Strip any trailing commentary after the plan
-            // (text after closing --- that doesn't look like tasks)
-            const closingIdx = planContent.indexOf('---', 3);
-            if (closingIdx > 0) {
-                const afterFm = planContent.substring(closingIdx + 3).trim();
-                const lines = afterFm.split('\n');
-                const taskLines = [];
-                let hitNonTask = false;
-                for (const line of lines) {
-                    const t = line.trim();
-                    // Task lines: start with letter/number/*, indented lines, or blank
-                    if (t === '' || /^[\s]*[*\-]?\s*\w/.test(line) || /^\[depends/.test(t)) {
-                        if (!hitNonTask) taskLines.push(line);
-                    } else {
-                        hitNonTask = true;
-                    }
-                }
-                const tasksText = taskLines.join('\n').trim();
-                planContent = planContent.substring(0, closingIdx + 3) +
-                    (tasksText ? '\n\n' + tasksText : '');
-            }
-
-            // Warn if no tasks found (model only output front matter)
-            const hasTasksAfterFm = planContent.indexOf('---', 3) > 0 &&
-                planContent.substring(planContent.indexOf('---', 3) + 3).trim().length > 0;
-
-            const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-            planUpdates.push({ id: id, content: planContent, noTasks: !hasTasksAfterFm });
-            text = (preamble ? preamble + '\n\n' : '') + '%%PLAN_UPDATE_0%%';
-        }
-    }
 
     // Escape HTML first
     let html = escapeHtmlForChat(text);
 
-    // Code blocks (``` ... ```) — add "Apply to Plan" button if content looks like a plan
+    // Code blocks (``` ... ```)
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
-        const trimmed = code.trim();
-        // Detect plan content: has title: and either front matter (---) or task-like lines
-        const hasTitle = trimmed.includes('title:');
-        const hasFrontMatter = trimmed.includes('---');
-        const hasTaskLines = /^\s{2,}\*?\w/m.test(trimmed);
-        const looksLikePlan = hasTitle && (hasFrontMatter || hasTaskLines);
-        if (looksLikePlan) {
-            const id = 'ai-plan-update-' + (aiPlanUpdateCounter++);
-            // Ensure it starts with --- if it doesn't already
-            let planContent = trimmed;
-            if (!planContent.startsWith('---')) {
-                planContent = '---\n' + planContent;
-            }
-            planUpdates.push({ id: id, content: planContent });
-            return '%%PLAN_UPDATE_' + (planUpdates.length - 1) + '%%';
-        }
-        return '<pre><code>' + trimmed + '</code></pre>';
+        return '<pre><code>' + code.trim() + '</code></pre>';
     });
 
     // Inline code
@@ -266,28 +193,6 @@ function renderAIChatMarkdown(text, finalRender) {
     html = html.replace(/(<\/pre>)<\/p>/g, '$1');
     html = html.replace(/<p>(<ul>)/g, '$1');
     html = html.replace(/(<\/ul>)<\/p>/g, '$1');
-
-    // Replace plan update placeholders with styled blocks and apply buttons
-    for (let i = 0; i < planUpdates.length; i++) {
-        const update = planUpdates[i];
-        const escapedContent = escapeHtmlForChat(update.content);
-        const preview = escapeHtmlForChat(update.content.substring(0, 200)) +
-            (update.content.length > 200 ? '...' : '');
-        html = html.replace('%%PLAN_UPDATE_' + i + '%%',
-            '<div class="ai-plan-update" id="' + update.id + '">' +
-            '<div class="ai-plan-update-header">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>' +
-            '<path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
-            ' Plan Update</div>' +
-            '<pre class="ai-plan-update-preview"><code>' + preview + '</code></pre>' +
-            (update.noTasks ? '<div class="ai-plan-update-warning">Warning: No tasks found — applying this will replace your plan with only front matter. Ask the AI to include all tasks.</div>' : '') +
-            '<button class="ai-plan-update-btn" onclick="applyPlanUpdate(\'' + update.id + '\')">' +
-            'Apply to Plan</button>' +
-            '<textarea class="ai-plan-update-data" style="display:none">' +
-            escapedContent + '</textarea>' +
-            '</div>');
-    }
 
     return html;
 }
@@ -385,6 +290,10 @@ async function sendAIChatMessage() {
     aiStreaming = true;
     updateSendButtonState();
 
+    // Include current plan text for tool calling
+    const planEditor = document.getElementById('planEditor');
+    const planText = planEditor ? planEditor.value : '';
+
     try {
         const resp = await fetch('/api/ai/chat', {
             method: 'POST',
@@ -396,6 +305,7 @@ async function sendAIChatMessage() {
                 provider: config.provider,
                 messages: apiMessages,
                 stream: true,
+                plan_text: planText,
             }),
         });
 
@@ -411,8 +321,9 @@ async function sendAIChatMessage() {
         hideTypingIndicator();
 
         // Create assistant bubble for streaming
-        const assistantBubble = appendChatMessage('assistant', '');
+        let assistantBubble = null;
         let fullContent = '';
+        let pendingPlanUpdate = null;
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
@@ -439,13 +350,30 @@ async function sendAIChatMessage() {
                 }
 
                 if (data.error) {
+                    if (!assistantBubble) {
+                        assistantBubble = appendChatMessage('assistant', '');
+                    }
                     assistantBubble.className = 'ai-chat-bubble error';
                     assistantBubble.textContent = 'Error: ' + data.error;
                     break;
                 }
 
+                // Handle tool call events
+                if (data.tool_call) {
+                    appendToolCallMessage(data.tool_call, data.result);
+                }
+
+                // Handle plan update events
+                if (data.plan_update) {
+                    pendingPlanUpdate = data.plan_update;
+                }
+
+                // Handle regular content tokens
                 if (data.content) {
                     fullContent += data.content;
+                    if (!assistantBubble) {
+                        assistantBubble = appendChatMessage('assistant', '');
+                    }
                     assistantBubble.innerHTML = renderAIChatMarkdown(fullContent);
                     const messagesContainer = document.getElementById('aiChatMessages');
                     if (messagesContainer) {
@@ -457,10 +385,18 @@ async function sendAIChatMessage() {
             }
         }
 
-        // Final re-render with plan detection (streaming renders skip raw plan detection)
+        // Final render
         if (fullContent) {
-            assistantBubble.innerHTML = renderAIChatMarkdown(fullContent, true);
+            if (!assistantBubble) {
+                assistantBubble = appendChatMessage('assistant', '');
+            }
+            assistantBubble.innerHTML = renderAIChatMarkdown(fullContent);
             aiMessages.push({ role: 'assistant', content: fullContent });
+        }
+
+        // Apply pending plan update automatically with undo
+        if (pendingPlanUpdate) {
+            applyPlanUpdateFromTool(pendingPlanUpdate);
         }
 
     } catch (err) {
@@ -549,72 +485,90 @@ async function getAgentSystemPrompt() {
     return prompt;
 }
 
-/* ── Apply plan update ────────────────────────────────────────── */
+/* ── Tool call display ───────────────────────────────────────── */
 
-/**
- * Extract front matter and body from plan text.
- * Returns { frontMatter: string, body: string }.
- */
-function splitPlanParts(text) {
-    const trimmed = text.trim();
-    if (!trimmed.startsWith('---')) return { frontMatter: '', body: trimmed };
-
-    const closingIdx = trimmed.indexOf('---', 3);
-    if (closingIdx === -1) return { frontMatter: trimmed, body: '' };
-
-    const frontMatter = trimmed.substring(0, closingIdx + 3);
-    const body = trimmed.substring(closingIdx + 3).trim();
-    return { frontMatter, body };
-}
-
-function applyPlanUpdate(updateId) {
-    const container = document.getElementById(updateId);
+function appendToolCallMessage(toolName, result) {
+    const container = document.getElementById('aiChatMessages');
     if (!container) return;
 
-    const dataEl = container.querySelector('.ai-plan-update-data');
-    if (!dataEl) return;
+    const el = document.createElement('div');
+    el.className = 'ai-tool-call';
+    el.innerHTML =
+        '<span class="ai-tool-call-icon" aria-hidden="true">&#128295;</span>' +
+        '<span class="ai-tool-call-name">' + escapeHtmlForChat(toolName) + '</span>' +
+        '<span class="ai-tool-call-result">' + escapeHtmlForChat(result || '') + '</span>';
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+}
 
-    // Decode HTML entities back to raw text
-    const tmp = document.createElement('textarea');
-    tmp.innerHTML = dataEl.value;
-    const aiPlan = tmp.value;
+/* ── Apply plan update from tool results ─────────────────────── */
 
+function applyPlanUpdateFromTool(newPlanText) {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
 
-    // Split the AI output and current plan into front matter + body
-    const aiParts = splitPlanParts(aiPlan);
-    const currentParts = splitPlanParts(editor.value);
+    // Save previous plan text for undo
+    const previousPlanText = editor.value;
 
-    let finalPlan;
-    if (aiParts.body && aiParts.body.length > 20) {
-        // AI included tasks — use the full AI output
-        finalPlan = aiPlan;
-    } else {
-        // AI only output front matter — merge with existing tasks
-        finalPlan = aiParts.frontMatter + '\n\n' + currentParts.body;
-    }
-
-    if (!confirm('Apply the AI-suggested changes to your plan?')) return;
-
+    // Apply the new plan text
     if (typeof setEditorValuePreservingCursor === 'function') {
-        setEditorValuePreservingCursor(editor, finalPlan);
+        setEditorValuePreservingCursor(editor, newPlanText);
     } else {
-        editor.value = finalPlan;
+        editor.value = newPlanText;
     }
 
+    // Sync kanban editor if present
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
-    if (kanbanEditor) kanbanEditor.value = finalPlan;
+    if (kanbanEditor) kanbanEditor.value = newPlanText;
 
+    // Trigger re-render
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // Visual feedback on the button
-    const btn = container.querySelector('.ai-plan-update-btn');
-    if (btn) {
-        btn.textContent = 'Applied!';
-        btn.disabled = true;
-        btn.classList.add('applied');
+    // Show plan-applied banner with undo
+    showPlanAppliedBanner(previousPlanText);
+}
+
+function showPlanAppliedBanner(previousPlanText) {
+    const container = document.getElementById('aiChatMessages');
+    if (!container) return;
+
+    const banner = document.createElement('div');
+    banner.className = 'ai-plan-applied';
+    banner.innerHTML =
+        '<span>Plan updated</span>' +
+        '<span class="ai-plan-applied-undo" role="button" tabindex="0" aria-label="Undo plan update">Undo</span>';
+
+    var undoBtn = banner.querySelector('.ai-plan-applied-undo');
+
+    function handleUndo() {
+        var editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        if (typeof setEditorValuePreservingCursor === 'function') {
+            setEditorValuePreservingCursor(editor, previousPlanText);
+        } else {
+            editor.value = previousPlanText;
+        }
+
+        var kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) kanbanEditor.value = previousPlanText;
+
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        banner.innerHTML = '<span>Plan update reverted</span>';
+        banner.classList.add('ai-plan-applied-reverted');
     }
+
+    undoBtn.addEventListener('click', handleUndo);
+    undoBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleUndo();
+        }
+    });
+
+    container.appendChild(banner);
+    container.scrollTop = container.scrollHeight;
 }
 
 /* ── Input auto-grow ──────────────────────────────────────────── */
