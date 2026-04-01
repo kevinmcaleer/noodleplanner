@@ -53,6 +53,7 @@ from .ai_service import (
     AIChatRequest,
     AITestRequest,
     proxy_chat_completion,
+    proxy_chat_with_tools,
     test_connection,
     list_agents,
     get_agent,
@@ -1498,16 +1499,30 @@ async def ai_chat(request: AIChatRequest):
     """Proxy a chat completion request to the configured AI provider.
 
     Streams the response as Server-Sent Events.
+    When plan_text is provided, uses tool-calling flow so the model can
+    modify the plan via deterministic tool functions.
     """
-    return StreamingResponse(
-        proxy_chat_completion(
+    if request.plan_text:
+        generator = proxy_chat_with_tools(
+            endpoint=request.endpoint,
+            api_key=request.api_key,
+            model=request.model,
+            provider=request.provider,
+            messages=request.messages,
+            plan_text=request.plan_text,
+        )
+    else:
+        generator = proxy_chat_completion(
             endpoint=request.endpoint,
             api_key=request.api_key,
             model=request.model,
             messages=request.messages,
             provider=request.provider,
             stream=request.stream,
-        ),
+        )
+
+    return StreamingResponse(
+        generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
