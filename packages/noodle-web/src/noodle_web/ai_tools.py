@@ -2403,7 +2403,13 @@ def execute_tool(tool_name: str, plan_text: str, arguments: dict) -> tuple[str, 
     if not executor:
         return plan_text, f"Unknown tool: {tool_name}"
     try:
-        return executor(plan_text, **arguments)
+        # Filter arguments to only those the executor accepts.
+        # Small models sometimes include extra fields (e.g. "function", "id").
+        import inspect
+        sig = inspect.signature(executor)
+        valid_params = set(sig.parameters.keys()) - {'plan_text'}
+        filtered_args = {k: v for k, v in arguments.items() if k in valid_params}
+        return executor(plan_text, **filtered_args)
     except TypeError as e:
         return plan_text, f"Invalid arguments for {tool_name}: {e}"
     except Exception as e:
