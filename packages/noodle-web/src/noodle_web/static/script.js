@@ -11110,44 +11110,53 @@ function syncBudgetToPlanText() {
 }
 
 function updatePlanBudgetText(planText, items) {
-    // Preserve RAID log section and baseline
+    // Preserve RAID log section (up to comms or baseline, not including them)
     let raidSection = '';
     const raidIdx = planText.indexOf('---raid log---');
     if (raidIdx !== -1) {
-        raidSection = planText.substring(raidIdx);
+        let raidEnd = planText.length;
+        const commsAfterRaid = planText.indexOf(COMMS_START, raidIdx);
+        const blAfterRaid = planText.indexOf('---baseline---', raidIdx);
+        if (commsAfterRaid !== -1 && commsAfterRaid < raidEnd) raidEnd = commsAfterRaid;
+        if (blAfterRaid !== -1 && blAfterRaid < raidEnd) raidEnd = blAfterRaid;
+        raidSection = planText.substring(raidIdx, raidEnd).replace(/\n+$/, '');
     }
 
+    // Preserve comms section
+    let commsSection = '';
+    const commsIdx = planText.indexOf(COMMS_START);
+    if (commsIdx !== -1) {
+        let commsEnd = planText.length;
+        const blAfterComms = planText.indexOf('---baseline---', commsIdx);
+        if (blAfterComms !== -1 && blAfterComms < commsEnd) commsEnd = blAfterComms;
+        commsSection = planText.substring(commsIdx, commsEnd).replace(/\n+$/, '');
+    }
+
+    // Preserve baseline section
     let baselineSection = '';
     const blIdx = planText.indexOf('---baseline---');
     if (blIdx !== -1) {
-        // If baseline is inside RAID section, it's already in raidSection
-        if (raidIdx === -1 || blIdx < raidIdx) {
-            baselineSection = planText.substring(blIdx);
-            raidSection = ''; // Don't double-include
-        }
+        baselineSection = planText.substring(blIdx);
     }
 
     // Strip existing budget section
     let base = planText;
     const budgetIdx = base.indexOf(BUDGET_START);
     if (budgetIdx !== -1) {
-        // Remove budget section up to RAID log or baseline or EOF
+        // Remove budget section up to RAID log, comms, baseline, or EOF
         let endIdx = base.length;
-        if (raidIdx !== -1 && raidIdx > budgetIdx) endIdx = raidIdx;
-        else if (blIdx !== -1 && blIdx > budgetIdx) endIdx = blIdx;
+        if (raidIdx !== -1 && raidIdx > budgetIdx && raidIdx < endIdx) endIdx = raidIdx;
+        if (commsIdx !== -1 && commsIdx > budgetIdx && commsIdx < endIdx) endIdx = commsIdx;
+        if (blIdx !== -1 && blIdx > budgetIdx && blIdx < endIdx) endIdx = blIdx;
         base = base.substring(0, budgetIdx) + base.substring(endIdx);
     }
 
-    // Also strip RAID and baseline from base (we'll re-append them)
-    const newRaidIdx = base.indexOf('---raid log---');
-    if (newRaidIdx !== -1) {
-        if (!raidSection) raidSection = base.substring(newRaidIdx);
-        base = base.substring(0, newRaidIdx);
-    }
-    const newBlIdx = base.indexOf('---baseline---');
-    if (newBlIdx !== -1) {
-        if (!baselineSection) baselineSection = base.substring(newBlIdx);
-        base = base.substring(0, newBlIdx);
+    // Also strip RAID, comms, and baseline from base (we'll re-append them)
+    for (const marker of ['---raid log---', COMMS_START, '---baseline---']) {
+        const idx = base.indexOf(marker);
+        if (idx !== -1) {
+            base = base.substring(0, idx);
+        }
     }
 
     base = base.replace(/\n+$/, '');
@@ -11164,8 +11173,13 @@ function updatePlanBudgetText(planText, items) {
         result = result.replace(/\n+$/, '') + '\n\n' + raidSection;
     }
 
-    // Re-append baseline if it was separate
-    if (baselineSection && !raidSection.includes('---baseline---')) {
+    // Re-append comms section
+    if (commsSection) {
+        result = result.replace(/\n+$/, '') + '\n\n' + commsSection;
+    }
+
+    // Re-append baseline section
+    if (baselineSection && !result.includes('---baseline---')) {
         result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
     }
 
@@ -11598,6 +11612,14 @@ function updatePlanRaidLogText(planText, items) {
         baselineSection = planText.substring(blIdx);
     }
 
+    // Preserve the comms section if present
+    let commsSection = '';
+    const commsIdx = planText.indexOf(COMMS_START);
+    if (commsIdx !== -1) {
+        const commsEnd = (blIdx !== -1 && blIdx > commsIdx) ? blIdx : planText.length;
+        commsSection = planText.substring(commsIdx, commsEnd).replace(/\n+$/, '');
+    }
+
     // Preserve the budget section if present
     let budgetSection = '';
     const budgetIdx = planText.indexOf(BUDGET_START);
@@ -11606,30 +11628,31 @@ function updatePlanRaidLogText(planText, items) {
         if (raidAfterBudget !== -1) {
             budgetSection = planText.substring(budgetIdx, raidAfterBudget).replace(/\n+$/, '');
         } else {
-            const blAfterBudget = planText.indexOf(BASELINE_START, budgetIdx);
-            if (blAfterBudget !== -1) {
-                budgetSection = planText.substring(budgetIdx, blAfterBudget).replace(/\n+$/, '');
-            } else {
-                budgetSection = planText.substring(budgetIdx).replace(/\n+$/, '');
-            }
+            // Budget ends at comms, baseline, or EOF
+            let budgetEnd = planText.length;
+            if (commsIdx !== -1 && commsIdx > budgetIdx && commsIdx < budgetEnd) budgetEnd = commsIdx;
+            if (blIdx !== -1 && blIdx > budgetIdx && blIdx < budgetEnd) budgetEnd = blIdx;
+            budgetSection = planText.substring(budgetIdx, budgetEnd).replace(/\n+$/, '');
         }
     }
 
-    // Strip existing RAID log section, budget section, and baseline
+    // Strip existing RAID log section, budget section, comms, and baseline
     let base = planText;
     // Find the earliest section marker to strip
     const budgetStart = base.indexOf(BUDGET_START);
     const raidStart = base.indexOf(RAID_LOG_START);
+    const commsStart = base.indexOf(COMMS_START);
     const baselineStart = base.indexOf(BASELINE_START);
 
     let cutIdx = base.length;
     if (budgetStart !== -1 && budgetStart < cutIdx) cutIdx = budgetStart;
     if (raidStart !== -1 && raidStart < cutIdx) cutIdx = raidStart;
+    if (commsStart !== -1 && commsStart < cutIdx) cutIdx = commsStart;
     if (baselineStart !== -1 && baselineStart < cutIdx) cutIdx = baselineStart;
 
     base = base.substring(0, cutIdx).replace(/\n+$/, '');
 
-    // Rebuild: base + budget + raid + baseline
+    // Rebuild: base + budget + raid + comms + baseline
     let result = base;
 
     if (budgetSection) {
@@ -11641,7 +11664,12 @@ function updatePlanRaidLogText(planText, items) {
         result = result.replace(/\n+$/, '') + '\n\n' + RAID_LOG_START + '\n' + table;
     }
 
-    // Re-append the baseline section (strip any RAID/budget content already captured)
+    // Re-append the comms section
+    if (commsSection) {
+        result = result.replace(/\n+$/, '') + '\n\n' + commsSection;
+    }
+
+    // Re-append the baseline section
     if (baselineSection && !result.includes(BASELINE_START)) {
         result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
     }
@@ -12503,6 +12531,7 @@ function clearHighlights() {
 function clearPlanTrackingData() {
     clearRaidLogEntries();
     clearBudgetEntries();
+    clearCommsEntries();
     clearHighlights();
     clearStakeholders();
     baselineItems = [];
