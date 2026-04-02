@@ -388,6 +388,7 @@ class PlanService:
             ValueError: If fmt is not recognised.
         """
         resolved_name = self._resolve_project_name(plan_text, project_name)
+        filename_stem = self._resolve_filename_stem(plan_text, project_name)
         converted = convert_plan_format_to_standard(plan_text)
 
         exporters = {
@@ -402,7 +403,7 @@ class PlanService:
         if exporter is None:
             raise ValueError(f"Unknown export format: {fmt}")
 
-        return exporter(converted, plan_text, resolved_name)
+        return exporter(converted, plan_text, resolved_name, filename_stem)
 
     def export_zip(
         self,
@@ -428,6 +429,7 @@ class PlanService:
             ExportResult with ZIP bytes.
         """
         resolved_name = self._resolve_project_name(plan_text, project_name)
+        filename_stem = self._resolve_filename_stem(plan_text, project_name)
         converted = convert_plan_format_to_standard(plan_text)
 
         zip_buffer = io.BytesIO()
@@ -440,7 +442,7 @@ class PlanService:
                 terminal_width=120,
                 original_text=plan_text,
             )
-            zf.writestr(f"{resolved_name}.txt", ascii_output)
+            zf.writestr(f"{filename_stem}.txt", ascii_output)
 
             if excel:
                 content = export_to_file(
@@ -451,7 +453,7 @@ class PlanService:
                     ),
                     suffix=".xlsx",
                 )
-                zf.writestr(f"{resolved_name}.xlsx", content)
+                zf.writestr(f"{filename_stem}.xlsx", content)
 
             if csv:
                 content = export_to_file(
@@ -463,7 +465,7 @@ class PlanService:
                     suffix=".csv",
                     read_mode="r",
                 )
-                zf.writestr(f"{resolved_name}.csv", content)
+                zf.writestr(f"{filename_stem}.csv", content)
 
             if ppt:
                 content = export_to_file(
@@ -474,7 +476,7 @@ class PlanService:
                     ),
                     suffix=".pptx",
                 )
-                zf.writestr(f"{resolved_name}-timeline.pptx", content)
+                zf.writestr(f"{filename_stem}-timeline.pptx", content)
 
             if pdf:
                 content = export_to_file(
@@ -485,13 +487,13 @@ class PlanService:
                     ),
                     suffix=".pdf",
                 )
-                zf.writestr(f"{resolved_name}.pdf", content)
+                zf.writestr(f"{filename_stem}.pdf", content)
 
         zip_buffer.seek(0)
         return ExportResult(
             content=zip_buffer.read(),
             media_type="application/zip",
-            filename=f"{resolved_name}-exports.zip",
+            filename=f"{filename_stem}-exports.zip",
         )
 
     def export_report_pptx(self, report_data: dict) -> ExportResult:
@@ -551,6 +553,17 @@ class PlanService:
         """Determine the project name from the request or front matter."""
         title = extract_title_from_frontmatter(plan_text)
         return project_name or title or "Project"
+
+    def _resolve_filename_stem(
+        self, plan_text: str, project_name: Optional[str]
+    ) -> str:
+        """Build a filename stem like 'Project Stitch v7.7'."""
+        name = self._resolve_project_name(plan_text, project_name)
+        fm = parse_front_matter(plan_text)
+        version = fm.get("version")
+        if version:
+            return f"{name} v{version}"
+        return name
 
     def _safe_extract_raid(self, plan_text: str) -> list:
         """Extract RAID items, returning an empty list on failure."""
@@ -676,8 +689,10 @@ class PlanService:
     # -- Single-format export helpers ---------------------------------------
 
     def _export_excel(
-        self, converted: str, original: str, name: str
+        self, converted: str, original: str, name: str,
+        filename_stem: Optional[str] = None,
     ) -> ExportResult:
+        stem = filename_stem or name
         content = export_to_file(
             lambda path: export_to_excel(
                 converted, path,
@@ -688,12 +703,14 @@ class PlanService:
         return ExportResult(
             content=content,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=f"{name}.xlsx",
+            filename=f"{stem}.xlsx",
         )
 
     def _export_csv(
-        self, converted: str, original: str, name: str
+        self, converted: str, original: str, name: str,
+        filename_stem: Optional[str] = None,
     ) -> ExportResult:
+        stem = filename_stem or name
         content = export_to_file(
             lambda path: export_to_csv(
                 converted, path,
@@ -705,12 +722,14 @@ class PlanService:
         return ExportResult(
             content=content,
             media_type="text/csv",
-            filename=f"{name}.csv",
+            filename=f"{stem}.csv",
         )
 
     def _export_ppt(
-        self, converted: str, original: str, name: str
+        self, converted: str, original: str, name: str,
+        filename_stem: Optional[str] = None,
     ) -> ExportResult:
+        stem = filename_stem or name
         content = export_to_file(
             lambda path: export_timeline_to_powerpoint(
                 converted, path,
@@ -721,12 +740,14 @@ class PlanService:
         return ExportResult(
             content=content,
             media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            filename=f"{name}-timeline.pptx",
+            filename=f"{stem}-timeline.pptx",
         )
 
     def _export_pdf(
-        self, converted: str, original: str, name: str
+        self, converted: str, original: str, name: str,
+        filename_stem: Optional[str] = None,
     ) -> ExportResult:
+        stem = filename_stem or name
         content = export_to_file(
             lambda path: export_to_pdf(
                 converted, path,
@@ -737,12 +758,14 @@ class PlanService:
         return ExportResult(
             content=content,
             media_type="application/pdf",
-            filename=f"{name}.pdf",
+            filename=f"{stem}.pdf",
         )
 
     def _export_msproject(
-        self, converted: str, original: str, name: str
+        self, converted: str, original: str, name: str,
+        filename_stem: Optional[str] = None,
     ) -> ExportResult:
+        stem = filename_stem or name
         content = export_to_file(
             lambda path: export_to_msproject_xml(
                 original, path, project_name=name,
@@ -752,5 +775,5 @@ class PlanService:
         return ExportResult(
             content=content,
             media_type="application/xml",
-            filename=f"{name}.xml",
+            filename=f"{stem}.xml",
         )

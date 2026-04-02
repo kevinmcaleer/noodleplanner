@@ -1084,20 +1084,27 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             const a = document.createElement('a');
             a.href = url;
 
-            // Determine filename and extension based on content type
-            let filename = projectName || 'project';
-            if (contentType.includes('application/zip')) {
-                a.download = filename + '-exports.zip';
-            } else if (contentType.includes('spreadsheetml.sheet')) {
-                a.download = filename + '.xlsx';
-            } else if (contentType.includes('presentationml.presentation')) {
-                a.download = filename + '-timeline.pptx';
-            } else if (contentType.includes('application/pdf')) {
-                a.download = filename + '.pdf';
-            } else if (contentType.includes('application/xml')) {
-                a.download = filename + '.xml';
+            // Use filename from Content-Disposition header (includes version)
+            const disposition = response.headers.get('content-disposition');
+            const filenameMatch = disposition && disposition.match(/filename="([^"]+)"/);
+            if (filenameMatch) {
+                a.download = filenameMatch[1];
             } else {
-                a.download = filename + '-export';
+                // Fallback: determine filename from content type
+                let filename = projectName || 'project';
+                if (contentType.includes('application/zip')) {
+                    a.download = filename + '-exports.zip';
+                } else if (contentType.includes('spreadsheetml.sheet')) {
+                    a.download = filename + '.xlsx';
+                } else if (contentType.includes('presentationml.presentation')) {
+                    a.download = filename + '-timeline.pptx';
+                } else if (contentType.includes('application/pdf')) {
+                    a.download = filename + '.pdf';
+                } else if (contentType.includes('application/xml')) {
+                    a.download = filename + '.xml';
+                } else {
+                    a.download = filename + '-export';
+                }
             }
 
             document.body.appendChild(a);
