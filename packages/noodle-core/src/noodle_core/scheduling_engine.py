@@ -4176,13 +4176,16 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     # Task headers (removed Phase column, added RAG, Priority, Bucket)
     task_headers = ['ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
                     'Resources', '% Complete', 'RAG', 'Priority', 'Bucket',
-                    'Dependencies', 'Comment']
+                    'Dependencies', 'Comment',
+                    'Planner Start', 'Planner Finish', 'Outline Level']
     ws_tasks.append(task_headers)
 
     # Style header row
+    planner_fill = PatternFill(start_color="4A90D9", end_color="4A90D9", fill_type="solid")
+    planner_col_start = len(task_headers) - 2  # Planner Start, Planner Finish, Outline Level
     for col_num, header in enumerate(task_headers, 1):
         cell = ws_tasks.cell(row=1, column=col_num)
-        cell.fill = header_fill
+        cell.fill = planner_fill if col_num >= planner_col_start else header_fill
         cell.font = header_font
         cell.alignment = header_alignment
 
@@ -4261,7 +4264,11 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             task.get('priority', 'Low'),
             task.get('bucket', ''),
             deps_str,
-            task.get('comment', '')
+            task.get('comment', ''),
+            # Planner-compatible columns (US date format, outline level)
+            task.get('start').strftime('%-m/%-d/%Y') if task.get('start') else '',
+            task.get('finish').strftime('%-m/%-d/%Y') if task.get('finish') else '',
+            level,
         ]
         ws_tasks.append(row)
 
