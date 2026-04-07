@@ -1462,6 +1462,12 @@ function downloadMarkdown() {
     a.href = versionedUrl;
     window.URL.revokeObjectURL(url);
 
+    // Persist the version bump to project storage and sync editors
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = versionedContent;
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
     // Use project name + version for filename, falling back to timestamp
     const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
     const version = getVersionFromFrontMatter(versionedContent);
