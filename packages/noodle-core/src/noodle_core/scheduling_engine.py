@@ -4177,7 +4177,7 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
     task_headers = ['ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
                     'Resources', '% Complete', 'RAG', 'Priority', 'Bucket',
                     'Dependencies', 'Comment',
-                    'Planner Start', 'Planner Finish', 'Outline Level']
+                    'Planner Start', 'Planner Finish', 'Outline Number']
     ws_tasks.append(task_headers)
 
     # Style header row
@@ -4195,6 +4195,21 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         _name = _task.get('name', '')
         if _name:
             name_to_id[_name.lower()] = _idx
+
+    # Pre-compute outline numbers (e.g. 1, 1.1, 1.2, 2, 2.1)
+    outline_numbers = []
+    counters = []  # stack of counters per level (offset so top-level starts at 1)
+    min_level = min((t.get('level', 0) for t in tasks), default=0)
+    for t in tasks:
+        lvl = t.get('level', 0) - min_level
+        # Extend counters if we've jumped deeper
+        while len(counters) <= lvl:
+            counters.append(0)
+        # Trim counters if we've gone shallower
+        counters = counters[:lvl + 1]
+        # Increment at current level
+        counters[lvl] += 1
+        outline_numbers.append('.'.join(str(c) for c in counters))
 
     # Add task data
     task_row_num = 2
@@ -4265,10 +4280,10 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             task.get('bucket', ''),
             deps_str,
             task.get('comment', ''),
-            # Planner-compatible columns (US date format, outline level)
+            # Planner-compatible columns (US date format, outline number)
             task.get('start').strftime('%-m/%-d/%Y') if task.get('start') else '',
             task.get('finish').strftime('%-m/%-d/%Y') if task.get('finish') else '',
-            level,
+            outline_numbers[idx - 1] if idx - 1 < len(outline_numbers) else '',
         ]
         ws_tasks.append(row)
 
