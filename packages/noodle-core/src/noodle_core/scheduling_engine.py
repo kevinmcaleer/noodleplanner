@@ -73,6 +73,13 @@ def get_next_working_day(date, holidays=None):
         f"Could not find a working day within {max_iterations} days of {date}"
     )
 
+def today_working_day(holidays=None):
+    """Return today (midnight) snapped to the next working day."""
+    return get_next_working_day(
+        datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
+        holidays,
+    )
+
 def add_working_days(start_date, num_days, holidays=None):
     """Add working days to a start date, skipping weekends and holidays.
 
@@ -927,7 +934,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                     t['start'] = get_next_working_day(prev['finish'], task_holidays)
                 logger.debug("[SEQ-LOGIC] Task '%s' scheduled after '%s' finish=%s, new start=%s", t.get('name'), prev.get('name'), prev['finish'], t['start'])
             else:
-                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
+                t['start'] = today_working_day(task_holidays)
                 logger.debug("[SEQ-LOGIC] Task '%s' no predecessor, starting from today: %s", t.get('name'), t['start'])
 
             # Calculate finish date using working days (skip for milestones already set above)
@@ -1028,7 +1035,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                 if 'start' in t and t['start']:
                     pass  # Keep the explicit start date
                 else:
-                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
+                    t['start'] = today_working_day(task_holidays)
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
@@ -1057,9 +1064,9 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                 if first_sibling:
                     t['start'] = first_sibling['start']
                 else:
-                    t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
+                    t['start'] = today_working_day(task_holidays)
             else:
-                t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
+                t['start'] = today_working_day(task_holidays)
 
             # Calculate finish date using working days
             compute_finish(t, task_holidays)
