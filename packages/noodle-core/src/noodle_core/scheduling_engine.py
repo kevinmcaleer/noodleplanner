@@ -798,21 +798,9 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                             f"{MAX_TASK_NAME_LENGTH} characters. "
                             f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
                         )
-                    # Extract resources and other metadata from summary text if present
-                    summary_resources = ''
-                    summary_deliverable = ''
-                    summary_depends = []
-                    summary_quality_roles = {}
+                    # Build summary metadata from base fields + optional extracted metadata
                     summary_text = value.get('_summary_text', '')
-                    if summary_text:
-                        summary_meta_data = extract_metadata(summary_text, key)
-                        summary_resources = summary_meta_data.get('resources', '')
-                        summary_deliverable = summary_meta_data.get('deliverable', '')
-                        summary_depends = summary_meta_data.get('depends', [])
-                        summary_quality_roles = summary_meta_data.get('quality_roles', {})
-                        summary_comment = summary_meta_data.get('comment', '')
-                    else:
-                        summary_comment = ''
+                    summary_meta_data = extract_metadata(summary_text, key) if summary_text else {}
                     summary_meta = {
                         'name': key,
                         'description': key,
@@ -820,17 +808,17 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                         'parent': parent_name,
                         'phase': parent_name or '',
                         'summary': True,
-                        'resources': summary_resources,
+                        'resources': summary_meta_data.get('resources', ''),
                         'percent': 0,
-                        'comment': summary_comment
+                        'comment': summary_meta_data.get('comment', ''),
                     }
-                    if summary_deliverable:
-                        summary_meta['deliverable'] = summary_deliverable
+                    if summary_meta_data.get('deliverable'):
+                        summary_meta['deliverable'] = summary_meta_data['deliverable']
                         summary_meta['product_type'] = summary_meta_data.get('product_type', 'internal')
-                    if summary_depends:
-                        summary_meta['depends'] = summary_depends
-                    if summary_quality_roles:
-                        summary_meta['quality_roles'] = summary_quality_roles
+                    if summary_meta_data.get('depends'):
+                        summary_meta['depends'] = summary_meta_data['depends']
+                    if summary_meta_data.get('quality_roles'):
+                        summary_meta['quality_roles'] = summary_meta_data['quality_roles']
                     if len(all_tasks) >= MAX_TASK_COUNT:
                         raise ValueError(
                             f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
