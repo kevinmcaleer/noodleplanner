@@ -885,6 +885,10 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
         logger.debug("[SCHEDULE] Task %d: %s (sequential: %s, depends: %s, start: %s)", idx, t.get('name'), t.get('sequential'), t.get('depends'), t.get('start'))
 
+        # Normalize duration and milestone flag once before the scheduling block
+        duration = t.get('duration', timedelta(days=1))
+        is_milestone = isinstance(duration, timedelta) and duration.days == 0
+
         # Apply scheduling logic
         # Priority order: sequential > dependencies > explicit start > default parallel
         if t.get('sequential'):
@@ -896,9 +900,6 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                     break
 
             logger.debug("[SEQ-LOGIC] Task '%s' looking for previous task. Found: %s, has finish: %s", t.get('name'), prev.get('name') if prev else 'None', 'finish' in prev if prev else 'N/A')
-
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            is_milestone = isinstance(duration, timedelta) and duration.days == 0
 
             if prev and 'finish' in prev:
                 # Record the resolved sequential dependency so the frontend
@@ -939,8 +940,6 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             lag_lead_map = t.get('lag_lead', {})
             dep_type_map = t.get('dependency_types', {})
 
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
-            is_milestone = isinstance(duration, timedelta) and duration.days == 0
             task_duration_days = duration.days if isinstance(duration, timedelta) else 1
 
             # Collect effective start dates from each dependency based on type
@@ -1041,7 +1040,6 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         elif 'start' in t:
             # Has explicit start date (manual scheduling)
             # Use the explicit start date provided
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
                 t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
@@ -1069,7 +1067,6 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             else:
                 t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
 
-            duration = t.get('duration') if 'duration' in t else timedelta(days=1)
             # Calculate finish date using working days
             if isinstance(duration, timedelta):
                 t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
