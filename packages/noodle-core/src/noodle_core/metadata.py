@@ -1,0 +1,518 @@
+"""Metadata extraction, recurrence parsing, and dependency analysis.
+
+Depends on: date_math (for parse_duration_to_days used inside extract_metadata).
+"""
+
+import re
+import logging
+from datetime import timedelta
+from dateutil.parser import parse as parse_date
+
+from .date_math import parse_duration_to_days
+
+logger = logging.getLogger(__name__)
+
+
+def parse_recurrence(recurrence_str):
+    """Parse a recurrence string from [repeats ...] syntax.
+
+    Supported formats:
+      daily
+      weekly mon,wed,fri
+      monthly 3rd thu
+      yearly
+
+    Returns a dict with keys:
+      frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+      days: list of lowercase 3-letter day abbreviations (weekly only)
+      week_of_month: int 1-5 (monthly only)
+      day_of_week: lowercase 3-letter day abbreviation (monthly only)
+      raw: the original string
+    """
+    s = recurrence_str.strip().lower()
+    result = {'raw': s}
+
+    if s == 'daily':
+        result['frequency'] = 'daily'
+    elif s == 'yearly':
+        result['frequency'] = 'yearly'
+    elif s.startswith('weekly'):
+        result['frequency'] = 'weekly'
+        days_part = s[len('weekly'):].strip()
+        if days_part:
+            result['days'] = [d.strip() for d in days_part.split(',') if d.strip()]
+        else:
+            result['days'] = []
+    elif s.startswith('monthly'):
+        result['frequency'] = 'monthly'
+        monthly_part = s[len('monthly'):].strip()
+        ordinal_map = {'1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5}
+        match = re.match(r'(\d+(?:st|nd|rd|th))\s+(\w+)', monthly_part)
+        if match:
+            ordinal_str = match.group(1)
+            day_str = match.group(2)
+            result['week_of_month'] = ordinal_map.get(ordinal_str, 1)
+            result['day_of_week'] = day_str
+    else:
+        result['frequency'] = s
+
+    return result
+
+
+def generate_recurrence_occurrences(task, window_start, window_end):
+    """Generate occurrence dates for a recurring task within a date window.
+
+    Args:
+        task: Task dict with 'recurrence' key (parsed recurrence dict)
+        window_start: datetime.date start of window (inclusive)
+        window_end: datetime.date end of window (inclusive)
+
+    Returns:
+        List of datetime.date objects for each occurrence in the window
+    """
+    recurrence = task.get('recurrence')
+    if not recurrence:
+        return []
+
+    frequency = recurrence.get('frequency')
+    occurrences = []
+
+    day_name_to_weekday = {
+        'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6,
+        'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+        'friday': 4, 'saturday': 5, 'sunday': 6
+    }
+
+    if frequency == 'daily':
+        current = window_start
+        while current <= window_end:
+            occurrences.append(current)
+            current = current + timedelta(days=1)
+
+    elif frequency == 'weekly':
+        target_days = recurrence.get('days', [])
+        target_weekdays = {day_name_to_weekday[d] for d in target_days if d in day_name_to_weekday}
+        if not target_weekdays:
+            # No specific days: recur every day of the week
+            current = window_start
+            while current <= window_end:
+                occurrences.append(current)
+                current = current + timedelta(days=1)
+        else:
+            current = window_start
+            while current <= window_end:
+                if current.weekday() in target_weekdays:
+                    occurrences.append(current)
+                current = current + timedelta(days=1)
+
+    elif frequency == 'monthly':
+        week_of_month = recurrence.get('week_of_month', 1)
+        day_of_week_str = recurrence.get('day_of_week', '')
+        target_weekday = day_name_to_weekday.get(day_of_week_str)
+
+        if target_weekday is not None:
+            # Iterate through each month in the window
+            import calendar
+            current_year = window_start.year
+            current_month = window_start.month
+            end_year = window_end.year
+            end_month = window_end.month
+
+            while (current_year, current_month) <= (end_year, end_month):
+                # Find all occurrences of target_weekday in the month
+                cal = calendar.monthcalendar(current_year, current_month)
+                matching_days = []
+                for week in cal:
+                    day = week[target_weekday]
+                    if day != 0:
+                        matching_days.append(day)
+
+                if len(matching_days) >= week_of_month:
+                    day_num = matching_days[week_of_month - 1]
+                    from datetime import date as date_type
+                    occurrence = date_type(current_year, current_month, day_num)
+                    if window_start <= occurrence <= window_end:
+                        occurrences.append(occurrence)
+
+                # Advance to next month
+                if current_month == 12:
+                    current_month = 1
+                    current_year += 1
+                else:
+                    current_month += 1
+
+    elif frequency == 'yearly':
+        # Recur on the same month/day each year
+        task_start = task.get('start')
+        if task_start:
+            if isinstance(task_start, str):
+                from dateutil.parser import parse as parse_date_local
+                task_start = parse_date_local(task_start).date()
+            elif hasattr(task_start, 'date'):
+                task_start = task_start.date()
+            from datetime import date as date_type
+            for year in range(window_start.year, window_end.year + 1):
+                try:
+                    occurrence = date_type(year, task_start.month, task_start.day)
+                    if window_start <= occurrence <= window_end:
+                        occurrences.append(occurrence)
+                except ValueError:
+                    pass  # Skip Feb 29 in non-leap years
+
+    return occurrences
+
+
+def extract_metadata(task_str, task_name=None):
+    meta = {}
+    tokens = re.split(r'(?<!\\)\s+', task_str)
+    resources = [t for t in tokens if t.startswith('@')]
+
+    # Separate quality-role assignments (@resource:P/R/A) from regular resources
+    quality_roles = {}  # {resource_shortname: role_letter}
+    regular_resources = []
+    for r in resources:
+        name = r.lstrip('@')
+        # Check for :P, :R, or :A suffix (case-insensitive)
+        qr_match = re.match(r'^(.+?):(P|R|A)$', name, re.IGNORECASE)
+        if qr_match:
+            res_name = qr_match.group(1)
+            role_letter = qr_match.group(2).upper()
+            quality_roles[res_name] = role_letter
+        else:
+            regular_resources.append(name)
+
+    if regular_resources:
+        meta['resources'] = ', '.join(regular_resources)
+    if quality_roles:
+        meta['quality_roles'] = quality_roles
+
+    # Extract deliverable/product marker using $ prefix (e.g. $fuselage, $avionics)
+    # Supports product type prefixes: /$name (group), ^$name (external), $name (internal)
+    deliverable_pattern = r'([/^])?\$([A-Za-z_][A-Za-z0-9_-]*)'
+    deliverable_match = re.search(deliverable_pattern, task_str)
+    if deliverable_match:
+        meta['deliverable'] = deliverable_match.group(2)
+        prefix = deliverable_match.group(1)
+        if prefix == '/':
+            meta['product_type'] = 'group'
+        elif prefix == '^':
+            meta['product_type'] = 'external'
+        else:
+            meta['product_type'] = 'internal'
+
+    # Extract labels/tags using # prefix (e.g. #urgent, #DEV)
+    label_pattern = r'#([^@%#!\s]+)'
+    label_matches = re.findall(label_pattern, task_str)
+    if label_matches:
+        meta['labels'] = [l.strip() for l in label_matches]
+
+    # Extract dependencies using [depends task1, task2, ...] syntax
+    # Supports lag/lead time: [depends task1 +2d, task2 -1w]
+    # Supports dependency types: [depends task1:SS, task2:FF +2d]
+    # Valid types: FS (default), SS, FF, SF
+    bracket_dep_pattern = r'\[depends\s*([^\]]*)\]'
+    bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
+    if bracket_dep_match:
+        # Split by comma and parse each dependency with optional lag/lead
+        raw_deps = bracket_dep_match.group(1).strip()
+        dep_list = []
+        lag_lead_map = {}  # Maps dependency name to lag/lead offset
+        dep_type_map = {}  # Maps dependency name to type (FS, SS, FF, SF)
+
+        if raw_deps:
+            dep_specs = raw_deps.split(',')
+            for dep_spec in dep_specs:
+                dep_spec = dep_spec.strip()
+                if not dep_spec:
+                    continue
+                # Check for lag/lead time: "TaskName +2d" or "TaskName:SS +2d"
+                lag_lead_match = re.search(r'^(.+?)\s+([+\-]\d+[dwmy])$', dep_spec)
+                if lag_lead_match:
+                    dep_task_name = lag_lead_match.group(1).strip()
+                    lag_lead_str = lag_lead_match.group(2)
+                    # Check for dependency type suffix on the task name
+                    type_match = re.search(r'^(.+?):(FS|SS|FF|SF)$', dep_task_name, re.IGNORECASE)
+                    if type_match:
+                        dep_task_name = type_match.group(1).strip()
+                        dep_type = type_match.group(2).upper()
+                        if dep_type != 'FS':
+                            dep_type_map[dep_task_name] = dep_type
+                    dep_list.append(dep_task_name)
+                    lag_lead_map[dep_task_name] = lag_lead_str
+                else:
+                    # Check for dependency type suffix: "TaskName:SS"
+                    type_match = re.search(r'^(.+?):(FS|SS|FF|SF)$', dep_spec, re.IGNORECASE)
+                    if type_match:
+                        dep_task_name = type_match.group(1).strip()
+                        dep_type = type_match.group(2).upper()
+                        if dep_type != 'FS':
+                            dep_type_map[dep_task_name] = dep_type
+                        dep_list.append(dep_task_name)
+                    else:
+                        dep_list.append(dep_spec)
+
+        # Store lag/lead map if any were found
+        if lag_lead_map:
+            meta['lag_lead'] = lag_lead_map
+
+        # Store dependency type map if any non-default types were found
+        if dep_type_map:
+            meta['dependency_types'] = dep_type_map
+
+        meta['depends'] = dep_list
+
+    # Extract recurrence using [repeats ...] syntax
+    recurrence_pattern = r'\[repeats\s+([^\]]+)\]'
+    recurrence_match = re.search(recurrence_pattern, task_str, re.IGNORECASE)
+    if recurrence_match:
+        meta['recurrence'] = parse_recurrence(recurrence_match.group(1))
+
+    if task_name:
+        meta['name'] = task_name
+    if str(task_str).startswith('*'):
+        meta['sequential'] = True
+        logger.debug("[SEQUENTIAL] Task '%s' marked as sequential (task_str: '%s')", task_name, task_str)
+    else:
+        logger.debug("[NOT SEQUENTIAL] Task '%s' not sequential (task_str: '%s')", task_name, task_str)
+    # Extract bucket name from {BucketName} syntax
+    bucket_match = re.search(r'\{([^}]+)\}', task_str)
+    if bucket_match:
+        meta['bucket'] = bucket_match.group(1).strip()
+
+    # Extract priority from ! markers (!!!=Urgent, !!=Important, !=Medium, none=Low)
+    # Must check for !!! before !! before ! to match greedily
+    # Only match standalone ! markers, not !"comment" patterns
+    priority_match = re.search(r'(?<!\w)(!!!|!!|!)(?!["\'])', task_str)
+    if priority_match:
+        marker = priority_match.group(1)
+        if marker == '!!!':
+            meta['priority'] = 'Urgent'
+        elif marker == '!!':
+            meta['priority'] = 'Important'
+        elif marker == '!':
+            meta['priority'] = 'Medium'
+    else:
+        meta['priority'] = 'Low'
+
+    # Support both !"comment" and "comment" formats
+    comment_match = re.search(r'!(?:"([^"]+)"|\'([^\']+)\')', task_str)
+    if comment_match:
+        meta['comment'] = comment_match.group(1) if comment_match.group(1) is not None else comment_match.group(2)
+    else:
+        # Also support plain quoted text as comments
+        comment_match = re.search(r'"([^"]+)"', task_str)
+        if comment_match:
+            meta['comment'] = comment_match.group(1)
+        else:
+            comment_match = re.search(r"'([^']+)'", task_str)
+            if comment_match:
+                meta['comment'] = comment_match.group(1)
+
+    # Extract effort using ~ prefix: ~8h, ~3d, ~8h/16h, ~2d/5d
+    # Format: ~completed/total or ~total (if no slash, it's the total with 0 completed)
+    effort_match = re.search(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?', task_str)
+    if effort_match:
+        completed_val = float(effort_match.group(1))
+        completed_unit = effort_match.group(2)
+        if effort_match.group(3) is not None:
+            # Format: ~completed/total (e.g., ~8h/16h)
+            total_val = float(effort_match.group(3))
+            total_unit = effort_match.group(4)
+            meta['effort_completed'] = completed_val
+            meta['effort_completed_unit'] = completed_unit
+            meta['effort_total'] = total_val
+            meta['effort_total_unit'] = total_unit
+            meta['effort_remaining'] = total_val - completed_val
+            meta['effort_remaining_unit'] = total_unit
+        else:
+            # Format: ~total (e.g., ~16h) - total only, no completed
+            meta['effort_completed'] = 0
+            meta['effort_completed_unit'] = completed_unit
+            meta['effort_total'] = completed_val
+            meta['effort_total_unit'] = completed_unit
+            meta['effort_remaining'] = completed_val
+            meta['effort_remaining_unit'] = completed_unit
+
+    # Support both new format (10%) and old format (p10)
+    percent_match = re.search(r'(\d{1,3})%', task_str)
+    if percent_match:
+        meta['percent'] = max(0, min(100, int(percent_match.group(1))))
+    else:
+        # Fall back to old format
+        percent_match = re.search(r'\bp(\d{1,3})\b', task_str)
+        if percent_match:
+            meta['percent'] = max(0, min(100, int(percent_match.group(1))))
+
+    # Auto-calculate percent from effort if both completed and total are present
+    if 'effort_completed' in meta and 'effort_total' in meta and meta['effort_total'] > 0:
+        completed = meta['effort_completed']
+        total = meta['effort_total']
+        completed_unit = meta.get('effort_completed_unit', 'h')
+        total_unit = meta.get('effort_total_unit', 'h')
+        # Convert to hours if units differ (1d = 8h)
+        if completed_unit != total_unit:
+            completed_hours = completed * 8 if completed_unit == 'd' else completed
+            total_hours = total * 8 if total_unit == 'd' else total
+        else:
+            completed_hours = completed
+            total_hours = total
+        if total_hours > 0:
+            meta['percent'] = max(0, min(100, round(completed_hours / total_hours * 100)))
+
+    date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str)
+    if date_match:
+        meta['due'] = date_match.group(1)
+        meta['start'] = parse_date(date_match.group(1))
+
+    # Support new simple format: 10d, 2w, 3m, 1y
+    # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
+    duration_match = re.search(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b', task_str)
+    if duration_match:
+        value = int(duration_match.group(1))
+        unit = duration_match.group(2)
+        if unit == 'd':
+            meta['duration'] = timedelta(days=value)
+        elif unit == 'w':
+            meta['duration'] = timedelta(weeks=value)
+        elif unit == 'm':
+            meta['duration'] = timedelta(days=value * 30)  # Approximate month as 30 days
+        elif unit == 'y':
+            meta['duration'] = timedelta(days=value * 365)  # Approximate year as 365 days
+    else:
+        # Fall back to old format :p10d
+        duration_match = re.search(r':p(\d+)d', task_str)
+        if duration_match:
+            meta['duration'] = timedelta(days=int(duration_match.group(1)))
+
+    desc_match = re.match(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
+    if desc_match:
+        desc = desc_match.group(1).strip()
+        # Safety: strip any percent tokens that slipped into the description
+        desc = re.sub(r'\s*\b\d{1,3}%', '', desc).strip()
+        meta['description'] = desc
+    return meta
+
+
+def detect_dependency_loops(tasks):
+    """Detect circular dependencies in tasks.
+
+    Uses depth-first search (DFS) to find cycles in the dependency graph.
+    Returns a list of loop detection results with warnings for affected tasks.
+
+    Args:
+        tasks: List of tasks with 'name' and 'depends' fields
+
+    Returns:
+        dict with 'has_loops' (bool), 'loops' (list of cycle descriptions),
+        and 'affected_tasks' (list of task names involved in loops)
+    """
+    result = {
+        'has_loops': False,
+        'loops': [],
+        'affected_tasks': set(),
+        'task_warnings': {}  # Maps task name to warning message
+    }
+
+    # Build a lookup map for tasks by name (case-insensitive)
+    task_map = {}
+    for task in tasks:
+        if 'name' in task:
+            task_map[task['name'].lower()] = task
+
+    # Build adjacency list from dependencies
+    # deps_graph[A] = [B, C] means A depends on B and C
+    deps_graph = {}
+    for task in tasks:
+        task_name = task.get('name', '').lower()
+        if task_name:
+            deps_graph[task_name] = set()
+            if 'depends' in task and task['depends']:
+                for dep in task['depends']:
+                    dep_name = dep.strip().lower()
+                    # Only add if the dependency task exists
+                    if dep_name in task_map:
+                        deps_graph[task_name].add(dep_name)
+
+    # DFS to detect cycles
+    visited = set()
+    rec_stack = set()  # Recursion stack to detect back edges
+
+    def dfs(node, path):
+        """Perform DFS to find cycles."""
+        visited.add(node)
+        rec_stack.add(node)
+        path.append(node)
+
+        if node in deps_graph:
+            for neighbor in deps_graph[node]:
+                if neighbor not in visited:
+                    dfs(neighbor, path[:])  # Continue search
+                elif neighbor in rec_stack:
+                    # Found a cycle
+                    cycle_start_idx = path.index(neighbor)
+                    cycle = path[cycle_start_idx:] + [neighbor]
+                    cycle_str = ' -> '.join(cycle)
+                    result['loops'].append(cycle_str)
+                    result['has_loops'] = True
+
+                    # Mark all tasks in the cycle as affected
+                    for task_in_cycle in cycle[:-1]:  # Exclude the repeated node
+                        result['affected_tasks'].add(task_in_cycle)
+
+        rec_stack.remove(node)
+
+    # Run DFS from each unvisited node
+    for task_name in deps_graph:
+        if task_name not in visited:
+            dfs(task_name, [])
+
+    # Convert affected_tasks set to list and create warning messages
+    result['affected_tasks'] = list(result['affected_tasks'])
+
+    for task in tasks:
+        task_name = task.get('name', '').lower()
+        if task_name in result['affected_tasks']:
+            # Find the task in the loops
+            involved_in = [loop for loop in result['loops'] if task_name in loop.lower()]
+            result['task_warnings'][task.get('name', task_name)] = (
+                f"Circular dependency detected. Part of cycle: {involved_in[0]}"
+                if involved_in else "Circular dependency detected"
+            )
+
+    return result
+
+
+def inherit_summary_resources(tasks):
+    """Propagate resources from summary tasks to their unassigned children.
+
+    When a summary task has a resource assigned (e.g. @kev), all child tasks
+    that don't have their own resource will inherit it for calculation purposes.
+    The inherited resource is marked so the markdown is not modified.
+    """
+    for task in tasks:
+        if not task.get('summary'):
+            continue
+        summary_resource = task.get('resources', '')
+        if not summary_resource:
+            continue
+        parent_name = task.get('name')
+        _propagate_resource_to_children(tasks, parent_name, summary_resource)
+
+
+def _propagate_resource_to_children(tasks, parent_name, resource):
+    """Recursively assign inherited resource to unassigned children."""
+    for task in tasks:
+        if task.get('parent') != parent_name:
+            continue
+        if task.get('summary'):
+            # If child summary has no resource, inherit from parent
+            if not task.get('resources'):
+                task['resources'] = resource
+                task['inherited_resource'] = True
+            # Recurse into child summary's children
+            _propagate_resource_to_children(tasks, task['name'], task.get('resources', ''))
+        else:
+            # Leaf task: only assign if no resource already set
+            if not task.get('resources'):
+                task['resources'] = resource
+                task['inherited_resource'] = True
