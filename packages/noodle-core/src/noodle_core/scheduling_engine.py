@@ -143,6 +143,23 @@ def add_working_days(start_date, num_days, holidays=None):
     # This allows Gantt charts to render bars with proper width
     return current_date + timedelta(days=1)
 
+def compute_finish(task, holidays):
+    """Calculate and set the finish date for a task based on its duration.
+
+    Uses add_working_days when the duration is a timedelta, otherwise
+    falls back to start + 1 day.  The result is written directly into
+    task['finish'].
+
+    Args:
+        task: Task dict (must already have 'start' set).
+        holidays: Set of holiday dates to skip.
+    """
+    duration = task.get('duration', timedelta(days=1))
+    if isinstance(duration, timedelta):
+        task['finish'] = add_working_days(task['start'], duration.days, holidays)
+    else:
+        task['finish'] = task['start'] + timedelta(days=1)
+
 def parse_duration(s):
     if not s:
         return None
@@ -929,10 +946,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
-                if isinstance(duration, timedelta):
-                    t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
-                else:
-                    t['finish'] = t['start'] + timedelta(days=1)
+                compute_finish(t, task_holidays)
 
         elif 'depends' in t and t['depends']:
             # Has dependencies (case-insensitive lookup)
@@ -1032,19 +1046,13 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
             # Calculate finish date using working days (skip for milestones already set above)
             if not is_milestone or 'finish' not in t:
-                if isinstance(duration, timedelta):
-                    t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
-                else:
-                    t['finish'] = t['start'] + timedelta(days=1)
+                compute_finish(t, task_holidays)
 
         elif 'start' in t:
             # Has explicit start date (manual scheduling)
             # Use the explicit start date provided
             # Calculate finish date using working days
-            if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
-            else:
-                t['finish'] = t['start'] + timedelta(days=1)
+            compute_finish(t, task_holidays)
 
         else:
             # Default: start in parallel (at parent's start or now)
@@ -1068,10 +1076,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                 t['start'] = get_next_working_day(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0), task_holidays)
 
             # Calculate finish date using working days
-            if isinstance(duration, timedelta):
-                t['finish'] = add_working_days(t['start'], duration.days, task_holidays)
-            else:
-                t['finish'] = t['start'] + timedelta(days=1)
+            compute_finish(t, task_holidays)
 
         # Ensure duration is set (but allow 0 duration for milestones)
         if 'duration' not in t or t['duration'] is None:
