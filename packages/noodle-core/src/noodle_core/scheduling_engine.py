@@ -751,7 +751,6 @@ def natural_language_to_yaml(text, project_name="Project"):
 
     return {project_name: [result_dict] if result_dict else []}
 
-
 if __name__ == "__main__":
     import sys
     from projects.scheduling_engine.cli import main

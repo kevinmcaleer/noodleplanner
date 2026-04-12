@@ -338,8 +338,8 @@ def extract_raid_log(text: str) -> str:
     """Extract the RAID log section text from plan text.
 
     Returns the raw text between ``---raid log---`` and the next section
-    marker (``---baseline---``) or EOF, or an empty string if no RAID log
-    section is present.
+    marker (``---budget---``, ``---baseline---``) or EOF, or an empty
+    string if no RAID log section is present.
     """
     start_idx = text.find(RAID_LOG_START)
     if start_idx == -1:
@@ -347,9 +347,9 @@ def extract_raid_log(text: str) -> str:
 
     after_start = start_idx + len(RAID_LOG_START)
 
-    # Find the end: comms, baseline section, or EOF
+    # Find the end: budget, comms, baseline section, or EOF
     end_idx = len(text)
-    for marker in (COMMS_START, BASELINE_START):
+    for marker in (BUDGET_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -361,8 +361,8 @@ def strip_raid_log(text: str) -> str:
     """Remove the RAID log section from plan text.
 
     Returns the plan text without the ``---raid log---`` block,
-    suitable for passing to the task parser.  Preserves any baseline
-    section that follows the RAID log.
+    suitable for passing to the task parser.  Preserves any budget
+    or baseline section that follows the RAID log.
     """
     start_idx = text.find(RAID_LOG_START)
     if start_idx == -1:
@@ -370,8 +370,8 @@ def strip_raid_log(text: str) -> str:
 
     before = text[:start_idx].rstrip('\n')
 
-    # Preserve the comms and baseline sections if they follow the RAID log
-    for marker in (COMMS_START, BASELINE_START):
+    # Preserve sections that follow the RAID log (budget, comms, or baseline)
+    for marker in (BUDGET_START, COMMS_START, BASELINE_START):
         idx = text.find(marker, start_idx)
         if idx != -1:
             after = text[idx:]
@@ -771,7 +771,18 @@ def parse_raid_markdown(text: str) -> list:
         }
         items.append(item)
 
-    return items
+    # Deduplicate items by (type, title, description) to prevent the same
+    # RAID item from appearing multiple times (e.g. when the plan text
+    # contains duplicate table rows).
+    seen = set()
+    unique_items = []
+    for item in items:
+        key = (item['type'], item['title'], item['description'])
+        if key not in seen:
+            seen.add(key)
+            unique_items.append(item)
+
+    return unique_items
 
 
 def generate_raid_log_text(raid_items: list) -> str:
