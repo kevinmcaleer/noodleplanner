@@ -4,7 +4,7 @@ Pure date/calendar functions with no internal package dependencies.
 """
 
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 
 def get_next_working_day(date, holidays=None):
@@ -36,6 +36,13 @@ def get_next_working_day(date, holidays=None):
 
     raise ValueError(
         f"Could not find a working day within {max_iterations} days of {date}"
+    )
+
+def today_working_day(holidays=None):
+    """Return today (midnight) snapped to the next working day."""
+    return get_next_working_day(
+        datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
+        holidays,
     )
 
 def add_working_days(start_date, num_days, holidays=None):
@@ -107,6 +114,35 @@ def add_working_days(start_date, num_days, holidays=None):
     # Return the day AFTER the last working day (finish date is exclusive for rendering)
     # This allows Gantt charts to render bars with proper width
     return current_date + timedelta(days=1)
+
+def compute_finish(task, holidays=None):
+    """Calculate and set task['finish'] from task['start'] and task['duration'].
+
+    Uses working-day arithmetic when duration is a timedelta, otherwise
+    falls back to adding one calendar day.
+    """
+    duration = task.get('duration', timedelta(days=1))
+    if isinstance(duration, timedelta):
+        task['finish'] = add_working_days(task['start'], duration.days, holidays)
+    else:
+        task['finish'] = task['start'] + timedelta(days=1)
+
+def count_working_days(start_date, end_date, holidays=None):
+    """Count the number of working days between start_date and end_date.
+
+    Both dates are inclusive-exclusive (matching the finish date convention).
+    """
+    if holidays is None:
+        holidays = set()
+    if start_date >= end_date:
+        return 0
+    count = 0
+    current = start_date
+    while current < end_date:
+        if current.weekday() < 5 and current not in holidays:
+            count += 1
+        current += timedelta(days=1)
+    return count
 
 def parse_duration(s):
     if not s:

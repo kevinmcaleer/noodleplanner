@@ -13,7 +13,10 @@ from datetime import datetime, timedelta
 
 from .date_math import (
     get_next_working_day,
+    today_working_day,
     add_working_days,
+    compute_finish,
+    count_working_days,
     parse_duration,
     parse_duration_to_days,
 )
@@ -80,6 +83,83 @@ RAID_COLUMN_WIDTHS = {
     'Priority': 12,
     'Target Date': 14,
 }
+
+
+# ---------------------------------------------------------------------------
+# Critical path analysis
+# ---------------------------------------------------------------------------
+
+def _get_duration_days(task):
+    """Return the task duration in working days (minimum 1 for non-milestones)."""
+    duration = task.get('duration', timedelta(days=1))
+    if isinstance(duration, timedelta):
+        return max(duration.days, 0)
+    return 1
+
+def _subtract_working_days(end_date, num_days, holidays=None):
+    """Subtract *num_days* working days from *end_date* (exclusive convention)."""
+    return add_working_days(end_date, -num_days, holidays)
+
+def calculate_critical_path(tasks, holidays=None):
+    """Calculate critical path, slack/float for each leaf task.
+
+    Adds to each leaf task: early_start, early_finish, late_start,
+    late_finish, total_float, critical (bool).
+    """
+    if holidays is None:
+        holidays = set()
+
+    leaf_tasks = [t for t in tasks if not t.get('summary') and 'start' in t and 'finish' in t]
+    if not leaf_tasks:
+        return
+
+    # Build name lookup
+    name_lookup = {t['name'].lower(): t for t in leaf_tasks if 'name' in t}
+
+    # Forward pass — use already-scheduled dates as ES/EF
+    for t in leaf_tasks:
+        t['early_start'] = t['start']
+        t['early_finish'] = t['finish']
+
+    # Find project end
+    project_end = max(t['finish'] for t in leaf_tasks)
+
+    # Build successors map
+    successors = {t['name'].lower(): [] for t in leaf_tasks if 'name' in t}
+    for t in leaf_tasks:
+        for dep_name in t.get('depends', []):
+            dep_lower = dep_name.lower()
+            if dep_lower in successors:
+                successors[dep_lower].append(t['name'].lower())
+
+    # Backward pass
+    for t in leaf_tasks:
+        t['late_finish'] = project_end
+        t['late_start'] = project_end
+
+    # Process in reverse order
+    for t in reversed(leaf_tasks):
+        t_name = t.get('name', '').lower()
+        succ_list = successors.get(t_name, [])
+
+        if succ_list:
+            t['late_finish'] = min(
+                name_lookup[s]['late_start'] for s in succ_list if s in name_lookup
+            )
+        else:
+            t['late_finish'] = project_end
+
+        duration_days = _get_duration_days(t)
+        if duration_days == 0:
+            t['late_start'] = t['late_finish']
+        else:
+            t['late_start'] = _subtract_working_days(t['late_finish'], duration_days, holidays)
+            t['late_start'] = get_next_working_day(t['late_start'], holidays)
+
+    # Calculate float and mark critical tasks
+    for t in leaf_tasks:
+        t['total_float'] = count_working_days(t['early_start'], t['late_start'], holidays)
+        t['critical'] = t['total_float'] == 0
 
 
 # ---------------------------------------------------------------------------
