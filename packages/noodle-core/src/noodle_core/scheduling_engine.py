@@ -1025,10 +1025,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             if dep_start_dates:
                 latest_start = max(dep_start_dates)
 
-                if is_milestone:
-                    dep_start = latest_start
-                else:
-                    dep_start = latest_start
+                dep_start = latest_start
 
                 # If the task also has an explicit start date, use the later of
                 # the two -- the explicit date acts as a "not before" constraint.
