@@ -719,6 +719,26 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
     """
     all_tasks = []
 
+    def create_leaf_task(text, task_name, level, parent_name):
+        """Create a leaf task from text and metadata, appending it to all_tasks."""
+        if len(task_name) > MAX_TASK_NAME_LENGTH:
+            raise ValueError(
+                f"Task name '{task_name[:50]}...' exceeds maximum length of "
+                f"{MAX_TASK_NAME_LENGTH} characters. "
+                f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
+            )
+        meta = extract_metadata(text, task_name)
+        meta['level'] = level
+        meta['parent'] = parent_name
+        meta['phase'] = parent_name or ''
+        meta['summary'] = False
+        if len(all_tasks) >= MAX_TASK_COUNT:
+            raise ValueError(
+                f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
+                f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
+            )
+        all_tasks.append(meta)
+
     def traverse_nested_dict(node, parent_name=None, parent_level=-1, depth=0):
         """Recursively traverse nested dict and extract tasks."""
         if depth > MAX_NESTING_DEPTH:
@@ -756,25 +776,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                 else:
                     task_name = text
 
-            if len(task_name) > MAX_TASK_NAME_LENGTH:
-                raise ValueError(
-                    f"Task name '{task_name[:50]}...' exceeds maximum length of "
-                    f"{MAX_TASK_NAME_LENGTH} characters. "
-                    f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
-                )
-
-            meta = extract_metadata(text, task_name)
-            meta['level'] = level
-            meta['parent'] = parent_name
-            meta['phase'] = parent_name or ''
-            meta['summary'] = False
-
-            if len(all_tasks) >= MAX_TASK_COUNT:
-                raise ValueError(
-                    f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
-                    f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
-                )
-            all_tasks.append(meta)
+            create_leaf_task(text, task_name, level, parent_name)
             return
 
         # This is a summary task with children
@@ -790,23 +792,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             if isinstance(value, dict):
                 if '_text' in value:
                     # Leaf task
-                    if len(key) > MAX_TASK_NAME_LENGTH:
-                        raise ValueError(
-                            f"Task name '{key[:50]}...' exceeds maximum length of "
-                            f"{MAX_TASK_NAME_LENGTH} characters. "
-                            f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
-                        )
-                    meta = extract_metadata(value['_text'], key)
-                    meta['level'] = value.get('_level', level + 1)
-                    meta['parent'] = parent_name
-                    meta['phase'] = parent_name or ''
-                    meta['summary'] = False
-                    if len(all_tasks) >= MAX_TASK_COUNT:
-                        raise ValueError(
-                            f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
-                            f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
-                        )
-                    all_tasks.append(meta)
+                    create_leaf_task(value['_text'], key, value.get('_level', level + 1), parent_name)
                 elif '_is_summary' in value or any(isinstance(v, dict) for v in value.values()):
                     # Summary task with children
                     if len(key) > MAX_TASK_NAME_LENGTH:
