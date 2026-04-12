@@ -584,6 +584,204 @@ def extract_metadata(task_str, task_name=None):
     return meta
 
 
+def count_working_days(start_date, end_date, holidays=None):
+    """Count the number of working days between two dates.
+
+    Counts working days from start_date up to (but not including) end_date.
+    This matches the convention where finish dates are exclusive.
+
+    Args:
+        start_date: The start date (inclusive)
+        end_date: The end date (exclusive)
+        holidays: Set of holiday dates to skip (optional)
+
+    Returns:
+        Number of working days between the two dates.
+        Returns 0 if end_date <= start_date.
+    """
+    if holidays is None:
+        holidays = set()
+
+    if end_date <= start_date:
+        return 0
+
+    count = 0
+    current = start_date
+    while current < end_date:
+        if current.weekday() < 5 and current not in holidays:
+            count += 1
+        current += timedelta(days=1)
+    return count
+
+
+def calculate_critical_path(tasks, holidays=None):
+    """Calculate critical path analysis for scheduled tasks.
+
+    Performs forward and backward pass to determine Early Start, Early Finish,
+    Late Start, Late Finish, Total Float, and critical flag for each leaf task.
+
+    Only processes leaf tasks (summary tasks are skipped). Tasks with zero
+    total float are on the critical path.
+
+    Args:
+        tasks: List of task dicts as returned by schedule_tasks. Each task
+               must already have 'start', 'finish', and 'duration' set.
+        holidays: Set of holiday dates to skip for working day calculations.
+    """
+    if holidays is None:
+        holidays = set()
+
+    # Build lookup of leaf tasks only (skip summary tasks)
+    leaf_tasks = [t for t in tasks if not t.get('summary')
+                  and 'start' in t and 'finish' in t]
+
+    if not leaf_tasks:
+        return
+
+    # Build name lookup (case-insensitive)
+    name_lookup = {}
+    for t in leaf_tasks:
+        name = t.get('name', '')
+        if name:
+            name_lookup[name.lower()] = t
+
+    # --- Forward pass ---
+    # ES = max(EF of all predecessors), or task's scheduled start if no deps
+    # EF = ES + duration (in working days)
+    for t in leaf_tasks:
+        t['early_start'] = t['start']
+        t['early_finish'] = t['finish']
+
+    # Apply forward pass respecting dependencies
+    # Tasks are already scheduled, so their start/finish reflect dependency
+    # constraints. The scheduled start IS the early start.
+    # We just need to confirm by checking predecessors' early finishes.
+    # Since schedule_tasks already computes this correctly via dependency
+    # resolution, we use the scheduled dates directly.
+
+    # --- Backward pass ---
+    # Find the project end date (latest finish among all leaf tasks)
+    project_end = max(t['finish'] for t in leaf_tasks)
+
+    # Build successors map: for each task, which tasks depend on it?
+    successors_map = {}  # task_name_lower -> list of successor task dicts
+    for t in leaf_tasks:
+        deps = t.get('depends', [])
+        if deps:
+            for dep_name in deps:
+                dep_lower = dep_name.lower()
+                if dep_lower not in successors_map:
+                    successors_map[dep_lower] = []
+                successors_map[dep_lower].append(t)
+
+    # Initialize late finish to project end for all tasks
+    for t in leaf_tasks:
+        t['late_finish'] = project_end
+
+    # Process tasks in reverse order (tasks with no successors first,
+    # then work backwards through the dependency chain)
+    # We need topological reverse order. Build it from dependencies.
+    # Use iterative approach: process tasks whose successors are all done.
+
+    # First, identify tasks with no successors (they keep late_finish = project_end)
+    # For tasks with successors, LF = min(LS of all successors)
+
+    # We'll iterate until stable (handles any ordering issues)
+    changed = True
+    max_iterations = len(leaf_tasks) + 1
+    iteration = 0
+    while changed and iteration < max_iterations:
+        changed = False
+        iteration += 1
+        for t in leaf_tasks:
+            task_name_lower = t.get('name', '').lower()
+            if task_name_lower in successors_map:
+                # This task has successors
+                successor_starts = []
+                for succ in successors_map[task_name_lower]:
+                    if 'late_start' in succ:
+                        successor_starts.append(succ['late_start'])
+                    else:
+                        # Successor LS not yet computed; use its late_finish
+                        # and work backwards
+                        succ_duration_days = _get_duration_days(succ)
+                        succ_ls = _subtract_working_days(
+                            succ.get('late_finish', project_end),
+                            succ_duration_days, holidays)
+                        successor_starts.append(succ_ls)
+
+                if successor_starts:
+                    new_lf = min(successor_starts)
+                    if new_lf != t['late_finish']:
+                        t['late_finish'] = new_lf
+                        changed = True
+
+            # Calculate late start from late finish
+            duration_days = _get_duration_days(t)
+            t['late_start'] = _subtract_working_days(
+                t['late_finish'], duration_days, holidays)
+
+    # --- Calculate total float and critical flag ---
+    for t in leaf_tasks:
+        t['total_float'] = count_working_days(
+            t['early_start'], t['late_start'], holidays)
+        t['critical'] = (t['total_float'] == 0)
+
+
+def _get_duration_days(task):
+    """Get the duration of a task in working days."""
+    duration = task.get('duration')
+    if isinstance(duration, timedelta):
+        # For the purpose of critical path, count actual working days
+        # between start and finish (since finish is exclusive)
+        if 'start' in task and 'finish' in task:
+            start = task['start']
+            finish = task['finish']
+            if finish > start:
+                count = 0
+                current = start
+                while current < finish:
+                    if current.weekday() < 5:
+                        count += 1
+                    current += timedelta(days=1)
+                return count
+        return max(duration.days, 0)
+    return 1
+
+
+def _subtract_working_days(end_date, num_days, holidays=None):
+    """Subtract working days from an end date to find the start date.
+
+    Given an exclusive end_date and a number of working days, returns the
+    start date such that working num_days from that start reaches end_date.
+
+    Args:
+        end_date: The exclusive end date
+        num_days: Number of working days to subtract
+        holidays: Set of holiday dates to skip
+
+    Returns:
+        The start date (inclusive)
+    """
+    if holidays is None:
+        holidays = set()
+
+    if num_days <= 0:
+        return end_date
+
+    current = end_date - timedelta(days=1)
+    days_found = 0
+
+    while days_found < num_days:
+        if current.weekday() < 5 and current not in holidays:
+            days_found += 1
+            if days_found == num_days:
+                return current
+        current -= timedelta(days=1)
+
+    return current
+
+
 def detect_dependency_loops(tasks):
     """Detect circular dependencies in tasks.
 
@@ -1162,6 +1360,9 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                     task.get('name', task_name),
                     "Circular dependency detected"
                 )
+
+    # Calculate critical path (slack/float and critical flag)
+    calculate_critical_path(ordered_tasks, holidays)
 
     return ordered_tasks
 
