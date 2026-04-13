@@ -2812,6 +2812,15 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             people_list = sorted(people.items(), key=lambda x: x[0])
 
             # Build a role lookup: shortname -> role title (from Resources and Stakeholders)
+            # Strip out email addresses and full names — headers should show only the role.
+            def _clean_role(role_str):
+                """Remove email addresses and return only the role title."""
+                if not role_str:
+                    return ''
+                parts = [p.strip() for p in role_str.split(',')]
+                cleaned = [p for p in parts if p and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', p)]
+                return ', '.join(cleaned)
+
             dm_role_map = {}
             if original_text:
                 dm_role_map = parse_resource_roles(original_text)
@@ -2819,6 +2828,9 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                     skey = (s.get('shortname') or s.get('name', '')).lower()
                     if skey and s.get('role') and skey not in dm_role_map:
                         dm_role_map[skey] = s['role']
+                # Clean email addresses from all role values; drop empty entries
+                dm_role_map = {k: c for k, v in dm_role_map.items()
+                               if (c := _clean_role(v))}
 
             ws_dm = wb.create_sheet("Deliverables Matrix")
 
