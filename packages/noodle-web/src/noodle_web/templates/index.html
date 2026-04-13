@@ -390,6 +390,9 @@
                         Tools &#9662;
                     </button>
                     <div class="nav-menu" id="toolsDropdownMenu" role="menu" aria-label="Tools">
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openSettingsPanel(); event.stopPropagation();">
+                            <i class="bi bi-gear" aria-hidden="true"></i> Project Settings
+                        </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="openAISettingsModal(); event.stopPropagation();">
                             <i class="bi bi-robot" aria-hidden="true"></i> AI Settings
                         </div>
@@ -3063,6 +3066,130 @@ Build
             </div>
         </div>
 
+        <!-- Settings Section -->
+        <div id="settingsSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 style="color: white; margin: 0;"><i class="bi bi-gear" aria-hidden="true"></i> Project Settings</h2>
+                <button class="close-btn" onclick="closeSettingsPanel()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs" role="tablist" aria-label="Settings tabs">
+                    <button class="settings-tab-btn active" data-tab="gantt" onclick="switchSettingsTab('gantt')" role="tab" aria-selected="true">Gantt</button>
+                    <button class="settings-tab-btn" data-tab="board" onclick="switchSettingsTab('board')" role="tab" aria-selected="false">Board</button>
+                    <button class="settings-tab-btn" data-tab="timeline" onclick="switchSettingsTab('timeline')" role="tab" aria-selected="false">Timeline</button>
+                    <button class="settings-tab-btn" data-tab="theme" onclick="switchSettingsTab('theme')" role="tab" aria-selected="false">Theme</button>
+                    <button class="settings-tab-btn" data-tab="ai" onclick="switchSettingsTab('ai')" role="tab" aria-selected="false">AI</button>
+                </div>
+
+                <!-- Gantt Tab -->
+                <div id="settingsTab-gantt" class="settings-tab-content active" role="tabpanel">
+                    <h3>Gantt Chart</h3>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsGanttDeps" onchange="onSettingChanged('gantt_deps')">
+                            Show Dependencies
+                        </label>
+                        <small>Display dependency arrows between tasks on the Gantt chart</small>
+                    </div>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsGanttCriticalPath" onchange="onSettingChanged('gantt_critical_path')">
+                            Critical Path
+                        </label>
+                        <small>Highlight the critical path through the project</small>
+                    </div>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsGanttBaseline" onchange="onSettingChanged('gantt_baseline')">
+                            Show Baseline
+                        </label>
+                        <small>Show baseline bars underneath current schedule bars</small>
+                    </div>
+                </div>
+
+                <!-- Board Tab -->
+                <div id="settingsTab-board" class="settings-tab-content" role="tabpanel">
+                    <h3>Board</h3>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsBoardHideCompleted" onchange="onSettingChanged('board_hide_completed')">
+                            Hide Completed
+                        </label>
+                        <small>Hide tasks with 100% completion from the board</small>
+                    </div>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsBoardSortPriority" onchange="onSettingChanged('board_sort_priority')">
+                            Sort by Priority
+                        </label>
+                        <small>Sort tasks within columns by priority label</small>
+                    </div>
+                </div>
+
+                <!-- Timeline Tab -->
+                <div id="settingsTab-timeline" class="settings-tab-content" role="tabpanel">
+                    <h3>Timeline</h3>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsTimelinePhases" onchange="onSettingChanged('timeline_phases')">
+                            Show Phases
+                        </label>
+                        <small>Display phase/summary task bars on the timeline</small>
+                    </div>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsTimelineDetailed" onchange="onSettingChanged('timeline_detailed')">
+                            Detailed
+                        </label>
+                        <small>Show additional task details on the timeline</small>
+                    </div>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsTimelineMinimal" onchange="onSettingChanged('timeline_minimal')">
+                            Minimal
+                        </label>
+                        <small>Show a simplified timeline with milestones only</small>
+                    </div>
+                    <div class="settings-option">
+                        <label>
+                            <input type="checkbox" id="settingsTimelineToday" onchange="onSettingChanged('timeline_today')">
+                            Today
+                        </label>
+                        <small>Show a marker for today's date on the timeline</small>
+                    </div>
+                </div>
+
+                <!-- Theme Tab -->
+                <div id="settingsTab-theme" class="settings-tab-content" role="tabpanel">
+                    <h3>Theme</h3>
+                    <div class="settings-theme-options">
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsTheme" value="light" onchange="onSettingChanged('theme')">
+                            <span><i class="bi bi-sun-fill"></i> Light</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsTheme" value="dark" onchange="onSettingChanged('theme')">
+                            <span><i class="bi bi-moon-fill"></i> Dark</span>
+                        </label>
+                        <label class="settings-theme-radio">
+                            <input type="radio" name="settingsTheme" value="system" onchange="onSettingChanged('theme')">
+                            <span><i class="bi bi-display"></i> System</span>
+                        </label>
+                    </div>
+                    <small>Theme preference is saved per project in the plan front matter</small>
+                </div>
+
+                <!-- AI Tab -->
+                <div id="settingsTab-ai" class="settings-tab-content" role="tabpanel">
+                    <h3>AI Provider</h3>
+                    <p class="settings-ai-description">Configure the AI provider used for the AI Chat assistant.</p>
+                    <button type="button" class="btn-primary" onclick="openAISettingsModal(); closeSettingsPanel();" style="min-height: 44px;">
+                        <i class="bi bi-robot" aria-hidden="true"></i> Open AI Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Conditional Formatting Section -->
         <div id="conditionalFormattingSection" class="detail-pane-section">
             <div class="modal-header">
@@ -3405,6 +3532,7 @@ Build
     <script src="/static/state.js?v={{ v }}"></script>
     <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
+    <script src="/static/settings.js?v={{ v }}"></script>
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>
@@ -3670,6 +3798,10 @@ Build
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
         <div class="status-bar-right">
+            <button class="status-bar-btn" onclick="toggleSettingsPanel()" title="Project Settings" aria-label="Toggle project settings">
+                <i class="bi bi-gear"></i>
+                <span class="status-bar-btn-label">Settings</span>
+            </button>
             <button class="status-bar-btn" onclick="toggleProjectDetails()" title="Project Details" aria-label="Toggle project details">
                 <i class="bi bi-clipboard-data"></i>
                 <span class="status-bar-btn-label">Details</span>

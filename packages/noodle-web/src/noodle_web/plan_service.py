@@ -134,10 +134,16 @@ def export_to_file(export_fn, suffix: str, read_mode: str = "rb"):
 
 
 def parse_front_matter(plan_text: str) -> dict:
-    """Extract key-value pairs from YAML front matter."""
-    front_matter = {}
+    """Extract key-value pairs from YAML front matter.
+
+    Supports a nested ``settings:`` block whose indented key-value children
+    are returned as ``front_matter["settings"] = { ... }``.
+    """
+    front_matter: dict = {}
     lines = plan_text.split("\n")
     in_front_matter = False
+    in_settings = False
+    settings: dict = {}
 
     for line in lines:
         if line.strip() == "---":
@@ -147,9 +153,39 @@ def parse_front_matter(plan_text: str) -> dict:
             else:
                 break
 
-        if in_front_matter and ":" in line:
+        if not in_front_matter:
+            continue
+
+        stripped = line.strip()
+
+        # Detect the settings: section header
+        if stripped.lower() == "settings:":
+            in_settings = True
+            continue
+
+        # Inside the settings block: indented key: value pairs
+        if in_settings:
+            if line.startswith("  ") and ":" in stripped:
+                key, value = stripped.split(":", 1)
+                val = value.strip()
+                # Convert boolean strings
+                if val.lower() == "true":
+                    settings[key.strip()] = True
+                elif val.lower() == "false":
+                    settings[key.strip()] = False
+                else:
+                    settings[key.strip()] = val
+                continue
+            else:
+                # End of settings block
+                in_settings = False
+
+        if ":" in line:
             key, value = line.split(":", 1)
             front_matter[key.strip().lower()] = value.strip()
+
+    if settings:
+        front_matter["settings"] = settings
 
     return front_matter
 

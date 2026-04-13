@@ -3394,6 +3394,7 @@ function toggleKanbanPrioritySort(enabled) {
     kanbanBoard.sortByPriority = enabled;
     kanbanBoard.parse();
     kanbanBoard.render();
+    if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('board_sort_priority', enabled);
 }
 
 /**
@@ -3408,6 +3409,7 @@ function toggleKanbanHideCompleted(enabled) {
     kanbanBoard.hideCompleted = enabled;
     kanbanBoard.parse();
     kanbanBoard.render();
+    if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('board_hide_completed', enabled);
 }
 
 /**

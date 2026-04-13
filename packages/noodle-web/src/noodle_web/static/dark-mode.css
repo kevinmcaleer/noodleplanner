@@ -1076,6 +1076,56 @@ body {
     color: var(--np-text);
 }
 
+/* Settings panel */
+[data-theme="dark"] .settings-tab-btn {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .settings-tab-btn:hover,
+[data-theme="dark"] .settings-tab-btn.active {
+    color: var(--np-accent);
+}
+
+[data-theme="dark"] .settings-tab-btn.active {
+    border-bottom-color: var(--np-accent);
+}
+
+[data-theme="dark"] .settings-tabs {
+    border-bottom-color: var(--np-border);
+}
+
+[data-theme="dark"] .settings-tab-content h3 {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .settings-option {
+    border-bottom-color: var(--np-border-light);
+}
+
+[data-theme="dark"] .settings-option label {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .settings-option small {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .settings-theme-radio {
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .settings-theme-radio:hover {
+    background-color: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .settings-theme-radio span {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .settings-ai-description {
+    color: var(--np-text-muted);
+}
+
 /* Piechart popup */
 [data-theme="dark"] .piechart-popup {
     background: var(--np-surface);

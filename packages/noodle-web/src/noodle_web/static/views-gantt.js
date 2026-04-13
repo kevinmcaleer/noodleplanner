@@ -201,6 +201,7 @@ function updateGantt(tasks) {
         if (depToggle && !depToggle.dataset.initialized) {
             depToggle.addEventListener('change', function() {
                 renderDependencyLines();
+                if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('gantt_deps', this.checked);
             });
             depToggle.dataset.initialized = 'true';
         }
@@ -210,6 +211,7 @@ function updateGantt(tasks) {
         if (cpToggle && !cpToggle.dataset.initialized) {
             cpToggle.addEventListener('change', function() {
                 renderGanttChart();
+                if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('gantt_critical_path', this.checked);
             });
             cpToggle.dataset.initialized = 'true';
         }

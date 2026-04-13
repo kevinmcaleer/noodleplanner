@@ -1350,6 +1350,11 @@ async function updateAllViews(planText, projectName) {
             try { applyThemeFromFrontMatter(result.front_matter); } catch (e) { console.error('Theme sync error:', e); }
         }
 
+        // Apply project settings from front matter (#700)
+        if (typeof applySettingsFromFrontMatter === 'function') {
+            try { applySettingsFromFrontMatter(result.front_matter); } catch (e) { console.error('Settings sync error:', e); }
+        }
+
         // Each view update is wrapped in try/catch so one failure does not
         // prevent the remaining views from updating (JS-6, issue #567).
         const viewUpdates = [
@@ -6218,12 +6223,13 @@ function saveProjectDetailsInternal(closeModal = true) {
     const editor = document.getElementById('planEditor');
     let content = editor.value;
 
-    // Extract existing Resources, Key Stakeholders, Formatting, and Theme
+    // Extract existing Resources, Key Stakeholders, Formatting, Theme, and Settings
     // from current editor to preserve any changes made via resource form, conditional formatting, etc.
     const existingResourcesSection = extractFrontMatterSection(content, 'Resources');
     const existingStakeholdersSection = extractFrontMatterSection(content, 'Key Stakeholders');
     const existingFormattingSection = extractFrontMatterSection(content, 'Formatting');
     const existingThemeSection = extractFrontMatterSection(content, 'Theme');
+    const existingSettingsSection = extractFrontMatterIndentedSection(content, 'settings');
 
     // Collect form data
     const title = document.getElementById('projectTitle').value.trim();
@@ -6270,6 +6276,11 @@ function saveProjectDetailsInternal(closeModal = true) {
     // Preserve existing Theme section from editor (don't overwrite kanban theme colours)
     if (existingThemeSection) {
         frontMatter += existingThemeSection;
+    }
+
+    // Preserve existing settings section from editor (#700)
+    if (existingSettingsSection) {
+        frontMatter += existingSettingsSection;
     }
 
     frontMatter += '---\n';
@@ -6325,6 +6336,47 @@ function extractFrontMatterSection(content, sectionName) {
                 sectionLines.push(line);
             } else {
                 // Hit a non-list item, non-empty line - section ended
+                break;
+            }
+        }
+    }
+
+    return sectionLines.length > 0 ? sectionLines.join('\n') + '\n' : null;
+}
+
+/**
+ * Extract a front matter section that uses indented key:value pairs (e.g. settings:).
+ * Unlike extractFrontMatterSection which expects list items (- foo), this handles
+ * sections where child lines are indented with spaces.
+ */
+function extractFrontMatterIndentedSection(content, sectionName) {
+    const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!fmMatch) return null;
+
+    const lines = fmMatch[1].split('\n');
+    let inSection = false;
+    const sectionLines = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Check for section header
+        if (trimmed.endsWith(':') && !trimmed.includes('- ') && !trimmed.startsWith('-')) {
+            const name = trimmed.replace(':', '').toLowerCase();
+            if (name === sectionName.toLowerCase()) {
+                inSection = true;
+                sectionLines.push(line);
+                continue;
+            } else if (inSection) {
+                break;
+            }
+        }
+
+        if (inSection) {
+            // Indented lines (settings values) or empty lines belong to this section
+            if (line.match(/^\s{2,}/) || trimmed === '') {
+                sectionLines.push(line);
+            } else {
                 break;
             }
         }
@@ -8682,6 +8734,8 @@ function toggleTimelinePhases() {
     if (timelineTasks && timelineTasks.length > 0) {
         updateTimeline(timelineTasks, timelineProjectName);
     }
+    const toggle = document.getElementById('showPhasesToggle');
+    if (toggle && typeof syncToolbarToSettings === 'function') syncToolbarToSettings('timeline_phases', toggle.checked);
 }
 
 // ===== MS Project Import =====
@@ -11864,6 +11918,10 @@ function showBaselineToggle(show) {
  */
 function toggleBaselineDisplay() {
     renderGanttChart();
+    const toggle = document.getElementById('ganttShowBaseline');
+    if (toggle && typeof syncToolbarToSettings === 'function') {
+        syncToolbarToSettings('gantt_baseline', toggle.checked);
+    }
 }
 
 /**

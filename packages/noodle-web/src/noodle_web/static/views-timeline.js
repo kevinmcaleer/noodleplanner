@@ -204,6 +204,7 @@ function toggleDetailedTimeline() {
     if (timelineTasks && timelineTasks.length > 0) {
         updateTimeline(timelineTasks, timelineProjectName);
     }
+    if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('timeline_detailed', detailedTimelineEnabled);
 }
 
 function toggleMinimalTimeline() {
@@ -228,12 +229,15 @@ function toggleMinimalTimeline() {
     if (timelineTasks && timelineTasks.length > 0) {
         updateTimeline(timelineTasks, timelineProjectName);
     }
+    if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('timeline_minimal', minimalTimelineEnabled);
 }
 
 function toggleTodayMarker() {
     if (timelineTasks && timelineTasks.length > 0) {
         updateTimeline(timelineTasks, timelineProjectName);
     }
+    const toggle = document.getElementById('todayMarkerToggle');
+    if (toggle && typeof syncToolbarToSettings === 'function') syncToolbarToSettings('timeline_today', toggle.checked);
 }
 
 function renderTodayMarker(container, minDate, maxDate, totalDays, timelineWidth, options) {
