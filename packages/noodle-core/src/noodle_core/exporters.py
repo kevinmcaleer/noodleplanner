@@ -2141,6 +2141,226 @@ def _add_portfolio_risk_slides(prs, portfolio_data, risks):
     return slides
 
 
+def _add_portfolio_deliverables_slides(prs, project_reports):
+    """Add deliverables matrix slides to the portfolio appendix.
+
+    For each project that has deliverables data, a slide is created with a
+    table showing deliverable tasks, their dates, status, role assignments
+    (P/R/A), and a QA column indicating whether all three roles are present.
+
+    Args:
+        prs: python-pptx Presentation object.
+        project_reports: List of per-project report dicts.  Each may contain
+            a ``deliverables`` key with sub-keys ``items``, ``people``, and
+            ``role_map``.
+    """
+    from pptx.oxml.ns import qn
+
+    DARK_BLUE = RGBColor(33, 60, 114)
+    WHITE = RGBColor(255, 255, 255)
+    BLACK = RGBColor(0, 0, 0)
+    LIGHT_GREY = RGBColor(242, 242, 242)
+
+    # Role colours matching the web / Excel exports
+    ROLE_COLOURS = {
+        'P': RGBColor(0x44, 0x72, 0xC4),   # Blue
+        'R': RGBColor(0xED, 0x7D, 0x31),   # Orange
+        'A': RGBColor(0x70, 0xAD, 0x47),   # Green
+    }
+    QA_GREEN = RGBColor(0x70, 0xAD, 0x47)
+
+    import re as _re
+
+    def _sanitise(text):
+        return _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', str(text))
+
+    def _set_cell(cell, text, font_size=8, bold=False, colour=None,
+                  alignment=PP_ALIGN.LEFT):
+        cell.text = _sanitise(text)
+        for para in cell.text_frame.paragraphs:
+            para.font.size = Pt(font_size)
+            para.font.bold = bold
+            if colour:
+                para.font.color.rgb = colour
+            para.alignment = alignment
+        cell.text_frame.word_wrap = True
+        cell.text_frame.margin_top = Inches(0.02)
+        cell.text_frame.margin_bottom = Inches(0.02)
+        cell.text_frame.margin_left = Inches(0.04)
+        cell.text_frame.margin_right = Inches(0.04)
+
+    def _set_cell_vertical(cell):
+        """Set vertical (bottom-to-top) text direction on a table cell."""
+        tc = cell._tc
+        tcPr = tc.find(qn('a:tcPr'))
+        if tcPr is None:
+            tcPr = tc.makeelement(qn('a:tcPr'), {})
+            tc.insert(0, tcPr)
+        tcPr.set('vert', 'vert270')
+
+    for report in project_reports:
+        deliverables_data = report.get('deliverables')
+        if not deliverables_data:
+            continue
+
+        items = deliverables_data.get('items', [])
+        if not items:
+            continue
+
+        people = deliverables_data.get('people', [])
+        role_map = deliverables_data.get('role_map', {})
+
+        project_name = report.get('project_name', 'Project')
+
+        # Fixed columns: ID, Deliverable, Dates, Status
+        fixed_count = 4
+        person_count = len(people)
+        total_cols = fixed_count + person_count + 1  # +1 for QA
+
+        # Limit rows to avoid overflowing the slide
+        max_rows = min(len(items), 18)
+        num_rows = max_rows + 1  # +1 for header
+
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+
+        # Title bar
+        title_bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(0), Inches(0),
+            Inches(13.333), Inches(0.85)
+        )
+        title_bar.fill.solid()
+        title_bar.fill.fore_color.rgb = DARK_BLUE
+        title_bar.line.fill.background()
+
+        tb = slide.shapes.add_textbox(Inches(0.4), Inches(0.08),
+                                      Inches(10), Inches(0.45))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = _sanitise(f"Deliverables Matrix \u2014 {project_name}")
+        p.font.size = Pt(22)
+        p.font.bold = True
+        p.font.color.rgb = WHITE
+
+        # Build table
+        table_left = Inches(0.4)
+        table_top = Inches(1.1)
+        table_width = Inches(12.533)
+        row_height = Inches(0.28)
+        table_height = row_height * num_rows
+
+        shape = slide.shapes.add_table(
+            num_rows, total_cols, table_left, table_top,
+            table_width, table_height
+        )
+        tbl = shape.table
+
+        # Column widths
+        id_width = int(table_width * 4 / 100)
+        deliv_width = int(table_width * 22 / 100)
+        dates_width = int(table_width * 18 / 100)
+        status_width = int(table_width * 10 / 100)
+        qa_width = int(table_width * 4 / 100)
+        fixed_total = id_width + deliv_width + dates_width + status_width + qa_width
+        remaining = int(table_width) - fixed_total
+        person_col_width = max(remaining // max(person_count, 1), Inches(0.3))
+
+        tbl.columns[0].width = id_width
+        tbl.columns[1].width = deliv_width
+        tbl.columns[2].width = dates_width
+        tbl.columns[3].width = status_width
+        for pi in range(person_count):
+            tbl.columns[fixed_count + pi].width = person_col_width
+        tbl.columns[total_cols - 1].width = qa_width
+
+        # Header row
+        tbl.rows[0].height = Inches(0.9)
+        header_labels = ['ID', 'Deliverable', 'Dates', 'Status']
+        person_headers = [role_map.get(short, short) for short in people]
+        header_labels += person_headers + ['QA']
+
+        for ci, label in enumerate(header_labels):
+            cell = tbl.cell(0, ci)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = DARK_BLUE
+            is_person_col = fixed_count <= ci < fixed_count + person_count
+            _set_cell(cell, label, 8, True, WHITE, PP_ALIGN.CENTER)
+            if is_person_col:
+                _set_cell_vertical(cell)
+
+        # Data rows
+        for ri, item in enumerate(items[:max_rows]):
+            row_idx = ri + 1
+            _set_cell(tbl.cell(row_idx, 0), str(ri + 1), 8, False, None, PP_ALIGN.CENTER)
+            _set_cell(tbl.cell(row_idx, 1), item.get('name', ''), 8)
+
+            dates_str = ''
+            d_start = item.get('start', '')
+            d_finish = item.get('finish', '')
+            if d_start and d_finish:
+                dates_str = f"{d_start} \u2013 {d_finish}"
+            elif d_start:
+                dates_str = str(d_start)
+            _set_cell(tbl.cell(row_idx, 2), dates_str, 8, False, None, PP_ALIGN.CENTER)
+
+            status = item.get('status', '')
+            status_cell = tbl.cell(row_idx, 3)
+            _set_cell(status_cell, status, 8, False, None, PP_ALIGN.CENTER)
+            if status == 'Complete':
+                status_cell.fill.solid()
+                status_cell.fill.fore_color.rgb = QA_GREEN
+                for para in status_cell.text_frame.paragraphs:
+                    para.font.color.rgb = WHITE
+            elif status == 'In Progress':
+                status_cell.fill.solid()
+                status_cell.fill.fore_color.rgb = RGBColor(0xFF, 0xC0, 0x00)
+
+            # Role columns
+            merged_roles = item.get('roles', {})
+            role_letters = []
+            for pi, shortname in enumerate(people):
+                col_idx = fixed_count + pi
+                role = merged_roles.get(shortname, '')
+                cell = tbl.cell(row_idx, col_idx)
+                if role:
+                    _set_cell(cell, role, 8, True, WHITE, PP_ALIGN.CENTER)
+                    if role in ROLE_COLOURS:
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = ROLE_COLOURS[role]
+                    role_letters.append(role)
+
+            # QA column
+            has_p = 'P' in role_letters
+            has_r = 'R' in role_letters
+            has_a = 'A' in role_letters
+            qa_cell = tbl.cell(row_idx, total_cols - 1)
+            if has_p and has_r and has_a:
+                _set_cell(qa_cell, '\u2713', 8, True, WHITE, PP_ALIGN.CENTER)
+                qa_cell.fill.solid()
+                qa_cell.fill.fore_color.rgb = QA_GREEN
+            else:
+                _set_cell(qa_cell, '', 8)
+
+            # Zebra striping
+            if row_idx % 2 == 0:
+                for ci in range(total_cols):
+                    c = tbl.cell(row_idx, ci)
+                    # Only shade cells that don't already have a role fill
+                    if ci < fixed_count or (ci == total_cols - 1 and not (has_p and has_r and has_a)):
+                        if not (ci == 3 and status in ('Complete', 'In Progress')):
+                            c.fill.solid()
+                            c.fill.fore_color.rgb = LIGHT_GREY
+
+        # Footer
+        fb = slide.shapes.add_textbox(Inches(0.4), Inches(7.1),
+                                      Inches(4), Inches(0.25))
+        ff = fb.text_frame
+        fp = ff.paragraphs[0]
+        fp.text = _sanitise(f"Generated by Noodle Planner  |  Appendix")
+        fp.font.size = Pt(7)
+        fp.font.color.rgb = RGBColor(160, 160, 160)
+
+
 def export_portfolio_to_powerpoint(output_path, portfolio_data, project_reports):
     """Export a portfolio report as a multi-slide PowerPoint deck."""
     prs = Presentation()
@@ -2154,6 +2374,9 @@ def export_portfolio_to_powerpoint(output_path, portfolio_data, project_reports)
 
     for report_data in project_reports:
         _add_report_slide(prs, report_data, include_footer=False)
+
+    # Appendix: deliverables matrix slides
+    _add_portfolio_deliverables_slides(prs, project_reports)
 
     prs.save(output_path)
     logger.info(f"Exported portfolio report to PowerPoint: {output_path}")

@@ -41,6 +41,7 @@ from .exporters import *          # noqa: F401,F403
 # explicitly for backwards compatibility with tests and other callers.
 from .exporters import (          # noqa: F401
     _add_report_slide,
+    _add_portfolio_deliverables_slides,
     _parse_budget_value,
     _format_budget_total,
     _calculate_total_portfolio_budget,

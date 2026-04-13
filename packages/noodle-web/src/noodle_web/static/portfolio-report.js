@@ -165,6 +165,13 @@ async function exportPortfolioReport() {
             // Build individual project report data
             const reportData = buildProjectReportData(project, tasks, frontMatter, raidItems, highlights, reportDate);
 
+            // Build deliverables matrix data for appendix slides
+            const resourceMap = (parsedResult && parsedResult.success) ? (parsedResult.resource_map || {}) : {};
+            const resourceRoles = (parsedResult && parsedResult.success) ? (parsedResult.resource_roles || {}) : {};
+            const stakeholders = (parsedResult && parsedResult.success) ? (parsedResult.stakeholders || []) : [];
+            const deliverablesData = buildDeliverablesData(tasks, resourceMap, resourceRoles, stakeholders);
+            if (deliverablesData) reportData.deliverables = deliverablesData;
+
             // Capture per-project timeline as a PNG image using swimlane style
             const timelineImage = await captureProjectTimelineImage(tasks, project.name);
             if (timelineImage) reportData.timeline_image = timelineImage;
@@ -399,5 +406,148 @@ function buildProjectReportData(project, tasks, frontMatter, raidItems, highligh
         risks_issues: risksIssues,
         timeline_tasks: timelineTasks,
         percent_complete: percentComplete
+    };
+}
+
+
+/**
+ * Build deliverables matrix data for a project.
+ * Mirrors the logic in the Excel exporter (exporters.py) to collect
+ * deliverable tasks, people, and role mappings.
+ *
+ * @param {Array} tasks - Parsed tasks from the API
+ * @param {Object} resourceMap - Mapping of shortname -> full name
+ * @param {Object} resourceRoles - Mapping of shortname -> role title (from Resources front matter)
+ * @param {Array} stakeholders - Stakeholder entries from front matter
+ * @returns {Object|null} Deliverables data or null if no deliverables
+ */
+function buildDeliverablesData(tasks, resourceMap, resourceRoles, stakeholders) {
+    // Collect deliverable tasks (exclude group product types)
+    var deliverables = tasks.filter(function(t) {
+        return t.deliverable && t.product_type !== 'group';
+    });
+
+    if (deliverables.length === 0) return null;
+
+    // Collect people from all tasks (quality_roles + resources)
+    var people = {};
+    tasks.forEach(function(t) {
+        var qr = t.quality_roles || {};
+        for (var name in qr) {
+            var key = name.toLowerCase();
+            if (!people[key]) {
+                people[key] = (resourceMap && resourceMap[key]) || name;
+            }
+        }
+        var resStr = t.resources || '';
+        if (resStr) {
+            resStr.split(',').forEach(function(r) {
+                var key = r.trim().toLowerCase();
+                if (key && !people[key]) {
+                    people[key] = (resourceMap && resourceMap[key]) || r.trim();
+                }
+            });
+        }
+    });
+    // Include all resources from resource map
+    if (resourceMap) {
+        for (var rmKey in resourceMap) {
+            if (!people[rmKey.toLowerCase()]) {
+                people[rmKey.toLowerCase()] = resourceMap[rmKey];
+            }
+        }
+    }
+
+    var peopleList = Object.keys(people).sort();
+
+    // Build role lookup: shortname -> role title (from resources and stakeholders)
+    // Strip email addresses from role values
+    var emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    function cleanRole(roleStr) {
+        if (!roleStr) return '';
+        var parts = roleStr.split(',').map(function(p) { return p.trim(); });
+        var cleaned = parts.filter(function(p) { return p && !emailPattern.test(p); });
+        return cleaned.join(', ');
+    }
+
+    var roleMap = {};
+
+    // Resource roles from front matter (shortname -> role title)
+    if (resourceRoles) {
+        for (var rkey in resourceRoles) {
+            var cleaned = cleanRole(resourceRoles[rkey]);
+            if (cleaned) {
+                roleMap[rkey.toLowerCase()] = cleaned;
+            }
+        }
+    }
+
+    // Stakeholder roles (only if not already mapped from resources)
+    if (stakeholders && stakeholders.length > 0) {
+        stakeholders.forEach(function(s) {
+            var skey = (s.shortname || s.name || '').toLowerCase();
+            if (skey && s.role && !roleMap[skey]) {
+                var cleanedRole = cleanRole(s.role);
+                if (cleanedRole) {
+                    roleMap[skey] = cleanedRole;
+                }
+            }
+        });
+    }
+
+    // Build deliverable items with merged roles
+    var items = deliverables.map(function(dtask) {
+        var mergedRoles = {};
+        var qr = dtask.quality_roles || {};
+        for (var name in qr) {
+            mergedRoles[name.toLowerCase()] = qr[name];
+        }
+        var resStr = dtask.resources || '';
+        if (resStr) {
+            resStr.split(',').forEach(function(r) {
+                var key = r.trim().toLowerCase();
+                if (key && !mergedRoles[key]) {
+                    mergedRoles[key] = 'P';
+                }
+            });
+        }
+        // Merge child task roles (tasks whose parent matches this deliverable)
+        var dtaskName = (dtask.name || '').toLowerCase();
+        tasks.forEach(function(t) {
+            if ((t.parent || '').toLowerCase() === dtaskName) {
+                var childQr = t.quality_roles || {};
+                for (var cname in childQr) {
+                    if (!mergedRoles[cname.toLowerCase()]) {
+                        mergedRoles[cname.toLowerCase()] = childQr[cname];
+                    }
+                }
+                var childRes = t.resources || '';
+                if (childRes) {
+                    childRes.split(',').forEach(function(r) {
+                        var key = r.trim().toLowerCase();
+                        if (key && !mergedRoles[key]) {
+                            mergedRoles[key] = 'P';
+                        }
+                    });
+                }
+            }
+        });
+
+        var pct = parseFloat(dtask.percent) || 0;
+        var status = pct === 100 ? 'Complete' : (pct > 0 ? 'In Progress' : '');
+
+        return {
+            name: (dtask.deliverable || dtask.name || '').replace(/_/g, ' '),
+            start: dtask.start || '',
+            finish: dtask.finish || '',
+            status: status,
+            roles: mergedRoles
+        };
+    });
+
+    return {
+        items: items,
+        people: peopleList,
+        role_map: roleMap
     };
 }

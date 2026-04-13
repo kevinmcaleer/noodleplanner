@@ -28,6 +28,7 @@ from noodle_core import (
     schedule_tasks,
     calculate_rag_status,
     parse_resource_mappings,
+    parse_resource_roles,
     parse_stakeholders_from_frontmatter,
     extract_highlights,
     extract_raid_log,
@@ -83,6 +84,7 @@ class ParseResult:
     dependencies: list
     benefits_items: list
     stakeholders: list = None
+    resource_roles: dict = None
     error: Optional[str] = None
 
 
@@ -316,6 +318,7 @@ class PlanService:
             )
 
             resource_map, _ = parse_resource_mappings(plan_text)
+            resource_roles = parse_resource_roles(plan_text)
             front_matter = parse_front_matter(plan_text)
             tasks_data = self._schedule_and_build_tasks(
                 converted, resolved_name, resource_map
@@ -344,6 +347,7 @@ class PlanService:
                 dependencies=dependencies,
                 benefits_items=benefits_items,
                 stakeholders=stakeholders,
+                resource_roles=resource_roles,
             )
 
         except (ValueError, KeyError, TypeError) as e:
@@ -363,6 +367,7 @@ class PlanService:
                 dependencies=dependencies,
                 benefits_items=benefits_items,
                 stakeholders=stakeholders,
+                resource_roles={},
                 error=str(e),
             )
 

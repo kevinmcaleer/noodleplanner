@@ -346,6 +346,7 @@ async def parse_plan(data: RenderRequest):
         "dependencies": result.dependencies,
         "stakeholders": result.stakeholders or [],
         "benefits_items": result.benefits_items,
+        "resource_roles": result.resource_roles or {},
     }
     if result.error:
         response["error"] = result.error
@@ -390,6 +391,22 @@ class ReportTimelineTask(BaseModel):
     duration_days: int = Field(0)
 
 
+class DeliverableItem(BaseModel):
+    """A single deliverable row for the deliverables matrix."""
+    name: str = Field("", max_length=500)
+    start: str = Field("", max_length=50)
+    finish: str = Field("", max_length=50)
+    status: str = Field("", max_length=30)
+    roles: dict = Field(default_factory=dict, description="Mapping of shortname -> role letter (P/R/A)")
+
+
+class DeliverablesData(BaseModel):
+    """Deliverables matrix data for a project."""
+    items: List[DeliverableItem] = Field(default_factory=list)
+    people: List[str] = Field(default_factory=list, description="Ordered list of shortnames")
+    role_map: dict = Field(default_factory=dict, description="Mapping of shortname -> role title for column headers")
+
+
 class ReportExportRequest(BaseModel):
     """Request body for weekly report PowerPoint export."""
     project_name: str = Field("Project", max_length=500)
@@ -404,6 +421,7 @@ class ReportExportRequest(BaseModel):
     risks_issues: List[ReportRiskIssue] = Field(default_factory=list)
     timeline_tasks: List[ReportTimelineTask] = Field(default_factory=list, description="Phase and milestone tasks for server-side timeline rendering")
     timeline_image: Optional[str] = Field(None, description="Base64-encoded PNG of timeline captured from browser")
+    deliverables: Optional[DeliverablesData] = Field(None, description="Deliverables matrix data for appendix slides")
 
 
 @app.post("/api/export-report-pptx")
@@ -488,6 +506,7 @@ async def export_portfolio_pptx_route(data: PortfolioReportRequest):
             'risks_issues': [ri.model_dump() for ri in r.risks_issues],
             'timeline_tasks': [t.model_dump() for t in r.timeline_tasks],
             'timeline_image': r.timeline_image,
+            'deliverables': r.deliverables.model_dump() if r.deliverables else None,
         }
         for r in data.project_reports
     ]
