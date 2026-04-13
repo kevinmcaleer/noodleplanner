@@ -10560,38 +10560,80 @@ function syncCommsLogToPlanText() {
 }
 
 function updatePlanCommsText(planText, items) {
-    // Preserve the baseline section if present
-    let baselineSection = '';
-    const blIdx = planText.indexOf(BASELINE_START);
-    if (blIdx !== -1) {
-        baselineSection = planText.substring(blIdx);
-    }
+    const HIGHLIGHTS_START = '---highlights---';
+    const HIGHLIGHTS_END = '---end-highlights---';
+    const BENEFITS_START_M = '---benefits---';
 
-    // Strip existing comms and baseline sections
-    let base = planText;
-    const commsIdx = base.indexOf(COMMS_START);
-    if (commsIdx !== -1) {
-        const afterComms = base.indexOf(BASELINE_START, commsIdx);
-        if (afterComms !== -1) {
-            base = base.substring(0, commsIdx).replace(/\n+$/, '');
-        } else {
-            base = base.substring(0, commsIdx).replace(/\n+$/, '');
+    function extractSection(text, startMarker, endMarkers) {
+        const idx = text.indexOf(startMarker);
+        if (idx === -1) return '';
+        const afterStart = idx + startMarker.length;
+        let endIdx = text.length;
+        for (const em of endMarkers) {
+            const ei = text.indexOf(em, afterStart);
+            if (ei !== -1 && ei < endIdx) endIdx = ei;
         }
-    } else if (blIdx !== -1) {
-        base = base.substring(0, blIdx).replace(/\n+$/, '');
+        return text.substring(afterStart, endIdx).replace(/^\n+/, '').replace(/\n+$/, '');
     }
 
+    // Extract every section so we can re-append in canonical order
+    const highlightsText = extractSection(planText, HIGHLIGHTS_START,
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
+    const budgetText = extractSection(planText, BUDGET_START,
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const benefitsText = extractSection(planText, BENEFITS_START_M,
+        [RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, BASELINE_START]);
+    const baselineText = planText.indexOf(BASELINE_START) !== -1
+        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
+        : '';
+
+    // Strip all special sections to get just tasks + front matter
+    let base = planText;
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START];
+    let earliestIdx = base.length;
+    for (const marker of sectionMarkers) {
+        const idx = base.indexOf(marker);
+        if (idx !== -1 && idx < earliestIdx) earliestIdx = idx;
+    }
+    if (earliestIdx < base.length) {
+        base = base.substring(0, earliestIdx);
+    }
+    base = base.replace(/\n+$/, '');
+
+    let lines = base.split('\n');
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '---') {
+        lines.pop();
+    }
+    base = lines.join('\n').replace(/\n+$/, '');
+
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, baseline
     let result = base;
 
-    // Add comms section if there are items
-    const table = generateCommsMarkdown();
-    if (table) {
-        result = result + '\n\n' + COMMS_START + '\n' + table;
+    if (highlightsText) {
+        result = result + '\n\n---\n\n' + HIGHLIGHTS_START + '\n' + highlightsText;
+        if (hasEndHighlights) {
+            result = result.replace(/\n+$/, '') + '\n\n' + HIGHLIGHTS_END;
+        }
+    }
+    if (budgetText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BUDGET_START + '\n' + budgetText;
+    }
+    if (benefitsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BENEFITS_START_M + '\n' + benefitsText;
+    }
+    if (raidText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + RAID_LOG_START + '\n' + raidText;
     }
 
-    // Re-append baseline
-    if (baselineSection) {
-        result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
+    const table = generateCommsMarkdown();
+    if (table) {
+        result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + table;
+    }
+
+    if (baselineText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
     }
 
     return result;
@@ -11633,58 +11675,71 @@ function syncRaidLogToPlanText() {
  * JavaScript equivalent of the Python update_plan_raid_log function.
  */
 function updatePlanRaidLogText(planText, items) {
-    // Preserve the baseline section if present
-    let baselineSection = '';
-    const blIdx = planText.indexOf(BASELINE_START);
-    if (blIdx !== -1) {
-        baselineSection = planText.substring(blIdx);
-    }
+    const HIGHLIGHTS_START = '---highlights---';
+    const HIGHLIGHTS_END = '---end-highlights---';
+    const BENEFITS_START_M = '---benefits---';
 
-    // Preserve the comms section if present
-    let commsSection = '';
-    const commsIdx = planText.indexOf(COMMS_START);
-    if (commsIdx !== -1) {
-        const commsEnd = (blIdx !== -1 && blIdx > commsIdx) ? blIdx : planText.length;
-        commsSection = planText.substring(commsIdx, commsEnd).replace(/\n+$/, '');
-    }
-
-    // Preserve the budget section if present
-    let budgetSection = '';
-    const budgetIdx = planText.indexOf(BUDGET_START);
-    if (budgetIdx !== -1) {
-        const raidAfterBudget = planText.indexOf(RAID_LOG_START, budgetIdx);
-        if (raidAfterBudget !== -1) {
-            budgetSection = planText.substring(budgetIdx, raidAfterBudget).replace(/\n+$/, '');
-        } else {
-            // Budget ends at comms, baseline, or EOF
-            let budgetEnd = planText.length;
-            if (commsIdx !== -1 && commsIdx > budgetIdx && commsIdx < budgetEnd) budgetEnd = commsIdx;
-            if (blIdx !== -1 && blIdx > budgetIdx && blIdx < budgetEnd) budgetEnd = blIdx;
-            budgetSection = planText.substring(budgetIdx, budgetEnd).replace(/\n+$/, '');
+    // Helper: extract a section's content between its start marker and the
+    // next section marker (or EOF).
+    function extractSection(text, startMarker, endMarkers) {
+        const idx = text.indexOf(startMarker);
+        if (idx === -1) return '';
+        const afterStart = idx + startMarker.length;
+        let endIdx = text.length;
+        for (const em of endMarkers) {
+            const ei = text.indexOf(em, afterStart);
+            if (ei !== -1 && ei < endIdx) endIdx = ei;
         }
+        return text.substring(afterStart, endIdx).replace(/^\n+/, '').replace(/\n+$/, '');
     }
 
-    // Strip existing RAID log section, budget section, comms, and baseline
+    // Extract every section so we can re-append in canonical order
+    const highlightsText = extractSection(planText, HIGHLIGHTS_START,
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
+    const budgetText = extractSection(planText, BUDGET_START,
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const benefitsText = extractSection(planText, BENEFITS_START_M,
+        [RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const commsText = extractSection(planText, COMMS_START, [BASELINE_START]);
+    const baselineText = planText.indexOf(BASELINE_START) !== -1
+        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
+        : '';
+
+    // Strip all special sections to get just tasks + front matter
     let base = planText;
-    // Find the earliest section marker to strip
-    const budgetStart = base.indexOf(BUDGET_START);
-    const raidStart = base.indexOf(RAID_LOG_START);
-    const commsStart = base.indexOf(COMMS_START);
-    const baselineStart = base.indexOf(BASELINE_START);
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START];
+    let earliestIdx = base.length;
+    for (const marker of sectionMarkers) {
+        const idx = base.indexOf(marker);
+        if (idx !== -1 && idx < earliestIdx) earliestIdx = idx;
+    }
+    if (earliestIdx < base.length) {
+        base = base.substring(0, earliestIdx);
+    }
+    base = base.replace(/\n+$/, '');
 
-    let cutIdx = base.length;
-    if (budgetStart !== -1 && budgetStart < cutIdx) cutIdx = budgetStart;
-    if (raidStart !== -1 && raidStart < cutIdx) cutIdx = raidStart;
-    if (commsStart !== -1 && commsStart < cutIdx) cutIdx = commsStart;
-    if (baselineStart !== -1 && baselineStart < cutIdx) cutIdx = baselineStart;
+    // Remove trailing --- separator
+    let lines = base.split('\n');
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '---') {
+        lines.pop();
+    }
+    base = lines.join('\n').replace(/\n+$/, '');
 
-    base = base.substring(0, cutIdx).replace(/\n+$/, '');
-
-    // Rebuild: base + budget + raid + comms + baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, baseline
     let result = base;
 
-    if (budgetSection) {
-        result = result + '\n\n' + budgetSection;
+    if (highlightsText) {
+        result = result + '\n\n---\n\n' + HIGHLIGHTS_START + '\n' + highlightsText;
+        if (hasEndHighlights) {
+            result = result.replace(/\n+$/, '') + '\n\n' + HIGHLIGHTS_END;
+        }
+    }
+    if (budgetText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BUDGET_START + '\n' + budgetText;
+    }
+    if (benefitsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BENEFITS_START_M + '\n' + benefitsText;
     }
 
     const table = generateRaidLogTable();
@@ -11692,14 +11747,11 @@ function updatePlanRaidLogText(planText, items) {
         result = result.replace(/\n+$/, '') + '\n\n' + RAID_LOG_START + '\n' + table;
     }
 
-    // Re-append the comms section
-    if (commsSection) {
-        result = result.replace(/\n+$/, '') + '\n\n' + commsSection;
+    if (commsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + commsText;
     }
-
-    // Re-append the baseline section
-    if (baselineSection && !result.includes(BASELINE_START)) {
-        result = result.replace(/\n+$/, '') + '\n\n' + baselineSection;
+    if (baselineText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
     }
 
     return result;
