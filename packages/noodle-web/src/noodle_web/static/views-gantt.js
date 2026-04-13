@@ -205,6 +205,15 @@ function updateGantt(tasks) {
             depToggle.dataset.initialized = 'true';
         }
 
+        // Set up critical path toggle if not already done
+        const cpToggle = document.getElementById('ganttShowCriticalPath');
+        if (cpToggle && !cpToggle.dataset.initialized) {
+            cpToggle.addEventListener('change', function() {
+                renderGanttChart();
+            });
+            cpToggle.dataset.initialized = 'true';
+        }
+
         // Initial render
         renderGanttChart();
 
@@ -253,6 +262,9 @@ function renderGanttChart() {
 
     // Render dependency lines if toggle is on
     renderDependencyLines();
+
+    // Render critical path connector lines if toggle is on
+    renderCriticalPathLines();
 
     // Size the gantt panels (handled by CSS flex layout now)
 
@@ -555,6 +567,10 @@ function renderGanttRows() {
         }
     }
 
+    // Check if critical path display is enabled
+    const cpToggle = document.getElementById('ganttShowCriticalPath');
+    const showCriticalPath = cpToggle && cpToggle.checked;
+
     ganttTasks.forEach((task, index) => {
         // Skip hidden tasks (children of collapsed summary tasks)
         const isHidden = hiddenIndices.has(index);
@@ -567,6 +583,9 @@ function renderGanttRows() {
         infoRow.dataset.taskIndex = index;
         if (task.is_summary) {
             infoRow.classList.add('gantt-phase-row');
+        }
+        if (showCriticalPath && task.critical && !task.is_summary) {
+            infoRow.classList.add('gantt-critical-row');
         }
         if (isHidden) {
             infoRow.style.display = 'none';
@@ -787,13 +806,17 @@ function renderGanttRows() {
             if (task.duration_days === 0 && !task.is_summary) {
                 const diamond = document.createElement('div');
                 diamond.className = 'gantt-bar gantt-milestone';
+                if (showCriticalPath && task.critical) {
+                    diamond.classList.add('gantt-critical-bar');
+                }
                 const leftPos = daysFromStart * ganttPixelsPerDay - 9;
                 diamond.style.left = leftPos + 'px';
-                diamond.title = `${task.name}\nMilestone: ${task.finish}`;
+                diamond.title = `${task.name}\nMilestone: ${task.finish}` +
+                    (showCriticalPath && task.total_float != null ? `\nFloat: ${task.total_float}d` : '');
                 diamond.dataset.taskIndex = index;
 
                 // Apply conditional formatting to milestone
-                if (cfStyle) {
+                if (cfStyle && !showCriticalPath) {
                     diamond.style.backgroundColor = cfStyle.backgroundColor;
                 }
 
@@ -818,8 +841,12 @@ function renderGanttRows() {
 
                 const bar = document.createElement('div');
                 bar.className = task.is_summary ? 'gantt-bar gantt-phase-bar' : 'gantt-bar gantt-task-bar';
-                // Apply RAG colouring to non-summary task bars
-                if (!task.is_summary && task.rag) {
+                // Apply critical path styling when enabled
+                if (showCriticalPath && task.critical && !task.is_summary) {
+                    bar.classList.add('gantt-critical-bar');
+                }
+                // Apply RAG colouring to non-summary task bars (skip when critical path is shown)
+                if (!task.is_summary && task.rag && !(showCriticalPath && task.critical)) {
                     const barRagColour = ragStatusToColour(task.rag);
                     if (barRagColour && barRagColour !== 'green') {
                         bar.classList.add('gantt-bar-' + barRagColour);
@@ -829,7 +856,9 @@ function renderGanttRows() {
                 const barWidth = taskCalendarDays * ganttPixelsPerDay;
                 bar.style.left = leftPos + 'px';
                 bar.style.width = barWidth + 'px';
-                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${displayDuration} days`;
+                const floatInfo = (showCriticalPath && task.total_float != null && !task.is_summary)
+                    ? `\nFloat: ${task.total_float}d` : '';
+                bar.title = `${task.name}\n${task.start} to ${task.finish}\nDuration: ${displayDuration} days${floatInfo}`;
                 bar.dataset.taskIndex = index;
 
                 // Add drag handles
@@ -851,8 +880,18 @@ function renderGanttRows() {
                     bar.appendChild(progress);
                 }
 
+                // Add float/slack extension bar for non-critical tasks when critical path is shown
+                if (showCriticalPath && !task.is_summary && task.total_float > 0) {
+                    const floatBar = document.createElement('div');
+                    floatBar.className = 'gantt-float-bar';
+                    const floatWidth = task.total_float * ganttPixelsPerDay;
+                    floatBar.style.width = floatWidth + 'px';
+                    floatBar.title = `Float: ${task.total_float} working days`;
+                    bar.appendChild(floatBar);
+                }
+
                 // Apply conditional formatting to bar
-                if (cfStyle) {
+                if (cfStyle && !(showCriticalPath && task.critical)) {
                     bar.style.backgroundColor = cfStyle.backgroundColor;
                 }
 
@@ -1338,4 +1377,133 @@ function updateTaskDates(task, taskIndex, handleType, deltaDays) {
     renderText();
 }
 
+/**
+ * Draw red SVG connector lines between critical path tasks.
+ * Only shown when the "Critical Path" toggle is checked.
+ */
+function renderCriticalPathLines() {
+    // Remove any existing critical path SVG
+    const existing = document.getElementById('ganttCriticalPathSvg');
+    if (existing) existing.remove();
+
+    const toggle = document.getElementById('ganttShowCriticalPath');
+    if (!toggle || !toggle.checked) return;
+
+    const ganttBody = document.getElementById('ganttBody');
+    if (!ganttBody || !ganttTasks || ganttTasks.length === 0) return;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'ganttCriticalPathSvg';
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '2';
+
+    const nameToIndex = {};
+    ganttTasks.forEach((t, i) => {
+        if (t.name) nameToIndex[t.name.toLowerCase()] = i;
+    });
+
+    const barRows = ganttBody.querySelectorAll('.gantt-bar-row');
+    const rowHeight = 40;
+
+    // Build visible row Y positions
+    const visibleRowY = {};
+    let visibleCount = 0;
+    for (let i = 0; i < barRows.length; i++) {
+        if (barRows[i].style.display !== 'none') {
+            visibleRowY[i] = visibleCount * rowHeight + rowHeight / 2;
+            visibleCount++;
+        }
+    }
+
+    let hasLines = false;
+
+    ganttTasks.forEach((task, index) => {
+        // Only draw lines between critical tasks
+        if (!task.critical || task.is_summary) return;
+        if (!task.depends || task.depends.length === 0) return;
+        if (!task.start) return;
+
+        const depBarRow = barRows[index];
+        if (!depBarRow || depBarRow.style.display === 'none') return;
+
+        const depBar = depBarRow.querySelector('.gantt-bar');
+        if (!depBar) return;
+
+        const depLeft = parseInt(depBar.style.left) || 0;
+        const depY = visibleRowY[index];
+        if (depY === undefined) return;
+
+        task.depends.forEach(depName => {
+            const predIndex = nameToIndex[depName.toLowerCase()];
+            if (predIndex === undefined) return;
+
+            const predTask = ganttTasks[predIndex];
+            if (!predTask || !predTask.critical || !predTask.start) return;
+
+            const predBarRow = barRows[predIndex];
+            if (!predBarRow || predBarRow.style.display === 'none') return;
+
+            const predBar = predBarRow.querySelector('.gantt-bar');
+            if (!predBar) return;
+
+            const predLeft = parseInt(predBar.style.left) || 0;
+            const predWidth = parseInt(predBar.style.width) || 18;
+            const predY = visibleRowY[predIndex];
+            if (predY === undefined) return;
+
+            const startX = predLeft + predWidth;
+            const startY = predY;
+            const endX = depLeft;
+            const endY = depY;
+
+            const offset = 10;
+            const arrowSize = 5;
+            let d;
+
+            if (endX > startX + offset * 2) {
+                const midX = startX + offset;
+                d = `M ${startX} ${startY} ` +
+                    `L ${midX} ${startY} ` +
+                    `L ${midX} ${endY} ` +
+                    `L ${endX - offset} ${endY} ` +
+                    `L ${endX} ${endY}`;
+            } else {
+                const exitX = startX + offset;
+                const entryX = endX - offset;
+                const midY = startY + (endY - startY) / 2;
+                d = `M ${startX} ${startY} ` +
+                    `L ${exitX} ${startY} ` +
+                    `L ${exitX} ${midY} ` +
+                    `L ${entryX} ${midY} ` +
+                    `L ${entryX} ${endY} ` +
+                    `L ${endX} ${endY}`;
+            }
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#e03131');
+            path.setAttribute('stroke-width', '2');
+
+            const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            arrow.setAttribute('points',
+                `${endX},${endY} ${endX - arrowSize},${endY - arrowSize} ${endX - arrowSize},${endY + arrowSize}`
+            );
+            arrow.setAttribute('fill', '#e03131');
+
+            svg.appendChild(path);
+            svg.appendChild(arrow);
+            hasLines = true;
+        });
+    });
+
+    if (hasLines) {
+        ganttBody.appendChild(svg);
+    }
+}
 

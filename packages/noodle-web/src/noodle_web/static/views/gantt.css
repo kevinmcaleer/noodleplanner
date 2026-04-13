@@ -538,6 +538,57 @@
     pointer-events: none;
 }
 
+/* Critical path highlighting */
+.gantt-critical-bar {
+    background: #e03131 !important;
+    border: 2px solid #c92a2a !important;
+    z-index: 1;
+}
+
+.gantt-milestone.gantt-critical-bar {
+    background: #e03131 !important;
+    border: 2px solid #c92a2a !important;
+}
+
+.gantt-critical-row {
+    background-color: rgba(224, 49, 49, 0.06) !important;
+}
+
+/* Float/slack extension bar shown to the right of task bars */
+.gantt-float-bar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    background: rgba(81, 207, 102, 0.25);
+    border-left: 1px dashed rgba(81, 207, 102, 0.6);
+    border-radius: 0 4px 4px 0;
+    pointer-events: none;
+    transform: translateX(100%);
+}
+
+/* Float column in tasks table */
+.gantt-float-cell {
+    text-align: center;
+    white-space: nowrap;
+    font-size: 0.85rem;
+}
+
+.gantt-critical-float {
+    color: #e03131;
+    font-weight: 600;
+}
+
+/* Dark mode adjustments for critical path */
+[data-bs-theme="dark"] .gantt-critical-row {
+    background-color: rgba(224, 49, 49, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .gantt-float-bar {
+    background: rgba(81, 207, 102, 0.15);
+    border-left-color: rgba(81, 207, 102, 0.4);
+}
+
 /* Baseline controls in Gantt toolbar */
 .gantt-baseline-controls {
     display: flex;

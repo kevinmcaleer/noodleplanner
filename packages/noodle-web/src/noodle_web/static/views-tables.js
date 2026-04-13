@@ -1850,6 +1850,20 @@ function updateTasksTable(tasks) {
         }
         row.appendChild(ragCell);
 
+        // Float (total float / slack)
+        const floatCell = document.createElement('td');
+        floatCell.classList.add('gantt-float-cell');
+        if (!task.is_summary && task.total_float != null) {
+            floatCell.textContent = `${task.total_float}d`;
+            if (task.critical) {
+                floatCell.classList.add('gantt-critical-float');
+                floatCell.title = 'Critical path task (zero float)';
+            }
+        } else {
+            floatCell.textContent = '-';
+        }
+        row.appendChild(floatCell);
+
         // Priority
         const priorityCell = document.createElement('td');
         priorityCell.classList.add('editable');

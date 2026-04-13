@@ -681,6 +681,8 @@ class PlanService:
                     "product_type": task.get("product_type", "internal"),
                     "parent": task.get("parent", ""),
                     "quality_roles": task.get("quality_roles", {}),
+                    "total_float": task.get("total_float", None),
+                    "critical": task.get("critical", False),
                 }
             )
 
