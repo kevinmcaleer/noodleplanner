@@ -204,39 +204,78 @@ function syncBenefitsToPlanText() {
     const planText = editor.value;
     const table = generateBenefitsMarkdown();
 
-    // Find section boundaries
-    const benStart = planText.indexOf(BENEFITS_START);
-    const budgetStart = planText.indexOf(BUDGET_START);
-    const raidStart = planText.indexOf(RAID_LOG_START);
-    const baselineStart = planText.indexOf(BASELINE_START);
+    const HIGHLIGHTS_START = '---highlights---';
+    const HIGHLIGHTS_END = '---end-highlights---';
 
-    // Find the end of the benefits section (next section marker)
-    let benEnd = planText.length;
-    if (benStart !== -1) {
-        for (const marker of [BUDGET_START, RAID_LOG_START, BASELINE_START, COMMS_START]) {
-            const idx = planText.indexOf(marker, benStart + BENEFITS_START.length);
-            if (idx !== -1 && idx < benEnd) benEnd = idx;
+    function extractSection(text, startMarker, endMarkers) {
+        const idx = text.indexOf(startMarker);
+        if (idx === -1) return '';
+        const afterStart = idx + startMarker.length;
+        let endIdx = text.length;
+        for (const em of endMarkers) {
+            const ei = text.indexOf(em, afterStart);
+            if (ei !== -1 && ei < endIdx) endIdx = ei;
         }
+        return text.substring(afterStart, endIdx).replace(/^\n+/, '').replace(/\n+$/, '');
     }
 
-    let updatedText;
-    if (benStart !== -1) {
-        // Replace existing benefits section
-        const before = planText.substring(0, benStart);
-        const after = planText.substring(benEnd);
-        updatedText = before + BENEFITS_START + '\n' + table + '\n' + after;
-    } else {
-        // Insert before budget/raid/baseline (whichever comes first)
-        let insertIdx = planText.length;
-        for (const marker of [BUDGET_START, RAID_LOG_START, BASELINE_START, COMMS_START]) {
-            const idx = planText.indexOf(marker);
-            if (idx !== -1 && idx < insertIdx) insertIdx = idx;
-        }
+    // Extract every section so we can re-append in canonical order
+    const highlightsText = extractSection(planText, HIGHLIGHTS_START,
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
+    const budgetText = extractSection(planText, BUDGET_START,
+        [BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, BASELINE_START]);
+    const commsText = extractSection(planText, COMMS_START, [BASELINE_START]);
+    const baselineText = planText.indexOf(BASELINE_START) !== -1
+        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
+        : '';
 
-        const before = planText.substring(0, insertIdx).replace(/\n+$/, '');
-        const after = planText.substring(insertIdx);
-        updatedText = before + '\n\n' + BENEFITS_START + '\n' + table + '\n' + after;
+    // Strip all special sections to get just tasks + front matter
+    let base = planText;
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START];
+    let earliestIdx = base.length;
+    for (const marker of sectionMarkers) {
+        const idx = base.indexOf(marker);
+        if (idx !== -1 && idx < earliestIdx) earliestIdx = idx;
     }
+    if (earliestIdx < base.length) {
+        base = base.substring(0, earliestIdx);
+    }
+    base = base.replace(/\n+$/, '');
+
+    let lines = base.split('\n');
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '---') {
+        lines.pop();
+    }
+    base = lines.join('\n').replace(/\n+$/, '');
+
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, baseline
+    let result = base;
+
+    if (highlightsText) {
+        result = result + '\n\n---\n\n' + HIGHLIGHTS_START + '\n' + highlightsText;
+        if (hasEndHighlights) {
+            result = result.replace(/\n+$/, '') + '\n\n' + HIGHLIGHTS_END;
+        }
+    }
+    if (budgetText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BUDGET_START + '\n' + budgetText;
+    }
+    if (table) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BENEFITS_START + '\n' + table;
+    }
+    if (raidText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + RAID_LOG_START + '\n' + raidText;
+    }
+    if (commsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + commsText;
+    }
+    if (baselineText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+
+    const updatedText = result;
 
     if (updatedText !== planText) {
         if (typeof setEditorValuePreservingCursor === 'function') {
