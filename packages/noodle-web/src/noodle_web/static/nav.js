@@ -27,6 +27,8 @@ function toggleExportMenu(event) {
 
 // All subnav dropdown menu IDs and their button IDs
 const NAV_DROPDOWN_MENUS = [
+    { menuId: 'viewsDropdownMenu', btnId: 'viewsDropdownBtn' },
+    { menuId: 'deliverablesDropdownMenu', btnId: 'deliverablesDropdownBtn' },
     { menuId: 'trackingDropdownMenu', btnId: 'trackingDropdownBtn' },
     { menuId: 'resourcesDropdownMenu', btnId: 'resourcesDropdownBtn' },
     { menuId: 'toolsDropdownMenu', btnId: 'toolsDropdownBtn' }

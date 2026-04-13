@@ -177,9 +177,9 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'pbs', 'deliverables', 'product-flow', 'benefits', 'stakeholders', 'guide'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm', 'comms'];
-const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet'];
+const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet', 'stakeholders'];
 const TOOLS_VIEWS = ['guide'];
 
 // All project views now live under a single planSubnav bar
