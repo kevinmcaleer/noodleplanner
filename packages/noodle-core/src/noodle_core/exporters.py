@@ -337,6 +337,59 @@ def parse_resource_mappings(original_text):
     return resource_map, resource_nwd
 
 
+def parse_resource_roles(original_text):
+    """Parse resource roles from YAML front matter.
+
+    Returns a dict mapping short names (lowercase) to their role string.
+    The role is the text after the first comma in the resource line.
+
+    Example: ``- @Jack: Jack Lloyd, Network Arch`` returns ``{'jack': 'Network Arch'}``.
+    """
+    role_map = {}
+    if not original_text:
+        return role_map
+
+    lines = original_text.split('\n')
+    in_frontmatter = False
+    in_resources = False
+
+    for line in lines:
+        if line.strip() == '---':
+            if not in_frontmatter:
+                in_frontmatter = True
+            else:
+                break
+            continue
+
+        if not in_frontmatter:
+            continue
+
+        if line.strip().startswith('Resources:'):
+            in_resources = True
+            continue
+
+        if in_resources and line and not line.startswith(' ') and not line.startswith('-'):
+            in_resources = False
+
+        if in_resources and line.strip().startswith('-'):
+            match = re.match(r'\s*-\s*@(\w+):\s*(.+)', line)
+            if match:
+                short_name = match.group(1)
+                full_info = match.group(2).strip()
+
+                # Remove non-working days suffix if present
+                nwd_match = re.search(r',?\s*non-working\s*\[([^\]]*)\]\s*$', full_info)
+                if nwd_match:
+                    full_info = full_info[:nwd_match.start()].strip().rstrip(',').strip()
+
+                # Parts after the first comma are the role
+                parts = [p.strip() for p in full_info.split(',')]
+                if len(parts) > 1:
+                    role_map[short_name.lower()] = ', '.join(parts[1:])
+
+    return role_map
+
+
 def parse_stakeholders_from_frontmatter(original_text):
     """Parse stakeholder entries from YAML front matter.
 
@@ -2758,10 +2811,20 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
 
             people_list = sorted(people.items(), key=lambda x: x[0])
 
+            # Build a role lookup: shortname -> role title (from Resources and Stakeholders)
+            dm_role_map = {}
+            if original_text:
+                dm_role_map = parse_resource_roles(original_text)
+                for s in parse_stakeholders_from_frontmatter(original_text):
+                    skey = (s.get('shortname') or s.get('name', '')).lower()
+                    if skey and s.get('role') and skey not in dm_role_map:
+                        dm_role_map[skey] = s['role']
+
             ws_dm = wb.create_sheet("Deliverables Matrix")
 
-            fixed_headers = ['ID', 'Deliverable', 'Status']
-            person_headers = [display for _, display in people_list]
+            fixed_headers = ['ID', 'Deliverable', 'Dates', 'Status']
+            # Use role as the column header; fall back to shortname if no role is known
+            person_headers = [dm_role_map.get(short, short) for short, _ in people_list]
             dm_headers = fixed_headers + person_headers + ['QA']
 
             dm_header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
@@ -2816,8 +2879,22 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                 ws_dm.cell(row=row_num, column=1, value=d_idx)
                 deliverable_name = dtask.get('deliverable', dtask.get('name', ''))
                 ws_dm.cell(row=row_num, column=2, value=deliverable_name.replace('_', ' '))
+
+                # Dates column — show start – finish range
+                d_start = dtask.get('start')
+                d_finish = dtask.get('finish')
+                dates_str = ''
+                if d_start and d_finish:
+                    fmt = '%Y-%m-%d'
+                    s = d_start.strftime(fmt) if hasattr(d_start, 'strftime') else str(d_start)
+                    f = d_finish.strftime(fmt) if hasattr(d_finish, 'strftime') else str(d_finish)
+                    dates_str = f"{s} \u2013 {f}"
+                elif d_start:
+                    dates_str = str(d_start.strftime('%Y-%m-%d') if hasattr(d_start, 'strftime') else d_start)
+                ws_dm.cell(row=row_num, column=3, value=dates_str)
+
                 status = 'Complete' if dtask.get('percent', 0) == 100 else ('In Progress' if dtask.get('percent', 0) else '')
-                status_cell = ws_dm.cell(row=row_num, column=3, value=status)
+                status_cell = ws_dm.cell(row=row_num, column=4, value=status)
                 if status == 'Complete':
                     status_cell.fill = PatternFill(start_color="70AD47", end_color="70AD47", fill_type="solid")
                     status_cell.font = Font(color="FFFFFF")
@@ -2849,7 +2926,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
 
             ws_dm.column_dimensions['A'].width = 5
             ws_dm.column_dimensions['B'].width = 25
-            ws_dm.column_dimensions['C'].width = 12
+            ws_dm.column_dimensions['C'].width = 24
+            ws_dm.column_dimensions['D'].width = 12
             for p_idx in range(len(people_list)):
                 col_letter = get_column_letter(len(fixed_headers) + p_idx + 1)
                 ws_dm.column_dimensions[col_letter].width = 4
