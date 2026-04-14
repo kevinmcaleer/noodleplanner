@@ -495,9 +495,11 @@
     border-radius: 50%;
 }
 
-.rag-dot-R { background: #dc3545; }
-.rag-dot-A { background: #ffc107; }
-.rag-dot-G { background: #28a745; }
+.rag-dot-R { background: #d32f2f; }
+.rag-dot-A { background: #f57c00; }
+.rag-dot-G { background: #388e3c; }
+.rag-dot-B { background: #1976d2; }
+.rag-dot-none { background: #ccc; }
 
 /* Trend Indicator */
 .trend-indicator {
@@ -506,15 +508,15 @@
 }
 
 .trend-indicator.trend-up {
-    color: #28a745;
+    color: #388e3c;
 }
 
 .trend-indicator.trend-stable {
-    color: #ffc107;
+    color: #9e9e9e;
 }
 
 .trend-indicator.trend-down {
-    color: #dc3545;
+    color: #d32f2f;
 }
 
 /* Sort Indicator */

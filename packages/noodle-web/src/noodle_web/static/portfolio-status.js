@@ -118,43 +118,66 @@ function extractProjectStatusLabel(frontMatter, completion, ragStatus) {
 }
 
 /**
- * Update RAG history for a project, appending the current RAG letter
- * only when it differs from the most recent entry.
- * Returns the updated history string (max 5 characters).
+ * Get the last N RAG statuses from version history for a project.
+ * Returns an array of RAG letter strings ('R', 'A', 'G', 'B') in
+ * chronological order (oldest first), up to `count` entries.
+ * If currentRag is provided it is appended as the latest status.
  */
-function updateRagHistory(project, currentRag) {
-    const letter = currentRag === 'red' ? 'R' : currentRag === 'amber' ? 'A' : 'G';
-    const history = project.ragHistory || '';
-    const lastLetter = history.length > 0 ? history[history.length - 1] : '';
-    if (letter === lastLetter) return history;
-    const updated = (history + letter).slice(-5);
-    saveProject(project.id, { ragHistory: updated });
-    return updated;
+function getVersionHistoryRag(projectId, currentRag, count) {
+    count = count || 5;
+    let entries = [];
+    if (typeof getVersionHistory === 'function') {
+        // getVersionHistory returns newest-first
+        const history = getVersionHistory(projectId);
+        entries = history
+            .filter(function (e) { return e.rag; })
+            .map(function (e) {
+                const r = e.rag.toLowerCase();
+                if (r === 'red' || r === 'r') return 'R';
+                if (r === 'amber' || r === 'a') return 'A';
+                if (r === 'green' || r === 'g') return 'G';
+                if (r === 'blue' || r === 'b') return 'B';
+                return null;
+            })
+            .filter(Boolean)
+            .reverse(); // oldest first
+    }
+    // Append current computed RAG so the trend includes the live status
+    if (currentRag) {
+        const letter = currentRag === 'red' ? 'R' : currentRag === 'amber' ? 'A' : currentRag === 'blue' ? 'B' : 'G';
+        // Only append if it differs from the last entry or there are none
+        if (entries.length === 0 || entries[entries.length - 1] !== letter) {
+            entries.push(letter);
+        }
+    }
+    return entries.slice(-count);
 }
 
 /**
- * Calculate project trend from RAG history.
+ * Calculate project trend from a RAG letters array.
  * Compares first and last letters: improving if last is better,
  * declining if worse, stable if same or insufficient data.
+ * Rank: R(0) < A(1) < G(2); B treated as G.
  */
-function calculateProjectTrend(ragHistory) {
-    if (!ragHistory || ragHistory.length < 2) return 'stable';
-    const ragRank = { 'R': 0, 'A': 1, 'G': 2 };
-    const first = ragRank[ragHistory[0]];
-    const last = ragRank[ragHistory[ragHistory.length - 1]];
+function calculateProjectTrend(ragLetters) {
+    if (!ragLetters || ragLetters.length < 2) return 'stable';
+    const ragRank = { 'R': 0, 'A': 1, 'G': 2, 'B': 2 };
+    const first = ragRank[ragLetters[0]];
+    const last = ragRank[ragLetters[ragLetters.length - 1]];
+    if (first === undefined || last === undefined) return 'stable';
     if (last > first) return 'up';
     if (last < first) return 'down';
     return 'stable';
 }
 
 /**
- * Render RAG history as coloured dots
+ * Render RAG history as coloured dots (oldest to newest, left to right)
  */
-function renderRagHistoryDots(ragHistory) {
-    if (!ragHistory) return '';
+function renderRagHistoryDots(ragLetters) {
+    if (!ragLetters || ragLetters.length === 0) return '';
     let html = '<div class="rag-history">';
-    for (const ch of ragHistory) {
-        html += '<span class="rag-dot rag-dot-' + ch + '"></span>';
+    for (var i = 0; i < ragLetters.length; i++) {
+        html += '<span class="rag-dot rag-dot-' + ragLetters[i] + '"></span>';
     }
     html += '</div>';
     return html;
@@ -195,8 +218,8 @@ async function renderPortfolioStatus() {
             const completion = calculateProjectCompletionFromTasks(tasks);
             const ragStatus = extractRAGStatus(frontMatter, tasks, completion);
             const statusLabel = extractProjectStatusLabel(frontMatter, completion, ragStatus);
-            const ragHistory = updateRagHistory(project, ragStatus);
-            const trend = calculateProjectTrend(ragHistory);
+            const ragLetters = getVersionHistoryRag(project.id, ragStatus, 5);
+            const trend = calculateProjectTrend(ragLetters);
 
             const openRisks = raidItems.filter(item => {
                 const type = (item.type || '').toLowerCase();
@@ -211,7 +234,7 @@ async function renderPortfolioStatus() {
                 ragStatus: ragStatus,
                 statusLabel: statusLabel,
                 trend: trend,
-                ragHistory: ragHistory,
+                ragLetters: ragLetters,
                 updatedAt: project.updatedAt,
                 riskCount: openRisks
             };
@@ -251,7 +274,7 @@ async function renderPortfolioStatus() {
 
         statusData.forEach(proj => {
             const updatedDate = new Date(proj.updatedAt).toLocaleDateString();
-            const trendIcon = proj.trend === 'up' ? '↗' : proj.trend === 'down' ? '↘' : '→';
+            const trendIcon = proj.trend === 'up' ? '↑' : proj.trend === 'down' ? '↓' : '→';
             const trendClass = 'trend-' + proj.trend;
 
             html += '<tr class="status-row" onclick="openProjectDashboard(\'' + proj.id + '\')" data-rag="' + proj.ragStatus + '">' +
@@ -266,7 +289,7 @@ async function renderPortfolioStatus() {
                 '<td><span class="rag-badge rag-' + proj.ragStatus + '">' + proj.ragStatus.toUpperCase() + '</span></td>' +
                 '<td class="risk-count">' + proj.riskCount + '</td>' +
                 '<td>' + updatedDate + '</td>' +
-                '<td>' + renderRagHistoryDots(proj.ragHistory) +
+                '<td>' + renderRagHistoryDots(proj.ragLetters) +
                 '<span class="trend-indicator ' + trendClass + '">' + trendIcon + '</span></td>' +
                 '</tr>';
         });
