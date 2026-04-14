@@ -2565,10 +2565,13 @@ body {
 }
 
 [data-theme="dark"] .widget-shortcut {
-    color: #666;
+    background: #2a2a3e;
+    border-color: #444;
+    color: #888;
 }
 
 [data-theme="dark"] .widget-shortcut:hover {
     background: #333350;
+    border-color: #666;
     color: #ccc;
 }

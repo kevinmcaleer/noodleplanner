@@ -1444,27 +1444,28 @@ svg.icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
-    transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
+    transition: background var(--np-anim-duration) var(--np-anim-easing), border-color var(--np-anim-duration) var(--np-anim-easing);
     line-height: 0;
-    color: #bbb;
+    color: #999;
     flex-shrink: 0;
 }
 
 .widget-shortcut:hover {
     background: #e0e0e0;
+    border-color: #999;
     color: #555;
-    cursor: pointer;
 }
 
 /* When a + button follows the shortcut, remove the auto margin */
 .quad-header-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     margin-left: auto;
     flex-shrink: 0;
 }
