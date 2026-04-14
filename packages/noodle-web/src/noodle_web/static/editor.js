@@ -101,11 +101,21 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
         }
 
+        let inFrontMatterSection = false;
         let inHighlightsSection = false;
         let inBudgetSection = false;
         let inRaidLogSection = false;
         let inBaselineSection = false;
         return allLines.map(line => {
+            // Track front matter (between --- delimiters) — skip syntax highlighting
+            if (line.trim() === '---' && !inHighlightsSection && !inBudgetSection && !inRaidLogSection && !inBaselineSection) {
+                inFrontMatterSection = !inFrontMatterSection;
+                return '<span class="syntax-frontmatter-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            if (inFrontMatterSection) {
+                return '<span class="syntax-frontmatter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+
             // Track highlights section boundaries
             if (line.trim() === '---highlights---') {
                 inHighlightsSection = true;
