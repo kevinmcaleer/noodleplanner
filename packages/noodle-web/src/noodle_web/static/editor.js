@@ -382,6 +382,15 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
     // Update on input and auto-render with debounce (only for main editor)
     editor.addEventListener('input', function() {
+        // Quietly replace curly/smart quotes with straight quotes
+        if (/[\u201c\u201d\u2018\u2019]/.test(editor.value)) {
+            const pos = editor.selectionStart;
+            editor.value = editor.value
+                .replace(/[\u201c\u201d]/g, '"')
+                .replace(/[\u2018\u2019]/g, "'");
+            editor.selectionStart = editor.selectionEnd = pos;
+        }
+
         updateLineNumbers();
 
         // Only trigger auto-render for the main editor
