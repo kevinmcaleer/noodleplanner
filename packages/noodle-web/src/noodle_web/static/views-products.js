@@ -2748,6 +2748,75 @@ function checkDuplicateDeliverables() {
         warnings.push(`Task names cannot contain commas (line${commaLines.length > 1 ? 's' : ''} ${commaLines.slice(0, 5).join(', ')}${commaLines.length > 5 ? '...' : ''}) — this breaks dependencies`);
     }
 
+    // 5. Circular product dependencies & products with no activities
+    try {
+        const tasksForCheck = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+        const deliverables = (typeof pbsExtractDeliverables === 'function')
+            ? pbsExtractDeliverables(tasksForCheck) : [];
+        if (deliverables.length > 0) {
+            // Build id -> dep-ids map
+            const byId = {};
+            for (const d of deliverables) byId[d.deliverable] = d;
+            const depMap = {};
+            for (const d of deliverables) {
+                const deps = [];
+                if (d.depends) {
+                    for (const depName of d.depends) {
+                        const target = deliverables.find(
+                            dd => dd.name === depName || dd.description === depName
+                        );
+                        if (target) deps.push(target.deliverable);
+                    }
+                }
+                depMap[d.deliverable] = deps;
+            }
+            // DFS to detect cycles
+            const WHITE = 0, GREY = 1, BLACK = 2;
+            const color = {};
+            for (const id of Object.keys(depMap)) color[id] = WHITE;
+            const cycles = [];
+            function dfs(id, stack) {
+                color[id] = GREY;
+                stack.push(id);
+                for (const next of depMap[id] || []) {
+                    if (color[next] === GREY) {
+                        const idx = stack.indexOf(next);
+                        cycles.push(stack.slice(idx).concat(next));
+                    } else if (color[next] === WHITE) {
+                        dfs(next, stack);
+                    }
+                }
+                stack.pop();
+                color[id] = BLACK;
+            }
+            for (const id of Object.keys(depMap)) {
+                if (color[id] === WHITE) dfs(id, []);
+            }
+            if (cycles.length > 0) {
+                const first = cycles[0].map(x => '$' + x).join(' → ');
+                warnings.push(`Circular product dependency: ${first}`);
+                // Highlight the cycle member lines
+                const cycleIds = new Set(cycles.flat());
+                for (let i = 0; i < lines.length; i++) {
+                    const m = lines[i].match(/\$([A-Za-z_][A-Za-z0-9_-]*)/);
+                    if (m && cycleIds.has(m[1])) warningLines.add(i + 1);
+                }
+            }
+
+            // Products with no activities
+            const empty = [];
+            for (const d of deliverables) {
+                const activities = (typeof pbsGetActivities === 'function')
+                    ? pbsGetActivities(d, tasksForCheck) : [];
+                if (!activities || activities.length === 0) empty.push(d.deliverable);
+            }
+            if (empty.length > 0) {
+                const show = empty.slice(0, 5).map(x => '$' + x).join(', ');
+                warnings.push(`${empty.length === 1 ? 'Product has' : empty.length + ' products have'} no activities: ${show}${empty.length > 5 ? '…' : ''}`);
+            }
+        }
+    } catch (e) { /* validation best-effort */ }
+
     // Store warning lines globally for the highlight layer to pick up
     window._duplicateWarningLines = warningLines;
 
