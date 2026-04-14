@@ -293,10 +293,106 @@ function updateReportPage(tasks, projectName, frontMatter) {
         updateReportUpNext(tasks);
         updateReportHighlight();
         updateReportDonutChart(tasks);
+        renderCompletionSparkline(typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null);
 
     } catch (error) {
         console.error('Error updating report page:', error);
     }
+}
+
+/**
+ * Extract overall % complete from a historical planText snapshot.
+ * Lightweight: scans for lines containing a percentage and averages them.
+ */
+function extractCompletionFromPlanText(planText) {
+    if (!planText) return null;
+
+    // Strip front matter
+    var body = planText;
+    var fmMatch = body.match(/^---\n[\s\S]*?\n---\n?/);
+    if (fmMatch) body = body.substring(fmMatch[0].length);
+
+    // Stop at special sections
+    var markers = ['---highlights---', '---budget---', '---benefits---',
+        '---raid log---', '---comms---', '---baseline---'];
+    var endIdx = body.length;
+    for (var i = 0; i < markers.length; i++) {
+        var idx = body.indexOf(markers[i]);
+        if (idx !== -1 && idx < endIdx) endIdx = idx;
+    }
+    body = body.substring(0, endIdx);
+
+    var lines = body.split('\n');
+    var total = 0;
+    var count = 0;
+    for (var j = 0; j < lines.length; j++) {
+        var m = lines[j].match(/\b(\d{1,3})%/);
+        if (m) {
+            total += parseInt(m[1], 10);
+            count++;
+        }
+    }
+    return count > 0 ? Math.round(total / count) : null;
+}
+
+/**
+ * Render a small SVG sparkline showing % complete over recent versions.
+ */
+function renderCompletionSparkline(projectId) {
+    var container = document.getElementById('reportCompletionSparkline');
+    if (!container) return;
+
+    if (!projectId || typeof getVersionHistory !== 'function') {
+        container.innerHTML = '';
+        return;
+    }
+
+    var history = getVersionHistory(projectId);
+    if (history.length < 2) {
+        container.innerHTML = '<span class="sparkline-label">Not enough history</span>';
+        return;
+    }
+
+    // Get up to 10 most recent versions (history is newest-first, reverse for chronological)
+    var recent = history.slice(0, 10).reverse();
+    var dataPoints = [];
+    for (var i = 0; i < recent.length; i++) {
+        var pct = extractCompletionFromPlanText(recent[i].planText);
+        if (pct !== null) dataPoints.push(pct);
+    }
+
+    if (dataPoints.length < 2) {
+        container.innerHTML = '<span class="sparkline-label">Not enough history</span>';
+        return;
+    }
+
+    // Determine trend colour
+    var first = dataPoints[0];
+    var last = dataPoints[dataPoints.length - 1];
+    var lineColour = '#e6a817'; // amber (flat)
+    if (last > first + 2) lineColour = '#2ca02c'; // green (improving)
+    else if (last < first - 2) lineColour = '#d62728'; // red (declining)
+
+    var w = 120, h = 30;
+    var minVal = Math.min.apply(null, dataPoints);
+    var maxVal = Math.max.apply(null, dataPoints);
+    var range = maxVal - minVal || 1;
+    var padY = 3;
+
+    var points = [];
+    for (var j = 0; j < dataPoints.length; j++) {
+        var x = (j / (dataPoints.length - 1)) * w;
+        var y = padY + (1 - (dataPoints[j] - minVal) / range) * (h - 2 * padY);
+        points.push(x.toFixed(1) + ',' + y.toFixed(1));
+    }
+
+    var svg = '<svg class="completion-sparkline-svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
+        '<polyline points="' + points.join(' ') + '" fill="none" stroke="' + lineColour + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<circle cx="' + points[points.length - 1].split(',')[0] + '" cy="' + points[points.length - 1].split(',')[1] + '" r="2.5" fill="' + lineColour + '"/>' +
+        '</svg>';
+
+    container.innerHTML = '<span class="sparkline-label">Completion trend</span>' + svg +
+        '<span class="sparkline-value">' + dataPoints[dataPoints.length - 1] + '%</span>';
 }
 
 function updateReportTimeline(tasks, projectName) {

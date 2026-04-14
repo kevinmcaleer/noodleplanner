@@ -2575,3 +2575,39 @@ body {
     border-color: #666;
     color: #ccc;
 }
+
+/* ── Completion Sparkline (dark) ── */
+[data-theme="dark"] .completion-sparkline-container {
+    color: #aaa;
+}
+
+[data-theme="dark"] .sparkline-label {
+    color: #888;
+}
+
+[data-theme="dark"] .sparkline-value {
+    color: #e0e0e0;
+}
+
+/* ── Stalled Badge (dark) ── */
+[data-theme="dark"] .stalled-badge {
+    background: #b8860b;
+    color: #fff;
+}
+
+/* ── Delivery Forecast (dark) ── */
+[data-theme="dark"] .forecast-on-track {
+    color: #5cb85c;
+}
+
+[data-theme="dark"] .forecast-at-risk {
+    color: #e55;
+}
+
+[data-theme="dark"] .forecast-no-forecast {
+    color: #777;
+}
+
+[data-theme="dark"] .forecast-complete {
+    color: #5cb85c;
+}

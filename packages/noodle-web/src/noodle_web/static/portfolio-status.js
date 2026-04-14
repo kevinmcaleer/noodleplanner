@@ -171,6 +171,111 @@ function calculateProjectTrend(ragLetters) {
 }
 
 /**
+ * Detect whether a project is stalled by checking if % complete has not
+ * changed across the last N version history entries.
+ * Returns { stalled: boolean, unchangedVersions: number }.
+ */
+function detectStalledProject(projectId, currentCompletion) {
+    if (typeof getVersionHistory !== 'function') return { stalled: false, unchangedVersions: 0 };
+
+    var history = getVersionHistory(projectId);
+    if (history.length < 2) return { stalled: false, unchangedVersions: 0 };
+
+    // Build completion values from history (newest first) plus current
+    var completions = [currentCompletion];
+    var limit = Math.min(history.length, 10);
+    for (var i = 0; i < limit; i++) {
+        var pct = null;
+        if (typeof extractCompletionFromPlanText === 'function') {
+            pct = extractCompletionFromPlanText(history[i].planText);
+        }
+        if (pct !== null) completions.push(pct);
+    }
+
+    if (completions.length < 3) return { stalled: false, unchangedVersions: 0 };
+
+    // Count how many consecutive entries from the front (newest) have the same completion
+    var baseline = completions[0];
+    var unchangedCount = 1;
+    for (var j = 1; j < completions.length; j++) {
+        if (Math.abs(completions[j] - baseline) <= 1) {
+            unchangedCount++;
+        } else {
+            break;
+        }
+    }
+
+    // Stalled if >= 3 versions with same completion and not at 100%
+    var isStalled = unchangedCount >= 3 && currentCompletion < 100;
+    return { stalled: isStalled, unchangedVersions: unchangedCount };
+}
+
+/**
+ * Calculate a delivery forecast date based on historical velocity.
+ * Returns { forecastDate: Date|null, status: 'on-track'|'at-risk'|'no-forecast', label: string }.
+ */
+function calculateDeliveryForecast(projectId, currentCompletion) {
+    if (currentCompletion >= 100) {
+        return { forecastDate: null, status: 'complete', label: 'Complete' };
+    }
+
+    if (typeof getVersionHistory !== 'function') {
+        return { forecastDate: null, status: 'no-forecast', label: 'No History' };
+    }
+
+    var history = getVersionHistory(projectId);
+    if (history.length < 2) {
+        return { forecastDate: null, status: 'no-forecast', label: 'No History' };
+    }
+
+    // Build data points: { date, completion } from history (newest first)
+    var points = [];
+    var limit = Math.min(history.length, 10);
+    for (var i = 0; i < limit; i++) {
+        var pct = null;
+        if (typeof extractCompletionFromPlanText === 'function') {
+            pct = extractCompletionFromPlanText(history[i].planText);
+        }
+        if (pct !== null && history[i].date) {
+            points.push({ date: new Date(history[i].date), completion: pct });
+        }
+    }
+
+    if (points.length < 2) {
+        return { forecastDate: null, status: 'no-forecast', label: 'No History' };
+    }
+
+    // Reverse to chronological order (oldest first)
+    points.reverse();
+
+    // Calculate velocity: % change per day using first and last points
+    var oldest = points[0];
+    var newest = points[points.length - 1];
+    var daysDiff = (newest.date - oldest.date) / (1000 * 60 * 60 * 24);
+    if (daysDiff < 1) daysDiff = 1;
+
+    var pctChange = newest.completion - oldest.completion;
+    // Use current completion as the latest value for more accuracy
+    var actualPctChange = currentCompletion - oldest.completion;
+    var actualDays = (Date.now() - oldest.date.getTime()) / (1000 * 60 * 60 * 24);
+    if (actualDays < 1) actualDays = 1;
+
+    var velocityPerDay = actualPctChange / actualDays;
+
+    if (velocityPerDay <= 0) {
+        return { forecastDate: null, status: 'at-risk', label: 'At Risk' };
+    }
+
+    var remaining = 100 - currentCompletion;
+    var daysToComplete = remaining / velocityPerDay;
+    var forecastDate = new Date(Date.now() + daysToComplete * 24 * 60 * 60 * 1000);
+
+    var label = forecastDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+    return { forecastDate: forecastDate, status: 'on-track', label: label };
+}
+
+/**
  * Render RAG history as coloured dots (oldest to newest, left to right)
  */
 function renderRagHistoryDots(ragLetters) {
@@ -227,6 +332,9 @@ async function renderPortfolioStatus() {
                 return (type === 'risk' || type === 'issue') && status === 'open';
             }).length;
 
+            const stalledInfo = detectStalledProject(project.id, completion);
+            const forecast = calculateDeliveryForecast(project.id, completion);
+
             return {
                 id: project.id,
                 name: project.name,
@@ -236,7 +344,10 @@ async function renderPortfolioStatus() {
                 trend: trend,
                 ragLetters: ragLetters,
                 updatedAt: project.updatedAt,
-                riskCount: openRisks
+                riskCount: openRisks,
+                stalled: stalledInfo.stalled,
+                stalledVersions: stalledInfo.unchangedVersions,
+                forecast: forecast
             };
         });
 
@@ -267,6 +378,7 @@ async function renderPortfolioStatus() {
             '<th onclick="sortPortfolioStatus(\'rag\')">RAG <span class="sort-indicator"></span></th>' +
             '<th onclick="sortPortfolioStatus(\'risks\')">Open Risks <span class="sort-indicator"></span></th>' +
             '<th onclick="sortPortfolioStatus(\'updated\')">Last Updated <span class="sort-indicator"></span></th>' +
+            '<th onclick="sortPortfolioStatus(\'forecast\')">Forecast <span class="sort-indicator"></span></th>' +
             '<th>Trend</th>' +
             '</tr>' +
             '</thead>' +
@@ -277,8 +389,18 @@ async function renderPortfolioStatus() {
             const trendIcon = proj.trend === 'up' ? '↑' : proj.trend === 'down' ? '↓' : '→';
             const trendClass = 'trend-' + proj.trend;
 
+            // Stalled badge
+            var stalledBadge = '';
+            if (proj.stalled) {
+                stalledBadge = ' <span class="stalled-badge" title="No progress in last ' + proj.stalledVersions + ' versions">Stalled</span>';
+            }
+
+            // Forecast cell
+            var forecastClass = 'forecast-' + proj.forecast.status;
+            var forecastLabel = escapeHtml(proj.forecast.label);
+
             html += '<tr class="status-row" onclick="openProjectDashboard(\'' + proj.id + '\')" data-rag="' + proj.ragStatus + '">' +
-                '<td class="project-name">' + escapeHtml(proj.name) + '</td>' +
+                '<td class="project-name">' + escapeHtml(proj.name) + stalledBadge + '</td>' +
                 '<td><span class="status-badge status-' + proj.ragStatus + '">' + escapeHtml(proj.statusLabel) + '</span></td>' +
                 '<td>' +
                 '<div class="progress-bar-container">' +
@@ -289,6 +411,7 @@ async function renderPortfolioStatus() {
                 '<td><span class="rag-badge rag-' + proj.ragStatus + '">' + proj.ragStatus.toUpperCase() + '</span></td>' +
                 '<td class="risk-count">' + proj.riskCount + '</td>' +
                 '<td>' + updatedDate + '</td>' +
+                '<td><span class="' + forecastClass + '">' + forecastLabel + '</span></td>' +
                 '<td>' + renderRagHistoryDots(proj.ragLetters) +
                 '<span class="trend-indicator ' + trendClass + '">' + trendIcon + '</span></td>' +
                 '</tr>';
@@ -368,6 +491,11 @@ function sortPortfolioStatus(column) {
             case 'updated':
                 valA = a.updatedAt;
                 valB = b.updatedAt;
+                break;
+            case 'forecast':
+                // Sort by forecast date; no-forecast/at-risk go to the end
+                valA = a.forecast.forecastDate ? a.forecast.forecastDate.getTime() : Infinity;
+                valB = b.forecast.forecastDate ? b.forecast.forecastDate.getTime() : Infinity;
                 break;
             default:
                 return 0;

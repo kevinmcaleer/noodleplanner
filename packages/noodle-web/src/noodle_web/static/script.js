@@ -14439,38 +14439,79 @@ function calculateEVM(tasks) {
 
 /**
  * Build time series data points for the EVM chart.
- * Generates monthly data points showing PV, EV, and AC over time.
+ * Uses version history for real historical EV/AC data points when available,
+ * falling back to interpolation when history is insufficient.
  */
 function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetData, actualEV, actualAC) {
     const series = { dates: [], pv: [], ev: [], ac: [] };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const totalProjectMs = projectEnd - projectStart;
+
+    // --- Collect historical data points from version history ---
+    var historyPoints = []; // { date: Date, pctComplete: number }
+    var projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (projectId && typeof getVersionHistory === 'function' && typeof extractCompletionFromPlanText === 'function') {
+        var history = getVersionHistory(projectId);
+        var limit = Math.min(history.length, 50);
+        for (var hi = 0; hi < limit; hi++) {
+            var pct = extractCompletionFromPlanText(history[hi].planText);
+            if (pct !== null && history[hi].date) {
+                var d = new Date(history[hi].date);
+                d.setHours(0, 0, 0, 0);
+                historyPoints.push({ date: d, pctComplete: pct });
+            }
+        }
+        // Sort oldest first
+        historyPoints.sort(function(a, b) { return a.date - b.date; });
+        // Deduplicate by date (keep latest entry per day)
+        var deduped = [];
+        for (var di = 0; di < historyPoints.length; di++) {
+            var dayKey = historyPoints[di].date.getTime();
+            if (deduped.length > 0 && deduped[deduped.length - 1].date.getTime() === dayKey) {
+                deduped[deduped.length - 1] = historyPoints[di];
+            } else {
+                deduped.push(historyPoints[di]);
+            }
+        }
+        historyPoints = deduped;
+    }
+
+    // --- Build a map from date (ms) to historical EV ---
+    var histMap = {};
+    for (var hm = 0; hm < historyPoints.length; hm++) {
+        histMap[historyPoints[hm].date.getTime()] = BAC * (historyPoints[hm].pctComplete / 100);
+    }
+
+    // Helper: interpolate EV from historical points for a given date
+    function interpolateHistoricalEV(pointDate) {
+        var pt = pointDate.getTime();
+        if (historyPoints.length === 0) return null;
+        if (pt <= historyPoints[0].date.getTime()) return BAC * (historyPoints[0].pctComplete / 100);
+        if (pt >= historyPoints[historyPoints.length - 1].date.getTime()) {
+            return BAC * (historyPoints[historyPoints.length - 1].pctComplete / 100);
+        }
+        // Find surrounding points
+        for (var ip = 1; ip < historyPoints.length; ip++) {
+            if (historyPoints[ip].date.getTime() >= pt) {
+                var prev = historyPoints[ip - 1];
+                var next = historyPoints[ip];
+                var frac = (pt - prev.date.getTime()) / (next.date.getTime() - prev.date.getTime());
+                var prevEV = BAC * (prev.pctComplete / 100);
+                var nextEV = BAC * (next.pctComplete / 100);
+                return prevEV + frac * (nextEV - prevEV);
+            }
+        }
+        return null;
+    }
+
+    var useHistory = historyPoints.length >= 2;
+
     // Generate monthly data points from project start to end (or today, whichever is later)
     const chartEnd = new Date(Math.max(projectEnd, today));
     const current = new Date(projectStart);
     current.setDate(1); // Start at beginning of month
-
-    const totalProjectMs = projectEnd - projectStart;
-
-    // Pre-calculate total actual cost for interpolation
-    let totalAC = 0;
-    if (hasBudgetData && typeof budgetItems !== 'undefined') {
-        budgetItems.forEach(item => {
-            totalAC += parseFloat(item.total) || 0;
-        });
-    }
-
-    // Calculate overall % complete once (same as calculateEVM point-in-time value)
-    let totalDurationDays = 0;
-    let weightedComplete = 0;
-    workTasks.forEach(t => {
-        const dur = t.duration_days || 0;
-        const pct = parseFloat(t.percent) || 0;
-        totalDurationDays += dur;
-        weightedComplete += dur * pct;
-    });
-    const overallPctComplete = totalDurationDays > 0 ? weightedComplete / totalDurationDays : 0;
 
     while (current <= chartEnd) {
         const pointDate = new Date(current);
@@ -14483,19 +14524,33 @@ function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetD
 
         // EV and AC: only for dates up to today
         if (pointDate <= today) {
-            // Calculate how far through the timeline this point is relative to today
-            const todayMs = today - projectStart;
-            const pointMs = pointDate - projectStart;
-            const progressFraction = todayMs > 0 ? Math.min(1, pointMs / todayMs) : 0;
-
-            // EV: interpolate from 0 to the actual EV value at today
-            series.ev.push(actualEV * progressFraction);
-
-            // AC: interpolate from 0 to the actual AC value at today
-            if (hasBudgetData) {
-                series.ac.push(actualAC * progressFraction);
+            if (useHistory) {
+                // Use real historical data
+                var histEV = interpolateHistoricalEV(pointDate);
+                if (histEV !== null) {
+                    series.ev.push(histEV);
+                    // AC: use proportional spend if budget data, otherwise mirror EV
+                    if (hasBudgetData) {
+                        var evFraction = actualEV > 0 ? histEV / actualEV : 0;
+                        series.ac.push(actualAC * Math.min(1, evFraction));
+                    } else {
+                        series.ac.push(histEV);
+                    }
+                } else {
+                    series.ev.push(0);
+                    series.ac.push(0);
+                }
             } else {
-                series.ac.push(actualEV * progressFraction);
+                // Fallback: interpolate linearly from 0 to actual values
+                const todayMs = today - projectStart;
+                const pointMs = pointDate - projectStart;
+                const progressFraction = todayMs > 0 ? Math.min(1, pointMs / todayMs) : 0;
+                series.ev.push(actualEV * progressFraction);
+                if (hasBudgetData) {
+                    series.ac.push(actualAC * progressFraction);
+                } else {
+                    series.ac.push(actualEV * progressFraction);
+                }
             }
         } else {
             series.ev.push(null);
@@ -14506,8 +14561,7 @@ function buildEvmTimeSeries(workTasks, BAC, projectStart, projectEnd, hasBudgetD
         current.setMonth(current.getMonth() + 1);
     }
 
-    // Ensure the last non-null EV and AC data points match the actual values exactly.
-    // The monthly grid may not land exactly on "today", so replace the final data point.
+    // Ensure the last non-null EV and AC data points match the actual values exactly
     let lastNonNullIdx = -1;
     for (let i = series.ev.length - 1; i >= 0; i--) {
         if (series.ev[i] !== null) { lastNonNullIdx = i; break; }
