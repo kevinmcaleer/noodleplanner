@@ -1186,7 +1186,18 @@ const PF_V_GAP = 10;
 
 function updateProductFlow(tasks, projectName) {
     const allTasks = tasks || [];
-    const deliverables = pbsExtractDeliverables(allTasks);
+    let deliverables = pbsExtractDeliverables(allTasks);
+    if (pfHideCompleted) {
+        deliverables = deliverables.filter(d => {
+            try {
+                const r = pbsComputeRollup(d, allTasks);
+                // Keep a deliverable if it has no activities (can't be "complete")
+                // or if completion is less than 100%.
+                if (!r || r.activityCount === 0) return true;
+                return r.percent < 100;
+            } catch (e) { return true; }
+        });
+    }
 
     const placeholder = document.querySelector('#product-flow-view .product-flow-placeholder');
     const content = document.querySelector('#product-flow-view .product-flow-content');
@@ -2317,6 +2328,19 @@ function productFlowCollapseAll() {
 function productFlowExpandAll() {
     pfUserToggledExpand = false; // let auto-expand re-populate all
     pfExpandedStages.clear();
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        updateProductFlow(lastRenderedTasks);
+    }
+}
+
+// Hide/show completed products (100% rolled-up) in the Product Flow.
+let pfHideCompleted = false;
+function productFlowToggleCompleted(btn) {
+    pfHideCompleted = !pfHideCompleted;
+    if (btn) {
+        btn.classList.toggle('active', pfHideCompleted);
+        btn.title = pfHideCompleted ? 'Show completed products' : 'Hide completed products';
+    }
     if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
         updateProductFlow(lastRenderedTasks);
     }
