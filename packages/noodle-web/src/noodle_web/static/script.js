@@ -69,6 +69,100 @@ function incrementPlanVersion(editor) {
 }
 
 /**
+ * Merge duplicate special sections in plan text.
+ * If a section marker (e.g. ---highlights---) appears more than once,
+ * the contents are merged into a single section and duplicates removed.
+ */
+function mergeDuplicateSections(text) {
+    if (!text) return text;
+
+    const HIGHLIGHTS_START = '---highlights---';
+    const HIGHLIGHTS_END = '---end-highlights---';
+    const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
+                      '---raid log---', '---comms---', '---baseline---'];
+
+    for (const marker of sections) {
+        const firstIdx = text.indexOf(marker);
+        if (firstIdx === -1) continue;
+        const secondIdx = text.indexOf(marker, firstIdx + marker.length);
+        if (secondIdx === -1) continue;
+
+        // Found a duplicate — extract content from both occurrences
+        // and merge into the first, removing the second
+        if (marker === HIGHLIGHTS_START) {
+            // Special handling: highlights have ---end-highlights--- markers
+            // Extract all highlight entries from the full text using the parser
+            if (typeof extractHighlightsFromText === 'function') {
+                const allHighlights = [];
+                let searchFrom = 0;
+                let remaining = text;
+
+                // Find all highlights sections and collect entries
+                while (true) {
+                    const start = remaining.indexOf(HIGHLIGHTS_START, searchFrom);
+                    if (start === -1) break;
+                    const afterStart = start + HIGHLIGHTS_START.length;
+                    let endIdx = remaining.length;
+                    const endMarker = remaining.indexOf(HIGHLIGHTS_END, afterStart);
+                    const nextSection = remaining.indexOf('---budget---', afterStart);
+                    const nextRaid = remaining.indexOf('---raid log---', afterStart);
+                    for (const ei of [endMarker, nextSection, nextRaid]) {
+                        if (ei !== -1 && ei < endIdx) endIdx = ei;
+                    }
+                    const sectionText = HIGHLIGHTS_START + remaining.substring(afterStart, endIdx);
+                    const parsed = extractHighlightsFromText(sectionText);
+                    allHighlights.push(...parsed);
+
+                    // Remove this highlights section (including end marker)
+                    let removeEnd = endIdx;
+                    if (endMarker !== -1 && endMarker === endIdx) {
+                        removeEnd = endMarker + HIGHLIGHTS_END.length;
+                    }
+                    // Also remove preceding --- separator
+                    let removeStart = start;
+                    const before = remaining.substring(0, removeStart);
+                    const trimBefore = before.replace(/\n+---\n*$/, '');
+                    remaining = trimBefore + remaining.substring(removeEnd);
+                    searchFrom = trimBefore.length;
+                }
+
+                // Now re-insert the merged highlights using updatePlanHighlightsText
+                if (allHighlights.length > 0 && typeof updatePlanHighlightsText === 'function') {
+                    // Deduplicate by date+author+content
+                    const seen = new Set();
+                    const unique = [];
+                    for (const h of allHighlights) {
+                        const key = h.date + '|' + h.author + '|' + (h.content || '').trim();
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            unique.push(h);
+                        }
+                    }
+                    text = updatePlanHighlightsText(remaining, unique);
+                } else {
+                    text = remaining;
+                }
+            }
+        } else {
+            // For other sections: keep the first, remove the second
+            // Find end of the second occurrence (next section marker or EOF)
+            const afterSecond = secondIdx + marker.length;
+            let endOfSecond = text.length;
+            for (const other of sections) {
+                if (other === marker) continue;
+                const oi = text.indexOf(other, afterSecond);
+                if (oi !== -1 && oi < endOfSecond) endOfSecond = oi;
+            }
+            // Remove the duplicate section
+            text = text.substring(0, secondIdx).replace(/\n+$/, '') +
+                   text.substring(endOfSecond);
+        }
+    }
+
+    return text;
+}
+
+/**
  * Update the plan editor value while preserving cursor position and scroll state.
  * Use this whenever programmatically changing editor.value to prevent cursor drift.
  * The cursor position is clamped to the new content length and adjusted so it stays

@@ -91,7 +91,12 @@ async function loadProjectIntoEditor(projectId) {
         clearPlanTrackingData();
     }
 
-    const planText = project.planText || '';
+    let planText = project.planText || '';
+
+    // Merge any duplicate special sections (e.g. two ---highlights--- blocks)
+    if (typeof mergeDuplicateSections === 'function') {
+        planText = mergeDuplicateSections(planText);
+    }
 
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
