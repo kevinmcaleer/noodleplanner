@@ -547,6 +547,7 @@ Press Enter to render..."></textarea>
                                 <!-- Timeline + Donut Chart Row -->
                                 <div class="timeline-donut-row">
                                     <div class="project-report-section timeline-donut-timeline">
+                                        <span class="widget-shortcut" onclick="switchToView('timeline')" title="Open Timeline"><i class="bi bi-box-arrow-up-right"></i></span>
                                         <h3>Timeline</h3>
                                         <div class="report-timeline-wrapper" style="position: relative;">
                                             <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -567,6 +568,7 @@ Press Enter to render..."></textarea>
                                 <div class="quad-grid">
                                     <!-- Top Left: Milestones -->
                                     <div class="quad-cell">
+                                        <span class="widget-shortcut" onclick="switchToView('milestones')" title="Open Milestones"><i class="bi bi-box-arrow-up-right"></i></span>
                                         <h3>Milestones</h3>
                                         <div class="milestones-table-wrapper" style="position: relative;">
                                             <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -588,6 +590,7 @@ Press Enter to render..."></textarea>
 
                                     <!-- Top Right: Up Next -->
                                     <div class="quad-cell">
+                                        <span class="widget-shortcut" onclick="switchToView('lookahead')" title="Open Look Ahead"><i class="bi bi-box-arrow-up-right"></i></span>
                                         <h3>Up Next</h3>
                                         <div class="up-next-table-wrapper" style="position: relative;">
                                             <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
@@ -610,6 +613,7 @@ Press Enter to render..."></textarea>
 
                                     <!-- Bottom Left: Highlights -->
                                     <div class="quad-cell">
+                                        <span class="widget-shortcut" onclick="switchToView('highlights')" title="Open Highlights"><i class="bi bi-box-arrow-up-right"></i></span>
                                         <div class="quad-header">
                                             <h3>Latest Highlight</h3>
                                             <button class="quad-add-btn" onclick="addHighlight()" title="Add new highlight">+</button>
@@ -621,6 +625,7 @@ Press Enter to render..."></textarea>
 
                                     <!-- Bottom Right: RAID Log -->
                                     <div class="quad-cell">
+                                        <span class="widget-shortcut" onclick="switchToView('raid')" title="Open RAID Log"><i class="bi bi-box-arrow-up-right"></i></span>
                                         <div class="quad-header">
                                             <h3>Risks &amp; Issues</h3>
                                             <button class="quad-add-btn" onclick="openRaidForm()" title="Add new risk or issue">+</button>
@@ -645,6 +650,7 @@ Press Enter to render..."></textarea>
 
                                 <!-- Budget Summary Widget -->
                                 <div class="quad-cell budget-widget" id="reportBudgetWidget" style="margin-top: 20px; grid-column: 1 / -1; display: none;">
+                                    <span class="widget-shortcut" onclick="switchToView('budget')" title="Open Budget"><i class="bi bi-box-arrow-up-right"></i></span>
                                     <div class="quad-header">
                                         <h3>Budget Summary</h3>
                                         <button class="quad-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+</button>
@@ -680,6 +686,7 @@ Press Enter to render..."></textarea>
 
                                 <!-- Open Actions Section -->
                                 <div class="quad-cell" style="margin-top: 20px; grid-column: 1 / -1;">
+                                    <span class="widget-shortcut" onclick="switchToView('actions')" title="Open Actions"><i class="bi bi-box-arrow-up-right"></i></span>
                                     <div class="quad-header">
                                         <h3>Open Actions</h3>
                                         <button class="quad-add-btn" onclick="addAction()" title="Add new action">+</button>

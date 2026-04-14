@@ -2563,3 +2563,11 @@ body {
 [data-theme="dark"] .version-readonly::after {
     background: rgba(211, 47, 47, 0.1);
 }
+
+[data-theme="dark"] .widget-shortcut {
+    color: #888;
+}
+
+[data-theme="dark"] .widget-shortcut:hover {
+    color: #8b9cf7;
+}
