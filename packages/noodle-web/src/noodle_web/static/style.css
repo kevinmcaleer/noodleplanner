@@ -1441,11 +1441,10 @@ svg.icon {
 }
 
 .widget-shortcut {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
-    border: 0 none;
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
@@ -1453,20 +1452,11 @@ svg.icon {
     line-height: 0;
     color: #bbb;
     margin-left: auto;
-    outline: 0 none;
-    box-shadow: none;
 }
 
 .widget-shortcut:hover {
     background: #f0f0f0;
     color: #666;
-}
-
-.widget-shortcut:focus,
-.widget-shortcut:active {
-    outline: 0 none;
-    border: 0 none;
-    box-shadow: none;
 }
 
 /* When a + button follows the shortcut, remove the auto margin */

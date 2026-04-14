@@ -549,10 +549,10 @@ Press Enter to render..."></textarea>
                                     <div class="project-report-section timeline-donut-timeline">
                                         <div class="quad-header">
                                             <h3>Timeline</h3>
-                                            <button class="widget-shortcut" onclick="switchToView('timeline')" title="Open Timeline"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                            <span class="widget-shortcut" onclick="switchToView('timeline')" title="Open Timeline"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         </div>
                                         <div class="report-timeline-wrapper" style="position: relative;">
-                                            <button class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                            <span class="copy-image-btn" onclick="copyElementAsImage(this.parentElement, this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                             <div id="reportSwimlaneContainer">
                                                 <!-- Swimlane timeline rendered by JavaScript -->
                                             </div>
@@ -572,10 +572,10 @@ Press Enter to render..."></textarea>
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Milestones</h3>
-                                            <button class="widget-shortcut" onclick="switchToView('milestones')" title="Open Milestones"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                            <span class="widget-shortcut" onclick="switchToView('milestones')" title="Open Milestones"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         </div>
                                         <div class="milestones-table-wrapper" style="position: relative;">
-                                            <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                            <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                             <table class="milestones-table quad-table" id="reportMilestonesTable" aria-label="Milestones">
                                                 <thead>
                                                     <tr>
@@ -596,10 +596,10 @@ Press Enter to render..."></textarea>
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Up Next</h3>
-                                            <button class="widget-shortcut" onclick="switchToView('lookahead')" title="Open Look Ahead"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                            <span class="widget-shortcut" onclick="switchToView('lookahead')" title="Open Look Ahead"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         </div>
                                         <div class="up-next-table-wrapper" style="position: relative;">
-                                            <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                            <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                             <table class="milestones-table quad-table" id="reportUpNextTable" aria-label="Up next tasks">
                                                 <thead>
                                                     <tr>
@@ -621,7 +621,7 @@ Press Enter to render..."></textarea>
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Latest Highlight</h3>
-                                            <button class="widget-shortcut" onclick="switchToView('highlights')" title="Open Highlights"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                            <span class="widget-shortcut" onclick="switchToView('highlights')" title="Open Highlights"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                             <button class="quad-add-btn" onclick="addHighlight()" title="Add new highlight">+</button>
                                         </div>
                                         <div id="reportHighlightContent" class="report-highlight-content">
@@ -633,7 +633,7 @@ Press Enter to render..."></textarea>
                                     <div class="quad-cell">
                                         <div class="quad-header">
                                             <h3>Risks &amp; Issues</h3>
-                                            <button class="widget-shortcut" onclick="switchToView('raid')" title="Open RAID Log"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                            <span class="widget-shortcut" onclick="switchToView('raid')" title="Open RAID Log"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                             <button class="quad-add-btn" onclick="openRaidForm()" title="Add new risk or issue">+</button>
                                         </div>
                                         <div class="raid-table-wrapper">
@@ -658,7 +658,7 @@ Press Enter to render..."></textarea>
                                 <div class="quad-cell budget-widget" id="reportBudgetWidget" style="margin-top: 20px; grid-column: 1 / -1; display: none;">
                                     <div class="quad-header">
                                         <h3>Budget Summary</h3>
-                                        <button class="widget-shortcut" onclick="switchToView('budget')" title="Open Budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                        <span class="widget-shortcut" onclick="switchToView('budget')" title="Open Budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         <button class="quad-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+</button>
                                     </div>
                                     <div class="budget-widget-content">
@@ -694,11 +694,11 @@ Press Enter to render..."></textarea>
                                 <div class="quad-cell" style="margin-top: 20px; grid-column: 1 / -1;">
                                     <div class="quad-header">
                                         <h3>Open Actions</h3>
-                                        <button class="widget-shortcut" onclick="switchToView('actions')" title="Open Actions"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></button>
+                                        <span class="widget-shortcut" onclick="switchToView('actions')" title="Open Actions"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span>
                                         <button class="quad-add-btn" onclick="addAction()" title="Add new action">+</button>
                                     </div>
                                     <div class="actions-table-wrapper" style="position: relative;">
-                                        <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                        <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                         <table class="milestones-table quad-table" id="reportActionsTable" aria-label="Actions summary">
                                             <thead>
                                                 <tr>
@@ -735,7 +735,7 @@ Press Enter to render..."></textarea>
                                     </label>
                                 </div>
                                 <div class="milestones-table-wrapper" style="position: relative;">
-                                    <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                    <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                     <table class="milestones-table">
                                         <thead>
                                             <tr id="milestonesTableHead">
@@ -807,7 +807,7 @@ Press Enter to render..."></textarea>
                                         <a class="embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('gantt-view')" title="Toggle timeline">
                                             <span class="toggle-icon">&#9654;</span> Timeline
                                         </a>
-                                        <button class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                        <span class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                     </div>
                                     <div class="embedded-timeline-body">
                                         <div class="timeline-line-wrapper embedded-timeline-wrapper" style="position: relative;">
@@ -901,7 +901,7 @@ Press Enter to render..."></textarea>
                                         <a class="embedded-timeline-toggle" onclick="toggleEmbeddedTimeline('tasks-view')" title="Toggle timeline">
                                             <span class="toggle-icon">&#9654;</span> Timeline
                                         </a>
-                                        <button class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                        <span class="copy-image-btn embedded-timeline-copy" onclick="copyElementAsImage(this.closest('.embedded-timeline-section').querySelector('.embedded-timeline-wrapper'), this)" title="Copy timeline as image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                     </div>
                                     <div class="embedded-timeline-body">
                                         <div class="timeline-line-wrapper embedded-timeline-wrapper" style="position: relative;">
@@ -961,7 +961,7 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
                                 <div class="resources-table-wrapper" style="position: relative;">
-                                    <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                    <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                     <table class="resources-table" aria-label="Resources">
                                         <thead>
                                             <tr>
@@ -1460,7 +1460,7 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="stakeholders-layout">
                                     <div class="stakeholders-table-panel" style="position: relative;">
-                                        <button class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+                                        <span class="copy-image-btn" onclick="copyTableAsText(this.parentElement, this)" title="Copy table as text"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></span>
                                         <table class="stakeholders-table" id="stakeholdersTable" aria-label="Stakeholders">
                                             <thead>
                                                 <tr>
@@ -1483,7 +1483,7 @@ Press Enter to render..."></textarea>
                                     </div>
                                     <div class="stakeholders-grid-panel">
                                         <div class="stakeholder-grid-wrapper" id="stakeholderGridWrapper">
-                                            <button class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('stakeholderGridWrapper'), this)" title="Copy grid as image">
+                                            <span class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('stakeholderGridWrapper'), this)" title="Copy grid as image">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                                             </button>
                                             <svg id="stakeholderGrid" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"></svg>
@@ -1503,7 +1503,7 @@ Press Enter to render..."></textarea>
                             <div class="evm-content" style="display: none;">
                                 <div class="evm-header">
                                     <h2 class="evm-title"><span class="ribbon-banner ribbon-banner--blue">Earned Value Management</span></h2>
-                                    <button class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('evmChartWrapper'), this)" title="Copy chart as image">
+                                    <span class="copy-image-btn" onclick="copyElementAsImage(document.getElementById('evmChartWrapper'), this)" title="Copy chart as image">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                                     </button>
                                 </div>
