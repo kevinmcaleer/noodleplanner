@@ -1441,22 +1441,32 @@ svg.icon {
 }
 
 .widget-shortcut {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    color: #999;
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px;
     cursor: pointer;
-    font-size: 0.9em;
-    opacity: 0.5;
-    transition: opacity 0.2s, color 0.2s;
-    z-index: 1;
-    text-decoration: none;
-    line-height: 1;
+    transition: background 0.2s, border-color 0.2s;
+    line-height: 0;
+    color: #999;
+    font-size: 0.85em;
+    margin-left: auto;
 }
 
 .widget-shortcut:hover {
-    opacity: 1;
-    color: #667eea;
+    background: #e0e0e0;
+    border-color: #999;
+    color: #555;
+}
+
+/* When a + button follows the shortcut, remove the auto margin */
+.quad-header .widget-shortcut + .quad-add-btn {
+    margin-left: 4px;
+}
+
+/* h3 should grow to push buttons right */
+.quad-header h3 {
+    flex: 1;
 }
 
 .quad-cell h3 {
