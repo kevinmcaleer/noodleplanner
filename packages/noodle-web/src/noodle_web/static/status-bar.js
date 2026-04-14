@@ -143,13 +143,12 @@ function updateStatusBarRAG(frontMatter, tasks) {
  * Clears the message when status is green or blue.
  */
 function updateStatusBarRAGMessage(ragStatus, tasks) {
-    const el = document.getElementById('statusBarMessage');
-    if (!el) return;
+    var msgSpan = document.getElementById('statusBarRAGMsg');
+    if (!msgSpan) return;
 
     // Clear message for non-problematic statuses
     if (ragStatus !== 'red' && ragStatus !== 'amber') {
-        const ragMsg = document.getElementById('statusBarRAGMsg');
-        if (ragMsg) ragMsg.remove();
+        msgSpan.innerHTML = '';
         return;
     }
 
@@ -164,7 +163,7 @@ function updateStatusBarRAGMessage(ragStatus, tasks) {
                 var t = tasks[i];
                 if (t.is_summary) continue;
                 var r = (t.rag || '').toLowerCase();
-                if (r.includes('red') || r === 'r') {
+                if (r.includes('red') || r.includes('overdue') || r === 'r') {
                     drivingTask = t;
                     break;
                 }
@@ -176,7 +175,7 @@ function updateStatusBarRAGMessage(ragStatus, tasks) {
                 var t2 = tasks[j];
                 if (t2.is_summary) continue;
                 var r2 = (t2.rag || '').toLowerCase();
-                if (r2.includes('amber') || r2.includes('yellow') || r2 === 'a') {
+                if (r2.includes('amber') || r2.includes('yellow') || r2.includes('behind') || r2 === 'a') {
                     drivingTask = t2;
                     searchFor = 'amber';
                     break;
@@ -186,28 +185,15 @@ function updateStatusBarRAGMessage(ragStatus, tasks) {
     }
 
     if (!drivingTask) {
-        var ragMsg = document.getElementById('statusBarRAGMsg');
-        if (ragMsg) ragMsg.remove();
+        msgSpan.innerHTML = '';
         return;
     }
 
-    // Clean task name: strip metadata tokens like @resource, $product, durations etc.
+    // Clean task name: strip metadata tokens
     var cleanName = drivingTask.name || '';
 
-    // Build the message
     var statusLabel = searchFor === 'red' ? 'Red' : 'Amber';
     var reason = searchFor === 'red' ? 'is overdue' : 'is behind schedule';
-
-    // Create or update the RAG message element
-    var msgSpan = document.getElementById('statusBarRAGMsg');
-    if (!msgSpan) {
-        msgSpan = document.createElement('span');
-        msgSpan.id = 'statusBarRAGMsg';
-        msgSpan.className = 'status-bar-rag-msg';
-        // Insert at the beginning of the status bar centre area
-        el.prepend(msgSpan);
-    }
-
     var color = searchFor === 'red' ? '#d32f2f' : '#f57c00';
 
     msgSpan.innerHTML = '';
