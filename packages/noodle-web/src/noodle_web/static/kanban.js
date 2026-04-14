@@ -607,13 +607,30 @@ class KanbanBoard {
         const columns = [];
         const resourceMap = new Map(); // Maps normalized shortname to display name
 
+        // Build a set of stakeholder shortnames to exclude from resource columns.
+        // Stakeholders can appear in front matter but cannot be assigned tasks.
+        const stakeholderSet = new Set();
+        if (window._lastStakeholders && Array.isArray(window._lastStakeholders)) {
+            window._lastStakeholders.forEach(s => {
+                if (s.shortname) stakeholderSet.add(s.shortname.toLowerCase());
+            });
+        }
+
+        // Helper: returns true if a shortname is a quality-role-only token
+        // (e.g. "kev:p", "alice:r", "bob:a") rather than a real resource assignment.
+        const isQualityRoleToken = (shortname) => /^[^:]+:[pra]$/i.test(shortname);
+
+        // Helper: returns true if a shortname should be excluded from columns
+        const shouldExclude = (shortname) =>
+            stakeholderSet.has(shortname) || isQualityRoleToken(shortname);
+
         // When drilling down, only show resources from current filtered tasks
         // Otherwise, show all resources from front matter
         if (this.currentParentTask) {
             // Only collect resources from current filtered tasks
             this.tasks.forEach(task => {
                 task.resourceShortnames.forEach((shortname, index) => {
-                    if (!resourceMap.has(shortname)) {
+                    if (!shouldExclude(shortname) && !resourceMap.has(shortname)) {
                         const displayName = task.resourcesArray[index];
                         resourceMap.set(shortname, displayName);
                     }
@@ -622,15 +639,17 @@ class KanbanBoard {
         } else {
             // Root level: add all resources from front matter (so they appear even if no tasks assigned)
             Object.keys(this.resourceMap).forEach(shortname => {
-                const displayName = this.resourceMap[shortname];
-                resourceMap.set(shortname, displayName);
+                if (!shouldExclude(shortname)) {
+                    const displayName = this.resourceMap[shortname];
+                    resourceMap.set(shortname, displayName);
+                }
             });
 
             // Then collect all unique resources from tasks (in case tasks reference resources not in front matter)
             this.tasks.forEach(task => {
                 task.resourceShortnames.forEach((shortname, index) => {
                     // Use lowercase shortname as key to prevent "Kev" and "kev" duplicates
-                    if (!resourceMap.has(shortname)) {
+                    if (!shouldExclude(shortname) && !resourceMap.has(shortname)) {
                         // Store the display name for this shortname
                         const displayName = task.resourcesArray[index];
                         resourceMap.set(shortname, displayName);
@@ -650,7 +669,10 @@ class KanbanBoard {
                     return false;
                 }
                 if (shortname === null) {
-                    return task.resourcesArray.length === 0;
+                    // "Unassigned" column: include tasks with no resources, or only
+                    // excluded resources (stakeholders / quality-role tokens)
+                    const realResources = task.resourceShortnames.filter(sn => !shouldExclude(sn));
+                    return realResources.length === 0;
                 }
                 // Check if task has this resource (by normalized shortname)
                 return task.resourceShortnames.includes(shortname);
