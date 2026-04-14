@@ -655,8 +655,11 @@ Press Enter to render..."></textarea>
                                     </div>
                                 </div>
 
+                                <!-- Budget + Actions Row -->
+                                <div class="quad-grid" style="margin-top: 20px;">
+
                                 <!-- Budget Summary Widget -->
-                                <div class="quad-cell budget-widget" id="reportBudgetWidget" style="margin-top: 20px; grid-column: 1 / -1; display: none;">
+                                <div class="quad-cell budget-widget" id="reportBudgetWidget" style="display: none;">
                                     <div class="quad-header">
                                         <h3>Budget Summary</h3>
                                         <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('budget')" title="Open Budget"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="openBudgetForm(null)" title="Add budget item">+</button></span>
@@ -691,7 +694,7 @@ Press Enter to render..."></textarea>
                                 </div>
 
                                 <!-- Open Actions Section -->
-                                <div class="quad-cell" style="margin-top: 20px; grid-column: 1 / -1;">
+                                <div class="quad-cell">
                                     <div class="quad-header">
                                         <h3>Open Actions</h3>
                                         <span class="quad-header-actions"><span class="widget-shortcut" onclick="switchToView('actions')" title="Open Actions"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg></span><button class="quad-add-btn" onclick="addAction()" title="Add new action">+</button></span>
@@ -714,6 +717,8 @@ Press Enter to render..."></textarea>
                                         <p class="quad-empty-state" id="reportActionsEmpty" style="display: none;">No open actions.</p>
                                     </div>
                                 </div>
+
+                                </div><!-- end Budget + Actions Row -->
 
                                 <div style="display: none;">
                                 </div>
