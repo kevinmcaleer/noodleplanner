@@ -1451,19 +1451,16 @@ svg.icon {
     transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
     line-height: 0;
     color: #bbb;
-    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .widget-shortcut:hover {
-    background: #f0f0f0;
-    color: #666;
+    background: #e0e0e0;
+    color: #555;
+    cursor: pointer;
 }
 
 /* When a + button follows the shortcut, remove the auto margin */
-.quad-header .widget-shortcut + .quad-add-btn {
-    margin-left: 4px;
-}
-
 .quad-cell h3 {
     font-size: 1.15em;
     font-weight: 600;
@@ -1476,6 +1473,7 @@ svg.icon {
 .quad-header {
     display: flex;
     align-items: center;
+    gap: 6px;
     margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid #e9ecef;
