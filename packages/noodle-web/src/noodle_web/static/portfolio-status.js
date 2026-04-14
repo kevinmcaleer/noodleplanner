@@ -36,18 +36,9 @@ function calculateProjectCompletionFromTasks(tasks) {
  *        Green – everything else (on track or no schedule data)
  */
 function extractRAGStatus(frontMatter, tasks, completion) {
-    // Check front matter for explicit RAG
-    if (frontMatter) {
-        const ragKeys = ['rag', 'rag status', 'rag_status'];
-        for (const key of ragKeys) {
-            if (frontMatter[key]) {
-                const val = String(frontMatter[key]).toLowerCase().trim();
-                if (val.includes('green') || val === 'g') return 'green';
-                if (val.includes('amber') || val.includes('yellow') || val === 'a') return 'amber';
-                if (val.includes('red') || val === 'r') return 'red';
-            }
-        }
-    }
+    // Compute RAG from actual task statuses. The front matter rag: field is
+    // written as output (for version history) and should not override the
+    // computed value — otherwise fixing a task leaves the plan stuck at amber/red.
 
     // Check individual task RAG statuses
     if (tasks && tasks.length > 0) {

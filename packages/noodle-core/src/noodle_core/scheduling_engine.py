@@ -381,15 +381,22 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
                 if is_milestone:
                     # Milestones (0-duration) align with the end of the predecessor.
-                    # Predecessor finish is exclusive (day after last working day),
-                    # so use it directly so the milestone lines up with the task end.
-                    t['start'] = prev['finish']
-                    t['finish'] = prev['finish']
+                    seq_start = prev['finish']
                 else:
                     # Sequential tasks start the next working day after predecessor finishes
-                    # Predecessor's finish date is exclusive (day after last working day)
-                    # So we can use it directly as the start of the next working day
-                    t['start'] = get_next_working_day(prev['finish'], task_holidays)
+                    seq_start = get_next_working_day(prev['finish'], task_holidays)
+
+                # If the task has an explicit start date, use the later of the
+                # two — the explicit date acts as a "not before" constraint.
+                explicit_start = t.get('start')
+                if explicit_start and explicit_start > seq_start:
+                    t['start'] = explicit_start
+                else:
+                    t['start'] = seq_start
+
+                if is_milestone:
+                    t['finish'] = t['start']
+
                 logger.debug("[SEQ-LOGIC] Task '%s' scheduled after '%s' finish=%s, new start=%s", t.get('name'), prev.get('name'), prev['finish'], t['start'])
             else:
                 t['start'] = today_working_day(task_holidays)
