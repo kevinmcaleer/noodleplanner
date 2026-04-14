@@ -79,7 +79,14 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 if (!token) continue;
                 if (token.startsWith('@')) continue;       // resource
                 if (token.startsWith('#')) continue;       // label
-                if (/^[/^]?\$/.test(token)) continue;     // deliverable token ($x, /$x, ^$x)
+                if (/^[/^]?\$/.test(token)) {
+                    // Deliverable token — add it as a valid dependency target
+                    // Store both with and without the prefix: $GW2, GW2
+                    allTaskNames.add(token.toLowerCase());
+                    const stripped = token.replace(/^[/^]?\$/, '');
+                    if (stripped) allTaskNames.add(stripped.toLowerCase());
+                    continue;
+                }
                 if (/^\d+[dmwy]$/.test(token)) continue;  // duration
                 if (/^\d+%$/.test(token)) continue;        // percent
                 if (/^\d{4}-\d{2}-\d{2}$/.test(token)) continue; // date
@@ -209,9 +216,15 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                     // Check if the dependency task name exists
                     // Normalise: collapse whitespace, try space/underscore variants
                     const depLower = depTaskName.toLowerCase().replace(/\s+/g, ' ').trim();
+                    // Also try without deliverable prefix ($, /$, ^$)
+                    const depBare = depLower.replace(/^[/^]?\$/, '');
                     let isValid = allTaskNames.has(depLower) ||
                         allTaskNames.has(depLower.replace(/_/g, ' ')) ||
-                        allTaskNames.has(depLower.replace(/ /g, '_'));
+                        allTaskNames.has(depLower.replace(/ /g, '_')) ||
+                        (depBare !== depLower && (allTaskNames.has(depBare) ||
+                            allTaskNames.has('$' + depBare) ||
+                            allTaskNames.has('/$' + depBare) ||
+                            allTaskNames.has('^$' + depBare)));
                     // Fallback: normalise to alphanumeric-only for fuzzy match
                     if (!isValid) {
                         const depNorm = depLower.replace(/[^a-z0-9]/g, '');
