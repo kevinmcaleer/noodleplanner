@@ -200,7 +200,9 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
                     // Strip dependency type suffix (:FS, :SS, :FF, :SF)
                     const typeMatch = corePart.match(/^(.+?):(FS|SS|FF|SF)$/i);
-                    const depTaskName = typeMatch ? typeMatch[1].trim() : corePart;
+                    let depTaskName = typeMatch ? typeMatch[1].trim() : corePart;
+                    // Strip common prefixes like "Milestone:" used in dependency references
+                    depTaskName = depTaskName.replace(/^Milestone:\s*/i, '');
                     const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
 
                     // Check if the dependency task name exists
