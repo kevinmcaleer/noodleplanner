@@ -100,6 +100,13 @@ function deleteProject(projectId) {
         localStorage.removeItem(CURRENT_PROJECT_KEY);
     }
 
+    // Remove version history for the deleted project
+    try {
+        localStorage.removeItem('noodle_history_' + projectId);
+    } catch (e) {
+        // Ignore errors if key does not exist
+    }
+
     return saveAllProjects(projects);
 }
 
@@ -147,6 +154,16 @@ function saveCurrentProjectState() {
     const planEditor = document.getElementById('planEditor');
     if (!planEditor) return false;
 
+    // Skip saving if we are in read-only version preview mode
+    if (typeof versionHistoryReadOnly !== 'undefined' && versionHistoryReadOnly) {
+        return false;
+    }
+
+    // Save a version history snapshot before overwriting
+    if (typeof saveVersionSnapshot === 'function') {
+        saveVersionSnapshot(projectId);
+    }
+
     // Update last_saved timestamp in front matter before saving
     if (typeof setLastSavedInFrontMatter === 'function') {
         const updated = setLastSavedInFrontMatter(planEditor.value);
@@ -164,9 +181,16 @@ function saveCurrentProjectState() {
 
     const planText = planEditor.value;
 
-    return saveProject(projectId, {
+    const result = saveProject(projectId, {
         planText: planText
     });
+
+    // Update version badge in status bar
+    if (typeof updateVersionBadge === 'function') {
+        updateVersionBadge();
+    }
+
+    return result;
 }
 
 /**

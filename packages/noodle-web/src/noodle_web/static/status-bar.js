@@ -120,6 +120,16 @@ function updateStatusBarRAG(frontMatter, tasks) {
                 ? extractProjectStatusLabel(frontMatter || {}, completion, ragStatus)
                 : ragStatus;
             dot.title = 'RAG: ' + label;
+
+            // Persist RAG to front matter for version history
+            if (typeof persistRagToFrontMatter === 'function') {
+                persistRagToFrontMatter(ragStatus);
+            }
         }
+    }
+
+    // Update version badge in status bar
+    if (typeof updateVersionBadge === 'function') {
+        updateVersionBadge();
     }
 }

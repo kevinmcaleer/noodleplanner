@@ -3190,6 +3190,31 @@ Build
             </div>
         </div>
 
+        <!-- Version History Section -->
+        <div id="versionHistorySection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 style="color: white; margin: 0;"><i class="bi bi-clock-history" aria-hidden="true"></i> Version History</h2>
+                <button class="close-btn" onclick="closeVersionHistoryPanel()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="vh-controls">
+                    <div class="vh-retention">
+                        <label for="versionRetentionSelect">Retention:</label>
+                        <select id="versionRetentionSelect" onchange="onRetentionChange(this.value)">
+                            <option value="7">1 week</option>
+                            <option value="14" selected>2 weeks</option>
+                            <option value="30">1 month</option>
+                            <option value="90">3 months</option>
+                        </select>
+                    </div>
+                    <button class="btn-sm" onclick="uploadVersion(getCurrentProjectId())" title="Upload a previous version">
+                        <i class="bi bi-upload"></i> Upload
+                    </button>
+                </div>
+                <div id="versionHistoryList" class="vh-list"></div>
+            </div>
+        </div>
+
         <!-- Conditional Formatting Section -->
         <div id="conditionalFormattingSection" class="detail-pane-section">
             <div class="modal-header">
@@ -3544,6 +3569,7 @@ Build
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
+    <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
     <script src="/static/portfolio-status.js?v={{ v }}"></script>
@@ -3798,6 +3824,10 @@ Build
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
         <div class="status-bar-right">
+            <button class="status-bar-btn status-bar-version-btn" id="statusBarVersionBtn" onclick="toggleVersionHistoryPanel()" title="Version History" aria-label="Toggle version history">
+                <i class="bi bi-clock-history"></i>
+                <span class="status-bar-btn-label" id="statusBarVersion">v1.0</span>
+            </button>
             <button class="status-bar-btn" onclick="toggleSettingsPanel()" title="Project Settings" aria-label="Toggle project settings">
                 <i class="bi bi-gear"></i>
                 <span class="status-bar-btn-label">Settings</span>

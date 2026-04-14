@@ -1,0 +1,479 @@
+/**
+ * version-history.js — Version history panel for NoodlePlanner.
+ *
+ * Stores full snapshots of each plan version in localStorage under
+ * a per-project key.  Provides restore, download, view (read-only),
+ * upload, and automatic retention-based cleanup.
+ *
+ * Must be loaded after state.js, project-storage.js, script.js.
+ */
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const VERSION_HISTORY_PREFIX = 'noodle_history_';
+const VERSION_RETENTION_KEY = 'noodle_version_retention_days';
+const DEFAULT_RETENTION_DAYS = 14;
+const MAX_VERSIONS_PER_PROJECT = 50; // safety cap to limit localStorage usage
+
+// ---------------------------------------------------------------------------
+// Read-only mode state
+// ---------------------------------------------------------------------------
+
+let versionHistoryReadOnly = false;
+let versionHistoryOriginalText = null;
+
+// ---------------------------------------------------------------------------
+// Storage helpers
+// ---------------------------------------------------------------------------
+
+function getVersionHistoryKey(projectId) {
+    return VERSION_HISTORY_PREFIX + projectId;
+}
+
+function getVersionHistory(projectId) {
+    try {
+        const raw = localStorage.getItem(getVersionHistoryKey(projectId));
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        console.error('Error reading version history:', e);
+        return [];
+    }
+}
+
+function saveVersionHistory(projectId, history) {
+    try {
+        localStorage.setItem(getVersionHistoryKey(projectId), JSON.stringify(history));
+        return true;
+    } catch (e) {
+        console.error('Error saving version history:', e);
+        return false;
+    }
+}
+
+function getRetentionDays() {
+    const val = localStorage.getItem(VERSION_RETENTION_KEY);
+    return val ? parseInt(val, 10) : DEFAULT_RETENTION_DAYS;
+}
+
+function setRetentionDays(days) {
+    localStorage.setItem(VERSION_RETENTION_KEY, String(days));
+}
+
+// ---------------------------------------------------------------------------
+// RAG front matter helper
+// ---------------------------------------------------------------------------
+
+function getRagFromFrontMatter(text) {
+    const match = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return null;
+    const ragMatch = match[1].match(/^rag:\s*(.+)$/m);
+    return ragMatch ? ragMatch[1].trim() : null;
+}
+
+function setRagInFrontMatter(text, ragStatus) {
+    if (!ragStatus) return text;
+    const fmMatch = text.match(/^(---\n)([\s\S]*?)(\n---)/);
+    if (fmMatch) {
+        let body = fmMatch[2];
+        if (/^rag:/m.test(body)) {
+            body = body.replace(/^rag:.*$/m, 'rag: ' + ragStatus);
+        } else {
+            body += '\nrag: ' + ragStatus;
+        }
+        return fmMatch[1] + body + fmMatch[3] + text.slice(fmMatch[0].length);
+    }
+    return '---\nrag: ' + ragStatus + '\n---\n' + text;
+}
+
+// ---------------------------------------------------------------------------
+// Save a version snapshot
+// ---------------------------------------------------------------------------
+
+/**
+ * Called BEFORE saveCurrentProjectState writes the new plan text.
+ * Captures the current editor content as a history entry.
+ */
+function saveVersionSnapshot(projectId) {
+    if (!projectId) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor || !editor.value.trim()) return;
+
+    const planText = editor.value;
+    const version = getVersionFromFrontMatter(planText) || '1.0';
+    const date = new Date().toISOString();
+
+    // Determine current RAG status from the status bar dot
+    let rag = getRagFromFrontMatter(planText) || '';
+    if (!rag) {
+        const dot = document.getElementById('statusBarRAG');
+        if (dot) {
+            if (dot.classList.contains('rag-red')) rag = 'red';
+            else if (dot.classList.contains('rag-amber')) rag = 'amber';
+            else if (dot.classList.contains('rag-green')) rag = 'green';
+            else if (dot.classList.contains('rag-blue')) rag = 'blue';
+        }
+    }
+
+    const history = getVersionHistory(projectId);
+
+    // Avoid duplicate snapshots — skip if the latest entry has identical text
+    if (history.length > 0 && history[0].planText === planText) {
+        return;
+    }
+
+    // Prepend (newest first)
+    history.unshift({ version, date, planText, rag });
+
+    // Enforce cap
+    if (history.length > MAX_VERSIONS_PER_PROJECT) {
+        history.length = MAX_VERSIONS_PER_PROJECT;
+    }
+
+    saveVersionHistory(projectId, history);
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup expired versions
+// ---------------------------------------------------------------------------
+
+function cleanupExpiredVersions(projectId) {
+    const retentionDays = getRetentionDays();
+    const history = getVersionHistory(projectId);
+    if (history.length === 0) return;
+
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const filtered = history.filter(function (entry) {
+        return new Date(entry.date).getTime() >= cutoff;
+    });
+
+    if (filtered.length !== history.length) {
+        saveVersionHistory(projectId, filtered);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Restore a version
+// ---------------------------------------------------------------------------
+
+function restoreVersion(projectId, index) {
+    const history = getVersionHistory(projectId);
+    if (index < 0 || index >= history.length) return;
+
+    const entry = history[index];
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Exit read-only mode if active
+    if (versionHistoryReadOnly) {
+        exitReadOnlyView();
+    }
+
+    // Restore the plan text then bump the version
+    editor.value = entry.planText;
+    incrementPlanVersion(editor);
+
+    // Trigger an input event so views refresh
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Save the restored state
+    if (typeof saveCurrentProjectState === 'function') {
+        saveCurrentProjectState();
+    }
+
+    setStatusMessage('Restored version ' + entry.version);
+    renderVersionHistoryList(projectId);
+}
+
+// ---------------------------------------------------------------------------
+// Download a version
+// ---------------------------------------------------------------------------
+
+function downloadVersion(projectId, index) {
+    const history = getVersionHistory(projectId);
+    if (index < 0 || index >= history.length) return;
+
+    const entry = history[index];
+    const project = loadProject(projectId);
+    const safeName = (project ? project.name : 'plan').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const filename = safeName + '_v' + entry.version + '.md';
+
+    const blob = new Blob([entry.planText], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// View a version (read-only)
+// ---------------------------------------------------------------------------
+
+function viewVersion(projectId, index) {
+    const history = getVersionHistory(projectId);
+    if (index < 0 || index >= history.length) return;
+
+    const entry = history[index];
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    // Save original text so we can return
+    if (!versionHistoryReadOnly) {
+        versionHistoryOriginalText = editor.value;
+    }
+
+    versionHistoryReadOnly = true;
+    editor.value = entry.planText;
+    editor.readOnly = true;
+    editor.classList.add('version-readonly');
+
+    // Show read-only banner
+    showReadOnlyBanner(entry.version);
+
+    // Trigger re-render
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Close the version history panel
+    closeVersionHistoryPanel();
+}
+
+function showReadOnlyBanner(version) {
+    let banner = document.getElementById('versionReadOnlyBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'versionReadOnlyBanner';
+        banner.className = 'version-readonly-banner';
+        const editorContainer = document.querySelector('.editor-container') || document.getElementById('planEditor')?.parentElement;
+        if (editorContainer) {
+            editorContainer.insertBefore(banner, editorContainer.firstChild);
+        }
+    }
+    banner.innerHTML = '<span><i class="bi bi-eye"></i> Viewing version ' + version + ' (read-only)</span>' +
+        '<button class="btn-sm" onclick="exitReadOnlyView()"><i class="bi bi-x-circle"></i> Exit</button>';
+    banner.style.display = 'flex';
+}
+
+function exitReadOnlyView() {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    versionHistoryReadOnly = false;
+    editor.readOnly = false;
+    editor.classList.remove('version-readonly');
+
+    // Restore original text
+    if (versionHistoryOriginalText !== null) {
+        editor.value = versionHistoryOriginalText;
+        versionHistoryOriginalText = null;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Hide banner
+    const banner = document.getElementById('versionReadOnlyBanner');
+    if (banner) banner.style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Upload a version
+// ---------------------------------------------------------------------------
+
+function uploadVersion(projectId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,.markdown,.txt';
+    input.onchange = function () {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const planText = e.target.result;
+            const version = getVersionFromFrontMatter(planText) || 'uploaded';
+            const date = new Date().toISOString();
+            const rag = getRagFromFrontMatter(planText) || '';
+
+            const history = getVersionHistory(projectId);
+            history.unshift({ version, date, planText, rag });
+            if (history.length > MAX_VERSIONS_PER_PROJECT) {
+                history.length = MAX_VERSIONS_PER_PROJECT;
+            }
+            saveVersionHistory(projectId, history);
+            renderVersionHistoryList(projectId);
+            setStatusMessage('Uploaded version added to history');
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// ---------------------------------------------------------------------------
+// Delete a single version entry
+// ---------------------------------------------------------------------------
+
+function deleteVersionEntry(projectId, index) {
+    const history = getVersionHistory(projectId);
+    if (index < 0 || index >= history.length) return;
+    history.splice(index, 1);
+    saveVersionHistory(projectId, history);
+    renderVersionHistoryList(projectId);
+}
+
+// ---------------------------------------------------------------------------
+// Panel open / close / render
+// ---------------------------------------------------------------------------
+
+function openVersionHistoryPanel() {
+    const projectId = getCurrentProjectId();
+    if (projectId) {
+        cleanupExpiredVersions(projectId);
+    }
+    renderVersionHistoryList(projectId);
+    updateVersionRetentionSelect();
+    openDetailPane('versionHistorySection');
+}
+
+function closeVersionHistoryPanel() {
+    closeDetailPane();
+}
+
+function toggleVersionHistoryPanel() {
+    const pane = document.getElementById('detailPane');
+    const section = document.getElementById('versionHistorySection');
+    if (pane && pane.classList.contains('open') && section && section.classList.contains('active')) {
+        closeVersionHistoryPanel();
+    } else {
+        openVersionHistoryPanel();
+    }
+}
+
+function updateVersionRetentionSelect() {
+    const sel = document.getElementById('versionRetentionSelect');
+    if (sel) sel.value = String(getRetentionDays());
+}
+
+function onRetentionChange(value) {
+    setRetentionDays(parseInt(value, 10));
+    const projectId = getCurrentProjectId();
+    if (projectId) {
+        cleanupExpiredVersions(projectId);
+        renderVersionHistoryList(projectId);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Render the version list
+// ---------------------------------------------------------------------------
+
+function renderVersionHistoryList(projectId) {
+    const container = document.getElementById('versionHistoryList');
+    if (!container) return;
+
+    if (!projectId) {
+        container.innerHTML = '<p class="vh-empty">No project selected.</p>';
+        return;
+    }
+
+    const history = getVersionHistory(projectId);
+
+    if (history.length === 0) {
+        container.innerHTML = '<p class="vh-empty">No version history yet. Versions are saved automatically when you save your plan.</p>';
+        return;
+    }
+
+    let html = '';
+    history.forEach(function (entry, idx) {
+        const dateObj = new Date(entry.date);
+        const dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const ragClass = entry.rag ? 'rag-' + entry.rag : '';
+
+        html += '<div class="vh-entry">' +
+            '<div class="vh-entry-info">' +
+                '<span class="vh-rag-dot ' + ragClass + '" title="RAG: ' + (entry.rag || 'none') + '"></span>' +
+                '<span class="vh-version">v' + escapeHtml(entry.version) + '</span>' +
+                '<span class="vh-date">' + dateStr + ' ' + timeStr + '</span>' +
+            '</div>' +
+            '<div class="vh-entry-actions">' +
+                '<button class="vh-action-btn" onclick="viewVersion(\'' + projectId + '\',' + idx + ')" title="View (read-only)">' +
+                    '<i class="bi bi-eye"></i>' +
+                '</button>' +
+                '<button class="vh-action-btn" onclick="downloadVersion(\'' + projectId + '\',' + idx + ')" title="Download">' +
+                    '<i class="bi bi-download"></i>' +
+                '</button>' +
+                '<button class="vh-action-btn" onclick="restoreVersion(\'' + projectId + '\',' + idx + ')" title="Restore">' +
+                    '<i class="bi bi-arrow-counterclockwise"></i>' +
+                '</button>' +
+                '<button class="vh-action-btn vh-action-delete" onclick="deleteVersionEntry(\'' + projectId + '\',' + idx + ')" title="Delete">' +
+                    '<i class="bi bi-trash"></i>' +
+                '</button>' +
+            '</div>' +
+        '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Update the version badge in the status bar
+// ---------------------------------------------------------------------------
+
+function updateVersionBadge() {
+    const badge = document.getElementById('statusBarVersion');
+    if (!badge) return;
+
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const version = getVersionFromFrontMatter(editor.value);
+    badge.textContent = version ? 'v' + version : 'v1.0';
+}
+
+// ---------------------------------------------------------------------------
+// Persist RAG to front matter whenever it is recalculated
+// ---------------------------------------------------------------------------
+
+function persistRagToFrontMatter(ragStatus) {
+    if (!ragStatus) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const current = getRagFromFrontMatter(editor.value);
+    if (current === ragStatus) return; // no change
+
+    const updated = setRagInFrontMatter(editor.value, ragStatus);
+    if (updated !== editor.value) {
+        if (typeof setEditorValuePreservingCursor === 'function') {
+            setEditorValuePreservingCursor(editor, updated);
+        } else {
+            editor.value = updated;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Initialise on load
+// ---------------------------------------------------------------------------
+
+function initVersionHistory() {
+    const projectId = getCurrentProjectId();
+    if (projectId) {
+        cleanupExpiredVersions(projectId);
+    }
+    updateVersionBadge();
+}
+
+// Run cleanup on app load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initVersionHistory);
+} else {
+    initVersionHistory();
+}
