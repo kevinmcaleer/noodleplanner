@@ -278,6 +278,13 @@ function showReadOnlyBanner(version) {
     banner.style.display = 'flex';
 }
 
+function returnToCurrentVersion() {
+    if (versionHistoryReadOnly) {
+        exitReadOnlyView();
+    }
+    closeVersionHistoryPanel();
+}
+
 function exitReadOnlyView() {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
@@ -425,14 +432,14 @@ function renderVersionHistoryList(projectId) {
     if (editor && editor.value.trim()) {
         const curRag = getRagFromFrontMatter(editor.value) || '';
         const curRagClass = curRag ? 'rag-' + curRag : '';
-        html += '<div class="vh-entry vh-entry-current">' +
+        html += '<div class="vh-entry vh-entry-current" onclick="returnToCurrentVersion()" style="cursor:pointer" title="Click to return to current version">' +
             '<div class="vh-entry-info">' +
                 '<span class="vh-rag-dot ' + curRagClass + '" title="RAG: ' + (curRag || 'none') + '"></span>' +
                 '<span class="vh-version">v' + escapeHtml(curVersion) + '</span>' +
                 '<span class="vh-date vh-current-label">Current version</span>' +
             '</div>' +
             '<div class="vh-entry-actions">' +
-                '<button class="vh-action-btn" onclick="downloadVersion(null, -1)" title="Download current">' +
+                '<button class="vh-action-btn" onclick="event.stopPropagation(); downloadVersion(null, -1)" title="Download current">' +
                     '<i class="bi bi-download"></i>' +
                 '</button>' +
             '</div>' +
