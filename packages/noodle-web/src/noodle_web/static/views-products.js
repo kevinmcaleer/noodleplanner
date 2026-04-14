@@ -2428,6 +2428,114 @@ function copySvgAsImage(containerId, btn) {
     }
 }
 
+// ── Download SVG as PNG / SVG file ────────────────────────────────────
+
+function downloadSvgAsImage(containerId, format, btn) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    const fmt = (format || 'png').toLowerCase();
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '...';
+
+    try {
+        const liveG = svg.querySelector('g');
+        let gBounds = null;
+        if (liveG) { try { gBounds = liveG.getBBox(); } catch (e) {} }
+
+        const clone = svg.cloneNode(true);
+        const cloneG = clone.querySelector('g');
+        clone.querySelectorAll('.pbs-add-btns, .pbs-add-btn').forEach(el => el.remove());
+
+        const padding = 40;
+        let viewBox;
+        if (gBounds && gBounds.width > 0 && cloneG) {
+            viewBox = `${gBounds.x - padding} ${gBounds.y - padding} ${gBounds.width + padding * 2} ${gBounds.height + padding * 2}`;
+            cloneG.removeAttribute('transform');
+        } else {
+            viewBox = `0 0 ${container.clientWidth} ${container.clientHeight}`;
+        }
+        const parts = viewBox.split(' ').map(Number);
+        const vbW = parts[2] || 2400;
+        const vbH = parts[3] || 1600;
+        const maxDim = 2400;
+        const aspect = vbW / vbH;
+        const outW = aspect >= 1 ? maxDim : Math.round(maxDim * aspect);
+        const outH = aspect >= 1 ? Math.round(maxDim / aspect) : maxDim;
+
+        clone.setAttribute('viewBox', viewBox);
+        clone.setAttribute('width', String(outW));
+        clone.setAttribute('height', String(outH));
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const bgColor = isDark ? '#1a1a2e' : '#ffffff';
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('x', String(parts[0]));
+        bgRect.setAttribute('y', String(parts[1]));
+        bgRect.setAttribute('width', String(vbW));
+        bgRect.setAttribute('height', String(vbH));
+        bgRect.setAttribute('fill', bgColor);
+        clone.insertBefore(bgRect, clone.firstChild);
+
+        const svgData = new XMLSerializer().serializeToString(clone);
+        const baseName = containerId === 'pbsContainer' ? 'pbs' :
+                         containerId === 'productFlowContainer' ? 'product-flow' : 'diagram';
+        const finish = () => {
+            if (btn) {
+                btn.innerHTML = '\u2713';
+                setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+            }
+        };
+
+        if (fmt === 'svg') {
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = baseName + '.svg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 500);
+            finish();
+            return;
+        }
+
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = () => {
+            const scale = 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = outW * scale;
+            canvas.height = outH * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            canvas.toBlob((blob) => {
+                if (!blob) { if (btn) btn.innerHTML = originalText; return; }
+                const dlUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = dlUrl;
+                a.download = baseName + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(dlUrl), 500);
+                finish();
+            }, 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); if (btn) btn.innerHTML = originalText; };
+        img.src = url;
+    } catch (e) {
+        console.error('Error downloading SVG:', e);
+        if (btn) btn.innerHTML = originalText;
+    }
+}
+
 // ── Duplicate deliverable identifier detection ───────────────────────
 
 function checkDuplicateDeliverables() {
