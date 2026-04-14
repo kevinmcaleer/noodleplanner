@@ -66,6 +66,26 @@
 .status-bar-rag.rag-red    { background: #d32f2f; }
 .status-bar-rag.rag-blue   { background: #1976d2; }
 
+/* RAG driving-task message */
+.status-bar-rag-msg {
+    font-size: 0.92em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px;
+}
+
+.status-bar-rag-task-link {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.status-bar-rag-task-link:hover {
+    text-decoration-style: solid;
+}
+
 /* Separator */
 .status-bar-separator {
     width: 1px;

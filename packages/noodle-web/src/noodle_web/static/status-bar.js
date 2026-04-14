@@ -125,6 +125,9 @@ function updateStatusBarRAG(frontMatter, tasks) {
             if (typeof persistRagToFrontMatter === 'function') {
                 persistRagToFrontMatter(ragStatus);
             }
+
+            // Show driving-task message for amber/red statuses
+            updateStatusBarRAGMessage(ragStatus, tasks);
         }
     }
 
@@ -132,4 +135,101 @@ function updateStatusBarRAG(frontMatter, tasks) {
     if (typeof updateVersionBadge === 'function') {
         updateVersionBadge();
     }
+}
+
+/**
+ * Show a statusbar message identifying the task driving an amber or red RAG.
+ * The task name is clickable and opens the task inspector.
+ * Clears the message when status is green or blue.
+ */
+function updateStatusBarRAGMessage(ragStatus, tasks) {
+    const el = document.getElementById('statusBarMessage');
+    if (!el) return;
+
+    // Clear message for non-problematic statuses
+    if (ragStatus !== 'red' && ragStatus !== 'amber') {
+        const ragMsg = document.getElementById('statusBarRAGMsg');
+        if (ragMsg) ragMsg.remove();
+        return;
+    }
+
+    // Find the first non-summary task driving the status (red first, then amber)
+    var drivingTask = null;
+    var searchFor = ragStatus;
+
+    if (tasks && tasks.length > 0) {
+        // If overall is red, look for a red task first
+        if (searchFor === 'red') {
+            for (var i = 0; i < tasks.length; i++) {
+                var t = tasks[i];
+                if (t.is_summary) continue;
+                var r = (t.rag || '').toLowerCase();
+                if (r.includes('red') || r === 'r') {
+                    drivingTask = t;
+                    break;
+                }
+            }
+        }
+        // If overall is amber, or no red task found, look for amber
+        if (!drivingTask) {
+            for (var j = 0; j < tasks.length; j++) {
+                var t2 = tasks[j];
+                if (t2.is_summary) continue;
+                var r2 = (t2.rag || '').toLowerCase();
+                if (r2.includes('amber') || r2.includes('yellow') || r2 === 'a') {
+                    drivingTask = t2;
+                    searchFor = 'amber';
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!drivingTask) {
+        var ragMsg = document.getElementById('statusBarRAGMsg');
+        if (ragMsg) ragMsg.remove();
+        return;
+    }
+
+    // Clean task name: strip metadata tokens like @resource, $product, durations etc.
+    var cleanName = drivingTask.name || '';
+
+    // Build the message
+    var statusLabel = searchFor === 'red' ? 'Red' : 'Amber';
+    var reason = searchFor === 'red' ? 'is overdue' : 'is behind schedule';
+
+    // Create or update the RAG message element
+    var msgSpan = document.getElementById('statusBarRAGMsg');
+    if (!msgSpan) {
+        msgSpan = document.createElement('span');
+        msgSpan.id = 'statusBarRAGMsg';
+        msgSpan.className = 'status-bar-rag-msg';
+        // Insert at the beginning of the status bar centre area
+        el.prepend(msgSpan);
+    }
+
+    var color = searchFor === 'red' ? '#d32f2f' : '#f57c00';
+
+    msgSpan.innerHTML = '';
+    msgSpan.style.color = color;
+
+    var textBefore = document.createTextNode(statusLabel + ' \u2014 ');
+    msgSpan.appendChild(textBefore);
+
+    var link = document.createElement('a');
+    link.href = '#';
+    link.className = 'status-bar-rag-task-link';
+    link.textContent = cleanName;
+    link.style.color = color;
+    link.title = 'Open task inspector for ' + cleanName;
+    link.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (typeof openTaskInspectorByName === 'function') {
+            openTaskInspectorByName(drivingTask.name);
+        }
+    });
+    msgSpan.appendChild(link);
+
+    var textAfter = document.createTextNode(' ' + reason);
+    msgSpan.appendChild(textAfter);
 }
