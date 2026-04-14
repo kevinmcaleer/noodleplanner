@@ -607,7 +607,7 @@ function addReportToHighlights() {
 
     const item = {
         date: today,
-        author: 'Auto Report',
+        author: 'AutoReport',
         content: reportText
     };
 
