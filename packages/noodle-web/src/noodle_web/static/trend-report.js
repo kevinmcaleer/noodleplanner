@@ -12,12 +12,56 @@
 // ---------------------------------------------------------------------------
 
 /**
+ * Clean a raw task name by stripping markdown tokens ($product, @resource,
+ * durations, dates, percentages, brackets, etc.) to produce a friendly name.
+ */
+function cleanTaskName(raw) {
+    if (!raw) return '';
+    let name = raw;
+    // Strip deliverable tokens: /$product, ^$product, $product
+    name = name.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '');
+    // Strip resource tokens: @name or @name:P/R/A
+    name = name.replace(/@\w+(?::[PRA])?/gi, '');
+    // Strip durations: 5d, 2w, 1m, 3y
+    name = name.replace(/\b\d+[dwmy]\b/g, '');
+    // Strip dates: 2026-04-14
+    name = name.replace(/\d{4}-\d{2}-\d{2}/g, '');
+    // Strip percentages: 50%
+    name = name.replace(/\b\d{1,3}%/g, '');
+    // Strip [depends ...] brackets
+    name = name.replace(/\[depends[^\]]*\]/gi, '');
+    // Strip comments: !"..."
+    name = name.replace(/!"[^"]*"/g, '');
+    // Strip priority: !high, !low, !medium
+    name = name.replace(/!(high|medium|low)\b/gi, '');
+    // Strip labels: #tag
+    name = name.replace(/#\S+/g, '');
+    // Strip leading * (milestone marker)
+    name = name.replace(/^\*+/, '');
+    // Collapse whitespace and trim
+    name = name.replace(/\s+/g, ' ').trim();
+    // Convert snake_case to spaces
+    name = name.replace(/_/g, ' ');
+    return name;
+}
+
+/**
+ * Map a resource shortname to its full name using the resource map from
+ * front matter, if available.
+ */
+function resolveResourceName(shortname, planText) {
+    if (!planText || !shortname) return shortname;
+    // Look for "- @short: Full Name" in front matter Resources section
+    const fmMatch = planText.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) return shortname;
+    const re = new RegExp('-\\s*@' + shortname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s*([^,\\n]+)', 'i');
+    const m = fmMatch[1].match(re);
+    return m ? m[1].trim() : shortname;
+}
+
+/**
  * Extract task lines from plan text.
- * Returns an array of {name, percent, resources, start, end, isMilestone}.
- *
- * Task lines follow the pattern:
- *   TaskName [ResourceA, ResourceB] 2025-01-01 2025-03-01 50%
- * Milestones are tasks prefixed with * or that have identical start/end dates.
+ * Returns an array of {name, friendlyName, percent, resources, start, end, duration, isMilestone}.
  */
 function extractTasksFromPlanText(planText) {
     if (!planText) return [];
@@ -44,35 +88,50 @@ function extractTasksFromPlanText(planText) {
 
     const lines = body.split('\n');
 
-    // Task line regex: name [resources] start end percent
-    // Handles indented tasks, milestones (*name), and various formats
-    const taskRe = /^(\s*)(\*?)([^[\]]+?)\s*(?:\[([^\]]*)\])?\s*(\d{4}-\d{2}-\d{2})?\s*(\d{4}-\d{2}-\d{2})?\s*(\d+)%/;
-
     for (const line of lines) {
-        const m = line.match(taskRe);
-        if (!m) continue;
+        const stripped = line.trim();
+        if (!stripped) continue;
 
-        const indent = m[1] || '';
-        const milestone = m[2] === '*';
-        const name = m[3].trim();
-        const resources = m[4] ? m[4].split(',').map(r => r.trim()).filter(Boolean) : [];
-        const start = m[5] || '';
-        const end = m[6] || '';
-        const percent = parseInt(m[7], 10);
+        // Must contain at least a % to be a task line
+        const pctMatch = stripped.match(/\b(\d{1,3})%/);
+        if (!pctMatch) continue;
 
-        // Skip summary/group lines (lines that are just section headers)
-        if (!name) continue;
+        const percent = parseInt(pctMatch[1], 10);
+        const indent = line.length - line.trimStart().length;
+        const milestone = stripped.startsWith('*');
+
+        // Extract resources (@name tokens)
+        const resources = [];
+        const resRe = /@(\w+)(?::[PRA])?/gi;
+        let rm;
+        while ((rm = resRe.exec(stripped)) !== null) {
+            resources.push(rm[1]);
+        }
+
+        // Extract dates
+        const dates = stripped.match(/\d{4}-\d{2}-\d{2}/g) || [];
+        const start = dates[0] || '';
+        const end = dates[1] || dates[0] || '';
+
+        // Extract duration
+        const durMatch = stripped.match(/\b(\d+[dwmy])\b/);
+        const duration = durMatch ? durMatch[1] : '';
+
+        const friendlyName = cleanTaskName(stripped);
+        if (!friendlyName) continue;
 
         const isMilestone = milestone || (start && end && start === end);
 
         tasks.push({
-            name: name,
+            name: stripped,
+            friendlyName: friendlyName,
             percent: percent,
             resources: resources,
             start: start,
             end: end,
+            duration: duration,
             isMilestone: isMilestone,
-            indent: indent.length
+            indent: indent
         });
     }
 
@@ -125,24 +184,24 @@ function compareTasks(oldTasks, newTasks) {
         );
     }
 
-    // Build maps by task name for comparison
+    // Build maps by friendly name for comparison
     const oldMap = new Map();
-    oldTasks.forEach(t => oldMap.set(t.name.toLowerCase(), t));
+    oldTasks.forEach(t => oldMap.set(t.friendlyName.toLowerCase(), t));
 
     const newMap = new Map();
-    newTasks.forEach(t => newMap.set(t.name.toLowerCase(), t));
+    newTasks.forEach(t => newMap.set(t.friendlyName.toLowerCase(), t));
 
     // Find completed, changed, and added tasks
     for (const [key, newTask] of newMap) {
         const oldTask = oldMap.get(key);
         if (!oldTask) {
-            result.added.push(newTask.name);
+            result.added.push(newTask.friendlyName);
         } else {
             if (newTask.percent === 100 && oldTask.percent < 100) {
-                result.completed.push(newTask.name);
+                result.completed.push(newTask.friendlyName);
             } else if (newTask.percent !== oldTask.percent) {
                 result.changed.push({
-                    name: newTask.name,
+                    name: newTask.friendlyName,
                     oldPercent: oldTask.percent,
                     newPercent: newTask.percent
                 });
@@ -153,7 +212,7 @@ function compareTasks(oldTasks, newTasks) {
     // Find removed tasks
     for (const [key, oldTask] of oldMap) {
         if (!newMap.has(key)) {
-            result.removed.push(oldTask.name);
+            result.removed.push(oldTask.friendlyName);
         }
     }
 
@@ -233,30 +292,28 @@ function compareMilestones(oldTasks, newTasks) {
     };
 
     const oldMap = new Map();
-    oldMilestones.forEach(m => oldMap.set(m.name.toLowerCase(), m));
+    oldMilestones.forEach(m => oldMap.set(m.friendlyName.toLowerCase(), m));
 
     const newMap = new Map();
-    newMilestones.forEach(m => newMap.set(m.name.toLowerCase(), m));
+    newMilestones.forEach(m => newMap.set(m.friendlyName.toLowerCase(), m));
 
     for (const [key, newMs] of newMap) {
         const oldMs = oldMap.get(key);
         if (!oldMs) {
-            result.added.push(newMs.name);
+            result.added.push(newMs.friendlyName);
         } else {
-            // Check if achieved (went to 100%)
             if (newMs.percent === 100 && oldMs.percent < 100) {
                 result.achieved.push({
-                    name: newMs.name,
+                    name: newMs.friendlyName,
                     date: newMs.end || newMs.start || ''
                 });
             }
-            // Check for date slippage
             if (oldMs.end && newMs.end && oldMs.end !== newMs.end) {
                 const oldDate = new Date(oldMs.end);
                 const newDate = new Date(newMs.end);
                 const daysDiff = Math.round((newDate - oldDate) / (1000 * 60 * 60 * 24));
                 result.dateChanged.push({
-                    name: newMs.name,
+                    name: newMs.friendlyName,
                     oldDate: oldMs.end,
                     newDate: newMs.end,
                     daysDiff: daysDiff
@@ -267,7 +324,7 @@ function compareMilestones(oldTasks, newTasks) {
 
     for (const [key] of oldMap) {
         if (!newMap.has(key)) {
-            result.removed.push(oldMap.get(key).name);
+            result.removed.push(oldMap.get(key).friendlyName);
         }
     }
 
@@ -299,9 +356,9 @@ function generateChangeLog(currentPlanText, previousPlanText) {
     }
     if (taskDiff.changed.length > 0) {
         const changes = taskDiff.changed.map(c =>
-            c.name + ' (' + c.oldPercent + '% -> ' + c.newPercent + '%)'
+            c.name + ' (' + c.oldPercent + '% → ' + c.newPercent + '%)'
         );
-        lines.push('Progress changes: ' + changes.join(', '));
+        lines.push('Progress: ' + changes.join(', '));
     }
 
     return lines.length > 0 ? lines.join('\n') : 'No changes detected.';
@@ -323,35 +380,31 @@ function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion
     const milestoneDiff = compareMilestones(oldTasks, newTasks);
 
     const vLabel = (currentVersion && comparisonVersion)
-        ? ' (v' + comparisonVersion + ' -> v' + currentVersion + ')'
+        ? ' (v' + comparisonVersion + ' → v' + currentVersion + ')'
         : '';
 
     const lines = [];
-    lines.push('## Progress Summary' + vLabel);
+    lines.push('**Progress Summary' + vLabel + '**');
     lines.push('');
 
     // --- Plan Progress ---
-    lines.push('### Plan Progress');
+    const taskChangeCount = taskDiff.completed.length + taskDiff.added.length +
+        taskDiff.removed.length + taskDiff.changed.length;
+    lines.push('**Plan Progress — ' + taskChangeCount + ' change' + (taskChangeCount !== 1 ? 's' : '') + '**');
+
     const pctChange = taskDiff.newOverallPercent - taskDiff.oldOverallPercent;
     const pctSign = pctChange >= 0 ? '+' : '';
-    lines.push('- Overall completion: ' + taskDiff.oldOverallPercent + '% -> ' +
+    lines.push('- Overall completion: ' + taskDiff.oldOverallPercent + '% → ' +
         taskDiff.newOverallPercent + '% (' + pctSign + pctChange + '%)');
 
     if (taskDiff.completed.length > 0) {
-        lines.push('- ' + taskDiff.completed.length + ' task' +
-            (taskDiff.completed.length !== 1 ? 's' : '') +
-            ' completed since v' + (comparisonVersion || '?') + ': ' +
-            taskDiff.completed.map(n => '"' + n + '"').join(', '));
+        lines.push('- Completed: ' + taskDiff.completed.join(', '));
     }
     if (taskDiff.added.length > 0) {
-        lines.push('- ' + taskDiff.added.length + ' new task' +
-            (taskDiff.added.length !== 1 ? 's' : '') + ' added: ' +
-            taskDiff.added.map(n => '"' + n + '"').join(', '));
+        lines.push('- Added: ' + taskDiff.added.join(', '));
     }
     if (taskDiff.removed.length > 0) {
-        lines.push('- ' + taskDiff.removed.length + ' task' +
-            (taskDiff.removed.length !== 1 ? 's' : '') + ' removed: ' +
-            taskDiff.removed.map(n => '"' + n + '"').join(', '));
+        lines.push('- Removed: ' + taskDiff.removed.join(', '));
     }
     if (taskDiff.changed.length > 0) {
         const topChanges = taskDiff.changed
@@ -360,79 +413,71 @@ function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion
         for (const c of topChanges) {
             const diff = c.newPercent - c.oldPercent;
             const sign = diff >= 0 ? '+' : '';
-            lines.push('- "' + c.name + '": ' + c.oldPercent + '% -> ' +
+            lines.push('- ' + c.name + ': ' + c.oldPercent + '% → ' +
                 c.newPercent + '% (' + sign + diff + '%)');
         }
         if (taskDiff.changed.length > 5) {
-            lines.push('- ...and ' + (taskDiff.changed.length - 5) + ' more tasks with progress changes');
+            lines.push('- …and ' + (taskDiff.changed.length - 5) + ' more');
         }
     }
-    if (taskDiff.completed.length === 0 && taskDiff.added.length === 0 &&
-        taskDiff.removed.length === 0 && taskDiff.changed.length === 0) {
+    if (taskChangeCount === 0) {
         lines.push('- No task changes detected');
     }
 
     lines.push('');
 
     // --- Risks & Issues ---
-    lines.push('### Risks & Issues');
+    const raidChangeCount = raidDiff.added.length + raidDiff.statusChanged.length + raidDiff.removed.length;
+    lines.push('**Risks & Issues — ' + raidChangeCount + ' change' + (raidChangeCount !== 1 ? 's' : '') + '**');
+
     if (raidDiff.added.length > 0) {
         for (const item of raidDiff.added) {
-            const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
-            lines.push('- New ' + typeLabel.toLowerCase() + ' added: "' + item.title + '"');
+            lines.push('- New: ' + item.title);
         }
     }
     if (raidDiff.statusChanged.length > 0) {
         for (const item of raidDiff.statusChanged) {
-            const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
-            lines.push('- ' + typeLabel + ' "' + item.title + '" status changed: ' +
-                item.oldStatus + ' -> ' + item.newStatus);
+            lines.push('- ' + item.title + ': ' + item.oldStatus + ' → ' + item.newStatus);
         }
     }
     if (raidDiff.removed.length > 0) {
         for (const item of raidDiff.removed) {
-            const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
-            lines.push('- ' + typeLabel + ' "' + item.title + '" removed');
+            lines.push('- Removed: ' + item.title);
         }
     }
-    if (raidDiff.unchanged > 0) {
-        lines.push('- ' + raidDiff.unchanged + ' item' +
-            (raidDiff.unchanged !== 1 ? 's' : '') + ' remain unchanged');
-    }
-    if (raidDiff.added.length === 0 && raidDiff.statusChanged.length === 0 &&
-        raidDiff.removed.length === 0 && raidDiff.unchanged === 0) {
-        lines.push('- No RAID items found or no changes detected');
+    if (raidChangeCount === 0) {
+        lines.push('- No changes');
     }
 
     lines.push('');
 
     // --- Milestones ---
-    lines.push('### Milestones');
+    const msChangeCount = milestoneDiff.achieved.length + milestoneDiff.dateChanged.length +
+        milestoneDiff.added.length + milestoneDiff.removed.length;
+    lines.push('**Milestones — ' + msChangeCount + ' change' + (msChangeCount !== 1 ? 's' : '') + '**');
+
     if (milestoneDiff.achieved.length > 0) {
         for (const ms of milestoneDiff.achieved) {
             const dateStr = ms.date ? ' on ' + ms.date : '';
-            lines.push('- "' + ms.name + '" achieved' + dateStr);
+            lines.push('- Achieved: ' + ms.name + dateStr);
         }
     }
     if (milestoneDiff.dateChanged.length > 0) {
         for (const ms of milestoneDiff.dateChanged) {
             const direction = ms.daysDiff > 0 ? 'slipped' : 'brought forward';
-            lines.push('- "' + ms.name + '" date ' + direction + ': ' +
-                ms.oldDate + ' -> ' + ms.newDate +
-                ' (' + (ms.daysDiff > 0 ? '+' : '') + ms.daysDiff + ' days)');
+            lines.push('- ' + ms.name + ' ' + direction + ': ' +
+                ms.oldDate + ' → ' + ms.newDate +
+                ' (' + (ms.daysDiff > 0 ? '+' : '') + ms.daysDiff + 'd)');
         }
     }
     if (milestoneDiff.added.length > 0) {
-        lines.push('- New milestone' + (milestoneDiff.added.length !== 1 ? 's' : '') +
-            ': ' + milestoneDiff.added.map(n => '"' + n + '"').join(', '));
+        lines.push('- Added: ' + milestoneDiff.added.join(', '));
     }
     if (milestoneDiff.removed.length > 0) {
-        lines.push('- Removed milestone' + (milestoneDiff.removed.length !== 1 ? 's' : '') +
-            ': ' + milestoneDiff.removed.map(n => '"' + n + '"').join(', '));
+        lines.push('- Removed: ' + milestoneDiff.removed.join(', '));
     }
-    if (milestoneDiff.achieved.length === 0 && milestoneDiff.dateChanged.length === 0 &&
-        milestoneDiff.added.length === 0 && milestoneDiff.removed.length === 0) {
-        lines.push('- No milestone changes detected');
+    if (msChangeCount === 0) {
+        lines.push('- No changes');
     }
 
     return lines.join('\n');
