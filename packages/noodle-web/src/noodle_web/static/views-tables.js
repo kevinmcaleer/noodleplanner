@@ -1215,6 +1215,26 @@ function updateResourcesTable(tasks) {
             });
         });
 
+        // Include resources from front matter that aren't assigned to any tasks yet
+        if (typeof globalResourceMap === 'object' && globalResourceMap) {
+            Object.keys(globalResourceMap).forEach(shortname => {
+                const fullName = globalResourceMap[shortname] || shortname;
+                // Check if already in resourceData (by full name or shortname)
+                const alreadyPresent = Object.values(resourceData).some(r =>
+                    r.shortname === shortname || r.name.toLowerCase() === fullName.toLowerCase()
+                );
+                if (!alreadyPresent) {
+                    resourceData[fullName] = {
+                        name: fullName,
+                        shortname: shortname,
+                        taskCount: 0,
+                        totalDays: 0,
+                        totalHours: 0
+                    };
+                }
+            });
+        }
+
         // Convert to array and sort by name
         const sortedResources = Object.values(resourceData).sort((a, b) =>
             a.name.localeCompare(b.name)
