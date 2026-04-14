@@ -1446,10 +1446,9 @@ svg.icon {
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background var(--np-anim-duration) var(--np-anim-easing), border-color var(--np-anim-duration) var(--np-anim-easing);
     line-height: 0;
     color: #999;
-    font-size: 0.85em;
     margin-left: auto;
 }
 
