@@ -1450,6 +1450,7 @@ svg.icon {
     line-height: 0;
     color: #999;
     margin-left: auto;
+    outline: none;
 }
 
 .widget-shortcut:hover {
