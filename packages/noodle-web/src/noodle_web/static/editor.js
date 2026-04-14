@@ -78,13 +78,19 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 if (!token) continue;
                 if (token.startsWith('@')) continue;       // resource
                 if (token.startsWith('#')) continue;       // label
-                if (/^\d+[dmw]$/.test(token)) continue;   // duration
+                if (/^[/^]?\$/.test(token)) continue;     // deliverable token ($x, /$x, ^$x)
+                if (/^\d+[dmwy]$/.test(token)) continue;  // duration
                 if (/^\d+%$/.test(token)) continue;        // percent
                 if (/^\d{4}-\d{2}-\d{2}$/.test(token)) continue; // date
                 nameTokens.push(token);
             }
             const name = nameTokens.join(' ');
-            if (name) allTaskNames.add(name.toLowerCase());
+            if (name) {
+                allTaskNames.add(name.toLowerCase());
+                // Also add underscore variant so deps using either form match
+                if (name.includes('_')) allTaskNames.add(name.replace(/_/g, ' ').toLowerCase());
+                if (name.includes(' ')) allTaskNames.add(name.replace(/ /g, '_').toLowerCase());
+            }
         }
 
         let inHighlightsSection = false;
@@ -197,8 +203,11 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                     const depTaskName = typeMatch ? typeMatch[1].trim() : corePart;
                     const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
 
-                    // Check if the dependency task name exists
-                    const isValid = allTaskNames.has(depTaskName.toLowerCase());
+                    // Check if the dependency task name exists (try both space and underscore forms)
+                    const depLower = depTaskName.toLowerCase();
+                    const isValid = allTaskNames.has(depLower) ||
+                        allTaskNames.has(depLower.replace(/_/g, ' ')) ||
+                        allTaskNames.has(depLower.replace(/ /g, '_'));
                     if (isValid) {
                         return depTaskName + typePart + lagLeadPart;
                     } else {
