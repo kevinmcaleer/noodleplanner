@@ -1033,6 +1033,7 @@ Press Enter to render..."></textarea>
                                 <div class="highlights-toolbar">
                                     <h2 class="highlights-title"><span class="ribbon-banner ribbon-banner--yellow">Project Highlights</span></h2>
                                     <a class="subtle-add-btn" onclick="addHighlight()" title="Add highlight">+ Add Highlight</a>
+                                    <a class="subtle-add-btn" onclick="showTrendReportDialog()" title="Generate trend report from version history"><i class="bi bi-graph-up-arrow"></i> Auto Report</a>
                                 </div>
                                 <div class="highlights-list" id="highlightsList">
                                     <!-- Highlights will be populated by JavaScript -->
@@ -3584,6 +3585,7 @@ Build
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
+    <script src="/static/trend-report.js?v={{ v }}"></script>
     <script src="/static/views-products.js?v={{ v }}"></script>
     <script src="/static/ai-config.js?v={{ v }}"></script>
     <script src="/static/ai-chat.js?v={{ v }}"></script>
@@ -3688,6 +3690,39 @@ Build
             </button>
         </div>
     </aside>
+
+    <!-- Trend Report Modal -->
+    <div id="trendReportOverlay" class="modal-overlay" onclick="if(event.target===this) closeTrendReportDialog()" role="dialog" aria-modal="true" aria-label="Generate Trend Report">
+        <div class="task-form-modal" style="max-width: 650px;">
+            <div class="modal-header">
+                <h2><i class="bi bi-graph-up-arrow"></i> Trend Report</h2>
+                <button class="close-btn" onclick="closeTrendReportDialog()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 12px; color: var(--text-secondary, #666);">
+                    Compare the current plan against a previous version to generate a progress report.
+                </p>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="trendCompareVersion" style="font-weight: 600; margin-bottom: 6px; display: block;">Compare against version:</label>
+                    <select id="trendCompareVersion" class="form-control" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color, #ddd);">
+                        <option value="">No version history available</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <button type="button" class="btn-primary" onclick="generateTrendReportFromDialog()" style="padding: 8px 20px; min-height: 44px;">
+                        <i class="bi bi-lightning-charge"></i> Generate Report
+                    </button>
+                </div>
+                <textarea id="trendReportPreview" class="form-control" style="display: none; width: 100%; min-height: 250px; font-family: monospace; font-size: 13px; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color, #ddd); resize: vertical; background: var(--bg-secondary, #f8f9fa);" readonly></textarea>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="btn-secondary" onclick="closeTrendReportDialog()" style="padding: 8px 20px; min-height: 44px;">Close</button>
+                    <button type="button" id="trendReportAddBtn" class="btn-primary" onclick="addReportToHighlights()" style="display: none; padding: 8px 20px; min-height: 44px;">
+                        <i class="bi bi-plus-circle"></i> Add to Highlights
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- RAID Delete Confirmation Modal -->
     <div id="raidDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteRaidItem()" role="dialog" aria-modal="true" aria-label="Confirm delete RAID item">
