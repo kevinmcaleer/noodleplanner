@@ -63,8 +63,8 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 // Strip optional lag/lead after *
                 taskText = taskText.replace(/^[+\-]\d+[dwmy]\s+/, '');
             }
-            // Remove comments in quotes
-            taskText = taskText.replace(/"[^"]*"/, '').trim();
+            // Remove comments in quotes (strip all quoted strings, and leading !)
+            taskText = taskText.replace(/!?"[^"]*"/g, '').trim();
             // Remove [depends ...] blocks
             taskText = taskText.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
             // Remove bucket names in curly braces
@@ -203,11 +203,22 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                     const depTaskName = typeMatch ? typeMatch[1].trim() : corePart;
                     const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
 
-                    // Check if the dependency task name exists (try both space and underscore forms)
-                    const depLower = depTaskName.toLowerCase();
-                    const isValid = allTaskNames.has(depLower) ||
+                    // Check if the dependency task name exists
+                    // Normalise: collapse whitespace, try space/underscore variants
+                    const depLower = depTaskName.toLowerCase().replace(/\s+/g, ' ').trim();
+                    let isValid = allTaskNames.has(depLower) ||
                         allTaskNames.has(depLower.replace(/_/g, ' ')) ||
                         allTaskNames.has(depLower.replace(/ /g, '_'));
+                    // Fallback: normalise to alphanumeric-only for fuzzy match
+                    if (!isValid) {
+                        const depNorm = depLower.replace(/[^a-z0-9]/g, '');
+                        for (const tn of allTaskNames) {
+                            if (tn.replace(/[^a-z0-9]/g, '') === depNorm) {
+                                isValid = true;
+                                break;
+                            }
+                        }
+                    }
                     if (isValid) {
                         return depTaskName + typePart + lagLeadPart;
                     } else {
