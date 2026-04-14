@@ -3599,6 +3599,16 @@ function collectDependenciesFromTable() {
     return deps.join(', ');
 }
 
+let _saveTaskTimer = null;
+
+function saveTaskDebounced() {
+    if (_saveTaskTimer) clearTimeout(_saveTaskTimer);
+    _saveTaskTimer = setTimeout(function () {
+        _saveTaskTimer = null;
+        saveTask();
+    }, 1000);
+}
+
 function saveTask() {
     if (currentTaskLineNumber === null) return;
 
