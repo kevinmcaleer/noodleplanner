@@ -84,7 +84,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 nameTokens.push(token);
             }
             const name = nameTokens.join(' ');
-            if (name) allTaskNames.add(name);
+            if (name) allTaskNames.add(name.toLowerCase());
         }
 
         let inHighlightsSection = false;
@@ -198,7 +198,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                     const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
 
                     // Check if the dependency task name exists
-                    const isValid = allTaskNames.has(depTaskName);
+                    const isValid = allTaskNames.has(depTaskName.toLowerCase());
                     if (isValid) {
                         return depTaskName + typePart + lagLeadPart;
                     } else {

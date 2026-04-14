@@ -2878,8 +2878,9 @@ svg.icon {
 }
 
 .syntax-error {
-    text-decoration: wavy underline #f44336;
-    text-underline-offset: 3px;
+    background: rgba(220, 50, 50, 0.25);
+    border-bottom: 2px solid #f44336;
+    border-radius: 2px;
     color: #f44336;
 }
 
