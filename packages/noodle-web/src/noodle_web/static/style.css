@@ -1463,11 +1463,6 @@ svg.icon {
     margin-left: 4px;
 }
 
-/* h3 should grow to push buttons right */
-.quad-header h3 {
-    flex: 1;
-}
-
 .quad-cell h3 {
     font-size: 1.15em;
     font-weight: 600;
@@ -1480,13 +1475,13 @@ svg.icon {
 .quad-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid #e9ecef;
 }
 
 .quad-header h3 {
+    flex: 1;
     margin-bottom: 0;
     padding-bottom: 0;
     border-bottom: none;
