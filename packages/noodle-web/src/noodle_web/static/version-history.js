@@ -120,7 +120,15 @@ function saveVersionSnapshot(projectId) {
     const history = getVersionHistory(projectId);
 
     // Avoid duplicate snapshots — skip if the latest entry has identical text
-    if (history.length > 0 && history[0].planText === planText) {
+    // or the same version number (version is bumped on explicit save/export)
+    if (history.length > 0 && (history[0].planText === planText || history[0].version === version)) {
+        // Update the existing entry's text/date/rag if same version
+        if (history[0].version === version) {
+            history[0].planText = planText;
+            history[0].date = date;
+            history[0].rag = rag;
+            saveVersionHistory(projectId, history);
+        }
         return;
     }
 
@@ -409,16 +417,12 @@ function renderVersionHistoryList(projectId) {
 
     const history = getVersionHistory(projectId);
 
-    if (history.length === 0) {
-        container.innerHTML = '<p class="vh-empty">No version history yet. Versions are saved automatically when you save your plan.</p>';
-        return;
-    }
-
     // Show current version at the top
     let html = '';
     const editor = document.getElementById('planEditor');
+    const curVersion = (editor && editor.value.trim()) ? (getVersionFromFrontMatter(editor.value) || '1.0') : null;
+
     if (editor && editor.value.trim()) {
-        const curVersion = getVersionFromFrontMatter(editor.value) || '1.0';
         const curRag = getRagFromFrontMatter(editor.value) || '';
         const curRagClass = curRag ? 'rag-' + curRag : '';
         html += '<div class="vh-entry vh-entry-current">' +
@@ -435,7 +439,35 @@ function renderVersionHistoryList(projectId) {
         '</div>';
     }
 
-    history.forEach(function (entry, idx) {
+    if (history.length === 0) {
+        html += '<p class="vh-empty">No previous versions yet. Versions are saved automatically when you save your plan.</p>';
+        container.innerHTML = html;
+        return;
+    }
+
+    // Sort history by version number descending (newest first)
+    // Parse version strings like "1.0", "2.3", "uploaded" into comparable values
+    function parseVersionNumber(v) {
+        if (!v || v === 'uploaded') return [-1, 0];
+        const parts = v.split('.');
+        return [parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0];
+    }
+
+    const sorted = history.map(function (entry, idx) {
+        return { entry: entry, origIdx: idx };
+    }).sort(function (a, b) {
+        const va = parseVersionNumber(a.entry.version);
+        const vb = parseVersionNumber(b.entry.version);
+        if (vb[0] !== va[0]) return vb[0] - va[0];
+        return vb[1] - va[1];
+    });
+
+    sorted.forEach(function (item) {
+        const entry = item.entry;
+        const idx = item.origIdx;
+
+        // Skip if this entry matches the current version (already shown above)
+        if (curVersion && entry.version === curVersion) return;
         const dateObj = new Date(entry.date);
         const dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
