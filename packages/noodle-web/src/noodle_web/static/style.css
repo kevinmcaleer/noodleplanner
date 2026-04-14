@@ -2903,6 +2903,31 @@ svg.icon {
     font-weight: bold;
 }
 
+.syntax-frontmatter-delimiter {
+    color: #569cd6;
+    font-weight: 600;
+}
+
+.syntax-yaml-key {
+    color: #569cd6;
+}
+
+.syntax-yaml-colon {
+    color: #808080;
+}
+
+.syntax-yaml-value {
+    color: #ce9178;
+}
+
+.syntax-yaml-list {
+    color: #808080;
+}
+
+.syntax-frontmatter {
+    color: #808080;
+}
+
 .syntax-highlights-delimiter {
     color: #569cd6;
     font-weight: 600;

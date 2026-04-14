@@ -113,7 +113,29 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 return '<span class="syntax-frontmatter-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
             if (inFrontMatterSection) {
-                return '<span class="syntax-frontmatter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                const escaped = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                // YAML list item: "- @key: value" or "- value"
+                const listMatch = escaped.match(/^(\s*-\s+)(.*)$/);
+                if (listMatch) {
+                    const prefix = '<span class="syntax-yaml-list">' + listMatch[1] + '</span>';
+                    const rest = listMatch[2];
+                    // Highlight @resource tokens within list items
+                    const restHighlighted = rest.replace(/@(\w+)/g, '<span class="syntax-resource">@$1</span>');
+                    return prefix + '<span class="syntax-yaml-value">' + restHighlighted + '</span>';
+                }
+                // YAML key: value pair
+                const kvMatch = escaped.match(/^(\s*)([^:]+?)(:)(\s*)(.*)?$/);
+                if (kvMatch) {
+                    const indent = kvMatch[1] || '';
+                    const key = kvMatch[2];
+                    const colon = kvMatch[3];
+                    const space = kvMatch[4] || '';
+                    const value = kvMatch[5] || '';
+                    return indent + '<span class="syntax-yaml-key">' + key + '</span>' +
+                        '<span class="syntax-yaml-colon">' + colon + '</span>' + space +
+                        '<span class="syntax-yaml-value">' + value + '</span>';
+                }
+                return '<span class="syntax-frontmatter">' + escaped + '</span>';
             }
 
             // Track highlights section boundaries
