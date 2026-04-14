@@ -2479,8 +2479,10 @@ function checkDuplicateDeliverables() {
 
         // Extract task name (strip * prefix and metadata)
         let taskText = trimmed.replace(/^\*\s*/, '');
-        // Strip metadata tokens to get just the name
-        const nameMatch = taskText.match(/^([^@#!$"{\d\[~][^@#!$"{\[~]*?)(?:\s+[\$@#!"{~\[]|\s+\d+[dwmy]|\s+\d+%|\s+\d{4}-|\s*$)/);
+        // Strip metadata tokens to get just the name:
+        // Stop at @resource, #label, $deliverable, /$deliverable, ^$deliverable,
+        // !comment, "quote", [depends], {bucket}, duration, percent, or date
+        const nameMatch = taskText.match(/^(.+?)(?:\s+[/^]?\$|\s+[@#!"{~\[]|\s+\d+[dwmy]\b|\s+\d+%|\s+\d{4}-\d{2}-\d{2}|\s*$)/);
         const taskName = nameMatch ? nameMatch[1].trim() : taskText.split(/\s+/)[0];
         if (!taskName) continue;
 
@@ -2510,6 +2512,79 @@ function checkDuplicateDeliverables() {
                 lineNums.forEach(ln => warningLines.add(ln));
             }
         }
+    }
+
+    // 3. Check for missing dependencies (references that don't match any task or deliverable)
+    const allValidTargets = new Set();
+    // Collect task names and deliverable tokens
+    inFrontMatter = false;
+    inSection = false;
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed2 = lines[i].trim();
+        if (trimmed2 === '---') { inFrontMatter = !inFrontMatter; continue; }
+        if (trimmed2.startsWith('---') && trimmed2.endsWith('---')) { inSection = true; continue; }
+        if (inFrontMatter || inSection) {
+            if (trimmed2 === '---') inSection = false;
+            continue;
+        }
+        if (!trimmed2) continue;
+        // Collect deliverable tokens
+        const deliverableRe = /[/^]?\$([A-Za-z_][A-Za-z0-9_-]*)/g;
+        let dm;
+        while ((dm = deliverableRe.exec(trimmed2)) !== null) {
+            allValidTargets.add('$' + dm[1].toLowerCase());
+            allValidTargets.add(dm[1].toLowerCase());
+        }
+        // Collect task name
+        let tn = trimmed2.replace(/^\*\s*/, '');
+        tn = tn.replace(/!?["\u201c][^"\u201d]*["\u201d]/g, '').trim();
+        tn = tn.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
+        const tnMatch = tn.match(/^(.+?)(?:\s+[/^]?\$|\s+[@#!"{~\[]|\s+\d+[dwmy]\b|\s+\d+%|\s+\d{4}-\d{2}-\d{2}|\s*$)/);
+        const tnName = tnMatch ? tnMatch[1].trim() : '';
+        if (tnName) {
+            allValidTargets.add(tnName.toLowerCase());
+            allValidTargets.add(tnName.replace(/ /g, '_').toLowerCase());
+            allValidTargets.add(tnName.replace(/_/g, ' ').toLowerCase());
+        }
+    }
+
+    const missingDeps = new Set();
+    const depLineRe = /\[depends\s+([^\]]+)\]/gi;
+    for (let i = 0; i < lines.length; i++) {
+        let dm2;
+        while ((dm2 = depLineRe.exec(lines[i])) !== null) {
+            const deps = dm2[1].split(',').map(d => d.trim()).filter(d => d);
+            for (let dep of deps) {
+                dep = dep.replace(/\s+[+\-]\d+[dwmy]$/, '');
+                dep = dep.replace(/:(FS|SS|FF|SF)$/i, '');
+                dep = dep.replace(/^Milestone:\s*/i, '');
+                const depLower = dep.toLowerCase().replace(/\s+/g, ' ').trim();
+                const depBare = depLower.replace(/^[/^]?\$/, '');
+                const found = allValidTargets.has(depLower) ||
+                    allValidTargets.has(depLower.replace(/_/g, ' ')) ||
+                    allValidTargets.has(depLower.replace(/ /g, '_')) ||
+                    (depBare !== depLower && (allValidTargets.has(depBare) ||
+                        allValidTargets.has('$' + depBare)));
+                if (!found) {
+                    // Fuzzy fallback
+                    const depNorm = depLower.replace(/[^a-z0-9]/g, '');
+                    let fuzzy = false;
+                    for (const t of allValidTargets) {
+                        if (t.replace(/[^a-z0-9]/g, '') === depNorm) { fuzzy = true; break; }
+                    }
+                    if (!fuzzy) {
+                        missingDeps.add(dep);
+                        warningLines.add(i + 1);
+                    }
+                }
+            }
+        }
+    }
+
+    if (missingDeps.size > 0) {
+        const depList = [...missingDeps].slice(0, 5);
+        const label = missingDeps.size === 1 ? 'Missing dependency' : `${missingDeps.size} missing dependencies`;
+        warnings.push(`${label}: ${depList.map(d => '"' + d + '"').join(', ')}${missingDeps.size > 5 ? '...' : ''}`);
     }
 
     // Store warning lines globally for the highlight layer to pick up
