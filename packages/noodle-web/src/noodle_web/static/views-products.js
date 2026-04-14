@@ -584,6 +584,31 @@ function pbsRenderAddBtn(cx, cy, title, onClick) {
     return g;
 }
 
+function pbsRenderDeleteBtn(cx, cy, title, onClick) {
+    const r = PBS_ADD_BTN_SIZE / 2;
+    const g = pbsCreateSVGElement('g', { 'class': 'pbs-add-btn pbs-delete-btn', 'style': 'cursor: pointer;' });
+    g.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+
+    g.appendChild(pbsCreateSVGElement('circle', {
+        'cx': cx, 'cy': cy, 'r': r,
+        'fill': '#D94A4A', 'stroke': '#fff', 'stroke-width': '1.5'
+    }));
+    // X sign
+    const s = r * 0.45;
+    g.appendChild(pbsCreateSVGElement('line', {
+        'x1': cx - s, 'y1': cy - s, 'x2': cx + s, 'y2': cy + s,
+        'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+    g.appendChild(pbsCreateSVGElement('line', {
+        'x1': cx - s, 'y1': cy + s, 'x2': cx + s, 'y2': cy - s,
+        'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+    const t = pbsCreateSVGElement('title', {});
+    t.textContent = title;
+    g.appendChild(t);
+    return g;
+}
+
 function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
     let colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour || '#4A90D9'));
@@ -610,6 +635,15 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
             openProductForm(node._task);
         }
     });
+
+    // Right-click context menu: delete product marker
+    if (!isRoot && node._task) {
+        g.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            pbsDeleteProduct(node._task);
+        });
+    }
 
     // Invisible hit area extending beyond the node to keep hover active for + buttons
     if (!isRoot) {
@@ -730,6 +764,14 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
             node.x + node.width + btnGap, node.y + node.height / 2,
             'Add sibling after',
             () => pbsCreateProduct(taskName, 'after')
+        ));
+        // Delete (remove $deliverable marker) button, top-right of node
+        const delivId = node._task.deliverable || node.deliverable;
+        btns.appendChild(pbsRenderDeleteBtn(
+            node.x + node.width + btnGap - PBS_ADD_BTN_SIZE / 2,
+            node.y - btnGap + PBS_ADD_BTN_SIZE / 2,
+            'Delete product (remove $' + (delivId || '') + ' marker)',
+            () => pbsDeleteProduct(node._task)
         ));
         g.appendChild(btns);
     }
@@ -3034,6 +3076,36 @@ function pbsCreateProduct(anchorTaskName, position) {
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
     setTimeout(() => renderText(), 10);
+}
+
+function pbsDeleteProduct(task) {
+    if (!task) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const delivId = task.deliverable;
+    const label = task.name || delivId || 'this product';
+    const msg = `Delete product "${label}"?\n\nThis removes the $${delivId || ''} marker from the plan. The task itself is kept.`;
+    if (typeof confirm === 'function' && !confirm(msg)) return;
+
+    const lineNum = (typeof productFindLineNumber === 'function')
+        ? productFindLineNumber(task.name, delivId)
+        : null;
+    if (lineNum === null || lineNum === undefined) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNum];
+    if (line === undefined) return;
+
+    // Remove $identifier token (with optional /^ prefix and leading whitespace)
+    const newLine = line.replace(/\s*[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/, '');
+    lines[lineNum] = newLine;
+    editor.value = lines.join('\n');
+
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    // renderText triggers a full re-render of PBS and Product Flow
+    setTimeout(() => { if (typeof renderText === 'function') renderText(); }, 10);
 }
 
 function productIdentifierOnInput(el) {

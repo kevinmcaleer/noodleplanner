@@ -122,6 +122,10 @@
     fill: #3a7bc8;
 }
 
+.pbs-delete-btn:hover circle {
+    fill: #b83838;
+}
+
 .pbs-toolbar {
     display: flex;
     align-items: center;
