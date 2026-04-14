@@ -324,34 +324,55 @@ body {
     display: none;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 12px;
-    background: #fff3cd;
-    border: 1px solid #ffc107;
+    padding: 8px 14px;
+    background: #d32f2f;
+    border: 1px solid #b71c1c;
     border-radius: 4px;
-    margin-bottom: 6px;
+    margin-bottom: 0;
     font-size: 0.88em;
-    color: #856404;
+    color: #fff;
     gap: 10px;
+    position: relative;
+    z-index: 1001;
 }
 
 .version-readonly-banner .btn-sm {
     padding: 2px 10px;
-    border: 1px solid #856404;
+    border: 1px solid rgba(255,255,255,0.6);
     border-radius: 4px;
     background: transparent;
-    color: #856404;
+    color: #fff;
     cursor: pointer;
     font-size: 0.9em;
     white-space: nowrap;
 }
 
 .version-readonly-banner .btn-sm:hover {
-    background: #856404;
+    background: rgba(255,255,255,0.2);
     color: #fff;
 }
 
-/* Read-only editor appearance */
+/* Read-only editor overlay — red tint, low translucency */
 .version-readonly {
-    opacity: 0.85;
-    background: var(--np-bg-hover, #f8f8f8) !important;
+    position: relative;
+}
+
+.version-readonly::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(211, 47, 47, 0.08);
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Current version highlight in version list */
+.vh-entry-current {
+    border-left: 3px solid var(--np-accent, #4a90d9);
+    background: var(--np-bg-hover, #f0f4fa);
+}
+
+.vh-current-label {
+    font-weight: 600;
+    color: var(--np-accent, #4a90d9);
 }

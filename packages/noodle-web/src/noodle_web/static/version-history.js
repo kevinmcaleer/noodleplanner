@@ -192,15 +192,28 @@ function restoreVersion(projectId, index) {
 // ---------------------------------------------------------------------------
 
 function downloadVersion(projectId, index) {
-    const history = getVersionHistory(projectId);
-    if (index < 0 || index >= history.length) return;
+    let planText, version;
 
-    const entry = history[index];
+    if (index === -1) {
+        // Download current version from the editor
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+        planText = editor.value;
+        version = getVersionFromFrontMatter(planText) || '1.0';
+        projectId = projectId || getCurrentProjectId();
+    } else {
+        const history = getVersionHistory(projectId);
+        if (index < 0 || index >= history.length) return;
+        const entry = history[index];
+        planText = entry.planText;
+        version = entry.version;
+    }
+
     const project = loadProject(projectId);
     const safeName = (project ? project.name : 'plan').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const filename = safeName + '_v' + entry.version + '.md';
+    const filename = safeName + '_v' + version + '.md';
 
-    const blob = new Blob([entry.planText], { type: 'text/markdown' });
+    const blob = new Blob([planText], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -285,26 +298,44 @@ function uploadVersion(projectId) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.md,.markdown,.txt';
+    input.multiple = true;
     input.onchange = function () {
         if (!input.files || input.files.length === 0) return;
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const planText = e.target.result;
-            const version = getVersionFromFrontMatter(planText) || 'uploaded';
-            const date = new Date().toISOString();
-            const rag = getRagFromFrontMatter(planText) || '';
+        let filesProcessed = 0;
+        const totalFiles = input.files.length;
 
-            const history = getVersionHistory(projectId);
-            history.unshift({ version, date, planText, rag });
-            if (history.length > MAX_VERSIONS_PER_PROJECT) {
-                history.length = MAX_VERSIONS_PER_PROJECT;
-            }
-            saveVersionHistory(projectId, history);
-            renderVersionHistoryList(projectId);
-            setStatusMessage('Uploaded version added to history');
-        };
-        reader.readAsText(file);
+        Array.from(input.files).forEach(function (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const planText = e.target.result;
+                const version = getVersionFromFrontMatter(planText) || 'uploaded';
+                const lastSaved = getLastSavedFromFrontMatter(planText);
+                const date = lastSaved ? new Date(lastSaved).toISOString() : new Date().toISOString();
+                const rag = getRagFromFrontMatter(planText) || '';
+
+                const history = getVersionHistory(projectId);
+
+                // Skip if a version with the same version number already exists
+                const duplicate = history.some(function (entry) {
+                    return entry.version === version;
+                });
+
+                if (!duplicate) {
+                    history.unshift({ version, date, planText, rag });
+                    if (history.length > MAX_VERSIONS_PER_PROJECT) {
+                        history.length = MAX_VERSIONS_PER_PROJECT;
+                    }
+                    saveVersionHistory(projectId, history);
+                }
+
+                filesProcessed++;
+                if (filesProcessed === totalFiles) {
+                    renderVersionHistoryList(projectId);
+                    setStatusMessage(totalFiles === 1 ? 'Uploaded version added to history' : totalFiles + ' versions uploaded');
+                }
+            };
+            reader.readAsText(file);
+        });
     };
     input.click();
 }
@@ -383,7 +414,27 @@ function renderVersionHistoryList(projectId) {
         return;
     }
 
+    // Show current version at the top
     let html = '';
+    const editor = document.getElementById('planEditor');
+    if (editor && editor.value.trim()) {
+        const curVersion = getVersionFromFrontMatter(editor.value) || '1.0';
+        const curRag = getRagFromFrontMatter(editor.value) || '';
+        const curRagClass = curRag ? 'rag-' + curRag : '';
+        html += '<div class="vh-entry vh-entry-current">' +
+            '<div class="vh-entry-info">' +
+                '<span class="vh-rag-dot ' + curRagClass + '" title="RAG: ' + (curRag || 'none') + '"></span>' +
+                '<span class="vh-version">v' + escapeHtml(curVersion) + '</span>' +
+                '<span class="vh-date vh-current-label">Current version</span>' +
+            '</div>' +
+            '<div class="vh-entry-actions">' +
+                '<button class="vh-action-btn" onclick="downloadVersion(null, -1)" title="Download current">' +
+                    '<i class="bi bi-download"></i>' +
+                '</button>' +
+            '</div>' +
+        '</div>';
+    }
+
     history.forEach(function (entry, idx) {
         const dateObj = new Date(entry.date);
         const dateStr = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
