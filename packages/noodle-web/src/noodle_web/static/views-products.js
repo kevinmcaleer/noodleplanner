@@ -2587,6 +2587,35 @@ function checkDuplicateDeliverables() {
         warnings.push(`${label}: ${depList.map(d => '"' + d + '"').join(', ')}${missingDeps.size > 5 ? '...' : ''}`);
     }
 
+    // 4. Check for commas in task names (breaks dependency parsing)
+    inFrontMatter = false;
+    inSection = false;
+    const commaLines = [];
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed3 = lines[i].trim();
+        if (trimmed3 === '---') { inFrontMatter = !inFrontMatter; continue; }
+        if (trimmed3.startsWith('---') && trimmed3.endsWith('---')) { inSection = true; continue; }
+        if (inFrontMatter || inSection) {
+            if (trimmed3 === '---') inSection = false;
+            continue;
+        }
+        if (!trimmed3) continue;
+        // Strip comments, [depends], and metadata to isolate the task name
+        let nameOnly = trimmed3.replace(/^\*\s*/, '');
+        nameOnly = nameOnly.replace(/!?["\u201c][^"\u201d]*["\u201d]/g, '');
+        nameOnly = nameOnly.replace(/\[depends\s+[^\]]+\]/gi, '');
+        // Get just the name portion (before metadata tokens)
+        const nmMatch = nameOnly.match(/^(.+?)(?:\s+[/^]?\$|\s+[@#!"{~\[]|\s+\d+[dwmy]\b|\s+\d+%|\s+\d{4}-\d{2}-\d{2}|\s*$)/);
+        const nm = nmMatch ? nmMatch[1] : '';
+        if (nm && nm.includes(',')) {
+            commaLines.push(i + 1);
+            warningLines.add(i + 1);
+        }
+    }
+    if (commaLines.length > 0) {
+        warnings.push(`Task names cannot contain commas (line${commaLines.length > 1 ? 's' : ''} ${commaLines.slice(0, 5).join(', ')}${commaLines.length > 5 ? '...' : ''}) — this breaks dependencies`);
+    }
+
     // Store warning lines globally for the highlight layer to pick up
     window._duplicateWarningLines = warningLines;
 

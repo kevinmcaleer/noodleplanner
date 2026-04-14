@@ -284,6 +284,19 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 return savePlaceholder('<span class="syntax-priority">' + marker + '</span>');
             });
 
+            // Highlight commas in task names (commas break dependency parsing)
+            // Only flag commas that are NOT inside placeholders (comments, [depends], etc.)
+            highlighted = highlighted.replace(/,/g, (match, offset) => {
+                // Check if this comma is inside a placeholder — if so, leave it alone
+                const before = highlighted.substring(0, offset);
+                const openPlaceholder = before.lastIndexOf('__PLACEHOLDER_');
+                if (openPlaceholder !== -1) {
+                    const closeAfter = before.indexOf('__', openPlaceholder + 14);
+                    if (closeAfter === -1) return match; // inside placeholder
+                }
+                return savePlaceholder('<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
+            });
+
             // Replace all placeholders with actual HTML
             placeholders.forEach(({ placeholder, replacement }) => {
                 highlighted = highlighted.replace(placeholder, replacement);
