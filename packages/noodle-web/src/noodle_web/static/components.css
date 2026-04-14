@@ -1110,6 +1110,20 @@
     font-size: 0.95em;
     line-height: 1.5;
     color: #333;
+    max-height: 15em; /* ~10 lines at 1.5 line-height */
+    overflow: hidden;
+    position: relative;
+}
+
+.report-highlight-body::after {
+    content: '…';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    padding: 0 8px 0 24px;
+    background: linear-gradient(to right, transparent, #fff 40%);
+    color: #999;
+    font-weight: 600;
 }
 
 .report-highlight-body p {

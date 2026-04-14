@@ -2576,6 +2576,12 @@ body {
     color: #ccc;
 }
 
+/* ── Highlight body truncation (dark) ── */
+[data-theme="dark"] .report-highlight-body::after {
+    background: linear-gradient(to right, transparent, #1a1a2e 40%);
+    color: #666;
+}
+
 /* ── Completion Sparkline (dark) ── */
 [data-theme="dark"] .completion-sparkline-container {
     color: #aaa;
