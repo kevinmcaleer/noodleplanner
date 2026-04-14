@@ -332,6 +332,74 @@ function compareMilestones(oldTasks, newTasks) {
 }
 
 // ---------------------------------------------------------------------------
+// Comms plan extraction and comparison
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract comms plan items from plan text for comparison.
+ * Delegates to extractCommsItemsFromPlanText when available,
+ * otherwise returns an empty array.
+ */
+function extractCommsForComparison(planText) {
+    if (typeof extractCommsItemsFromPlanText === 'function') {
+        return extractCommsItemsFromPlanText(planText);
+    }
+    return [];
+}
+
+/**
+ * Compare two sets of comms plan items and return a summary.
+ */
+function compareComms(oldItems, newItems) {
+    const result = {
+        added: [],
+        removed: [],
+        changed: [],
+        unchanged: 0
+    };
+
+    const oldMap = new Map();
+    oldItems.forEach(item => {
+        const key = (item.activity || '').toLowerCase();
+        if (key) oldMap.set(key, item);
+    });
+
+    const newMap = new Map();
+    newItems.forEach(item => {
+        const key = (item.activity || '').toLowerCase();
+        if (key) newMap.set(key, item);
+    });
+
+    for (const [key, newItem] of newMap) {
+        const oldItem = oldMap.get(key);
+        if (!oldItem) {
+            result.added.push({ activity: newItem.activity || 'Untitled' });
+        } else {
+            // Check for changes in audience, frequency, channel, status, owner
+            const changes = [];
+            if ((oldItem.audience || '') !== (newItem.audience || '')) changes.push('audience');
+            if ((oldItem.frequency || '') !== (newItem.frequency || '')) changes.push('frequency');
+            if ((oldItem.channel || '') !== (newItem.channel || '')) changes.push('channel');
+            if ((oldItem.status || '') !== (newItem.status || '')) changes.push('status changed to ' + (newItem.status || '?'));
+            if ((oldItem.owner || '') !== (newItem.owner || '')) changes.push('owner');
+            if (changes.length > 0) {
+                result.changed.push({ activity: newItem.activity || 'Untitled', changes: changes });
+            } else {
+                result.unchanged++;
+            }
+        }
+    }
+
+    for (const [key, oldItem] of oldMap) {
+        if (!newMap.has(key)) {
+            result.removed.push({ activity: oldItem.activity || 'Untitled' });
+        }
+    }
+
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Report generation
 // ---------------------------------------------------------------------------
 
@@ -378,6 +446,10 @@ function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion
     const raidDiff = compareRaid(oldRaid, newRaid);
 
     const milestoneDiff = compareMilestones(oldTasks, newTasks);
+
+    const oldComms = extractCommsForComparison(comparisonPlanText);
+    const newComms = extractCommsForComparison(currentPlanText);
+    const commsDiff = compareComms(oldComms, newComms);
 
     const vLabel = (currentVersion && comparisonVersion)
         ? ' (v' + comparisonVersion + ' → v' + currentVersion + ')'
@@ -478,6 +550,29 @@ function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion
     }
     if (msChangeCount === 0) {
         lines.push('- No changes');
+    }
+
+    // --- Comms Plan ---
+    const commsChangeCount = commsDiff.added.length + commsDiff.changed.length + commsDiff.removed.length;
+    if (commsChangeCount > 0) {
+        lines.push('');
+        lines.push('**Comms Plan — ' + commsChangeCount + ' change' + (commsChangeCount !== 1 ? 's' : '') + '**');
+
+        if (commsDiff.added.length > 0) {
+            for (const item of commsDiff.added) {
+                lines.push('- New activity: ' + item.activity);
+            }
+        }
+        if (commsDiff.changed.length > 0) {
+            for (const item of commsDiff.changed) {
+                lines.push('- ' + item.activity + ': ' + item.changes.join(', ') + ' updated');
+            }
+        }
+        if (commsDiff.removed.length > 0) {
+            for (const item of commsDiff.removed) {
+                lines.push('- Removed activity: ' + item.activity);
+            }
+        }
     }
 
     return lines.join('\n');
