@@ -1441,22 +1441,21 @@ svg.icon {
 }
 
 .widget-shortcut {
-    background: #f0f0f0;
-    border: 1px solid #ccc;
+    background: transparent;
+    border: none;
     border-radius: 4px;
     padding: 4px;
     cursor: pointer;
-    transition: background var(--np-anim-duration) var(--np-anim-easing), border-color var(--np-anim-duration) var(--np-anim-easing);
+    transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
     line-height: 0;
-    color: #999;
+    color: #bbb;
     margin-left: auto;
     outline: none;
 }
 
 .widget-shortcut:hover {
-    background: #e0e0e0;
-    border-color: #999;
-    color: #555;
+    background: #f0f0f0;
+    color: #666;
 }
 
 /* When a + button follows the shortcut, remove the auto margin */
