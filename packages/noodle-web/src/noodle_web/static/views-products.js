@@ -9,6 +9,7 @@
  */
 
 // ── Global state ──────────────────────────────────────────────────────
+let pbsRagMode = false;
 let pbsTasks = [];
 let pbsTree = null;
 let pbsSvg = null;
@@ -169,6 +170,40 @@ function pbsComputeRollup(deliverableTask, allTasks) {
         percent: Math.round(totalPct / activities.length),
         activityCount: activities.length
     };
+}
+
+// ── PBS: RAG status ───────────────────────────────────────────────────
+// Derive a Red/Amber/Green status from rolled-up completion vs schedule.
+// Returns one of: 'green', 'amber', 'red', or null if not enough data.
+function pbsComputeRag(deliverableTask, allTasks) {
+    if (!deliverableTask) return null;
+    const rollup = pbsComputeRollup(deliverableTask, allTasks);
+    const actual = rollup ? rollup.percent : 0;
+    const start = deliverableTask.start_date;
+    const end = deliverableTask.end_date;
+    if (!start || !end) {
+        // Without dates, only strongly signal when clearly done
+        if (actual >= 100) return 'green';
+        return null;
+    }
+    const now = new Date();
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s) || isNaN(e) || e <= s) return null;
+    if (now <= s) return actual >= 100 ? 'green' : null;
+    if (now >= e) return actual >= 100 ? 'green' : 'red';
+    const expected = ((now - s) / (e - s)) * 100;
+    const delta = actual - expected;
+    if (delta >= -5) return 'green';
+    if (delta >= -20) return 'amber';
+    return 'red';
+}
+
+function pbsRagColour(rag) {
+    if (rag === 'green') return '#5CB85C';
+    if (rag === 'amber') return '#F0AD4E';
+    if (rag === 'red') return '#D9534F';
+    return null;
 }
 
 // ── PBS: Layout ───────────────────────────────────────────────────────
@@ -551,7 +586,14 @@ function pbsRenderAddBtn(cx, cy, title, onClick) {
 
 function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
-    const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour || '#4A90D9'));
+    let colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour || '#4A90D9'));
+    // RAG override: when enabled, colour non-root nodes by rolled-up schedule status
+    if (pbsRagMode && !isRoot && node._task) {
+        const tasksCtx = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+        const rag = pbsComputeRag(node._task, tasksCtx);
+        const ragColour = pbsRagColour(rag);
+        if (ragColour) colour = ragColour;
+    }
 
     const g = pbsCreateSVGElement('g', {
         'class': 'pbs-node',
@@ -1775,8 +1817,13 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     let colourIdx = 0;
     for (const [key, pos] of Object.entries(positions)) {
         const task = pos.task;
-        const colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
+        let colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
         colourIdx++;
+        if (pbsRagMode && task) {
+            const rag = pbsComputeRag(task, allTasks || []);
+            const ragColour = pbsRagColour(rag);
+            if (ragColour) colour = ragColour;
+        }
         const isCollapsedNode = !!pos.isCollapsed;
         const isDiamondNode = !!pos.isDiamond;
 
@@ -2330,6 +2377,23 @@ function productFlowExpandAll() {
     pfExpandedStages.clear();
     if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
         updateProductFlow(lastRenderedTasks);
+    }
+}
+
+// Toggle RAG (red/amber/green) status colouring on PBS + Product Flow nodes.
+function pbsToggleRagMode(btn) {
+    pbsRagMode = !pbsRagMode;
+    // Sync state across any other buttons with matching onclick
+    document.querySelectorAll('[data-pbs-rag-toggle]').forEach(b => {
+        b.classList.toggle('active', pbsRagMode);
+        b.title = pbsRagMode ? 'Turn off RAG colouring' : 'Colour by RAG status';
+    });
+    if (btn) {
+        btn.classList.toggle('active', pbsRagMode);
+    }
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        if (typeof updatePbs === 'function') updatePbs(lastRenderedTasks);
+        if (typeof updateProductFlow === 'function') updateProductFlow(lastRenderedTasks);
     }
 }
 
