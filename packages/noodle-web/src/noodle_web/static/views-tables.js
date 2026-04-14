@@ -293,7 +293,9 @@ function updateReportPage(tasks, projectName, frontMatter) {
         updateReportUpNext(tasks);
         updateReportHighlight();
         updateReportDonutChart(tasks);
-        renderCompletionSparkline(typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null);
+        var currentCompletion = (typeof calculateProjectCompletionFromTasks === 'function')
+            ? calculateProjectCompletionFromTasks(tasks) : null;
+        renderCompletionSparkline(typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null, currentCompletion);
 
     } catch (error) {
         console.error('Error updating report page:', error);
@@ -338,7 +340,7 @@ function extractCompletionFromPlanText(planText) {
 /**
  * Render a small SVG sparkline showing % complete over recent versions.
  */
-function renderCompletionSparkline(projectId) {
+function renderCompletionSparkline(projectId, currentCompletion) {
     var container = document.getElementById('reportCompletionSparkline');
     if (!container) return;
 
@@ -348,10 +350,6 @@ function renderCompletionSparkline(projectId) {
     }
 
     var history = getVersionHistory(projectId);
-    if (history.length < 2) {
-        container.innerHTML = '<span class="sparkline-label">Not enough history</span>';
-        return;
-    }
 
     // Get up to 10 most recent versions (history is newest-first, reverse for chronological)
     var recent = history.slice(0, 10).reverse();
@@ -361,8 +359,19 @@ function renderCompletionSparkline(projectId) {
         if (pct !== null) dataPoints.push(pct);
     }
 
+    // Append the live current completion as the latest point
+    if (currentCompletion !== null && currentCompletion !== undefined) {
+        dataPoints.push(Math.round(currentCompletion));
+    }
+
     if (dataPoints.length < 2) {
-        container.innerHTML = '<span class="sparkline-label">Not enough history</span>';
+        // Still show current completion even without trend data
+        if (currentCompletion !== null && currentCompletion !== undefined) {
+            container.innerHTML = '<span class="sparkline-value" style="font-size:1.4em;font-weight:700;">' +
+                Math.round(currentCompletion) + '% complete</span>';
+        } else {
+            container.innerHTML = '';
+        }
         return;
     }
 
@@ -391,8 +400,9 @@ function renderCompletionSparkline(projectId) {
         '<circle cx="' + points[points.length - 1].split(',')[0] + '" cy="' + points[points.length - 1].split(',')[1] + '" r="2.5" fill="' + lineColour + '"/>' +
         '</svg>';
 
-    container.innerHTML = '<span class="sparkline-label">Completion trend</span>' + svg +
-        '<span class="sparkline-value">' + dataPoints[dataPoints.length - 1] + '%</span>';
+    container.innerHTML = '<span class="sparkline-value" style="font-size:1.4em;font-weight:700;">' +
+        Math.round(currentCompletion !== null && currentCompletion !== undefined ? currentCompletion : last) +
+        '% complete</span>' + svg;
 }
 
 function updateReportTimeline(tasks, projectName) {
