@@ -64,7 +64,8 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 taskText = taskText.replace(/^[+\-]\d+[dwmy]\s+/, '');
             }
             // Remove comments in quotes (strip all quoted strings, and leading !)
-            taskText = taskText.replace(/!?"[^"]*"/g, '').trim();
+            // Supports straight quotes "...", curly/smart quotes \u201c...\u201d, and mixed
+            taskText = taskText.replace(/!?["\u201c][^"\u201d]*["\u201d]/g, '').trim();
             // Remove [depends ...] blocks
             taskText = taskText.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
             // Remove bucket names in curly braces
