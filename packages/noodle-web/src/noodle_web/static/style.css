@@ -2931,6 +2931,21 @@ svg.icon {
     font-style: italic;
 }
 
+.syntax-product {
+    color: #e8833a;
+    font-weight: 600;
+}
+
+.syntax-product-group {
+    color: #d9a84a;
+    font-weight: 600;
+}
+
+.syntax-product-external {
+    color: #9b6bbf;
+    font-weight: 600;
+}
+
 .syntax-priority {
     color: #d7ba7d;
     font-weight: bold;

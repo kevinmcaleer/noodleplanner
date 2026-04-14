@@ -291,6 +291,14 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 return savePlaceholder('<span class="syntax-resource">@' + name + '</span>');
             });
 
+            // Highlight product / deliverable tokens: $name, /$name (group), ^$name (external)
+            highlighted = highlighted.replace(/(^|\s)([/^]?)\$([A-Za-z_][A-Za-z0-9_-]*)/g, (match, pre, prefix, name) => {
+                const cls = prefix === '/' ? 'syntax-product syntax-product-group'
+                          : prefix === '^' ? 'syntax-product syntax-product-external'
+                          : 'syntax-product';
+                return pre + savePlaceholder('<span class="' + cls + '">' + prefix + '$' + name + '</span>');
+            });
+
             // Highlight percentages (e.g., 50%, 75%)
             highlighted = highlighted.replace(/\b(\d+%)/g, (match, percent) => {
                 return savePlaceholder('<span class="syntax-percent">' + percent + '</span>');
