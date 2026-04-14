@@ -32,11 +32,38 @@ function setVersionInFrontMatter(text, newVersion) {
     return `---\nversion: ${newVersion}\n---\n${text}`;
 }
 
+function getLastSavedFromFrontMatter(text) {
+    const match = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return null;
+    const lsMatch = match[1].match(/^last_saved:\s*(.+)$/m);
+    return lsMatch ? lsMatch[1].trim() : null;
+}
+
+function setLastSavedInFrontMatter(text) {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    const fmMatch = text.match(/^(---\n)([\s\S]*?)(\n---)/);
+    if (fmMatch) {
+        let body = fmMatch[2];
+        if (/^last_saved:/m.test(body)) {
+            body = body.replace(/^last_saved:.*$/m, `last_saved: ${timestamp}`);
+        } else {
+            body += `\nlast_saved: ${timestamp}`;
+        }
+        return fmMatch[1] + body + fmMatch[3] + text.slice(fmMatch[0].length);
+    }
+    // No front matter — create one
+    return `---\nlast_saved: ${timestamp}\n---\n${text}`;
+}
+
 function incrementPlanVersion(editor) {
     const text = editor.value;
     const currentVersion = getVersionFromFrontMatter(text) || '1.0';
     const newVersion = incrementVersion(currentVersion);
-    const updated = setVersionInFrontMatter(text, newVersion);
+    let updated = setVersionInFrontMatter(text, newVersion);
+    updated = setLastSavedInFrontMatter(updated);
     editor.value = updated;
     return updated;
 }

@@ -145,7 +145,24 @@ function saveCurrentProjectState() {
     if (!projectId) return false;
 
     const planEditor = document.getElementById('planEditor');
-    const planText = planEditor ? planEditor.value : '';
+    if (!planEditor) return false;
+
+    // Update last_saved timestamp in front matter before saving
+    if (typeof setLastSavedInFrontMatter === 'function') {
+        const updated = setLastSavedInFrontMatter(planEditor.value);
+        if (updated !== planEditor.value) {
+            if (typeof setEditorValuePreservingCursor === 'function') {
+                setEditorValuePreservingCursor(planEditor, updated);
+            } else {
+                planEditor.value = updated;
+            }
+            // Also update kanban editor if it exists
+            const kanbanEditor = document.getElementById('kanbanPlanEditor');
+            if (kanbanEditor) kanbanEditor.value = updated;
+        }
+    }
+
+    const planText = planEditor.value;
 
     return saveProject(projectId, {
         planText: planText
