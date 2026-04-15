@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(uv run pytest*)",
+      "Bash(uv run alembic*)",
+      "Bash(ls*)",
+      "Bash(find*)",
+      "Bash(cd*)"
+    ]
+  }
+}

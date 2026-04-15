@@ -2,6 +2,7 @@
 
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
+PYTHON        ?= python3
 SOURCEDIR     = .
 BUILDDIR      = _build
 
@@ -14,7 +15,7 @@ clean:
 	rm -rf $(BUILDDIR)
 
 screenshots:
-	python capture_screenshots.py
+	$(PYTHON) capture_screenshots.py
 	@echo
 	@echo "Screenshots captured in _static/img/"
 
