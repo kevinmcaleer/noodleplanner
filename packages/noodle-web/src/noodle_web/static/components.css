@@ -6815,3 +6815,101 @@ tr:hover .task-context-btn,
     font-size: 13px;
 }
 
+/* ---------------------------------------------------------------------- */
+/* Resource Levelling / Capacity Planning (issue #681)                    */
+/* ---------------------------------------------------------------------- */
+
+.levelling-controls {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+
+.levelling-controls h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.1rem;
+}
+
+.levelling-controls-hint {
+    margin: 0 0 0.75rem 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.levelling-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.levelling-buttons .btn-primary,
+.levelling-buttons .btn-secondary {
+    padding: 0.4rem 0.85rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.levelling-buttons .btn-primary {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+.levelling-buttons .btn-primary:hover { background: #5568d3; }
+
+.levelling-buttons .btn-secondary {
+    background: #ffffff;
+    color: #495057;
+    border-color: #ced4da;
+}
+.levelling-buttons .btn-secondary:hover { background: #e9ecef; }
+
+.levelling-suggestions-panel {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.levelling-panel-header h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+}
+
+.levelling-hint {
+    margin: 0 0 0.5rem 0;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.levelling-empty {
+    padding: 0.5rem;
+    color: #495057;
+}
+
+.levelling-table-wrapper {
+    overflow-x: auto;
+}
+
+.levelling-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.levelling-table th,
+.levelling-table td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+}
+
+.levelling-table th {
+    background: #f1f3f5;
+    font-weight: 600;
+}
+

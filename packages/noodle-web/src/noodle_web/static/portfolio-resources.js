@@ -338,6 +338,26 @@ async function renderPortfolioResources() {
             html += renderResourceHeatmap(heatmapData);
         }
 
+        // Resource Levelling controls (issue #681)
+        html += '<div class="levelling-controls" role="region" aria-label="Resource Levelling">' +
+            '<h3>Resource Levelling</h3>' +
+            '<p class="levelling-controls-hint">' +
+            'Smooth over-allocated resources across the portfolio. The earliest ' +
+            'starting project anchors the comparison so projects cannot race ' +
+            'each other.' +
+            '</p>' +
+            '<div class="levelling-buttons">' +
+            '<button id="btnShowLevelling" class="btn-primary" ' +
+            'onclick="showLevellingSuggestions()">Show Levelling Suggestions</button> ' +
+            '<button id="btnApplyLevelling" class="btn-primary" ' +
+            'onclick="applyLevellingNow()">Level Resources</button> ' +
+            '<button id="btnClearLevelling" class="btn-secondary" ' +
+            'onclick="clearLevellingNow()">Clear Levelling</button>' +
+            '</div>' +
+            '<div id="levellingSuggestionsPanel" class="levelling-suggestions-panel" ' +
+            'style="display:none;"></div>' +
+            '</div>';
+
         // Resource details modal placeholder
         html += '<div id="resourceDetailsModal" class="resource-details-modal" style="display: none;">' +
             '<div class="resource-details-content">' +

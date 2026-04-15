@@ -359,10 +359,29 @@ def extract_metadata(task_str, task_name=None):
         if total_hours > 0:
             meta['percent'] = max(0, min(100, round(completed_hours / total_hours * 100)))
 
-    date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str)
-    if date_match:
-        meta['due'] = date_match.group(1)
-        meta['start'] = parse_date(date_match.group(1))
+    # Extract resource levelling flag: [levelled @shortname YYYY-MM-DD]
+    # The date inside the flag overrides any other start so the scheduler
+    # honours the levelled start. The flag is stripped from the string
+    # used for other date matching so the embedded YYYY-MM-DD isn't picked
+    # up twice.
+    levelled_pattern = r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]'
+    levelled_match = re.search(levelled_pattern, task_str, re.IGNORECASE)
+    task_str_for_dates = task_str
+    if levelled_match:
+        meta['levelled'] = {
+            'resource': levelled_match.group(1).lstrip('@'),
+            'start': levelled_match.group(2),
+        }
+        task_str_for_dates = (
+            task_str[:levelled_match.start()] + task_str[levelled_match.end():]
+        )
+        meta['start'] = parse_date(levelled_match.group(2))
+        meta['due'] = levelled_match.group(2)
+    else:
+        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str_for_dates)
+        if date_match:
+            meta['due'] = date_match.group(1)
+            meta['start'] = parse_date(date_match.group(1))
 
     # Support new simple format: 10d, 2w, 3m, 1y
     # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
