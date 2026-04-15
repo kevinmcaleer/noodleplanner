@@ -9,6 +9,7 @@
  */
 
 // ── Global state ──────────────────────────────────────────────────────
+let pbsRagMode = false;
 let pbsTasks = [];
 let pbsTree = null;
 let pbsSvg = null;
@@ -169,6 +170,40 @@ function pbsComputeRollup(deliverableTask, allTasks) {
         percent: Math.round(totalPct / activities.length),
         activityCount: activities.length
     };
+}
+
+// ── PBS: RAG status ───────────────────────────────────────────────────
+// Derive a Red/Amber/Green status from rolled-up completion vs schedule.
+// Returns one of: 'green', 'amber', 'red', or null if not enough data.
+function pbsComputeRag(deliverableTask, allTasks) {
+    if (!deliverableTask) return null;
+    const rollup = pbsComputeRollup(deliverableTask, allTasks);
+    const actual = rollup ? rollup.percent : 0;
+    const start = deliverableTask.start_date;
+    const end = deliverableTask.end_date;
+    if (!start || !end) {
+        // Without dates, only strongly signal when clearly done
+        if (actual >= 100) return 'green';
+        return null;
+    }
+    const now = new Date();
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s) || isNaN(e) || e <= s) return null;
+    if (now <= s) return actual >= 100 ? 'green' : null;
+    if (now >= e) return actual >= 100 ? 'green' : 'red';
+    const expected = ((now - s) / (e - s)) * 100;
+    const delta = actual - expected;
+    if (delta >= -5) return 'green';
+    if (delta >= -20) return 'amber';
+    return 'red';
+}
+
+function pbsRagColour(rag) {
+    if (rag === 'green') return '#5CB85C';
+    if (rag === 'amber') return '#F0AD4E';
+    if (rag === 'red') return '#D9534F';
+    return null;
 }
 
 // ── PBS: Layout ───────────────────────────────────────────────────────
@@ -549,9 +584,41 @@ function pbsRenderAddBtn(cx, cy, title, onClick) {
     return g;
 }
 
+function pbsRenderDeleteBtn(cx, cy, title, onClick) {
+    const r = PBS_ADD_BTN_SIZE / 2;
+    const g = pbsCreateSVGElement('g', { 'class': 'pbs-add-btn pbs-delete-btn', 'style': 'cursor: pointer;' });
+    g.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+
+    g.appendChild(pbsCreateSVGElement('circle', {
+        'cx': cx, 'cy': cy, 'r': r,
+        'fill': '#D94A4A', 'stroke': '#fff', 'stroke-width': '1.5'
+    }));
+    // X sign
+    const s = r * 0.45;
+    g.appendChild(pbsCreateSVGElement('line', {
+        'x1': cx - s, 'y1': cy - s, 'x2': cx + s, 'y2': cy + s,
+        'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+    g.appendChild(pbsCreateSVGElement('line', {
+        'x1': cx - s, 'y1': cy + s, 'x2': cx + s, 'y2': cy - s,
+        'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
+    }));
+    const t = pbsCreateSVGElement('title', {});
+    t.textContent = title;
+    g.appendChild(t);
+    return g;
+}
+
 function pbsRenderNode(node, parentColour, nextColour, depth) {
     const isRoot = !!node._isRoot;
-    const colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour || '#4A90D9'));
+    let colour = isRoot ? '#4A90D9' : (depth === 1 ? nextColour() : (parentColour || '#4A90D9'));
+    // RAG override: when enabled, colour non-root nodes by rolled-up schedule status
+    if (pbsRagMode && !isRoot && node._task) {
+        const tasksCtx = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+        const rag = pbsComputeRag(node._task, tasksCtx);
+        const ragColour = pbsRagColour(rag);
+        if (ragColour) colour = ragColour;
+    }
 
     const g = pbsCreateSVGElement('g', {
         'class': 'pbs-node',
@@ -568,6 +635,15 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
             openProductForm(node._task);
         }
     });
+
+    // Right-click context menu: delete product marker
+    if (!isRoot && node._task) {
+        g.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            pbsDeleteProduct(node._task);
+        });
+    }
 
     // Invisible hit area extending beyond the node to keep hover active for + buttons
     if (!isRoot) {
@@ -688,6 +764,14 @@ function pbsRenderNode(node, parentColour, nextColour, depth) {
             node.x + node.width + btnGap, node.y + node.height / 2,
             'Add sibling after',
             () => pbsCreateProduct(taskName, 'after')
+        ));
+        // Delete (remove $deliverable marker) button, top-right of node
+        const delivId = node._task.deliverable || node.deliverable;
+        btns.appendChild(pbsRenderDeleteBtn(
+            node.x + node.width + btnGap - PBS_ADD_BTN_SIZE / 2,
+            node.y - btnGap + PBS_ADD_BTN_SIZE / 2,
+            'Delete product (remove $' + (delivId || '') + ' marker)',
+            () => pbsDeleteProduct(node._task)
         ));
         g.appendChild(btns);
     }
@@ -1186,7 +1270,18 @@ const PF_V_GAP = 10;
 
 function updateProductFlow(tasks, projectName) {
     const allTasks = tasks || [];
-    const deliverables = pbsExtractDeliverables(allTasks);
+    let deliverables = pbsExtractDeliverables(allTasks);
+    if (pfHideCompleted) {
+        deliverables = deliverables.filter(d => {
+            try {
+                const r = pbsComputeRollup(d, allTasks);
+                // Keep a deliverable if it has no activities (can't be "complete")
+                // or if completion is less than 100%.
+                if (!r || r.activityCount === 0) return true;
+                return r.percent < 100;
+            } catch (e) { return true; }
+        });
+    }
 
     const placeholder = document.querySelector('#product-flow-view .product-flow-placeholder');
     const content = document.querySelector('#product-flow-view .product-flow-content');
@@ -1764,8 +1859,13 @@ function pfRender(positions, allTasks, topLevelSummaries) {
     let colourIdx = 0;
     for (const [key, pos] of Object.entries(positions)) {
         const task = pos.task;
-        const colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
+        let colour = PBS_COLOURS[colourIdx % PBS_COLOURS.length];
         colourIdx++;
+        if (pbsRagMode && task) {
+            const rag = pbsComputeRag(task, allTasks || []);
+            const ragColour = pbsRagColour(rag);
+            if (ragColour) colour = ragColour;
+        }
         const isCollapsedNode = !!pos.isCollapsed;
         const isDiamondNode = !!pos.isDiamond;
 
@@ -2322,6 +2422,36 @@ function productFlowExpandAll() {
     }
 }
 
+// Toggle RAG (red/amber/green) status colouring on PBS + Product Flow nodes.
+function pbsToggleRagMode(btn) {
+    pbsRagMode = !pbsRagMode;
+    // Sync state across any other buttons with matching onclick
+    document.querySelectorAll('[data-pbs-rag-toggle]').forEach(b => {
+        b.classList.toggle('active', pbsRagMode);
+        b.title = pbsRagMode ? 'Turn off RAG colouring' : 'Colour by RAG status';
+    });
+    if (btn) {
+        btn.classList.toggle('active', pbsRagMode);
+    }
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        if (typeof updatePbs === 'function') updatePbs(lastRenderedTasks);
+        if (typeof updateProductFlow === 'function') updateProductFlow(lastRenderedTasks);
+    }
+}
+
+// Hide/show completed products (100% rolled-up) in the Product Flow.
+let pfHideCompleted = false;
+function productFlowToggleCompleted(btn) {
+    pfHideCompleted = !pfHideCompleted;
+    if (btn) {
+        btn.classList.toggle('active', pfHideCompleted);
+        btn.title = pfHideCompleted ? 'Show completed products' : 'Hide completed products';
+    }
+    if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
+        updateProductFlow(lastRenderedTasks);
+    }
+}
+
 // ── Product Details Form ──────────────────────────────────────────────
 
 // ── Copy SVG view as high-res image ──────────────────────────────────
@@ -2424,6 +2554,114 @@ function copySvgAsImage(containerId, btn) {
         img.src = url;
     } catch (e) {
         console.error('Error copying SVG:', e);
+        if (btn) btn.innerHTML = originalText;
+    }
+}
+
+// ── Download SVG as PNG / SVG file ────────────────────────────────────
+
+function downloadSvgAsImage(containerId, format, btn) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    const fmt = (format || 'png').toLowerCase();
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '...';
+
+    try {
+        const liveG = svg.querySelector('g');
+        let gBounds = null;
+        if (liveG) { try { gBounds = liveG.getBBox(); } catch (e) {} }
+
+        const clone = svg.cloneNode(true);
+        const cloneG = clone.querySelector('g');
+        clone.querySelectorAll('.pbs-add-btns, .pbs-add-btn').forEach(el => el.remove());
+
+        const padding = 40;
+        let viewBox;
+        if (gBounds && gBounds.width > 0 && cloneG) {
+            viewBox = `${gBounds.x - padding} ${gBounds.y - padding} ${gBounds.width + padding * 2} ${gBounds.height + padding * 2}`;
+            cloneG.removeAttribute('transform');
+        } else {
+            viewBox = `0 0 ${container.clientWidth} ${container.clientHeight}`;
+        }
+        const parts = viewBox.split(' ').map(Number);
+        const vbW = parts[2] || 2400;
+        const vbH = parts[3] || 1600;
+        const maxDim = 2400;
+        const aspect = vbW / vbH;
+        const outW = aspect >= 1 ? maxDim : Math.round(maxDim * aspect);
+        const outH = aspect >= 1 ? Math.round(maxDim / aspect) : maxDim;
+
+        clone.setAttribute('viewBox', viewBox);
+        clone.setAttribute('width', String(outW));
+        clone.setAttribute('height', String(outH));
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const bgColor = isDark ? '#1a1a2e' : '#ffffff';
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('x', String(parts[0]));
+        bgRect.setAttribute('y', String(parts[1]));
+        bgRect.setAttribute('width', String(vbW));
+        bgRect.setAttribute('height', String(vbH));
+        bgRect.setAttribute('fill', bgColor);
+        clone.insertBefore(bgRect, clone.firstChild);
+
+        const svgData = new XMLSerializer().serializeToString(clone);
+        const baseName = containerId === 'pbsContainer' ? 'pbs' :
+                         containerId === 'productFlowContainer' ? 'product-flow' : 'diagram';
+        const finish = () => {
+            if (btn) {
+                btn.innerHTML = '\u2713';
+                setTimeout(() => { btn.innerHTML = originalText; }, 1500);
+            }
+        };
+
+        if (fmt === 'svg') {
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = baseName + '.svg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 500);
+            finish();
+            return;
+        }
+
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = () => {
+            const scale = 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = outW * scale;
+            canvas.height = outH * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            canvas.toBlob((blob) => {
+                if (!blob) { if (btn) btn.innerHTML = originalText; return; }
+                const dlUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = dlUrl;
+                a.download = baseName + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(dlUrl), 500);
+                finish();
+            }, 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); if (btn) btn.innerHTML = originalText; };
+        img.src = url;
+    } catch (e) {
+        console.error('Error downloading SVG:', e);
         if (btn) btn.innerHTML = originalText;
     }
 }
@@ -2616,6 +2854,75 @@ function checkDuplicateDeliverables() {
         warnings.push(`Task names cannot contain commas (line${commaLines.length > 1 ? 's' : ''} ${commaLines.slice(0, 5).join(', ')}${commaLines.length > 5 ? '...' : ''}) — this breaks dependencies`);
     }
 
+    // 5. Circular product dependencies & products with no activities
+    try {
+        const tasksForCheck = (typeof lastRenderedTasks !== 'undefined') ? lastRenderedTasks : [];
+        const deliverables = (typeof pbsExtractDeliverables === 'function')
+            ? pbsExtractDeliverables(tasksForCheck) : [];
+        if (deliverables.length > 0) {
+            // Build id -> dep-ids map
+            const byId = {};
+            for (const d of deliverables) byId[d.deliverable] = d;
+            const depMap = {};
+            for (const d of deliverables) {
+                const deps = [];
+                if (d.depends) {
+                    for (const depName of d.depends) {
+                        const target = deliverables.find(
+                            dd => dd.name === depName || dd.description === depName
+                        );
+                        if (target) deps.push(target.deliverable);
+                    }
+                }
+                depMap[d.deliverable] = deps;
+            }
+            // DFS to detect cycles
+            const WHITE = 0, GREY = 1, BLACK = 2;
+            const color = {};
+            for (const id of Object.keys(depMap)) color[id] = WHITE;
+            const cycles = [];
+            function dfs(id, stack) {
+                color[id] = GREY;
+                stack.push(id);
+                for (const next of depMap[id] || []) {
+                    if (color[next] === GREY) {
+                        const idx = stack.indexOf(next);
+                        cycles.push(stack.slice(idx).concat(next));
+                    } else if (color[next] === WHITE) {
+                        dfs(next, stack);
+                    }
+                }
+                stack.pop();
+                color[id] = BLACK;
+            }
+            for (const id of Object.keys(depMap)) {
+                if (color[id] === WHITE) dfs(id, []);
+            }
+            if (cycles.length > 0) {
+                const first = cycles[0].map(x => '$' + x).join(' → ');
+                warnings.push(`Circular product dependency: ${first}`);
+                // Highlight the cycle member lines
+                const cycleIds = new Set(cycles.flat());
+                for (let i = 0; i < lines.length; i++) {
+                    const m = lines[i].match(/\$([A-Za-z_][A-Za-z0-9_-]*)/);
+                    if (m && cycleIds.has(m[1])) warningLines.add(i + 1);
+                }
+            }
+
+            // Products with no activities
+            const empty = [];
+            for (const d of deliverables) {
+                const activities = (typeof pbsGetActivities === 'function')
+                    ? pbsGetActivities(d, tasksForCheck) : [];
+                if (!activities || activities.length === 0) empty.push(d.deliverable);
+            }
+            if (empty.length > 0) {
+                const show = empty.slice(0, 5).map(x => '$' + x).join(', ');
+                warnings.push(`${empty.length === 1 ? 'Product has' : empty.length + ' products have'} no activities: ${show}${empty.length > 5 ? '…' : ''}`);
+            }
+        }
+    } catch (e) { /* validation best-effort */ }
+
     // Store warning lines globally for the highlight layer to pick up
     window._duplicateWarningLines = warningLines;
 
@@ -2769,6 +3076,36 @@ function pbsCreateProduct(anchorTaskName, position) {
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
     setTimeout(() => renderText(), 10);
+}
+
+function pbsDeleteProduct(task) {
+    if (!task) return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const delivId = task.deliverable;
+    const label = task.name || delivId || 'this product';
+    const msg = `Delete product "${label}"?\n\nThis removes the $${delivId || ''} marker from the plan. The task itself is kept.`;
+    if (typeof confirm === 'function' && !confirm(msg)) return;
+
+    const lineNum = (typeof productFindLineNumber === 'function')
+        ? productFindLineNumber(task.name, delivId)
+        : null;
+    if (lineNum === null || lineNum === undefined) return;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNum];
+    if (line === undefined) return;
+
+    // Remove $identifier token (with optional /^ prefix and leading whitespace)
+    const newLine = line.replace(/\s*[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/, '');
+    lines[lineNum] = newLine;
+    editor.value = lines.join('\n');
+
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+    // renderText triggers a full re-render of PBS and Product Flow
+    setTimeout(() => { if (typeof renderText === 'function') renderText(); }, 10);
 }
 
 function productIdentifierOnInput(el) {
