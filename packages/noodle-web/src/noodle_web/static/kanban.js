@@ -14,6 +14,7 @@ class KanbanBoard {
         this.columns = [];
         this.phases = [];
         this.resourceMap = {}; // Maps shortname to full name from front matter
+        this.stakeholderShortnames = new Set(); // Shortnames declared in the stakeholders: section
         this.labelsFromFrontMatter = []; // Labels defined in front matter
         this.themeColours = {}; // Column background colours from front matter Theme section
         this.currentParentTask = null; // Track current hierarchy level for drill-down
@@ -41,6 +42,7 @@ class KanbanBoard {
         this.tasks = [];
         this.phases = [];
         this.resourceMap = {};
+        this.stakeholderShortnames = new Set();
         this.labelsFromFrontMatter = [];
         this.themeColours = {};
         let currentPhase = null;
@@ -108,6 +110,60 @@ class KanbanBoard {
                 }
             }
         }
+
+        // Parse stakeholders section from front matter so we can exclude them
+        // from resource columns. Stakeholders cannot be assigned tasks.
+        inFrontMatter = false;
+        let inStakeholdersSection = false;
+        let inResourcesSection = false;
+        for (let i = 0; i < lines.length; i++) {
+            const rawLine = lines[i];
+            const trimmedFM = rawLine.trim();
+
+            if (trimmedFM === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                } else {
+                    break;
+                }
+                continue;
+            }
+
+            if (!inFrontMatter) continue;
+
+            const lower = trimmedFM.toLowerCase();
+            // Section header detection (case-insensitive)
+            if (lower === 'stakeholders:' || lower === 'key stakeholders:') {
+                inStakeholdersSection = true;
+                inResourcesSection = false;
+                continue;
+            }
+            if (lower === 'resources:') {
+                inResourcesSection = true;
+                inStakeholdersSection = false;
+                continue;
+            }
+            // Any other top-level key ends the current section
+            if (trimmedFM && !trimmedFM.startsWith('-') && /^[A-Za-z][\w\s-]*:/.test(trimmedFM)) {
+                inStakeholdersSection = false;
+                inResourcesSection = false;
+            }
+
+            if (inStakeholdersSection) {
+                const m = trimmedFM.match(/^-\s*@(\w+):/);
+                if (m) {
+                    this.stakeholderShortnames.add(m[1].toLowerCase());
+                }
+            }
+        }
+
+        // Strip stakeholder shortnames from resourceMap — parseResourceMappings
+        // is not section-aware and blindly pulls every `- @name:` front-matter
+        // line, including stakeholders. Board resource columns should only
+        // contain real resources.
+        this.stakeholderShortnames.forEach(sn => {
+            delete this.resourceMap[sn];
+        });
 
         // Parse theme colours from front matter
         this.themeColours = this.parseThemeColours(planText);
@@ -609,7 +665,12 @@ class KanbanBoard {
 
         // Build a set of stakeholder shortnames to exclude from resource columns.
         // Stakeholders can appear in front matter but cannot be assigned tasks.
+        // Prefer locally-parsed stakeholders (authoritative, section-aware) and
+        // fall back to window._lastStakeholders (populated by the backend parse).
         const stakeholderSet = new Set();
+        if (this.stakeholderShortnames && this.stakeholderShortnames.size > 0) {
+            this.stakeholderShortnames.forEach(sn => stakeholderSet.add(sn));
+        }
         if (window._lastStakeholders && Array.isArray(window._lastStakeholders)) {
             window._lastStakeholders.forEach(s => {
                 if (s.shortname) stakeholderSet.add(s.shortname.toLowerCase());
@@ -620,9 +681,39 @@ class KanbanBoard {
         // (e.g. "kev:p", "alice:r", "bob:a") rather than a real resource assignment.
         const isQualityRoleToken = (shortname) => /^[^:]+:[pra]$/i.test(shortname);
 
-        // Helper: returns true if a shortname should be excluded from columns
+        // Build the set of shortnames that appear as assigned resources on at
+        // least one real (non-deliverable) task. Deliverable rows treat their
+        // @mentions as product roles (Producer/Reviewer/Approver), not as
+        // regular task assignments, so names that only appear on $deliverable
+        // rows should NOT become Board resource columns.
+        const realResourceShortnames = new Set();
+        // Also track every shortname that appears on any task (deliverable or
+        // not) so we can detect "product-role-only" names.
+        const anyTaskShortnames = new Set();
+        this.tasks.forEach(task => {
+            (task.resourceShortnames || []).forEach(sn => {
+                if (!sn || isQualityRoleToken(sn)) return;
+                anyTaskShortnames.add(sn);
+                if (!task.product_type) realResourceShortnames.add(sn);
+            });
+        });
+
+        // Helper: returns true if a shortname should be excluded from columns.
+        // - Stakeholders: never resources (cannot be assigned tasks).
+        // - :P/:R/:A tokens: explicit product roles, not resources.
+        // - Names that appear on tasks but ONLY on deliverable rows: product
+        //   roles only (Producer/Reviewer/Approver) — exclude.
+        // Names declared in front-matter `resources:` with no task assignments
+        // are allowed through (handled by the caller, which only consults
+        // shouldExclude for names that also come from task assignments).
+        const isProductRoleOnly = (shortname) =>
+            anyTaskShortnames.has(shortname)
+            && !realResourceShortnames.has(shortname);
+
         const shouldExclude = (shortname) =>
-            stakeholderSet.has(shortname) || isQualityRoleToken(shortname);
+            stakeholderSet.has(shortname)
+            || isQualityRoleToken(shortname)
+            || isProductRoleOnly(shortname);
 
         // When drilling down, only show resources from current filtered tasks
         // Otherwise, show all resources from front matter
