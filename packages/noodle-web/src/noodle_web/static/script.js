@@ -3915,8 +3915,8 @@ function saveTask() {
     editor.value = lines.join('\n');
 
     // Trigger input event to update line numbers and render
+    // (the editor's own input handler debounces renderText at 1s)
     editor.dispatchEvent(new Event('input'));
-    setTimeout(() => renderText(), 10);
 }
 
 /**
