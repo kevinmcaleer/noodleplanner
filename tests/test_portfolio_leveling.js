@@ -16,6 +16,7 @@ const {
     annotateTaskWithLevellingFlag,
     stripLevellingFlags,
     computePortfolioAnchor,
+    _toShortname,
 } = mod;
 
 let failures = 0;
@@ -81,6 +82,31 @@ function assertTrue(cond, msg) {
     assertTrue(!out.includes('[levelled'), 'strip removes every flag');
     assertTrue(out.includes('TaskOne 3d @alice'), 'strip preserves task content');
     assertTrue(out.includes('TaskTwo 2d @bob'), 'strip preserves task content');
+})();
+
+// --- _toShortname ---------------------------------------------------------
+
+(() => {
+    assertEqual(_toShortname('Alice'), 'alice', 'shortname lowercases single name');
+    assertEqual(_toShortname('Kevin McAleer'), 'kevin-mcaleer', 'shortname hyphenates multi-word name');
+    assertEqual(_toShortname('  Bob  '), 'bob', 'shortname trims whitespace');
+})();
+
+// --- annotate with multi-word resource name --------------------------------
+
+(() => {
+    const plan = '  DesignReview 3d @Kevin McAleer\n';
+    const out = annotateTaskWithLevellingFlag(plan, 'DesignReview', 'Kevin McAleer', '2026-05-18');
+    assertTrue(
+        out.includes('[levelled @kevin-mcaleer 2026-05-18]'),
+        'annotate uses hyphenated shortname for multi-word resource'
+    );
+    // Verify the flag can be stripped back off
+    const stripped = stripLevellingFlags(out);
+    assertTrue(
+        !stripped.includes('[levelled'),
+        'strip removes flag written with hyphenated shortname'
+    );
 })();
 
 // --- computePortfolioAnchor -----------------------------------------------

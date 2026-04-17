@@ -55,6 +55,14 @@ function _nextWorkingDay(date) {
 }
 
 /**
+ * Convert a display name like "Kevin McAleer" to a shortname like "kevin-mcaleer".
+ * Shortnames must be a single \S+ token so the levelling flag regex works.
+ */
+function _toShortname(displayName) {
+    return displayName.trim().toLowerCase().replace(/\s+/g, '-');
+}
+
+/**
  * Format a Date as YYYY-MM-DD in local time.
  */
 function _formatISODate(d) {
@@ -253,8 +261,9 @@ function computeLevellingSuggestions(parsedProjects) {
 function annotateTaskWithLevellingFlag(planText, taskName, resource, proposedStart) {
     if (!planText || !taskName) return planText;
 
+    const shortname = _toShortname(resource);
     const lines = planText.split('\n');
-    const flag = `[levelled @${resource} ${proposedStart}]`;
+    const flag = `[levelled @${shortname} ${proposedStart}]`;
     // Escape regex metacharacters in task name
     const esc = taskName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Match: optional leading whitespace, optional '*', the task name, followed
@@ -288,7 +297,7 @@ function annotateTaskWithLevellingFlag(planText, taskName, resource, proposedSta
 
     // Remove any existing levelled flag for the same resource (case insensitive)
     const existingRe = new RegExp(
-        '\\s*\\[levelled\\s+@?' + resource.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+        '\\s*\\[levelled\\s+@?' + shortname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
         '\\s+\\d{4}-\\d{2}-\\d{2}\\s*\\]', 'i'
     );
     line = line.replace(existingRe, '');
@@ -524,5 +533,6 @@ if (typeof module !== 'undefined' && module.exports) {
         stripLevellingFlags,
         clearAllLevelling,
         computePortfolioAnchor,
+        _toShortname,
     };
 }
