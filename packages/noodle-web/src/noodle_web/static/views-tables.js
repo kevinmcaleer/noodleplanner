@@ -304,7 +304,8 @@ function updateReportPage(tasks, projectName, frontMatter) {
 
 /**
  * Extract overall % complete from a historical planText snapshot.
- * Lightweight: scans for lines containing a percentage and averages them.
+ * Only counts leaf tasks (non-summary) to avoid double-counting,
+ * matching the logic in calculateProjectCompletionFromTasks.
  */
 function extractCompletionFromPlanText(planText) {
     if (!planText) return null;
@@ -325,12 +326,31 @@ function extractCompletionFromPlanText(planText) {
     body = body.substring(0, endIdx);
 
     var lines = body.split('\n');
-    var total = 0;
-    var count = 0;
+
+    // Collect task lines with their indentation and percent
+    var taskLines = [];
     for (var j = 0; j < lines.length; j++) {
         var m = lines[j].match(/\b(\d{1,3})%/);
         if (m) {
-            total += parseInt(m[1], 10);
+            var indent = lines[j].length - lines[j].replace(/^\s+/, '').length;
+            taskLines.push({ percent: parseInt(m[1], 10), indent: indent });
+        }
+    }
+
+    // Mark summary tasks: a task is a summary if the next task has greater indent
+    for (var k = 0; k < taskLines.length - 1; k++) {
+        taskLines[k].isSummary = taskLines[k + 1].indent > taskLines[k].indent;
+    }
+    if (taskLines.length > 0) {
+        taskLines[taskLines.length - 1].isSummary = false;
+    }
+
+    // Only average leaf (non-summary) tasks for accurate completion
+    var total = 0;
+    var count = 0;
+    for (var n = 0; n < taskLines.length; n++) {
+        if (!taskLines[n].isSummary) {
+            total += taskLines[n].percent;
             count++;
         }
     }

@@ -131,8 +131,16 @@ function extractTasksFromPlanText(planText) {
             end: end,
             duration: duration,
             isMilestone: isMilestone,
-            indent: indent
+            indent: indent,
+            isSummary: false  // will be set in the next pass
         });
+    }
+
+    // Mark summary tasks: a task is a summary if the next task has greater indent
+    for (let i = 0; i < tasks.length - 1; i++) {
+        if (tasks[i + 1].indent > tasks[i].indent) {
+            tasks[i].isSummary = true;
+        }
     }
 
     return tasks;
@@ -173,14 +181,19 @@ function compareTasks(oldTasks, newTasks) {
         changed: []         // tasks with % change
     };
 
-    if (oldTasks.length > 0) {
+    // Only use leaf tasks (non-summary) for the overall % calculation,
+    // matching the logic in calculateProjectCompletionFromTasks.
+    const oldLeaf = oldTasks.filter(t => !t.isSummary);
+    const newLeaf = newTasks.filter(t => !t.isSummary);
+
+    if (oldLeaf.length > 0) {
         result.oldOverallPercent = Math.round(
-            oldTasks.reduce((sum, t) => sum + t.percent, 0) / oldTasks.length
+            oldLeaf.reduce((sum, t) => sum + t.percent, 0) / oldLeaf.length
         );
     }
-    if (newTasks.length > 0) {
+    if (newLeaf.length > 0) {
         result.newOverallPercent = Math.round(
-            newTasks.reduce((sum, t) => sum + t.percent, 0) / newTasks.length
+            newLeaf.reduce((sum, t) => sum + t.percent, 0) / newLeaf.length
         );
     }
 
