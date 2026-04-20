@@ -86,6 +86,18 @@
     text-decoration-style: solid;
 }
 
+.status-bar-task-link {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    cursor: pointer;
+    font-weight: 600;
+    color: inherit;
+}
+
+.status-bar-task-link:hover {
+    text-decoration-style: solid;
+}
+
 /* Separator */
 .status-bar-separator {
     width: 1px;

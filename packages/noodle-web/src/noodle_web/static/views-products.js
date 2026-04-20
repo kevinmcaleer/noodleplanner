@@ -2929,6 +2929,10 @@ function checkDuplicateDeliverables() {
             if (empty.length > 0) {
                 const show = empty.slice(0, 5).map(x => '$' + x).join(', ');
                 warnings.push(`${empty.length === 1 ? 'Product has' : empty.length + ' products have'} no activities: ${show}${empty.length > 5 ? '…' : ''}`);
+                // Store for clickable rendering
+                window._emptyProducts = empty.slice(0, 5);
+            } else {
+                window._emptyProducts = null;
             }
         }
     } catch (e) { /* validation best-effort */ }
@@ -2941,7 +2945,30 @@ function checkDuplicateDeliverables() {
 
     if (typeof setStatusMessage === 'function') {
         if (warnings.length > 0) {
-            setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
+            const el = document.getElementById('statusBarMessage');
+            if (el) {
+                // Build HTML with clickable product names for "no activities" warnings
+                const emptyProducts = window._emptyProducts;
+                if (emptyProducts && emptyProducts.length > 0) {
+                    // Separate the "no activities" warning from other warnings
+                    const otherWarnings = warnings.filter(w => !w.includes('no activities'));
+                    const parts = [];
+                    if (otherWarnings.length > 0) {
+                        parts.push(otherWarnings.map(w => w.replace(/</g, '&lt;').replace(/>/g, '&gt;')).join(' \u00B7 '));
+                    }
+                    // Build clickable product links
+                    const label = emptyProducts.length === 1 ? 'Product has' : emptyProducts.length + ' products have';
+                    const links = emptyProducts.map(name => {
+                        const escaped = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        return '<a href="#" class="status-bar-task-link" onclick="event.preventDefault(); openTaskInspectorByName(\'' +
+                            escaped.replace(/'/g, "\\'") + '\')" title="Open task details">$' + escaped + '</a>';
+                    }).join(', ');
+                    parts.push(label + ' no activities: ' + links);
+                    el.innerHTML = '\u26A0 ' + parts.join(' \u00B7 ');
+                } else {
+                    setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
+                }
+            }
         } else {
             setStatusMessage('', 0);
         }
