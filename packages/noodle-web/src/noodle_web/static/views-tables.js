@@ -724,28 +724,19 @@ function updateReportMilestones(tasks) {
         // Filter to only milestones (0-duration, non-summary tasks)
         const allMilestones = tasks.filter(task => task.duration_days === 0 && !task.is_summary);
 
-        // Separate incomplete from complete
-        const incomplete = allMilestones
-            .filter(task => (parseFloat(task.percent) || 0) < 100)
-            .sort((a, b) => {
-                const dateA = a.finish ? new Date(a.finish) : new Date('9999-12-31');
-                const dateB = b.finish ? new Date(b.finish) : new Date('9999-12-31');
-                return dateA - dateB;
-            });
+        // Sort all milestones by finish date
+        const sorted = allMilestones.sort((a, b) => {
+            const dateA = a.finish ? new Date(a.finish) : new Date('9999-12-31');
+            const dateB = b.finish ? new Date(b.finish) : new Date('9999-12-31');
+            return dateA - dateB;
+        });
 
-        const complete = allMilestones
-            .filter(task => (parseFloat(task.percent) || 0) >= 100)
-            .sort((a, b) => {
-                const dateA = a.finish ? new Date(a.finish) : new Date('9999-12-31');
-                const dateB = b.finish ? new Date(b.finish) : new Date('9999-12-31');
-                return dateA - dateB;
-            });
+        const incomplete = sorted.filter(task => (parseFloat(task.percent) || 0) < 100);
 
-        // Include completed milestones when total milestones <= 10
+        // Show all milestones sorted by date, limit to 10 if too many
         let displayMilestones;
-        if (allMilestones.length <= 10) {
-            // Show all milestones: incomplete first, then complete
-            displayMilestones = [...incomplete, ...complete];
+        if (sorted.length <= 10) {
+            displayMilestones = sorted;
         } else {
             // Too many milestones: show only next 10 incomplete
             displayMilestones = incomplete.slice(0, 10);
