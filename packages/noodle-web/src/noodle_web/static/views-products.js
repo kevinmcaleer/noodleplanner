@@ -2676,16 +2676,19 @@ function checkDuplicateDeliverables() {
     const warnings = [];
     const warningLines = new Set();
 
-    // 1. Check for duplicate $identifier tokens
-    const idRegex = /\$([A-Za-z_][A-Za-z0-9_-]*)/;
+    // 1. Check for duplicate $identifier tokens (only count definitions, not references in [depends])
+    const idRegex = /[/^]?\$([A-Za-z_][A-Za-z0-9_-]*)/g;
     const seenIds = {};
     for (let i = 0; i < lines.length; i++) {
-        const match = lines[i].match(idRegex);
-        if (match) {
+        // Strip [depends ...] blocks so we don't count dependency references as definitions
+        const lineWithoutDepends = lines[i].replace(/\[depends\s+[^\]]*\]/gi, '');
+        let match;
+        while ((match = idRegex.exec(lineWithoutDepends)) !== null) {
             const id = match[1].toLowerCase();
             if (!seenIds[id]) seenIds[id] = [];
             seenIds[id].push(i + 1);
         }
+        idRegex.lastIndex = 0;
     }
     for (const [id, lineNums] of Object.entries(seenIds)) {
         if (lineNums.length > 1) {
@@ -2909,12 +2912,19 @@ function checkDuplicateDeliverables() {
                 }
             }
 
-            // Products with no activities
+            // Products with no activities (skip products that contain sub-products)
             const empty = [];
             for (const d of deliverables) {
                 const activities = (typeof pbsGetActivities === 'function')
                     ? pbsGetActivities(d, tasksForCheck) : [];
-                if (!activities || activities.length === 0) empty.push(d.deliverable);
+                if (!activities || activities.length === 0) {
+                    // Check if this product has sub-products (children with deliverable tokens)
+                    const parentName = d.name || d.description || '';
+                    const hasSubProducts = deliverables.some(other =>
+                        other !== d && other.parent && other.parent === parentName
+                    );
+                    if (!hasSubProducts) empty.push(d.deliverable);
+                }
             }
             if (empty.length > 0) {
                 const show = empty.slice(0, 5).map(x => '$' + x).join(', ');
