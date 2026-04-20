@@ -92,11 +92,20 @@ function extractTasksFromPlanText(planText) {
         const stripped = line.trim();
         if (!stripped) continue;
 
-        // Must contain at least a % to be a task line
-        const pctMatch = stripped.match(/\b(\d{1,3})%/);
-        if (!pctMatch) continue;
+        // A task line must have at least one metadata token:
+        // @resource, duration (\d+[dwmy]), $deliverable, [depends], %, or date
+        const hasResource = /@\w+/.test(stripped);
+        const hasDuration = /\b\d+[dwmy]\b/.test(stripped);
+        const hasDeliverable = /[/^]?\$[A-Za-z_]/.test(stripped);
+        const hasDepends = /\[depends/i.test(stripped);
+        const hasPct = /\b\d{1,3}%/.test(stripped);
+        const hasDate = /\d{4}-\d{2}-\d{2}/.test(stripped);
+        const hasSeqMarker = stripped.startsWith('*');
 
-        const percent = parseInt(pctMatch[1], 10);
+        if (!hasResource && !hasDuration && !hasDeliverable && !hasDepends && !hasPct && !hasDate && !hasSeqMarker) continue;
+
+        const pctMatch = stripped.match(/\b(\d{1,3})%/);
+        const percent = pctMatch ? parseInt(pctMatch[1], 10) : 0;
         const indent = line.length - line.trimStart().length;
         const milestone = stripped.startsWith('*');
 
@@ -120,7 +129,7 @@ function extractTasksFromPlanText(planText) {
         const friendlyName = cleanTaskName(stripped);
         if (!friendlyName) continue;
 
-        const isMilestone = milestone || (start && end && start === end);
+        const isMilestone = milestone || (start && end && start === end) || duration === '0d';
 
         tasks.push({
             name: stripped,

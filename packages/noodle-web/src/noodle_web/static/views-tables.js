@@ -328,13 +328,19 @@ function extractCompletionFromPlanText(planText) {
     var lines = body.split('\n');
 
     // Collect task lines with their indentation and percent
+    // A task line has at least one metadata token: @resource, duration, $deliverable, [depends], %, date, or * prefix
     var taskLines = [];
     for (var j = 0; j < lines.length; j++) {
-        var m = lines[j].match(/\b(\d{1,3})%/);
-        if (m) {
-            var indent = lines[j].length - lines[j].replace(/^\s+/, '').length;
-            taskLines.push({ percent: parseInt(m[1], 10), indent: indent });
-        }
+        var stripped = lines[j].trim();
+        if (!stripped) continue;
+        var hasToken = /@\w/.test(stripped) || /\b\d+[dwmy]\b/.test(stripped) ||
+            /[/^]?\$[A-Za-z_]/.test(stripped) || /\[depends/i.test(stripped) ||
+            /\b\d{1,3}%/.test(stripped) || /\d{4}-\d{2}-\d{2}/.test(stripped) ||
+            stripped.startsWith('*');
+        if (!hasToken) continue;
+        var m = stripped.match(/\b(\d{1,3})%/);
+        var indent = lines[j].length - lines[j].replace(/^\s+/, '').length;
+        taskLines.push({ percent: m ? parseInt(m[1], 10) : 0, indent: indent });
     }
 
     // Mark summary tasks: a task is a summary if the next task has greater indent
