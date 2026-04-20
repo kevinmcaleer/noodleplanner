@@ -2960,7 +2960,7 @@ function checkDuplicateDeliverables() {
                     const label = emptyProducts.length === 1 ? 'Product has' : emptyProducts.length + ' products have';
                     const links = emptyProducts.map(name => {
                         const escaped = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        return '<a href="#" class="status-bar-task-link" onclick="event.preventDefault(); openTaskInspectorByName(\'' +
+                        return '<a href="#" class="status-bar-task-link" onclick="event.preventDefault(); openTaskInspectorByDeliverable(\'' +
                             escaped.replace(/'/g, "\\'") + '\')" title="Open task details">$' + escaped + '</a>';
                     }).join(', ');
                     parts.push(label + ' no activities: ' + links);

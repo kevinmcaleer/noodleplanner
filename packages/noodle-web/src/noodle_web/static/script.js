@@ -13342,6 +13342,22 @@ function openTaskInspectorByName(taskName) {
     }
 }
 
+function openTaskInspectorByDeliverable(deliverableId) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+
+    const token = '$' + deliverableId;
+    const lines = editor.value.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        // Match the $token on this line (not inside [depends])
+        const lineWithoutDepends = lines[i].replace(/\[depends\s+[^\]]*\]/gi, '');
+        if (lineWithoutDepends.includes(token)) {
+            openTaskInspector(i + 1);
+            return;
+        }
+    }
+}
+
 function closeTaskInspector() {
     closeDetailPane();
 }
