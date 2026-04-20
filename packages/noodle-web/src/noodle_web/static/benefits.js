@@ -727,66 +727,80 @@ function benComputeLayout() {
         }
     }
 
-    // Determine how many items sit side-by-side per column (max sibling
-    // group size sharing a common connection partner).
-    const colMaxSiblings = [1, 1, 1, 1];
+    // Group items by their connection partner to determine distinct chains.
+    // Items sharing the same partner stack vertically (same X, different Y).
+    // Different chains get different horizontal slots within the column.
+    const NODE_GAP_X = 20;
+    const COL_MARGIN = 60;
+
+    // For each column, find how many distinct chains there are
+    const colChains = [[], [], [], []]; // col -> array of chain arrays
     for (let col = 0; col < 4; col++) {
-        if (columns[col].length <= 1) continue;
-        const groups = {};
+        if (columns[col].length === 0) continue;
+        const groups = {}; // partnerId -> [items]
+        const orphans = [];
         for (const item of columns[col]) {
             const partnerIds = new Set();
             for (const tid of item.linkedTo) { if (itemById[tid]) partnerIds.add(tid); }
             for (const src of (reverseLinks[item.id] || [])) { partnerIds.add(src.id); }
-            for (const pid of partnerIds) {
-                if (!groups[pid]) groups[pid] = [];
-                if (!groups[pid].includes(item)) groups[pid].push(item);
+            if (partnerIds.size === 0) {
+                orphans.push(item);
+            } else {
+                // Use the first partner as the group key
+                const key = [...partnerIds][0];
+                if (!groups[key]) groups[key] = [];
+                if (!groups[key].includes(item)) groups[key].push(item);
             }
         }
-        for (const siblings of Object.values(groups)) {
-            if (siblings.length > colMaxSiblings[col]) colMaxSiblings[col] = siblings.length;
+        // Deduplicate: an item might appear in multiple groups, assign to its first
+        const assigned = new Set();
+        for (const chain of Object.values(groups)) {
+            const unique = chain.filter(item => !assigned.has(item.id));
+            if (unique.length > 0) {
+                colChains[col].push(unique);
+                unique.forEach(item => assigned.add(item.id));
+            }
+        }
+        // Orphans form their own single-item chains
+        for (const item of orphans) {
+            if (!assigned.has(item.id)) {
+                colChains[col].push([item]);
+                assigned.add(item.id);
+            }
         }
     }
 
-    // Calculate dynamic X start for each column based on widths
-    const NODE_GAP_X = 20; // gap between side-by-side nodes
-    const COL_MARGIN = 60; // margin between columns
-    const colWidths = colMaxSiblings.map(n => n * BEN_NODE_WIDTH + (n - 1) * NODE_GAP_X);
-    const colX = [BEN_PADDING_X]; // starting X of each column
+    // Column width = number of distinct chains × node width + gaps
+    const colChainCounts = colChains.map(chains => Math.max(1, chains.length));
+    const colWidths = colChainCounts.map(n => n * BEN_NODE_WIDTH + (n - 1) * NODE_GAP_X);
+    const colX = [BEN_PADDING_X];
     for (let col = 1; col < 4; col++) {
         colX[col] = colX[col - 1] + colWidths[col - 1] + COL_MARGIN;
     }
 
-    // Build sibling groups for side-by-side positioning
+    // Position items: each chain gets a horizontal slot, items within
+    // a chain stack vertically
     const xOffset = {};
     for (let col = 0; col < 4; col++) {
-        if (columns[col].length <= 1) continue;
-        const groups = {};
-        for (const item of columns[col]) {
-            const partnerIds = new Set();
-            for (const tid of item.linkedTo) { if (itemById[tid]) partnerIds.add(tid); }
-            for (const src of (reverseLinks[item.id] || [])) { partnerIds.add(src.id); }
-            for (const pid of partnerIds) {
-                if (!groups[pid]) groups[pid] = [];
-                if (!groups[pid].includes(item)) groups[pid].push(item);
-            }
-        }
-        const processed = new Set();
-        for (const siblings of Object.values(groups)) {
-            if (siblings.length < 2) continue;
-            if (siblings.some(s => processed.has(s.id))) continue;
-            const totalWidth = siblings.length * BEN_NODE_WIDTH + (siblings.length - 1) * NODE_GAP_X;
-            const startOffset = (colWidths[col] - totalWidth) / 2;
-            const sharedY = yPos[siblings[0].id];
-            for (let i = 0; i < siblings.length; i++) {
-                xOffset[siblings[i].id] = startOffset + i * (BEN_NODE_WIDTH + NODE_GAP_X);
-                yPos[siblings[i].id] = sharedY;
-                processed.add(siblings[i].id);
-            }
-        }
-        // Centre items not in a sibling group
-        for (const item of columns[col]) {
-            if (!processed.has(item.id)) {
-                xOffset[item.id] = (colWidths[col] - BEN_NODE_WIDTH) / 2;
+        const chains = colChains[col];
+        if (chains.length === 0) continue;
+        const totalWidth = chains.length * BEN_NODE_WIDTH + (chains.length - 1) * NODE_GAP_X;
+        const startOffset = (colWidths[col] - totalWidth) / 2;
+
+        for (let ci = 0; ci < chains.length; ci++) {
+            const chainX = startOffset + ci * (BEN_NODE_WIDTH + NODE_GAP_X);
+            const chain = chains[ci];
+            // Stack items vertically within this chain's slot
+            // Use the first item's Y as base, space the rest below
+            chain.sort((a, b) => yPos[a.id] - yPos[b.id]);
+            for (let i = 0; i < chain.length; i++) {
+                xOffset[chain[i].id] = chainX;
+                if (i > 0) {
+                    const minY = yPos[chain[i - 1].id] + nodeStep;
+                    if (yPos[chain[i].id] < minY) {
+                        yPos[chain[i].id] = minY;
+                    }
+                }
             }
         }
     }
