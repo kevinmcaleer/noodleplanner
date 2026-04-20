@@ -727,58 +727,13 @@ function benComputeLayout() {
         }
     }
 
-    // Group sibling items that share the same connection so they can be
-    // laid out side-by-side. Spread is capped to stay within the column
-    // gap so items never overlap adjacent columns.
-    const xOffset = {};  // itemId -> horizontal pixel offset from column base
-    const maxSpread = BEN_COL_GAP - BEN_NODE_WIDTH - 20; // max total spread width
-
-    for (let col = 0; col < 4; col++) {
-        if (columns[col].length <= 1) continue;
-
-        // Build groups: partner item id → [sibling items in this column]
-        const groups = {};
-        for (const item of columns[col]) {
-            const partnerIds = new Set();
-            for (const tid of item.linkedTo) {
-                if (itemById[tid]) partnerIds.add(tid);
-            }
-            for (const src of (reverseLinks[item.id] || [])) {
-                partnerIds.add(src.id);
-            }
-            for (const pid of partnerIds) {
-                if (!groups[pid]) groups[pid] = [];
-                if (!groups[pid].includes(item)) groups[pid].push(item);
-            }
-        }
-
-        // Find groups with 2+ siblings and spread them horizontally
-        const processed = new Set();
-        for (const [, siblings] of Object.entries(groups)) {
-            if (siblings.length < 2) continue;
-            if (siblings.some(s => processed.has(s.id))) continue;
-
-            // Calculate spread: use a small stagger that fits within column bounds
-            const stagger = Math.min(30, maxSpread / (siblings.length - 1));
-            const totalWidth = stagger * (siblings.length - 1);
-            const startOffset = -totalWidth / 2;
-
-            // Position siblings at same Y with a small horizontal stagger
-            const sharedY = yPos[siblings[0].id];
-            for (let i = 0; i < siblings.length; i++) {
-                xOffset[siblings[i].id] = startOffset + i * stagger;
-                yPos[siblings[i].id] = sharedY;
-                processed.add(siblings[i].id);
-            }
-        }
-    }
-
-    // Build final layout array
+    // Build final layout array — no horizontal offset, items stay centred
+    // in their column. Siblings are already stacked vertically with proper
+    // collision avoidance from the phases above.
     const layout = [];
     for (let col = 0; col < 4; col++) {
-        const baseX = BEN_PADDING_X + col * BEN_COL_GAP;
+        const x = BEN_PADDING_X + col * BEN_COL_GAP;
         for (const item of columns[col]) {
-            const x = baseX + (xOffset[item.id] || 0);
             layout.push({ item, x, y: yPos[item.id], col });
         }
     }
