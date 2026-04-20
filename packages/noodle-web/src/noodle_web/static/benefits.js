@@ -588,24 +588,133 @@ function benValidateContributions() {
 // ── Layout algorithm ─────────────────────────────────────────────────
 
 /**
- * Compute positions for all benefit items in a 4-column layout.
+ * Compute positions for all benefit items using a flow-aware layout.
+ * Items are placed in type-based columns but positioned vertically
+ * according to their linkedTo connections so that connected items
+ * sit close together.
+ *
  * Returns an array of { item, x, y, col } objects.
  */
 function benComputeLayout() {
-    // Group items by column
+    // Group items by column (type-based)
     const columns = [[], [], [], []];
+    const itemById = {};
     for (const item of benefitItems) {
         const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
         columns[col].push(item);
+        itemById[item.id] = item;
     }
 
+    // Build reverse links: targetId -> [sourceItems]
+    const reverseLinks = {};
+    for (const item of benefitItems) {
+        for (const targetId of item.linkedTo) {
+            if (!reverseLinks[targetId]) reverseLinks[targetId] = [];
+            reverseLinks[targetId].push(item);
+        }
+    }
+
+    // Track assigned Y positions per item id
+    const yPos = {};
+    const nodeStep = BEN_NODE_HEIGHT + BEN_ROW_GAP;
+
+    // Phase 1: Position rightmost column (objectives, col 3) evenly
+    columns[3].forEach((item, idx) => {
+        yPos[item.id] = BEN_PADDING_Y + idx * nodeStep;
+    });
+
+    // Phase 2: Position columns 2, 1, 0 based on connections to the
+    // column to their right.  Items with links are placed at the
+    // average Y of their targets; unlinked items are appended below.
+    for (let col = 2; col >= 0; col--) {
+        const linked = [];
+        const unlinked = [];
+
+        for (const item of columns[col]) {
+            // Find targets in the next column that already have positions
+            const targetYs = item.linkedTo
+                .filter(tid => itemById[tid] && yPos[tid] !== undefined)
+                .map(tid => yPos[tid]);
+
+            if (targetYs.length > 0) {
+                const avgY = targetYs.reduce((a, b) => a + b, 0) / targetYs.length;
+                linked.push({ item, desiredY: avgY });
+            } else {
+                unlinked.push(item);
+            }
+        }
+
+        // Sort linked items by their desired Y so order is stable
+        linked.sort((a, b) => a.desiredY - b.desiredY);
+
+        // Assign Y positions for linked items, resolving collisions
+        for (const entry of linked) {
+            yPos[entry.item.id] = entry.desiredY;
+        }
+
+        // Append unlinked items below the last positioned item in this column
+        let maxY = -Infinity;
+        for (const entry of linked) {
+            if (yPos[entry.item.id] > maxY) maxY = yPos[entry.item.id];
+        }
+        const startY = maxY === -Infinity ? BEN_PADDING_Y : maxY + nodeStep;
+        unlinked.forEach((item, idx) => {
+            yPos[item.id] = startY + idx * nodeStep;
+        });
+
+        // Collision avoidance: push overlapping nodes apart within this column
+        const allInCol = [...linked.map(e => e.item), ...unlinked];
+        allInCol.sort((a, b) => yPos[a.id] - yPos[b.id]);
+
+        for (let i = 1; i < allInCol.length; i++) {
+            const prev = allInCol[i - 1];
+            const curr = allInCol[i];
+            const minY = yPos[prev.id] + nodeStep;
+            if (yPos[curr.id] < minY) {
+                yPos[curr.id] = minY;
+            }
+        }
+    }
+
+    // Phase 3: Second pass — pull items towards their sources (reverse
+    // links) to reduce long diagonal connections.  This helps when a
+    // right-column node is linked from multiple left-column nodes that
+    // ended up far apart; we nudge the target toward its sources'
+    // average while still respecting collision constraints.
+    for (let col = 3; col >= 1; col--) {
+        const colItems = columns[col].slice();
+        colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
+
+        for (const item of colItems) {
+            const sources = reverseLinks[item.id];
+            if (!sources || sources.length === 0) continue;
+            const sourceYs = sources
+                .filter(s => yPos[s.id] !== undefined)
+                .map(s => yPos[s.id]);
+            if (sourceYs.length === 0) continue;
+            const avgSourceY = sourceYs.reduce((a, b) => a + b, 0) / sourceYs.length;
+            // Blend: move 40% toward sources average
+            yPos[item.id] = yPos[item.id] * 0.6 + avgSourceY * 0.4;
+        }
+
+        // Re-apply collision avoidance after nudging
+        colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
+        for (let i = 1; i < colItems.length; i++) {
+            const prev = colItems[i - 1];
+            const curr = colItems[i];
+            const minY = yPos[prev.id] + nodeStep;
+            if (yPos[curr.id] < minY) {
+                yPos[curr.id] = minY;
+            }
+        }
+    }
+
+    // Build final layout array
     const layout = [];
     for (let col = 0; col < 4; col++) {
-        const items = columns[col];
         const x = BEN_PADDING_X + col * BEN_COL_GAP;
-        for (let row = 0; row < items.length; row++) {
-            const y = BEN_PADDING_Y + row * (BEN_NODE_HEIGHT + BEN_ROW_GAP);
-            layout.push({ item: items[row], x, y, col });
+        for (const item of columns[col]) {
+            layout.push({ item, x, y: yPos[item.id], col });
         }
     }
 
@@ -830,47 +939,36 @@ function benRenderNode(item, x, y) {
 }
 
 /**
- * Render an S-curve bezier connection between two nodes.
+ * Render an orthogonal (right-angle) connection between two nodes.
+ * Route: exit right from source -> horizontal -> vertical turn -> horizontal -> enter left of target
  */
 function benRenderConnection(fromLayout, toLayout) {
-    // Source: right edge of from node, target: left edge of to node
-    let sx, sy, tx, ty;
+    // Source: right edge midpoint; target: left edge midpoint
+    const sx = fromLayout.x + BEN_NODE_WIDTH;
+    const sy = fromLayout.y + BEN_NODE_HEIGHT / 2;
+    const tx = toLayout.x;
+    const ty = toLayout.y + BEN_NODE_HEIGHT / 2;
 
-    if (fromLayout.item.type === 'enabler') {
-        sx = fromLayout.x + BEN_NODE_WIDTH;
-        sy = fromLayout.y + BEN_NODE_HEIGHT / 2;
-    } else {
-        sx = fromLayout.x + BEN_NODE_WIDTH;
-        sy = fromLayout.y + BEN_NODE_HEIGHT / 2;
-    }
-
-    if (toLayout.item.type === 'enabler') {
-        tx = toLayout.x;
-        ty = toLayout.y + BEN_NODE_HEIGHT / 2;
-    } else {
-        tx = toLayout.x;
-        ty = toLayout.y + BEN_NODE_HEIGHT / 2;
-    }
-
-    // S-curve control points
+    // Midpoint X for the vertical segment
     const midX = (sx + tx) / 2;
-    const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ty}, ${tx} ${ty}`;
+
+    // Orthogonal path: right from source, down/up, then right to target
+    const d = `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ty} L ${tx} ${ty}`;
 
     const path = benSvgEl('path', {
         d: d,
         fill: 'none',
-        stroke: '#6B7280',
-        'stroke-width': '2',
-        'stroke-opacity': '0.6',
+        stroke: '#999',
+        'stroke-width': '1.5',
+        'stroke-linejoin': 'round',
         'class': 'ben-connection'
     });
 
     // Arrow head at target
-    const arrowSize = 8;
+    const arrowSize = 7;
     const arrowPath = benSvgEl('path', {
         d: `M ${tx} ${ty} L ${tx - arrowSize} ${ty - arrowSize / 2} L ${tx - arrowSize} ${ty + arrowSize / 2} Z`,
-        fill: '#6B7280',
-        'fill-opacity': '0.6',
+        fill: '#999',
         'class': 'ben-arrow'
     });
 
