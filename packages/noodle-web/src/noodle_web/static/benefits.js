@@ -631,13 +631,31 @@ function benComputeLayout() {
         const unlinked = [];
 
         for (const item of columns[col]) {
-            // Find targets in the next column that already have positions
-            const targetYs = item.linkedTo
-                .filter(tid => itemById[tid] && yPos[tid] !== undefined)
-                .map(tid => yPos[tid]);
+            // Find connected items in columns to the right that already have positions.
+            // Check both: items this links TO, and items that link TO this (reverse).
+            const connectedYs = [];
 
-            if (targetYs.length > 0) {
-                const avgY = targetYs.reduce((a, b) => a + b, 0) / targetYs.length;
+            // Forward links (linkedTo targets)
+            for (const tid of item.linkedTo) {
+                if (itemById[tid] && yPos[tid] !== undefined) {
+                    const targetCol = BEN_COLUMNS[itemById[tid].type];
+                    if (targetCol !== undefined && targetCol > col) {
+                        connectedYs.push(yPos[tid]);
+                    }
+                }
+            }
+
+            // Reverse links (items that link TO this item and are in a column to the right)
+            const sources = reverseLinks[item.id] || [];
+            for (const src of sources) {
+                const srcCol = BEN_COLUMNS[src.type];
+                if (srcCol !== undefined && srcCol > col && yPos[src.id] !== undefined) {
+                    connectedYs.push(yPos[src.id]);
+                }
+            }
+
+            if (connectedYs.length > 0) {
+                const avgY = connectedYs.reduce((a, b) => a + b, 0) / connectedYs.length;
                 linked.push({ item, desiredY: avgY });
             } else {
                 unlinked.push(item);
@@ -1065,10 +1083,21 @@ function benRenderAll() {
     benGroup.appendChild(benRenderColumnLabels());
 
     // Render connections first (behind nodes)
+    // Draw links left-to-right regardless of which item holds the linkedTo reference
+    const drawnConnections = new Set();
     for (const entry of layout) {
         for (const targetId of entry.item.linkedTo) {
             if (layoutMap[targetId]) {
-                benGroup.appendChild(benRenderConnection(entry, layoutMap[targetId]));
+                const from = entry;
+                const to = layoutMap[targetId];
+                // Always draw left-to-right: lower column → higher column
+                const left = from.col <= to.col ? from : to;
+                const right = from.col <= to.col ? to : from;
+                const key = left.item.id + '->' + right.item.id;
+                if (!drawnConnections.has(key)) {
+                    drawnConnections.add(key);
+                    benGroup.appendChild(benRenderConnection(left, right));
+                }
             }
         }
     }
