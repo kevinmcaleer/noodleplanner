@@ -596,60 +596,109 @@ function benValidateContributions() {
  * Returns an array of { item, x, y, col } objects.
  */
 function benComputeLayout() {
-    // Group items by column (type-based)
-    const columns = [[], [], [], []];
     const itemById = {};
     for (const item of benefitItems) {
-        const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
-        columns[col].push(item);
         itemById[item.id] = item;
     }
 
     // Build reverse links: targetId -> [sourceItems]
-    const reverseLinks = {};
+    const allReverseLinks = {};
     for (const item of benefitItems) {
         for (const targetId of item.linkedTo) {
-            if (!reverseLinks[targetId]) reverseLinks[targetId] = [];
-            reverseLinks[targetId].push(item);
+            if (!allReverseLinks[targetId]) allReverseLinks[targetId] = [];
+            allReverseLinks[targetId].push(item);
         }
     }
+
+    // Compute sub-column depth for items that depend on same-type items.
+    // An item that links to another item of the SAME type (in either direction)
+    // gets a higher depth, placing it further right within the type's area.
+    const sameTypeDepth = {}; // itemId -> depth (0 = leftmost)
+    for (const item of benefitItems) {
+        sameTypeDepth[item.id] = 0;
+    }
+    // Iterate until stable — propagate depth through same-type chains
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const item of benefitItems) {
+            for (const tid of item.linkedTo) {
+                const target = itemById[tid];
+                if (!target) continue;
+                // Same base column (same type group)?
+                const itemCol = BEN_COLUMNS[item.type];
+                const targetCol = BEN_COLUMNS[target.type];
+                if (itemCol === targetCol) {
+                    // The item links to a same-type target — item should be
+                    // to the RIGHT of the target (higher depth)
+                    const needed = sameTypeDepth[tid] + 1;
+                    if (sameTypeDepth[item.id] < needed) {
+                        sameTypeDepth[item.id] = needed;
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Group items by base column, then by sub-column depth
+    // subColumns[baseCol] = { depth: [items] }
+    const subColumns = [{}, {}, {}, {}];
+    for (const item of benefitItems) {
+        const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
+        const depth = sameTypeDepth[item.id];
+        if (!subColumns[col][depth]) subColumns[col][depth] = [];
+        subColumns[col][depth].push(item);
+    }
+
+    // Flatten into ordered columns for layout: [base0-depth0, base0-depth1, ..., base1-depth0, ...]
+    const columns = [];
+    const colBaseIndex = []; // which base column each layout column belongs to
+    for (let base = 0; base < 4; base++) {
+        const depths = Object.keys(subColumns[base]).map(Number).sort((a, b) => a - b);
+        if (depths.length === 0) {
+            columns.push([]);
+            colBaseIndex.push(base);
+        } else {
+            for (const d of depths) {
+                columns.push(subColumns[base][d]);
+                colBaseIndex.push(base);
+            }
+        }
+    }
+
+    const reverseLinks = allReverseLinks;
 
     // Track assigned Y positions per item id
     const yPos = {};
     const nodeStep = BEN_NODE_HEIGHT + BEN_ROW_GAP;
+    const numCols = columns.length;
 
-    // Phase 1: Position rightmost column (objectives, col 3) evenly
-    columns[3].forEach((item, idx) => {
+    // Phase 1: Position rightmost layout column evenly
+    const lastCol = columns[numCols - 1];
+    lastCol.forEach((item, idx) => {
         yPos[item.id] = BEN_PADDING_Y + idx * nodeStep;
     });
 
-    // Phase 2: Position columns 2, 1, 0 based on connections to the
-    // column to their right.  Items with links are placed at the
-    // average Y of their targets; unlinked items are appended below.
-    for (let col = 2; col >= 0; col--) {
+    // Phase 2: Position columns right-to-left based on connections
+    for (let col = numCols - 2; col >= 0; col--) {
         const linked = [];
         const unlinked = [];
 
         for (const item of columns[col]) {
-            // Find connected items in columns to the right that already have positions.
-            // Check both: items this links TO, and items that link TO this (reverse).
             const connectedYs = [];
 
-            // Forward links (linkedTo targets)
+            // Forward links — find targets already positioned (in any column to the right)
             for (const tid of item.linkedTo) {
                 if (itemById[tid] && yPos[tid] !== undefined) {
-                    const targetCol = BEN_COLUMNS[itemById[tid].type];
-                    if (targetCol !== undefined && targetCol > col) {
-                        connectedYs.push(yPos[tid]);
-                    }
+                    connectedYs.push(yPos[tid]);
                 }
             }
 
-            // Reverse links (items that link TO this item and are in a column to the right)
+            // Reverse links — items linking TO this that are already positioned
             const sources = reverseLinks[item.id] || [];
             for (const src of sources) {
-                const srcCol = BEN_COLUMNS[src.type];
-                if (srcCol !== undefined && srcCol > col && yPos[src.id] !== undefined) {
+                if (yPos[src.id] !== undefined) {
                     connectedYs.push(yPos[src.id]);
                 }
             }
@@ -662,15 +711,11 @@ function benComputeLayout() {
             }
         }
 
-        // Sort linked items by their desired Y so order is stable
         linked.sort((a, b) => a.desiredY - b.desiredY);
-
-        // Assign Y positions for linked items, resolving collisions
         for (const entry of linked) {
             yPos[entry.item.id] = entry.desiredY;
         }
 
-        // Append unlinked items below the last positioned item in this column
         let maxY = -Infinity;
         for (const entry of linked) {
             if (yPos[entry.item.id] > maxY) maxY = yPos[entry.item.id];
@@ -680,10 +725,9 @@ function benComputeLayout() {
             yPos[item.id] = startY + idx * nodeStep;
         });
 
-        // Collision avoidance: push overlapping nodes apart within this column
+        // Collision avoidance
         const allInCol = [...linked.map(e => e.item), ...unlinked];
         allInCol.sort((a, b) => yPos[a.id] - yPos[b.id]);
-
         for (let i = 1; i < allInCol.length; i++) {
             const prev = allInCol[i - 1];
             const curr = allInCol[i];
@@ -694,12 +738,8 @@ function benComputeLayout() {
         }
     }
 
-    // Phase 3: Second pass — pull items towards their sources (reverse
-    // links) to reduce long diagonal connections.  This helps when a
-    // right-column node is linked from multiple left-column nodes that
-    // ended up far apart; we nudge the target toward its sources'
-    // average while still respecting collision constraints.
-    for (let col = 3; col >= 1; col--) {
+    // Phase 3: Pull items towards sources to reduce diagonal connections
+    for (let col = numCols - 1; col >= 1; col--) {
         const colItems = columns[col].slice();
         colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
 
@@ -711,11 +751,9 @@ function benComputeLayout() {
                 .map(s => yPos[s.id]);
             if (sourceYs.length === 0) continue;
             const avgSourceY = sourceYs.reduce((a, b) => a + b, 0) / sourceYs.length;
-            // Blend: move 40% toward sources average
             yPos[item.id] = yPos[item.id] * 0.6 + avgSourceY * 0.4;
         }
 
-        // Re-apply collision avoidance after nudging
         colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
         for (let i = 1; i < colItems.length; i++) {
             const prev = colItems[i - 1];
@@ -727,93 +765,49 @@ function benComputeLayout() {
         }
     }
 
-    // Group items by their connection partner to determine distinct chains.
-    // Items sharing the same partner stack vertically (same X, different Y).
-    // Different chains get different horizontal slots within the column.
-    const NODE_GAP_X = 20;
+    // Each layout column gets one node width — items are stacked vertically.
+    // The dynamic sub-columns already handle horizontal separation for
+    // same-type items at different chain depths.
     const COL_MARGIN = 60;
-
-    // For each column, find how many distinct chains there are
-    const colChains = [[], [], [], []]; // col -> array of chain arrays
-    for (let col = 0; col < 4; col++) {
-        if (columns[col].length === 0) continue;
-        const groups = {}; // partnerId -> [items]
-        const orphans = [];
-        for (const item of columns[col]) {
-            const partnerIds = new Set();
-            for (const tid of item.linkedTo) { if (itemById[tid]) partnerIds.add(tid); }
-            for (const src of (reverseLinks[item.id] || [])) { partnerIds.add(src.id); }
-            if (partnerIds.size === 0) {
-                orphans.push(item);
-            } else {
-                // Use the first partner as the group key
-                const key = [...partnerIds][0];
-                if (!groups[key]) groups[key] = [];
-                if (!groups[key].includes(item)) groups[key].push(item);
-            }
-        }
-        // Deduplicate: an item might appear in multiple groups, assign to its first
-        const assigned = new Set();
-        for (const chain of Object.values(groups)) {
-            const unique = chain.filter(item => !assigned.has(item.id));
-            if (unique.length > 0) {
-                colChains[col].push(unique);
-                unique.forEach(item => assigned.add(item.id));
-            }
-        }
-        // Orphans form their own single-item chains
-        for (const item of orphans) {
-            if (!assigned.has(item.id)) {
-                colChains[col].push([item]);
-                assigned.add(item.id);
-            }
-        }
-    }
-
-    // Column width = number of distinct chains × node width + gaps
-    const colChainCounts = colChains.map(chains => Math.max(1, chains.length));
-    const colWidths = colChainCounts.map(n => n * BEN_NODE_WIDTH + (n - 1) * NODE_GAP_X);
+    const colWidths = columns.map(() => BEN_NODE_WIDTH);
     const colX = [BEN_PADDING_X];
-    for (let col = 1; col < 4; col++) {
-        colX[col] = colX[col - 1] + colWidths[col - 1] + COL_MARGIN;
+    for (let col = 1; col < numCols; col++) {
+        colX[col] = colX[col - 1] + BEN_NODE_WIDTH + COL_MARGIN;
     }
 
-    // Position items: each chain gets a horizontal slot, items within
-    // a chain stack vertically
-    const xOffset = {};
-    for (let col = 0; col < 4; col++) {
-        const chains = colChains[col];
-        if (chains.length === 0) continue;
-        const totalWidth = chains.length * BEN_NODE_WIDTH + (chains.length - 1) * NODE_GAP_X;
-        const startOffset = (colWidths[col] - totalWidth) / 2;
-
-        for (let ci = 0; ci < chains.length; ci++) {
-            const chainX = startOffset + ci * (BEN_NODE_WIDTH + NODE_GAP_X);
-            const chain = chains[ci];
-            // Stack items vertically within this chain's slot
-            // Use the first item's Y as base, space the rest below
-            chain.sort((a, b) => yPos[a.id] - yPos[b.id]);
-            for (let i = 0; i < chain.length; i++) {
-                xOffset[chain[i].id] = chainX;
-                if (i > 0) {
-                    const minY = yPos[chain[i - 1].id] + nodeStep;
-                    if (yPos[chain[i].id] < minY) {
-                        yPos[chain[i].id] = minY;
-                    }
-                }
+    // Store dynamic positions for column labels (use base columns for labels)
+    // Map layout columns back to the 4 base columns for label positioning
+    const baseLabelX = [];
+    const baseLabelWidths = [];
+    for (let base = 0; base < 4; base++) {
+        // Find min/max X for this base column across all layout columns
+        let minX = Infinity, maxX = -Infinity;
+        for (let col = 0; col < numCols; col++) {
+            if (colBaseIndex[col] === base && columns[col].length > 0) {
+                if (colX[col] < minX) minX = colX[col];
+                if (colX[col] + BEN_NODE_WIDTH > maxX) maxX = colX[col] + BEN_NODE_WIDTH;
             }
         }
+        if (minX === Infinity) {
+            // Empty base column — use approximate position
+            const prevEnd = baseLabelX.length > 0
+                ? baseLabelX[baseLabelX.length - 1] + baseLabelWidths[baseLabelWidths.length - 1] + COL_MARGIN
+                : BEN_PADDING_X;
+            baseLabelX.push(prevEnd);
+            baseLabelWidths.push(BEN_NODE_WIDTH);
+        } else {
+            baseLabelX.push(minX);
+            baseLabelWidths.push(maxX - minX);
+        }
     }
+    window._benColX = baseLabelX;
+    window._benColWidths = baseLabelWidths;
 
-    // Store dynamic positions for column labels
-    window._benColX = colX;
-    window._benColWidths = colWidths;
-
-    // Build final layout array with dynamic column positions
+    // Build final layout array
     const layout = [];
-    for (let col = 0; col < 4; col++) {
+    for (let col = 0; col < numCols; col++) {
+        const x = colX[col];
         for (const item of columns[col]) {
-            const x = colX[col] + (xOffset[item.id] || 0);
             layout.push({ item, x, y: yPos[item.id], col });
         }
     }
@@ -1676,6 +1670,9 @@ function updateBenefits() {
 
     // Render
     benRenderAll();
+
+    // Always fit the diagram to view after rendering
+    setTimeout(benefitsZoomFit, 50);
 
     // If tracking view is active, also render tracking table
     if (benCurrentView === 'tracking') {
