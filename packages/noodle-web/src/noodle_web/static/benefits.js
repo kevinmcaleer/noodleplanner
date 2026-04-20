@@ -728,10 +728,10 @@ function benComputeLayout() {
     }
 
     // Group sibling items that share the same connection so they can be
-    // laid out side-by-side instead of stacked vertically.
-    // "Siblings" = items in the same column that share a common linked partner
-    // (either via linkedTo or reverseLinks) in an adjacent column.
+    // laid out side-by-side. Spread is capped to stay within the column
+    // gap so items never overlap adjacent columns.
     const xOffset = {};  // itemId -> horizontal pixel offset from column base
+    const maxSpread = BEN_COL_GAP - BEN_NODE_WIDTH - 20; // max total spread width
 
     for (let col = 0; col < 4; col++) {
         if (columns[col].length <= 1) continue;
@@ -739,7 +739,6 @@ function benComputeLayout() {
         // Build groups: partner item id → [sibling items in this column]
         const groups = {};
         for (const item of columns[col]) {
-            // Gather all connected partner IDs in adjacent columns
             const partnerIds = new Set();
             for (const tid of item.linkedTo) {
                 if (itemById[tid]) partnerIds.add(tid);
@@ -757,16 +756,17 @@ function benComputeLayout() {
         const processed = new Set();
         for (const [, siblings] of Object.entries(groups)) {
             if (siblings.length < 2) continue;
-            // Skip if any of these have already been offset
             if (siblings.some(s => processed.has(s.id))) continue;
 
-            const spreadWidth = (BEN_NODE_WIDTH + 16) * (siblings.length - 1);
-            const startOffset = -spreadWidth / 2;
+            // Calculate spread: use a small stagger that fits within column bounds
+            const stagger = Math.min(30, maxSpread / (siblings.length - 1));
+            const totalWidth = stagger * (siblings.length - 1);
+            const startOffset = -totalWidth / 2;
 
-            // Position siblings side-by-side at the same Y
+            // Position siblings at same Y with a small horizontal stagger
             const sharedY = yPos[siblings[0].id];
             for (let i = 0; i < siblings.length; i++) {
-                xOffset[siblings[i].id] = startOffset + i * (BEN_NODE_WIDTH + 16);
+                xOffset[siblings[i].id] = startOffset + i * stagger;
                 yPos[siblings[i].id] = sharedY;
                 processed.add(siblings[i].id);
             }
