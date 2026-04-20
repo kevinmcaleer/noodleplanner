@@ -949,18 +949,15 @@ function benRenderConnection(fromLayout, toLayout) {
     const tx = toLayout.x;
     const ty = toLayout.y + BEN_NODE_HEIGHT / 2;
 
-    // Midpoint X for the vertical segment
-    const midX = (sx + tx) / 2;
-
-    // Orthogonal path: right from source, down/up, then right to target
-    const d = `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ty} L ${tx} ${ty}`;
+    // S-curve bezier: control points at 60% of the horizontal distance
+    const dx = (tx - sx) * 0.6;
+    const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
 
     const path = benSvgEl('path', {
         d: d,
         fill: 'none',
         stroke: '#999',
         'stroke-width': '1.5',
-        'stroke-linejoin': 'round',
         'class': 'ben-connection'
     });
 
