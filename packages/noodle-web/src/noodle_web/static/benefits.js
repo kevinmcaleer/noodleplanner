@@ -765,6 +765,58 @@ function benComputeLayout() {
         }
     }
 
+    // Phase 4: Align objectives with their connected enablers.
+    // For each objective, trace back through the chain to find enablers
+    // and position the objective at their average Y.
+    const enablerCol = 0; // base column for enablers
+    for (let col = 0; col < numCols; col++) {
+        if (colBaseIndex[col] !== 3) continue; // only objectives (base col 3)
+        for (const obj of columns[col]) {
+            // Trace backwards through all links to find enablers
+            const visited = new Set();
+            const queue = [obj.id];
+            const enablerYs = [];
+            while (queue.length > 0) {
+                const curId = queue.shift();
+                if (visited.has(curId)) continue;
+                visited.add(curId);
+                const cur = itemById[curId];
+                if (!cur) continue;
+                if (BEN_COLUMNS[cur.type] === enablerCol && yPos[cur.id] !== undefined) {
+                    enablerYs.push(yPos[cur.id]);
+                }
+                // Follow reverse links (items that link TO this)
+                const sources = reverseLinks[curId] || [];
+                for (const src of sources) {
+                    if (!visited.has(src.id)) queue.push(src.id);
+                }
+                // Also follow forward links in case link direction is reversed
+                for (const tid of cur.linkedTo) {
+                    if (!visited.has(tid)) queue.push(tid);
+                }
+            }
+            if (enablerYs.length > 0) {
+                const avgEnablerY = enablerYs.reduce((a, b) => a + b, 0) / enablerYs.length;
+                yPos[obj.id] = avgEnablerY;
+            }
+        }
+    }
+
+    // Re-apply collision avoidance on objective columns after alignment
+    for (let col = 0; col < numCols; col++) {
+        if (colBaseIndex[col] !== 3) continue;
+        const colItems = columns[col].slice();
+        colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
+        for (let i = 1; i < colItems.length; i++) {
+            const prev = colItems[i - 1];
+            const curr = colItems[i];
+            const minY = yPos[prev.id] + nodeStep;
+            if (yPos[curr.id] < minY) {
+                yPos[curr.id] = minY;
+            }
+        }
+    }
+
     // Each layout column gets one node width — items are stacked vertically.
     // The dynamic sub-columns already handle horizontal separation for
     // same-type items at different chain depths.
