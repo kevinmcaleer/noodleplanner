@@ -727,13 +727,79 @@ function benComputeLayout() {
         }
     }
 
-    // Build final layout array — no horizontal offset, items stay centred
-    // in their column. Siblings are already stacked vertically with proper
-    // collision avoidance from the phases above.
+    // Determine how many items sit side-by-side per column (max sibling
+    // group size sharing a common connection partner).
+    const colMaxSiblings = [1, 1, 1, 1];
+    for (let col = 0; col < 4; col++) {
+        if (columns[col].length <= 1) continue;
+        const groups = {};
+        for (const item of columns[col]) {
+            const partnerIds = new Set();
+            for (const tid of item.linkedTo) { if (itemById[tid]) partnerIds.add(tid); }
+            for (const src of (reverseLinks[item.id] || [])) { partnerIds.add(src.id); }
+            for (const pid of partnerIds) {
+                if (!groups[pid]) groups[pid] = [];
+                if (!groups[pid].includes(item)) groups[pid].push(item);
+            }
+        }
+        for (const siblings of Object.values(groups)) {
+            if (siblings.length > colMaxSiblings[col]) colMaxSiblings[col] = siblings.length;
+        }
+    }
+
+    // Calculate dynamic X start for each column based on widths
+    const NODE_GAP_X = 20; // gap between side-by-side nodes
+    const COL_MARGIN = 60; // margin between columns
+    const colWidths = colMaxSiblings.map(n => n * BEN_NODE_WIDTH + (n - 1) * NODE_GAP_X);
+    const colX = [BEN_PADDING_X]; // starting X of each column
+    for (let col = 1; col < 4; col++) {
+        colX[col] = colX[col - 1] + colWidths[col - 1] + COL_MARGIN;
+    }
+
+    // Build sibling groups for side-by-side positioning
+    const xOffset = {};
+    for (let col = 0; col < 4; col++) {
+        if (columns[col].length <= 1) continue;
+        const groups = {};
+        for (const item of columns[col]) {
+            const partnerIds = new Set();
+            for (const tid of item.linkedTo) { if (itemById[tid]) partnerIds.add(tid); }
+            for (const src of (reverseLinks[item.id] || [])) { partnerIds.add(src.id); }
+            for (const pid of partnerIds) {
+                if (!groups[pid]) groups[pid] = [];
+                if (!groups[pid].includes(item)) groups[pid].push(item);
+            }
+        }
+        const processed = new Set();
+        for (const siblings of Object.values(groups)) {
+            if (siblings.length < 2) continue;
+            if (siblings.some(s => processed.has(s.id))) continue;
+            const totalWidth = siblings.length * BEN_NODE_WIDTH + (siblings.length - 1) * NODE_GAP_X;
+            const startOffset = (colWidths[col] - totalWidth) / 2;
+            const sharedY = yPos[siblings[0].id];
+            for (let i = 0; i < siblings.length; i++) {
+                xOffset[siblings[i].id] = startOffset + i * (BEN_NODE_WIDTH + NODE_GAP_X);
+                yPos[siblings[i].id] = sharedY;
+                processed.add(siblings[i].id);
+            }
+        }
+        // Centre items not in a sibling group
+        for (const item of columns[col]) {
+            if (!processed.has(item.id)) {
+                xOffset[item.id] = (colWidths[col] - BEN_NODE_WIDTH) / 2;
+            }
+        }
+    }
+
+    // Store dynamic positions for column labels
+    window._benColX = colX;
+    window._benColWidths = colWidths;
+
+    // Build final layout array with dynamic column positions
     const layout = [];
     for (let col = 0; col < 4; col++) {
-        const x = BEN_PADDING_X + col * BEN_COL_GAP;
         for (const item of columns[col]) {
+            const x = colX[col] + (xOffset[item.id] || 0);
             layout.push({ item, x, y: yPos[item.id], col });
         }
     }
@@ -1002,7 +1068,12 @@ function benRenderColumnLabels() {
     const g = benSvgEl('g', { 'class': 'ben-column-labels' });
 
     for (let col = 0; col < 4; col++) {
-        const x = BEN_PADDING_X + col * BEN_COL_GAP + BEN_NODE_WIDTH / 2;
+        // Use dynamic column positions if available, otherwise fall back to fixed
+        const baseX = (window._benColX && window._benColX[col] !== undefined)
+            ? window._benColX[col] : BEN_PADDING_X + col * BEN_COL_GAP;
+        const width = (window._benColWidths && window._benColWidths[col])
+            ? window._benColWidths[col] : BEN_NODE_WIDTH;
+        const x = baseX + width / 2;
         const label = benSvgEl('text', {
             x: x,
             y: BEN_PADDING_Y - 20,
