@@ -928,35 +928,60 @@ function benRenderNode(item, x, y) {
         g.appendChild(rect);
     }
 
-    // Type label (small, top)
-    const typeLabel = benSvgEl('text', {
-        x: x + BEN_NODE_WIDTH / 2,
-        y: y + 18,
-        'text-anchor': 'middle',
-        'font-size': '10',
-        'font-weight': '600',
-        fill: colours.text,
-        opacity: '0.7',
-        'pointer-events': 'none',
-        'class': 'ben-type-label'
-    });
-    typeLabel.textContent = item.type.charAt(0).toUpperCase() + item.type.slice(1);
-    g.appendChild(typeLabel);
+    // Title text (word-wrapped onto up to 2 lines, centred in node)
+    const maxCharsPerLine = 22;
+    const title = item.title || '';
+    let line1 = '', line2 = '';
 
-    // Title text (truncated)
-    const titleText = benSvgEl('text', {
-        x: x + BEN_NODE_WIDTH / 2,
-        y: y + 38,
-        'text-anchor': 'middle',
-        'font-size': '13',
-        'font-weight': '500',
-        fill: colours.text,
-        'pointer-events': 'none',
-        'class': 'ben-title'
-    });
-    const maxChars = 22;
-    titleText.textContent = item.title.length > maxChars ? item.title.substring(0, maxChars) + '...' : item.title;
-    g.appendChild(titleText);
+    if (title.length <= maxCharsPerLine) {
+        line1 = title;
+    } else {
+        // Word-wrap: find a break point near the middle
+        const words = title.split(' ');
+        let current = '';
+        for (let w = 0; w < words.length; w++) {
+            const test = current ? current + ' ' + words[w] : words[w];
+            if (test.length > maxCharsPerLine && current) {
+                line1 = current;
+                line2 = words.slice(w).join(' ');
+                break;
+            }
+            current = test;
+        }
+        if (!line1) { line1 = current; }
+        // Truncate line2 if too long
+        if (line2.length > maxCharsPerLine) {
+            line2 = line2.substring(0, maxCharsPerLine - 1) + '…';
+        }
+    }
+
+    if (line2) {
+        // Two lines — vertically centred
+        const titleText1 = benSvgEl('text', {
+            x: x + BEN_NODE_WIDTH / 2, y: y + 26,
+            'text-anchor': 'middle', 'font-size': '12', 'font-weight': '500',
+            fill: colours.text, 'pointer-events': 'none', 'class': 'ben-title'
+        });
+        titleText1.textContent = line1;
+        g.appendChild(titleText1);
+
+        const titleText2 = benSvgEl('text', {
+            x: x + BEN_NODE_WIDTH / 2, y: y + 42,
+            'text-anchor': 'middle', 'font-size': '12', 'font-weight': '500',
+            fill: colours.text, 'pointer-events': 'none', 'class': 'ben-title'
+        });
+        titleText2.textContent = line2;
+        g.appendChild(titleText2);
+    } else {
+        // Single line — centred vertically
+        const titleText = benSvgEl('text', {
+            x: x + BEN_NODE_WIDTH / 2, y: y + 35,
+            'text-anchor': 'middle', 'font-size': '13', 'font-weight': '500',
+            fill: colours.text, 'pointer-events': 'none', 'class': 'ben-title'
+        });
+        titleText.textContent = line1;
+        g.appendChild(titleText);
+    }
 
     // Score label (shown below title if score > 0)
     if (item.score > 0) {
