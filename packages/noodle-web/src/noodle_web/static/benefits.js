@@ -727,11 +727,58 @@ function benComputeLayout() {
         }
     }
 
+    // Group sibling items that share the same connection so they can be
+    // laid out side-by-side instead of stacked vertically.
+    // "Siblings" = items in the same column that share a common linked partner
+    // (either via linkedTo or reverseLinks) in an adjacent column.
+    const xOffset = {};  // itemId -> horizontal pixel offset from column base
+
+    for (let col = 0; col < 4; col++) {
+        if (columns[col].length <= 1) continue;
+
+        // Build groups: partner item id → [sibling items in this column]
+        const groups = {};
+        for (const item of columns[col]) {
+            // Gather all connected partner IDs in adjacent columns
+            const partnerIds = new Set();
+            for (const tid of item.linkedTo) {
+                if (itemById[tid]) partnerIds.add(tid);
+            }
+            for (const src of (reverseLinks[item.id] || [])) {
+                partnerIds.add(src.id);
+            }
+            for (const pid of partnerIds) {
+                if (!groups[pid]) groups[pid] = [];
+                if (!groups[pid].includes(item)) groups[pid].push(item);
+            }
+        }
+
+        // Find groups with 2+ siblings and spread them horizontally
+        const processed = new Set();
+        for (const [, siblings] of Object.entries(groups)) {
+            if (siblings.length < 2) continue;
+            // Skip if any of these have already been offset
+            if (siblings.some(s => processed.has(s.id))) continue;
+
+            const spreadWidth = (BEN_NODE_WIDTH + 16) * (siblings.length - 1);
+            const startOffset = -spreadWidth / 2;
+
+            // Position siblings side-by-side at the same Y
+            const sharedY = yPos[siblings[0].id];
+            for (let i = 0; i < siblings.length; i++) {
+                xOffset[siblings[i].id] = startOffset + i * (BEN_NODE_WIDTH + 16);
+                yPos[siblings[i].id] = sharedY;
+                processed.add(siblings[i].id);
+            }
+        }
+    }
+
     // Build final layout array
     const layout = [];
     for (let col = 0; col < 4; col++) {
-        const x = BEN_PADDING_X + col * BEN_COL_GAP;
+        const baseX = BEN_PADDING_X + col * BEN_COL_GAP;
         for (const item of columns[col]) {
+            const x = baseX + (xOffset[item.id] || 0);
             layout.push({ item, x, y: yPos[item.id], col });
         }
     }
