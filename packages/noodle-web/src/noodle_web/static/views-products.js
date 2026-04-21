@@ -2768,6 +2768,37 @@ function checkDuplicateDeliverables() {
         }
     }
 
+    // 2b. Check for globally duplicate task names (across different parents).
+    // The scheduler deduplicates by name so the second instance is lost.
+    const globalTaskNames = {}; // name → [line numbers]
+    inFrontMatter = false;
+    inSection = false;
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed === '---') { inFrontMatter = !inFrontMatter; continue; }
+        if (trimmed.startsWith('---') && trimmed.endsWith('---')) { inSection = true; continue; }
+        if (inFrontMatter || inSection) { if (trimmed === '---') inSection = false; continue; }
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        let taskText = trimmed.replace(/^\*\s*/, '');
+        const nm = taskText.match(/^(.+?)(?:\s+[/^]?\$|\s+[@#!"{~\[]|\s+\d+[dwmy]\b|\s+\d+%|\s+\d{4}-\d{2}-\d{2}|\s*$)/);
+        const tn = nm ? nm[1].trim().toLowerCase() : '';
+        if (tn) {
+            if (!globalTaskNames[tn]) globalTaskNames[tn] = [];
+            globalTaskNames[tn].push(i + 1);
+        }
+    }
+    for (const [name, lineNums] of Object.entries(globalTaskNames)) {
+        if (lineNums.length > 1) {
+            // Only warn if not already warned by the per-parent check
+            const alreadyWarned = warnings.some(w => w.includes('"' + name + '"') && w.includes('Duplicate task'));
+            if (!alreadyWarned) {
+                warnings.push(`Duplicate task name "${name}" (lines ${lineNums.join(', ')}) — second instance will be lost by scheduler`);
+                lineNums.forEach(ln => warningLines.add(ln));
+            }
+        }
+    }
+
     // 3. Check for missing dependencies (references that don't match any task or deliverable)
     const allValidTargets = new Set();
     // Collect task names and deliverable tokens
