@@ -596,254 +596,113 @@ function benValidateContributions() {
  * Returns an array of { item, x, y, col } objects.
  */
 function benComputeLayout() {
+    // Use dagre for Sugiyama-style layered graph layout.
+    // Falls back to a simple column-based layout if dagre is unavailable.
+    if (typeof dagre === 'undefined') {
+        return benComputeLayoutFallback();
+    }
+
     const itemById = {};
+    for (const item of benefitItems) itemById[item.id] = item;
+
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({
+        rankdir: 'LR',
+        nodesep: BEN_ROW_GAP,
+        ranksep: 80,
+        marginx: BEN_PADDING_X,
+        marginy: BEN_PADDING_Y
+    });
+    g.setDefaultEdgeLabel(function() { return {}; });
+
+    // Add nodes
     for (const item of benefitItems) {
-        itemById[item.id] = item;
+        g.setNode(String(item.id), {
+            label: item.title,
+            width: BEN_NODE_WIDTH,
+            height: BEN_NODE_HEIGHT
+        });
     }
 
-    // Build reverse links: targetId -> [sourceItems]
-    const allReverseLinks = {};
-    for (const item of benefitItems) {
-        for (const targetId of item.linkedTo) {
-            if (!allReverseLinks[targetId]) allReverseLinks[targetId] = [];
-            allReverseLinks[targetId].push(item);
-        }
+    // Enforce column ordering by adding invisible anchor nodes per rank
+    // and chaining them left-to-right.  Then tie each real node to its
+    // column anchor so dagre assigns the correct rank.
+    const anchorIds = [];
+    for (let col = 0; col < 4; col++) {
+        const aid = '__anchor_' + col;
+        anchorIds.push(aid);
+        g.setNode(aid, { width: 0, height: 0 });
     }
-
-    // Compute sub-column depth for items that depend on same-type items.
-    // An item that links to another item of the SAME type (in either direction)
-    // gets a higher depth, placing it further right within the type's area.
-    const sameTypeDepth = {}; // itemId -> depth (0 = leftmost)
-    for (const item of benefitItems) {
-        sameTypeDepth[item.id] = 0;
+    for (let col = 1; col < 4; col++) {
+        g.setEdge(anchorIds[col - 1], anchorIds[col], { weight: 0, minlen: 1 });
     }
-    // Iterate until stable — propagate depth through same-type chains
-    let changed = true;
-    while (changed) {
-        changed = false;
-        for (const item of benefitItems) {
-            for (const tid of item.linkedTo) {
-                const target = itemById[tid];
-                if (!target) continue;
-                // Same base column (same type group)?
-                const itemCol = BEN_COLUMNS[item.type];
-                const targetCol = BEN_COLUMNS[target.type];
-                if (itemCol === targetCol) {
-                    // The item links to a same-type target — item should be
-                    // to the RIGHT of the target (higher depth)
-                    const needed = sameTypeDepth[tid] + 1;
-                    if (sameTypeDepth[item.id] < needed) {
-                        sameTypeDepth[item.id] = needed;
-                        changed = true;
-                    }
-                }
-            }
-        }
-    }
-
-    // Group items by base column, then by sub-column depth
-    // subColumns[baseCol] = { depth: [items] }
-    const subColumns = [{}, {}, {}, {}];
+    // Tie each real node to its column anchor with a high-weight zero-length edge
     for (const item of benefitItems) {
         const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
-        const depth = sameTypeDepth[item.id];
-        if (!subColumns[col][depth]) subColumns[col][depth] = [];
-        subColumns[col][depth].push(item);
+        const aid = anchorIds[col];
+        // Bidirectional zero-length edge keeps the node in the same rank
+        g.setEdge(aid, String(item.id), { weight: 100, minlen: 0 });
     }
 
-    // Flatten into ordered columns for layout: [base0-depth0, base0-depth1, ..., base1-depth0, ...]
-    const columns = [];
-    const colBaseIndex = []; // which base column each layout column belongs to
-    for (let base = 0; base < 4; base++) {
-        const depths = Object.keys(subColumns[base]).map(Number).sort((a, b) => a - b);
-        if (depths.length === 0) {
-            columns.push([]);
-            colBaseIndex.push(base);
-        } else {
-            for (const d of depths) {
-                columns.push(subColumns[base][d]);
-                colBaseIndex.push(base);
-            }
-        }
-    }
-
-    const reverseLinks = allReverseLinks;
-
-    // Track assigned Y positions per item id
-    const yPos = {};
-    const nodeStep = BEN_NODE_HEIGHT + BEN_ROW_GAP;
-    const numCols = columns.length;
-
-    // Phase 1: Position rightmost layout column evenly
-    const lastCol = columns[numCols - 1];
-    lastCol.forEach((item, idx) => {
-        yPos[item.id] = BEN_PADDING_Y + idx * nodeStep;
-    });
-
-    // Phase 2: Position columns right-to-left based on connections
-    for (let col = numCols - 2; col >= 0; col--) {
-        const linked = [];
-        const unlinked = [];
-
-        for (const item of columns[col]) {
-            const connectedYs = [];
-
-            // Forward links — find targets already positioned (in any column to the right)
-            for (const tid of item.linkedTo) {
-                if (itemById[tid] && yPos[tid] !== undefined) {
-                    connectedYs.push(yPos[tid]);
-                }
-            }
-
-            // Reverse links — items linking TO this that are already positioned
-            const sources = reverseLinks[item.id] || [];
-            for (const src of sources) {
-                if (yPos[src.id] !== undefined) {
-                    connectedYs.push(yPos[src.id]);
-                }
-            }
-
-            if (connectedYs.length > 0) {
-                const avgY = connectedYs.reduce((a, b) => a + b, 0) / connectedYs.length;
-                linked.push({ item, desiredY: avgY });
-            } else {
-                unlinked.push(item);
-            }
-        }
-
-        linked.sort((a, b) => a.desiredY - b.desiredY);
-        for (const entry of linked) {
-            yPos[entry.item.id] = entry.desiredY;
-        }
-
-        let maxY = -Infinity;
-        for (const entry of linked) {
-            if (yPos[entry.item.id] > maxY) maxY = yPos[entry.item.id];
-        }
-        const startY = maxY === -Infinity ? BEN_PADDING_Y : maxY + nodeStep;
-        unlinked.forEach((item, idx) => {
-            yPos[item.id] = startY + idx * nodeStep;
-        });
-
-        // Collision avoidance
-        const allInCol = [...linked.map(e => e.item), ...unlinked];
-        allInCol.sort((a, b) => yPos[a.id] - yPos[b.id]);
-        for (let i = 1; i < allInCol.length; i++) {
-            const prev = allInCol[i - 1];
-            const curr = allInCol[i];
-            const minY = yPos[prev.id] + nodeStep;
-            if (yPos[curr.id] < minY) {
-                yPos[curr.id] = minY;
+    // Add real edges (normalised left-to-right)
+    const addedEdges = new Set();
+    for (const item of benefitItems) {
+        for (const tid of item.linkedTo) {
+            if (!itemById[tid]) continue;
+            const fromCol = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
+            const toCol = BEN_COLUMNS[itemById[tid].type] !== undefined ? BEN_COLUMNS[itemById[tid].type] : 2;
+            const leftId = fromCol <= toCol ? item.id : tid;
+            const rightId = fromCol <= toCol ? tid : item.id;
+            const key = leftId + '->' + rightId;
+            if (!addedEdges.has(key)) {
+                addedEdges.add(key);
+                g.setEdge(String(leftId), String(rightId));
             }
         }
     }
 
-    // Phase 3: Pull items towards sources to reduce diagonal connections
-    for (let col = numCols - 1; col >= 1; col--) {
-        const colItems = columns[col].slice();
-        colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
+    // Run dagre layout
+    dagre.layout(g);
 
-        for (const item of colItems) {
-            const sources = reverseLinks[item.id];
-            if (!sources || sources.length === 0) continue;
-            const sourceYs = sources
-                .filter(s => yPos[s.id] !== undefined)
-                .map(s => yPos[s.id]);
-            if (sourceYs.length === 0) continue;
-            const avgSourceY = sourceYs.reduce((a, b) => a + b, 0) / sourceYs.length;
-            yPos[item.id] = yPos[item.id] * 0.6 + avgSourceY * 0.4;
-        }
-
-        colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
-        for (let i = 1; i < colItems.length; i++) {
-            const prev = colItems[i - 1];
-            const curr = colItems[i];
-            const minY = yPos[prev.id] + nodeStep;
-            if (yPos[curr.id] < minY) {
-                yPos[curr.id] = minY;
-            }
+    // Store edge point data for rendering connections
+    window._benEdgePoints = {};
+    for (const e of g.edges()) {
+        // Skip edges involving anchor nodes
+        if (String(e.v).startsWith('__anchor_') || String(e.w).startsWith('__anchor_')) continue;
+        const edgeData = g.edge(e);
+        if (edgeData && edgeData.points) {
+            const key = e.v + '->' + e.w;
+            window._benEdgePoints[key] = edgeData.points;
         }
     }
 
-    // Phase 4: Align objectives with their connected enablers.
-    // For each objective, trace back through the chain to find enablers
-    // and position the objective at their average Y.
-    const enablerCol = 0; // base column for enablers
-    for (let col = 0; col < numCols; col++) {
-        if (colBaseIndex[col] !== 3) continue; // only objectives (base col 3)
-        for (const obj of columns[col]) {
-            // Trace backwards through all links to find enablers
-            const visited = new Set();
-            const queue = [obj.id];
-            const enablerYs = [];
-            while (queue.length > 0) {
-                const curId = queue.shift();
-                if (visited.has(curId)) continue;
-                visited.add(curId);
-                const cur = itemById[curId];
-                if (!cur) continue;
-                if (BEN_COLUMNS[cur.type] === enablerCol && yPos[cur.id] !== undefined) {
-                    enablerYs.push(yPos[cur.id]);
-                }
-                // Follow reverse links (items that link TO this)
-                const sources = reverseLinks[curId] || [];
-                for (const src of sources) {
-                    if (!visited.has(src.id)) queue.push(src.id);
-                }
-                // Also follow forward links in case link direction is reversed
-                for (const tid of cur.linkedTo) {
-                    if (!visited.has(tid)) queue.push(tid);
-                }
-            }
-            if (enablerYs.length > 0) {
-                const avgEnablerY = enablerYs.reduce((a, b) => a + b, 0) / enablerYs.length;
-                yPos[obj.id] = avgEnablerY;
-            }
-        }
+    // Extract positions — dagre returns centre coordinates
+    const layout = [];
+    const nodePositions = {}; // id -> {x, y} (top-left)
+    for (const item of benefitItems) {
+        const nodeData = g.node(String(item.id));
+        if (!nodeData) continue;
+        const x = nodeData.x - BEN_NODE_WIDTH / 2;
+        const y = nodeData.y - BEN_NODE_HEIGHT / 2;
+        const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
+        nodePositions[item.id] = { x, y };
+        layout.push({ item, x, y, col });
     }
 
-    // Re-apply collision avoidance on objective columns after alignment
-    for (let col = 0; col < numCols; col++) {
-        if (colBaseIndex[col] !== 3) continue;
-        const colItems = columns[col].slice();
-        colItems.sort((a, b) => yPos[a.id] - yPos[b.id]);
-        for (let i = 1; i < colItems.length; i++) {
-            const prev = colItems[i - 1];
-            const curr = colItems[i];
-            const minY = yPos[prev.id] + nodeStep;
-            if (yPos[curr.id] < minY) {
-                yPos[curr.id] = minY;
-            }
-        }
-    }
-
-    // Each layout column gets one node width — items are stacked vertically.
-    // The dynamic sub-columns already handle horizontal separation for
-    // same-type items at different chain depths.
-    const COL_MARGIN = 60;
-    const colWidths = columns.map(() => BEN_NODE_WIDTH);
-    const colX = [BEN_PADDING_X];
-    for (let col = 1; col < numCols; col++) {
-        colX[col] = colX[col - 1] + BEN_NODE_WIDTH + COL_MARGIN;
-    }
-
-    // Store dynamic positions for column labels (use base columns for labels)
-    // Map layout columns back to the 4 base columns for label positioning
+    // Compute column label positions from actual node positions
     const baseLabelX = [];
     const baseLabelWidths = [];
     for (let base = 0; base < 4; base++) {
-        // Find min/max X for this base column across all layout columns
         let minX = Infinity, maxX = -Infinity;
-        for (let col = 0; col < numCols; col++) {
-            if (colBaseIndex[col] === base && columns[col].length > 0) {
-                if (colX[col] < minX) minX = colX[col];
-                if (colX[col] + BEN_NODE_WIDTH > maxX) maxX = colX[col] + BEN_NODE_WIDTH;
+        for (const entry of layout) {
+            if (entry.col === base) {
+                if (entry.x < minX) minX = entry.x;
+                if (entry.x + BEN_NODE_WIDTH > maxX) maxX = entry.x + BEN_NODE_WIDTH;
             }
         }
         if (minX === Infinity) {
-            // Empty base column — use approximate position
             const prevEnd = baseLabelX.length > 0
-                ? baseLabelX[baseLabelX.length - 1] + baseLabelWidths[baseLabelWidths.length - 1] + COL_MARGIN
+                ? baseLabelX[baseLabelX.length - 1] + baseLabelWidths[baseLabelWidths.length - 1] + 60
                 : BEN_PADDING_X;
             baseLabelX.push(prevEnd);
             baseLabelWidths.push(BEN_NODE_WIDTH);
@@ -855,14 +714,45 @@ function benComputeLayout() {
     window._benColX = baseLabelX;
     window._benColWidths = baseLabelWidths;
 
-    // Build final layout array
-    const layout = [];
-    for (let col = 0; col < numCols; col++) {
-        const x = colX[col];
-        for (const item of columns[col]) {
-            layout.push({ item, x, y: yPos[item.id], col });
-        }
+    return layout;
+}
+
+/**
+ * Fallback layout when dagre is not available.
+ * Simple column-based positioning without graph optimisation.
+ */
+function benComputeLayoutFallback() {
+    const itemById = {};
+    for (const item of benefitItems) itemById[item.id] = item;
+
+    // Group items by base column
+    const columns = [[], [], [], []];
+    for (const item of benefitItems) {
+        const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
+        columns[col].push(item);
     }
+
+    const nodeStep = BEN_NODE_HEIGHT + BEN_ROW_GAP;
+    const COL_MARGIN = 60;
+
+    const layout = [];
+    for (let col = 0; col < 4; col++) {
+        const x = BEN_PADDING_X + col * (BEN_NODE_WIDTH + COL_MARGIN);
+        columns[col].forEach((item, idx) => {
+            layout.push({ item, x, y: BEN_PADDING_Y + idx * nodeStep, col });
+        });
+    }
+
+    // Column label positions
+    const baseLabelX = [];
+    const baseLabelWidths = [];
+    for (let col = 0; col < 4; col++) {
+        baseLabelX.push(BEN_PADDING_X + col * (BEN_NODE_WIDTH + COL_MARGIN));
+        baseLabelWidths.push(BEN_NODE_WIDTH);
+    }
+    window._benColX = baseLabelX;
+    window._benColWidths = baseLabelWidths;
+    window._benEdgePoints = {};
 
     return layout;
 }
@@ -1120,64 +1010,45 @@ function benRenderConnection(fromLayout, toLayout, allLayout) {
     const tx = toLayout.x;
     const ty = toLayout.y + BEN_NODE_HEIGHT / 2;
 
-    const PAD = 8; // padding around obstacle nodes
-    const midX = (sx + tx) / 2;
-
-    // Check if any nodes in intermediate columns would be overlapped by
-    // a straight horizontal path from sy to ty through midX.
-    let obstacles = [];
-    if (allLayout) {
-        for (const entry of allLayout) {
-            if (entry === fromLayout || entry === toLayout) continue;
-            const nx = entry.x;
-            const ny = entry.y;
-            // Node is an obstacle if it sits between source and target horizontally
-            // and the straight/bezier path would cross through its bounding box
-            if (nx + BEN_NODE_WIDTH > sx && nx < tx) {
-                const minPathY = Math.min(sy, ty);
-                const maxPathY = Math.max(sy, ty);
-                // Check if node's vertical range overlaps the path's vertical range
-                if (ny + BEN_NODE_HEIGHT + PAD > minPathY - PAD && ny - PAD < maxPathY + PAD) {
-                    obstacles.push({ x: nx, y: ny, cx: nx + BEN_NODE_WIDTH / 2, cy: ny + BEN_NODE_HEIGHT / 2 });
-                }
-            }
-        }
-    }
-
     let d;
-    if (obstacles.length === 0) {
-        // No obstacles — smooth S-curve bezier
+
+    // Try to use dagre edge points if available
+    const edgePoints = window._benEdgePoints;
+    const edgeKey = String(fromLayout.item.id) + '->' + String(toLayout.item.id);
+    const pts = edgePoints && edgePoints[edgeKey];
+
+    if (pts && pts.length >= 2) {
+        // Use dagre's computed waypoints for smooth edge routing
+        // Start from the node's right edge, end at target's left edge
+        d = `M ${sx} ${sy}`;
+        if (pts.length === 2) {
+            // Simple curve through two points
+            const dx = (tx - sx) * 0.4;
+            d += ` C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+        } else {
+            // Draw a smooth cubic bezier through dagre's waypoints.
+            // First segment: from source to first waypoint
+            const firstPt = pts[0];
+            const dx0 = (firstPt.x - sx) * 0.5;
+            d += ` C ${sx + dx0} ${sy}, ${firstPt.x - dx0} ${firstPt.y}, ${firstPt.x} ${firstPt.y}`;
+
+            // Intermediate segments through waypoints
+            for (let i = 1; i < pts.length; i++) {
+                const prev = pts[i - 1];
+                const cur = pts[i];
+                const dxi = (cur.x - prev.x) * 0.5;
+                d += ` C ${prev.x + dxi} ${prev.y}, ${cur.x - dxi} ${cur.y}, ${cur.x} ${cur.y}`;
+            }
+
+            // Final segment: from last waypoint to target
+            const lastPt = pts[pts.length - 1];
+            const dxN = (tx - lastPt.x) * 0.5;
+            d += ` C ${lastPt.x + dxN} ${lastPt.y}, ${tx - dxN} ${ty}, ${tx} ${ty}`;
+        }
+    } else {
+        // Fallback: smooth S-curve bezier (no dagre data)
         const dx = (tx - sx) * 0.6;
         d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
-    } else {
-        // Route around obstacles with a smooth curved detour.
-        // Find a clear Y above or below all obstacles, then draw a
-        // two-segment cubic bezier that arcs smoothly through that point.
-
-        const obstacleYs = obstacles.map(o => o.cy);
-        const avgObstacleY = obstacleYs.reduce((a, b) => a + b, 0) / obstacleYs.length;
-        const avgPathY = (sy + ty) / 2;
-
-        const allObstacleTop = Math.min(...obstacles.map(o => o.y));
-        const allObstacleBottom = Math.max(...obstacles.map(o => o.y + BEN_NODE_HEIGHT));
-
-        let routeY;
-        if (avgPathY < avgObstacleY) {
-            routeY = allObstacleTop - PAD - 20;
-        } else {
-            routeY = allObstacleBottom + PAD + 20;
-        }
-
-        // Two-segment S-curve through the waypoint (midX, routeY)
-        // First segment: source → waypoint
-        // Second segment: waypoint → target
-        const wx = midX;
-        const wy = routeY;
-        const dx1 = (wx - sx) * 0.6;
-        const dx2 = (tx - wx) * 0.6;
-
-        d = `M ${sx} ${sy} C ${sx + dx1} ${sy}, ${wx - dx1} ${wy}, ${wx} ${wy} ` +
-            `C ${wx + dx2} ${wy}, ${tx - dx2} ${ty}, ${tx} ${ty}`;
     }
 
     const path = benSvgEl('path', {
