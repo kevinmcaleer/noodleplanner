@@ -2956,9 +2956,12 @@ function checkDuplicateDeliverables() {
                 }
             }
 
-            // Products with no activities (skip products that contain sub-products)
+            // Products with no activities (skip milestones and products that contain sub-products)
             const empty = [];
             for (const d of deliverables) {
+                // Skip milestones (0-duration tasks) — they're markers, not work packages
+                if (d.duration_days === 0) continue;
+
                 const activities = (typeof pbsGetActivities === 'function')
                     ? pbsGetActivities(d, tasksForCheck) : [];
                 if (!activities || activities.length === 0) {
