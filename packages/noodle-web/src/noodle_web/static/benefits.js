@@ -1407,12 +1407,25 @@ function benPopulateLinkedToSelect(excludeId) {
         }
     }
 
+    const typeColours = {
+        enabler:    { bg: '#FEF3C7', text: '#92400E' },
+        change:     { bg: '#E5E7EB', text: '#374151' },
+        benefit:    { bg: '#DBEAFE', text: '#1E40AF' },
+        disbenefit: { bg: '#FEE2E2', text: '#991B1B' },
+        objective:  { bg: '#D1FAE5', text: '#065F46' }
+    };
+
     for (const item of benefitItems) {
         if (item.id === excludeId) continue;
         if (alreadyLinked.has(item.id)) continue;
         const opt = document.createElement('option');
         opt.value = item.id;
         opt.textContent = item.type.charAt(0).toUpperCase() + item.type.slice(1) + ': ' + item.title;
+        const colours = typeColours[item.type];
+        if (colours) {
+            opt.style.background = colours.bg;
+            opt.style.color = colours.text;
+        }
         select.appendChild(opt);
     }
 }
