@@ -1264,6 +1264,108 @@ function benRenderAll() {
     for (const entry of layout) {
         benGroup.appendChild(benRenderNode(entry.item, entry.x, entry.y));
     }
+
+    // Check for redundant links
+    showRedundantLinkWarnings();
+}
+
+/**
+ * Detect redundant links in the benefits map.
+ * A link A→C is redundant if there is already a path A→B→…→C via other items.
+ * Returns array of {fromId, toId, fromTitle, toTitle}.
+ */
+function detectRedundantLinks() {
+    const itemById = {};
+    for (const item of benefitItems) itemById[item.id] = item;
+
+    // Build adjacency: all edges (bidirectional since linkedTo can point either way)
+    const edges = new Map(); // id -> Set of connected ids
+    for (const item of benefitItems) {
+        if (!edges.has(item.id)) edges.set(item.id, new Set());
+        for (const tid of item.linkedTo) {
+            if (!itemById[tid]) continue;
+            edges.get(item.id).add(tid);
+            if (!edges.has(tid)) edges.set(tid, new Set());
+            edges.get(tid).add(item.id);
+        }
+    }
+
+    // For each direct link, check if there's an alternative path (length >= 2)
+    const redundant = [];
+    for (const item of benefitItems) {
+        for (const tid of item.linkedTo) {
+            if (!itemById[tid]) continue;
+            // BFS/DFS from item to tid, excluding the direct edge
+            const visited = new Set([item.id]);
+            const queue = [];
+            // Seed with all neighbours EXCEPT the direct target
+            const neighbours = edges.get(item.id) || new Set();
+            for (const n of neighbours) {
+                if (n !== tid) queue.push(n);
+            }
+            let found = false;
+            while (queue.length > 0 && !found) {
+                const cur = queue.shift();
+                if (visited.has(cur)) continue;
+                visited.add(cur);
+                if (cur === tid) { found = true; break; }
+                const curNeighbours = edges.get(cur) || new Set();
+                for (const n of curNeighbours) {
+                    if (!visited.has(n)) queue.push(n);
+                }
+            }
+            if (found) {
+                redundant.push({
+                    fromId: item.id,
+                    toId: tid,
+                    fromTitle: item.title,
+                    toTitle: itemById[tid].title
+                });
+            }
+        }
+    }
+    return redundant;
+}
+
+/**
+ * Show redundant link warnings in the status bar with clickable remove links.
+ */
+function showRedundantLinkWarnings() {
+    const redundant = detectRedundantLinks();
+    const el = document.getElementById('statusBarMessage');
+    if (!el) return;
+
+    if (redundant.length === 0) return;
+
+    const label = redundant.length === 1 ? '1 redundant link' : redundant.length + ' redundant links';
+    const links = redundant.slice(0, 5).map(r => {
+        const fromEsc = (r.fromTitle || '').replace(/</g, '&lt;').replace(/'/g, "\\'");
+        const toEsc = (r.toTitle || '').replace(/</g, '&lt;').replace(/'/g, "\\'");
+        return '<a href="#" class="status-bar-task-link" onclick="event.preventDefault(); confirmRemoveRedundantLink(' +
+            r.fromId + ',' + r.toId + ',\'' + fromEsc + '\',\'' + toEsc + '\')" title="Click to remove this redundant link">' +
+            fromEsc + ' → ' + toEsc + '</a>';
+    }).join(', ');
+
+    const suffix = redundant.length > 5 ? '…' : '';
+    el.innerHTML = '\u26A0 ' + label + ': ' + links + suffix;
+}
+
+/**
+ * Confirm and remove a redundant link.
+ */
+function confirmRemoveRedundantLink(fromId, toId, fromTitle, toTitle) {
+    if (!confirm('Remove redundant link from "' + fromTitle + '" to "' + toTitle + '"?\n\nThis link is redundant because a path already exists via other items.')) {
+        return;
+    }
+
+    const item = benefitItems.find(i => i.id === fromId);
+    if (item) {
+        item.linkedTo = item.linkedTo.filter(id => id !== toId);
+        // Re-render and re-sync
+        benRenderAll();
+        if (typeof syncBenefitsToPlanText === 'function') syncBenefitsToPlanText();
+        showRedundantLinkWarnings();
+    }
 }
 
 // ── Add item functions (called from toolbar buttons) ─────────────────
