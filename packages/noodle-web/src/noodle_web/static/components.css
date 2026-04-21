@@ -6913,3 +6913,52 @@ tr:hover .task-context-btn,
     font-weight: 600;
 }
 
+/* ── Portfolio Benefits Map ─────────────────────────────────────────── */
+
+.portfolio-benefits-map-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-benefits-map-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.15em;
+    font-weight: 600;
+    color: #333;
+}
+
+.portfolio-benefits-map-container {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fafbfc;
+    overflow: hidden;
+    position: relative;
+}
+
+.portfolio-benefits-map-svg {
+    width: 100%;
+    height: 500px;
+    display: block;
+    cursor: grab;
+    user-select: none;
+}
+
+.portfolio-benefits-map-svg:active {
+    cursor: grabbing;
+}
+
+.pbm-node {
+    pointer-events: none;
+}
+
+.pbm-connection {
+    pointer-events: none;
+}
+
+.pbm-arrow {
+    pointer-events: none;
+}
+

@@ -2617,3 +2617,39 @@ body {
 [data-theme="dark"] .forecast-complete {
     color: #5cb85c;
 }
+
+/* ── Portfolio Benefits Map (dark) ───────────────────────────────────── */
+
+[data-theme="dark"] .portfolio-benefits-map-section {
+    background: #1e1e1e;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .portfolio-benefits-map-section h3 {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .portfolio-benefits-map-container {
+    border-color: #444;
+    background: #252525;
+}
+
+[data-theme="dark"] .pbm-column-labels text {
+    fill: #999 !important;
+}
+
+[data-theme="dark"] .pbm-connection {
+    stroke: #666;
+}
+
+[data-theme="dark"] .pbm-arrow {
+    fill: #666;
+}
+
+[data-theme="dark"] .pbm-node--change .pbm-shape {
+    fill: #3a3a3a;
+}
+
+[data-theme="dark"] .pbm-node--change text {
+    fill: #e0e0e0;
+}
