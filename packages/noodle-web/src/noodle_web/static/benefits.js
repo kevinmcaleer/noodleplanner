@@ -1150,49 +1150,34 @@ function benRenderConnection(fromLayout, toLayout, allLayout) {
         const dx = (tx - sx) * 0.6;
         d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
     } else {
-        // Route around obstacles using waypoints through the inter-column gaps.
-        // Strategy: go horizontal to midX, then vertical to target Y, routing
-        // above or below any obstacles in the way.
+        // Route around obstacles with a smooth curved detour.
+        // Find a clear Y above or below all obstacles, then draw a
+        // two-segment cubic bezier that arcs smoothly through that point.
 
-        // Determine if we should route above or below obstacles
         const obstacleYs = obstacles.map(o => o.cy);
         const avgObstacleY = obstacleYs.reduce((a, b) => a + b, 0) / obstacleYs.length;
         const avgPathY = (sy + ty) / 2;
 
-        // Find a clear vertical channel — go above or below all obstacles
-        let routeY;
         const allObstacleTop = Math.min(...obstacles.map(o => o.y));
         const allObstacleBottom = Math.max(...obstacles.map(o => o.y + BEN_NODE_HEIGHT));
 
+        let routeY;
         if (avgPathY < avgObstacleY) {
-            // Route above
-            routeY = allObstacleTop - PAD - 10;
+            routeY = allObstacleTop - PAD - 20;
         } else {
-            // Route below
-            routeY = allObstacleBottom + PAD + 10;
+            routeY = allObstacleBottom + PAD + 20;
         }
 
-        // Build smooth path: source → horizontal out → curve up/down → horizontal across → curve to target
-        const exitX = sx + 15;
-        const entryX = tx - 15;
-        const r = 8; // corner radius
+        // Two-segment S-curve through the waypoint (midX, routeY)
+        // First segment: source → waypoint
+        // Second segment: waypoint → target
+        const wx = midX;
+        const wy = routeY;
+        const dx1 = (wx - sx) * 0.6;
+        const dx2 = (tx - wx) * 0.6;
 
-        // Determine turn directions
-        const dy1 = routeY - sy;
-        const dy2 = ty - routeY;
-        const s1 = dy1 > 0 ? 1 : -1; // direction of first vertical
-        const s2 = dy2 > 0 ? 1 : -1; // direction of second vertical
-
-        d = `M ${sx} ${sy}`;
-        d += ` L ${exitX - r} ${sy}`;
-        d += ` Q ${exitX} ${sy}, ${exitX} ${sy + s1 * r}`;
-        d += ` L ${exitX} ${routeY - s1 * r}`;
-        d += ` Q ${exitX} ${routeY}, ${exitX + r} ${routeY}`;
-        d += ` L ${entryX - r} ${routeY}`;
-        d += ` Q ${entryX} ${routeY}, ${entryX} ${routeY + s2 * r}`;
-        d += ` L ${entryX} ${ty - s2 * r}`;
-        d += ` Q ${entryX} ${ty}, ${entryX + r} ${ty}`;
-        d += ` L ${tx} ${ty}`;
+        d = `M ${sx} ${sy} C ${sx + dx1} ${sy}, ${wx - dx1} ${wy}, ${wx} ${wy} ` +
+            `C ${wx + dx2} ${wy}, ${tx - dx2} ${ty}, ${tx} ${ty}`;
     }
 
     const path = benSvgEl('path', {
