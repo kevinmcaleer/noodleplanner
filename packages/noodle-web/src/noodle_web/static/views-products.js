@@ -115,7 +115,20 @@ function pbsBuildTree(tasks, projectName) {
 function pbsGetActivities(deliverableTask, allTasks) {
     if (!deliverableTask || !allTasks) return [];
     const activities = [];
-    const parentName = deliverableTask.name || deliverableTask.description;
+    const parentName = deliverableTask.name || deliverableTask.description || '';
+
+    // Helper: check if a task's parent matches a name in our set.
+    // The API 'name' includes metadata tokens ($product @resource etc.)
+    // but child 'parent' is the raw key. So we also check startsWith.
+    function isChild(task, nameSet) {
+        if (!task.parent) return false;
+        if (nameSet.has(task.parent)) return true;
+        // Check if any name in the set starts with the parent (raw key match)
+        for (const n of nameSet) {
+            if (n.startsWith(task.parent) && task.parent.length > 2) return true;
+        }
+        return false;
+    }
 
     // Collect all descendant names (not just direct children) so we find
     // leaf tasks nested under intermediate summary tasks.
@@ -124,7 +137,7 @@ function pbsGetActivities(deliverableTask, allTasks) {
     while (added) {
         added = false;
         for (const t of allTasks) {
-            if (t.parent && descendantNames.has(t.parent) && !descendantNames.has(t.name)) {
+            if (isChild(t, descendantNames) && !descendantNames.has(t.name)) {
                 // Stop at other deliverables — they are separate products
                 if (t.deliverable) continue;
                 descendantNames.add(t.name);
@@ -134,7 +147,7 @@ function pbsGetActivities(deliverableTask, allTasks) {
     }
 
     for (const t of allTasks) {
-        if (t.parent && descendantNames.has(t.parent) && !t.deliverable && !t.is_summary) {
+        if (isChild(t, descendantNames) && !t.deliverable && !t.is_summary) {
             activities.push(t);
         }
     }
@@ -2920,9 +2933,11 @@ function checkDuplicateDeliverables() {
                 if (!activities || activities.length === 0) {
                     // Check if this product has sub-products (children with deliverable tokens)
                     const parentName = d.name || d.description || '';
-                    const hasSubProducts = deliverables.some(other =>
-                        other !== d && other.parent && other.parent === parentName
-                    );
+                    const hasSubProducts = deliverables.some(other => {
+                        if (other === d || !other.parent) return false;
+                        return other.parent === parentName ||
+                            (parentName.startsWith(other.parent) && other.parent.length > 2);
+                    });
                     if (!hasSubProducts) empty.push(d.deliverable);
                 }
             }
