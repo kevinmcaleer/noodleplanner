@@ -997,32 +997,21 @@ function benRenderConnection(fromLayout, toLayout, allLayout) {
     const pts = edgePoints && edgePoints[edgeKey];
 
     if (pts && pts.length >= 2) {
-        // Use dagre's computed waypoints for smooth edge routing
-        // Start from the node's right edge, end at target's left edge
-        d = `M ${sx} ${sy}`;
-        if (pts.length === 2) {
-            // Simple curve through two points
-            const dx = (tx - sx) * 0.4;
-            d += ` C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
-        } else {
-            // Draw a smooth cubic bezier through dagre's waypoints.
-            // First segment: from source to first waypoint
-            const firstPt = pts[0];
-            const dx0 = (firstPt.x - sx) * 0.5;
-            d += ` C ${sx + dx0} ${sy}, ${firstPt.x - dx0} ${firstPt.y}, ${firstPt.x} ${firstPt.y}`;
+        // Build waypoint list: force start at source right-centre,
+        // use dagre's interior waypoints, force end at target left-centre.
+        const waypoints = [{ x: sx, y: sy }];
+        for (let i = 1; i < pts.length - 1; i++) {
+            waypoints.push(pts[i]);
+        }
+        waypoints.push({ x: tx, y: ty });
 
-            // Intermediate segments through waypoints
-            for (let i = 1; i < pts.length; i++) {
-                const prev = pts[i - 1];
-                const cur = pts[i];
-                const dxi = (cur.x - prev.x) * 0.5;
-                d += ` C ${prev.x + dxi} ${prev.y}, ${cur.x - dxi} ${cur.y}, ${cur.x} ${cur.y}`;
-            }
-
-            // Final segment: from last waypoint to target
-            const lastPt = pts[pts.length - 1];
-            const dxN = (tx - lastPt.x) * 0.5;
-            d += ` C ${lastPt.x + dxN} ${lastPt.y}, ${tx - dxN} ${ty}, ${tx} ${ty}`;
+        // Draw smooth cubic bezier segments through all waypoints
+        d = `M ${waypoints[0].x} ${waypoints[0].y}`;
+        for (let i = 0; i < waypoints.length - 1; i++) {
+            const p0 = waypoints[i];
+            const p1 = waypoints[i + 1];
+            const dx = (p1.x - p0.x) * 0.5;
+            d += ` C ${p0.x + dx} ${p0.y}, ${p1.x - dx} ${p1.y}, ${p1.x} ${p1.y}`;
         }
     } else {
         // Fallback: smooth S-curve bezier (no dagre data)
@@ -1143,8 +1132,7 @@ function benRenderAll() {
         layoutMap[entry.item.id] = entry;
     }
 
-    // Render column labels
-    benGroup.appendChild(benRenderColumnLabels());
+    // Column labels removed — dagre determines layering naturally
 
     // Render connections first (behind nodes)
     // Draw links left-to-right regardless of which item holds the linkedTo reference
