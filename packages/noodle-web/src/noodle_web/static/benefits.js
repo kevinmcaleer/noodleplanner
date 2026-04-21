@@ -1113,16 +1113,87 @@ function benRenderNode(item, x, y) {
  * Render an orthogonal (right-angle) connection between two nodes.
  * Route: exit right from source -> horizontal -> vertical turn -> horizontal -> enter left of target
  */
-function benRenderConnection(fromLayout, toLayout) {
+function benRenderConnection(fromLayout, toLayout, allLayout) {
     // Source: right edge midpoint; target: left edge midpoint
     const sx = fromLayout.x + BEN_NODE_WIDTH;
     const sy = fromLayout.y + BEN_NODE_HEIGHT / 2;
     const tx = toLayout.x;
     const ty = toLayout.y + BEN_NODE_HEIGHT / 2;
 
-    // S-curve bezier: control points at 60% of the horizontal distance
-    const dx = (tx - sx) * 0.6;
-    const d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+    const PAD = 8; // padding around obstacle nodes
+    const midX = (sx + tx) / 2;
+
+    // Check if any nodes in intermediate columns would be overlapped by
+    // a straight horizontal path from sy to ty through midX.
+    let obstacles = [];
+    if (allLayout) {
+        for (const entry of allLayout) {
+            if (entry === fromLayout || entry === toLayout) continue;
+            const nx = entry.x;
+            const ny = entry.y;
+            // Node is an obstacle if it sits between source and target horizontally
+            // and the straight/bezier path would cross through its bounding box
+            if (nx + BEN_NODE_WIDTH > sx && nx < tx) {
+                const minPathY = Math.min(sy, ty);
+                const maxPathY = Math.max(sy, ty);
+                // Check if node's vertical range overlaps the path's vertical range
+                if (ny + BEN_NODE_HEIGHT + PAD > minPathY - PAD && ny - PAD < maxPathY + PAD) {
+                    obstacles.push({ x: nx, y: ny, cx: nx + BEN_NODE_WIDTH / 2, cy: ny + BEN_NODE_HEIGHT / 2 });
+                }
+            }
+        }
+    }
+
+    let d;
+    if (obstacles.length === 0) {
+        // No obstacles — smooth S-curve bezier
+        const dx = (tx - sx) * 0.6;
+        d = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+    } else {
+        // Route around obstacles using waypoints through the inter-column gaps.
+        // Strategy: go horizontal to midX, then vertical to target Y, routing
+        // above or below any obstacles in the way.
+
+        // Determine if we should route above or below obstacles
+        const obstacleYs = obstacles.map(o => o.cy);
+        const avgObstacleY = obstacleYs.reduce((a, b) => a + b, 0) / obstacleYs.length;
+        const avgPathY = (sy + ty) / 2;
+
+        // Find a clear vertical channel — go above or below all obstacles
+        let routeY;
+        const allObstacleTop = Math.min(...obstacles.map(o => o.y));
+        const allObstacleBottom = Math.max(...obstacles.map(o => o.y + BEN_NODE_HEIGHT));
+
+        if (avgPathY < avgObstacleY) {
+            // Route above
+            routeY = allObstacleTop - PAD - 10;
+        } else {
+            // Route below
+            routeY = allObstacleBottom + PAD + 10;
+        }
+
+        // Build smooth path: source → horizontal out → curve up/down → horizontal across → curve to target
+        const exitX = sx + 15;
+        const entryX = tx - 15;
+        const r = 8; // corner radius
+
+        // Determine turn directions
+        const dy1 = routeY - sy;
+        const dy2 = ty - routeY;
+        const s1 = dy1 > 0 ? 1 : -1; // direction of first vertical
+        const s2 = dy2 > 0 ? 1 : -1; // direction of second vertical
+
+        d = `M ${sx} ${sy}`;
+        d += ` L ${exitX - r} ${sy}`;
+        d += ` Q ${exitX} ${sy}, ${exitX} ${sy + s1 * r}`;
+        d += ` L ${exitX} ${routeY - s1 * r}`;
+        d += ` Q ${exitX} ${routeY}, ${exitX + r} ${routeY}`;
+        d += ` L ${entryX - r} ${routeY}`;
+        d += ` Q ${entryX} ${routeY}, ${entryX} ${routeY + s2 * r}`;
+        d += ` L ${entryX} ${ty - s2 * r}`;
+        d += ` Q ${entryX} ${ty}, ${entryX + r} ${ty}`;
+        d += ` L ${tx} ${ty}`;
+    }
 
     const path = benSvgEl('path', {
         d: d,
@@ -1254,7 +1325,7 @@ function benRenderAll() {
                 const key = left.item.id + '->' + right.item.id;
                 if (!drawnConnections.has(key)) {
                     drawnConnections.add(key);
-                    benGroup.appendChild(benRenderConnection(left, right));
+                    benGroup.appendChild(benRenderConnection(left, right, layout));
                 }
             }
         }
