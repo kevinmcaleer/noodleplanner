@@ -1397,8 +1397,19 @@ function benPopulateLinkedToSelect(excludeId) {
         select.remove(1);
     }
 
+    // Build set of already-linked IDs from the tags container
+    const alreadyLinked = new Set();
+    const tagsContainer = document.getElementById('benefitLinkedTags');
+    if (tagsContainer) {
+        for (const tag of tagsContainer.querySelectorAll('.benefit-link-tag')) {
+            const lid = parseInt(tag.dataset.linkId, 10);
+            if (!isNaN(lid)) alreadyLinked.add(lid);
+        }
+    }
+
     for (const item of benefitItems) {
         if (item.id === excludeId) continue;
+        if (alreadyLinked.has(item.id)) continue;
         const opt = document.createElement('option');
         opt.value = item.id;
         opt.textContent = item.type.charAt(0).toUpperCase() + item.type.slice(1) + ': ' + item.title;
@@ -1439,7 +1450,9 @@ function addBenefitLink() {
         '</span><button type="button" class="benefit-link-tag-remove" onclick="removeBenefitLink(this)" aria-label="Remove link">&times;</button>';
     tagsContainer.appendChild(tag);
 
-    select.value = '';
+    // Refresh the dropdown to remove the just-linked item
+    const editId = document.getElementById('benefitItemId');
+    benPopulateLinkedToSelect(editId ? parseInt(editId.value, 10) : null);
 }
 
 /**
@@ -1448,6 +1461,10 @@ function addBenefitLink() {
 function removeBenefitLink(btn) {
     const tag = btn.closest('.benefit-link-tag');
     if (tag) tag.remove();
+
+    // Refresh the dropdown to re-add the unlinked item
+    const editId = document.getElementById('benefitItemId');
+    benPopulateLinkedToSelect(editId ? parseInt(editId.value, 10) : null);
 }
 
 /**
