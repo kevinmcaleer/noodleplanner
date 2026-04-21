@@ -624,27 +624,8 @@ function benComputeLayout() {
         });
     }
 
-    // Enforce column ordering by adding invisible anchor nodes per rank
-    // and chaining them left-to-right.  Then tie each real node to its
-    // column anchor so dagre assigns the correct rank.
-    const anchorIds = [];
-    for (let col = 0; col < 4; col++) {
-        const aid = '__anchor_' + col;
-        anchorIds.push(aid);
-        g.setNode(aid, { width: 0, height: 0 });
-    }
-    for (let col = 1; col < 4; col++) {
-        g.setEdge(anchorIds[col - 1], anchorIds[col], { weight: 0, minlen: 1 });
-    }
-    // Tie each real node to its column anchor with a high-weight zero-length edge
-    for (const item of benefitItems) {
-        const col = BEN_COLUMNS[item.type] !== undefined ? BEN_COLUMNS[item.type] : 2;
-        const aid = anchorIds[col];
-        // Bidirectional zero-length edge keeps the node in the same rank
-        g.setEdge(aid, String(item.id), { weight: 100, minlen: 0 });
-    }
-
-    // Add real edges (normalised left-to-right)
+    // Add edges (normalised left-to-right) — let dagre determine
+    // the layering naturally from the graph structure
     const addedEdges = new Set();
     for (const item of benefitItems) {
         for (const tid of item.linkedTo) {
@@ -667,8 +648,6 @@ function benComputeLayout() {
     // Store edge point data for rendering connections
     window._benEdgePoints = {};
     for (const e of g.edges()) {
-        // Skip edges involving anchor nodes
-        if (String(e.v).startsWith('__anchor_') || String(e.w).startsWith('__anchor_')) continue;
         const edgeData = g.edge(e);
         if (edgeData && edgeData.points) {
             const key = e.v + '->' + e.w;
