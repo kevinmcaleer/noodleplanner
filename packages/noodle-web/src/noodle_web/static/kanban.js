@@ -1133,7 +1133,7 @@ class KanbanBoard {
 
             const titleEl = document.createElement('h3');
             titleEl.className = 'kanban-column-title';
-            titleEl.textContent = state.name;
+            titleEl.textContent = state.name.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '').replace(/_/g, ' ').trim();
             headerEl.appendChild(titleEl);
 
             const countEl = document.createElement('span');
@@ -1235,7 +1235,8 @@ class KanbanBoard {
 
         const titleEl = document.createElement('h3');
         titleEl.className = 'kanban-column-title';
-        titleEl.textContent = column.title;
+        // Strip product markers (/$name, ^$name, $name) and clean up for display
+        titleEl.textContent = column.title.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '').replace(/_/g, ' ').trim();
 
         // Make title editable in phase view
         if (this.viewMode === 'phase') {
