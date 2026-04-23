@@ -333,6 +333,7 @@ function extractCompletionFromPlanText(planText) {
     for (var j = 0; j < lines.length; j++) {
         var stripped = lines[j].trim();
         if (!stripped) continue;
+        if (stripped.startsWith('//')) continue;
         var hasToken = /@\w/.test(stripped) || /\b\d+[dwmy]\b/.test(stripped) ||
             /[/^]?\$[A-Za-z_]/.test(stripped) || /\[depends/i.test(stripped) ||
             /\b\d{1,3}%/.test(stripped) || /\d{4}-\d{2}-\d{2}/.test(stripped) ||

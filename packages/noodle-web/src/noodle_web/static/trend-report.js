@@ -92,6 +92,9 @@ function extractTasksFromPlanText(planText) {
         const stripped = line.trim();
         if (!stripped) continue;
 
+        // Skip commented-out lines
+        if (stripped.startsWith('//')) continue;
+
         // A task line must have at least one metadata token:
         // @resource, duration (\d+[dwmy]), $deliverable, [depends], %, or date
         const hasResource = /@\w+/.test(stripped);
