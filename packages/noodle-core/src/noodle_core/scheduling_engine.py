@@ -654,6 +654,10 @@ def natural_language_to_yaml(text, project_name="Project"):
         if not line.strip():
             continue
 
+        # Skip commented-out lines (// prefix)
+        if line.lstrip().startswith('//'):
+            continue
+
         indent_level = len(line) - len(line.lstrip())
         stripped = line.strip()
 

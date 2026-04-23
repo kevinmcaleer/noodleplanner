@@ -968,6 +968,12 @@
     font-style: italic;
 }
 
+.syntax-line-comment {
+    color: #6a9955;
+    font-style: italic;
+    opacity: 0.6;
+}
+
 .syntax-date {
     color: #dcdcaa;
 }

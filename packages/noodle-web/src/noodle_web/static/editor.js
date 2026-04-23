@@ -53,7 +53,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (inBudget && (trimmed === '---raid log---')) { inBudget = false; }
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
             if (trimmed === '---baseline---') { inBaseline = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || !trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.includes('===')) continue;
 
             // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
             let taskText = trimmed;
@@ -201,6 +201,11 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             // Dim lines inside baseline section
             if (inBaselineSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+
+            // Dim commented-out lines (// prefix)
+            if (line.trimStart().startsWith('//')) {
+                return '<span class="syntax-line-comment">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
 
             // Skip empty lines and headers
@@ -503,7 +508,70 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             e.preventDefault();
             outdentSelectedLines();
         }
+
+        // Toggle comment with Ctrl+/ (or Cmd+/)
+        if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+            e.preventDefault();
+            toggleCommentLines();
+        }
     });
+
+    /**
+     * Toggle // comment prefix on selected lines (or current line).
+     */
+    function toggleCommentLines() {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const text = editor.value;
+
+        // Find the line range covered by the selection
+        const lineStartIdx = text.lastIndexOf('\n', start - 1) + 1;
+        let lineEndIdx = text.indexOf('\n', end);
+        if (lineEndIdx === -1) lineEndIdx = text.length;
+
+        const selectedText = text.substring(lineStartIdx, lineEndIdx);
+        const lines = selectedText.split('\n');
+
+        // Determine action: if ALL selected lines are commented, uncomment; otherwise comment
+        const allCommented = lines.every(line => {
+            const trimmed = line.trimStart();
+            return trimmed === '' || trimmed.startsWith('// ') || trimmed.startsWith('//');
+        });
+
+        let newLines;
+        if (allCommented) {
+            // Uncomment: remove leading // (and optional space after)
+            newLines = lines.map(line => {
+                const idx = line.indexOf('//');
+                if (idx === -1) return line;
+                const after = line.substring(idx + 2);
+                return line.substring(0, idx) + (after.startsWith(' ') ? after.substring(1) : after);
+            });
+        } else {
+            // Comment: add // at the start of each line (preserving indentation)
+            newLines = lines.map(line => {
+                if (line.trim() === '') return line;
+                const indent = line.match(/^(\s*)/)[1];
+                const content = line.substring(indent.length);
+                return indent + '// ' + content;
+            });
+        }
+
+        const newText = newLines.join('\n');
+        editor.value = text.substring(0, lineStartIdx) + newText + text.substring(lineEndIdx);
+
+        // Restore selection to cover the modified lines
+        editor.selectionStart = lineStartIdx;
+        editor.selectionEnd = lineStartIdx + newText.length;
+
+        // Fire input event
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Capture undo snapshot
+        if (typeof EditorUndoManager !== 'undefined') {
+            EditorUndoManager.captureImmediate(editor.value);
+        }
+    }
 
     // Long-press on line numbers to open task form (mobile support)
     let longPressTimer = null;

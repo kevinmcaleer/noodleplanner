@@ -103,6 +103,10 @@ def convert_plan_format_to_standard(text: str) -> str:
         if in_frontmatter:
             continue
 
+        # Skip commented-out lines (// prefix) — preserved in markdown but not parsed
+        if line.lstrip().startswith('//'):
+            continue
+
         # Convert duration formats: "3days" -> "3d", "2weeks" -> "2w", "1month" -> "1m"
         line = re.sub(r'(\d+)days?', r'\1d', line)
         line = re.sub(r'(\d+)weeks?', r'\1w', line)
