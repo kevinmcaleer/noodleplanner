@@ -458,7 +458,7 @@ function generateChangeLog(currentPlanText, previousPlanText) {
  * Generate a full trend report comparing two plan versions.
  * Returns a formatted markdown string.
  */
-function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion, comparisonVersion) {
+function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion, comparisonVersion, currentDate, comparisonDate) {
     const oldTasks = extractTasksFromPlanText(comparisonPlanText);
     const newTasks = extractTasksFromPlanText(currentPlanText);
     const taskDiff = compareTasks(oldTasks, newTasks);
@@ -473,9 +473,26 @@ function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion
     const newComms = extractCommsForComparison(currentPlanText);
     const commsDiff = compareComms(oldComms, newComms);
 
-    const vLabel = (currentVersion && comparisonVersion)
-        ? ' (v' + comparisonVersion + ' → v' + currentVersion + ')'
-        : '';
+    // Format date as "13 Apr 26"
+    function fmtDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return '';
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + String(d.getFullYear()).slice(-2);
+    }
+
+    let vLabel = '';
+    if (comparisonDate || comparisonVersion) {
+        const fromParts = [];
+        if (comparisonDate) fromParts.push(fmtDate(comparisonDate));
+        if (comparisonVersion) fromParts.push('v' + comparisonVersion);
+        const toParts = [];
+        if (currentDate) toParts.push(fmtDate(currentDate));
+        if (currentVersion) toParts.push('v' + currentVersion);
+        vLabel = ' ' + fromParts.join(' (') + (fromParts.length > 1 ? ')' : '') +
+                 ' → ' + toParts.join(' (') + (toParts.length > 1 ? ')' : '');
+    }
 
     const lines = [];
     lines.push('**Progress Summary' + vLabel + '**');
@@ -696,7 +713,9 @@ function generateTrendReportFromDialog() {
         currentPlanText,
         comparisonEntry.planText,
         currentVersion,
-        comparisonEntry.version || '?'
+        comparisonEntry.version || '?',
+        new Date().toISOString(),
+        comparisonEntry.date || ''
     );
 
     const preview = document.getElementById('trendReportPreview');

@@ -1249,15 +1249,87 @@ def _draw_timeline_graphic(slide, timeline_tasks, left, top, width):
 
 
 def export_report_to_powerpoint(output_path, report_data):
-    """Export the weekly project report to a single PowerPoint slide."""
+    """Export the weekly project report to PowerPoint with a highlight slide."""
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
 
     _add_report_slide(prs, report_data)
+    _add_highlight_slide(prs, report_data)
 
     prs.save(output_path)
     logger.info(f"Exported weekly report to PowerPoint: {output_path}")
+
+
+def _add_highlight_slide(prs, report_data):
+    """Add a dedicated slide for the latest highlight entry."""
+    import re
+
+    highlight = report_data.get('highlight')
+    if not highlight or not highlight.get('content'):
+        return  # No highlight — skip the slide
+
+    DARK_BLUE = RGBColor(33, 60, 114)
+    BLACK = RGBColor(0, 0, 0)
+
+    def _sanitise(text):
+        return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', str(text))
+
+    slide_layout = prs.slide_layouts[6]  # blank
+    slide = prs.slides.add_slide(slide_layout)
+
+    # Title bar
+    title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12), Inches(0.6))
+    tf = title_box.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    project_name = report_data.get('project_name', 'Project')
+    p.text = _sanitise(f"{project_name} — Latest Highlight")
+    p.font.size = Pt(24)
+    p.font.bold = True
+    p.font.color.rgb = DARK_BLUE
+
+    # Date and author meta
+    meta_parts = []
+    if highlight.get('date'):
+        meta_parts.append(highlight['date'])
+    if highlight.get('author'):
+        meta_parts.append(f"@{highlight['author']}")
+    if meta_parts:
+        meta_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.0), Inches(12), Inches(0.3))
+        mf = meta_box.text_frame
+        mp = mf.paragraphs[0]
+        mp.text = _sanitise("  ".join(meta_parts))
+        mp.font.size = Pt(11)
+        mp.font.color.rgb = RGBColor(100, 100, 100)
+        mp.font.italic = True
+
+    # Highlight content
+    content_top = Inches(1.4)
+    content_box = slide.shapes.add_textbox(
+        Inches(0.5), content_top, Inches(12), Inches(5.5)
+    )
+    cf = content_box.text_frame
+    cf.word_wrap = True
+
+    content = highlight.get('content', '')
+    lines = content.split('\n')
+    for idx, line in enumerate(lines):
+        if idx == 0:
+            cp = cf.paragraphs[0]
+        else:
+            cp = cf.add_paragraph()
+        clean = line.strip()
+        # Convert markdown bold **text** to plain (PPTX doesn't render markdown)
+        clean = re.sub(r'\*\*(.+?)\*\*', r'\1', clean)
+        if clean.startswith('- '):
+            clean = '\u2022 ' + clean[2:]
+        is_heading = clean.startswith('**') or (line.strip().startswith('**') and line.strip().endswith('**'))
+        cp.text = _sanitise(clean)
+        cp.font.size = Pt(14) if is_heading else Pt(12)
+        cp.font.bold = is_heading
+        cp.font.color.rgb = DARK_BLUE if is_heading else BLACK
+        cp.space_after = Pt(4)
 
 
 def _add_report_slide(prs, report_data, include_footer=True):
