@@ -442,7 +442,7 @@ function generateChangeLog(currentPlanText, previousPlanText) {
         lines.push('Added: ' + taskDiff.added.join(', '));
     }
     if (taskDiff.removed.length > 0) {
-        lines.push('Removed: ' + taskDiff.removed.join(', '));
+        lines.push(taskDiff.removed.length + ' task' + (taskDiff.removed.length !== 1 ? 's' : '') + ' removed or commented out');
     }
     if (taskDiff.changed.length > 0) {
         const changes = taskDiff.changed.map(c =>
@@ -515,7 +515,7 @@ function generateTrendReport(currentPlanText, comparisonPlanText, currentVersion
         lines.push('- Added: ' + taskDiff.added.join(', '));
     }
     if (taskDiff.removed.length > 0) {
-        lines.push('- Removed: ' + taskDiff.removed.join(', '));
+        lines.push('- ' + taskDiff.removed.length + ' task' + (taskDiff.removed.length !== 1 ? 's' : '') + ' removed or commented out');
     }
     if (taskDiff.changed.length > 0) {
         const topChanges = taskDiff.changed
