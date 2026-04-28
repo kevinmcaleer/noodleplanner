@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/products.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/search.css?v={{ v }}">
     <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
 
@@ -213,8 +214,18 @@
                    title="Documentation">
                     <i class="bi bi-book" aria-hidden="true"></i> Docs
                 </a>
+                <!-- Search box (routes to the Search results view) -->
+                <div class="np-nav-search" style="margin-left: auto;">
+                    <i class="bi bi-search np-nav-search-icon" aria-hidden="true"></i>
+                    <input type="search"
+                           id="navSearchInput"
+                           class="np-nav-search-input"
+                           placeholder="Search this project…"
+                           aria-label="Search project"
+                           autocomplete="off">
+                </div>
                 <!-- AI button -->
-                <div class="ai-btn-wrapper" style="margin-left: auto; position: relative;">
+                <div class="ai-btn-wrapper" style="position: relative;">
                     <button class="ai-toggle-btn" id="aiToggleBtn"
                             onclick="onAIButtonClick()"
                             aria-label="AI Assistant"
@@ -2027,6 +2038,40 @@ Build
                 </div>
             </div>
 
+            <!-- Search Results Tab -->
+            <div id="search-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+                <div class="search-view-container">
+                    <div class="search-view-header">
+                        <h2 class="search-view-title">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            Search
+                        </h2>
+                        <div class="search-view-input-wrapper">
+                            <i class="bi bi-search search-view-input-icon" aria-hidden="true"></i>
+                            <input type="search"
+                                   id="searchViewInput"
+                                   class="search-view-input"
+                                   placeholder="Search tasks, products, risks, comms, budget, highlights, resources, benefits…"
+                                   aria-label="Search project (full)"
+                                   autocomplete="off">
+                            <button class="search-view-clear-btn"
+                                    id="searchViewClearBtn"
+                                    onclick="searchViewClear()"
+                                    aria-label="Clear search"
+                                    title="Clear" style="display:none;">&times;</button>
+                        </div>
+                        <div class="search-view-meta" id="searchViewMeta" aria-live="polite"></div>
+                    </div>
+                    <div class="search-view-body">
+                        <div class="search-view-empty" id="searchViewEmpty">
+                            <p>Type a query above to search this project.</p>
+                            <p class="search-view-empty-hint">Searches across tasks, products, RAID items, comms, budget, highlights, resources, and benefits.</p>
+                        </div>
+                        <div class="search-view-results" id="searchViewResults"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Portfolio Tab -->
             <div id="portfolio-tab" class="tab-content" role="tabpanel" aria-labelledby="portfolioTab">
                 <div class="portfolio-container">
@@ -3642,6 +3687,7 @@ Build
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/trend-report.js?v={{ v }}"></script>
     <script src="/static/views-products.js?v={{ v }}"></script>
+    <script src="/static/views-search.js?v={{ v }}"></script>
     <script src="/static/ai-config.js?v={{ v }}"></script>
     <script src="/static/ai-chat.js?v={{ v }}"></script>
 
