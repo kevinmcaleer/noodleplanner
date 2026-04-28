@@ -59,7 +59,16 @@ function _nextWorkingDay(date) {
  * Shortnames must be a single \S+ token so the levelling flag regex works.
  */
 function _toShortname(displayName) {
-    return displayName.trim().toLowerCase().replace(/\s+/g, '-');
+    // Look up the actual shortname from globalResourceMap (shortname → fullName)
+    if (typeof globalResourceMap === 'object' && globalResourceMap) {
+        const lower = displayName.trim().toLowerCase();
+        for (const [short, full] of Object.entries(globalResourceMap)) {
+            if (full && full.toLowerCase() === lower) return short;
+            if (short.toLowerCase() === lower) return short;
+        }
+    }
+    // Fallback: just use the display name as-is (lowercase, no spaces)
+    return displayName.trim().split(/\s+/)[0].toLowerCase();
 }
 
 /**
@@ -121,7 +130,7 @@ function _collectLevellingAssignments(parsedProjects) {
                     percent,
                     coResourceCount: resourceNames.length,
                     priority: priorityRank,
-                    alreadyLevelled: /\[levelled\s+@?\S+\s+\d{4}-\d{2}-\d{2}\s*\]/i.test(
+                    alreadyLevelled: /\[levelled\s+@?[^\]]+?\s+\d{4}-\d{2}-\d{2}\s*\]/i.test(
                         task.raw_line || ''
                     ),
                 });
@@ -295,12 +304,8 @@ function annotateTaskWithLevellingFlag(planText, taskName, resource, proposedSta
 
     let line = lines[matchedIdx];
 
-    // Remove any existing levelled flag for the same resource (case insensitive)
-    const existingRe = new RegExp(
-        '\\s*\\[levelled\\s+@?' + shortname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
-        '\\s+\\d{4}-\\d{2}-\\d{2}\\s*\\]', 'i'
-    );
-    line = line.replace(existingRe, '');
+    // Remove any existing levelled flag (for any resource name variant)
+    line = line.replace(/\s*\[levelled\s+@?[^\]]+?\s+\d{4}-\d{2}-\d{2}\s*\]/gi, '');
 
     // Append the new flag (separated by a single space)
     line = line.replace(/\s+$/, '') + ' ' + flag;
@@ -371,8 +376,9 @@ function applyLevellingSuggestions(suggestions) {
  */
 function stripLevellingFlags(planText) {
     if (!planText) return planText;
+    // Handle all variants: @shortname, @full-name, @Full Name (with spaces)
     return planText.replace(
-        /\s*\[levelled\s+@?\S+\s+\d{4}-\d{2}-\d{2}\s*\]/gi,
+        /\s*\[levelled\s+@?[^\]]+?\s+\d{4}-\d{2}-\d{2}\s*\]/gi,
         ''
     );
 }
