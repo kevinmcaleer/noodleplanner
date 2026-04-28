@@ -42,6 +42,8 @@ from noodle_core import (
     parse_raid_markdown,
     extract_baseline,
     parse_baseline_markdown,
+    extract_budget,
+    parse_budget_markdown,
     FrontMatterParser,
     import_from_msproject_xml,
     import_from_mpp,
@@ -322,6 +324,208 @@ async def render_plan(data: RenderRequest):
 # moved to plan_service.py.  Keep module-level aliases so that any code
 # importing them from app.py still works.
 from .plan_service import collect_labels_from_plan, update_front_matter_with_labels  # noqa: E402
+
+
+class SearchRequest(BaseModel):
+    """Search request body. Search is project-scoped to the supplied plan_text."""
+    plan_text: str = Field("", max_length=MAX_FILE_SIZE)
+    query: str = Field("", max_length=500)
+    project_name: Optional[str] = Field(None, max_length=200)
+
+
+def _truncate_snippet(text: str, query: str, max_len: int = 160) -> str:
+    """Return a short snippet centred on the first occurrence of ``query``."""
+    if not text:
+        return ""
+    text = " ".join(text.split())  # collapse whitespace
+    if not query:
+        return text[:max_len]
+    lo = text.lower().find(query.lower())
+    if lo < 0:
+        return text[:max_len]
+    start = max(0, lo - 40)
+    end = min(len(text), start + max_len)
+    snippet = text[start:end]
+    if start > 0:
+        snippet = "…" + snippet
+    if end < len(text):
+        snippet = snippet + "…"
+    return snippet
+
+
+def _matches(query_l: str, *fields) -> bool:
+    """Case-insensitive substring match across ``fields``."""
+    for f in fields:
+        if f and query_l in str(f).lower():
+            return True
+    return False
+
+
+@app.post("/api/search")
+async def search_plan(data: SearchRequest):
+    """Search the supplied plan text for matching items across all item types.
+
+    Returns a flat list of result objects, each shaped as:
+        {type, label, title, snippet, ref}
+    where ``ref`` is the argument the corresponding ``openXxxForm()`` global
+    expects (id, index, shortname, deliverable, name, etc.).
+
+    Search is project-scoped: only ``plan_text`` is searched. Matching is
+    case-insensitive substring matching.
+    """
+    query = (data.query or "").strip()
+    results: list[dict] = []
+
+    if not query or not data.plan_text:
+        return {"query": query, "results": results}
+
+    q_l = query.lower()
+
+    parse_result = plan_service.parse(data.plan_text, project_name=data.project_name)
+
+    # --- Tasks (and Products) ------------------------------------------------
+    for task in parse_result.tasks or []:
+        name = task.get("name", "") or ""
+        comment = task.get("comment", "") or ""
+        resources = task.get("resources", "") or ""
+        deliverable = task.get("deliverable", "") or ""
+        phase = task.get("phase", "") or ""
+
+        if _matches(q_l, name, comment, resources, deliverable, phase):
+            snippet_src = comment or (
+                f"{phase + ' • ' if phase else ''}"
+                f"{resources + ' • ' if resources else ''}"
+                f"{task.get('start','')} → {task.get('finish','')}"
+            )
+            # Tasks
+            results.append({
+                "type": "task",
+                "label": "Task",
+                "title": name,
+                "snippet": _truncate_snippet(snippet_src, query),
+                "ref": {"name": name},
+            })
+            # Products: tasks with a deliverable produce a product entry too
+            if deliverable:
+                results.append({
+                    "type": "product",
+                    "label": "Product",
+                    "title": name or deliverable,
+                    "snippet": _truncate_snippet(
+                        f"${deliverable} — {comment}" if comment else f"${deliverable}",
+                        query,
+                    ),
+                    "ref": {
+                        "name": name,
+                        "deliverable": deliverable,
+                    },
+                })
+
+    # --- RAID (Risks/Actions/Issues/Decisions/Dependencies) ------------------
+    for item in parse_result.raid_items or []:
+        title = item.get("title", "") or ""
+        description = item.get("description", "") or ""
+        owner = item.get("owner", "") or ""
+        raised_by = item.get("raised_by", "") or ""
+        mitigation = item.get("mitigation_actions", "") or ""
+        item_type = (item.get("type") or "risk").lower()
+        if _matches(q_l, title, description, owner, raised_by, mitigation):
+            results.append({
+                "type": "risk",
+                "label": item_type.capitalize() or "RAID",
+                "title": title or f"#{item.get('id', '')}",
+                "snippet": _truncate_snippet(description or mitigation, query),
+                "ref": {"id": item.get("id")},
+            })
+
+    # --- Comms ---------------------------------------------------------------
+    for item in parse_result.comms_items or []:
+        title = item.get("title", "") or ""
+        audience = item.get("audience", "") or ""
+        channel = item.get("channel", "") or ""
+        owner = item.get("owner", "") or ""
+        purpose = item.get("purpose", "") or ""
+        frequency = item.get("frequency", "") or ""
+        if _matches(q_l, title, audience, channel, owner, purpose, frequency):
+            snippet_src = purpose or f"{audience} via {channel}".strip(" via")
+            results.append({
+                "type": "comms",
+                "label": "Comms",
+                "title": title or f"#{item.get('id', '')}",
+                "snippet": _truncate_snippet(snippet_src, query),
+                "ref": {"id": item.get("id")},
+            })
+
+    # --- Budget items (separate extraction; not on parse_result) -------------
+    try:
+        budget_text = extract_budget(data.plan_text) or ""
+        budget_items = parse_budget_markdown(budget_text) if budget_text else []
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning(f"Budget extraction failed during search: {e}")
+        budget_items = []
+    for item in budget_items:
+        description = item.get("description", "") or ""
+        supplier = item.get("supplier", "") or ""
+        category = item.get("category", "") or ""
+        type_ = item.get("type", "") or ""
+        po = item.get("po", "") or ""
+        invoice = item.get("invoice", "") or ""
+        if _matches(q_l, description, supplier, category, type_, po, invoice):
+            extras = " • ".join(p for p in [supplier, category, type_] if p)
+            results.append({
+                "type": "budget",
+                "label": "Budget",
+                "title": description or f"#{item.get('id', '')}",
+                "snippet": _truncate_snippet(extras, query),
+                "ref": {"id": item.get("id")},
+            })
+
+    # --- Highlights ----------------------------------------------------------
+    for idx, h in enumerate(parse_result.highlights or []):
+        date = (h.get("date") if isinstance(h, dict) else "") or ""
+        author = (h.get("author") if isinstance(h, dict) else "") or ""
+        content = (h.get("content") if isinstance(h, dict) else "") or ""
+        if _matches(q_l, date, author, content):
+            title = " — ".join(p for p in [date, author] if p) or f"Highlight #{idx + 1}"
+            results.append({
+                "type": "highlight",
+                "label": "Highlight",
+                "title": title,
+                "snippet": _truncate_snippet(content, query),
+                "ref": {"index": idx},
+            })
+
+    # --- Resources -----------------------------------------------------------
+    resource_map = parse_result.resource_map or {}
+    resource_roles = parse_result.resource_roles or {}
+    for shortname, fullname in resource_map.items():
+        role = resource_roles.get(shortname, "")
+        if _matches(q_l, shortname, fullname, role):
+            extras = " • ".join(p for p in [fullname, role] if p)
+            results.append({
+                "type": "resource",
+                "label": "Resource",
+                "title": f"@{shortname}",
+                "snippet": _truncate_snippet(extras or fullname, query),
+                "ref": {"shortname": shortname},
+            })
+
+    # --- Benefits ------------------------------------------------------------
+    for item in parse_result.benefits_items or []:
+        title = item.get("title", "") or ""
+        description = item.get("description", "") or ""
+        type_ = item.get("type", "") or ""
+        target_value = item.get("target_value", "") or ""
+        if _matches(q_l, title, description, type_, target_value):
+            results.append({
+                "type": "benefit",
+                "label": "Benefit",
+                "title": title or f"#{item.get('id', '')}",
+                "snippet": _truncate_snippet(description or target_value, query),
+                "ref": {"id": item.get("id")},
+            })
+
+    return {"query": query, "results": results}
 
 
 @app.post("/api/parse")
