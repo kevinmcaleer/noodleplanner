@@ -464,6 +464,19 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
+    // If switching to benefits view, refit the diagram. The initial fit
+    // inside updateBenefits() may have run while the view was hidden, so
+    // benSvg.getBoundingClientRect() returned a 0×0 viewport — leaving the
+    // diagram blank or stuck in the top-left corner until the user manually
+    // clicks "fit all".
+    if (tabName === 'benefits' && typeof benefitsZoomFit === 'function') {
+        setTimeout(() => {
+            if (typeof benefitItems !== 'undefined' && benefitItems.length > 0) {
+                benefitsZoomFit();
+            }
+        }, 50);
+    }
+
     // If switching to PBS view, re-render after layout is ready
     if (tabName === 'pbs' && typeof updatePbs === 'function') {
         setTimeout(() => {
