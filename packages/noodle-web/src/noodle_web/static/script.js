@@ -12,9 +12,19 @@ function getVersionFromFrontMatter(text) {
 function incrementVersion(ver) {
     if (!ver) return '1.1';
     const parts = ver.split('.');
-    if (parts.length === 1) return parts[0] + '.1';
+    if (parts.length === 1) {
+        const major = parseInt(parts[0], 10);
+        if (isNaN(major)) return '1.1';
+        return major + '.1';
+    }
+    const major = parseInt(parts[0], 10);
     const minor = parseInt(parts[1], 10);
-    return parts[0] + '.' + (isNaN(minor) ? 1 : minor + 1);
+    if (isNaN(major)) return '1.1';
+    if (isNaN(minor)) return major + '.1';
+    // Roll over: when minor reaches 20, the next save bumps the major
+    // and resets the minor to 0. e.g. 5.20 -> 6.0.
+    if (minor >= 20) return (major + 1) + '.0';
+    return major + '.' + (minor + 1);
 }
 
 function setVersionInFrontMatter(text, newVersion) {
