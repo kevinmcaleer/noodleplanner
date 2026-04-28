@@ -107,6 +107,16 @@ def convert_plan_format_to_standard(text: str) -> str:
         if line.lstrip().startswith('//'):
             continue
 
+        # Skip markdown table rows and headings so content from supplementary
+        # sections (benefits, RAID, etc.) does not become tasks if a user types
+        # the section marker incorrectly (e.g. ``benefits---`` instead of
+        # ``---benefits---``).
+        stripped_line = line.lstrip()
+        if stripped_line.startswith('|'):
+            continue
+        if re.match(r'^#+\s+\S', stripped_line):
+            continue
+
         # Convert duration formats: "3days" -> "3d", "2weeks" -> "2w", "1month" -> "1m"
         line = re.sub(r'(\d+)days?', r'\1d', line)
         line = re.sub(r'(\d+)weeks?', r'\1w', line)
