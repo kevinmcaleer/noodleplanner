@@ -1119,6 +1119,43 @@ class TestRaidLogNotParsedAsTasks:
         assert 'Task 1' in result
 
 
+class TestMarkdownTablesNotParsedAsTasks:
+    """Markdown tables and headings must not become tasks even if a section
+    marker is malformed (e.g. ``benefits---`` instead of ``---benefits---``).
+    """
+
+    def test_table_rows_skipped_with_malformed_marker(self):
+        text = """Phase 1
+  Task 1 @john 3days
+
+benefits---
+# Benefits Map
+
+| ID | Type      | Title                |
+|----|-----------|----------------------|
+| 1  | objective | Improve productivity |
+| 2  | enabler   | Implement Foundation |"""
+        result = convert_plan_format_to_standard(text)
+        assert 'Task 1' in result
+        assert '| ID' not in result
+        assert '|----' not in result
+        assert 'Improve productivity' not in result
+        assert '# Benefits Map' not in result
+
+    def test_well_formed_marker_still_strips_section(self):
+        text = """Phase 1
+  Task 1 @john 3days
+
+---benefits---
+| ID | Type | Title |
+|----|------|-------|
+| 1  | obj  | foo   |"""
+        result = convert_plan_format_to_standard(text)
+        assert 'Task 1' in result
+        assert '---benefits---' not in result
+        assert '| ID' not in result
+
+
 class TestHighlightsPreserveRaidLog:
     """Test that highlights operations preserve the RAID log."""
 
