@@ -317,7 +317,7 @@ function extractCompletionFromPlanText(planText) {
 
     // Stop at special sections
     var markers = ['---highlights---', '---budget---', '---benefits---',
-        '---raid log---', '---comms---', '---baseline---'];
+        '---raid log---', '---comms---', '---lessons learned---', '---baseline---'];
     var endIdx = body.length;
     for (var i = 0; i < markers.length; i++) {
         var idx = body.indexOf(markers[i]);

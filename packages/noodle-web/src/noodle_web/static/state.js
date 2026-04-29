@@ -142,6 +142,7 @@ const RAID_LOG_START = '---raid log---';
 const COMMS_START = '---comms---';
 const BASELINE_START = '---baseline---';
 const BENEFITS_START = '---benefits---';
+const LESSONS_START = '---lessons learned---';
 
 // Benefits state
 let benefitItems = [];
@@ -156,6 +157,22 @@ let commsSortColumn = 'id';
 let commsSortAsc = true;
 let commsItemPendingDeleteId = null;
 let baselineItems = [];
+
+// Lessons Learned state (issue #598)
+let lessonsItems = [];
+let lessonsNextId = 1;
+let lessonsSortColumn = 'id';
+let lessonsSortAsc = true;
+let lessonsItemPendingDeleteId = null;
+const LESSONS_IMPACT_TYPES = ['Went Well', 'Needs to Change', 'Mixed'];
+const LESSONS_AREAS = [
+    'Quality', 'Resource Plans', 'Schedule', 'Cost', 'Scope',
+    'Communication', 'Risk', 'Stakeholders', 'Procurement',
+    'Technology', 'Process', 'Team', 'Other'
+];
+const LESSONS_PHASES = [
+    'Initiation', 'Planning', 'Delivery', 'Closure', 'Post-Project'
+];
 
 // Stakeholder state
 let stakeholderItems = [];

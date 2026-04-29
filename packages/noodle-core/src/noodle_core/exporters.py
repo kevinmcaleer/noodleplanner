@@ -3081,6 +3081,52 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
         except Exception as e:
             logger.warning(f"Failed to add comms plan worksheet: {e}")
 
+    if original_text:
+        try:
+            from .format_converter import extract_lessons, parse_lessons_markdown
+            lessons_text = extract_lessons(original_text)
+            if lessons_text:
+                lessons_items = parse_lessons_markdown(lessons_text)
+                if lessons_items:
+                    ws_lessons = wb.create_sheet("Lessons Learned")
+                    lessons_headers = [
+                        'ID', 'Project Manager', 'Project Type', 'Technology',
+                        'Project Phase', 'Area', 'Impact Type', 'Observation',
+                        'Impact', 'Recommendations', 'Date',
+                    ]
+                    lessons_header_fill = PatternFill(
+                        start_color="6F42C1", end_color="6F42C1", fill_type="solid"
+                    )
+                    lessons_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+                    for col, header in enumerate(lessons_headers, 1):
+                        cell = ws_lessons.cell(row=1, column=col, value=header)
+                        cell.fill = lessons_header_fill
+                        cell.font = lessons_header_font
+                        cell.alignment = Alignment(horizontal='center')
+
+                    for row_idx, item in enumerate(lessons_items, 2):
+                        ws_lessons.cell(row=row_idx, column=1, value=item.get('id', row_idx - 1))
+                        ws_lessons.cell(row=row_idx, column=2, value=item.get('project_manager', ''))
+                        ws_lessons.cell(row=row_idx, column=3, value=item.get('project_type', ''))
+                        ws_lessons.cell(row=row_idx, column=4, value=item.get('technology', ''))
+                        ws_lessons.cell(row=row_idx, column=5, value=item.get('project_phase', ''))
+                        ws_lessons.cell(row=row_idx, column=6, value=item.get('area', ''))
+                        ws_lessons.cell(row=row_idx, column=7, value=item.get('impact_type', ''))
+                        ws_lessons.cell(row=row_idx, column=8, value=item.get('observation', ''))
+                        ws_lessons.cell(row=row_idx, column=9, value=item.get('impact', ''))
+                        ws_lessons.cell(row=row_idx, column=10, value=item.get('recommendations', ''))
+                        ws_lessons.cell(row=row_idx, column=11, value=item.get('date', ''))
+
+                    lessons_col_widths = {
+                        'A': 5, 'B': 18, 'C': 16, 'D': 16, 'E': 14,
+                        'F': 16, 'G': 16, 'H': 40, 'I': 30, 'J': 30, 'K': 12,
+                    }
+                    for col_letter, width in lessons_col_widths.items():
+                        ws_lessons.column_dimensions[col_letter].width = width
+        except Exception as e:
+            logger.warning(f"Failed to add lessons learned worksheet: {e}")
+
     try:
         deliverables = [t for t in tasks
                         if t.get('deliverable') and t.get('product_type', 'internal') != 'group']

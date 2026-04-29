@@ -2981,6 +2981,11 @@ tr:hover .task-context-btn,
 .raid-status-closed { background: #e9ecef; color: #495057; }
 .raid-status-transferred { background: #cce5ff; color: #004085; }
 
+/* Lessons learned impact badges (issue #598) */
+.lesson-impact-positive { background: #d4edda; color: #155724; }
+.lesson-impact-change { background: #fff3bf; color: #b07b00; }
+.lesson-impact-mixed { background: #e2e3f3; color: #4a4a8c; }
+
 /* Score coloring */
 .raid-score {
     display: inline-block;

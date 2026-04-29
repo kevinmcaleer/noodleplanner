@@ -63,6 +63,11 @@ from .format_converter import (
     extract_benefits,
     strip_benefits,
     parse_benefits_markdown,
+    extract_lessons,
+    strip_lessons,
+    parse_lessons_markdown,
+    generate_lessons_text,
+    update_plan_lessons,
 )
 
 from .excel_importer import (
@@ -142,6 +147,11 @@ __all__ = [
     "extract_benefits",
     "strip_benefits",
     "parse_benefits_markdown",
+    "extract_lessons",
+    "strip_lessons",
+    "parse_lessons_markdown",
+    "generate_lessons_text",
+    "update_plan_lessons",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",

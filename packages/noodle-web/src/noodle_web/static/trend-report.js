@@ -77,7 +77,7 @@ function extractTasksFromPlanText(planText) {
     // Stop at special sections
     const sectionMarkers = [
         '---highlights---', '---budget---', '---benefits---',
-        '---raid log---', '---comms---', '---baseline---'
+        '---raid log---', '---comms---', '---lessons learned---', '---baseline---'
     ];
     let endIdx = body.length;
     for (const marker of sectionMarkers) {

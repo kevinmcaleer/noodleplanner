@@ -10,7 +10,7 @@ RAID_LOG_START = '---raid log---'
 COMMS_START = '---comms---'
 BENEFITS_START = '---benefits---'
 BASELINE_START = '---baseline---'
-BENEFITS_START = '---benefits---'
+LESSONS_START = '---lessons learned---'
 
 
 def _is_valid_yaml_value(value: str) -> bool:
@@ -84,12 +84,13 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights, budget, RAID log, comms, and baseline sections before processing
+    # Strip highlights, budget, RAID log, comms, lessons, and baseline sections before processing
     text = strip_highlights(text)
     text = strip_budget(text)
     text = strip_raid_log(text)
     text = strip_comms(text)
     text = strip_benefits(text)
+    text = strip_lessons(text)
     text = strip_baseline(text)
     lines = text.split('\n')
     output_lines = []
@@ -311,13 +312,14 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve any existing budget, benefits, RAID log, comms, and baseline that follow highlights
+    # Preserve any existing budget, benefits, RAID log, comms, lessons, and baseline that follow highlights
     budget_text = extract_budget(plan_text)
     benefits_text = extract_benefits(plan_text)
     raid_log_text = extract_raid_log(plan_text)
     comms_text = extract_comms_plan(plan_text)
+    lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text)))))).rstrip('\n')
+    base = strip_baseline(strip_lessons(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text))))))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
@@ -341,6 +343,10 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     if comms_text:
         result = result.rstrip('\n') + '\n\n' + COMMS_START + '\n' + comms_text
 
+    # Re-append the lessons learned section if it was present
+    if lessons_text:
+        result = result.rstrip('\n') + '\n\n' + LESSONS_START + '\n' + lessons_text
+
     # Re-append the baseline if it was present
     if baseline_text:
         result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
@@ -361,9 +367,9 @@ def extract_raid_log(text: str) -> str:
 
     after_start = start_idx + len(RAID_LOG_START)
 
-    # Find the end: budget, comms, baseline section, or EOF
+    # Find the end: budget, comms, lessons, baseline section, or EOF
     end_idx = len(text)
-    for marker in (BUDGET_START, COMMS_START, BASELINE_START):
+    for marker in (BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -384,8 +390,8 @@ def strip_raid_log(text: str) -> str:
 
     before = text[:start_idx].rstrip('\n')
 
-    # Preserve sections that follow the RAID log (budget, comms, or baseline)
-    for marker in (BUDGET_START, COMMS_START, BASELINE_START):
+    # Preserve sections that follow the RAID log (budget, comms, lessons, or baseline)
+    for marker in (BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, start_idx)
         if idx != -1:
             after = text[idx:]
@@ -407,9 +413,9 @@ def extract_budget(text: str) -> str:
 
     after_start = start_idx + len(BUDGET_START)
 
-    # Find the end: benefits, RAID log, comms, baseline, or EOF
+    # Find the end: benefits, RAID log, comms, lessons, baseline, or EOF
     end_idx = len(text)
-    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -430,7 +436,7 @@ def strip_budget(text: str) -> str:
     before = text[:start_idx].rstrip('\n')
 
     # Preserve sections that follow the budget
-    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, start_idx)
         if idx != -1:
             after = text[idx:]
@@ -452,7 +458,7 @@ def extract_benefits(text: str) -> str:
     after_start = start_idx + len(BENEFITS_START)
 
     end_idx = len(text)
-    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -464,7 +470,7 @@ def strip_benefits(text: str) -> str:
     """Remove the benefits section from plan text.
 
     Returns the plan text without the ``---benefits---`` block.
-    Preserves any RAID log, comms, and baseline sections that follow.
+    Preserves any RAID log, comms, lessons, and baseline sections that follow.
     """
     start_idx = text.find(BENEFITS_START)
     if start_idx == -1:
@@ -473,7 +479,7 @@ def strip_benefits(text: str) -> str:
     before = text[:start_idx].rstrip('\n')
 
     # Preserve sections that follow the benefits
-    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, start_idx)
         if idx != -1:
             after = text[idx:]
@@ -875,10 +881,11 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the comms and baseline sections
+    # Preserve the comms, lessons, and baseline sections
     comms_text = extract_comms_plan(plan_text)
+    lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_comms(strip_raid_log(plan_text))).rstrip('\n')
+    base = strip_baseline(strip_lessons(strip_comms(strip_raid_log(plan_text)))).rstrip('\n')
     table = generate_raid_log_text(raid_items)
 
     result = base
@@ -888,6 +895,10 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     # Re-append the comms plan if it was present
     if comms_text:
         result = result.rstrip('\n') + '\n\n' + COMMS_START + '\n' + comms_text
+
+    # Re-append the lessons learned section if it was present
+    if lessons_text:
+        result = result.rstrip('\n') + '\n\n' + LESSONS_START + '\n' + lessons_text
 
     # Re-append the baseline if it was present
     if baseline_text:
@@ -900,8 +911,8 @@ def extract_comms_plan(text: str) -> str:
     """Extract the comms plan section text from plan text.
 
     Returns the raw text between ``---comms---`` and the next section
-    marker (``---baseline---``) or EOF, or an empty string if no comms
-    section is present.
+    marker (``---lessons learned---`` or ``---baseline---``) or EOF, or
+    an empty string if no comms section is present.
     """
     start_idx = text.find(COMMS_START)
     if start_idx == -1:
@@ -909,11 +920,12 @@ def extract_comms_plan(text: str) -> str:
 
     after_start = start_idx + len(COMMS_START)
 
-    # Find the end: baseline section or EOF
+    # Find the end: lessons or baseline section or EOF
     end_idx = len(text)
-    baseline_idx = text.find(BASELINE_START, after_start)
-    if baseline_idx != -1 and baseline_idx < end_idx:
-        end_idx = baseline_idx
+    for marker in (LESSONS_START, BASELINE_START):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
 
     return text[after_start:end_idx].strip()
 
@@ -922,7 +934,7 @@ def strip_comms(text: str) -> str:
     """Remove the comms plan section from plan text.
 
     Returns the plan text without the ``---comms---`` block.
-    Preserves any baseline section that follows.
+    Preserves any lessons learned and baseline sections that follow.
     """
     start_idx = text.find(COMMS_START)
     if start_idx == -1:
@@ -930,11 +942,12 @@ def strip_comms(text: str) -> str:
 
     before = text[:start_idx].rstrip('\n')
 
-    # Preserve the baseline section if it follows
-    baseline_idx = text.find(BASELINE_START, start_idx)
-    if baseline_idx != -1:
-        after = text[baseline_idx:]
-        return before + '\n\n' + after
+    # Preserve sections that follow the comms section
+    for marker in (LESSONS_START, BASELINE_START):
+        idx = text.find(marker, start_idx)
+        if idx != -1:
+            after = text[idx:]
+            return before + '\n\n' + after
 
     return before
 
@@ -1101,14 +1114,19 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the baseline section
+    # Preserve the lessons learned and baseline sections
+    lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_comms(plan_text)).rstrip('\n')
+    base = strip_baseline(strip_lessons(strip_comms(plan_text))).rstrip('\n')
     table = generate_comms_plan_text(comms_items)
 
     result = base
     if table:
         result = result + '\n\n' + COMMS_START + '\n' + table
+
+    # Re-append the lessons learned section if it was present
+    if lessons_text:
+        result = result.rstrip('\n') + '\n\n' + LESSONS_START + '\n' + lessons_text
 
     # Re-append the baseline if it was present
     if baseline_text:
@@ -1383,7 +1401,7 @@ def extract_benefits(text: str) -> str:
 
     # Find the end: next section marker or EOF
     end_idx = len(text)
-    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -1404,7 +1422,7 @@ def strip_benefits(text: str) -> str:
 
     # Preserve any section that follows the benefits block
     after_start = start_idx + len(BENEFITS_START)
-    for marker in (RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1:
             after = text[idx:]
@@ -1535,3 +1553,264 @@ def parse_benefits_markdown(text: str) -> list:
         items.append(item)
 
     return items
+
+
+# =====================================================================
+# Lessons Learned (issue #598)
+#
+# A lessons learned table captured at the end of a project (or per phase),
+# inspired by the Appreciative Inquiry approach: each lesson records what
+# went well, what would be changed, the impact, and recommendations.
+#
+# The section is round-tripped through plan text using the marker
+# ``---lessons learned---`` followed by a markdown table.  The columns are:
+#
+#   ID | Project Manager | Project Type | Technology | Project Phase |
+#   Area | Impact Type | Observation | Impact | Recommendations | Date
+# =====================================================================
+
+
+def extract_lessons(text: str) -> str:
+    """Extract the lessons learned section text from plan text.
+
+    Returns the raw text between ``---lessons learned---`` and the next
+    section marker (``---baseline---``) or EOF, or an empty string if no
+    lessons learned section is present.
+    """
+    start_idx = text.find(LESSONS_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(LESSONS_START)
+
+    end_idx = len(text)
+    for marker in (BASELINE_START,):
+        idx = text.find(marker, after_start)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_lessons(text: str) -> str:
+    """Remove the lessons learned section from plan text.
+
+    Returns the plan text without the ``---lessons learned---`` block.
+    Preserves any baseline section that follows.
+    """
+    start_idx = text.find(LESSONS_START)
+    if start_idx == -1:
+        return text
+
+    before = text[:start_idx].rstrip('\n')
+
+    # Preserve baseline section if it follows
+    for marker in (BASELINE_START,):
+        idx = text.find(marker, start_idx)
+        if idx != -1:
+            after = text[idx:]
+            return before + '\n\n' + after
+
+    return before
+
+
+def parse_lessons_markdown(text: str) -> list:
+    """Parse a lessons learned markdown table into a list of lesson items.
+
+    Args:
+        text: Markdown text containing a lessons learned table.
+
+    Returns:
+        List of dicts with keys: id, project_manager, project_type,
+        technology, project_phase, area, impact_type, observation, impact,
+        recommendations, date.
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    # Find header row
+    header_index = -1
+    for i, line in enumerate(lines):
+        lower = line.lower()
+        if '|' in lower and any(
+            kw in lower
+            for kw in ['observation', 'lesson', 'impact type', 'project manager']
+        ):
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        parts = re.split(r'(?<!\\)\|', line)
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        return [cell.strip() for cell in parts]
+
+    headers = [h.lower() for h in parse_row(lines[header_index])]
+
+    aliases = {
+        'id': 'id',
+        'project manager': 'project_manager',
+        'manager': 'project_manager',
+        'project type': 'project_type',
+        'technology': 'technology',
+        'project phase': 'project_phase',
+        'phase': 'project_phase',
+        'area': 'area',
+        'impact type': 'impact_type',
+        'observation': 'observation',
+        'lesson': 'observation',
+        'impact': 'impact',
+        'recommendation': 'recommendations',
+        'recommendations': 'recommendations',
+        'date': 'date',
+    }
+
+    col_map = {}
+    for idx, header in enumerate(headers):
+        for alias, field in aliases.items():
+            if alias in header and field not in col_map:
+                col_map[field] = idx
+                break
+
+    valid_impact_types = ['Went Well', 'Needs to Change', 'Mixed']
+    items = []
+    max_id = 0
+
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        # Skip separator row (all dashes)
+        if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        id_str = get_cell('id', '')
+        try:
+            item_id = int(id_str) if id_str else max_id + 1
+        except (ValueError, TypeError):
+            item_id = max_id + 1
+        max_id = max(max_id, item_id)
+
+        impact_type_raw = get_cell('impact_type', 'Went Well')
+        # Try a case-insensitive match against valid options
+        impact_type = next(
+            (v for v in valid_impact_types if v.lower() == impact_type_raw.lower()),
+            impact_type_raw if impact_type_raw else 'Went Well'
+        )
+
+        items.append({
+            'id': item_id,
+            'project_manager': get_cell('project_manager', ''),
+            'project_type': get_cell('project_type', ''),
+            'technology': get_cell('technology', ''),
+            'project_phase': get_cell('project_phase', ''),
+            'area': get_cell('area', ''),
+            'impact_type': impact_type,
+            'observation': get_cell('observation', ''),
+            'impact': get_cell('impact', ''),
+            'recommendations': get_cell('recommendations', ''),
+            'date': get_cell('date', ''),
+        })
+
+    return items
+
+
+def generate_lessons_text(lessons_items: list) -> str:
+    """Generate a formatted markdown table from lessons learned items.
+
+    Each column is padded to the width of its widest entry for clean,
+    readable markdown output.
+
+    Args:
+        lessons_items: List of dicts with all lessons learned fields.
+
+    Returns:
+        The formatted markdown table string, or an empty string if there
+        are no items.
+    """
+    if not lessons_items:
+        return ''
+
+    headers = ['ID', 'Project Manager', 'Project Type', 'Technology',
+               'Project Phase', 'Area', 'Impact Type', 'Observation',
+               'Impact', 'Recommendations', 'Date']
+
+    def escape_pipe(value):
+        return str(value).replace('|', '\\|').replace('\n', ' ')
+
+    rows = []
+    for item in lessons_items:
+        rows.append([
+            escape_pipe(str(item.get('id', ''))),
+            escape_pipe(item.get('project_manager', '')),
+            escape_pipe(item.get('project_type', '')),
+            escape_pipe(item.get('technology', '')),
+            escape_pipe(item.get('project_phase', '')),
+            escape_pipe(item.get('area', '')),
+            escape_pipe(item.get('impact_type', '')),
+            escape_pipe(item.get('observation', '')),
+            escape_pipe(item.get('impact', '')),
+            escape_pipe(item.get('recommendations', '')),
+            escape_pipe(item.get('date', '')),
+        ])
+
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def format_row(cells):
+        padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
+        return '| ' + ' | '.join(padded) + ' |'
+
+    separator = '|' + '|'.join('-' * (widths[i] + 2) for i in range(len(headers))) + '|'
+
+    lines = [format_row(headers), separator]
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)
+
+
+def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
+    """Update plan text with the given lessons learned table.
+
+    Replaces the existing ``---lessons learned---`` section or appends a
+    new one after the comms plan.  If *lessons_items* is empty, any
+    existing lessons section is removed.  Preserves any baseline section
+    that follows.
+
+    Args:
+        plan_text: The full plan text.
+        lessons_items: List of lessons learned item dicts.
+
+    Returns:
+        Updated plan text.
+    """
+    # Preserve the baseline section
+    baseline_text = extract_baseline(plan_text)
+    base = strip_baseline(strip_lessons(plan_text)).rstrip('\n')
+    table = generate_lessons_text(lessons_items)
+
+    result = base
+    if table:
+        result = result + '\n\n' + LESSONS_START + '\n' + table
+
+    if baseline_text:
+        result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
+
+    return result

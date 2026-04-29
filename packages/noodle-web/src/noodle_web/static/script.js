@@ -89,7 +89,7 @@ function mergeDuplicateSections(text) {
     const HIGHLIGHTS_START = '---highlights---';
     const HIGHLIGHTS_END = '---end-highlights---';
     const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
-                      '---raid log---', '---comms---', '---baseline---'];
+                      '---raid log---', '---comms---', '---lessons learned---', '---baseline---'];
 
     for (const marker of sections) {
         const firstIdx = text.indexOf(marker);
@@ -778,6 +778,19 @@ NavigationController.register('comms', {
         closeAllNavMenus();
         setActiveNavTab('planTab');
         updatePlanSubnav('comms');
+    },
+    deactivate() {}
+});
+
+NavigationController.register('lessons', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('lessons');
+        updateRaidExportVisibility('lessons');
+        if (typeof loadLessonsItemsIfEmpty === 'function') loadLessonsItemsIfEmpty();
+        closeAllNavMenus();
+        setActiveNavTab('planTab');
+        updatePlanSubnav('lessons');
     },
     deactivate() {}
 });
@@ -1513,6 +1526,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
             { name: 'raid',                    fn: () => updateRaidView(result, planText) },
             { name: 'comms',                   fn: () => updateCommsView(result, planText) },
+            { name: 'lessons',                 fn: () => { if (typeof updateLessonsView === 'function') updateLessonsView(result, planText); } },
             { name: 'budget',                  fn: () => updateBudgetView(planText) },
             { name: 'stakeholders',            fn: () => updateStakeholdersView() },
             { name: 'benefits',                fn: () => { if (typeof updateBenefits === 'function') updateBenefits(); } },
@@ -10773,20 +10787,21 @@ function updatePlanCommsText(planText, items) {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
     const benefitsText = extractSection(planText, BENEFITS_START_M,
-        [RAID_LOG_START, COMMS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, BASELINE_START]);
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
     const baselineText = planText.indexOf(BASELINE_START) !== -1
         ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
         : '';
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -10803,7 +10818,7 @@ function updatePlanCommsText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
     let result = base;
 
     if (highlightsText) {
@@ -10825,6 +10840,10 @@ function updatePlanCommsText(planText, items) {
     const table = generateCommsMarkdown();
     if (table) {
         result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + table;
+    }
+
+    if (lessonsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + LESSONS_START + '\n' + lessonsText;
     }
 
     if (baselineText) {
@@ -11384,21 +11403,22 @@ function updatePlanBudgetText(planText, items) {
 
     // Extract every trailing section so we can re-append them in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const benefitsText = extractSection(planText, BENEFITS_START,
-        [RAID_LOG_START, COMMS_START, BASELINE_START]);
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
     const raidText = extractSection(planText, RAID_LOG_START,
-        [COMMS_START, BASELINE_START]);
+        [COMMS_START, LESSONS_START, BASELINE_START]);
     const commsText = extractSection(planText, COMMS_START,
-        [BASELINE_START]);
+        [LESSONS_START, BASELINE_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
     const baselineText = planText.indexOf(BASELINE_START) !== -1
         ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
         : '';
 
     // Strip all special sections from base to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -11417,7 +11437,7 @@ function updatePlanBudgetText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
     let result = base;
 
     // Re-append highlights
@@ -11443,6 +11463,9 @@ function updatePlanBudgetText(planText, items) {
     }
     if (commsText) {
         result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + commsText;
+    }
+    if (lessonsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + LESSONS_START + '\n' + lessonsText;
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
@@ -11890,20 +11913,21 @@ function updatePlanRaidLogText(planText, items) {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START]);
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
     const benefitsText = extractSection(planText, BENEFITS_START_M,
-        [RAID_LOG_START, COMMS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [BASELINE_START]);
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
     const baselineText = planText.indexOf(BASELINE_START) !== -1
         ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
         : '';
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -11921,7 +11945,7 @@ function updatePlanRaidLogText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
     let result = base;
 
     if (highlightsText) {
@@ -11944,6 +11968,9 @@ function updatePlanRaidLogText(planText, items) {
 
     if (commsText) {
         result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + commsText;
+    }
+    if (lessonsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + LESSONS_START + '\n' + lessonsText;
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
@@ -12811,6 +12838,7 @@ function clearPlanTrackingData() {
     clearRaidLogEntries();
     clearBudgetEntries();
     clearCommsEntries();
+    if (typeof clearLessonsEntries === 'function') clearLessonsEntries();
     clearHighlights();
     clearStakeholders();
     baselineItems = [];
@@ -13202,10 +13230,11 @@ function updatePlanHighlightsText(planText, highlights) {
         return text.substring(afterStart, endIdx).replace(/^\n+/, '').replace(/\n+$/, '');
     }
 
-    const budgetText = extractSection(planText, BUDGET_START, ['---benefits---', RAID_LOG_START, COMMS_START, BASELINE_START]);
-    const benefitsText = extractSection(planText, '---benefits---', [RAID_LOG_START, COMMS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [BASELINE_START]);
+    const budgetText = extractSection(planText, BUDGET_START, ['---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+    const benefitsText = extractSection(planText, '---benefits---', [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
     const baselineText = planText.indexOf(BASELINE_START) !== -1
         ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
         : '';
@@ -13213,7 +13242,7 @@ function updatePlanHighlightsText(planText, highlights) {
     // Strip all special sections from base to get just tasks + front matter
     let base = planText;
     // Strip from earliest section marker onwards
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -13258,6 +13287,9 @@ function updatePlanHighlightsText(planText, highlights) {
     }
     if (commsText) {
         result = result.replace(/\n+$/, '') + '\n\n' + COMMS_START + '\n' + commsText;
+    }
+    if (lessonsText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + LESSONS_START + '\n' + lessonsText;
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
