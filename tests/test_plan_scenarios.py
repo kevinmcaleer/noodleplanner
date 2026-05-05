@@ -547,6 +547,57 @@ Phase 2
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
+    def test_excel_summary_has_percentage_complete(self):
+        """Summary worksheet should include overall Percentage Complete
+        calculated as the simple average of leaf-task percent values
+        (matching frontend calculateProjectCompletionFromTasks)."""
+        # Mixed completion across 4 leaf tasks: 25, 50, 75, 100 -> average = 62.5 -> rounds to 62
+        plan = """\
+Phase 1
+  Task A @Alice 4d 25%
+  Task B @Bob 4d 50%
+Phase 2
+  Task C @Carol 4d 75%
+  Task D @Dan 4d 100%"""
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                tmp_path = tmp.name
+            # Pass original_text so the Summary sheet is created.
+            export_to_excel(
+                plan, tmp_path,
+                is_yaml=False,
+                project_name="Mixed Completion Project",
+                original_text=plan,
+            )
+            wb = load_workbook(tmp_path)
+            assert "Summary" in wb.sheetnames
+            ws_summary = wb["Summary"]
+
+            # Find the Percentage Complete row
+            found_value = None
+            found_format = None
+            for row in ws_summary.iter_rows(min_row=1, max_col=2, values_only=False):
+                label_cell, value_cell = row[0], row[1]
+                if label_cell.value == 'Percentage Complete':
+                    found_value = value_cell.value
+                    found_format = value_cell.number_format
+                    break
+
+            assert found_value is not None, \
+                "Percentage Complete row not found in Summary worksheet"
+            # (25+50+75+100)/4 = 62.5 -> round() -> 62, stored as 0.62 fraction
+            # Python's banker's rounding: round(62.5) == 62
+            assert abs(found_value - 0.62) < 1e-6, \
+                f"Expected 0.62 (62%), got {found_value}"
+            assert '%' in (found_format or ''), \
+                f"Expected percentage number format, got {found_format!r}"
+            wb.close()
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
 
 class TestCSVExport:
     """Scenario 20: CSV export produces valid output."""
