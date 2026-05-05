@@ -342,10 +342,20 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                 return savePlaceholder('<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
             });
 
-            // Replace all placeholders with actual HTML
+            // Replace all placeholders with actual HTML.
+            // Use a function callback for the replacement so that any "$" patterns
+            // inside the saved HTML (e.g. "$Product" from a deliverable token) are
+            // NOT interpreted as replacement-string specials ($&, $$, $<name>, etc.).
             placeholders.forEach(({ placeholder, replacement }) => {
-                highlighted = highlighted.replace(placeholder, replacement);
+                highlighted = highlighted.replace(placeholder, () => replacement);
             });
+
+            // Safety net: strip any internal placeholder tokens that somehow
+            // survived restoration (e.g. if a regex above mutated one). These are
+            // never meant to be visible to the user.
+            if (highlighted.indexOf('__PLACEHOLDER_') !== -1) {
+                highlighted = highlighted.replace(/__PLACEHOLDER_\d+__/g, '');
+            }
 
             return highlighted;
         }).join('\n');
