@@ -3302,6 +3302,16 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             summary_label_font = Font(bold=True, color="FFFFFF", size=11)
             summary_value_font = Font(size=11)
 
+            # Calculate overall project completion from leaf (non-summary) tasks.
+            # Matches the frontend's calculateProjectCompletionFromTasks (portfolio-status.js):
+            # simple average of leaf task percent values.
+            leaf_tasks = [t for t in tasks if not t.get('summary')]
+            if leaf_tasks:
+                total_percent = sum(float(t.get('percent') or 0) for t in leaf_tasks)
+                percent_complete = round(total_percent / len(leaf_tasks))
+            else:
+                percent_complete = 0
+
             summary_rows = [
                 ('Project Name', title),
                 ('Version', kv.get('version', '')),
@@ -3309,6 +3319,7 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                 ('Project Manager', kv.get('project manager', kv.get('pm', ''))),
                 ('Budget', kv.get('budget', '')),
                 ('Sponsor', kv.get('sponsor', '')),
+                ('Percentage Complete', percent_complete / 100.0),
                 ('Date Exported', datetime.now().strftime('%Y-%m-%d %H:%M')),
             ]
 
@@ -3319,6 +3330,8 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
                 label_cell.alignment = Alignment(horizontal='right')
                 value_cell = ws_summary.cell(row=row_idx, column=2, value=value)
                 value_cell.font = summary_value_font
+                if label == 'Percentage Complete':
+                    value_cell.number_format = '0%'
 
             ws_summary.column_dimensions['A'].width = 20
             ws_summary.column_dimensions['B'].width = 35
