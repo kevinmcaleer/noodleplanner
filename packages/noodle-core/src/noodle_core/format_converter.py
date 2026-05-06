@@ -557,6 +557,8 @@ def parse_budget_markdown(text: str) -> list:
             continue
         if all(c in '-| ' for c in line):
             continue
+        if line.lstrip().startswith('//'):
+            continue
 
         cells = parse_row(line)
         if not cells:
@@ -711,6 +713,8 @@ def parse_raid_markdown(text: str) -> list:
             continue
         # Skip separator row (all dashes)
         if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+        if line.lstrip().startswith('//'):
             continue
 
         cells = parse_row(line)
@@ -1013,6 +1017,8 @@ def parse_comms_markdown(text: str) -> list:
             continue
         if all(c in '-| ' for c in line):
             continue
+        if line.lstrip().startswith('//'):
+            continue
 
         cells = parse_row(line)
         if not cells:
@@ -1197,6 +1203,8 @@ def parse_baseline_markdown(text: str) -> list:
     for line in lines[data_start:]:
         line = line.strip()
         if not line or not line.startswith('|'):
+            continue
+        if line.startswith('//'):
             continue
 
         cells = [c.strip() for c in line.strip('| ').split('|')]
@@ -1499,6 +1507,8 @@ def parse_benefits_markdown(text: str) -> list:
             continue
         # Skip separator row (all dashes)
         if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+        if line.lstrip().startswith('//'):
             continue
 
         cells = parse_row(line)

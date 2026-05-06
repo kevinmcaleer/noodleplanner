@@ -18,6 +18,9 @@ from noodle_core import (
     generate_baseline_text,
     update_plan_baseline,
     parse_benefits_markdown,
+    parse_budget_markdown,
+    parse_raid_markdown,
+    parse_comms_markdown,
     extract_lessons,
     strip_lessons,
     parse_lessons_markdown,
@@ -1159,6 +1162,72 @@ benefits---
         assert 'Task 1' in result
         assert '---benefits---' not in result
         assert '| ID' not in result
+
+
+class TestCommentedTableRows:
+    """Rows prefixed with `//` are excluded from each markdown table parser."""
+
+    def test_benefits_skips_commented_row(self):
+        text = """| ID | Type      | Title       |
+|----|-----------|-------------|
+| 1  | objective | active      |
+// | 2  | enabler   | hidden      |
+| 3  | benefit   | also active |"""
+        items = parse_benefits_markdown(text)
+        ids = [it['id'] for it in items]
+        titles = [it['title'] for it in items]
+        assert ids == [1, 3]
+        assert 'hidden' not in ' '.join(titles)
+        assert 'enabler' not in ' '.join(titles)
+
+    def test_raid_skips_commented_row(self):
+        text = """| Type | Description    | Status |
+|------|----------------|--------|
+| risk | active risk    | open   |
+// | risk | hidden risk    | open   |
+| issue | another active | open  |"""
+        items = parse_raid_markdown(text)
+        descriptions = [it.get('title', '') + ' ' + it.get('description', '') for it in items]
+        joined = ' '.join(descriptions)
+        assert 'active risk' in joined
+        assert 'another active' in joined
+        assert 'hidden risk' not in joined
+
+    def test_budget_skips_commented_row(self):
+        text = """| ID | Description     | Estimate | Forecast | Type |
+|----|-----------------|----------|----------|------|
+| 1  | active item     | 1000     | 1100     | Capex |
+// | 2  | hidden item     | 9999     | 9999     | Capex |
+| 3  | another item    | 500      | 500      | Opex  |"""
+        items = parse_budget_markdown(text)
+        descriptions = [it['description'] for it in items]
+        assert 'active item' in descriptions
+        assert 'another item' in descriptions
+        assert 'hidden item' not in descriptions
+
+    def test_comms_skips_commented_row(self):
+        text = """| ID | Activity     | Audience | Content     | Channel | Frequency | Owner | Status |
+|----|--------------|----------|-------------|---------|-----------|-------|--------|
+| 1  | active update | execs   | active msg  | email   | Weekly    | kev   | Active |
+// | 2  | hidden update | team   | hidden msg  | slack   | Daily     | kev   | Active |
+| 3  | another update | clients | another msg | email   | Monthly   | kev   | Active |"""
+        items = parse_comms_markdown(text)
+        contents = [it.get('content', '') for it in items]
+        assert 'active msg' in contents
+        assert 'another msg' in contents
+        assert 'hidden msg' not in contents
+
+    def test_baseline_skips_commented_row(self):
+        text = """| Task Name | Start      | Finish     | Duration |
+|-----------|------------|------------|----------|
+| Task A    | 2026-01-01 | 2026-01-05 | 5d       |
+// | Task B    | 2026-01-06 | 2026-01-10 | 5d       |
+| Task C    | 2026-01-11 | 2026-01-15 | 5d       |"""
+        items = parse_baseline_markdown(text)
+        names = [it['name'] for it in items]
+        assert 'Task A' in names
+        assert 'Task C' in names
+        assert 'Task B' not in names
 
 
 class TestHighlightsPreserveRaidLog:
