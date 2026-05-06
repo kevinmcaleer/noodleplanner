@@ -18,6 +18,11 @@ from noodle_core import (
     generate_baseline_text,
     update_plan_baseline,
     parse_benefits_markdown,
+    extract_lessons,
+    strip_lessons,
+    parse_lessons_markdown,
+    generate_lessons_text,
+    update_plan_lessons,
 )
 
 
@@ -1702,6 +1707,311 @@ without any table structure."""
         assert item['measurement_method'] == 'Financial report'
         assert item['linked_to'] == [1]
         assert item['contribution_percent'] == 75
+
+
+SAMPLE_LESSONS = """| ID | Project Manager | Project Type | Technology | Project Phase | Area     | Impact Type     | Observation                | Impact                | Recommendations         | Date       |
+|----|-----------------|--------------|------------|---------------|----------|-----------------|----------------------------|-----------------------|-------------------------|------------|
+| 1  | Alice           | Agile        | Python     | Delivery      | Quality  | Went Well       | Pair programming worked    | Faster code review    | Continue pairing        | 2026-04-01 |
+| 2  | Bob             | Waterfall    | .NET       | Planning      | Resource | Needs to Change | Resource conflicts         | Delayed phase 2       | Confirm resources early | 2026-04-10 |"""
+
+
+class TestExtractLessons:
+    """Test suite for extract_lessons function."""
+
+    def test_extract_lessons_basic(self):
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        result = extract_lessons(text)
+        assert '| ID' in result
+        assert 'Pair programming worked' in result
+        assert 'Resource conflicts' in result
+
+    def test_extract_lessons_not_present(self):
+        assert extract_lessons("Phase 1\n  Task 1 @john 3d") == ''
+
+    def test_extract_lessons_stops_at_baseline(self):
+        text = (
+            "---lessons learned---\n" + SAMPLE_LESSONS +
+            "\n\n---baseline---\n| Task Name | Start | Finish | Duration |\n"
+        )
+        result = extract_lessons(text)
+        assert '---baseline---' not in result
+        assert 'Task Name' not in result
+        assert 'Pair programming worked' in result
+
+
+class TestStripLessons:
+    """Test suite for strip_lessons function."""
+
+    def test_strip_lessons_removes_section(self):
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        result = strip_lessons(text)
+        assert '---lessons learned---' not in result
+        assert 'Pair programming' not in result
+        assert 'Task 1' in result
+
+    def test_strip_lessons_preserves_baseline(self):
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---lessons learned---\n" + SAMPLE_LESSONS + "\n\n"
+            "---baseline---\n| Task Name | Start | Finish | Duration |\n"
+            "|-----------|-------|--------|----------|\n"
+            "| Task 1    | 2026-01-01 | 2026-01-04 | 3d |"
+        )
+        result = strip_lessons(text)
+        assert '---lessons learned---' not in result
+        assert 'Pair programming' not in result
+        assert '---baseline---' in result
+        assert '| Task 1' in result
+
+    def test_strip_lessons_no_section(self):
+        text = "Phase 1\n  Task 1 @john 3d"
+        assert strip_lessons(text) == text
+
+
+class TestParseLessonsMarkdown:
+    """Test suite for parse_lessons_markdown function."""
+
+    def test_parse_lessons_basic(self):
+        items = parse_lessons_markdown(SAMPLE_LESSONS)
+        assert len(items) == 2
+
+        first = items[0]
+        assert first['id'] == 1
+        assert first['project_manager'] == 'Alice'
+        assert first['project_type'] == 'Agile'
+        assert first['technology'] == 'Python'
+        assert first['project_phase'] == 'Delivery'
+        assert first['area'] == 'Quality'
+        assert first['impact_type'] == 'Went Well'
+        assert first['observation'] == 'Pair programming worked'
+        assert first['impact'] == 'Faster code review'
+        assert first['recommendations'] == 'Continue pairing'
+        assert first['date'] == '2026-04-01'
+
+        second = items[1]
+        assert second['impact_type'] == 'Needs to Change'
+        assert second['observation'] == 'Resource conflicts'
+
+    def test_parse_lessons_empty(self):
+        assert parse_lessons_markdown('') == []
+
+    def test_parse_lessons_no_header(self):
+        assert parse_lessons_markdown('just some text') == []
+
+    def test_parse_lessons_id_autoincrement(self):
+        text = """| ID | Project Manager | Observation        | Date       |
+|----|-----------------|--------------------|------------|
+|    | Alice           | First lesson       | 2026-04-01 |
+|    | Bob             | Second lesson      | 2026-04-02 |"""
+        items = parse_lessons_markdown(text)
+        assert len(items) == 2
+        assert items[0]['id'] == 1
+        assert items[1]['id'] == 2
+
+
+class TestGenerateLessonsText:
+    """Test suite for generate_lessons_text function."""
+
+    def test_generate_lessons_empty(self):
+        assert generate_lessons_text([]) == ''
+
+    def test_generate_lessons_basic(self):
+        items = [
+            {
+                'id': 1,
+                'project_manager': 'Alice',
+                'project_type': 'Agile',
+                'technology': 'Python',
+                'project_phase': 'Delivery',
+                'area': 'Quality',
+                'impact_type': 'Went Well',
+                'observation': 'Pair programming worked',
+                'impact': 'Faster review',
+                'recommendations': 'Continue pairing',
+                'date': '2026-04-01',
+            }
+        ]
+        text = generate_lessons_text(items)
+        assert '| ID' in text
+        assert '| Alice' in text
+        assert 'Pair programming worked' in text
+        assert 'Went Well' in text
+
+    def test_generate_lessons_escapes_pipes(self):
+        items = [
+            {
+                'id': 1, 'project_manager': 'A', 'project_type': '', 'technology': '',
+                'project_phase': '', 'area': '', 'impact_type': 'Went Well',
+                'observation': 'note | with pipe', 'impact': '', 'recommendations': '',
+                'date': '',
+            }
+        ]
+        text = generate_lessons_text(items)
+        assert 'note \\| with pipe' in text
+
+
+class TestUpdatePlanLessons:
+    """Test suite for update_plan_lessons function."""
+
+    def test_update_plan_lessons_appends(self):
+        plan = "Phase 1\n  Task 1 @john 3d"
+        items = [
+            {
+                'id': 1, 'project_manager': 'Alice', 'project_type': 'Agile',
+                'technology': 'Python', 'project_phase': 'Delivery',
+                'area': 'Quality', 'impact_type': 'Went Well',
+                'observation': 'Pair programming worked',
+                'impact': 'Faster review', 'recommendations': 'Continue',
+                'date': '2026-04-01',
+            }
+        ]
+        result = update_plan_lessons(plan, items)
+        assert '---lessons learned---' in result
+        assert 'Pair programming worked' in result
+        assert 'Task 1' in result
+
+    def test_update_plan_lessons_replaces_existing(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        items = [
+            {
+                'id': 1, 'project_manager': 'Carol', 'project_type': 'Agile',
+                'technology': 'JS', 'project_phase': 'Closure',
+                'area': 'Communication', 'impact_type': 'Mixed',
+                'observation': 'New observation only',
+                'impact': 'New impact', 'recommendations': 'Adopt',
+                'date': '2026-05-01',
+            }
+        ]
+        result = update_plan_lessons(plan, items)
+        assert '---lessons learned---' in result
+        assert 'New observation only' in result
+        assert 'Pair programming worked' not in result
+        assert 'Resource conflicts' not in result
+
+    def test_update_plan_lessons_empty_removes(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        result = update_plan_lessons(plan, [])
+        assert '---lessons learned---' not in result
+        assert 'Pair programming' not in result
+        assert 'Task 1' in result
+
+    def test_update_plan_lessons_preserves_baseline(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---baseline---\n| Task Name | Start | Finish | Duration |\n"
+            "|-----------|-------|--------|----------|\n"
+            "| Task 1    | 2026-01-01 | 2026-01-04 | 3d |"
+        )
+        items = [
+            {
+                'id': 1, 'project_manager': 'Alice', 'project_type': '',
+                'technology': '', 'project_phase': '', 'area': '',
+                'impact_type': 'Went Well', 'observation': 'Obs',
+                'impact': '', 'recommendations': '', 'date': '',
+            }
+        ]
+        result = update_plan_lessons(plan, items)
+        assert '---lessons learned---' in result
+        assert '---baseline---' in result
+        # Lessons must come BEFORE baseline so baseline still terminates the file
+        lessons_pos = result.find('---lessons learned---')
+        baseline_pos = result.find('---baseline---')
+        assert lessons_pos < baseline_pos
+
+    def test_update_plan_lessons_round_trip(self):
+        plan = "Phase 1\n  Task 1 @john 3d"
+        items = parse_lessons_markdown(SAMPLE_LESSONS)
+        assert len(items) == 2
+        result = update_plan_lessons(plan, items)
+
+        # Re-extract and re-parse — fields should round-trip
+        round_tripped = parse_lessons_markdown(extract_lessons(result))
+        assert len(round_tripped) == 2
+        assert round_tripped[0]['observation'] == items[0]['observation']
+        assert round_tripped[0]['impact_type'] == items[0]['impact_type']
+        assert round_tripped[1]['recommendations'] == items[1]['recommendations']
+
+
+class TestLessonsLearnedNotParsedAsTasks:
+    """Test that lessons learned content is not parsed as tasks."""
+
+    def test_lessons_stripped_before_task_parsing(self):
+        text = (
+            "Phase 1\n  Task 1 @john 3days\n\n---lessons learned---\n"
+            + SAMPLE_LESSONS
+        )
+        result = convert_plan_format_to_standard(text)
+        assert '---lessons learned---' not in result
+        assert 'Pair programming worked' not in result
+        assert 'Resource conflicts' not in result
+        assert 'Task 1' in result
+
+    def test_lessons_with_other_sections(self):
+        """Lessons should be stripped alongside RAID and comms."""
+        text = (
+            "Phase 1\n  Task 1 @john 3days\n\n"
+            "---raid log---\n"
+            "| Type | Description | Status | Score | Owner | Date |\n"
+            "|------|-------------|--------|-------|-------|------|\n"
+            "| risk | demo risk   | open   | 9     | kev   | 2026 |\n\n"
+            "---comms---\n"
+            "| ID | Activity | Audience | Content | Frequency | Channel | Owner | Status |\n"
+            "|----|----------|----------|---------|-----------|---------|-------|--------|\n"
+            "| 1  | Update   | Sponsor  | Status  | Weekly    | Email   | Alice | Active |\n\n"
+            "---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        result = convert_plan_format_to_standard(text)
+        assert '---lessons learned---' not in result
+        assert '---raid log---' not in result
+        assert '---comms---' not in result
+        assert 'Pair programming worked' not in result
+        assert 'demo risk' not in result
+        assert 'Task 1' in result
+
+
+class TestLessonsPreservedDuringSectionUpdates:
+    """Updates to other sections must not destroy the lessons learned table."""
+
+    def test_update_highlights_preserves_lessons(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---highlights---\n## 2026-04-01 @Alice\n- Old\n\n"
+            "---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        new_highlights = [
+            {'date': '2026-04-15', 'author': 'Bob', 'content': '- New'},
+        ]
+        result = update_plan_highlights(plan, new_highlights)
+        assert '---highlights---' in result
+        assert '---lessons learned---' in result
+        assert 'Pair programming worked' in result
+        # Highlights must come before lessons
+        assert result.find('---highlights---') < result.find('---lessons learned---')
+
+    def test_update_raid_log_preserves_lessons(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---raid log---\n"
+            "| Type | Description | Status | Score | Owner | Date |\n"
+            "|------|-------------|--------|-------|-------|------|\n"
+            "| risk | old         | open   | 9     | kev   | 2026 |\n\n"
+            "---lessons learned---\n" + SAMPLE_LESSONS
+        )
+        result = update_plan_raid_log(plan, [
+            {'type': 'risk', 'title': 'new risk', 'description': 'd', 'status': 'open',
+             'impact': 3, 'likelihood': 3, 'score': 9, 'owner': 'kev'},
+        ])
+        assert '---raid log---' in result
+        assert '---lessons learned---' in result
+        assert 'Pair programming worked' in result
 
 
 if __name__ == "__main__":

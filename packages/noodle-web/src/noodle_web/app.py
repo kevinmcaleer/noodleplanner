@@ -550,6 +550,7 @@ async def parse_plan(data: RenderRequest):
         "dependencies": result.dependencies,
         "stakeholders": result.stakeholders or [],
         "benefits_items": result.benefits_items,
+        "lessons_items": result.lessons_items or [],
         "resource_roles": result.resource_roles or {},
     }
     if result.error:

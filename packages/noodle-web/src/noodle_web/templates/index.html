@@ -331,7 +331,7 @@
                 <!-- Tracking dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="trackingDropdownBtn"
-                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,comms"
+                            data-dropdown-views="raid,actions,highlights,lookahead,analysis,budget,evm,comms,lessons"
                             onclick="toggleDropdownMenu('trackingDropdownMenu', 'trackingDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="trackingDropdownMenu">
                         Tracking &#9662;
@@ -360,6 +360,9 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="comms" onclick="switchToView('comms'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-stakeholders"/></svg> Comms Plan
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="lessons" onclick="switchToView('lessons'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-highlights"/></svg> Lessons Learned
                         </div>
                     </div>
                 </div>
@@ -1865,6 +1868,81 @@ Build
                 </div>
             </div>
 
+            <!-- Lessons Learned Tab (issue #598) -->
+            <div id="lessons-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+                <div class="raid-container">
+                    <!-- Toolbar -->
+                    <div class="raid-toolbar">
+                        <a class="subtle-add-btn" onclick="addLessonsItem()" title="Capture a lesson learned">+ Add Lesson</a>
+                        <div class="raid-toolbar-separator"></div>
+                        <div class="raid-filter-group">
+                            <label for="lessonsFilterImpact">Impact:</label>
+                            <select id="lessonsFilterImpact" onchange="renderLessonsTable()">
+                                <option value="all">All</option>
+                                <option value="Went Well">Went Well</option>
+                                <option value="Needs to Change">Needs to Change</option>
+                                <option value="Mixed">Mixed</option>
+                            </select>
+                        </div>
+                        <div class="raid-filter-group">
+                            <label for="lessonsFilterPhase">Phase:</label>
+                            <select id="lessonsFilterPhase" onchange="renderLessonsTable()">
+                                <option value="all">All</option>
+                                <option value="Initiation">Initiation</option>
+                                <option value="Planning">Planning</option>
+                                <option value="Delivery">Delivery</option>
+                                <option value="Closure">Closure</option>
+                                <option value="Post-Project">Post-Project</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Appreciative-Inquiry prompts -->
+                    <div class="lessons-prompts" style="padding: 10px 14px; background: #2a2a2a; border-left: 4px solid #6F42C1; margin: 0 0 8px 0; font-size: 0.85em; color: #d4d4d4;">
+                        <strong>Capture lessons in the spirit of Appreciative Inquiry:</strong>
+                        <ul style="margin: 4px 0 0 18px; padding: 0;">
+                            <li><em>Discover</em> - what went well? What did the team do brilliantly?</li>
+                            <li><em>Dream</em> - what would the ideal next project look like?</li>
+                            <li><em>Design</em> - what change would amplify the positive?</li>
+                            <li><em>Deliver</em> - what concrete recommendations should we adopt?</li>
+                        </ul>
+                    </div>
+
+                    <!-- Lessons Table -->
+                    <div class="raid-table-wrapper">
+                        <table class="raid-table" id="lessonsTable" aria-label="Lessons learned">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortLessonsTable('id')">ID <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('projectPhase')">Phase <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('area')">Area <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('impactType')">Impact Type <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('observation')">Observation <span class="sort-indicator"></span></th>
+                                    <th>Impact</th>
+                                    <th>Recommendations</th>
+                                    <th onclick="sortLessonsTable('projectManager')">PM <span class="sort-indicator"></span></th>
+                                    <th onclick="sortLessonsTable('date')">Date <span class="sort-indicator"></span></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lessonsTableBody">
+                            </tbody>
+                        </table>
+                        <div class="raid-empty-state" id="lessonsEmptyState">
+                            <h3>Lessons Learned</h3>
+                            <p>Capture what went well and what to change next time, using an Appreciative Inquiry approach.</p>
+                            <p>Try a starter prompt:</p>
+                            <ul style="display: inline-block; text-align: left; margin: 8px auto;">
+                                <li><em>"What is one thing the team should keep doing on the next project?"</em></li>
+                                <li><em>"Where did our process feel most effective?"</em></li>
+                                <li><em>"What would make resource planning even better next time?"</em></li>
+                            </ul>
+                            <p>Click <strong>"+ Add Lesson"</strong> to record one.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Budget Tracker Tab -->
             <div id="budget-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
                 <div class="budget-container">
@@ -2113,6 +2191,10 @@ Build
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                                     Benefits
                                 </button>
+                                <button class="portfolio-subnav-btn" onclick="switchPortfolioView('lessons')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                    Lessons
+                                </button>
                             </div>
                         </div>
                         <div class="portfolio-actions">
@@ -2170,6 +2252,10 @@ Build
 
                     <div id="portfolioBenefitsView" class="portfolio-content portfolio-view" style="display: none;">
                         <!-- Portfolio benefits view will be populated by JavaScript -->
+                    </div>
+
+                    <div id="portfolioLessonsView" class="portfolio-content portfolio-view" style="display: none;">
+                        <!-- Portfolio lessons learned view will be populated by JavaScript -->
                     </div>
                 </div>
             </div>
@@ -2815,6 +2901,113 @@ Build
                     <div id="commsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
                         <button type="button" class="btn-danger" onclick="confirmDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this comms item">
                             &#128465; Delete Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lessons Learned Item Form Section (issue #598) -->
+        <div id="lessonsFormSection" class="detail-pane-section">
+            <div class="modal-header">
+                <h2 id="lessonsFormTitle">New Lesson Learned</h2>
+                <button class="close-btn" onclick="closeLessonsForm()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault();">
+                    <input type="hidden" id="lessonsItemId">
+
+                    <p style="margin: 0 0 12px 0; padding: 8px 12px; background: rgba(111, 66, 193, 0.08); border-left: 3px solid #6F42C1; font-size: 0.85em;">
+                        <strong>Appreciative Inquiry prompts:</strong> What went well? What would we change next time? What recommendation would we make to the next project team?
+                    </p>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="lessonsItemProjectManager">Project Manager</label>
+                            <input type="text" id="lessonsItemProjectManager" class="form-control" placeholder="Who managed this project">
+                        </div>
+                        <div class="form-group">
+                            <label for="lessonsItemDate">Date</label>
+                            <input type="date" id="lessonsItemDate" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="lessonsItemProjectType">Project Type</label>
+                            <input type="text" id="lessonsItemProjectType" class="form-control" placeholder="e.g. Agile, Waterfall, Hybrid">
+                        </div>
+                        <div class="form-group">
+                            <label for="lessonsItemTechnology">Technology</label>
+                            <input type="text" id="lessonsItemTechnology" class="form-control" placeholder="e.g. Python, AWS, ServiceNow">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group">
+                            <label for="lessonsItemProjectPhase">Project Phase</label>
+                            <select id="lessonsItemProjectPhase" class="form-control">
+                                <option value="">- Select -</option>
+                                <option value="Initiation">Initiation</option>
+                                <option value="Planning">Planning</option>
+                                <option value="Delivery">Delivery</option>
+                                <option value="Closure">Closure</option>
+                                <option value="Post-Project">Post-Project</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="lessonsItemArea">Area</label>
+                            <select id="lessonsItemArea" class="form-control">
+                                <option value="">- Select -</option>
+                                <option value="Quality">Quality</option>
+                                <option value="Resource Plans">Resource Plans</option>
+                                <option value="Schedule">Schedule</option>
+                                <option value="Cost">Cost</option>
+                                <option value="Scope">Scope</option>
+                                <option value="Communication">Communication</option>
+                                <option value="Risk">Risk</option>
+                                <option value="Stakeholders">Stakeholders</option>
+                                <option value="Procurement">Procurement</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Process">Process</option>
+                                <option value="Team">Team</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lessonsItemImpactType">Impact Type</label>
+                        <select id="lessonsItemImpactType" class="form-control">
+                            <option value="Went Well">Went Well</option>
+                            <option value="Needs to Change">Needs to Change</option>
+                            <option value="Mixed">Mixed</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lessonsItemObservation">Observation</label>
+                        <textarea id="lessonsItemObservation" class="form-control" rows="3" placeholder="What did you observe? What went well, or what needs to change?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lessonsItemImpact">Impact</label>
+                        <textarea id="lessonsItemImpact" class="form-control" rows="2" placeholder="What was the effect on the project (cost, time, quality, morale)?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lessonsItemRecommendations">Recommendations</label>
+                        <textarea id="lessonsItemRecommendations" class="form-control" rows="2" placeholder="What should the next project team do? What change should be adopted?"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeLessonsForm()" style="padding: 8px 20px;">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="saveLessonsItemFromForm()" style="padding: 8px 20px;">Save</button>
+                    </div>
+
+                    <div id="lessonsDeleteButtonRow" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn-danger" onclick="confirmDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Delete this lesson">
+                            &#128465; Delete Lesson
                         </button>
                     </div>
                 </form>
@@ -3682,9 +3875,11 @@ Build
     <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>
     <script src="/static/portfolio-dependencies.js?v={{ v }}"></script>
     <script src="/static/portfolio-benefits.js?v={{ v }}"></script>
+    <script src="/static/portfolio-lessons.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
+    <script src="/static/lessons.js?v={{ v }}"></script>
     <script src="/static/trend-report.js?v={{ v }}"></script>
     <script src="/static/views-products.js?v={{ v }}"></script>
     <script src="/static/views-search.js?v={{ v }}"></script>
@@ -3854,6 +4049,23 @@ Build
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button type="button" class="btn-secondary" onclick="cancelDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
                     <button type="button" class="btn-danger" onclick="executeDeleteCommsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lessons Learned Delete Confirmation Modal -->
+    <div id="lessonsDeleteConfirmOverlay" class="modal-overlay" onclick="if(event.target===this) cancelDeleteLessonsItem()" role="dialog" aria-modal="true" aria-label="Confirm delete lesson">
+        <div class="task-form-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Delete Lesson Learned</h2>
+                <button class="close-btn" onclick="cancelDeleteLessonsItem()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="lessonsDeleteConfirmMessage">Are you sure you want to delete this lesson? This action cannot be undone.</p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-secondary" onclick="cancelDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;">Cancel</button>
+                    <button type="button" class="btn-danger" onclick="executeDeleteLessonsItem()" style="padding: 8px 20px; min-height: 44px;" aria-label="Confirm delete">&#128465; Delete</button>
                 </div>
             </div>
         </div>

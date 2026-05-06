@@ -41,6 +41,8 @@ from noodle_core import (
     parse_baseline_markdown,
     extract_benefits,
     parse_benefits_markdown,
+    extract_lessons,
+    parse_lessons_markdown,
     strip_highlights,
     strip_raid_log,
     strip_budget,
@@ -83,6 +85,7 @@ class ParseResult:
     baseline_items: list
     dependencies: list
     benefits_items: list
+    lessons_items: list = None
     stakeholders: list = None
     resource_roles: dict = None
     error: Optional[str] = None
@@ -331,6 +334,7 @@ class PlanService:
         comms_items = self._safe_extract_comms(plan_text)
         baseline_items = self._safe_extract_baseline(plan_text)
         benefits_items = self._safe_extract_benefits(plan_text)
+        lessons_items = self._safe_extract_lessons(plan_text)
         fm_parser = FrontMatterParser(plan_text)
         dependencies = fm_parser.parse_dependencies()
 
@@ -382,6 +386,7 @@ class PlanService:
                 baseline_items=baseline_items,
                 dependencies=dependencies,
                 benefits_items=benefits_items,
+                lessons_items=lessons_items,
                 stakeholders=stakeholders,
                 resource_roles=resource_roles,
             )
@@ -402,6 +407,7 @@ class PlanService:
                 baseline_items=baseline_items,
                 dependencies=dependencies,
                 benefits_items=benefits_items,
+                lessons_items=lessons_items,
                 stakeholders=stakeholders,
                 resource_roles={},
                 error=str(e),
@@ -644,6 +650,16 @@ class PlanService:
                 return parse_benefits_markdown(benefits_text)
         except (ValueError, KeyError) as e:
             logger.warning(f"Failed to parse benefits from plan text: {e}")
+        return []
+
+    def _safe_extract_lessons(self, plan_text: str) -> list:
+        """Extract lessons learned items, returning an empty list on failure."""
+        try:
+            lessons_text = extract_lessons(plan_text)
+            if lessons_text:
+                return parse_lessons_markdown(lessons_text)
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse lessons learned from plan text: {e}")
         return []
 
     def _schedule_and_build_tasks(
