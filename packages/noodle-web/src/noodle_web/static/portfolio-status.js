@@ -170,44 +170,41 @@ function calculateProjectTrend(ragLetters) {
     return 'stable';
 }
 
+// A project is considered stalled when its plan has not been saved in
+// this many days. Editing/saving a plan refreshes its `last_saved`
+// front-matter timestamp, so any real activity clears the stall.
+var STALLED_DAYS_THRESHOLD = 14;
+
 /**
- * Detect whether a project is stalled by checking if % complete has not
- * changed across the last N version history entries.
- * Returns { stalled: boolean, unchangedVersions: number }.
+ * Detect whether a project is stalled based on its `last_saved` front
+ * matter timestamp. A project is stalled when:
+ *   - It is not complete (% < 100), and
+ *   - `last_saved` is older than STALLED_DAYS_THRESHOLD days.
+ *
+ * Plans without a `last_saved` value, or with an unparseable one, are
+ * treated as not stalled (don't surprise users with false positives).
+ *
+ * @param {Object} frontMatter - Parsed front matter (may be empty).
+ * @param {number} currentCompletion - Overall % complete (0-100).
+ * @param {Date} [now] - Override for testing.
+ * @returns {{ stalled: boolean, daysSinceSave: number|null }}
  */
-function detectStalledProject(projectId, currentCompletion) {
-    if (typeof getVersionHistory !== 'function') return { stalled: false, unchangedVersions: 0 };
+function detectStalledProject(frontMatter, currentCompletion, now) {
+    if (currentCompletion >= 100) return { stalled: false, daysSinceSave: null };
 
-    var history = getVersionHistory(projectId);
-    if (history.length < 2) return { stalled: false, unchangedVersions: 0 };
+    var lastSavedStr = frontMatter && frontMatter.last_saved;
+    if (!lastSavedStr) return { stalled: false, daysSinceSave: null };
 
-    // Build completion values from history (newest first) plus current
-    var completions = [currentCompletion];
-    var limit = Math.min(history.length, 10);
-    for (var i = 0; i < limit; i++) {
-        var pct = null;
-        if (typeof extractCompletionFromPlanText === 'function') {
-            pct = extractCompletionFromPlanText(history[i].planText);
-        }
-        if (pct !== null) completions.push(pct);
-    }
+    var lastSaved = new Date(lastSavedStr);
+    if (isNaN(lastSaved.getTime())) return { stalled: false, daysSinceSave: null };
 
-    if (completions.length < 3) return { stalled: false, unchangedVersions: 0 };
+    var nowDate = now || new Date();
+    var daysSinceSave = Math.floor((nowDate - lastSaved) / (1000 * 60 * 60 * 24));
 
-    // Count how many consecutive entries from the front (newest) have the same completion
-    var baseline = completions[0];
-    var unchangedCount = 1;
-    for (var j = 1; j < completions.length; j++) {
-        if (Math.abs(completions[j] - baseline) <= 1) {
-            unchangedCount++;
-        } else {
-            break;
-        }
-    }
-
-    // Stalled if >= 3 versions with same completion and not at 100%
-    var isStalled = unchangedCount >= 3 && currentCompletion < 100;
-    return { stalled: isStalled, unchangedVersions: unchangedCount };
+    return {
+        stalled: daysSinceSave >= STALLED_DAYS_THRESHOLD,
+        daysSinceSave: daysSinceSave,
+    };
 }
 
 /**
@@ -332,7 +329,7 @@ async function renderPortfolioStatus() {
                 return (type === 'risk' || type === 'issue') && status === 'open';
             }).length;
 
-            const stalledInfo = detectStalledProject(project.id, completion);
+            const stalledInfo = detectStalledProject(frontMatter, completion);
             const forecast = calculateDeliveryForecast(project.id, completion);
 
             return {
@@ -346,7 +343,7 @@ async function renderPortfolioStatus() {
                 updatedAt: project.updatedAt,
                 riskCount: openRisks,
                 stalled: stalledInfo.stalled,
-                stalledVersions: stalledInfo.unchangedVersions,
+                daysSinceSave: stalledInfo.daysSinceSave,
                 forecast: forecast
             };
         });
@@ -392,7 +389,7 @@ async function renderPortfolioStatus() {
             // Stalled badge
             var stalledBadge = '';
             if (proj.stalled) {
-                stalledBadge = ' <span class="stalled-badge" title="No progress in last ' + proj.stalledVersions + ' versions">Stalled</span>';
+                stalledBadge = ' <span class="stalled-badge" title="No save in the last ' + proj.daysSinceSave + ' days">Stalled</span>';
             }
 
             // Forecast cell
