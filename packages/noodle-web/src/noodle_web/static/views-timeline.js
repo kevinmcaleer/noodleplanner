@@ -157,18 +157,30 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
     }
 }
 
+// Cap the number of rows in the minimal timeline so the strip stays
+// concise. Phases that would land in row >= MAX_MINIMAL_TIMELINE_ROWS
+// are dropped (deepest sub-summaries are naturally the last to be
+// placed because phases are sorted by level first).
+const MAX_MINIMAL_TIMELINE_ROWS = 5;
+
 function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
-    // Sort phases by start date
+    // Sort by hierarchy level first (parents before their sub-summaries),
+    // then by start date as a tiebreaker. Greedy row assignment then
+    // ensures higher-level phases occupy the top rows and child
+    // sub-summaries land below their parents.
     const sorted = phases.map(phase => {
         const start = parseLocalDate(phase.start);
         const end = parseLocalDate(phase.finish);
         const startPos = (Math.floor((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays) * timelineWidth;
         const endPos = (Math.floor((end - minDate) / (1000 * 60 * 60 * 24)) / totalDays) * timelineWidth;
-        return { phase, startPos, endPos };
-    }).sort((a, b) => a.startPos - b.startPos);
+        const level = typeof phase.level === 'number' ? phase.level : 0;
+        return { phase, startPos, endPos, level };
+    }).sort((a, b) => (a.level - b.level) || (a.startPos - b.startPos));
 
-    // Greedy row assignment: place each phase in the first row where it does not overlap
-    const rowEnds = []; // Tracks the rightmost end position in each row
+    // Greedy row assignment: place each phase in the first row where it
+    // does not overlap. Phases that would require a row beyond the cap
+    // are dropped to keep the timeline concise.
+    const rowEnds = [];
     const result = [];
 
     sorted.forEach(item => {
@@ -180,6 +192,10 @@ function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
             }
         }
         if (assignedRow === -1) {
+            if (rowEnds.length >= MAX_MINIMAL_TIMELINE_ROWS) {
+                // No room and adding a new row would breach the cap — skip.
+                return;
+            }
             assignedRow = rowEnds.length;
             rowEnds.push(0);
         }
