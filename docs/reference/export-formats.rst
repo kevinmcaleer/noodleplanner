@@ -76,6 +76,20 @@ Exports the plan as a Microsoft Project XML file that can be opened in Microsoft
 - Access: **Tools** → **Export to MS Project**
 - Filename: ``{project-name}.xml``
 
+The file follows the MSPDI schema, so Microsoft Project, ProjectLibre and
+Smartsheet all open it directly — use **File → Open** and pick the ``.xml``
+file. Tasks carry their outline hierarchy, durations, dependencies, percent
+complete, notes and resource assignments, scheduled against a standard
+Monday–Friday 08:00–17:00 calendar.
+
+.. note::
+
+   NoodlePlanner cannot write Microsoft Project's native binary ``.mpp``
+   format — no open-source library can, including MPXJ, the reference
+   implementation, which is read-only for ``.mpp``. XML is the supported
+   round-trip format. NoodlePlanner *can* read ``.mpp`` files on import; see
+   :doc:`../how-to/import-from-ms-project`.
+
 Markdown (``.md``)
 ~~~~~~~~~~~~~~~~~~~
 

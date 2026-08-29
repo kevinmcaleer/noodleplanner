@@ -210,7 +210,9 @@ def extract_metadata(task_str, task_name=None):
     # Supports lag/lead time: [depends task1 +2d, task2 -1w]
     # Supports dependency types: [depends task1:SS, task2:FF +2d]
     # Valid types: FS (default), SS, FF, SF
-    bracket_dep_pattern = r'\[depends\s*([^\]]*)\]'
+    # A colon after the keyword ([depends: task1]) is accepted too — the .mpp
+    # importer writes that form, and users type it.
+    bracket_dep_pattern = r'\[depends\s*:?\s*([^\]]*)\]'
     bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
     if bracket_dep_match:
         # Split by comma and parse each dependency with optional lag/lead

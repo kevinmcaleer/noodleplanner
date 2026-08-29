@@ -1,8 +1,11 @@
 """Tests for Microsoft Project XML and .mpp import and export."""
 
 import os
+import shutil
+import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -10,13 +13,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noodle_core.msproject import (
+    _at_work_finish,
+    _at_work_start,
+    _inclusive_finish,
     export_to_msproject_xml,
     import_from_msproject_xml,
     import_from_mpp,
     _check_mpp_available,
     _check_mpxj_available,
     _duration_to_iso8601,
-    _date_to_msproject,
     _parse_iso8601_duration,
     _generate_shortname,
 )
@@ -28,6 +33,8 @@ from noodle_core.mpp_reader import (
     MppAssignment,
 )
 from noodle_web import app
+
+from tests.mspdi_schema import SCHEMA_PATH, validate_mspdi
 
 
 @pytest.fixture
@@ -164,19 +171,48 @@ class TestDurationToISO8601:
         assert _duration_to_iso8601(5) == "PT40H0M0S"
 
 
-class TestDateToMSProject:
+class TestWorkingDayStamps:
     def test_none(self):
-        assert _date_to_msproject(None) == ""
+        assert _at_work_start(None) == ""
+        assert _at_work_finish(None) == ""
 
-    def test_date_string(self):
+    def test_date_gets_working_times(self):
         from datetime import date
-        result = _date_to_msproject(date(2025, 1, 6))
-        assert result == "2025-01-06T00:00:00"
+        assert _at_work_start(date(2025, 1, 6)) == "2025-01-06T08:00:00"
+        assert _at_work_finish(date(2025, 1, 6)) == "2025-01-06T17:00:00"
 
-    def test_datetime(self):
+    def test_datetime_time_is_replaced(self):
         from datetime import datetime
-        result = _date_to_msproject(datetime(2025, 1, 6, 9, 30, 0))
-        assert result == "2025-01-06T09:30:00"
+        stamp = datetime(2025, 1, 6, 9, 30, 0)
+        assert _at_work_start(stamp) == "2025-01-06T08:00:00"
+        assert _at_work_finish(stamp) == "2025-01-06T17:00:00"
+
+
+class TestInclusiveFinish:
+    """The engine stores finish exclusively; MS Project wants it inclusive."""
+
+    def test_five_day_task_ends_on_the_friday(self):
+        from datetime import datetime
+        # add_working_days(Mon, 5) returns the following Saturday.
+        start = datetime(2025, 1, 6)   # Monday
+        finish = datetime(2025, 1, 11)  # Saturday
+        assert _inclusive_finish(start, finish) == datetime(2025, 1, 10)
+
+    def test_weekend_finish_backs_off_to_friday(self):
+        from datetime import datetime
+        start = datetime(2025, 1, 6)    # Monday
+        finish = datetime(2025, 1, 13)  # the following Monday
+        assert _inclusive_finish(start, finish) == datetime(2025, 1, 10)
+
+    def test_milestone_keeps_its_start(self):
+        from datetime import datetime
+        start = datetime(2025, 1, 6)
+        assert _inclusive_finish(start, start) == start
+
+    def test_missing_finish_falls_back_to_start(self):
+        from datetime import datetime
+        start = datetime(2025, 1, 6)
+        assert _inclusive_finish(start, None) == start
 
 
 class TestParseISO8601Duration:
@@ -318,6 +354,200 @@ class TestExportToMSProjectXML:
             assert "John Doe" in resource_names or "john" in [n.lower() for n in resource_names]
         finally:
             os.unlink(path)
+
+    def test_resource_names_fold_on_case(self):
+        """@Kev and @kev are one resource, not two sharing a UID."""
+        plan = """Phase 1
+  Task A 2d @Kev
+  Task B 2d @kev"""
+
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(plan, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            resources = root.findall(f".//{{{ns}}}Resource")
+            assert len(resources) == 1
+
+            uid = resources[0].find(f"{{{ns}}}UID").text
+            assigned = [
+                a.find(f"{{{ns}}}ResourceUID").text
+                for a in root.findall(f".//{{{ns}}}Assignment")
+            ]
+            assert assigned == [uid, uid]
+        finally:
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# Schema conformance (issue #753)
+#
+# MSPDI models every element as an xsd:sequence, so element order is part of
+# the contract. A well-formed file whose children are out of schema order is
+# rejected by Microsoft Project, which is exactly what #753 reported — and no
+# amount of "is this valid XML" testing catches it.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def exported_xml(sample_plan_with_resources):
+    """Export the sample plan and yield the path to the generated XML."""
+    with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+        path = f.name
+    try:
+        export_to_msproject_xml(
+            sample_plan_with_resources, path, project_name="Test Project"
+        )
+        yield path
+    finally:
+        os.unlink(path)
+
+
+class TestMSPDISchemaConformance:
+    def test_export_matches_schema_structure(self, exported_xml):
+        """Element order and required elements match the MSPDI schema."""
+        errors = validate_mspdi(exported_xml)
+        assert errors == [], "MSPDI schema violations:\n  " + "\n  ".join(errors)
+
+    def test_export_validates_with_xmllint(self, exported_xml):
+        """Full schema validation, when xmllint is available."""
+        if shutil.which("xmllint") is None:
+            pytest.skip("xmllint not installed")
+
+        # The schema targets the versioned namespace; MS Project writes the
+        # unversioned one. Retarget the copy we hand to xmllint.
+        source = Path(exported_xml).read_text()
+        retargeted = source.replace(
+            'xmlns="http://schemas.microsoft.com/project"',
+            'xmlns="http://schemas.microsoft.com/project/2007"',
+        )
+        assert retargeted != source, "export namespace changed unexpectedly"
+
+        with tempfile.NamedTemporaryFile(
+            suffix=".xml", mode="w", delete=False
+        ) as f:
+            retargeted_path = f.name
+            f.write(retargeted)
+        try:
+            result = subprocess.run(
+                ["xmllint", "--noout", "--schema", str(SCHEMA_PATH),
+                 retargeted_path],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stderr
+        finally:
+            os.unlink(retargeted_path)
+
+    def test_export_declares_required_header(self, exported_xml):
+        """SaveVersion and CurrencyCode are the schema's only required fields."""
+        root = ET.parse(exported_xml).getroot()
+        ns = "http://schemas.microsoft.com/project"
+        assert root.find(f"{{{ns}}}SaveVersion") is not None
+        assert root.find(f"{{{ns}}}CurrencyCode") is not None
+        # SaveVersion must be the first child.
+        assert root[0].tag == f"{{{ns}}}SaveVersion"
+
+    def test_outline_starts_at_level_one(self, exported_xml):
+        """Top-level tasks are OutlineLevel 1, not 2 (the old off-by-one)."""
+        root = ET.parse(exported_xml).getroot()
+        ns = "http://schemas.microsoft.com/project"
+        levels = [
+            int(t.find(f"{{{ns}}}OutlineLevel").text)
+            for t in root.findall(f".//{{{ns}}}Task")
+        ]
+        assert min(levels) == 1
+        assert 2 in levels, "expected a nested task in the sample plan"
+
+    def test_calendar_defines_working_times(self, exported_xml):
+        """The Standard calendar carries working days, not just a name."""
+        root = ET.parse(exported_xml).getroot()
+        ns = "http://schemas.microsoft.com/project"
+        week_days = root.findall(f".//{{{ns}}}WeekDay")
+        assert len(week_days) == 7
+        working = [
+            d for d in week_days
+            if d.find(f"{{{ns}}}DayWorking").text == "1"
+        ]
+        assert len(working) == 5
+        for day in working:
+            assert day.findall(f".//{{{ns}}}WorkingTime")
+
+    def test_task_finish_is_last_working_day(self, exported_xml):
+        """Finish is the task's last working day, not the exclusive finish."""
+        root = ET.parse(exported_xml).getroot()
+        ns = "http://schemas.microsoft.com/project"
+        task_a = next(
+            t for t in root.findall(f".//{{{ns}}}Task")
+            if t.find(f"{{{ns}}}Name").text == "Task A"
+        )
+        start = task_a.find(f"{{{ns}}}Start").text
+        finish = task_a.find(f"{{{ns}}}Finish").text
+        assert start.endswith("T08:00:00")
+        assert finish.endswith("T17:00:00")
+
+        start_date = datetime.strptime(start, "%Y-%m-%dT%H:%M:%S")
+        finish_date = datetime.strptime(finish, "%Y-%m-%dT%H:%M:%S")
+        # Task A is 3 days, so it covers 3 working days inclusive.
+        assert finish_date.weekday() < 5
+        assert (finish_date - start_date).days == 2
+
+    def test_dependency_survives_export(self, exported_xml):
+        """Task B depends on Task A, so a PredecessorLink must be written."""
+        root = ET.parse(exported_xml).getroot()
+        ns = "http://schemas.microsoft.com/project"
+        task_a_uid = next(
+            t.find(f"{{{ns}}}UID").text
+            for t in root.findall(f".//{{{ns}}}Task")
+            if t.find(f"{{{ns}}}Name").text == "Task A"
+        )
+        task_b = next(
+            t for t in root.findall(f".//{{{ns}}}Task")
+            if t.find(f"{{{ns}}}Name").text == "Task B"
+        )
+        links = task_b.findall(f"{{{ns}}}PredecessorLink")
+        assert len(links) == 1
+        assert links[0].find(f"{{{ns}}}PredecessorUID").text == task_a_uid
+        assert links[0].find(f"{{{ns}}}Type").text == "1"  # 1 = finish-to-start
+
+
+class TestDependsColonSyntax:
+    """`[depends: X]` must parse the same as `[depends X]`.
+
+    The .mpp importer writes the colon form, so before this was fixed every
+    dependency coming out of a .mpp import was silently dropped — in the
+    scheduler as well as in the MS Project export.
+    """
+
+    @pytest.mark.parametrize("syntax", ["[depends Task A]", "[depends: Task A]"])
+    def test_both_forms_produce_a_predecessor_link(self, syntax):
+        plan = f"""Phase 1
+  Task A 3d
+  Task B 2d {syntax}"""
+
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(plan, path, project_name="Test")
+            root = ET.parse(path).getroot()
+            ns = "http://schemas.microsoft.com/project"
+            task_b = next(
+                t for t in root.findall(f".//{{{ns}}}Task")
+                if t.find(f"{{{ns}}}Name").text == "Task B"
+            )
+            assert task_b.findall(f"{{{ns}}}PredecessorLink"), (
+                f"{syntax} produced no PredecessorLink"
+            )
+        finally:
+            os.unlink(path)
+
+    def test_mpp_import_output_round_trips(self):
+        """What import_from_mpp writes, the parser must be able to read back."""
+        from noodle_core.metadata import extract_metadata
+
+        meta = extract_metadata("Task B 2d [depends: Task A]", "Task B")
+        assert meta.get("depends") == ["Task A"]
 
 
 # ---------------------------------------------------------------------------
