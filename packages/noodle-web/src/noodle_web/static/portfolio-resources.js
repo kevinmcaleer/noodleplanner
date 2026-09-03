@@ -128,10 +128,45 @@ function getWorkloadBadgeClass(level) {
 }
 
 /**
+ * Date range covered by every task in every parsed project.
+ *
+ * The heatmap spans this rather than just the assigned tasks, so it shows
+ * every week of every project (issue #757), including weeks in which nobody
+ * is assigned anything.
+ * @param {Array<{project, parsedResult}>} parsedProjects
+ * @returns {{start: Date, end: Date}|null}
+ */
+function computePortfolioDateRange(parsedProjects) {
+    let start = null;
+    let end = null;
+
+    (parsedProjects || []).forEach(({ parsedResult }) => {
+        if (!parsedResult || !parsedResult.success || !parsedResult.tasks) return;
+        parsedResult.tasks.forEach(task => {
+            if (task.start) {
+                const s = new Date(task.start);
+                if (!isNaN(s) && (!start || s < start)) start = s;
+            }
+            if (task.finish) {
+                const f = new Date(task.finish);
+                if (!isNaN(f) && (!end || f > end)) end = f;
+            }
+        });
+    });
+
+    return start && end ? { start, end } : null;
+}
+
+/**
  * Compute weekly heatmap data for resources
  * Distributes task durations across weeks (Mon-Fri working days)
+ *
+ * @param {Array} resources aggregated by aggregateResourceDataFromParsed
+ * @param {{start: Date, end: Date}} [range] span to cover; defaults to the
+ *   range of the assigned tasks. Weeks are never truncated: the grid scrolls
+ *   horizontally instead.
  */
-function computeWeeklyHeatmapData(resources) {
+function computeWeeklyHeatmapData(resources, range) {
     // Find global date range across all resources
     let globalStart = null;
     let globalEnd = null;
@@ -140,6 +175,10 @@ function computeWeeklyHeatmapData(resources) {
         if (r.earliestStart && (!globalStart || r.earliestStart < globalStart)) globalStart = r.earliestStart;
         if (r.latestFinish && (!globalEnd || r.latestFinish > globalEnd)) globalEnd = r.latestFinish;
     });
+
+    // Widen to the requested range (every week of every project).
+    if (range && range.start && (!globalStart || range.start < globalStart)) globalStart = range.start;
+    if (range && range.end && (!globalEnd || range.end > globalEnd)) globalEnd = range.end;
 
     if (!globalStart || !globalEnd) return null;
 
@@ -151,7 +190,14 @@ function computeWeeklyHeatmapData(resources) {
     const endDate = new Date(globalEnd);
     endDate.setHours(23, 59, 59, 999);
 
-    // Build week columns
+    // Week labels carry the year when the span crosses a year boundary, so a
+    // long portfolio stays readable.
+    const multiYear = startMonday.getFullYear() !== endDate.getFullYear();
+    const labelFormat = multiYear
+        ? { day: 'numeric', month: 'short', year: '2-digit' }
+        : { day: 'numeric', month: 'short' };
+
+    // Build week columns for the whole span
     const weeks = [];
     const cursor = new Date(startMonday);
     while (cursor <= endDate) {
@@ -161,14 +207,13 @@ function computeWeeklyHeatmapData(resources) {
         weeks.push({
             start: weekStart,
             end: weekEnd,
-            label: weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+            label: weekStart.toLocaleDateString('en-GB', labelFormat),
+            title: 'Week of ' + weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
         });
         cursor.setDate(cursor.getDate() + 7);
     }
 
-    // Limit to reasonable number of weeks (max 26 = ~6 months)
-    const maxWeeks = 26;
-    const displayWeeks = weeks.length > maxWeeks ? weeks.slice(0, maxWeeks) : weeks;
+    const displayWeeks = weeks;
 
     // For each resource, distribute task days across weeks
     const heatmap = resources.map(resource => {
@@ -332,8 +377,9 @@ async function renderPortfolioResources() {
 
         html += '</tbody></table></div>';
 
-        // Heatmap section
-        const heatmapData = computeWeeklyHeatmapData(resources);
+        // Heatmap section: spans every week of every project, not just the
+        // weeks that happen to have assignments (issue #757)
+        const heatmapData = computeWeeklyHeatmapData(resources, computePortfolioDateRange(parsedProjects));
         if (heatmapData && heatmapData.weeks.length > 0) {
             html += renderResourceHeatmap(heatmapData);
         }
@@ -387,14 +433,18 @@ function renderResourceHeatmap(heatmapData) {
     const { weeks, heatmap } = heatmapData;
     const cols = weeks.length + 1; // +1 for label column
 
+    // Every week is a column; the grid scrolls horizontally when the span is
+    // long, and the resource label column stays pinned (CSS: position sticky).
     let html = '<div class="resource-heatmap-container">' +
         '<h3>Weekly Workload Heatmap</h3>' +
-        '<div class="resource-heatmap-grid" style="grid-template-columns: 140px repeat(' + weeks.length + ', 1fr);">';
+        '<p class="resource-heatmap-span">' + weeks.length + ' weeks, ' +
+        escapeHtml(weeks[0].label) + ' to ' + escapeHtml(weeks[weeks.length - 1].label) + '</p>' +
+        '<div class="resource-heatmap-grid" style="grid-template-columns: 140px repeat(' + weeks.length + ', minmax(48px, 1fr));">';
 
     // Header row
     html += '<div class="resource-heatmap-label" style="font-weight: 700;">Resource</div>';
     weeks.forEach(week => {
-        html += '<div class="resource-heatmap-header-cell">' + week.label + '</div>';
+        html += '<div class="resource-heatmap-header-cell" title="' + escapeHtml(week.title || week.label) + '">' + week.label + '</div>';
     });
 
     // Data rows
@@ -677,4 +727,15 @@ if (typeof window !== 'undefined') {
             closeResourceDetails();
         }
     });
+}
+
+// Node export hook so tests/test_portfolio_resources_heatmap.js can load the
+// pure functions; a no-op in the browser.
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        aggregateResourceDataFromParsed,
+        computePortfolioDateRange,
+        computeWeeklyHeatmapData,
+        getHeatmapCellClass,
+    };
 }
