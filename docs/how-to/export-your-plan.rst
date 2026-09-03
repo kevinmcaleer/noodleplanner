@@ -44,6 +44,24 @@ Creates a printable version of the project report.
 
 1. Click **Tools** → **Export → PDF**
 
+Microsoft Project (``.mpp``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Writes a **native** ``.mpp`` file that opens in Microsoft Project by
+double-click — unlike the XML export, which has to be opened from inside
+Project.  Tasks, phases, dependencies, milestones, resources, assignments,
+percent complete and comments all carry across.
+
+1. Click **Tools** → **Export to MS Project (.mpp)**
+2. The file downloads as ``{project-name}.mpp``
+
+Native export needs a one-time template saved from a licensed copy of
+Microsoft Project (the file embeds structures only Project can create — see
+the `pymppwriter README <https://github.com/kevinmcaleer/pymppwriter>`_ for
+the two-minute recipe).  Place it at ``templates/mpp-template.mpp`` or point
+the ``NOODLE_MPP_TEMPLATE`` environment variable at it.  The XML export
+(**Export to MS Project (XML)**) keeps working without any template.
+
 Export the RAID Log
 --------------------
 

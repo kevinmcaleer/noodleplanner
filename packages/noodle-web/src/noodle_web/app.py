@@ -219,6 +219,7 @@ class RenderRequest(BaseModel):
     export_ppt: bool = Field(False)
     export_pdf: bool = Field(False)
     export_msproject: bool = Field(False)
+    export_mpp: bool = Field(False)
 
 
 
@@ -268,10 +269,10 @@ async def render_plan(data: RenderRequest):
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}, {data.export_msproject}")
 
     try:
-        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject
+        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject or data.export_mpp
 
         if has_exports:
-            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject])
+            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject, data.export_mpp])
 
             if export_count == 1:
                 # Determine the requested format
@@ -282,6 +283,7 @@ async def render_plan(data: RenderRequest):
                         ("ppt", data.export_ppt),
                         ("pdf", data.export_pdf),
                         ("msproject", data.export_msproject),
+                        ("mpp", data.export_mpp),
                     ] if flag
                 )
                 result = plan_service.export_single(

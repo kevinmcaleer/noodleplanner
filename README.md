@@ -32,7 +32,7 @@ Noodle Planner - a project management tool for smart people
   - Double-click any line to edit task details
   - Auto-render on Enter key
   - Upload and Download plan files
-  - Export to Excel, PowerPoint, and PDF
+  - Export to Excel, PowerPoint, PDF, and Microsoft Project (native .mpp or XML)
 
 - **User Management**
   - User registration and login

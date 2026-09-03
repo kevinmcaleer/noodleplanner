@@ -79,6 +79,7 @@ from .excel_importer import (
     parse_planner_dependency,
 )
 
+from .mpp_writer import export_to_mpp, MppTemplateError
 from .msproject import (
     export_to_msproject_xml,
     import_from_msproject_xml,
@@ -100,6 +101,8 @@ __all__ = [
     "export_timeline_to_powerpoint",
     "export_portfolio_to_powerpoint",
     "export_to_pdf",
+    "export_to_mpp",
+    "MppTemplateError",
     "analyze_plan",
     "get_next_working_day",
     "add_working_days",
