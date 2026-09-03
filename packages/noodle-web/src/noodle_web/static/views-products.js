@@ -2992,7 +2992,13 @@ function checkDuplicateDeliverables() {
     // Apply yellow background highlights to the editor highlight layer
     applyDuplicateHighlights();
 
-    if (typeof setStatusMessage === 'function') {
+    // A circular-dependency warning (updateCircularDependencyWarnings) owns
+    // the status bar while it is showing: it carries a Fix action, and the
+    // product warnings return once the plan is repaired.
+    const statusEl = document.getElementById('statusBarMessage');
+    const circularWarningShowing = !!(statusEl && statusEl.dataset.circularWarning === '1');
+
+    if (typeof setStatusMessage === 'function' && !circularWarningShowing) {
         if (warnings.length > 0) {
             const el = document.getElementById('statusBarMessage');
             if (el) {

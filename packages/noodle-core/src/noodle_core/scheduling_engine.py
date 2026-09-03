@@ -23,6 +23,7 @@ from .date_math import (
 from .metadata import (
     extract_metadata,
     detect_dependency_loops,
+    detect_hierarchy_dependency_conflicts,
     inherit_summary_resources,
     _propagate_resource_to_children,
     parse_recurrence,
@@ -620,13 +621,48 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
     loop_analysis = detect_dependency_loops(ordered_tasks)
     if loop_analysis['has_loops']:
         logger.warning(f"Circular dependencies detected: {', '.join(loop_analysis['loops'])}")
+        affected = set(loop_analysis['affected_tasks'])
+        name_lookup_ordered = {
+            t['name'].lower(): t for t in ordered_tasks if t.get('name')
+        }
         for task in ordered_tasks:
             task_name = task.get('name', '').lower()
-            if task_name in loop_analysis['affected_tasks']:
+            if task_name in affected:
                 task['loop_warning'] = loop_analysis['task_warnings'].get(
                     task.get('name', task_name),
                     "Circular dependency detected"
                 )
+                # Flag the links that take part in the cycle so the editor
+                # can mark them.  Which one to remove is the user's call, so
+                # these are not offered as an automatic fix.
+                for dep_name in task.get('depends') or []:
+                    if dep_name.strip().lower() not in affected:
+                        continue
+                    pred = name_lookup_ordered.get(dep_name.strip().lower(), {})
+                    task.setdefault('circular_dependencies', []).append({
+                        'name': pred.get('name', dep_name),
+                        'deliverable': pred.get('deliverable', ''),
+                        'reason': 'cycle',
+                        'message': task['loop_warning'],
+                        'fixable': False,
+                    })
+
+    # A task that depends on its own phase (or a phase on its own subtask)
+    # is circular to anything that rolls phase dates up from subtasks, and
+    # MS Project refuses such a plan outright.  Removing the entry from the
+    # [depends ...] list is always the right fix, so these are fixable.
+    for idx, conflicts in detect_hierarchy_dependency_conflicts(ordered_tasks).items():
+        task = ordered_tasks[idx]
+        # These take precedence over a generic cycle entry for the same
+        # predecessor (a self-dependency is caught by both) because they
+        # come with a fix.
+        conflict_names = {c['name'].lower() for c in conflicts}
+        task['circular_dependencies'] = [
+            c for c in task.get('circular_dependencies', [])
+            if c['name'].lower() not in conflict_names
+        ] + conflicts
+        task['loop_warning'] = conflicts[0]['message']
+        logger.warning("Hierarchy dependency conflict: %s", conflicts[0]['message'])
 
     # Calculate critical path (slack/float and critical flag)
     calculate_critical_path(ordered_tasks, holidays)

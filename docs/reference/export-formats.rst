@@ -73,7 +73,7 @@ Microsoft Project XML (``.xml``)
 
 Exports the plan as a Microsoft Project XML file that can be opened in Microsoft Project.
 
-- Access: **Tools** → **Export to MS Project**
+- Access: **Tools** → **Export to MS Project (XML)**
 - Filename: ``{project-name}.xml``
 
 The file follows the MSPDI schema, so Microsoft Project, ProjectLibre and
@@ -81,6 +81,22 @@ Smartsheet all open it directly — use **File → Open** and pick the ``.xml``
 file. Tasks carry their outline hierarchy, durations, dependencies, percent
 complete, notes and resource assignments, scheduled against a standard
 Monday–Friday 08:00–17:00 calendar.
+
+Microsoft Project is stricter about dependencies than NoodlePlanner. It
+refuses to open a file in which a task is linked to its own summary task, or
+in which a dependency on a phase heading loops back through that phase's
+subtasks once the link is rolled down to them. Such links are left out of
+the export and the reason is written to the task's **Notes** field, so the
+file always opens; check the Notes column if a link seems to be missing.
+NoodlePlanner marks the same dependencies in red in the editor and offers a
+**Fix** in the status bar that removes the entry from the ``[depends ...]``
+list.
+
+Every task is exported with a *Start No Earlier Than* constraint on the date
+NoodlePlanner scheduled it for, so Microsoft Project shows the same dates
+rather than recalculating the plan from its own start date on open. Resource
+assignments carry the task's dates, work and progress; milestones are
+zero-length instants.
 
 .. note::
 

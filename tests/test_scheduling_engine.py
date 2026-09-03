@@ -993,6 +993,103 @@ Task 1 @jack 3d"""
         assert len(nwd['jack']) == 4
 
 
+class TestHierarchyDependencyConflicts:
+    """A task that depends on its own phase (or a phase on its own subtask)
+    is flagged with a fixable ``circular_dependencies`` entry.
+
+    The name-based loop detector never sees these because the scheduler
+    ignores ``[depends]`` on phase headings, yet they are circular to any
+    tool that rolls phase dates up from subtasks (MS Project refuses them).
+    """
+
+    def _schedule(self, plan_text):
+        from noodle_core.format_converter import convert_plan_format_to_standard
+        from noodle_core.scheduling_engine import natural_language_to_yaml
+        yaml_data = natural_language_to_yaml(
+            convert_plan_format_to_standard(plan_text), "Test"
+        )
+        return schedule_tasks(yaml_data["Test"])
+
+    def test_subtask_depending_on_own_phase_via_deliverable(self):
+        # The shape from the original report: the gate milestone inside the
+        # Definition phase lists the phase's own $deliverable.
+        tasks = self._schedule("""Proposal Stage $proposal_stage
+  Proposal $proposal 1d
+  *GW1 Approval $GW1 0d [depends $proposal]
+Definition $definition [depends $GW1]
+  Project Charter $charter 1d
+  *GW2 Approval $GW2 0d [depends $definition, $charter]""")
+
+        gw2 = next(t for t in tasks if t["name"] == "GW2 Approval")
+        conflicts = gw2["circular_dependencies"]
+        assert len(conflicts) == 1
+        assert conflicts[0]["reason"] == "own_phase"
+        assert conflicts[0]["name"] == "Definition"
+        assert conflicts[0]["deliverable"] == "definition"
+        assert conflicts[0]["fixable"] is True
+        assert "its own phase" in gw2["loop_warning"]
+
+        # Legitimate links on the same task and elsewhere are untouched.
+        definition = next(t for t in tasks if t["name"] == "Definition")
+        assert "circular_dependencies" not in definition
+        charter = next(t for t in tasks if t["name"] == "Project Charter")
+        assert "circular_dependencies" not in charter
+
+    def test_phase_depending_on_own_subtask(self):
+        tasks = self._schedule("""Definition [depends Task B]
+  Task A 3d
+  *Task B 2d""")
+
+        definition = next(t for t in tasks if t["name"] == "Definition")
+        conflicts = definition["circular_dependencies"]
+        assert [c["reason"] for c in conflicts] == ["own_subtask"]
+        assert conflicts[0]["name"] == "Task B"
+        assert conflicts[0]["fixable"] is True
+
+    def test_task_depending_on_itself(self):
+        tasks = self._schedule("""Phase 1
+  Task A 3d [depends Task A]""")
+
+        task_a = next(t for t in tasks if t["name"] == "Task A")
+        assert task_a["circular_dependencies"][0]["reason"] == "self"
+
+    def test_cross_phase_links_are_not_flagged(self):
+        tasks = self._schedule("""Initiation
+  Kickoff 1d
+  *Charter 2d
+Definition [depends Initiation]
+  *Scope 3d
+Build [depends Definition]
+  *Develop 5d""")
+
+        assert not any("circular_dependencies" in t for t in tasks)
+        assert not any("loop_warning" in t for t in tasks)
+
+    def test_deliverable_reference_inside_depends_is_not_own_deliverable(self):
+        # "Build [depends $GW2]" must not register Build as $GW2, which made
+        # the dependency resolve to Build itself and flag a self-loop.
+        tasks = self._schedule("""Phase 1
+  *GW2 Approval $GW2 0d
+Build [depends $GW2]
+  *Develop 5d""")
+
+        build = next(t for t in tasks if t["name"] == "Build")
+        assert build.get("deliverable") is None
+        assert build["depends"] == ["GW2 Approval"]
+        assert "circular_dependencies" not in build
+
+    def test_name_cycle_links_are_flagged_but_not_fixable(self):
+        tasks = self._schedule("""Phase 1
+  Task A 3d [depends Task B]
+  Task B 2d [depends Task A]""")
+
+        task_a = next(t for t in tasks if t["name"] == "Task A")
+        conflicts = task_a["circular_dependencies"]
+        assert conflicts[0]["reason"] == "cycle"
+        assert conflicts[0]["name"] == "Task B"
+        assert conflicts[0]["fixable"] is False
+
+
 class TestDependencyLoopDetection:
     """Test suite for dependency loop detection (GitHub issue #22)."""
 

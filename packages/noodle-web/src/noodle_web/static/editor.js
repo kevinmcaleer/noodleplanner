@@ -106,7 +106,10 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inBudgetSection = false;
         let inRaidLogSection = false;
         let inBaselineSection = false;
-        return allLines.map(line => {
+        // Dependency tokens the last parse flagged as circular, keyed by
+        // 1-based line number (see updateCircularDependencyWarnings).
+        const circularByLine = window._circularDependencyLines || {};
+        return allLines.map((line, lineIdx) => {
             // Track front matter (between --- delimiters) — skip syntax highlighting
             if (line.trim() === '---' && !inHighlightsSection && !inBudgetSection && !inRaidLogSection && !inBaselineSection) {
                 inFrontMatterSection = !inFrontMatterSection;
@@ -250,6 +253,14 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
                     depTaskName = depTaskName.replace(/^Milestone:\s*/i, '');
                     const typePart = typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '';
 
+                    // A dependency the scheduler flagged as circular (a task
+                    // depending on its own phase, or part of a loop) is shown
+                    // in red regardless of whether the name resolves.
+                    const circularTokens = circularByLine[lineIdx + 1];
+                    if (circularTokens && circularTokens.has(depTaskName.toLowerCase().replace(/\s+/g, ' ').trim())) {
+                        return '<span class="syntax-circular" title="Circular dependency">' + depTaskName + '</span>' + typePart + lagLeadPart;
+                    }
+
                     // Check if the dependency task name exists
                     // Normalise: collapse whitespace, try space/underscore variants
                     const depLower = depTaskName.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -370,9 +381,16 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
         // Create line number elements
         lineNumbers.innerHTML = '';
+        const circularLines = window._circularDependencyLines || {};
         for (let i = 1; i <= lineCount; i++) {
             const lineNumSpan = document.createElement('div');
             lineNumSpan.className = 'line-number';
+
+            // Lines whose dependencies the scheduler flagged as circular
+            if (circularLines[i]) {
+                lineNumSpan.classList.add('circular-dependency');
+                lineNumSpan.title = 'Circular dependency on this line';
+            }
 
             // Check if this line has a manually scheduled task (has explicit start date)
             const line = lines[i - 1]; // 0-indexed

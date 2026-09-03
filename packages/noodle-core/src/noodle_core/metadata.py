@@ -189,7 +189,12 @@ def extract_metadata(task_str, task_name=None):
     # Extract deliverable/product marker using $ prefix (e.g. $fuselage, $avionics)
     # Supports product type prefixes: /$name (group), ^$name (external), $name (internal)
     deliverable_pattern = r'([/^])?\$([A-Za-z_][A-Za-z0-9_-]*)'
-    deliverable_match = re.search(deliverable_pattern, task_str)
+    # A $token inside [depends ...] is a reference to another product, not
+    # this task's own deliverable, so search the line with that block removed.
+    # Otherwise "Build [depends $GW2]" registers Build as $GW2 and the
+    # dependency resolves to Build itself.
+    outside_depends = re.sub(r'\[depends[^\]]*\]', '', task_str, flags=re.IGNORECASE)
+    deliverable_match = re.search(deliverable_pattern, outside_depends)
     if deliverable_match:
         meta['deliverable'] = deliverable_match.group(2)
         prefix = deliverable_match.group(1)
@@ -501,6 +506,92 @@ def detect_dependency_loops(tasks):
             )
 
     return result
+
+
+def detect_hierarchy_dependency_conflicts(tasks):
+    """Find dependencies between a task and its own phase (or itself).
+
+    ``detect_dependency_loops`` only follows task-name to task-name edges, so
+    a subtask that lists its own phase as a dependency (easy to do with a
+    ``$deliverable`` reference, e.g. ``*GW2 Approval [depends $definition]``
+    inside the ``Definition $definition`` phase) never registers as a loop.
+    The scheduler ignores the link, but it is circular to anything that rolls
+    phase dates up from subtasks, and Microsoft Project refuses to open such a
+    plan.
+
+    The hierarchy is derived from the ``level`` sequence of the ordered task
+    list, the same way MS Project derives it from ``OutlineLevel``.
+
+    Args:
+        tasks: Ordered task list (summaries before their children) with
+            ``name``, ``level``, ``summary`` and ``depends``.
+
+    Returns:
+        dict mapping task index to a list of conflict dicts, each with
+        ``name`` and ``deliverable`` of the offending predecessor, a
+        ``reason`` code (``own_phase``, ``own_subtask`` or ``self``), a
+        human-readable ``message`` and ``fixable`` (always True here: the
+        fix is to remove that entry from the ``[depends ...]`` list).
+    """
+    levels = [max(1, int(task.get('level') or 1)) for task in tasks]
+
+    parent = {}
+    stack = []
+    for idx, level in enumerate(levels):
+        while stack and levels[stack[-1]] >= level:
+            stack.pop()
+        parent[idx] = stack[-1] if stack else None
+        stack.append(idx)
+
+    def is_ancestor(candidate, idx):
+        node = parent.get(idx)
+        while node is not None:
+            if node == candidate:
+                return True
+            node = parent.get(node)
+        return False
+
+    # Last occurrence wins, matching name_lookup in schedule_tasks.
+    index_by_name = {}
+    for idx, task in enumerate(tasks):
+        if task.get('name'):
+            index_by_name[task['name'].lower()] = idx
+
+    def display_name(task):
+        return task.get('description') or task.get('name', '')
+
+    conflicts = {}
+    for idx, task in enumerate(tasks):
+        for dep_name in task.get('depends') or []:
+            pred_idx = index_by_name.get(dep_name.strip().lower())
+            if pred_idx is None:
+                continue
+            pred = tasks[pred_idx]
+            if pred_idx == idx:
+                reason = 'self'
+                message = f'"{display_name(task)}" depends on itself'
+            elif is_ancestor(pred_idx, idx):
+                reason = 'own_phase'
+                message = (
+                    f'"{display_name(task)}" depends on its own phase '
+                    f'"{display_name(pred)}"'
+                )
+            elif is_ancestor(idx, pred_idx):
+                reason = 'own_subtask'
+                message = (
+                    f'Phase "{display_name(task)}" depends on its own subtask '
+                    f'"{display_name(pred)}"'
+                )
+            else:
+                continue
+            conflicts.setdefault(idx, []).append({
+                'name': pred.get('name', ''),
+                'deliverable': pred.get('deliverable', ''),
+                'reason': reason,
+                'message': message,
+                'fixable': True,
+            })
+    return conflicts
 
 
 def inherit_summary_resources(tasks):

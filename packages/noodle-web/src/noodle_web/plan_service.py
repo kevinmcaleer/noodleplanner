@@ -740,6 +740,10 @@ class PlanService:
                     "quality_roles": task.get("quality_roles", {}),
                     "total_float": task.get("total_float", None),
                     "critical": task.get("critical", False),
+                    "loop_warning": task.get("loop_warning", ""),
+                    "circular_dependencies": task.get(
+                        "circular_dependencies", []
+                    ),
                 }
             )
 

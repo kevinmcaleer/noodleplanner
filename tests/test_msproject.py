@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -489,9 +489,14 @@ class TestMSPDISchemaConformance:
 
         start_date = datetime.strptime(start, "%Y-%m-%dT%H:%M:%S")
         finish_date = datetime.strptime(finish, "%Y-%m-%dT%H:%M:%S")
-        # Task A is 3 days, so it covers 3 working days inclusive.
+        # Task A is 3 days, so it covers 3 working days inclusive, whichever
+        # weekday the plan happens to start on (it may straddle a weekend).
         assert finish_date.weekday() < 5
-        assert (finish_date - start_date).days == 2
+        working_days = sum(
+            1 for offset in range((finish_date - start_date).days + 1)
+            if (start_date + timedelta(days=offset)).weekday() < 5
+        )
+        assert working_days == 3
 
     def test_dependency_survives_export(self, exported_xml):
         """Task B depends on Task A, so a PredecessorLink must be written."""
@@ -548,6 +553,237 @@ class TestDependsColonSyntax:
 
         meta = extract_metadata("Task B 2d [depends: Task A]", "Task B")
         assert meta.get("depends") == ["Task A"]
+
+
+class TestCircularLinksAreNotExported:
+    """Links MS Project would reject as circular are left out of the file.
+
+    MS Project derives the hierarchy from OutlineLevel and rolls a summary
+    task's dates up from its subtasks.  A link between a task and its own
+    summary, or a dependency on a phase heading that loops back through that
+    phase's subtasks, makes it refuse to open the file ("There is a circular
+    relationship in task N ...").  NoodlePlanner's scheduler tolerates both
+    silently, so the exporter has to filter them and say so in Notes.
+    """
+
+    NS = "{http://schemas.microsoft.com/project}"
+
+    def _export(self, plan):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(plan, path, project_name="Test")
+            assert validate_mspdi(path) == []
+            root = ET.parse(path).getroot()
+        finally:
+            os.unlink(path)
+
+        tasks = {}
+        for task_el in root.findall(f".//{self.NS}Task"):
+            notes_el = task_el.find(f"{self.NS}Notes")
+            tasks[task_el.find(f"{self.NS}Name").text] = {
+                "uid": task_el.find(f"{self.NS}UID").text,
+                "preds": [
+                    link.find(f"{self.NS}PredecessorUID").text
+                    for link in task_el.findall(f"{self.NS}PredecessorLink")
+                ],
+                "notes": notes_el.text if notes_el is not None else "",
+            }
+        return tasks
+
+    def test_summary_cannot_depend_on_its_own_subtask(self):
+        tasks = self._export("""Definition [depends Task B]
+  Task A 3d
+  *Task B 2d
+Phase 2
+  *Task C 2d""")
+
+        assert tasks["Definition"]["preds"] == []
+        assert 'Dependency on "Task B" was not exported' in tasks["Definition"]["notes"]
+        # The leaf links the schedule was built from survive untouched.
+        assert tasks["Task B"]["preds"] == [tasks["Task A"]["uid"]]
+        assert tasks["Task C"]["preds"] == [tasks["Task B"]["uid"]]
+
+    def test_subtask_cannot_depend_on_its_own_summary(self):
+        tasks = self._export("""Definition
+  Task A 3d [depends Definition]
+  *Task B 2d""")
+
+        assert tasks["Task A"]["preds"] == []
+        assert "its own summary task" in tasks["Task A"]["notes"]
+        assert tasks["Task B"]["preds"] == [tasks["Task A"]["uid"]]
+
+    def test_subtask_depending_on_its_own_phase_via_deliverable(self):
+        # The shape that produced the original report: a gate milestone
+        # inside a phase lists the phase's own $deliverable among its
+        # dependencies.  Every other link on the milestone must survive.
+        tasks = self._export("""Proposal Stage $proposal_stage
+  Proposal $proposal 1d
+  *GW1 Approval $GW1 0d [depends $proposal]
+Definition $definition [depends $GW1]
+  Project Charter $charter 1d
+  *GW2 Approval $GW2 0d [depends $definition, $charter]""")
+
+        gw2 = tasks["GW2 Approval"]
+        assert gw2["preds"] == [tasks["Project Charter"]["uid"]]
+        assert 'Dependency on "Definition" was not exported' in gw2["notes"]
+        assert tasks["Definition"]["preds"] == [tasks["GW1 Approval"]["uid"]]
+
+    def test_task_cannot_depend_on_itself(self):
+        tasks = self._export("""Phase 1
+  Task A 3d [depends Task A]""")
+
+        assert tasks["Task A"]["preds"] == []
+        assert "cannot depend on itself" in tasks["Task A"]["notes"]
+
+    def test_summary_link_that_loops_through_subtasks_is_dropped(self):
+        # Phase 1 says it follows Phase 2, but Phase 2's task follows Phase
+        # 1's task.  No task-name cycle, so NoodlePlanner never warns; once
+        # MS Project rolls the phase link down to the subtasks it is a loop.
+        tasks = self._export("""Phase 1 [depends Phase 2]
+  Task A 3d
+Phase 2
+  *Task B 2d""")
+
+        assert tasks["Phase 1"]["preds"] == []
+        assert "circular relationship" in tasks["Phase 1"]["notes"]
+        assert tasks["Task B"]["preds"] == [tasks["Task A"]["uid"]]
+
+    def test_legitimate_cross_phase_links_are_kept(self):
+        tasks = self._export("""Initiation
+  Kickoff 1d
+  *Charter 2d
+Definition [depends Initiation]
+  *Scope 3d
+  *Requirements 4d
+Build [depends Definition]
+  *Develop 5d""")
+
+        assert tasks["Definition"]["preds"] == [tasks["Initiation"]["uid"]]
+        assert tasks["Build"]["preds"] == [tasks["Definition"]["uid"]]
+        assert tasks["Scope"]["preds"] == [tasks["Charter"]["uid"]]
+        assert tasks["Develop"]["preds"] == [tasks["Requirements"]["uid"]]
+        assert not any("not exported" in t["notes"] for t in tasks.values())
+
+    def test_dropped_link_note_is_appended_to_the_comment(self):
+        tasks = self._export("""Definition [depends Task B] "Kick-off phase"
+  Task A 3d
+  *Task B 2d""")
+
+        notes = tasks["Definition"]["notes"]
+        assert notes.startswith("Kick-off phase\n")
+        assert "not exported" in notes
+
+    def test_duplicate_links_are_written_once(self):
+        tasks = self._export("""Phase 1
+  Task A 3d
+  Task B 2d [depends Task A, task a]""")
+
+        assert tasks["Task B"]["preds"] == [tasks["Task A"]["uid"]]
+
+
+class TestAssignmentsMirrorTasks:
+    """Assignments carry the task's dates and work, and leaf tasks are pinned.
+
+    An assignment with no dates of its own made MS Project warn that "the
+    resource is assigned outside the original dates" and rework the task's
+    duration, because on open it recalculates and slides any task without a
+    predecessor back to the project start.
+    """
+
+    NS = "{http://schemas.microsoft.com/project}"
+
+    def _export(self, plan):
+        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as f:
+            path = f.name
+        try:
+            export_to_msproject_xml(plan, path, project_name="Test")
+            assert validate_mspdi(path) == []
+            root = ET.parse(path).getroot()
+        finally:
+            os.unlink(path)
+
+        def text(el, tag):
+            child = el.find(f"{self.NS}{tag}")
+            return child.text if child is not None else None
+
+        tasks = {}
+        for task_el in root.findall(f".//{self.NS}Task"):
+            tasks[text(task_el, "Name")] = {
+                tag: text(task_el, tag) for tag in (
+                    "UID", "Start", "Finish", "Duration", "Work", "Milestone",
+                    "Summary", "PercentComplete", "ActualStart",
+                    "ActualFinish", "ConstraintType", "ConstraintDate",
+                )
+            }
+        assignments = {}
+        for assign_el in root.findall(f".//{self.NS}Assignment"):
+            assignments.setdefault(text(assign_el, "TaskUID"), []).append({
+                tag: text(assign_el, tag) for tag in (
+                    "Start", "Finish", "Work", "ActualWork", "RemainingWork",
+                    "PercentWorkComplete", "ActualStart", "ActualFinish",
+                    "Units",
+                )
+            })
+        return tasks, assignments
+
+    PLAN = """Phase 1
+  Proposal 1d 100% @kevin 2026-07-01
+  *Approval 0d @kevin 100%
+  Build 5d @adam, @kevin 50%
+  Unassigned 2d"""
+
+    def test_assignment_dates_and_work_match_the_task(self):
+        tasks, assignments = self._export(self.PLAN)
+        proposal = tasks["Proposal"]
+        (assignment,) = assignments[proposal["UID"]]
+        assert assignment["Start"] == proposal["Start"]
+        assert assignment["Finish"] == proposal["Finish"]
+        assert assignment["Work"] == "PT8H0M0S"
+        assert assignment["Units"] == "1"
+        assert assignment["PercentWorkComplete"] == "100"
+        assert assignment["ActualWork"] == "PT8H0M0S"
+        assert assignment["RemainingWork"] == "PT0H0M0S"
+        assert assignment["ActualStart"] == proposal["Start"]
+        assert assignment["ActualFinish"] == proposal["Finish"]
+
+    def test_partially_complete_work_is_split(self):
+        tasks, assignments = self._export(self.PLAN)
+        build = tasks["Build"]
+        assert build["Work"] == "PT80H0M0S"  # two resources x 5 days
+        assert build["ActualStart"] == build["Start"]
+        assert build["ActualFinish"] is None
+        for assignment in assignments[build["UID"]]:
+            assert assignment["Work"] == "PT40H0M0S"
+            assert assignment["ActualWork"] == "PT20H0M0S"
+            assert assignment["RemainingWork"] == "PT20H0M0S"
+            assert assignment["ActualFinish"] is None
+
+    def test_unassigned_task_has_no_work_or_assignment(self):
+        tasks, assignments = self._export(self.PLAN)
+        unassigned = tasks["Unassigned"]
+        assert unassigned["Work"] == "PT0H0M0S"
+        assert unassigned["UID"] not in assignments
+
+    def test_milestone_is_an_instant(self):
+        tasks, assignments = self._export(self.PLAN)
+        approval = tasks["Approval"]
+        assert approval["Milestone"] == "1"
+        assert approval["Duration"] == "PT0H0M0S"
+        assert approval["Start"] == approval["Finish"]
+        assert approval["Start"].endswith("T08:00:00")
+        (assignment,) = assignments[approval["UID"]]
+        assert assignment["Work"] == "PT0H0M0S"
+        assert assignment["Finish"] == approval["Start"]
+        assert tasks["Proposal"]["Milestone"] == "0"
+
+    def test_leaf_tasks_are_pinned_to_their_scheduled_start(self):
+        tasks, _ = self._export(self.PLAN)
+        for name in ("Proposal", "Approval", "Build", "Unassigned"):
+            assert tasks[name]["ConstraintType"] == "4"  # Start No Earlier Than
+            assert tasks[name]["ConstraintDate"] == tasks[name]["Start"]
+        assert tasks["Phase 1"]["Summary"] == "1"
+        assert tasks["Phase 1"]["ConstraintType"] is None
 
 
 # ---------------------------------------------------------------------------
