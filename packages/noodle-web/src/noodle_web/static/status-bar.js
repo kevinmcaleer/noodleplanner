@@ -219,3 +219,209 @@ function updateStatusBarRAGMessage(ragStatus, tasks) {
     var textAfter = document.createTextNode(' ' + reason);
     msgSpan.appendChild(textAfter);
 }
+
+/**
+ * Circular dependency warnings.
+ *
+ * The scheduler attaches `circular_dependencies` to any task that depends on
+ * its own phase, on one of its own subtasks, on itself, or that takes part in
+ * a dependency loop.  This marks the offending tokens red in the editor and
+ * shows the first problem in the status bar with a Fix button when the fix
+ * is unambiguous (removing the entry from the task's [depends ...] list).
+ *
+ * Called from updateAllViews after the parse result is available.
+ */
+function updateCircularDependencyWarnings(result) {
+    var tasks = (result && result.tasks) || [];
+    var editor = document.getElementById('planEditor');
+    var el = document.getElementById('statusBarMessage');
+
+    var lineMap = {};
+    var problems = [];
+
+    tasks.forEach(function (task) {
+        var conflicts = task.circular_dependencies || [];
+        if (conflicts.length === 0) return;
+
+        var lineNumber = (typeof findTaskLineNumber === 'function') ? findTaskLineNumber(task) : -1;
+        if (lineNumber < 0 && editor) {
+            // Fall back to a case-insensitive text search for the task name.
+            var lines = editor.value.split('\n');
+            var needle = String(task.name || '').toLowerCase();
+            for (var i = 0; i < lines.length && needle; i++) {
+                if (lines[i].toLowerCase().indexOf(needle) !== -1) { lineNumber = i + 1; break; }
+            }
+        }
+
+        conflicts.forEach(function (conflict) {
+            var tokens = circularDependencyTokens(conflict);
+            if (lineNumber > 0) {
+                if (!lineMap[lineNumber]) lineMap[lineNumber] = new Set();
+                tokens.forEach(function (t) { lineMap[lineNumber].add(t); });
+            }
+            problems.push({
+                task: task.name,
+                message: conflict.message || ('Circular dependency on "' + task.name + '"'),
+                fixable: !!conflict.fixable && lineNumber > 0,
+                line: lineNumber,
+                tokens: tokens
+            });
+        });
+    });
+
+    window._circularDependencyLines = lineMap;
+    window._circularDependencyFixes = problems;
+
+    // Re-run the editor's syntax highlighting so the tokens turn red.
+    if (editor && editor._updateLineNumbers) editor._updateLineNumbers();
+
+    if (!el) return;
+
+    if (problems.length === 0) {
+        // Only clear a message this function put there.
+        if (el.dataset.circularWarning === '1') {
+            el.textContent = '';
+            el.style.color = '';
+            delete el.dataset.circularWarning;
+        }
+        return;
+    }
+
+    var first = problems[0];
+    el.innerHTML = '';
+    el.dataset.circularWarning = '1';
+    el.style.color = '#d32f2f';
+
+    el.appendChild(document.createTextNode('⚠ Circular dependency: ' + first.message));
+
+    if (first.line > 0) {
+        var link = document.createElement('a');
+        link.href = '#';
+        link.className = 'status-bar-task-link';
+        link.textContent = ' (line ' + first.line + ')';
+        link.title = 'Go to line ' + first.line;
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            goToEditorLine(first.line);
+        });
+        el.appendChild(link);
+    }
+
+    if (first.fixable) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'status-bar-fix-btn';
+        btn.textContent = 'Fix';
+        btn.title = 'Remove this dependency from the [depends ...] list';
+        btn.addEventListener('click', function () { fixCircularDependency(0); });
+        el.appendChild(btn);
+    }
+
+    if (problems.length > 1) {
+        el.appendChild(document.createTextNode(' (+' + (problems.length - 1) + ' more)'));
+    }
+}
+
+/**
+ * The forms a dependency entry can take in a [depends ...] list for the
+ * predecessor named by a conflict: its name (space or underscore form) and
+ * its $deliverable token with any product-type prefix.
+ */
+function circularDependencyTokens(conflict) {
+    var tokens = new Set();
+    var name = String(conflict.name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (name) {
+        tokens.add(name);
+        tokens.add(name.replace(/_/g, ' '));
+        tokens.add(name.replace(/ /g, '_'));
+    }
+    var deliverable = String(conflict.deliverable || '').toLowerCase().trim();
+    if (deliverable) {
+        tokens.add('$' + deliverable);
+        tokens.add('/$' + deliverable);
+        tokens.add('^$' + deliverable);
+    }
+    return tokens;
+}
+
+/**
+ * Apply the fix for a flagged problem: remove the offending entries from
+ * the [depends ...] list on that editor line, dropping the block entirely
+ * if nothing is left, then re-render.
+ */
+function fixCircularDependency(index) {
+    var problems = window._circularDependencyFixes || [];
+    var problem = problems[index];
+    var editor = document.getElementById('planEditor');
+    if (!problem || !editor || problem.line < 1) return;
+
+    var lines = editor.value.split('\n');
+    var line = lines[problem.line - 1];
+    if (line === undefined) return;
+
+    var fixed = removeDependenciesFromLine(line, problem.tokens);
+    if (fixed === line) return;
+
+    lines[problem.line - 1] = fixed;
+    if (typeof setEditorValuePreservingCursor === 'function') {
+        setEditorValuePreservingCursor(editor, lines.join('\n'));
+    } else {
+        editor.value = lines.join('\n');
+    }
+
+    // Clear the marks now; the re-render below will re-evaluate the plan.
+    window._circularDependencyLines = {};
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+
+    var el = document.getElementById('statusBarMessage');
+    if (el) {
+        el.textContent = '';
+        el.style.color = '';
+        delete el.dataset.circularWarning;
+    }
+    setStatusMessage('Removed circular dependency from "' + problem.task + '"', 4000);
+
+    if (typeof renderText === 'function') setTimeout(function () { renderText(); }, 10);
+}
+
+/**
+ * Remove every entry of a [depends ...] list whose task reference (after
+ * stripping any lag/lead and :FS/:SS/:FF/:SF suffix) is in `tokens`.
+ */
+function removeDependenciesFromLine(line, tokens) {
+    var pattern = /\s*\[depends\s*:?\s*([^\]]*)\]/i;
+    var match = line.match(pattern);
+    if (!match) return line;
+
+    var kept = match[1].split(',').map(function (d) { return d.trim(); }).filter(function (d) {
+        if (!d) return false;
+        var core = d.replace(/\s+[+\-]\d+[dwmy]$/, '');
+        core = core.replace(/:(FS|SS|FF|SF)$/i, '');
+        core = core.replace(/^Milestone:\s*/i, '');
+        core = core.toLowerCase().replace(/\s+/g, ' ').trim();
+        return !tokens.has(core);
+    });
+
+    if (kept.length === 0) {
+        return line.replace(pattern, '').replace(/\s+$/, '');
+    }
+    return line.replace(pattern, ' [depends ' + kept.join(', ') + ']');
+}
+
+/**
+ * Move the editor cursor to the start of a line and scroll it into view.
+ */
+function goToEditorLine(lineNumber) {
+    var editor = document.getElementById('planEditor');
+    if (!editor) return;
+    var lines = editor.value.split('\n');
+    var pos = 0;
+    for (var i = 0; i < lineNumber - 1 && i < lines.length; i++) pos += lines[i].length + 1;
+    editor.focus();
+    editor.setSelectionRange(pos, pos);
+    var style = getComputedStyle(editor);
+    var lineHeight = parseFloat(style.lineHeight) || (parseFloat(style.fontSize) * 1.5);
+    editor.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
+    editor.dispatchEvent(new Event('scroll'));
+}

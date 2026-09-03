@@ -1535,6 +1535,9 @@ async function updateAllViews(planText, projectName) {
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
             { name: 'statusBarDeps',           fn: () => { if (typeof updateStatusBarDependencies === 'function') updateStatusBarDependencies(result.dependencies); } },
+            // Last, so a circular-dependency warning is not overwritten by the
+            // other status-bar updates above.
+            { name: 'circularDependencies',    fn: () => { if (typeof updateCircularDependencyWarnings === 'function') updateCircularDependencyWarnings(result); } },
         ];
 
         for (const { name, fn } of viewUpdates) {

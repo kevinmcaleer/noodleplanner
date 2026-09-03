@@ -153,6 +153,37 @@
     outline-offset: 1px;
 }
 
+/* Inline action offered next to a status-bar warning (e.g. "Fix" for a
+   circular dependency) */
+.status-bar-fix-btn {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border: 1px solid #d32f2f;
+    border-radius: 3px;
+    background: transparent;
+    color: #d32f2f;
+    font-size: 0.9em;
+    line-height: 1.4;
+    cursor: pointer;
+    vertical-align: baseline;
+}
+
+.status-bar-fix-btn:hover {
+    background: #d32f2f;
+    color: #ffffff;
+}
+
+.status-bar-fix-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+.status-bar-centre .status-bar-task-link {
+    color: inherit;
+    text-decoration: underline;
+}
+
 /* Ensure main content doesn't hide behind status bar */
 body {
     padding-bottom: 36px;

@@ -37,8 +37,21 @@ Export to MS Project
 You can also export your NoodlePlanner plan to Microsoft Project XML format:
 
 1. Click **Tools** in the project sub-navigation
-2. Select **Export to MS Project**
+2. Select **Export to MS Project (XML)**
 3. A ``.xml`` file is downloaded that can be opened in Microsoft Project
+
+.. note::
+
+   Microsoft Project's native ``.mpp`` format cannot be written by
+   NoodlePlanner, or by any open-source tool, so the export is always XML.
+   Open it in Microsoft Project with **File → Open** and, if you need a
+   ``.mpp``, save it from there.
+
+   Microsoft Project is stricter about dependencies than NoodlePlanner: it
+   refuses to open a file in which a task is linked to its own phase, or in
+   which a dependency on a phase heading loops back through that phase's
+   subtasks. Such links are left out of the export and the reason is written
+   to the task's **Notes** field, so the file always opens.
 
 Tips
 -----

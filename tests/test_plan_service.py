@@ -442,3 +442,29 @@ class TestResolveProjectName:
     def test_defaults_to_project(self, service, sample_plan):
         name = service._resolve_project_name(sample_plan, None)
         assert name == "Project"
+
+
+class TestCircularDependencyFields:
+    """The parse result exposes the scheduler's circular-dependency flags so
+    the editor can mark them and the status bar can offer a fix."""
+
+    def test_own_phase_dependency_is_reported(self, service):
+        result = service.parse("""Definition $definition
+  Project Charter $charter 1d
+  *GW2 Approval $GW2 0d [depends $definition, $charter]""")
+
+        assert result.success
+        gw2 = next(t for t in result.tasks if t["name"] == "GW2 Approval")
+        assert gw2["circular_dependencies"] == [{
+            "name": "Definition",
+            "deliverable": "definition",
+            "reason": "own_phase",
+            "message": '"GW2 Approval" depends on its own phase "Definition"',
+            "fixable": True,
+        }]
+        assert "its own phase" in gw2["loop_warning"]
+
+    def test_clean_plan_has_empty_fields(self, service, sample_plan):
+        result = service.parse(sample_plan)
+        assert all(t["circular_dependencies"] == [] for t in result.tasks)
+        assert all(t["loop_warning"] == "" for t in result.tasks)

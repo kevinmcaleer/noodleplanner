@@ -1003,6 +1003,20 @@
     color: #858585;
 }
 
+/* A dependency the scheduler flagged as circular (task depends on its own
+   phase, or is part of a loop) */
+.syntax-circular {
+    color: #f44336;
+    font-weight: 600;
+    text-decoration: underline wavy #f44336;
+    text-underline-offset: 2px;
+}
+
+.line-number.circular-dependency {
+    color: #f44336;
+    font-weight: 600;
+}
+
 .syntax-bucket {
     color: #4ec9b0;
     font-style: italic;
