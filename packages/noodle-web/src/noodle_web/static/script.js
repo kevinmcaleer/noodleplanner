@@ -990,8 +990,9 @@ async function exportFile(format, prefix) {
     const exportPPT = format === 'ppt';
     const exportPDF = format === 'pdf';
     const exportMSProject = format === 'msproject';
+    const exportMPP = format === 'mpp';
 
-    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject);
+    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject, exportMPP);
 }
 
 /**
@@ -1167,7 +1168,7 @@ async function exportReportPptx() {
     }
 }
 
-async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject) {
+async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject, exportMPP) {
     // Capture generation so we can bail out if the user switched projects
     // while waiting for the /render response.
     const generation = (typeof projectSwitchGeneration !== 'undefined') ? projectSwitchGeneration : -1;
@@ -1190,7 +1191,8 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             export_csv: exportCSV,
             export_ppt: exportPPT,
             export_pdf: exportPDF,
-            export_msproject: exportMSProject || false
+            export_msproject: exportMSProject || false,
+            export_mpp: exportMPP || false
         };
 
         const response = await fetch('/render', {

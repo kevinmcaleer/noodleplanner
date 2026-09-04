@@ -21,6 +21,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 from noodle_core import (
+    MppTemplateError,
     text_to_markdown_table,
     export_to_excel,
     export_to_csv,
@@ -219,6 +220,7 @@ class RenderRequest(BaseModel):
     export_ppt: bool = Field(False)
     export_pdf: bool = Field(False)
     export_msproject: bool = Field(False)
+    export_mpp: bool = Field(False)
 
 
 
@@ -268,10 +270,10 @@ async def render_plan(data: RenderRequest):
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}, {data.export_msproject}")
 
     try:
-        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject
+        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject or data.export_mpp
 
         if has_exports:
-            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject])
+            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject, data.export_mpp])
 
             if export_count == 1:
                 # Determine the requested format
@@ -282,6 +284,7 @@ async def render_plan(data: RenderRequest):
                         ("ppt", data.export_ppt),
                         ("pdf", data.export_pdf),
                         ("msproject", data.export_msproject),
+                        ("mpp", data.export_mpp),
                     ] if flag
                 )
                 result = plan_service.export_single(
@@ -315,6 +318,13 @@ async def render_plan(data: RenderRequest):
             result = plan_service.render(data.plan_text, project_name=data.project_name)
             return {"ascii_output": result.ascii_output}
 
+    except MppTemplateError as e:
+        # the server has no Microsoft Project template: a configuration gap,
+        # not a bad request or a crash, and the operator can act on it
+        logger.error(f"Native .mpp export unavailable: {e}")
+        raise HTTPException(status_code=503, detail=_sanitized_detail(
+            "Native .mpp export is not configured on this server "
+            "(no Microsoft Project template); use Export to MS Project (XML) instead", e))
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error rendering plan: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to render plan", e))
