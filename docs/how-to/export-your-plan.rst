@@ -58,9 +58,21 @@ percent complete and comments all carry across.
 Native export needs a one-time template saved from a licensed copy of
 Microsoft Project (the file embeds structures only Project can create — see
 the `pymppwriter README <https://github.com/kevinmcaleer/pymppwriter>`_ for
-the two-minute recipe).  Place it at ``templates/mpp-template.mpp`` or point
-the ``NOODLE_MPP_TEMPLATE`` environment variable at it.  The XML export
-(**Export to MS Project (XML)**) keeps working without any template.
+the two-minute recipe).  The XML export (**Export to MS Project (XML)**) keeps
+working without any template.
+
+Where to put the template
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Copy it to ``packages/noodle-web/src/noodle_web/static/mpp-template.mpp`` and
+the browser builds the file itself: the server schedules the plan and returns
+it as JSON, the page writes the ``.mpp`` and downloads it.  Nothing but the
+model crosses the network, and the deployment needs neither ``pymppwriter``
+nor a template on the server's disk.
+
+Without that static file the export falls back to the server, which needs the
+template at ``templates/mpp-template.mpp`` (or wherever ``NOODLE_MPP_TEMPLATE``
+points) and answers with a clear 503 when it is missing.
 
 Export the RAID Log
 --------------------

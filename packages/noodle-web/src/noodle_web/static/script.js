@@ -992,6 +992,22 @@ async function exportFile(format, prefix) {
     const exportMSProject = format === 'msproject';
     const exportMPP = format === 'mpp';
 
+    // Native .mpp is built in the browser when the deployment serves a
+    // template: only the scheduled model crosses the network, and the server
+    // needs neither pymppwriter nor a template on disk. Without one, fall
+    // through to the server-side exporter, which reports its own 503.
+    if (exportMPP) {
+        try {
+            const { exportMppInBrowser } = await import('/static/mpp-export.js');
+            if (await exportMppInBrowser(text, null, null)) {
+                showMessage('editor', 'success', 'Exported to MS Project (.mpp)');
+                return;
+            }
+        } catch (error) {
+            console.warn('Browser .mpp export unavailable, using the server:', error);
+        }
+    }
+
     await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject, exportMPP);
 }
 

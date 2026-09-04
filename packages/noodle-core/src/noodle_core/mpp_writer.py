@@ -53,6 +53,99 @@ def _require_pymppwriter():
         ) from exc
 
 
+def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
+    """The scheduled plan as plain JSON-ready data.
+
+    Both .mpp paths build from this: the Python writer below, and the browser
+    exporter, which fetches it and writes the file client-side with mppwriter.
+    Keeping one mapping means the two cannot drift apart.
+
+    Dates are ISO strings with no zone — the format stores wall-clock times.
+    """
+    converted = convert_plan_format_to_standard(plan_text)
+    resource_map, _ = parse_resource_mappings(plan_text)
+    yaml_data = natural_language_to_yaml(converted, project_name)
+    phases_raw = yaml_data[project_name]
+    phases = phases_raw if isinstance(phases_raw, list) else [phases_raw]
+    tasks = schedule_tasks(phases)
+
+    task_name_to_uid = {
+        t.get("name", "").lower(): idx for idx, t in enumerate(tasks, start=1)
+    }
+    links, dropped_links = _resolve_predecessor_links(tasks, task_name_to_uid)
+
+    # resources: case-insensitive fold, one display name each (mirrors XML export)
+    resource_names = {}
+    for t in tasks:
+        for r in (t.get("resources", "") or "").split(","):
+            r = r.strip().lstrip("@")
+            if r:
+                resource_names.setdefault(r.lower(), r)
+    resource_uid = {key: uid for uid, key in enumerate(sorted(resource_names), start=1)}
+
+    out_tasks, out_rels, out_assns = [], [], []
+    parents = []            # (level, uid) stack for parent_uid derivation
+    for idx, t in enumerate(tasks, start=1):
+        start_d, finish_d = t.get("start"), t.get("finish")
+        duration = t.get("duration")
+        if hasattr(duration, "days"):
+            duration_days = duration.days
+        elif start_d and finish_d:
+            duration_days = (finish_d - start_d).days
+        else:
+            duration_days = 0
+        is_summary = bool(t.get("summary"))
+        is_milestone = duration_days == 0 and not is_summary
+        level = max(1, t.get("level", 1))
+        start_dt = datetime.combine(start_d, _WORK_START)
+        finish_dt = start_dt if is_milestone else datetime.combine(
+            _inclusive_finish(start_d, finish_d), _WORK_FINISH)
+        while parents and parents[-1][0] >= level:
+            parents.pop()
+        parent_uid = parents[-1][1] if level > 1 and parents else 0
+        notes = [t.get("comment", "")] + dropped_links.get(idx, [])
+        out_tasks.append({
+            "uid": idx,
+            "name": _task_display_name(t),
+            "start": start_dt.isoformat(),
+            "finish": finish_dt.isoformat(),
+            "durationDays": max(0, duration_days),
+            "outlineLevel": level,
+            "parentUid": parent_uid,
+            "percentComplete": int(t.get("percent", 0) or 0),
+            "taskType": "fixed_duration",
+            "notes": "\n".join(n for n in notes if n),
+        })
+        parents.append((level, idx))
+        for r in (t.get("resources", "") or "").split(","):
+            key = r.strip().lstrip("@").lower()
+            if key in resource_uid and not any(
+                a["taskUid"] == idx and a["resourceUid"] == resource_uid[key] for a in out_assns
+            ):
+                out_assns.append({"taskUid": idx, "resourceUid": resource_uid[key], "units": 1.0})
+        for pred_uid, msp_type in links.get(idx, []):
+            out_rels.append({
+                "predUid": pred_uid, "succUid": idx,
+                "type": _LINK_TYPES.get(str(msp_type), "FS"), "lagDays": 0.0,
+            })
+
+    out_resources = [
+        {"uid": uid, "name": resource_map.get(key, resource_names[key])}
+        for key, uid in sorted(resource_uid.items(), key=lambda kv: kv[1])
+    ]
+    project_start = min((t["start"] for t in out_tasks),
+                        default=datetime.combine(datetime.now().date(), _WORK_START).isoformat())
+    return {
+        "title": project_name,
+        "start": project_start,
+        "tasks": out_tasks,
+        "relations": out_rels,
+        "resources": out_resources,
+        "assignments": out_assns,
+        "comments": "Exported by NoodlePlanner",
+    }
+
+
 def export_to_mpp(
     plan_text: str,
     output_path: str,
@@ -82,93 +175,23 @@ def export_to_mpp(
             "NOODLE_MPP_TEMPLATE to its path."
         ) from exc
 
-    converted = convert_plan_format_to_standard(plan_text)
-    resource_map, _ = parse_resource_mappings(plan_text)
-    yaml_data = natural_language_to_yaml(converted, project_name)
-    phases_raw = yaml_data[project_name]
-    phases = phases_raw if isinstance(phases_raw, list) else [phases_raw]
-    tasks = schedule_tasks(phases)
-
-    task_name_to_uid = {
-        t.get("name", "").lower(): idx for idx, t in enumerate(tasks, start=1)
-    }
-    links, dropped_links = _resolve_predecessor_links(tasks, task_name_to_uid)
-
-    # resources: case-insensitive fold, one display name each (mirrors XML export)
-    resource_names = {}
-    for t in tasks:
-        for r in (t.get("resources", "") or "").split(","):
-            r = r.strip().lstrip("@")
-            if r:
-                resource_names.setdefault(r.lower(), r)
-    resource_uid = {key: uid for uid, key in enumerate(sorted(resource_names), start=1)}
-
-    pw_tasks, pw_rels, pw_assns = [], [], []
-    parents = []            # (level, uid) stack for parent_uid derivation
-    for idx, t in enumerate(tasks, start=1):
-        start_d, finish_d = t.get("start"), t.get("finish")
-        duration = t.get("duration")
-        if hasattr(duration, "days"):
-            duration_days = duration.days
-        elif start_d and finish_d:
-            duration_days = (finish_d - start_d).days
-        else:
-            duration_days = 0
-        is_summary = bool(t.get("summary"))
-        is_milestone = duration_days == 0 and not is_summary
-        level = max(1, t.get("level", 1))
-        start_dt = datetime.combine(start_d, _WORK_START)
-        if is_milestone:
-            finish_dt = start_dt
-        else:
-            finish_dt = datetime.combine(
-                _inclusive_finish(start_d, finish_d), _WORK_FINISH
-            )
-        while parents and parents[-1][0] >= level:
-            parents.pop()
-        parent_uid = parents[-1][1] if level > 1 and parents else 0
-        notes = [t.get("comment", "")] + dropped_links.get(idx, [])
-        pw_tasks.append(pw.Task(
-            uid=idx,
-            name=_task_display_name(t),
-            start=start_dt,
-            finish=finish_dt,
-            duration_days=max(0, duration_days),
-            outline_level=level,
-            parent_uid=parent_uid,
-            percent_complete=int(t.get("percent", 0) or 0),
-            task_type="fixed_duration",
-            notes="\n".join(n for n in notes if n),
-        ))
-        parents.append((level, idx))
-        for r in (t.get("resources", "") or "").split(","):
-            key = r.strip().lstrip("@").lower()
-            if key in resource_uid and not any(
-                a.task_uid == idx and a.resource_uid == resource_uid[key]
-                for a in pw_assns
-            ):
-                pw_assns.append(pw.Assignment(idx, resource_uid[key]))
-        for pred_uid, msp_type in links.get(idx, []):
-            pw_rels.append(pw.Relation(
-                pred_uid, idx, type=_LINK_TYPES.get(str(msp_type), "FS")
-            ))
-
-    pw_resources = [
-        pw.Resource(uid, resource_map.get(key, resource_names[key]))
-        for key, uid in sorted(resource_uid.items(), key=lambda kv: kv[1])
-    ]
-
-    project_start = min(
-        (t.start for t in pw_tasks), default=datetime.combine(datetime.now().date(), _WORK_START)
-    )
+    model = build_project_model(plan_text, project_name)
+    parse = datetime.fromisoformat
     project = pw.Project(
-        title=project_name,
-        start=project_start,
-        tasks=pw_tasks,
-        relations=pw_rels,
-        resources=pw_resources,
-        assignments=pw_assns,
-        comments="Exported by NoodlePlanner",
+        title=model["title"],
+        start=parse(model["start"]),
+        tasks=[pw.Task(
+            uid=t["uid"], name=t["name"], start=parse(t["start"]), finish=parse(t["finish"]),
+            duration_days=t["durationDays"], outline_level=t["outlineLevel"],
+            parent_uid=t["parentUid"], percent_complete=t["percentComplete"],
+            task_type=t["taskType"], notes=t["notes"],
+        ) for t in model["tasks"]],
+        relations=[pw.Relation(r["predUid"], r["succUid"], type=r["type"], lag_days=r["lagDays"])
+                   for r in model["relations"]],
+        resources=[pw.Resource(r["uid"], r["name"]) for r in model["resources"]],
+        assignments=[pw.Assignment(a["taskUid"], a["resourceUid"], units=a["units"])
+                     for a in model["assignments"]],
+        comments=model["comments"],
     )
     # pymppwriter raises ScheduleWarning for plans Microsoft Project will not
     # reproduce exactly (a task at 100% with resources assigned is the common
@@ -178,4 +201,4 @@ def export_to_mpp(
         writer.write(project, output_path)
     for w in caught:
         logger.warning("Native .mpp export: %s", w.message)
-    logger.info("Wrote native .mpp export to %s (%d tasks)", output_path, len(pw_tasks))
+    logger.info("Wrote native .mpp export to %s (%d tasks)", output_path, len(model["tasks"]))
