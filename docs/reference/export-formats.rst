@@ -73,7 +73,8 @@ Microsoft Project XML (``.xml``)
 
 Exports the plan as a Microsoft Project XML file that can be opened in Microsoft Project.
 
-- Access: **Tools** → **Export to MS Project (XML)**
+- Access: API only — ``POST /render`` with ``export_msproject: true``. The
+  Tools menu offers the native ``.mpp`` export below instead.
 - Filename: ``{project-name}.xml``
 
 The file follows the MSPDI schema, so Microsoft Project, ProjectLibre and
@@ -103,7 +104,7 @@ Microsoft Project (``.mpp``)
 
 A native ``.mpp`` file that opens in Microsoft Project by double-click.
 
-- Access: **Tools** → **Export to MS Project (.mpp)**
+- Access: **Tools** → **Export to MS Project**
 - Filename: ``{project-name}.mpp``
 
 Built entirely in the browser with the `mppwriter

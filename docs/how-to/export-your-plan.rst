@@ -48,11 +48,10 @@ Microsoft Project (``.mpp``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Writes a **native** ``.mpp`` file that opens in Microsoft Project by
-double-click — unlike the XML export, which has to be opened from inside
-Project.  Tasks, phases, dependencies, milestones, resources, assignments,
-percent complete and comments all carry across.
+double-click.  Tasks, phases, dependencies, milestones, resources,
+assignments, percent complete and comments all carry across.
 
-1. Click **Tools** → **Export to MS Project (.mpp)**
+1. Click **Tools** → **Export to MS Project**
 2. The file downloads as ``{project-name}.mpp``
 
 The file is built **entirely in your browser** by the
@@ -62,13 +61,14 @@ anywhere: the only request the export makes is for the template described
 below, and the server has no ``.mpp`` endpoint at all.  Dependency type and
 lag (``[depends Design:SS +2d]``) carry across, and a link that Microsoft
 Project would reject as circular is left out with the reason written in the
-task's notes, exactly as the XML export does.
+task's notes.
 
 Native export needs a one-time template saved from a licensed copy of
 Microsoft Project (the file embeds structures only Project can create — see
 the `pymppwriter README <https://github.com/kevinmcaleer/pymppwriter>`_ for
-the two-minute recipe).  The XML export (**Export to MS Project (XML)**) keeps
-working without any template.
+the two-minute recipe).  The older MS Project XML (MSPDI) export is no longer
+in the menu; integrations can still request it from the API (see
+:doc:`../reference/export-formats`).
 
 Where to put the template
 ^^^^^^^^^^^^^^^^^^^^^^^^^

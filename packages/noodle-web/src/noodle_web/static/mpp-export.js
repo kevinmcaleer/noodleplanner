@@ -23,9 +23,8 @@ export const TEMPLATE_URL = "/static/mpp-template.mpp";
 
 /** Shown when the template asset is absent; the docs explain the recipe. */
 export const TEMPLATE_MISSING_MESSAGE =
-  "Native .mpp export needs a template saved from Microsoft Project at " +
-  TEMPLATE_URL + ". See Export your plan in the docs for the two-minute recipe, " +
-  "or use Export to MS Project (XML), which needs no template.";
+  "Export to MS Project needs a template saved from Microsoft Project, served at " +
+  TEMPLATE_URL + ". See \"Export your plan\" in the docs for the two-minute recipe.";
 
 // Working day the scheduler assumes; the same times the XML export stamps.
 const WORK_START_HOUR = 8;
