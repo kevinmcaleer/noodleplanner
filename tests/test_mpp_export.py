@@ -1,20 +1,22 @@
-"""Native .mpp export (noodle_core.mpp_writer), its round trip through
-NoodlePlanner's own .mpp importer, and the /render endpoint that serves it.
+"""Native .mpp export in noodle_core.mpp_writer and its round trip through
+NoodlePlanner's own .mpp importer.
 
-pymppwriter is a real dependency of noodle-web (noodle-core[mpp]), so these
-tests import it rather than skipping: a missing dependency means the deployed
-export is broken and should fail loudly here.  Only the tests that need a
-Microsoft Project template are skipped when one is absent — the template is
-per-deployment and cannot be committed.
+These are the library paths (CLI and other Python consumers). The web app
+builds and reads .mpp files in the browser with mppwriter (issue #770), so
+there is no /render or /api endpoint for .mpp any more; that path is covered
+by tests/test_mpp_browser_export.mjs, which also checks the JavaScript model
+against build_project_model so the two cannot drift.
+
+pymppwriter is a real dependency of noodle-core[mpp], so these tests import it
+rather than skipping: a missing dependency should fail loudly here.  Only the
+tests that need a Microsoft Project template are skipped when one is absent —
+the template is per-deployment and cannot be committed.
 """
 
 import os
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-
-from noodle_web.app import app
 
 TEMPLATE = os.environ.get(
     "NOODLE_MPP_TEMPLATE",
@@ -34,16 +36,6 @@ Phase 2
 """
 
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
-
-
-@pytest.fixture
-def client():
-    # the rate-limit store is process-global, so a full-suite run arrives here
-    # with the budget already spent and every request would come back 429
-    from noodle_web.security import reset_rate_limit_store
-
-    reset_rate_limit_store()
-    return TestClient(app)
 
 
 def _export(tmp_path):
@@ -105,43 +97,34 @@ def test_missing_template_raises_clear_error(tmp_path):
         export_to_mpp(PLAN, str(tmp_path / "x.mpp"), str(tmp_path / "nope.mpp"))
 
 
-@needs_template
-def test_render_endpoint_serves_native_mpp(client, monkeypatch):
-    monkeypatch.setenv("NOODLE_MPP_TEMPLATE", TEMPLATE)
-    response = client.post("/render", json={"plan_text": PLAN, "export_mpp": True})
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("application/vnd.ms-project")
-    assert ".mpp" in response.headers.get("content-disposition", "")
-    assert response.content[:8] == OLE_MAGIC
+def test_model_carries_dependency_type_and_lag():
+    """Lag/lead used to be written as 0 on every relation (issue #770)."""
+    from noodle_core.mpp_writer import build_project_model
+
+    model = build_project_model(
+        "Phase 1\n  Design 3d\n  Build 5d [depends Design +2d]\n  Test 2d [depends Build:SS -1w]\n",
+        "Lag",
+    )
+    uid = {t["name"]: t["uid"] for t in model["tasks"]}
+    by_succ = {r["succUid"]: r for r in model["relations"]}
+    assert by_succ[uid["Build"]] == {
+        "predUid": uid["Design"], "succUid": uid["Build"], "type": "FS", "lagDays": 2.0,
+    }
+    # the scheduler counts a week as 7 (date_math.parse_duration_to_days)
+    assert by_succ[uid["Test"]] == {
+        "predUid": uid["Build"], "succUid": uid["Test"], "type": "SS", "lagDays": -7.0,
+    }
 
 
-def test_render_endpoint_reports_a_missing_template(client, monkeypatch, tmp_path):
-    """An unconfigured server says so, instead of failing as a generic 500."""
-    monkeypatch.setenv("NOODLE_MPP_TEMPLATE", str(tmp_path / "absent.mpp"))
-    response = client.post("/render", json={"plan_text": PLAN, "export_mpp": True})
-    assert response.status_code == 503
-    assert "not configured" in response.json()["detail"]
+def test_web_app_has_no_server_side_mpp_path():
+    """Export and import of .mpp happen in the browser; the server keeps no
+    endpoint, flag or template lookup for them."""
+    import importlib
 
+    from noodle_web.plan_service import PlanService
 
-def test_model_endpoint_returns_the_scheduled_plan(client):
-    """The browser exporter builds from this, so it must carry the whole plan."""
-    response = client.post("/api/mpp/model", json={"plan_text": PLAN, "project_name": "Browser"})
-    assert response.status_code == 200
-    model = response.json()
-    assert model["title"] == "Browser"
-    names = [t["name"] for t in model["tasks"]]
-    for name in ("Proposal", "Approval", "Build", "Review", "Ship"):
-        assert name in names, f"{name} missing from {names}"
-    assert {r["name"] for r in model["resources"]} >= {"kevin", "adam"}
-    assert len(model["assignments"]) >= 3
-    assert model["relations"], "the plan's dependencies should carry across"
-    # dates are wall-clock ISO strings the browser can parse without a zone
-    assert all("T" in t["start"] and not t["start"].endswith("Z") for t in model["tasks"])
-
-
-def test_model_endpoint_needs_no_template(client, monkeypatch, tmp_path):
-    """It schedules only — no pymppwriter and no template involved."""
-    monkeypatch.setenv("NOODLE_MPP_TEMPLATE", str(tmp_path / "absent.mpp"))
-    response = client.post("/api/mpp/model", json={"plan_text": PLAN})
-    assert response.status_code == 200
-    assert response.json()["tasks"]
+    web_module = importlib.import_module("noodle_web.app")
+    routes = {r.path for r in web_module.app.routes}
+    assert "/api/mpp/model" not in routes
+    assert "export_mpp" not in web_module.RenderRequest.model_fields
+    assert not hasattr(PlanService, "_export_mpp")

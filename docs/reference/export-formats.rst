@@ -98,13 +98,22 @@ rather than recalculating the plan from its own start date on open. Resource
 assignments carry the task's dates, work and progress; milestones are
 zero-length instants.
 
-.. note::
+Microsoft Project (``.mpp``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   NoodlePlanner cannot write Microsoft Project's native binary ``.mpp``
-   format — no open-source library can, including MPXJ, the reference
-   implementation, which is read-only for ``.mpp``. XML is the supported
-   round-trip format. NoodlePlanner *can* read ``.mpp`` files on import; see
-   :doc:`../how-to/import-from-ms-project`.
+A native ``.mpp`` file that opens in Microsoft Project by double-click.
+
+- Access: **Tools** → **Export to MS Project (.mpp)**
+- Filename: ``{project-name}.mpp``
+
+Built entirely in the browser with the `mppwriter
+<https://www.npmjs.com/package/mppwriter>`_ library from the plan the page
+has already scheduled; no plan data is sent to the server. It needs a
+one-time template saved from Microsoft Project, served at
+``/static/mpp-template.mpp``; see :doc:`../how-to/export-your-plan` for the
+recipe and for what does not round-trip yet. The same library reads ``.mpp``
+files on import, also in the browser; see
+:doc:`../how-to/import-from-ms-project`.
 
 Markdown (``.md``)
 ~~~~~~~~~~~~~~~~~~~

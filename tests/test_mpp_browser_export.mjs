@@ -1,64 +1,307 @@
 /**
- * The browser export path, exercised in Node.
+ * The browser's native .mpp path (static/mpp-export.js), exercised in Node.
  *
- * mpp-export.js keeps its file building pure — no fetch, no DOM — so the exact
- * code a browser runs can be tested here: model JSON in, a real .mpp out.
+ * Export and import of .mpp files happen entirely in the browser (issue #770):
+ * the model is built from the `/api/parse` payload the page already holds,
+ * the file is written and read with the vendored mppwriter, and the only
+ * request export makes is for the template asset. mpp-export.js keeps all of
+ * that pure, so the exact code the browser runs is what these tests run.
+ *
+ *   node --test tests/test_mpp_browser_export.mjs
+ *
+ * The drift check and the round trips need the repo's Python venv (to obtain
+ * a parse payload and the reference model) and a Microsoft Project template
+ * at templates/mpp-template.mpp or $NOODLE_MPP_TEMPLATE; they skip otherwise.
+ * The vendoring and fetch-isolation checks always run.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
-import { buildMpp, modelToProject } from "../packages/noodle-web/src/noodle_web/static/mpp-export.js";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import {
+  TEMPLATE_URL,
+  TEMPLATE_MISSING_MESSAGE,
+  buildMpp,
+  buildProjectFromParse,
+  exportMppInBrowser,
+  filenameStem,
+  generateShortname,
+  importMppBytes,
+  inclusiveFinish,
+  projectToMarkdown,
+  resolvePredecessorLinks,
+} from "../packages/noodle-web/src/noodle_web/static/mpp-export.js";
 import { readProject } from "../packages/noodle-web/src/noodle_web/static/vendor/mppwriter/index.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const python = `${repo}/.venv/bin/python`;
 const template = process.env.NOODLE_MPP_TEMPLATE || `${repo}/templates/mpp-template.mpp`;
-const runnable = existsSync(python) && existsSync(template);
+const hasPython = existsSync(python);
+const hasTemplate = existsSync(template);
 
-const PLAN = `Phase 1
-  Proposal 1d @kevin 2026-07-01
+const PLAN = `---
+title: Browser export
+Resources:
+- @kevin: Kevin McAleer
+- @adam: Adam Reid
+---
+Phase 1
+  Proposal 1d @kevin 2026-07-01 100% "Signed off by the board"
   *Approval 0d @kevin
-  Build 5d @adam, @kevin 50%
-Phase 2
-  Review 2d @kevin
+  Build 5d @adam, @kevin 50% [depends Approval +2d]
+Phase 2 [depends Phase 1]
+  Review 2d @kevin [depends Build:SS -1w]
   Ship 1d
 `;
 
-/** The model the /api/mpp/model endpoint would return. */
-function serverModel() {
-  const script = `
-import json, sys
-sys.path.insert(0, ${JSON.stringify(`${repo}/packages/noodle-core/src`)})
-from noodle_core.mpp_writer import build_project_model
-print(json.dumps(build_project_model(${JSON.stringify(PLAN)}, "Browser export")))
-`;
+function py(script) {
   return JSON.parse(execFileSync(python, ["-c", script], { cwd: repo }).toString());
 }
 
-test("the browser builds a real .mpp from the server's model", { skip: !runnable }, () => {
-  const model = serverModel();
-  assert.ok(model.tasks.length >= 6, "the model should carry every task");
+/** What /api/parse returns for the plan, straight from PlanService. */
+function parsePayload(plan = PLAN) {
+  return py(`
+import json, sys, dataclasses
+sys.path.insert(0, ${JSON.stringify(`${repo}/packages/noodle-core/src`)})
+sys.path.insert(0, ${JSON.stringify(`${repo}/packages/noodle-web/src`)})
+from noodle_web.plan_service import PlanService
+r = PlanService().parse(${JSON.stringify(plan)}, project_name="Browser export")
+print(json.dumps({"success": r.success, "project_name": r.project_name, "tasks": r.tasks,
+                  "front_matter": r.front_matter, "resource_map": r.resource_map}))
+`);
+}
 
-  const bytes = buildMpp(model, new Uint8Array(readFileSync(template)), () => {});
-  assert.deepEqual([...bytes.subarray(0, 8)], [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+/** The Python model the JS one must match. */
+function pythonModel(plan = PLAN) {
+  return py(`
+import json, sys
+sys.path.insert(0, ${JSON.stringify(`${repo}/packages/noodle-core/src`)})
+from noodle_core.mpp_writer import build_project_model
+print(json.dumps(build_project_model(${JSON.stringify(plan)}, "Browser export")))
+`);
+}
 
-  // and it describes the plan that went in
-  const back = readProject(bytes);
-  const names = back.tasks.map((t) => t.name);
-  for (const name of ["Proposal", "Approval", "Build", "Review", "Ship"]) {
-    assert.ok(names.includes(name), `${name} missing from the exported file: ${names.join(", ")}`);
-  }
-  assert.ok(back.resources.length >= 2, "resources should carry across");
-  assert.ok(back.assignments.length >= 3, "assignments should carry across");
+/** A JS Date as the wall-clock ISO string the Python model uses. */
+const iso = (d) => d.toISOString().replace(/\.000Z$/, "");
+
+// --- the model matches the Python one -----------------------------------------
+
+test("the browser model is the Python model, field for field", { skip: !hasPython }, () => {
+  const expected = pythonModel();
+  const actual = buildProjectFromParse(parsePayload(), "Browser export");
+
+  assert.equal(actual.title, expected.title);
+  assert.equal(iso(actual.start), expected.start);
+  assert.deepEqual(
+    actual.tasks.map((t) => ({ ...t, start: iso(t.start), finish: iso(t.finish) })),
+    expected.tasks,
+  );
+  assert.deepEqual(actual.relations, expected.relations);
+  assert.deepEqual(actual.resources, expected.resources);
+  assert.deepEqual(actual.assignments, expected.assignments);
+  assert.equal(actual.comments, expected.comments);
 });
 
-test("the model maps onto the writer's project shape", { skip: !runnable }, () => {
-  const project = modelToProject(serverModel());
-  assert.equal(project.title, "Browser export");
-  assert.ok(project.start instanceof Date && !Number.isNaN(project.start.getTime()));
-  for (const t of project.tasks) {
-    assert.ok(t.start instanceof Date && t.finish instanceof Date, `${t.name} has bad dates`);
-    assert.ok(t.finish.getTime() >= t.start.getTime(), `${t.name} finishes before it starts`);
+test("dependency type and lag are carried, not zeroed", { skip: !hasPython }, () => {
+  const project = buildProjectFromParse(parsePayload(), "Browser export");
+  const uid = Object.fromEntries(project.tasks.map((t) => [t.name, t.uid]));
+  const bySucc = Object.fromEntries(project.relations.map((r) => [r.succUid, r]));
+  assert.deepEqual(bySucc[uid.Build], { predUid: uid.Approval, succUid: uid.Build, type: "FS", lagDays: 2 });
+  assert.deepEqual(bySucc[uid.Review], { predUid: uid.Build, succUid: uid.Review, type: "SS", lagDays: -7 });
+  // the phase-to-phase link is legitimate and kept
+  assert.deepEqual(bySucc[uid["Phase 2"]], { predUid: uid["Phase 1"], succUid: uid["Phase 2"], type: "FS", lagDays: 0 });
+});
+
+test("links MS Project would reject are dropped with a note, as the XML export does", () => {
+  const tasks = [
+    { key: "Definition", name: "Definition", level: 1, is_summary: true, depends: [] },
+    { key: "Charter", name: "Charter", level: 2, depends: [] },
+    { key: "GW2", name: "GW2", level: 2, depends: ["Definition", "Charter"] },
+  ];
+  const keyToUid = new Map(tasks.map((t, i) => [t.key.toLowerCase(), i + 1]));
+  const { links, dropped } = resolvePredecessorLinks(tasks, keyToUid);
+  assert.deepEqual(links.get(3), [{ predUid: 2, type: "FS", lagDays: 0 }]);
+  assert.deepEqual(dropped.get(3), [
+    'Dependency on "Definition" was not exported: MS Project cannot link a task to its own summary task.',
+  ]);
+});
+
+test("the exclusive finish becomes the last working day", () => {
+  assert.equal(inclusiveFinish("2026-07-06", "2026-07-11"), "2026-07-10"); // Mon..Sat -> Fri
+  assert.equal(inclusiveFinish("2026-07-06", "2026-07-13"), "2026-07-10"); // finish on Mon -> Fri
+  assert.equal(inclusiveFinish("2026-07-06", "2026-07-06"), "2026-07-06"); // milestone
+});
+
+// --- round trips through a real file --------------------------------------------
+
+const roundTrip = hasPython && hasTemplate;
+
+test("the browser writes a real .mpp that reads back as the plan", { skip: !roundTrip }, () => {
+  const project = buildProjectFromParse(parsePayload(), "Browser export");
+  const bytes = buildMpp(project, new Uint8Array(readFileSync(template)), () => {});
+  assert.deepEqual([...bytes.subarray(0, 8)], [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
+  const back = readProject(bytes);
+  const byName = Object.fromEntries(back.tasks.map((t) => [t.name, t]));
+  for (const name of ["Phase 1", "Proposal", "Approval", "Build", "Phase 2", "Review", "Ship"]) {
+    assert.ok(byName[name], `${name} missing from the exported file`);
+  }
+  // outline, durations, progress, milestones, notes
+  assert.equal(byName["Phase 1"].outlineLevel, 1);
+  assert.equal(byName.Proposal.outlineLevel, 2);
+  assert.equal(byName.Proposal.parentUid, byName["Phase 1"].uid);
+  assert.equal(byName.Build.durationDays, 5);
+  assert.equal(byName.Build.percentComplete, 50);
+  assert.equal(byName.Approval.durationDays, 0);
+  assert.equal(byName.Proposal.percentComplete, 100);
+  assert.equal(byName.Proposal.notes, "Signed off by the board");
+  // resources and assignments
+  assert.deepEqual(back.resources.map((r) => r.name).sort(), ["Adam Reid", "Kevin McAleer"]);
+  const kevin = back.resources.find((r) => r.name === "Kevin McAleer").uid;
+  assert.ok(back.assignments.some((a) => a.taskUid === byName.Build.uid && a.resourceUid === kevin));
+  // dependency type and lag
+  const rel = (succ) => back.relations.find((r) => r.succUid === byName[succ].uid);
+  assert.equal(rel("Build").type, "FS");
+  assert.equal(rel("Build").lagDays, 2);
+  assert.equal(rel("Review").type, "SS");
+  assert.equal(rel("Review").lagDays, -7);
+});
+
+test("a file exported by the browser imports back as plan markdown", { skip: !roundTrip }, () => {
+  const project = buildProjectFromParse(parsePayload(), "Browser export");
+  const bytes = buildMpp(project, new Uint8Array(readFileSync(template)), () => {});
+  const markdown = importMppBytes(bytes);
+
+  const lines = markdown.split("\n");
+  assert.equal(lines[0], "---");
+  assert.equal(lines[1], "title: Browser export");
+  assert.ok(lines.includes("- @kmcaleer: Kevin McAleer"));
+  assert.ok(lines.includes("- @areid: Adam Reid"));
+
+  const line = (name) => lines.find((l) => l.trim().replace(/^\*/, "").startsWith(name + " ") || l.trim() === name);
+  assert.equal(line("Phase 1"), "Phase 1");
+  assert.equal(line("Proposal"), '  Proposal 1d @kmcaleer 100% "Signed off by the board"');
+  assert.equal(line("Approval"), "  *Approval 0d @kmcaleer");
+  assert.equal(line("Build"), "  Build 5d @areid @kmcaleer 50% [depends: Approval +2d]");
+  assert.equal(line("Phase 2"), "Phase 2 [depends: Phase 1]");
+  assert.equal(line("Review"), "  Review 2d @kmcaleer [depends: Build:SS -7d]");
+  assert.equal(line("Ship"), "  Ship 1d");
+
+  // and the plan schedules again with the same outline and leaf durations
+  const again = parsePayload(markdown);
+  assert.ok(again.success);
+  const isSummary = (t) => project.tasks.some((c) => c.parentUid === t.uid);
+  assert.deepEqual(
+    again.tasks.map((t) => [t.name, t.level, Boolean(t.is_summary), t.is_summary ? null : t.duration_days]),
+    project.tasks.map((t) => [t.name, t.outlineLevel, isSummary(t), isSummary(t) ? null : t.durationDays]),
+  );
+});
+
+// --- import ---------------------------------------------------------------------
+
+test("markdown from a read project mirrors the Python importer's shape", () => {
+  const D = (y, m, d, h = 8) => new Date(Date.UTC(y, m - 1, d, h));
+  const project = {
+    title: "Read back",
+    start: D(2026, 3, 2),
+    tasks: [
+      { uid: 1, name: "Phase", start: D(2026, 3, 2), finish: D(2026, 3, 6, 17), durationDays: 5, outlineLevel: 1, parentUid: 0 },
+      { uid: 2, name: "Design", start: D(2026, 3, 2), finish: D(2026, 3, 3, 17), durationDays: 2, outlineLevel: 2, parentUid: 1, percentComplete: 25 },
+      { uid: 3, name: "Build", start: D(2026, 3, 4), finish: D(2026, 3, 6, 17), durationDays: 3, outlineLevel: 2, parentUid: 1, notes: 'Has "quotes" so no comment' },
+      { uid: 4, name: "Done", start: D(2026, 3, 6, 17), finish: D(2026, 3, 6, 17), durationDays: 0, outlineLevel: 2, parentUid: 1 },
+    ],
+    relations: [
+      { predUid: 2, succUid: 3, type: "FS", lagDays: 0 },
+      { predUid: 3, succUid: 4, type: "FF", lagDays: 1 },
+    ],
+    resources: [{ uid: 1, name: "Alice" }, { uid: 2, name: "Bob Jones" }, { uid: 3, name: "Bill Jones" }],
+    assignments: [{ taskUid: 2, resourceUid: 1, units: 1 }, { taskUid: 3, resourceUid: 2 }, { taskUid: 3, resourceUid: 3 }],
+  };
+  assert.equal(
+    projectToMarkdown(project),
+    [
+      "---",
+      "title: Read back",
+      "Resources:",
+      "- @alice: Alice",
+      "- @bjones: Bob Jones",
+      "- @bjones2: Bill Jones",
+      "---",
+      "",
+      "Phase",
+      "  Design 2d @alice 25%",
+      "  *Build 3d @bjones @bjones2",
+      "  Done 0d [depends: Build:FF +1d]",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("shortnames follow the Python rule", () => {
+  assert.equal(generateShortname("Kevin McAleer"), "kmcaleer");
+  assert.equal(generateShortname("Alice"), "alice");
+  assert.equal(generateShortname("Bob J. Jones"), "bjones");
+  assert.equal(generateShortname(""), "");
+});
+
+// --- no request but the template -------------------------------------------------
+
+test("export asks the network for nothing but the template", { skip: !hasTemplate }, async () => {
+  const requested = [];
+  const fakeFetch = async (url) => {
+    requested.push(String(url));
+    return { ok: true, arrayBuffer: async () => readFileSync(template).buffer.slice(0) };
+  };
+  const downloads = [];
+  const parse = hasPython ? parsePayload() : {
+    success: true, project_name: "Browser export", front_matter: {}, resource_map: {},
+    tasks: [{ key: "Only", name: "Only", start: "2026-07-01", finish: "2026-07-02", duration_days: 1, level: 1 }],
+  };
+  const { filename, bytes } = await exportMppInBrowser(parse, "Browser export", {
+    fetch: fakeFetch,
+    download: (b, name) => downloads.push([name, b.length]),
+  });
+  assert.deepEqual(requested, [TEMPLATE_URL]);
+  assert.equal(filename, "Browser-export.mpp");
+  assert.deepEqual(downloads, [[filename, bytes.length]]);
+});
+
+test("a missing template is reported, never sent to a server", async () => {
+  const requested = [];
+  const fakeFetch = async (url) => {
+    requested.push(String(url));
+    return { ok: false };
+  };
+  await assert.rejects(
+    exportMppInBrowser({ success: true, tasks: [] }, "x", { fetch: fakeFetch, download: () => {} }),
+    { message: TEMPLATE_MISSING_MESSAGE },
+  );
+  assert.deepEqual(requested, [TEMPLATE_URL]);
+});
+
+test("file names are safe", () => {
+  assert.equal(filenameStem('Project "Silverfort" / v1.8'), "Project-Silverfort-v1.8");
+  assert.equal(filenameStem(""), "project");
+});
+
+// --- the vendored library is the pinned release --------------------------------
+
+test("the vendored mppwriter is the release package.json pins", () => {
+  const pkg = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
+  const pinned = pkg.devDependencies.mppwriter;
+  const vendor = join(repo, "packages", "noodle-web", "src", "noodle_web", "static", "vendor", "mppwriter");
+  assert.equal(readFileSync(join(vendor, "VERSION"), "utf8").trim(), pinned, "run `npm run vendor:mppwriter`");
+
+  const installed = join(repo, "node_modules", "mppwriter");
+  if (!existsSync(join(installed, "dist"))) return; // `npm install` not run here; VERSION is the check
+  const installedVersion = JSON.parse(readFileSync(join(installed, "package.json"), "utf8")).version;
+  assert.equal(installedVersion, pinned, "run `npm install`");
+  for (const name of readdirSync(join(installed, "dist")).filter((n) => n.endsWith(".js"))) {
+    assert.ok(
+      readFileSync(join(installed, "dist", name)).equals(readFileSync(join(vendor, name))),
+      `${name} in static/vendor/mppwriter differs from mppwriter@${pinned}; run \`npm run vendor:mppwriter\``,
+    );
   }
 });

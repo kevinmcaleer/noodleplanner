@@ -21,7 +21,6 @@ import uvicorn
 from dotenv import load_dotenv
 
 from noodle_core import (
-    MppTemplateError,
     text_to_markdown_table,
     export_to_excel,
     export_to_csv,
@@ -47,8 +46,6 @@ from noodle_core import (
     parse_budget_markdown,
     FrontMatterParser,
     import_from_msproject_xml,
-    import_from_mpp,
-    _check_mpp_available,
 )
 import json
 from .plan_service import PlanService, export_to_file
@@ -220,7 +217,6 @@ class RenderRequest(BaseModel):
     export_ppt: bool = Field(False)
     export_pdf: bool = Field(False)
     export_msproject: bool = Field(False)
-    export_mpp: bool = Field(False)
 
 
 
@@ -264,39 +260,16 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
-class MppModelRequest(BaseModel):
-    """A plan to schedule and return as data, for the browser exporter."""
-    plan_text: str = Field("", max_length=MAX_FILE_SIZE)
-    project_name: Optional[str] = Field(None, max_length=200)
-
-
-@app.post("/api/mpp/model")
-async def mpp_model(data: MppModelRequest):
-    """The scheduled plan as JSON, for building a .mpp in the browser.
-
-    The scheduling engine stays on the server; only the file construction moves
-    to the client, which is what lets a deployment drop pymppwriter and still
-    offer native .mpp export.
-    """
-    from noodle_core.mpp_writer import build_project_model
-
-    try:
-        return build_project_model(data.plan_text, data.project_name or "Project")
-    except (ValueError, KeyError, TypeError) as e:
-        logger.error(f"Error building the .mpp model: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to schedule the plan", e))
-
-
 @app.post("/render")
 async def render_plan(data: RenderRequest):
     """Render a project plan and optionally export to Excel/PPT/PDF/MS Project."""
     logger.info(f"Render request: exports={data.export_excel}, {data.export_ppt}, {data.export_pdf}, {data.export_msproject}")
 
     try:
-        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject or data.export_mpp
+        has_exports = data.export_excel or data.export_csv or data.export_ppt or data.export_pdf or data.export_msproject
 
         if has_exports:
-            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject, data.export_mpp])
+            export_count = sum([data.export_excel, data.export_csv, data.export_ppt, data.export_pdf, data.export_msproject])
 
             if export_count == 1:
                 # Determine the requested format
@@ -307,7 +280,6 @@ async def render_plan(data: RenderRequest):
                         ("ppt", data.export_ppt),
                         ("pdf", data.export_pdf),
                         ("msproject", data.export_msproject),
-                        ("mpp", data.export_mpp),
                     ] if flag
                 )
                 result = plan_service.export_single(
@@ -341,13 +313,6 @@ async def render_plan(data: RenderRequest):
             result = plan_service.render(data.plan_text, project_name=data.project_name)
             return {"ascii_output": result.ascii_output}
 
-    except MppTemplateError as e:
-        # the server has no Microsoft Project template: a configuration gap,
-        # not a bad request or a crash, and the operator can act on it
-        logger.error(f"Native .mpp export unavailable: {e}")
-        raise HTTPException(status_code=503, detail=_sanitized_detail(
-            "Native .mpp export is not configured on this server "
-            "(no Microsoft Project template); use Export to MS Project (XML) instead", e))
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error rendering plan: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to render plan", e))
@@ -1359,27 +1324,23 @@ async def import_msproject(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="No filename provided")
 
     extension = file.filename.lower().rsplit(".", 1)[-1] if "." in file.filename else ""
-    if extension not in ("xml", "mpp"):
-        raise HTTPException(status_code=400, detail="File must be .xml or .mpp format")
+    if extension == "mpp":
+        # Native .mpp files are read in the browser with mppwriter and never
+        # uploaded (issue #770); the page routes them before reaching here.
+        raise HTTPException(
+            status_code=400,
+            detail="Native .mpp files are imported in the browser; this endpoint accepts MS Project XML only",
+        )
+    if extension != "xml":
+        raise HTTPException(status_code=400, detail="File must be .xml format")
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File size exceeds maximum allowed")
 
     try:
-        if extension == "mpp":
-            if not _check_mpp_available():
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "Native .mpp import requires the olefile package. "
-                        "Install it with: pip install olefile"
-                    ),
-                )
-            markdown = import_from_mpp(file_bytes)
-        else:
-            xml_content = file_bytes.decode("utf-8")
-            markdown = import_from_msproject_xml(xml_content)
+        xml_content = file_bytes.decode("utf-8")
+        markdown = import_from_msproject_xml(xml_content)
 
         return {"markdown": markdown, "filename": file.filename}
     except HTTPException:

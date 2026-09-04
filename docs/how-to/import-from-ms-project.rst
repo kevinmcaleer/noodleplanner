@@ -17,19 +17,28 @@ Supported Formats
 ------------------
 
 ``.mpp`` (native Microsoft Project)
-   Direct import from Microsoft Project ``.mpp`` files. Supports tasks, resources, dependencies, and assignments.
+   Read **in your browser** by the `mppwriter <https://www.npmjs.com/package/mppwriter>`_
+   library; the file is never uploaded. Any MPP14 file (Project 2010 through
+   Microsoft 365) is supported. Tasks, outline, durations, milestones,
+   resources, assignments, dependencies with their type and lag, percent
+   complete and task notes are imported.
 
 ``.xml`` (Microsoft Project XML)
-   If you have trouble with ``.mpp`` import, export your project from Microsoft Project as XML first: **File** > **Save As** > select **XML Format (*.xml)**.
+   Sent to the server for conversion. If a ``.mpp`` file is older than Project
+   2010, export it from Microsoft Project as XML first: **File** > **Save As**
+   > select **XML Format (*.xml)**.
 
 What Gets Imported
 -------------------
 
-- **Tasks** — task names, durations, start and finish dates
-- **Resources** — resource names and assignments
-- **Dependencies** — task dependencies (finish-start links)
+- **Tasks** — task names, durations, start and finish dates, milestones (``0d``)
+- **Resources** — resource names and assignments (``@shortname``, declared in the front matter)
+- **Dependencies** — task dependencies with their type and lag, for example ``[depends: Build:SS -1w]``; a single link to the previous task becomes ``*``
 - **Progress** — percentage complete on each task
 - **Hierarchy** — summary tasks and subtasks are preserved as indented phases
+- **Notes** — task notes become a quoted comment (``.mpp`` only)
+
+Calendars, non-working days, constraints, baselines and costs are not imported.
 
 Export to MS Project
 ---------------------
@@ -42,10 +51,9 @@ You can also export your NoodlePlanner plan to Microsoft Project XML format:
 
 .. note::
 
-   Microsoft Project's native ``.mpp`` format cannot be written by
-   NoodlePlanner, or by any open-source tool, so the export is always XML.
-   Open it in Microsoft Project with **File → Open** and, if you need a
-   ``.mpp``, save it from there.
+   For a native ``.mpp`` file that opens by double-click, use **Export to MS
+   Project (.mpp)** instead; see :doc:`export-your-plan`. It is built in the
+   browser and needs a one-time template saved from Microsoft Project.
 
    Microsoft Project is stricter about dependencies than NoodlePlanner: it
    refuses to open a file in which a task is linked to its own phase, or in

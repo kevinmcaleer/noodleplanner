@@ -15,8 +15,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from noodle_core import (
-    export_to_mpp,
-    MppTemplateError,
     text_to_markdown_table,
     export_to_excel,
     export_to_csv,
@@ -446,7 +444,6 @@ class PlanService:
             "ppt": self._export_ppt,
             "pdf": self._export_pdf,
             "msproject": self._export_msproject,
-            "mpp": self._export_mpp,
         }
 
         exporter = exporters.get(fmt)
@@ -710,6 +707,11 @@ class PlanService:
                 {
                     "id": idx,
                     "name": task_name,
+                    # The scheduler's own name for the task: what `depends`
+                    # entries refer to. `name` above is the display form and
+                    # can differ (quoted comments, percent tokens), so the
+                    # browser resolves dependencies through this instead.
+                    "key": task.get("name", ""),
                     "start": start.strftime("%Y-%m-%d") if start else "",
                     "finish": finish.strftime("%Y-%m-%d") if finish else "",
                     "duration_days": duration.days if duration else 0,
@@ -827,35 +829,6 @@ class PlanService:
             filename=f"{stem}.pdf",
         )
 
-
-    def _export_mpp(
-        self, converted: str, original: str, name: str,
-        filename_stem: Optional[str] = None,
-    ) -> ExportResult:
-        stem = filename_stem or name
-        template = os.environ.get(
-            "NOODLE_MPP_TEMPLATE", os.path.join("templates", "mpp-template.mpp")
-        )
-        if not os.path.exists(template):
-            # MppTemplateError, not ValueError: a missing template is a server
-            # configuration problem the operator can fix, and the endpoint
-            # reports it as such instead of a generic failure
-            raise MppTemplateError(
-                "Native .mpp export needs a template saved from Microsoft "
-                f"Project (looked at {template!r}). Save one per the "
-                "pymppwriter README and set NOODLE_MPP_TEMPLATE to its path."
-            )
-        content = export_to_file(
-            lambda path: export_to_mpp(
-                original, path, template, project_name=name,
-            ),
-            suffix=".mpp",
-        )
-        return ExportResult(
-            content=content,
-            media_type="application/vnd.ms-project",
-            filename=f"{stem}.mpp",
-        )
 
     def _export_msproject(
         self, converted: str, original: str, name: str,
