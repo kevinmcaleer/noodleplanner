@@ -218,9 +218,9 @@ marimo/_lsp/
 __marimo__/
 .claude/worktrees/
 
-# local MS Project template for native .mpp export
-templates/mpp-template.mpp
-packages/noodle-web/src/noodle_web/static/mpp-template.mpp
 
 # Node (mppwriter is vendored from npm by `npm run vendor:mppwriter`)
 node_modules/
+
+# a local MS Project template for the CLI/library tests (NOODLE_MPP_TEMPLATE); the app ships its own in static/
+templates/mpp-template.mpp

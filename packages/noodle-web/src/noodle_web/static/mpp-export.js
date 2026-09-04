@@ -21,10 +21,10 @@ import { MppWriter, readProject } from "./vendor/mppwriter/index.js";
 /** Where the deployment puts the template it saved from Microsoft Project. */
 export const TEMPLATE_URL = "/static/mpp-template.mpp";
 
-/** Shown when the template asset is absent; the docs explain the recipe. */
+/** Shown when the bundled template cannot be loaded (a broken deployment). */
 export const TEMPLATE_MISSING_MESSAGE =
-  "Export to MS Project needs a template saved from Microsoft Project, served at " +
-  TEMPLATE_URL + ". See \"Export your plan\" in the docs for the two-minute recipe.";
+  "Export to MS Project could not load the template the app ships at " + TEMPLATE_URL +
+  ". The deployment is missing or blocking that file; see \"Export your plan\" in the docs.";
 
 // Working day the scheduler assumes; the same times the XML export stamps.
 const WORK_START_HOUR = 8;
