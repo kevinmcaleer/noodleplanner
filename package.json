@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "vendor:mppwriter": "node scripts/vendor-mppwriter.mjs",
-    "test:js": "node --test tests/test_mpp_browser_export.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
+    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_markdown_roundtrip.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
     "mppwriter": "0.4.0"
