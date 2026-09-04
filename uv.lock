@@ -689,7 +689,7 @@ requires-dist = [
     { name = "olefile", specifier = ">=0.46" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.0.0,<2.3.0" },
-    { name = "pymppwriter", marker = "extra == 'mpp'", git = "https://github.com/kevinmcaleer/pymppwriter" },
+    { name = "pymppwriter", marker = "extra == 'mpp'", specifier = ">=0.3" },
     { name = "python-dateutil", specifier = ">=2.9.0" },
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-pptx" },
@@ -1100,10 +1100,14 @@ wheels = [
 
 [[package]]
 name = "pymppwriter"
-version = "0.2.0"
-source = { git = "https://github.com/kevinmcaleer/pymppwriter#c3415a7a8d73bec96e75833fdcc38559647419f1" }
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "olefile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/08/b4af8f496d0992edc6aad4ca9b965ba687aedae0cda29f679e59a8cabcd0/pymppwriter-0.3.0.tar.gz", hash = "sha256:9f7b0b763682449a4904857e2656a264d37f2a4456e75abab5cb3f9c792621f5", size = 63375, upload-time = "2026-09-04T13:14:39.617Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/8d/4fc93944fedaa450718b2941099cdf7055a29f5c951af63d57a7822cd02d/pymppwriter-0.3.0-py3-none-any.whl", hash = "sha256:251901284ff177f8eeeb86da25d49475328c7b69e2fe1396ca81baf801552b41", size = 51931, upload-time = "2026-09-04T13:14:37.558Z" },
 ]
 
 [[package]]
