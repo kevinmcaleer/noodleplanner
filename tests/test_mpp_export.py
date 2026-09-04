@@ -76,6 +76,28 @@ def test_roundtrip_through_own_importer(tmp_path):
     assert "Phase 1" in markdown and "Phase 2" in markdown
 
 
+@needs_template
+def test_roundtrip_keeps_durations_resources_and_progress(tmp_path):
+    """Names alone are not a round trip: this caught a reader reading every row
+    as a summary, with no durations and unnamed resources."""
+    from noodle_core.msproject import import_from_mpp
+
+    markdown = import_from_mpp(_export(tmp_path).read_bytes())
+    lines = {
+        line.strip().split(" ")[0].lstrip("*"): line.strip()
+        for line in markdown.splitlines()
+        if line.startswith("  ")
+    }
+    assert "1d" in lines["Proposal"] and "100%" in lines["Proposal"]
+    assert "5d" in lines["Build"] and "50%" in lines["Build"]
+    assert "2d" in lines["Review"]
+    # resources carry across, declared in the front matter and used per task
+    assert "@kevin" in lines["Proposal"] and "@adam" in lines["Build"]
+    assert "- @kevin:" in markdown and "- @adam:" in markdown
+    # the hidden project-summary row is not re-imported as a task
+    assert "\nRoundtrip" not in markdown
+
+
 def test_missing_template_raises_clear_error(tmp_path):
     from noodle_core.mpp_writer import MppTemplateError, export_to_mpp
 

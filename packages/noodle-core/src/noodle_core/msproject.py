@@ -782,7 +782,17 @@ def import_from_mpp(file_bytes: bytes) -> str:
         os.write(tmp_fd, file_bytes)
         os.close(tmp_fd)
 
-        project = MppProject.read(tmp_path)
+        try:
+            # pymppwriter reads each file from its own field maps, so durations
+            # and resources survive files written by any Project version; the
+            # in-house reader's fixed offsets only match some of them.  Any
+            # failure here (not installed, or a vintage it cannot parse) falls
+            # back to the in-house reader rather than failing the import.
+            from .mpp_adapter import read_with_pymppwriter
+
+            project = read_with_pymppwriter(tmp_path)
+        except Exception:
+            project = MppProject.read(tmp_path)
     except ImportError:
         raise
     except MppReadError as e:
