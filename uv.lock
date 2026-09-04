@@ -1101,7 +1101,7 @@ wheels = [
 [[package]]
 name = "pymppwriter"
 version = "0.2.0"
-source = { git = "https://github.com/kevinmcaleer/pymppwriter#485ebf1c8d1ac6ea31bee1134f33c47c5dc6826f" }
+source = { git = "https://github.com/kevinmcaleer/pymppwriter#c3415a7a8d73bec96e75833fdcc38559647419f1" }
 dependencies = [
     { name = "olefile" },
 ]
