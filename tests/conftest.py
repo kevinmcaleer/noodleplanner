@@ -55,3 +55,19 @@ def sample_excel_bytes():
     workbook.save(bytes_io)
     bytes_io.seek(0)
     return bytes_io.getvalue()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_store():
+    """Give every test a fresh rate-limit budget.
+
+    The store is process-global, so in a full-suite run the endpoint tests
+    that come later all saw 429 and failed on ordering alone.
+    """
+    try:
+        from noodle_web.security import reset_rate_limit_store
+    except ImportError:      # noodle-web not installed for this run
+        yield
+        return
+    reset_rate_limit_store()
+    yield

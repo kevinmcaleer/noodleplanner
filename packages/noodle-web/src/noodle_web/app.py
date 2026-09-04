@@ -21,6 +21,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 from noodle_core import (
+    MppTemplateError,
     text_to_markdown_table,
     export_to_excel,
     export_to_csv,
@@ -317,6 +318,13 @@ async def render_plan(data: RenderRequest):
             result = plan_service.render(data.plan_text, project_name=data.project_name)
             return {"ascii_output": result.ascii_output}
 
+    except MppTemplateError as e:
+        # the server has no Microsoft Project template: a configuration gap,
+        # not a bad request or a crash, and the operator can act on it
+        logger.error(f"Native .mpp export unavailable: {e}")
+        raise HTTPException(status_code=503, detail=_sanitized_detail(
+            "Native .mpp export is not configured on this server "
+            "(no Microsoft Project template); use Export to MS Project (XML) instead", e))
     except (ValueError, KeyError, TypeError, OSError) as e:
         logger.error(f"Error rendering plan: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to render plan", e))

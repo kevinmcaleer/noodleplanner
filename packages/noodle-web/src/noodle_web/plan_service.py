@@ -837,20 +837,20 @@ class PlanService:
             "NOODLE_MPP_TEMPLATE", os.path.join("templates", "mpp-template.mpp")
         )
         if not os.path.exists(template):
-            raise ValueError(
+            # MppTemplateError, not ValueError: a missing template is a server
+            # configuration problem the operator can fix, and the endpoint
+            # reports it as such instead of a generic failure
+            raise MppTemplateError(
                 "Native .mpp export needs a template saved from Microsoft "
                 f"Project (looked at {template!r}). Save one per the "
                 "pymppwriter README and set NOODLE_MPP_TEMPLATE to its path."
             )
-        try:
-            content = export_to_file(
-                lambda path: export_to_mpp(
-                    original, path, template, project_name=name,
-                ),
-                suffix=".mpp",
-            )
-        except MppTemplateError as exc:
-            raise ValueError(str(exc)) from exc
+        content = export_to_file(
+            lambda path: export_to_mpp(
+                original, path, template, project_name=name,
+            ),
+            suffix=".mpp",
+        )
         return ExportResult(
             content=content,
             media_type="application/vnd.ms-project",

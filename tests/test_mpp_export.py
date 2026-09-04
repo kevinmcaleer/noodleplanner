@@ -1,22 +1,26 @@
-"""Native .mpp export (noodle_core.mpp_writer) and its round trip through
-NoodlePlanner's own .mpp importer.
+"""Native .mpp export (noodle_core.mpp_writer), its round trip through
+NoodlePlanner's own .mpp importer, and the /render endpoint that serves it.
 
-Needs the optional pymppwriter dependency and a Microsoft Project template at
-templates/mpp-template.mpp (or NOODLE_MPP_TEMPLATE); both are skipped
-gracefully when absent so CI without them stays green.
+pymppwriter is a real dependency of noodle-web (noodle-core[mpp]), so these
+tests import it rather than skipping: a missing dependency means the deployed
+export is broken and should fail loudly here.  Only the tests that need a
+Microsoft Project template are skipped when one is absent — the template is
+per-deployment and cannot be committed.
 """
 
 import os
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+
+from noodle_web.app import app
 
 TEMPLATE = os.environ.get(
     "NOODLE_MPP_TEMPLATE",
     str(Path(__file__).resolve().parent.parent / "templates" / "mpp-template.mpp"),
 )
-pymppwriter = pytest.importorskip("pymppwriter")
-pytestmark = pytest.mark.skipif(
+needs_template = pytest.mark.skipif(
     not os.path.exists(TEMPLATE), reason="needs an .mpp template (NOODLE_MPP_TEMPLATE)"
 )
 
@@ -29,6 +33,18 @@ Phase 2
   Ship 1d
 """
 
+OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+
+@pytest.fixture
+def client():
+    # the rate-limit store is process-global, so a full-suite run arrives here
+    # with the budget already spent and every request would come back 429
+    from noodle_web.security import reset_rate_limit_store
+
+    reset_rate_limit_store()
+    return TestClient(app)
+
 
 def _export(tmp_path):
     from noodle_core.mpp_writer import export_to_mpp
@@ -38,14 +54,17 @@ def _export(tmp_path):
     return out
 
 
+@needs_template
 def test_export_produces_native_mpp(tmp_path):
     import olefile
 
     out = _export(tmp_path)
+    assert out.read_bytes()[:8] == OLE_MAGIC
     ole = olefile.OleFileIO(str(out))
     assert ole.exists("   114/TBkndTask/FixedData")
 
 
+@needs_template
 def test_roundtrip_through_own_importer(tmp_path):
     from noodle_core.msproject import import_from_mpp
 
@@ -62,3 +81,21 @@ def test_missing_template_raises_clear_error(tmp_path):
 
     with pytest.raises(MppTemplateError, match="template"):
         export_to_mpp(PLAN, str(tmp_path / "x.mpp"), str(tmp_path / "nope.mpp"))
+
+
+@needs_template
+def test_render_endpoint_serves_native_mpp(client, monkeypatch):
+    monkeypatch.setenv("NOODLE_MPP_TEMPLATE", TEMPLATE)
+    response = client.post("/render", json={"plan_text": PLAN, "export_mpp": True})
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/vnd.ms-project")
+    assert ".mpp" in response.headers.get("content-disposition", "")
+    assert response.content[:8] == OLE_MAGIC
+
+
+def test_render_endpoint_reports_a_missing_template(client, monkeypatch, tmp_path):
+    """An unconfigured server says so, instead of failing as a generic 500."""
+    monkeypatch.setenv("NOODLE_MPP_TEMPLATE", str(tmp_path / "absent.mpp"))
+    response = client.post("/render", json={"plan_text": PLAN, "export_mpp": True})
+    assert response.status_code == 503
+    assert "not configured" in response.json()["detail"]

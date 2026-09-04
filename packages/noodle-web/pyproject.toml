@@ -4,7 +4,9 @@ version = "1.0.0"
 description = "Web application for Noodle Planner"
 requires-python = ">=3.11"
 dependencies = [
-    "noodle-core",
+    # [mpp] pulls in pymppwriter: the Tools menu offers native .mpp export, so
+    # the web app is not deployable without it
+    "noodle-core[mpp]",
     "fastapi>=0.116.1",
     "uvicorn>=0.35.0",
     "jinja2>=3.1.6",

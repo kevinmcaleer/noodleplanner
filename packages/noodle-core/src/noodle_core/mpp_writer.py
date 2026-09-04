@@ -13,6 +13,7 @@ natively, so this mapping stays close to the plan model.
 """
 
 import logging
+import warnings
 from datetime import datetime, time
 
 from .format_converter import convert_plan_format_to_standard
@@ -169,5 +170,12 @@ def export_to_mpp(
         assignments=pw_assns,
         comments="Exported by NoodlePlanner",
     )
-    writer.write(project, output_path)
+    # pymppwriter raises ScheduleWarning for plans Microsoft Project will not
+    # reproduce exactly (a task at 100% with resources assigned is the common
+    # one). Log them rather than let them vanish into the warnings filter.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        writer.write(project, output_path)
+    for w in caught:
+        logger.warning("Native .mpp export: %s", w.message)
     logger.info("Wrote native .mpp export to %s (%d tasks)", output_path, len(pw_tasks))
