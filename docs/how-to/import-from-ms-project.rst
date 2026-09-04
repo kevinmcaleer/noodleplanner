@@ -43,17 +43,19 @@ Calendars, non-working days, constraints, baselines and costs are not imported.
 Export to MS Project
 ---------------------
 
-You can also export your NoodlePlanner plan to Microsoft Project XML format:
+You can also export your NoodlePlanner plan as a native Microsoft Project
+file:
 
 1. Click **Tools** in the project sub-navigation
-2. Select **Export to MS Project (XML)**
-3. A ``.xml`` file is downloaded that can be opened in Microsoft Project
+2. Select **Export to MS Project**
+3. A ``.mpp`` file is downloaded that opens in Microsoft Project by
+   double-click
+
+The file is built in the browser and needs a one-time template saved from
+Microsoft Project; see :doc:`export-your-plan` for the recipe and for what
+does not round-trip yet.
 
 .. note::
-
-   For a native ``.mpp`` file that opens by double-click, use **Export to MS
-   Project (.mpp)** instead; see :doc:`export-your-plan`. It is built in the
-   browser and needs a one-time template saved from Microsoft Project.
 
    Microsoft Project is stricter about dependencies than NoodlePlanner: it
    refuses to open a file in which a task is linked to its own phase, or in
