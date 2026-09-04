@@ -8,9 +8,10 @@ by tests/test_mpp_browser_export.mjs, which also checks the JavaScript model
 against build_project_model so the two cannot drift.
 
 pymppwriter is a real dependency of noodle-core[mpp], so these tests import it
-rather than skipping: a missing dependency should fail loudly here.  Only the
-tests that need a Microsoft Project template are skipped when one is absent —
-the template is per-deployment and cannot be committed.
+rather than skipping: a missing dependency should fail loudly here.  The
+Microsoft Project template the writer needs ships with the app
+(static/mpp-template.mpp, the blank project the browser export uses too);
+NOODLE_MPP_TEMPLATE points the tests at a different one.
 """
 
 import os
@@ -18,13 +19,25 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATE = os.environ.get(
-    "NOODLE_MPP_TEMPLATE",
-    str(Path(__file__).resolve().parent.parent / "templates" / "mpp-template.mpp"),
+BUNDLED_TEMPLATE = (
+    Path(__file__).resolve().parent.parent
+    / "packages" / "noodle-web" / "src" / "noodle_web" / "static" / "mpp-template.mpp"
 )
+TEMPLATE = os.environ.get("NOODLE_MPP_TEMPLATE", str(BUNDLED_TEMPLATE))
 needs_template = pytest.mark.skipif(
     not os.path.exists(TEMPLATE), reason="needs an .mpp template (NOODLE_MPP_TEMPLATE)"
 )
+
+
+def test_bundled_template_is_present_and_blank():
+    """The app ships its own template: a blank project with the three recipe
+    tasks, no resources, and no author metadata from whoever saved it."""
+    assert BUNDLED_TEMPLATE.exists(), "static/mpp-template.mpp must be committed"
+    data = BUNDLED_TEMPLATE.read_bytes()
+    assert data[:8] == OLE_MAGIC
+    for encoding in ("utf-8", "utf-16-le"):
+        assert "Kevin".encode(encoding) not in data
+        assert "McAleer".encode(encoding) not in data
 
 PLAN = """Phase 1
   Proposal 1d 100% @kevin 2026-07-01

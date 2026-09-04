@@ -109,10 +109,11 @@ A native ``.mpp`` file that opens in Microsoft Project by double-click.
 
 Built entirely in the browser with the `mppwriter
 <https://www.npmjs.com/package/mppwriter>`_ library from the plan the page
-has already scheduled; no plan data is sent to the server. It needs a
-one-time template saved from Microsoft Project, served at
-``/static/mpp-template.mpp``; see :doc:`../how-to/export-your-plan` for the
-recipe and for what does not round-trip yet. The same library reads ``.mpp``
+has already scheduled; no plan data is sent to the server. It writes from a
+blank project template that ships with the app at
+``/static/mpp-template.mpp``; see :doc:`../how-to/export-your-plan` for
+what does not round-trip yet and for using your own template. The same
+library reads ``.mpp``
 files on import, also in the browser; see
 :doc:`../how-to/import-from-ms-project`.
 

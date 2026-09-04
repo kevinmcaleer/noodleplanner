@@ -51,9 +51,9 @@ file:
 3. A ``.mpp`` file is downloaded that opens in Microsoft Project by
    double-click
 
-The file is built in the browser and needs a one-time template saved from
-Microsoft Project; see :doc:`export-your-plan` for the recipe and for what
-does not round-trip yet.
+The file is built in the browser from a blank project template that ships
+with the app; see :doc:`export-your-plan` for what does not round-trip yet
+and for using a template of your own.
 
 .. note::
 

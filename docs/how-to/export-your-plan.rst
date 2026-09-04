@@ -63,19 +63,23 @@ lag (``[depends Design:SS +2d]``) carry across, and a link that Microsoft
 Project would reject as circular is left out with the reason written in the
 task's notes.
 
-Native export needs a one-time template saved from a licensed copy of
-Microsoft Project (the file embeds structures only Project can create — see
-the `pymppwriter README <https://github.com/kevinmcaleer/pymppwriter>`_ for
-the two-minute recipe).  The older MS Project XML (MSPDI) export is no longer
-in the menu; integrations can still request it from the API (see
+The writer works from a template: a blank project saved by Microsoft
+Project, because the file embeds structures only Project can create.  One
+ships with the app at ``packages/noodle-web/src/noodle_web/static/mpp-template.mpp``
+(served as ``/static/mpp-template.mpp``), so nothing needs setting up.
+The older MS Project XML (MSPDI) export is no longer in the menu;
+integrations can still request it from the API (see
 :doc:`../reference/export-formats`).
 
-Where to put the template
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Using your own template
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-Copy it to ``packages/noodle-web/src/noodle_web/static/mpp-template.mpp`` so
-the app serves it at ``/static/mpp-template.mpp``.  When it is missing the
-export stops with a message saying so; it never falls back to the server.
+If you want exported files to start from your organisation's own blank
+project (its calendar, views or custom fields), save one from Microsoft
+Project following the `pymppwriter README
+<https://github.com/kevinmcaleer/pymppwriter>`_ recipe and replace the
+bundled file.  If the file cannot be loaded the export stops with a message
+saying so; it never falls back to the server.
 
 What does not round-trip yet
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

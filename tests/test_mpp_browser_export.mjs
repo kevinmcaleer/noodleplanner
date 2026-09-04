@@ -10,9 +10,9 @@
  *   node --test tests/test_mpp_browser_export.mjs
  *
  * The drift check and the round trips need the repo's Python venv (to obtain
- * a parse payload and the reference model) and a Microsoft Project template
- * at templates/mpp-template.mpp or $NOODLE_MPP_TEMPLATE; they skip otherwise.
- * The vendoring and fetch-isolation checks always run.
+ * a parse payload and the reference model); they skip without it. The
+ * Microsoft Project template ships with the app (static/mpp-template.mpp);
+ * $NOODLE_MPP_TEMPLATE points the tests at a different one.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -37,7 +37,10 @@ import { readProject } from "../packages/noodle-web/src/noodle_web/static/vendor
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const python = `${repo}/.venv/bin/python`;
-const template = process.env.NOODLE_MPP_TEMPLATE || `${repo}/templates/mpp-template.mpp`;
+const template = process.env.NOODLE_MPP_TEMPLATE || join(staticDir(), "mpp-template.mpp");
+function staticDir() {
+  return join(repo, "packages", "noodle-web", "src", "noodle_web", "static");
+}
 const hasPython = existsSync(python);
 const hasTemplate = existsSync(template);
 
