@@ -992,23 +992,40 @@ async function exportFile(format, prefix) {
     const exportMSProject = format === 'msproject';
     const exportMPP = format === 'mpp';
 
-    // Native .mpp is built in the browser when the deployment serves a
-    // template: only the scheduled model crosses the network, and the server
-    // needs neither pymppwriter nor a template on disk. Without one, fall
-    // through to the server-side exporter, which reports its own 503.
+    // Native .mpp is built entirely in the browser from the plan the page has
+    // already had scheduled. The only request is for the template asset the
+    // deployment serves; there is no server-side path (issue #770).
     if (exportMPP) {
         try {
+            const parse = await currentParseResult(text);
             const { exportMppInBrowser } = await import('/static/mpp-export.js');
-            if (await exportMppInBrowser(text, null, null)) {
-                showMessage('editor', 'success', 'Exported to MS Project (.mpp)');
-                return;
-            }
+            const { filename, warnings } = await exportMppInBrowser(parse, parse.project_name || null);
+            const note = warnings.length
+                ? ' (' + warnings.length + ' scheduling note' + (warnings.length === 1 ? '' : 's') + ' in the browser console)'
+                : '';
+            showMessage('editor', 'success', 'Exported ' + filename + note);
         } catch (error) {
-            console.warn('Browser .mpp export unavailable, using the server:', error);
+            showMessage('editor', 'error', 'MS Project (.mpp) export failed: ' + error.message);
         }
+        return;
     }
 
-    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject, exportMPP);
+    await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject);
+}
+
+/**
+ * The /api/parse result for this plan text: the last render when it was for
+ * the same text, otherwise a fresh render first. Used by exports that build
+ * their file in the browser instead of asking the server again.
+ */
+async function currentParseResult(planText) {
+    if (!lastParseResult || lastParseResult.planText.trim() !== planText.trim()) {
+        await renderText();
+    }
+    if (!lastParseResult || !lastParseResult.result || !lastParseResult.result.success) {
+        throw new Error('the plan could not be scheduled; fix the errors shown in the editor and try again');
+    }
+    return lastParseResult.result;
 }
 
 /**
@@ -1184,7 +1201,7 @@ async function exportReportPptx() {
     }
 }
 
-async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject, exportMPP) {
+async function render(planText, projectName, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject) {
     // Capture generation so we can bail out if the user switched projects
     // while waiting for the /render response.
     const generation = (typeof projectSwitchGeneration !== 'undefined') ? projectSwitchGeneration : -1;
@@ -1207,8 +1224,7 @@ async function render(planText, projectName, exportExcel, exportCSV, exportPPT, 
             export_csv: exportCSV,
             export_ppt: exportPPT,
             export_pdf: exportPDF,
-            export_msproject: exportMSProject || false,
-            export_mpp: exportMPP || false
+            export_msproject: exportMSProject || false
         };
 
         const response = await fetch('/render', {
@@ -1307,6 +1323,9 @@ function updateGlobalState(result, planText) {
     globalResourceMap = result.resource_map || {};
     globalResourceDetails = parseResourceDetails(planText);
     lastRenderedTasks = result.tasks || [];
+    // The native .mpp exporter builds from the last parse rather than asking
+    // the server again, so the plan text it belongs to is kept alongside it.
+    lastParseResult = { result: result, planText: planText };
     window._lastStakeholders = result.stakeholders || [];
 }
 
@@ -8929,6 +8948,23 @@ function triggerMSProjectUpload() {
 }
 
 async function uploadMSProjectFile(file) {
+    // Native .mpp files are read in the browser with mppwriter; nothing is
+    // uploaded (issue #770). Only MSPDI .xml still goes to the server.
+    if (/\.mpp$/i.test(file.name || '')) {
+        try {
+            const { importMppFile } = await import('/static/mpp-export.js');
+            const markdown = await importMppFile(file);
+            const editor = document.getElementById('planEditor');
+            editor.value = markdown;
+            if (editor._updateLineNumbers) editor._updateLineNumbers();
+            showMessage('editor', 'success', 'MS Project file imported successfully!');
+            await renderText();
+        } catch (error) {
+            showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+        }
+        return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 

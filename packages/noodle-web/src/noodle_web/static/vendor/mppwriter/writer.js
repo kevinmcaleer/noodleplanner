@@ -9,9 +9,13 @@
  */
 import { Storage, readCfb, writeCfb } from "./cfb.js";
 import * as B from "./blocks.js";
-import { ASSN_META_SIZE, ASSN_NATIVE, ASSN_VAR_EMPTY, CAL_DATA_VAR, CAL_META_SIZE, CAL_NAME_VAR, CONSTRAINT_TYPES, DATE_IDS, ESTIMATED_FLAG, FLAG_IDS, NATIVE, NULL_RESOURCE_GUID, NULL_RESOURCE_UID, NUMBER_IDS, PCT_SCALE, PRJ, PROJECT_CLSID, REL_META2_SIZE, REL_META_SIZE, REL_TYPES, RSC_META_SIZE, RSC_NATIVE, ScheduleWarning, SUMMARY_UNITS, TASK_META2_SIZE, TASK_META_SIZE, TASK_TYPES, TENTHS_PER_DAY, TEXT_IDS, UNITS_CODES, WORK_SCALE, advanceWorking, encodeRtfNotes, linkDrivenStart, nextWorkingMoment, previousWorkingMoment, validate, weeklyOverlapMinutes, workPattern, workingTenths, } from "./model.js";
+import { ASSN_BASELINE_BUDGET, ASSN_BASELINE_IDS, ASSN_META_SIZE, ASSN_NATIVE, ASSN_VAR_EMPTY, BASELINE_UNSET_DOUBLE, CAL_DATA_VAR, CAL_META_SIZE, CAL_NAME_VAR, CONSTRAINT_TYPES, DATE_IDS, ESTIMATED_FLAG, FLAG_IDS, NATIVE, NULL_RESOURCE_GUID, NULL_RESOURCE_UID, NUMBER_IDS, PCT_SCALE, PRJ, PROJECT_CLSID, PROPS_BASELINE_SAVED, REL_META2_SIZE, REL_META_SIZE, REL_TYPES, RSC_BASELINE_BUDGET, RSC_BASELINE_IDS, RSC_META_SIZE, RSC_NATIVE, ScheduleWarning, SUMMARY_UNITS, TASK_BASELINE_EXTRAS, TASK_BASELINE_IDS, TASK_META2_SIZE, TASK_META_SIZE, TASK_TYPES, TENTHS_PER_DAY, TEXT_IDS, UNITS_CODES, WORK_SCALE, advanceWorking, baselineSlots, effectiveSchedule, encodeRtfNotes, linkDrivenStart, nextWorkingMoment, previousWorkingMoment, validate, weeklyOverlapMinutes, workPattern, workingTenths, } from "./model.js";
 const dv = (b) => new DataView(b.buffer, b.byteOffset, b.byteLength);
 const copy = (b) => new Uint8Array(b);
+/** Little-endian scalars, the shapes var-data payloads come in. */
+const u16 = (v) => { const b = new Uint8Array(2); dv(b).setUint16(0, v, true); return b; };
+const i32 = (v) => { const b = new Uint8Array(4); dv(b).setInt32(0, v, true); return b; };
+const f64 = (v) => { const b = new Uint8Array(8); dv(b).setFloat64(0, v, true); return b; };
 function concat(parts) {
     let n = 0;
     for (const p of parts)
@@ -397,47 +401,12 @@ export class MppWriter {
         const relations = project.relations ?? [];
         const resources = project.resources ?? [];
         const assignments = project.assignments ?? [];
-        const byUid = new Map(tasks.map((t) => [t.uid, t]));
         const guidOf = new Map();
         for (const t of tasks)
             guidOf.set(t.uid, t.guid ?? this.newGuid());
-        const children = new Map();
-        for (const t of tasks) {
-            const p = t.parentUid ?? 0;
-            const list = children.get(p) ?? [];
-            list.push(t);
-            children.set(p, list);
-        }
-        const depth = (t) => {
-            let d = 0;
-            let p = t.parentUid ?? 0;
-            const seen = new Set();
-            while (byUid.has(p) && !seen.has(p)) {
-                seen.add(p);
-                d += 1;
-                p = byUid.get(p).parentUid ?? 0;
-            }
-            return d;
-        };
-        const deepestFirst = [...tasks].sort((a, b) => depth(b) - depth(a));
-        const pattern = workPattern(project.calendar ?? null);
-        // effective schedule per task; summaries roll up from their children
-        const eff = new Map();
-        for (const t of deepestFirst) {
-            const kids = children.get(t.uid);
-            if (kids?.length) {
-                const start = new Date(Math.min(...kids.map((k) => eff.get(k.uid).start.getTime())));
-                const finish = new Date(Math.max(...kids.map((k) => eff.get(k.uid).finish.getTime())));
-                eff.set(t.uid, { start, finish, tenths: workingTenths(start, finish, pattern) });
-            }
-            else {
-                eff.set(t.uid, {
-                    start: t.start,
-                    finish: t.finish,
-                    tenths: Math.round((t.durationDays ?? 1) * TENTHS_PER_DAY),
-                });
-            }
-        }
+        // the same rollup setBaseline() uses, so a baseline records exactly the
+        // schedule the file describes
+        const { byUid, children, deepestFirst, pattern, eff } = effectiveSchedule(project);
         for (const asn of assignments) {
             if (!byUid.has(asn.taskUid))
                 throw new Error(`assignment references unknown task uid ${asn.taskUid}`);
@@ -616,7 +585,7 @@ export class MppWriter {
             metas.push(copy(s.meta));
             metas2.push(copy(s.meta2));
         }
-        const emit = (proto, uid, tid, name, start, finish, durTenths, level, parentUid, guid, parentGuid, isSummary, position, units = "d", estimated = false, work = 0, calUid = null, task = null, pct = 0) => {
+        const emit = (proto, uid, tid, name, start, finish, durTenths, level, parentUid, guid, parentGuid, isSummary, position, units = "d", estimated = false, work = 0, calUid = null, task = null, pct = 0, baselines = {}) => {
             const rec = copy(proto.rec);
             const rec2 = copy(proto.rec2);
             this.put(rec, "UNIQUE_ID", "u32", uid);
@@ -742,6 +711,25 @@ export class MppWriter {
                         B.setMetaBit(m, m2, fbit, Boolean(task.flag[n]));
                 }
             }
+            // baselines are var data, not fixed fields — the fixed baseline fields
+            // stay empty in files Project writes
+            for (const slot of Object.keys(baselines).map(Number).sort((a, b) => a - b)) {
+                const b = baselines[slot];
+                const ids = TASK_BASELINE_IDS[slot];
+                extraVars.push([ids.start, B.encodeTimestamp(b.start ?? null)]);
+                extraVars.push([ids.finish, B.encodeTimestamp(b.finish ?? null)]);
+                extraVars.push([ids.duration, i32(Math.round((b.durationDays ?? 0) * TENTHS_PER_DAY))]);
+                extraVars.push([ids.units, u16(isSummary ? SUMMARY_UNITS : UNITS_CODES[units])]);
+                extraVars.push([ids.work, f64((b.workHours ?? 0) * 600 * WORK_SCALE)]);
+                extraVars.push([ids.cost, f64(b.cost ?? 0)]);
+                const ex = TASK_BASELINE_EXTRAS[slot]; // only the evidenced slots
+                if (ex) {
+                    extraVars.push([ex.deliverableStart, B.encodeTimestamp(null)]);
+                    extraVars.push([ex.deliverableFinish, B.encodeTimestamp(null)]);
+                    extraVars.push([ex.budgetWork, BASELINE_UNSET_DOUBLE]);
+                    extraVars.push([ex.budgetCost, BASELINE_UNSET_DOUBLE]);
+                }
+            }
             for (const [typ] of extraVars) {
                 const fbit = this.taskBit.get(typ);
                 if (fbit !== undefined)
@@ -758,7 +746,25 @@ export class MppWriter {
             for (const [typ, payload] of extraVars)
                 varEntries.push({ uid, type: typ, payload });
         };
-        emit(this.proto.summary, 0, 0, project.title, pStart, pFinish, workingTenths(pStart, pFinish, pattern), 0, 0, summaryGuid, new Uint8Array(16), true, 1, "d", false, topLevel.reduce((s, t) => s + wsum.get(t.uid), 0), null, null, pct0);
+        // the project summary row spans every task's baseline, with work rolled up
+        // from the top-level rows only (their children are already counted in)
+        const summaryBaselines = {};
+        for (const slot of baselineSlots(project)) {
+            const rows = tasks.map((t) => t.baselines?.[slot]).filter((b) => b !== undefined);
+            const starts = rows.map((b) => b.start).filter((d) => d !== undefined);
+            const finishes = rows.map((b) => b.finish).filter((d) => d !== undefined);
+            if (!starts.length || !finishes.length)
+                continue;
+            const s0 = new Date(Math.min(...starts.map((d) => d.getTime())));
+            const f0 = new Date(Math.max(...finishes.map((d) => d.getTime())));
+            summaryBaselines[slot] = {
+                start: s0,
+                finish: f0,
+                durationDays: Math.round((workingTenths(s0, f0, pattern) / TENTHS_PER_DAY) * 10_000) / 10_000,
+                workHours: topLevel.reduce((sum, t) => sum + (t.baselines?.[slot]?.workHours ?? 0), 0),
+            };
+        }
+        emit(this.proto.summary, 0, 0, project.title, pStart, pFinish, workingTenths(pStart, pFinish, pattern), 0, 0, summaryGuid, new Uint8Array(16), true, 1, "d", false, topLevel.reduce((s, t) => s + wsum.get(t.uid), 0), null, null, pct0, summaryBaselines);
         let pos = 2;
         tasks.forEach((t, i) => {
             const parentGuid = (t.parentUid ?? 0) === 0 ? summaryGuid : guidOf.get(t.parentUid);
@@ -770,7 +776,7 @@ export class MppWriter {
                 }
                 taskCal = namedCalUid.get(t.calendar);
             }
-            emit(this.proto.task, t.uid, i + 1, t.name, e.start, e.finish, e.tenths, t.outlineLevel ?? 1, t.parentUid ?? 0, guidOf.get(t.uid), parentGuid, Boolean(children.get(t.uid)?.length), pos, t.durationUnits ?? "d", t.estimated ?? false, wsum.get(t.uid), taskCal, t, pctEff.get(t.uid));
+            emit(this.proto.task, t.uid, i + 1, t.name, e.start, e.finish, e.tenths, t.outlineLevel ?? 1, t.parentUid ?? 0, guidOf.get(t.uid), parentGuid, Boolean(children.get(t.uid)?.length), pos, t.durationUnits ?? "d", t.estimated ?? false, wsum.get(t.uid), taskCal, t, pctEff.get(t.uid), t.baselines ?? {});
             pos += 1;
         });
         /** FixedMeta's offset field (bytes 4..8) is the record's offset in FixedData. */
@@ -860,7 +866,21 @@ export class MppWriter {
                 const m = copy(this.rscProto.meta);
                 const m2 = copy(this.rscProto.meta2);
                 const guid = res.guid ?? this.newGuid();
-                m[2] = (this.rscProto.var ?? []).length + 1 + (res.initials ? 1 : 0) + (res.email ? 1 : 0);
+                // a resource baseline is work and cost only — Project stores no dates
+                const rextra = [];
+                for (const slot of Object.keys(res.baselines ?? {}).map(Number).sort((a, b) => a - b)) {
+                    const b = res.baselines[slot];
+                    const ids = RSC_BASELINE_IDS[slot];
+                    rextra.push([ids.work, f64((b.workHours ?? 0) * 600 * WORK_SCALE)]);
+                    rextra.push([ids.cost, f64(b.cost ?? 0)]);
+                    const bg = RSC_BASELINE_BUDGET[slot]; // unset, as Project writes them
+                    if (bg) {
+                        rextra.push([bg.work, BASELINE_UNSET_DOUBLE]);
+                        rextra.push([bg.cost, BASELINE_UNSET_DOUBLE]);
+                    }
+                }
+                m[2] = (this.rscProto.var ?? []).length + 1 + (res.initials ? 1 : 0)
+                    + (res.email ? 1 : 0) + rextra.length;
                 const calUid = nextCalUid++;
                 this.putf(this.rscFm, RSC_NATIVE, rec, rec2, "UNIQUE_ID", "u32", res.uid);
                 this.putf(this.rscFm, RSC_NATIVE, rec, rec2, "ID", "u32", idx);
@@ -884,6 +904,12 @@ export class MppWriter {
                 }
                 if (res.email) {
                     rvarEntries.push({ uid: res.uid, type: RSC_NATIVE["EMAIL_ADDRESS"], payload: B.encodeUnicode(res.email) });
+                }
+                for (const [typ, payload] of rextra) {
+                    const fbit = this.rscBit.get(typ);
+                    if (fbit !== undefined)
+                        B.setMetaBit(m, m2, fbit, true);
+                    rvarEntries.push({ uid: res.uid, type: typ, payload });
                 }
                 // per-resource calendar: (uid, base = Standard, resource uid)
                 if (this.calProto && this.calCols) {
@@ -953,10 +979,11 @@ export class MppWriter {
         // resource where nobody is assigned; without them it opens on the
         // template's row count until the view is rebuilt
         const assignedSet = new Set(assignments.map((a) => a.taskUid));
-        const specs = assignments.map((a) => [a.taskUid, a.resourceUid, a.units ?? 1]);
+        const specs = assignments.map((a) => [a.taskUid, a.resourceUid, a.units ?? 1, a.baselines ?? {}]);
         for (const t of tasks) {
-            if (!assignedSet.has(t.uid) && !children.get(t.uid)?.length)
-                specs.push([t.uid, NULL_RESOURCE_UID, 1]);
+            if (!assignedSet.has(t.uid) && !children.get(t.uid)?.length) {
+                specs.push([t.uid, NULL_RESOURCE_UID, 1, null]);
+            }
         }
         if (specs.length && !this.assnProto) {
             throw new Error("template has no assignment records to use as a prototype");
@@ -966,7 +993,7 @@ export class MppWriter {
         const ameta = [];
         const ameta2 = [];
         const avarEntries = [];
-        specs.forEach(([taskUid, resourceUid, units], i0) => {
+        specs.forEach(([taskUid, resourceUid, units, specBaselines], i0) => {
             const i = i0 + 1;
             const empty = resourceUid === NULL_RESOURCE_UID;
             const task = byUid.get(taskUid);
@@ -1033,6 +1060,27 @@ export class MppWriter {
                 avarEntries.push({ uid: i, type: typ, payload: new Uint8Array(16) });
                 nvars += 1;
             }
+            const abl = specBaselines ?? task.baselines ?? {};
+            for (const slot of Object.keys(abl).map(Number).sort((x, y) => x - y)) {
+                const b = abl[slot];
+                const ids = ASSN_BASELINE_IDS[slot];
+                const entries = [
+                    [ids.start, B.encodeTimestamp(b.start ?? null)],
+                    [ids.finish, B.encodeTimestamp(b.finish ?? null)],
+                    [ids.work, f64((b.workHours ?? 0) * 600 * WORK_SCALE)],
+                    [ids.cost, f64(b.cost ?? 0)],
+                ];
+                const bg = ASSN_BASELINE_BUDGET[slot]; // unset, as Project writes them
+                if (bg)
+                    entries.push([bg.work, BASELINE_UNSET_DOUBLE], [bg.cost, BASELINE_UNSET_DOUBLE]);
+                for (const [typ, payload] of entries) {
+                    const fbit = this.assnBit.get(typ);
+                    if (fbit !== undefined)
+                        B.setMetaBit(m, m2, fbit, true);
+                    avarEntries.push({ uid: i, type: typ, payload });
+                    nvars += 1;
+                }
+            }
             m[2] = nvars; // meta byte 2 counts the record's var entries
             void task;
         });
@@ -1093,6 +1141,12 @@ export class MppWriter {
         }
         if (project.currencyCode !== undefined && this.props.has(B.PROPS_CURRENCY_CODE)) {
             this.props.set(B.PROPS_CURRENCY_CODE, B.encodeUnicode(project.currencyCode));
+        }
+        // when the baseline was saved; NA when there is none, as Project leaves it
+        // after Clear Baseline
+        if (this.props.has(PROPS_BASELINE_SAVED)) {
+            const hasBaseline = tasks.some((t) => Object.keys(t.baselines ?? {}).length > 0);
+            this.props.set(PROPS_BASELINE_SAVED, B.encodeTimestamp(hasBaseline ? this.now() : null));
         }
         // stale 2010-era next-uid counters make Project renumber task uids
         if (this.props.has(B.PROPS_LEGACY_NEXT_UIDS)) {

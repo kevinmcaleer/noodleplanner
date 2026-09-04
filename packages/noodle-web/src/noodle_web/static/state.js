@@ -9,6 +9,7 @@ let renderTimeout = null;
 let globalResourceMap = {}; // Maps shortnames to full names from backend
 let globalResourceDetails = {}; // Maps shortnames to { name, role } from front matter
 let lastRenderedTasks = []; // Cache of backend-calculated tasks from last render
+let lastParseResult = null; // { result, planText } of the last /api/parse; the .mpp exporter builds from this
 
 // Track which section the resource form was opened from (for returning to it)
 let resourceFormReturnSection = null;

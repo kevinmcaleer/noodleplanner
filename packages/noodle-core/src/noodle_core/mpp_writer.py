@@ -16,6 +16,7 @@ import logging
 import warnings
 from datetime import datetime, time
 
+from .date_math import parse_duration_to_days
 from .format_converter import convert_plan_format_to_standard
 from .msproject import (
     WORK_DAY_START,
@@ -123,10 +124,18 @@ def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
                 a["taskUid"] == idx and a["resourceUid"] == resource_uid[key] for a in out_assns
             ):
                 out_assns.append({"taskUid": idx, "resourceUid": resource_uid[key], "units": 1.0})
+        # Lag/lead as the scheduler applies it (date_math.parse_duration_to_days:
+        # d=1, w=7, m=30, y=365), keyed by the predecessor it was written on.
+        lag_by_pred = {}
+        for dep_name, offset in (t.get("lag_lead") or {}).items():
+            dep_uid = task_name_to_uid.get(dep_name.strip().lower())
+            if dep_uid:
+                lag_by_pred[dep_uid] = float(parse_duration_to_days(offset))
         for pred_uid, msp_type in links.get(idx, []):
             out_rels.append({
                 "predUid": pred_uid, "succUid": idx,
-                "type": _LINK_TYPES.get(str(msp_type), "FS"), "lagDays": 0.0,
+                "type": _LINK_TYPES.get(str(msp_type), "FS"),
+                "lagDays": lag_by_pred.get(pred_uid, 0.0),
             })
 
     out_resources = [

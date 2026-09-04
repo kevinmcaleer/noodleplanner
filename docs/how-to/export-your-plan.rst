@@ -55,6 +55,15 @@ percent complete and comments all carry across.
 1. Click **Tools** → **Export to MS Project (.mpp)**
 2. The file downloads as ``{project-name}.mpp``
 
+The file is built **entirely in your browser** by the
+`mppwriter <https://www.npmjs.com/package/mppwriter>`_ library, from the
+plan the page has already scheduled.  Nothing about your plan is sent
+anywhere: the only request the export makes is for the template described
+below, and the server has no ``.mpp`` endpoint at all.  Dependency type and
+lag (``[depends Design:SS +2d]``) carry across, and a link that Microsoft
+Project would reject as circular is left out with the reason written in the
+task's notes, exactly as the XML export does.
+
 Native export needs a one-time template saved from a licensed copy of
 Microsoft Project (the file embeds structures only Project can create — see
 the `pymppwriter README <https://github.com/kevinmcaleer/pymppwriter>`_ for
@@ -64,15 +73,16 @@ working without any template.
 Where to put the template
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Copy it to ``packages/noodle-web/src/noodle_web/static/mpp-template.mpp`` and
-the browser builds the file itself: the server schedules the plan and returns
-it as JSON, the page writes the ``.mpp`` and downloads it.  Nothing but the
-model crosses the network, and the deployment needs neither ``pymppwriter``
-nor a template on the server's disk.
+Copy it to ``packages/noodle-web/src/noodle_web/static/mpp-template.mpp`` so
+the app serves it at ``/static/mpp-template.mpp``.  When it is missing the
+export stops with a message saying so; it never falls back to the server.
 
-Without that static file the export falls back to the server, which needs the
-template at ``templates/mpp-template.mpp`` (or wherever ``NOODLE_MPP_TEMPLATE``
-points) and answers with a clear 503 when it is missing.
+What does not round-trip yet
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calendars and non-working days, task constraints and baselines are not
+written to the ``.mpp`` file; Microsoft Project uses its standard calendar.
+Costs and timephased data are not modelled by the library.
 
 Export the RAID Log
 --------------------

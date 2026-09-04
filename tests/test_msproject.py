@@ -949,15 +949,15 @@ class TestMSProjectImportEndpoint:
         data = response.json()
         assert data["filename"] == "myproject.xml"
 
-    def test_import_mpp_without_olefile_returns_error(self, client):
-        """Uploading .mpp when olefile is not available gives a clear error."""
-        with patch("noodle_web.app._check_mpp_available", return_value=False):
-            response = client.post(
-                "/api/msproject/import",
-                files={"file": ("project.mpp", b"\x00\x01\x02", "application/octet-stream")},
-            )
+    def test_import_mpp_is_not_uploaded(self, client):
+        """Native .mpp files are read in the browser (issue #770); a stray
+        upload is refused with a message that says so."""
+        response = client.post(
+            "/api/msproject/import",
+            files={"file": ("project.mpp", b"\x00\x01\x02", "application/octet-stream")},
+        )
         assert response.status_code == 400
-        assert "olefile" in response.json()["detail"].lower()
+        assert "browser" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------
