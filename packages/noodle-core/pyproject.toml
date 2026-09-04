@@ -18,11 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 mpp = [
-    "pymppwriter @ git+https://github.com/kevinmcaleer/pymppwriter",
+    "pymppwriter>=0.3",
 ]
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [build-system]
 requires = ["hatchling"]
