@@ -220,3 +220,4 @@ __marimo__/
 
 # local MS Project template for native .mpp export
 templates/mpp-template.mpp
+packages/noodle-web/src/noodle_web/static/mpp-template.mpp

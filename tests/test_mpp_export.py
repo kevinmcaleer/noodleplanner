@@ -121,3 +121,27 @@ def test_render_endpoint_reports_a_missing_template(client, monkeypatch, tmp_pat
     response = client.post("/render", json={"plan_text": PLAN, "export_mpp": True})
     assert response.status_code == 503
     assert "not configured" in response.json()["detail"]
+
+
+def test_model_endpoint_returns_the_scheduled_plan(client):
+    """The browser exporter builds from this, so it must carry the whole plan."""
+    response = client.post("/api/mpp/model", json={"plan_text": PLAN, "project_name": "Browser"})
+    assert response.status_code == 200
+    model = response.json()
+    assert model["title"] == "Browser"
+    names = [t["name"] for t in model["tasks"]]
+    for name in ("Proposal", "Approval", "Build", "Review", "Ship"):
+        assert name in names, f"{name} missing from {names}"
+    assert {r["name"] for r in model["resources"]} >= {"kevin", "adam"}
+    assert len(model["assignments"]) >= 3
+    assert model["relations"], "the plan's dependencies should carry across"
+    # dates are wall-clock ISO strings the browser can parse without a zone
+    assert all("T" in t["start"] and not t["start"].endswith("Z") for t in model["tasks"])
+
+
+def test_model_endpoint_needs_no_template(client, monkeypatch, tmp_path):
+    """It schedules only — no pymppwriter and no template involved."""
+    monkeypatch.setenv("NOODLE_MPP_TEMPLATE", str(tmp_path / "absent.mpp"))
+    response = client.post("/api/mpp/model", json={"plan_text": PLAN})
+    assert response.status_code == 200
+    assert response.json()["tasks"]

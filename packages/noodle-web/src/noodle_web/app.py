@@ -264,6 +264,29 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
+class MppModelRequest(BaseModel):
+    """A plan to schedule and return as data, for the browser exporter."""
+    plan_text: str = Field("", max_length=MAX_FILE_SIZE)
+    project_name: Optional[str] = Field(None, max_length=200)
+
+
+@app.post("/api/mpp/model")
+async def mpp_model(data: MppModelRequest):
+    """The scheduled plan as JSON, for building a .mpp in the browser.
+
+    The scheduling engine stays on the server; only the file construction moves
+    to the client, which is what lets a deployment drop pymppwriter and still
+    offer native .mpp export.
+    """
+    from noodle_core.mpp_writer import build_project_model
+
+    try:
+        return build_project_model(data.plan_text, data.project_name or "Project")
+    except (ValueError, KeyError, TypeError) as e:
+        logger.error(f"Error building the .mpp model: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=_sanitized_detail("Failed to schedule the plan", e))
+
+
 @app.post("/render")
 async def render_plan(data: RenderRequest):
     """Render a project plan and optionally export to Excel/PPT/PDF/MS Project."""
