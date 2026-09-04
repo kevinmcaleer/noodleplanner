@@ -233,10 +233,16 @@ def collect_labels_from_plan(plan_text: str) -> set:
 
 
 def update_front_matter_with_labels(plan_text: str, labels: set) -> str:
-    """Update the front matter to include all labels found in the plan.
+    """Update the front matter so ``labels:`` lists every ``#tag`` in the plan.
 
-    If a ``labels:`` line exists, merge with existing labels.
-    If no ``labels:`` line, add it.  If no front matter, create it.
+    This is the one edit the server makes to a plan it is asked to parse, so
+    it is kept minimal (docs/reference/plan-format.rst, "Keys the app
+    maintains"): a ``labels:`` line that already lists every tag is left
+    byte-for-byte as the author wrote it, whatever its order, case or
+    spacing; one that is missing tags gains only the missing ones, appended
+    to the existing list; a plan with no ``labels:`` line gets one added as
+    the last front-matter key; a plan with no front matter gets a block
+    holding just that key. Applying the function twice changes nothing.
     """
     if not labels:
         return plan_text
@@ -255,26 +261,34 @@ def update_front_matter_with_labels(plan_text: str, labels: set) -> str:
             if line.strip().lower().startswith("labels:"):
                 labels_line_index = i
 
-    sorted_labels = sorted(labels)
-    labels_str = ", ".join(sorted_labels)
-    labels_line = f"labels: [{labels_str}]"
+    wanted = {lbl.lower() for lbl in labels}
 
     if not has_front_matter:
-        new_front_matter = f"---\n{labels_line}\n---\n"
-        return new_front_matter + plan_text
+        labels_line = f"labels: [{', '.join(sorted(wanted))}]"
+        return f"---\n{labels_line}\n---\n" + plan_text
 
     if labels_line_index >= 0:
         existing_line = lines[labels_line_index]
         existing_labels: set[str] = set()
         if "[" in existing_line and "]" in existing_line:
             content = existing_line[existing_line.index("[") + 1 : existing_line.rindex("]")]
-            existing_labels = set(
+            existing_labels = {
                 lbl.strip().lower() for lbl in content.split(",") if lbl.strip()
+            }
+        missing = sorted(wanted - existing_labels)
+        if not missing:
+            return plan_text
+        if "[" in existing_line and "]" in existing_line:
+            close = existing_line.rindex("]")
+            inner = existing_line[existing_line.index("[") + 1 : close].strip()
+            joined = ", ".join(missing) if not inner else f"{inner}, {', '.join(missing)}"
+            lines[labels_line_index] = (
+                existing_line[: existing_line.index("[") + 1] + joined + existing_line[close:]
             )
-        all_labels = sorted(existing_labels.union(labels))
-        lines[labels_line_index] = f"labels: [{', '.join(all_labels)}]"
+        else:
+            lines[labels_line_index] = f"labels: [{', '.join(sorted(existing_labels | wanted))}]"
     else:
-        lines.insert(front_matter_end_index, labels_line)
+        lines.insert(front_matter_end_index, f"labels: [{', '.join(sorted(wanted))}]")
 
     return "\n".join(lines)
 
