@@ -752,6 +752,164 @@ class TestTouchInteractions:
         assert result == {"panX": 25, "panY": 15, "dragging": False}
 
 
+class TestBrowserExcelExport:
+    """Verify the flagged Excel path stays in-browser and off the UI thread."""
+
+    def test_exceljs_load_failure_rejects_and_can_retry(self, browser, app_server):
+        browser.set_script_timeout(15)
+        browser.get(app_server)
+
+        result = browser.execute_async_script("""
+            const done = arguments[arguments.length - 1];
+            (async function () {
+                const module = await import('/static/browser-excel.js');
+                delete window.ExcelJS;
+                let appends = 0;
+                const errors = [];
+                const originalAppendChild = document.head.appendChild;
+                document.head.appendChild = function (node) {
+                    appends += 1;
+                    setTimeout(function () { node.onerror(); }, 0);
+                    return node;
+                };
+                try {
+                    for (let attempt = 0; attempt < 2; attempt += 1) {
+                        try {
+                            await module.createBudgetWorkbook([]);
+                        } catch (error) {
+                            errors.push(error.message);
+                        }
+                    }
+                    done({appends: appends, errors: errors});
+                } finally {
+                    document.head.appendChild = originalAppendChild;
+                }
+            }());
+        """)
+
+        assert result == {
+            "appends": 2,
+            "errors": ["Failed to load ExcelJS", "Failed to load ExcelJS"],
+        }
+
+    def test_large_plan_export_uses_worker_without_api_round_trip(
+        self, browser, app_server
+    ):
+        browser.set_script_timeout(90)
+        browser.get(app_server)
+
+        result = browser.execute_async_script("""
+            const done = arguments[arguments.length - 1];
+            (async function () {
+                const tasks = Array.from({length: 1001}, function (_value, index) {
+                    return {
+                        id: index + 1,
+                        key: 'Task ' + (index + 1),
+                        name: 'Task ' + (index + 1),
+                        start: '2026-01-01',
+                        finish: '2026-01-02',
+                        duration_days: 1,
+                        resources: '',
+                        percent: 0,
+                        rag: 'On Track',
+                        priority: 'Low',
+                        bucket: '',
+                        level: 0,
+                        is_summary: false,
+                        depends: index ? ['Task ' + index] : []
+                    };
+                });
+                const text = 'Large browser export';
+                document.getElementById('planEditor').value = text;
+                lastParseResult = {
+                    planText: text,
+                    result: {
+                        success: true,
+                        project_name: 'Large browser export',
+                        front_matter: {title: 'Large browser export'},
+                        tasks: tasks,
+                        resource_map: {},
+                        resource_roles: {},
+                        raid_items: [],
+                        stakeholders: [],
+                        comms_items: [],
+                        lessons_items: []
+                    }
+                };
+                budgetItems = [{
+                    id: 1,
+                    description: 'Browser budget',
+                    estimate: 100,
+                    forecast: 100,
+                    total: 25,
+                    type: 'Capex',
+                    category: 'Software'
+                }];
+                localStorage.setItem('noodleplanner_browser_excel', 'on');
+
+                let apiCalls = 0;
+                let downloadedBlob = null;
+                let ticks = 0;
+                const timer = setInterval(function () { ticks += 1; }, 5);
+                const messages = [];
+                const consoleErrors = [];
+                const originalFetch = window.fetch;
+                const originalShowMessage = window.showMessage;
+                const originalConsoleError = window.console.error;
+                const originalCreateObjectURL = window.URL.createObjectURL;
+                const originalRevokeObjectURL = window.URL.revokeObjectURL;
+                const originalAnchorClick = HTMLAnchorElement.prototype.click;
+                window.fetch = function (...args) {
+                    if (String(args[0]).includes('/api/') || String(args[0]).includes('/render')) {
+                        apiCalls += 1;
+                    }
+                    return originalFetch.apply(this, args);
+                };
+                window.showMessage = function (_target, type, message) {
+                    messages.push({type: type, message: message});
+                };
+                window.console.error = function (...args) {
+                    consoleErrors.push(args.map(String).join(' '));
+                };
+                window.URL.createObjectURL = function (blob) {
+                    downloadedBlob = blob;
+                    return 'blob:browser-excel-test';
+                };
+                window.URL.revokeObjectURL = function () {};
+                HTMLAnchorElement.prototype.click = function () {};
+
+                try {
+                    await exportFile('excel', 'editor');
+                    done({
+                        apiCalls: apiCalls,
+                        blobSize: downloadedBlob ? downloadedBlob.size : 0,
+                        ticks: ticks,
+                        messages: messages,
+                        consoleErrors: consoleErrors
+                    });
+                } catch (error) {
+                    done({error: error.message, apiCalls: apiCalls, messages: messages});
+                } finally {
+                    clearInterval(timer);
+                    window.fetch = originalFetch;
+                    window.showMessage = originalShowMessage;
+                    window.console.error = originalConsoleError;
+                    window.URL.createObjectURL = originalCreateObjectURL;
+                    window.URL.revokeObjectURL = originalRevokeObjectURL;
+                    HTMLAnchorElement.prototype.click = originalAnchorClick;
+                }
+            }());
+        """)
+
+        assert "error" not in result, result
+        assert result["consoleErrors"] == [], result["consoleErrors"]
+        assert result["apiCalls"] == 0, result
+        assert result["blobSize"] > 1000
+        assert result["ticks"] > 2
+        assert result["messages"][-1]["type"] == "success"
+        assert "server CPU 0 ms" in result["messages"][-1]["message"]
+
+
 class TestHealthEndpoint:
     """Verify the health endpoint works from a browser context."""
 

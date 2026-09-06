@@ -5,10 +5,14 @@
   "license": "MIT",
   "scripts": {
     "vendor:mppwriter": "node scripts/vendor-mppwriter.mjs",
-    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_markdown_roundtrip.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
+    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
+    "exceljs": "4.4.0",
     "fake-indexeddb": "6.2.5",
     "mppwriter": "0.4.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

@@ -2592,6 +2592,9 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             elif colour == 'blue':
                 rag_cell.fill = PatternFill(start_color="1976D2", end_color="1976D2", fill_type="solid")
                 rag_cell.font = Font(color="FFFFFF", bold=True)
+            elif colour == 'grey':
+                rag_cell.fill = PatternFill(start_color="808080", end_color="808080", fill_type="solid")
+                rag_cell.font = Font(color="FFFFFF", bold=True)
 
         task_row_num += 1
 
@@ -2740,7 +2743,11 @@ def export_to_excel(text, output_path, is_yaml=True, project_name="Project", ori
             for task in tasks_with_dates:
                 resources_str = task.get('resources', '')
                 if resources_str:
-                    task_resources = [r.strip() for r in resources_str.split(',')]
+                    task_resources = [
+                        resource_map.get(resource.lower(), resource)
+                        for resource in (r.strip() for r in resources_str.split(','))
+                        if resource
+                    ]
                     task_start = task.get('start')
                     task_finish = task.get('finish')
 
