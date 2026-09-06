@@ -2164,9 +2164,23 @@ async function copyBenefitsAsImage() {
 
 async function exportBenefitsExcel() {
     if (benefitItems.length === 0) { alert('No benefit items to export.'); return; }
+    const projectName = document.getElementById('projectName')
+        ? document.getElementById('projectName').textContent.trim() : 'Benefits';
+
+    if (typeof browserExcelExportsEnabled === 'function' && browserExcelExportsEnabled()) {
+        try {
+            const module = await import('/static/browser-excel.js');
+            await module.exportBenefitsExcelInBrowser(benefitItems, {
+                projectName,
+                filename: (projectName || 'benefits') + '-benefits.xlsx'
+            });
+            return;
+        } catch (error) {
+            console.error('Browser benefits export failed, falling back to backend:', error);
+        }
+    }
+
     try {
-        const projectName = document.getElementById('projectName')
-            ? document.getElementById('projectName').textContent.trim() : 'Benefits';
         const response = await fetch('/api/benefits/export-excel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

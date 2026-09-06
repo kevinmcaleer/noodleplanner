@@ -1012,6 +1012,24 @@ async function exportFile(format, prefix) {
         return;
     }
 
+    if ((exportExcel || exportCSV) && browserExcelExportsEnabled()) {
+        try {
+            const parse = await currentParseResult(text);
+            const projectName = parse.project_name || null;
+            const module = await import('/static/browser-excel.js');
+            if (exportExcel) {
+                const { filename } = await module.exportPlanExcelInBrowser(parse, { projectName, filename: (projectName || 'Project') + '.xlsx' });
+                showMessage(prefix, 'success', 'Exported ' + filename + ' in the browser.');
+            } else {
+                const { filename } = await module.exportPlanCsvInBrowser(parse, { projectName, filename: (projectName || 'Project') + '.csv' });
+                showMessage(prefix, 'success', 'Exported ' + filename + ' in the browser.');
+            }
+            return;
+        } catch (error) {
+            console.error('Browser Excel/CSV export failed, falling back to backend:', error);
+        }
+    }
+
     await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject);
 }
 
@@ -1028,6 +1046,14 @@ async function currentParseResult(planText) {
         throw new Error('the plan could not be scheduled; fix the errors shown in the editor and try again');
     }
     return lastParseResult.result;
+}
+
+function browserExcelExportsEnabled() {
+    try {
+        return typeof localStorage !== 'undefined' && localStorage.getItem('noodleplanner_browser_excel') === 'on';
+    } catch (_error) {
+        return false;
+    }
 }
 
 /**
@@ -7817,6 +7843,16 @@ async function exportRaidExcel() {
         return;
     }
 
+    if (browserExcelExportsEnabled()) {
+        try {
+            const module = await import('/static/browser-excel.js');
+            await module.exportRaidExcelInBrowser(raidItems, { projectName: 'RAID', filename: 'raid.xlsx' });
+            return;
+        } catch (error) {
+            console.error('Browser RAID export failed, falling back to backend:', error);
+        }
+    }
+
     try {
         const response = await fetch('/api/raid/export-excel', {
             method: 'POST',
@@ -7853,6 +7889,24 @@ async function uploadRaidExcel(event) {
         alert('Please select an Excel (.xlsx) file.');
         event.target.value = '';
         return;
+    }
+
+    if (browserExcelExportsEnabled()) {
+        try {
+            const module = await import('/static/browser-excel.js');
+            const data = await module.importRaidExcelInBrowser(file);
+            if (data.items.length === 0) {
+                alert('No RAID items found in the Excel file.');
+            } else {
+                raidItems = data.items;
+                raidNextId = Math.max(...data.items.map(i => i.id)) + 1;
+                renderRaidTable();
+            }
+            event.target.value = '';
+            return;
+        } catch (error) {
+            console.error('Browser RAID import failed, falling back to backend:', error);
+        }
     }
 
     try {
@@ -11660,6 +11714,16 @@ async function exportBudgetExcel() {
         return;
     }
 
+    if (browserExcelExportsEnabled()) {
+        try {
+            const module = await import('/static/browser-excel.js');
+            await module.exportBudgetExcelInBrowser(budgetItems, { projectName: 'Budget', filename: 'budget.xlsx' });
+            return;
+        } catch (error) {
+            console.error('Browser budget export failed, falling back to backend:', error);
+        }
+    }
+
     try {
         const response = await fetch('/api/budget/export-excel', {
             method: 'POST',
@@ -11696,6 +11760,27 @@ async function uploadBudgetExcel(event) {
         alert('Please select an Excel (.xlsx) file.');
         event.target.value = '';
         return;
+    }
+
+    if (browserExcelExportsEnabled()) {
+        try {
+            const module = await import('/static/browser-excel.js');
+            const result = await module.importBudgetExcelInBrowser(file);
+            if (result.items && result.items.length > 0) {
+                budgetItems = result.items;
+                budgetNextId = Math.max(...result.items.map(i => i.id)) + 1;
+                renderBudgetTable();
+                syncBudgetToPlanText();
+                updateReportBudgetWidget();
+                alert('Imported ' + result.items.length + ' budget items.');
+            } else {
+                alert('No budget items found in the file.');
+            }
+            event.target.value = '';
+            return;
+        } catch (error) {
+            console.error('Browser budget import failed, falling back to backend:', error);
+        }
     }
 
     try {
