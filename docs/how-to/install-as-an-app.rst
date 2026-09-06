@@ -48,8 +48,11 @@ run in the browser (the native ``.mpp`` export among them) work as usual.
 Anything that needs the server, such as rendering a changed plan or the
 Excel, PDF and PowerPoint exports, waits until you are back online.
 
-After a new version is deployed, the next time the app opens online it
-fetches the new page and scripts; a restart of the app window picks them up.
+After a new version is deployed, an open app checks for it when it returns to
+the foreground, reconnects to the network, and periodically while in use.
+When the new version is ready, NoodlePlanner saves the current project and
+reloads the page automatically. The first installation does not cause an
+extra reload.
 
 For administrators
 -------------------
@@ -62,7 +65,8 @@ are:
   (source: ``packages/noodle-web/src/noodle_web/static/manifest.webmanifest``);
 - ``/sw.js`` — the service worker, served from the site root so its scope
   covers the whole app and stamped with the deploy's static version, so each
-  deployment clears the previous cache;
+  deployment clears the previous cache and reloads pages controlled by the
+  previous worker;
 - ``/static/icons/`` — 192 px and 512 px icons, in plain and maskable forms,
   plus an Apple touch icon.
 

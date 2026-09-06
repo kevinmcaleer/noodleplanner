@@ -20,11 +20,55 @@
         // Register the service worker that makes the app installable. Only on
         // secure origins (https or localhost), where browsers allow it.
         if ('serviceWorker' in navigator && (window.isSecureContext || location.hostname === 'localhost')) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (err) {
-                    console.warn('Service worker registration failed:', err);
+            (function () {
+                var reloadingForUpdate = false;
+                var wasControlled = navigator.serviceWorker.controller !== null;
+
+                navigator.serviceWorker.addEventListener('controllerchange', function () {
+                    // A first install also claims the page, but does not need a
+                    // reload because this page already came from this deploy.
+                    if (!wasControlled) {
+                        wasControlled = true;
+                        return;
+                    }
+                    if (reloadingForUpdate) return;
+                    reloadingForUpdate = true;
+                    if (typeof saveCurrentProjectState === 'function') {
+                        saveCurrentProjectState();
+                    }
+                    window.location.reload();
                 });
-            });
+
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('/sw.js', {
+                        scope: '/',
+                        updateViaCache: 'none'
+                    }).then(function (registration) {
+                        function checkForUpdate() {
+                            if (!navigator.onLine) return;
+                            registration.update().catch(function (err) {
+                                console.warn('Service worker update check failed:', err);
+                            });
+                        }
+
+                        // Installed PWAs can stay open for days. Check again
+                        // when reopened and hourly while actively in use.
+                        document.addEventListener('visibilitychange', function () {
+                            if (document.visibilityState === 'visible') {
+                                checkForUpdate();
+                            }
+                        });
+                        window.addEventListener('online', checkForUpdate);
+                        window.setInterval(function () {
+                            if (document.visibilityState === 'visible') {
+                                checkForUpdate();
+                            }
+                        }, 60 * 60 * 1000);
+                    }).catch(function (err) {
+                        console.warn('Service worker registration failed:', err);
+                    });
+                });
+            }());
         }
     </script>
 

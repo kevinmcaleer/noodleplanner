@@ -99,7 +99,24 @@ class TestPage:
         assert '<link rel="manifest" href="/manifest.webmanifest">' in html
         assert '<meta name="theme-color" content="#209080">' in html
         assert '<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">' in html
-        assert "navigator.serviceWorker.register('/sw.js', { scope: '/' })" in html
+        assert "navigator.serviceWorker.register('/sw.js', {" in html
+        assert "updateViaCache: 'none'" in html
+
+    def test_active_page_reloads_when_a_new_worker_takes_control(self, client):
+        html = client.get("/").text
+        assert "navigator.serviceWorker.addEventListener('controllerchange'" in html
+        assert "if (!wasControlled) {" in html
+        assert "wasControlled = true;" in html
+        assert "if (reloadingForUpdate) return;" in html
+        assert "saveCurrentProjectState();" in html
+        assert "window.location.reload();" in html
+
+    def test_open_app_checks_for_worker_updates(self, client):
+        html = client.get("/").text
+        assert "registration.update()" in html
+        assert "document.addEventListener('visibilitychange'" in html
+        assert "window.addEventListener('online', checkForUpdate)" in html
+        assert "60 * 60 * 1000" in html
 
     def test_csp_allows_a_same_origin_worker_and_manifest(self, client):
         csp = client.get("/").headers["content-security-policy"]
