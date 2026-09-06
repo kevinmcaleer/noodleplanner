@@ -255,6 +255,42 @@ async def logo():
     raise HTTPException(status_code=404, detail="Logo not found")
 
 
+# ---------------------------------------------------------------------------
+# Progressive Web App (issue #809): the manifest makes the app installable and
+# the service worker, served from the site root so its scope covers the whole
+# app, lets it open in its own window and start offline.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/manifest.webmanifest")
+async def web_app_manifest():
+    """The web app manifest, with the media type browsers expect."""
+    return FileResponse(
+        package_dir / "static" / "manifest.webmanifest",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/sw.js")
+async def service_worker():
+    """The service worker, stamped with the deploy's static version.
+
+    Served at the root rather than under /static/ so it can control "/",
+    and never cached by the browser so a new deployment takes effect on the
+    next load. The version stamp is what makes the worker's cache turn over.
+    """
+    source = (package_dir / "static" / "sw.js").read_text(encoding="utf-8")
+    return Response(
+        source.replace("__STATIC_VERSION__", STATIC_VERSION),
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-cache",
+            "Service-Worker-Allowed": "/",
+        },
+    )
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}

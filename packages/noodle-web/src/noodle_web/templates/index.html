@@ -8,6 +8,26 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon.png">
 
+    <!-- Progressive Web App: installable, opens in its own window (issue #809) -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#209080">
+    <meta name="application-name" content="Noodle Planner">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Noodle">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <script>
+        // Register the service worker that makes the app installable. Only on
+        // secure origins (https or localhost), where browsers allow it.
+        if ('serviceWorker' in navigator && (window.isSecureContext || location.hostname === 'localhost')) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (err) {
+                    console.warn('Service worker registration failed:', err);
+                });
+            });
+        }
+    </script>
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">

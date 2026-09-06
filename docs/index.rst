@@ -15,6 +15,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    :caption: How-to Guides
 
    how-to/create-a-project
+   how-to/install-as-an-app
    how-to/use-the-gantt-view
    how-to/use-the-kanban-board
    how-to/use-the-raid-log
