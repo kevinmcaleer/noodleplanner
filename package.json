@@ -1,13 +1,15 @@
 {
   "name": "noodleplanner",
   "private": true,
-  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: mppwriter is vendored into static/vendor/mppwriter by `npm run vendor:mppwriter`.",
+  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: mppwriter and exceljs are vendored into static/vendor/ by `npm run vendor:mppwriter` and `npm run vendor:exceljs`.",
   "license": "MIT",
   "scripts": {
     "vendor:mppwriter": "node scripts/vendor-mppwriter.mjs",
+    "vendor:exceljs": "node scripts/vendor-exceljs.mjs",
     "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_markdown_roundtrip.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
+    "exceljs": "4.4.0",
     "mppwriter": "0.4.0"
   }
 }
