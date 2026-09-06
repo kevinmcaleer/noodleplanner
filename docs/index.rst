@@ -22,6 +22,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/use-the-raid-log
    how-to/manage-resources
    how-to/export-your-plan
+   how-to/back-up-your-projects
    how-to/use-the-portfolio-view
    how-to/use-the-2-week-lookahead
    how-to/use-the-timeline-view
