@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ExcelJS from 'exceljs';
@@ -13,14 +14,17 @@ import {
   XL_COMMS_HEADERS,
   XL_LESSONS_HEADERS,
   buildTaskCsv,
+  buildTaskRows,
   buildDeliverablesData,
   createBenefitsWorkbook,
   createBudgetWorkbook,
   createPlanWorkbook,
+  createPlanWorkbookBufferInWorker,
   createRaidWorkbook,
   calculateWorkbookEvm,
   importBudgetExcelInBrowser,
   importRaidExcelInBrowser,
+  formatExcelDateCell,
   xlRagColour,
 } from '../packages/noodle-web/src/noodle_web/static/browser-excel.js';
 
@@ -238,7 +242,7 @@ test('resources, EVM, and deliverables sheets are built from browser-side data',
   assert.equal(resources.getRow(1).getCell(5).fill.fgColor.argb, 'FFD3D3D3');
 
   const evm = workbook.getWorksheet('EVM');
-  assert.equal(evm.getRow(2).getCell(2).value, '90%');
+  assert.equal(evm.getRow(2).getCell(2).value, '90.0%');
   assert.equal(evm.getRow(7).getCell(2).fill.fgColor.argb, 'FFD3F9D8');
   assert.equal(evm.getRow(9).getCell(2).fill.fgColor.argb, 'FFD3F9D8');
 
@@ -337,6 +341,27 @@ test('budget workbook stays valid when there are no items and date cells import 
   assert.equal(result.items[0].date_received, '2026-01-10');
 });
 
+test('Excel date-only cells are timezone independent', () => {
+  const moduleUrl = new URL(
+    '../packages/noodle-web/src/noodle_web/static/browser-excel.js',
+    import.meta.url,
+  ).href;
+  const source = [
+    `import { formatExcelDateCell } from ${JSON.stringify(moduleUrl)};`,
+    "process.stdout.write(formatExcelDateCell(new Date('2026-01-04T00:00:00.000Z')));",
+  ].join('\n');
+
+  for (const timezone of ['America/Los_Angeles', 'Pacific/Auckland']) {
+    const output = execFileSync(
+      process.execPath,
+      ['--input-type=module', '--eval', source],
+      { encoding: 'utf8', env: { ...process.env, TZ: timezone } },
+    );
+    assert.equal(output, '2026-01-04', timezone);
+  }
+  assert.equal(formatExcelDateCell(new Date('2026-01-04T00:00:00.000Z')), '2026-01-04');
+});
+
 
 test('budget import matches exact headers so missing PO does not steal Description', async () => {
   const workbook = new ExcelJS.Workbook();
@@ -360,6 +385,20 @@ test('same-day schedules still produce EVM metrics', () => {
   assert.equal(evm.BAC, 1);
   assert.equal(evm.PV, 1);
   assert.equal(evm.EV, 1);
+});
+
+test('dependency formatting stays linear for large plans', () => {
+  const tasks = Array.from({ length: 10000 }, (_value, index) => ({
+    key: `Task ${index + 1}`,
+    name: `Task ${index + 1}`,
+    depends: index === 0 ? [] : [`Task ${index}`],
+  }));
+  const started = performance.now();
+  const rows = buildTaskRows(tasks);
+  const elapsed = performance.now() - started;
+
+  assert.equal(rows.at(-1).row[10], '9999FS');
+  assert.ok(elapsed < 750, `10,000 dependency rows took ${elapsed.toFixed(1)} ms`);
 });
 
 test('deliverables role resolution reverses full resource names back to shortnames', () => {
@@ -395,16 +434,44 @@ test('the page and scripts are pinned and wired for browser Excel export', () =>
   const index = readFileSync(join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'templates', 'index.html'), 'utf8');
   const scriptJs = readFileSync(join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static', 'script.js'), 'utf8');
   const benefitsJs = readFileSync(join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static', 'benefits.js'), 'utf8');
+  const workerJs = readFileSync(join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static', 'browser-excel-worker.js'), 'utf8');
   const packageJson = readFileSync(join(repo, 'package.json'), 'utf8');
 
-  assert.ok(index.includes(EXCELJS_CDN_URL));
+  assert.ok(!index.includes(EXCELJS_CDN_URL));
   assert.ok(scriptJs.includes("browserExcelExportsEnabled()"));
   assert.ok(scriptJs.includes("import('/static/browser-excel.js')"));
+  assert.ok(scriptJs.includes('budgetItems,'));
+  assert.ok(scriptJs.includes('server CPU 0 ms'));
+  assert.ok(scriptJs.includes('Render the latest plan changes'));
   assert.ok(scriptJs.includes('importRaidExcelInBrowser'));
   assert.ok(scriptJs.includes('importBudgetExcelInBrowser'));
   assert.ok(benefitsJs.includes("import('/static/browser-excel.js')"));
+  assert.ok(workerJs.includes('importScripts(event.data.excelJsUrl)'));
+  assert.ok(workerJs.includes("import('./browser-excel.js')"));
   assert.ok(packageJson.includes('"exceljs": "4.4.0"'));
   assert.ok(packageJson.includes('"uuid": "11.1.1"'));
+});
+
+test('a stalled worker is terminated so callers can use the server fallback', async () => {
+  const originalWorker = globalThis.Worker;
+  let terminated = false;
+  class StalledWorker {
+    postMessage() {}
+
+    terminate() {
+      terminated = true;
+    }
+  }
+  globalThis.Worker = StalledWorker;
+  try {
+    await assert.rejects(
+      createPlanWorkbookBufferInWorker(sampleParseResult(), { workerTimeoutMs: 5 }),
+      /timed out while loading ExcelJS/,
+    );
+    assert.equal(terminated, true);
+  } finally {
+    globalThis.Worker = originalWorker;
+  }
 });
 
 test('RAG mapping keeps the closed lookup semantics', () => {

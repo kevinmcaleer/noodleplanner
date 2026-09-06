@@ -1013,16 +1013,27 @@ async function exportFile(format, prefix) {
     }
 
     if ((exportExcel || exportCSV) && browserExcelExportsEnabled()) {
+        if (!lastParseResult || lastParseResult.planText.trim() !== text.trim()) {
+            showMessage(prefix, 'error', 'Render the latest plan changes before using browser Excel or CSV export.');
+            return;
+        }
         try {
-            const parse = await currentParseResult(text);
+            const parse = lastParseResult.result;
+            if (!parse || !parse.success) {
+                throw new Error('the current plan could not be scheduled');
+            }
             const projectName = parse.project_name || null;
             const module = await import('/static/browser-excel.js');
             if (exportExcel) {
-                const { filename } = await module.exportPlanExcelInBrowser(parse, { projectName, filename: (projectName || 'Project') + '.xlsx' });
-                showMessage(prefix, 'success', 'Exported ' + filename + ' in the browser.');
+                const result = await module.exportPlanExcelInBrowser(parse, {
+                    projectName,
+                    budgetItems,
+                    filename: (projectName || 'Project') + '.xlsx'
+                });
+                showMessage(prefix, 'success', 'Exported ' + result.filename + ' in the browser (' + result.elapsedMs + ' ms; server CPU 0 ms).');
             } else {
-                const { filename } = await module.exportPlanCsvInBrowser(parse, { projectName, filename: (projectName || 'Project') + '.csv' });
-                showMessage(prefix, 'success', 'Exported ' + filename + ' in the browser.');
+                const result = await module.exportPlanCsvInBrowser(parse, { projectName, filename: (projectName || 'Project') + '.csv' });
+                showMessage(prefix, 'success', 'Exported ' + result.filename + ' in the browser (' + result.elapsedMs + ' ms; server CPU 0 ms).');
             }
             return;
         } catch (error) {

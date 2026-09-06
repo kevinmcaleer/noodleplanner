@@ -1,4 +1,6 @@
 export const EXCELJS_CDN_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+export const BROWSER_EXCEL_WORKER_URL = '/static/browser-excel-worker.js';
+export const EXCELJS_LOAD_TIMEOUT_MS = 30000;
 
 export const XL_TASK_HEADERS = [
     'ID', 'Task Name', 'Start', 'Finish', 'Duration (days)',
@@ -34,7 +36,7 @@ export const XL_RAID_COLUMN_WIDTHS = {
     'Likelihood': 12,
     'Score': 8,
     'Status': 14,
-    'Priority': 10,
+    'Priority': 12,
     'Target Date': 14,
 };
 export const XL_STAKEHOLDER_HEADERS = ['Name', 'Role', 'Interest', 'Influence'];
@@ -76,6 +78,8 @@ export const XL_RAG_FILLS = {
 function hasNodeProcess() {
     return typeof process !== 'undefined' && !!(process.versions && process.versions.node);
 }
+
+let excelJsLoadPromise = null;
 
 export function browserExcelEnabled() {
     try {
@@ -150,11 +154,17 @@ function splitResources(resources) {
         .filter(Boolean);
 }
 
-function setHeaderStyle(row, fillHex = '366092', font = { bold: true, color: 'FFFFFF' }) {
+function setHeaderStyle(
+    row,
+    fillHex = '366092',
+    font = { bold: true, color: 'FFFFFF' },
+    vertical = 'middle'
+) {
     row.eachCell((cell) => {
         cell.fill = solidFill(fillHex);
         cell.font = fontStyle(font);
-        cell.alignment = { horizontal: 'center', vertical: 'center' };
+        cell.alignment = { horizontal: 'center' };
+        if (vertical) cell.alignment.vertical = vertical;
     });
 }
 
@@ -189,24 +199,37 @@ async function ensureExcelJsLoaded() {
     if (typeof document === 'undefined') {
         throw new Error('ExcelJS is not available');
     }
-    await new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${EXCELJS_CDN_URL}"]`);
-        if (existing) {
-            if (globalThis.ExcelJS) {
-                resolve();
-                return;
-            }
-            existing.addEventListener('load', resolve, { once: true });
-            existing.addEventListener('error', () => reject(new Error('Failed to load ExcelJS')), { once: true });
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = EXCELJS_CDN_URL;
-        script.onload = resolve;
-        script.onerror = () => reject(new Error('Failed to load ExcelJS'));
-        document.head.appendChild(script);
-    });
+
+    if (!excelJsLoadPromise) {
+        document.querySelectorAll(`script[src="${EXCELJS_CDN_URL}"]`).forEach((script) => script.remove());
+        excelJsLoadPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            const timeout = window.setTimeout(() => {
+                script.remove();
+                reject(new Error('Timed out loading ExcelJS'));
+            }, EXCELJS_LOAD_TIMEOUT_MS);
+            const finish = (callback) => {
+                window.clearTimeout(timeout);
+                callback();
+            };
+            script.src = EXCELJS_CDN_URL;
+            script.onload = () => finish(resolve);
+            script.onerror = () => finish(() => {
+                script.remove();
+                reject(new Error('Failed to load ExcelJS'));
+            });
+            document.head.appendChild(script);
+        });
+    }
+
+    try {
+        await excelJsLoadPromise;
+    } catch (error) {
+        excelJsLoadPromise = null;
+        throw error;
+    }
     if (!globalThis.ExcelJS) {
+        excelJsLoadPromise = null;
         throw new Error('ExcelJS did not initialise correctly');
     }
     return globalThis.ExcelJS;
@@ -223,12 +246,16 @@ export function xlRagColour(status) {
     return XL_RAG_STATUS_TO_COLOUR[String(status || '').toLowerCase()] || '';
 }
 
-function taskDependencyString(tasks, task) {
+function taskNameToIdMap(tasks) {
     const nameToId = new Map();
     tasks.forEach((current, index) => {
         const keys = [current.key, current.name].filter(Boolean);
         keys.forEach((key) => nameToId.set(String(key).toLowerCase(), index + 1));
     });
+    return nameToId;
+}
+
+function taskDependencyString(nameToId, task) {
     const depends = Array.isArray(task.depends) ? task.depends : [];
     return depends.map((depName) => {
         const depId = nameToId.get(String(depName).toLowerCase());
@@ -239,7 +266,8 @@ function taskDependencyString(tasks, task) {
     }).filter(Boolean).join(', ');
 }
 
-function buildTaskRows(tasks) {
+export function buildTaskRows(tasks) {
+    const nameToId = taskNameToIdMap(tasks);
     return tasks.map((task, index) => ({
         row: [
             index + 1,
@@ -252,7 +280,7 @@ function buildTaskRows(tasks) {
             task.is_summary ? '' : (task.rag || ''),
             task.priority || 'Low',
             task.bucket || '',
-            taskDependencyString(tasks, task),
+            taskDependencyString(nameToId, task),
             task.comment || '',
         ],
         task,
@@ -276,7 +304,7 @@ function addTasksSheet(workbook, parseResult) {
         if (rag && XL_RAG_FILLS[rag]) {
             ragCell.fill = solidFill(XL_RAG_FILLS[rag]);
             if (rag === 'red' || rag === 'blue' || rag === 'grey') {
-                ragCell.font = fontStyle({ bold: rag === 'red', color: 'FFFFFF' });
+                ragCell.font = fontStyle({ bold: true, color: 'FFFFFF' });
             }
         }
     });
@@ -454,7 +482,7 @@ function addBudgetSheet(workbook, items) {
     const budgetItems = Array.isArray(items) ? items : [];
     const worksheet = workbook.addWorksheet('Budget');
     worksheet.addRow(XL_BUDGET_HEADERS);
-    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 }, null);
 
     budgetItems.forEach((item) => {
         const row = worksheet.addRow([
@@ -513,7 +541,7 @@ function addRaidSheet(workbook, items) {
     if (!Array.isArray(items) || items.length === 0) return null;
     const worksheet = workbook.addWorksheet('RAID Log');
     worksheet.addRow(XL_RAID_HEADERS);
-    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 }, null);
 
     items.forEach((item) => {
         const row = worksheet.addRow([
@@ -544,7 +572,7 @@ function addStakeholdersSheet(workbook, items) {
     if (!Array.isArray(items) || items.length === 0) return null;
     const worksheet = workbook.addWorksheet('Stakeholders');
     worksheet.addRow(XL_STAKEHOLDER_HEADERS);
-    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 }, null);
 
     items.forEach((item) => {
         const row = worksheet.addRow([
@@ -637,10 +665,10 @@ function addEvmSheet(workbook, tasks, budgetItems, now) {
 
     const worksheet = workbook.addWorksheet('EVM');
     worksheet.addRow(['Metric', 'Value']);
-    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 }, null);
 
     const fmt = (value) => Math.round(Number(value) * 100) / 100;
-    const fmtPct = (value) => `${Math.round(Number(value) * 10) / 10}%`;
+    const fmtPct = (value) => `${Number(value).toFixed(1)}%`;
     const rows = [
         ['% Complete', fmtPct(evm.overall_percent_complete)],
         ['BAC (Budget at Completion)', fmt(evm.BAC)],
@@ -683,7 +711,7 @@ function addCommsSheet(workbook, items) {
     if (!Array.isArray(items) || items.length === 0) return null;
     const worksheet = workbook.addWorksheet('Comms Plan');
     worksheet.addRow(XL_COMMS_HEADERS);
-    setHeaderStyle(worksheet.getRow(1), '4A90D9', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '4A90D9', { bold: true, color: 'FFFFFF', size: 11 }, null);
     items.forEach((item, index) => {
         worksheet.addRow([
             item.id || index + 1,
@@ -706,7 +734,7 @@ function addLessonsSheet(workbook, items) {
     if (!Array.isArray(items) || items.length === 0) return null;
     const worksheet = workbook.addWorksheet('Lessons Learned');
     worksheet.addRow(XL_LESSONS_HEADERS);
-    setHeaderStyle(worksheet.getRow(1), '6F42C1', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '6F42C1', { bold: true, color: 'FFFFFF', size: 11 }, null);
     items.forEach((item, index) => {
         worksheet.addRow([
             item.id || index + 1,
@@ -831,7 +859,7 @@ function addDeliverablesSheet(workbook, parseResult) {
         if (columnNumber > fixedHeaders.length && columnNumber <= fixedHeaders.length + personHeaders.length) {
             cell.alignment = { textRotation: 90, horizontal: 'center', vertical: 'bottom' };
         } else {
-            cell.alignment = { horizontal: 'center', vertical: 'center' };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
         }
     });
 
@@ -861,12 +889,12 @@ function addDeliverablesSheet(workbook, parseResult) {
             cell.alignment = { horizontal: 'center' };
         });
 
+        const qaCell = row.getCell(headers.length);
+        qaCell.alignment = { horizontal: 'center' };
         if (roleLetters.includes('P') && roleLetters.includes('R') && roleLetters.includes('A')) {
-            const qaCell = row.getCell(headers.length);
             qaCell.value = '✓';
             qaCell.fill = solidFill('70AD47');
             qaCell.font = fontStyle({ bold: true, color: 'FFFFFF' });
-            qaCell.alignment = { horizontal: 'center' };
         }
     });
 
@@ -923,7 +951,7 @@ export async function createPlanWorkbook(parseResult, options = {}) {
     const workbook = new ExcelJS.Workbook();
     const now = options.now instanceof Date ? options.now : new Date();
     const projectName = options.projectName || parseResult.project_name || 'Project';
-    const budgetItems = options.budgetItems || globalThis.budgetItems || [];
+    const budgetItems = Array.isArray(options.budgetItems) ? options.budgetItems : [];
 
     addSummarySheet(workbook, parseResult, projectName, now);
     addTasksSheet(workbook, parseResult);
@@ -939,12 +967,68 @@ export async function createPlanWorkbook(parseResult, options = {}) {
     return workbook;
 }
 
+function elapsedSince(started) {
+    return Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - started);
+}
+
+export async function createPlanWorkbookBufferInWorker(parseResult, options = {}) {
+    const worker = new Worker(BROWSER_EXCEL_WORKER_URL);
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            worker.terminate();
+            callback(value);
+        };
+        const timeout = setTimeout(() => {
+            finish(reject, new Error('Browser Excel worker timed out while loading ExcelJS'));
+        }, options.workerTimeoutMs ?? EXCELJS_LOAD_TIMEOUT_MS);
+
+        worker.onmessage = (event) => {
+            if (event.data && event.data.error) {
+                finish(reject, new Error(event.data.error));
+                return;
+            }
+            finish(resolve, event.data.buffer);
+        };
+        worker.onerror = (event) => {
+            finish(reject, new Error(event.message || 'Browser Excel worker failed'));
+        };
+        try {
+            worker.postMessage({
+                parseResult,
+                options: {
+                    projectName: options.projectName || null,
+                    budgetItems: Array.isArray(options.budgetItems) ? options.budgetItems : [],
+                    now: options.now instanceof Date ? options.now.toISOString() : null,
+                },
+                excelJsUrl: EXCELJS_CDN_URL,
+            });
+        } catch (error) {
+            finish(reject, error);
+        }
+    });
+}
+
 export async function exportPlanExcelInBrowser(parseResult, options = {}) {
-    const workbook = await createPlanWorkbook(parseResult, options);
+    const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const filename = options.filename || `${options.projectName || parseResult.project_name || 'Project'}.xlsx`;
-    const buffer = await workbook.xlsx.writeBuffer();
+    let workbook = null;
+    let buffer;
+    let worker = false;
+
+    if (!options.ExcelJS && typeof Worker !== 'undefined') {
+        buffer = await createPlanWorkbookBufferInWorker(parseResult, options);
+        worker = true;
+    } else {
+        workbook = await createPlanWorkbook(parseResult, options);
+        buffer = await workbook.xlsx.writeBuffer();
+    }
+
     downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
-    return { filename, workbook };
+    return { filename, workbook, worker, elapsedMs: elapsedSince(started) };
 }
 
 export function buildTaskCsv(parseResult) {
@@ -971,10 +1055,11 @@ export function buildTaskCsv(parseResult) {
 }
 
 export async function exportPlanCsvInBrowser(parseResult, options = {}) {
+    const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const filename = options.filename || `${options.projectName || parseResult.project_name || 'Project'}.csv`;
     const csv = buildTaskCsv(parseResult);
     downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), filename);
-    return { filename, csv };
+    return { filename, csv, elapsedMs: elapsedSince(started) };
 }
 
 export async function createRaidWorkbook(items, options = {}) {
@@ -982,7 +1067,7 @@ export async function createRaidWorkbook(items, options = {}) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('RAID Log');
     worksheet.addRow(XL_RAID_ROUTE_HEADERS);
-    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 });
+    setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 }, null);
     (items || []).forEach((item) => {
         const row = worksheet.addRow([
             item.id || '',
@@ -1152,7 +1237,7 @@ export async function importBudgetExcelInBrowser(input, options = {}) {
         const type = String(getCell('type', 'Capex'));
         const category = String(getCell('category', 'Consultancy'));
         const normaliseDateCell = (value) => {
-            if (value instanceof Date) return formatDate(value);
+            if (value instanceof Date) return formatExcelDateCell(value);
             return String(value || '');
         };
         items.push({
@@ -1171,6 +1256,13 @@ export async function importBudgetExcelInBrowser(input, options = {}) {
         });
     });
     return { items };
+}
+
+export function formatExcelDateCell(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 export async function createBenefitsWorkbook(items, options = {}) {

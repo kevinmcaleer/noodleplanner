@@ -21,6 +21,19 @@ Exports a full spreadsheet with all tasks, dates, resources, progress, and RAG s
 
 Columns exported: ID, Task Name, Start, Finish, Duration (days), Resources, % Complete, RAG, Priority, Bucket, Comment.
 
+The experimental browser-first path can be enabled from the browser console:
+
+.. code-block:: javascript
+
+   localStorage.setItem('noodleplanner_browser_excel', 'on')
+
+Render the latest plan before exporting. Excel and CSV files are then built
+from the scheduled data already held by the page, with no export request or
+plan data sent to the server. Large Excel workbooks are generated in a Web
+Worker so the page remains responsive. If the browser cannot load ExcelJS or
+build the workbook, NoodlePlanner logs the error and uses the existing server
+export as a fallback.
+
 CSV (``.csv``)
 ~~~~~~~~~~~~~~~
 
