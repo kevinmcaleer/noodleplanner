@@ -976,6 +976,11 @@
     color: #4ec9b0;
 }
 
+.syntax-effort,
+.syntax-recurrence {
+    color: #ce9178;
+}
+
 .syntax-percent {
     color: #b5cea8;
 }
@@ -1524,4 +1529,3 @@ input[type="checkbox"] {
 .tasks-table tbody tr.drag-over-below {
     border-bottom: 2px solid #667eea;
 }
-

@@ -4394,7 +4394,47 @@ function getPreviousTaskName(lines, currentLineNum) {
 }
 
 function parseTaskLine(line, lineNum) {
+    const parsed = TaskLineTokenizer.metadata(line);
+    const values = parsed.values;
     const task = {
+        lineNumber: lineNum,
+        name: values.name,
+        duration: values.duration,
+        startDate: values.startDate,
+        finishDate: values.finishDate,
+        percent: values.percent,
+        resources: values.resources.join(', '),
+        comment: values.comment,
+        priority: values.priority,
+        bucket: values.bucket,
+        dependencies: values.dependencies.join(', '),
+        labels: values.labels.join(', '),
+        recurrence: values.recurrence,
+        effortCompleted: values.effortCompleted,
+        effortCompletedUnit: values.effortCompletedUnit,
+        effortRemaining: values.effortRemaining,
+        effortRemainingUnit: values.effortRemainingUnit,
+        effortTotal: values.effortTotal,
+        effortTotalUnit: values.effortTotalUnit
+    };
+    if (values.product_type) {
+        task.product_type = values.product_type;
+        task.deliverable = values.deliverable;
+    }
+    if (values.hasStar) {
+        const editor = document.getElementById('planEditor');
+        if (editor) {
+            const previousTaskName = getPreviousTaskName(editor.value.split('\n'), lineNum);
+            if (previousTaskName) {
+                task.dependencies = [values.starLagLead ? `${previousTaskName} ${values.starLagLead}` : previousTaskName,
+                    ...values.dependencies].join(', ');
+            }
+        }
+    }
+    return task;
+
+    /*
+    const legacyTask = {
         lineNumber: lineNum,
         name: '',
         duration: '',
@@ -4607,6 +4647,7 @@ function parseTaskLine(line, lineNum) {
     task.labels = labels.join(', ');
 
     return task;
+    */
 }
 
 /**

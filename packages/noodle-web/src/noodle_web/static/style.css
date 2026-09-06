@@ -2883,6 +2883,11 @@ svg.icon {
     color: #4ec9b0;
 }
 
+.syntax-effort,
+.syntax-recurrence {
+    color: #ce9178;
+}
+
 .syntax-percent {
     color: #b5cea8;
 }
