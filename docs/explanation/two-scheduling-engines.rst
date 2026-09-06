@@ -91,18 +91,19 @@ When you intend to change how plans schedule:
 If the two engines disagree and it is not obvious which is right, the Python
 engine is the reference: the corpus is generated from it.
 
-Turning the browser engine on
-------------------------------
+Which engine runs
+------------------
 
-It is currently opt-in. From the browser console::
+The browser engine is the default: editing a plan makes no ``/api/parse``
+request at all. If it throws, the page falls back to the server for that
+render rather than showing nothing.
 
-    localStorage.setItem('np-local-engine', '1')   // schedule in the browser
+To force the server — to compare the two, or to work around a suspected
+engine bug — from the browser console::
+
     localStorage.setItem('np-local-engine', '0')   // use the server
+    localStorage.setItem('np-local-engine', '1')   // use the browser
     localStorage.removeItem('np-local-engine')     // back to the default
-
-With it on, editing a plan makes no ``/api/parse`` request at all. If the
-browser engine throws, the page falls back to the server for that render
-rather than showing nothing.
 
 Known differences
 ------------------

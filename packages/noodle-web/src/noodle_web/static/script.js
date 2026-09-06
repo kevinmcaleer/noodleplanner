@@ -1587,10 +1587,11 @@ async function updateAllViews(planText, projectName) {
             project_name: projectName || null
         };
 
-        // The browser can schedule the plan itself, which removes the request
-        // this function makes on every edit (issue #793). Off unless
-        // localStorage np-local-engine is "1"; the engine is held to the same
-        // answers as the server by tests/test_engine_conformance.mjs.
+        // The browser schedules the plan itself, which removes the request
+        // this function used to make on every edit (issue #793). The engine is
+        // held to the same answers as the server by
+        // tests/test_engine_conformance.mjs; localStorage np-local-engine "0"
+        // forces the server, and any failure falls back to it anyway.
         let result = null;
         try {
             const engine = await import('/static/engine/local-parse.js');
