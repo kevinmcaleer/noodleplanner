@@ -1188,7 +1188,7 @@ class TestImportFromMpp:
         with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
             result = import_from_mpp(b"\x00")
 
-        assert "[depends: Task A, Task B]" in result
+        assert "[depends Task A, Task B]" in result
 
     def test_import_resource_shortname_generation(self):
         """Resources use generated shortnames and appear in header."""
