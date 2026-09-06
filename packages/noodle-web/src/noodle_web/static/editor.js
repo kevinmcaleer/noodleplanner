@@ -55,7 +55,21 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (trimmed === '---baseline---') { inBaseline = true; continue; }
             if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.includes('===')) continue;
 
-            // Extract task name using lightweight parsing (avoids recursive parseTaskLine calls)
+            const taskMetadata = TaskLineTokenizer.metadata(allLines[i]).values;
+            if (taskMetadata.name) {
+                allTaskNames.add(taskMetadata.name.toLowerCase());
+                if (taskMetadata.name.includes('_')) allTaskNames.add(taskMetadata.name.replace(/_/g, ' ').toLowerCase());
+                if (taskMetadata.name.includes(' ')) allTaskNames.add(taskMetadata.name.replace(/ /g, '_').toLowerCase());
+            }
+            if (taskMetadata.deliverable) {
+                const prefix = taskMetadata.product_type === 'group' ? '/$'
+                    : taskMetadata.product_type === 'external' ? '^$' : '$';
+                allTaskNames.add((prefix + taskMetadata.deliverable).toLowerCase());
+                allTaskNames.add(taskMetadata.deliverable.toLowerCase());
+            }
+            continue;
+
+            // Legacy name extraction retained temporarily below for source-history clarity.
             let taskText = trimmed;
             // Strip * prefix
             if (taskText.startsWith('*')) {
@@ -109,6 +123,58 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         // Dependency tokens the last parse flagged as circular, keyed by
         // 1-based line number (see updateCircularDependencyWarnings).
         const circularByLine = window._circularDependencyLines || {};
+        function escapeSyntaxHtml(value) {
+            return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function highlightTaskLine(line, lineIdx) {
+            const classByType = {
+                star: 'syntax-star', 'star-lag': 'syntax-lag-lead', effort: 'syntax-effort',
+                comment: 'syntax-comment', recurrence: 'syntax-recurrence', bucket: 'syntax-bucket',
+                priority: 'syntax-priority', resource: 'syntax-resource', label: 'syntax-label',
+                duration: 'syntax-duration', percent: 'syntax-percent', date: 'syntax-date',
+                product: 'syntax-product'
+            };
+            const tokens = TaskLineTokenizer.tokenize(line);
+            let output = '';
+            let cursor = 0;
+            for (const token of tokens) {
+                if (token.start < cursor) continue;
+                output += escapeSyntaxHtml(line.slice(cursor, token.start)).replace(/,/g,
+                    '<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
+                if (token.type === 'dependency') {
+                    const content = token.text.replace(/^\[depends(?::\s*|\s+)|\]$/gi, '');
+                    const parts = content.split(',').map(part => {
+                        const dependency = part.trim();
+                        const lagMatch = /^(.+?)\s+([+\-]\d+[dwmy])$/.exec(dependency);
+                        const core = (lagMatch ? lagMatch[1] : dependency).trim();
+                        const typeMatch = /^(.+?):(FS|SS|FF|SF)$/i.exec(core);
+                        const name = (typeMatch ? typeMatch[1] : core).trim().replace(/^Milestone:\s*/i, '');
+                        const normalised = name.toLowerCase().replace(/\s+/g, ' ');
+                        const circular = circularByLine[lineIdx + 1];
+                        const valid = allTaskNames.has(normalised) ||
+                            allTaskNames.has(normalised.replace(/_/g, ' ')) ||
+                            allTaskNames.has(normalised.replace(/ /g, '_')) ||
+                            allTaskNames.has(normalised.replace(/^[/^]?\$/, ''));
+                        const nameHtml = circular && circular.has(normalised)
+                            ? '<span class="syntax-circular" title="Circular dependency">' + escapeSyntaxHtml(name) + '</span>'
+                            : valid ? escapeSyntaxHtml(name) : '<span class="syntax-error">' + escapeSyntaxHtml(name) + '</span>';
+                        return nameHtml + (typeMatch ? '<span class="syntax-dep-type">:' + typeMatch[2].toUpperCase() + '</span>' : '') +
+                            (lagMatch ? ' <span class="syntax-lag-lead">' + lagMatch[2] + '</span>' : '');
+                    });
+                    output += '<span class="syntax-dependency">[depends ' + parts.join(', ') + ']</span>';
+                } else {
+                    let className = classByType[token.type];
+                    if (token.type === 'product') {
+                        className += token.text[0] === '/' ? ' syntax-product-group'
+                            : token.text[0] === '^' ? ' syntax-product-external' : '';
+                    }
+                    output += '<span class="' + className + '">' + escapeSyntaxHtml(token.text) + '</span>';
+                }
+                cursor = token.end;
+            }
+            return output + escapeSyntaxHtml(line.slice(cursor)).replace(/,/g,
+                '<span class="syntax-error" title="Commas in task names break dependency parsing">,</span>');
+        }
         return allLines.map((line, lineIdx) => {
             // Track front matter (between --- delimiters) — skip syntax highlighting
             if (line.trim() === '---' && !inHighlightsSection && !inBudgetSection && !inRaidLogSection && !inBaselineSection) {
@@ -215,6 +281,8 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (!line.trim() || line.includes('===') || line.includes('---')) {
                 return line;
             }
+
+            return highlightTaskLine(line, lineIdx);
 
             // Escape HTML first to prevent issues
             let highlighted = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1070,4 +1138,3 @@ function initializeKanbanEditorDragDrop() {
         }
     });
 }
-
