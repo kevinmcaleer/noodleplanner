@@ -30,6 +30,40 @@ function formatLocalDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+function setupGanttEditableCell(cell, edit) {
+    let touchStart = null;
+    cell.tabIndex = 0;
+    cell.addEventListener('dblclick', edit);
+    cell.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === 'F2') {
+            event.preventDefault();
+            edit();
+        }
+    });
+    cell.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' || event.button !== 0) return;
+        touchStart = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY
+        };
+    });
+    cell.addEventListener('pointerup', event => {
+        if (!touchStart || event.pointerId !== touchStart.pointerId) return;
+        const distance = Math.hypot(
+            event.clientX - touchStart.x,
+            event.clientY - touchStart.y
+        );
+        touchStart = null;
+        if (distance < 8 && !event.target.closest('button, input, select, a')) {
+            edit();
+        }
+    });
+    cell.addEventListener('pointercancel', () => {
+        touchStart = null;
+    });
+}
+
 // ----- Dependency / Predecessors helpers -----
 
 /**
@@ -658,7 +692,7 @@ function renderGanttRows() {
         const ganttContextBtn = createTaskContextButton(task, index);
         nameCell.appendChild(ganttContextBtn);
 
-        nameCell.addEventListener('dblclick', () => makeEditable(nameCell, task, index));
+        setupGanttEditableCell(nameCell, () => makeEditable(nameCell, task, index));
         infoRow.appendChild(nameCell);
 
         // Duration cell (editable)
@@ -666,7 +700,7 @@ function renderGanttRows() {
         durationCell.classList.add('editable');
         durationCell.dataset.field = 'duration';
         durationCell.textContent = task.duration_days ? `${task.duration_days}d` : '-';
-        durationCell.addEventListener('dblclick', () => makeEditable(durationCell, task, index));
+        setupGanttEditableCell(durationCell, () => makeEditable(durationCell, task, index));
         infoRow.appendChild(durationCell);
 
         // Start cell (editable)
@@ -674,7 +708,7 @@ function renderGanttRows() {
         startCell.classList.add('editable');
         startCell.dataset.field = 'start';
         startCell.textContent = task.start || '-';
-        startCell.addEventListener('dblclick', () => makeEditable(startCell, task, index));
+        setupGanttEditableCell(startCell, () => makeEditable(startCell, task, index));
         infoRow.appendChild(startCell);
 
         // Finish cell (editable)
@@ -682,7 +716,7 @@ function renderGanttRows() {
         finishCell.classList.add('editable');
         finishCell.dataset.field = 'finish';
         finishCell.textContent = task.finish || '-';
-        finishCell.addEventListener('dblclick', () => makeEditable(finishCell, task, index));
+        setupGanttEditableCell(finishCell, () => makeEditable(finishCell, task, index));
         infoRow.appendChild(finishCell);
 
         // Resources cell (editable, unless inherited)
@@ -694,7 +728,7 @@ function renderGanttRows() {
             resourcesCell.style.fontStyle = 'italic';
             resourcesCell.title = 'Inherited from parent summary task';
         }
-        resourcesCell.addEventListener('dblclick', () => makeEditable(resourcesCell, task, index));
+        setupGanttEditableCell(resourcesCell, () => makeEditable(resourcesCell, task, index));
         infoRow.appendChild(resourcesCell);
 
         // Percent cell (editable)
@@ -702,7 +736,7 @@ function renderGanttRows() {
         percentCell.classList.add('editable');
         percentCell.dataset.field = 'percent';
         percentCell.textContent = task.percent ? `${String(task.percent).replace('%', '')}%` : '-';
-        percentCell.addEventListener('dblclick', () => makeEditable(percentCell, task, index));
+        setupGanttEditableCell(percentCell, () => makeEditable(percentCell, task, index));
         infoRow.appendChild(percentCell);
 
         // RAG cell (not editable)
@@ -732,7 +766,7 @@ function renderGanttRows() {
         } else if (priorityValue === 'Medium') {
             priorityCell.classList.add('priority-medium');
         }
-        priorityCell.addEventListener('dblclick', () => makePriorityEditable(priorityCell, task, index));
+        setupGanttEditableCell(priorityCell, () => makePriorityEditable(priorityCell, task, index));
         infoRow.appendChild(priorityCell);
 
         // Bucket cell (editable with dropdown)
@@ -740,7 +774,7 @@ function renderGanttRows() {
         bucketCell.classList.add('editable');
         bucketCell.dataset.field = 'bucket';
         bucketCell.textContent = task.bucket || '-';
-        bucketCell.addEventListener('dblclick', () => makeBucketEditable(bucketCell, task, index));
+        setupGanttEditableCell(bucketCell, () => makeBucketEditable(bucketCell, task, index));
         infoRow.appendChild(bucketCell);
 
         // Comment cell (editable)
@@ -748,7 +782,7 @@ function renderGanttRows() {
         commentCell.classList.add('editable');
         commentCell.dataset.field = 'comment';
         commentCell.textContent = task.comment || '-';
-        commentCell.addEventListener('dblclick', () => makeEditable(commentCell, task, index));
+        setupGanttEditableCell(commentCell, () => makeEditable(commentCell, task, index));
         infoRow.appendChild(commentCell);
 
         // Predecessors cell (editable)
@@ -758,7 +792,7 @@ function renderGanttRows() {
         const nameToId = buildTaskNameToIdMap(ganttTasks);
         const predText = formatPredecessors(task, nameToId);
         predCell.textContent = predText || '-';
-        predCell.addEventListener('dblclick', () => makeEditable(predCell, task, index));
+        setupGanttEditableCell(predCell, () => makeEditable(predCell, task, index));
         infoRow.appendChild(predCell);
 
         // Right-click context menu on gantt rows
@@ -975,22 +1009,26 @@ function renderBaselineBar(barRow, task, minDate) {
 }
 
 function setupBarClickToOpenTask(element, task) {
-    let mouseDownPos = null;
+    let pointerDownPos = null;
 
-    element.addEventListener('mousedown', (e) => {
-        mouseDownPos = { x: e.clientX, y: e.clientY };
+    element.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        pointerDownPos = { id: e.pointerId, x: e.clientX, y: e.clientY };
     });
 
-    element.addEventListener('mouseup', (e) => {
-        if (!mouseDownPos) return;
-        const dx = Math.abs(e.clientX - mouseDownPos.x);
-        const dy = Math.abs(e.clientY - mouseDownPos.y);
-        mouseDownPos = null;
+    element.addEventListener('pointerup', (e) => {
+        if (!pointerDownPos || e.pointerId !== pointerDownPos.id) return;
+        const dx = Math.abs(e.clientX - pointerDownPos.x);
+        const dy = Math.abs(e.clientY - pointerDownPos.y);
+        pointerDownPos = null;
 
         // Only open if this was a click, not a drag
         if (dx < 5 && dy < 5) {
             openMilestoneTaskForm(task.name);
         }
+    });
+    element.addEventListener('pointercancel', () => {
+        pointerDownPos = null;
     });
 }
 
@@ -1251,7 +1289,8 @@ function renderDependencyLines() {
 function setupBarDragListeners(bar, task, taskIndex) {
     let dragState = null;
 
-    const onMouseDown = (e) => {
+    const onPointerDown = (e) => {
+        if (e.button !== 0) return;
         if (task.is_summary) return;  // Don't drag summary tasks
 
         const target = e.target;
@@ -1264,20 +1303,25 @@ function setupBarDragListeners(bar, task, taskIndex) {
             startWidth: parseInt(bar.style.width),
             handleType: handleType,
             task: task,
-            taskIndex: taskIndex
+            taskIndex: taskIndex,
+            pointerId: e.pointerId,
+            moved: false
         };
 
-        bar.classList.add('dragging');
-        e.preventDefault();
+        bar.setPointerCapture(e.pointerId);
         e.stopPropagation();
     };
 
-    const onMouseMove = (e) => {
-        if (!dragState) return;
+    const onPointerMove = (e) => {
+        if (!dragState || e.pointerId !== dragState.pointerId) return;
 
         const columnWidth = ganttPixelsPerDay;
         const deltaX = e.clientX - dragState.startX;
         const deltaDays = Math.round(deltaX / columnWidth);
+        if (!dragState.moved && Math.abs(deltaX) < 5) return;
+        dragState.moved = true;
+        bar.classList.add('dragging');
+        e.preventDefault();
 
         if (dragState.handleType === 'left') {
             // Adjust start date
@@ -1299,27 +1343,37 @@ function setupBarDragListeners(bar, task, taskIndex) {
         }
     };
 
-    const onMouseUp = (e) => {
-        if (!dragState) return;
+    const onPointerUp = (e) => {
+        if (!dragState || e.pointerId !== dragState.pointerId) return;
 
         const columnWidth = ganttPixelsPerDay;
         const deltaX = e.clientX - dragState.startX;
         const deltaDays = Math.round(deltaX / columnWidth);
+        const cancelled = e.type === 'pointercancel';
 
-        if (deltaDays !== 0) {
+        if (!cancelled && dragState.moved && deltaDays !== 0) {
             updateTaskDates(dragState.task, dragState.taskIndex, dragState.handleType, deltaDays);
+        } else if (cancelled) {
+            bar.style.left = dragState.startLeft + 'px';
+            bar.style.width = dragState.startWidth + 'px';
         }
 
         bar.classList.remove('dragging');
+        if (bar.hasPointerCapture(e.pointerId)) {
+            bar.releasePointerCapture(e.pointerId);
+        }
         dragState = null;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
     };
 
-    bar.addEventListener('mousedown', (e) => {
-        onMouseDown(e);
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+    bar.addEventListener('pointerdown', (e) => {
+        onPointerDown(e);
+        if (!dragState) return;
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerUp);
     });
 }
 
@@ -1508,4 +1562,3 @@ function renderCriticalPathLines() {
         ganttBody.appendChild(svg);
     }
 }
-

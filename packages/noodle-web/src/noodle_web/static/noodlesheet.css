@@ -282,6 +282,7 @@
     width: 5px;
     cursor: col-resize;
     z-index: 5;
+    touch-action: none;
 }
 
 .ns-resize-handle:hover {
@@ -454,7 +455,23 @@ input[type="date"].ns-cell-editor {
     color: #333;
     font-family: inherit;
     font-size: inherit;
-    min-height: 32px;
+    min-height: 44px;
+}
+
+@media (pointer: coarse) {
+    .ns-resize-handle {
+        width: 14px;
+    }
+
+    .ns-cell {
+        height: 36px;
+        max-height: 36px;
+    }
+
+    .ns-tab,
+    .ns-toolbar button {
+        min-height: 44px;
+    }
 }
 
 .ns-ctx-item:hover:not(:disabled) {

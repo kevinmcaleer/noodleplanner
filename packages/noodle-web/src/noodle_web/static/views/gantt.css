@@ -241,6 +241,12 @@
     position: relative;
 }
 
+.gantt-info-table td.editable:focus-visible {
+    background: #fff9e6;
+    outline: 2px solid #108bb9;
+    outline-offset: -2px;
+}
+
 .gantt-info-table td.editable:hover {
     background: #fff9e6;
     outline: 1px solid #ffd700;
@@ -384,6 +390,7 @@
     cursor: pointer;
     transition: all 0.2s;
     overflow: visible;
+    touch-action: pan-y;
 }
 
 .gantt-bar:hover {
@@ -421,6 +428,16 @@
 
 .gantt-bar-handle:hover {
     background: rgba(255, 215, 0, 0.5);
+}
+
+@media (pointer: coarse) {
+    .gantt-bar-handle {
+        width: 18px;
+    }
+
+    .gantt-info-table td.editable {
+        min-height: 44px;
+    }
 }
 
 .gantt-phase-bar {
@@ -1507,5 +1524,4 @@ input[type="checkbox"] {
 .tasks-table tbody tr.drag-over-below {
     border-bottom: 2px solid #667eea;
 }
-
 

@@ -49,6 +49,8 @@ let benDragStartPanY = 0;
 let benTouchStartDist = 0;
 let benTouchStartZoom = 1;
 let benSelectedNodeId = null;
+const benTouchEditPointers = new Set();
+let benTouchEditWasMulti = false;
 
 // ── Markdown parsing ─────────────────────────────────────────────────
 
@@ -955,6 +957,31 @@ function benRenderNode(item, x, y) {
         benSelectNode(item.id);
     });
 
+    let touchStart = null;
+    g.addEventListener('pointerdown', e => {
+        if (e.pointerType === 'mouse' || e.button !== 0) return;
+        touchStart = {
+            pointerId: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            wasSelected: benSelectedNodeId === item.id
+        };
+    });
+    g.addEventListener('pointerup', e => {
+        if (!touchStart || e.pointerId !== touchStart.pointerId) return;
+        const distance = Math.hypot(e.clientX - touchStart.x, e.clientY - touchStart.y);
+        const shouldEdit = touchStart.wasSelected && distance < 8 &&
+            !benTouchEditWasMulti;
+        touchStart = null;
+        if (shouldEdit) {
+            e.stopPropagation();
+            openBenefitForm(item.id);
+        }
+    });
+    g.addEventListener('pointercancel', () => {
+        touchStart = null;
+    });
+
     // Double-click handler to open edit form
     g.addEventListener('dblclick', (e) => {
         e.stopPropagation();
@@ -1688,6 +1715,18 @@ function initBenefitsCanvas() {
         benSvg.addEventListener('touchstart', benHandleTouchStart, { passive: false });
         benSvg.addEventListener('touchmove', benHandleTouchMove, { passive: false });
         benSvg.addEventListener('touchend', benHandleTouchEnd);
+        benSvg.addEventListener('touchcancel', benHandleTouchEnd);
+        benSvg.addEventListener('pointerdown', e => {
+            if (e.pointerType === 'mouse') return;
+            benTouchEditPointers.add(e.pointerId);
+            if (benTouchEditPointers.size > 1) benTouchEditWasMulti = true;
+        });
+        const endEditPointer = e => {
+            benTouchEditPointers.delete(e.pointerId);
+            if (benTouchEditPointers.size === 0) benTouchEditWasMulti = false;
+        };
+        window.addEventListener('pointerup', endEditPointer);
+        window.addEventListener('pointercancel', endEditPointer);
 
         // Click on background to deselect
         benSvg.addEventListener('click', (e) => {

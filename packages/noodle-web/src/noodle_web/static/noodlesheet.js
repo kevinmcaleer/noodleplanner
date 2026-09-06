@@ -617,7 +617,7 @@ class NoodleSheet {
             // Resize handle
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'ns-resize-handle';
-            resizeHandle.addEventListener('mousedown', (e) => this._initResize(e, i));
+            resizeHandle.addEventListener('pointerdown', (e) => this._initResize(e, i));
             resizeHandle.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 this._autoFitColumn(i);
@@ -693,14 +693,7 @@ class NoodleSheet {
                     td.classList.add('ns-in-range');
                 }
 
-                td.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    if (e.shiftKey) {
-                        this._extendSelection(r, c);
-                    } else {
-                        this._selectCell(r, c);
-                    }
-                });
+                this._bindCellPointerEvents(td, r, c);
                 td.addEventListener('dblclick', () => this._startEdit(r, c));
 
                 tr.appendChild(td);
@@ -724,18 +717,9 @@ class NoodleSheet {
                 td.dataset.row = r;
                 td.dataset.col = c;
                 td.setAttribute('role', 'gridcell');
-                td.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    this._selectCell(r, c);
-                });
+                this._bindCellPointerEvents(td, r, c, true);
                 td.addEventListener('dblclick', () => {
-                    // Auto-add rows if editing beyond current data
-                    const sheet = this.getActiveSheet();
-                    while (sheet.rows.length <= r) {
-                        const newRow = {};
-                        sheet.columns.forEach(col => { newRow[col.name] = ''; });
-                        sheet.rows.push(newRow);
-                    }
+                    this._ensureRowExists(r);
                     this.renderGrid();
                     this._startEdit(r, c);
                 });
@@ -803,6 +787,9 @@ class NoodleSheet {
                 e.stopPropagation();
                 this._showTabContextMenu(e, i);
             });
+            this._bindLongPress(tab, (clientX, clientY) => {
+                this._showTabContextMenu({ clientX, clientY }, i);
+            });
             this.tabBar.appendChild(tab);
         });
 
@@ -817,6 +804,119 @@ class NoodleSheet {
     }
 
     // ── Cell Selection & Editing ──────────────────────────────────────
+
+    _bindCellPointerEvents(cell, row, col, ensureRow = false) {
+        let gesture = null;
+        let longPressTimer = null;
+
+        const clearLongPress = () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        };
+
+        cell.addEventListener('pointerdown', event => {
+            if (!event.isPrimary || event.button !== 0) return;
+            const wasSelected = this.selection.row === row && this.selection.col === col;
+            gesture = {
+                pointerId: event.pointerId,
+                pointerType: event.pointerType,
+                startX: event.clientX,
+                startY: event.clientY,
+                wasSelected,
+                moved: false,
+                longPressed: false
+            };
+
+            if (event.pointerType === 'mouse') {
+                event.preventDefault();
+                if (event.shiftKey) this._extendSelection(row, col);
+                else this._selectCell(row, col);
+                return;
+            }
+
+            longPressTimer = setTimeout(() => {
+                if (!gesture || gesture.moved) return;
+                gesture.longPressed = true;
+                if (ensureRow) this._ensureRowExists(row);
+                this._selectCell(row, col);
+                this._showCellContextMenu(row, col, event.clientX, event.clientY);
+            }, 550);
+        });
+
+        cell.addEventListener('pointermove', event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            if (Math.hypot(
+                event.clientX - gesture.startX,
+                event.clientY - gesture.startY
+            ) > 8) {
+                gesture.moved = true;
+                clearLongPress();
+            }
+        });
+
+        const finish = event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            const completedGesture = gesture;
+            gesture = null;
+            clearLongPress();
+            if (event.type === 'pointercancel' || completedGesture.pointerType === 'mouse' ||
+                completedGesture.moved || completedGesture.longPressed) {
+                return;
+            }
+
+            event.preventDefault();
+            if (completedGesture.wasSelected) {
+                if (ensureRow) this._ensureRowExists(row);
+                if (ensureRow) this.renderGrid();
+                this._startEdit(row, col);
+            } else {
+                this._selectCell(row, col);
+            }
+        };
+
+        cell.addEventListener('pointerup', finish);
+        cell.addEventListener('pointercancel', finish);
+    }
+
+    _bindLongPress(element, callback) {
+        let gesture = null;
+        let timer = null;
+        const cancel = () => {
+            if (timer) clearTimeout(timer);
+            timer = null;
+            gesture = null;
+        };
+
+        element.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' || event.button !== 0) return;
+            gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+            timer = setTimeout(() => {
+                if (!gesture) return;
+                callback(gesture.x, gesture.y);
+                gesture = null;
+                timer = null;
+            }, 550);
+        });
+        element.addEventListener('pointermove', event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) {
+                cancel();
+            }
+        });
+        element.addEventListener('pointerup', cancel);
+        element.addEventListener('pointercancel', cancel);
+    }
+
+    _ensureRowExists(row) {
+        const sheet = this.getActiveSheet();
+        while (sheet && sheet.rows.length <= row) {
+            const newRow = {};
+            sheet.columns.forEach(col => { newRow[col.name] = ''; });
+            sheet.rows.push(newRow);
+        }
+    }
 
     _selectCell(row, col) {
         if (this.editing) this._commitEdit();
@@ -1537,8 +1637,11 @@ class NoodleSheet {
         const th = e.target.closest('th');
         const startX = e.clientX;
         const startWidth = th.offsetWidth;
+        const pointerId = e.pointerId;
+        e.target.setPointerCapture(pointerId);
 
-        const onMouseMove = (moveEvt) => {
+        const onPointerMove = (moveEvt) => {
+            if (moveEvt.pointerId !== pointerId) return;
             const delta = moveEvt.clientX - startX;
             const newWidth = Math.max(40, startWidth + delta);
             sheet.columns[colIndex].width = newWidth;
@@ -1555,15 +1658,25 @@ class NoodleSheet {
             });
         };
 
-        const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+        const onPointerUp = (upEvent) => {
+            if (upEvent.pointerId !== pointerId) return;
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+            document.removeEventListener('pointercancel', onPointerUp);
             document.body.style.cursor = '';
+            if (e.target.hasPointerCapture(pointerId)) {
+                e.target.releasePointerCapture(pointerId);
+            }
+            if (upEvent.type === 'pointercancel') {
+                sheet.columns[colIndex].width = startWidth;
+                this.renderGrid();
+            }
         };
 
         document.body.style.cursor = 'col-resize';
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerUp);
     }
 
     // ── Public API ────────────────────────────────────────────────────
@@ -1607,6 +1720,10 @@ class NoodleSheet {
 
         const row = parseInt(td.dataset.row);
         const col = parseInt(td.dataset.col);
+        this._showCellContextMenu(row, col, e.clientX, e.clientY);
+    }
+
+    _showCellContextMenu(row, col, clientX, clientY) {
         this._selectCell(row, col);
 
         const sheet = this.getActiveSheet();
@@ -1643,16 +1760,16 @@ class NoodleSheet {
         });
 
         this.contextMenu.style.display = 'block';
-        this.contextMenu.style.left = e.clientX + 'px';
-        this.contextMenu.style.top = e.clientY + 'px';
+        this.contextMenu.style.left = clientX + 'px';
+        this.contextMenu.style.top = clientY + 'px';
 
         // Keep menu within viewport
         const rect = this.contextMenu.getBoundingClientRect();
         if (rect.right > window.innerWidth) {
-            this.contextMenu.style.left = (e.clientX - rect.width) + 'px';
+            this.contextMenu.style.left = (clientX - rect.width) + 'px';
         }
         if (rect.bottom > window.innerHeight) {
-            this.contextMenu.style.top = (e.clientY - rect.height) + 'px';
+            this.contextMenu.style.top = (clientY - rect.height) + 'px';
         }
     }
 

@@ -2283,6 +2283,14 @@ tr:hover .task-context-btn,
     background: #764ba2;
 }
 
+@media (pointer: coarse) {
+    .nav-menu-item,
+    .task-context-menu-item,
+    .close-btn {
+        min-height: 44px;
+    }
+}
+
 .export-menu {
     display: none;
     position: absolute;
@@ -3817,9 +3825,15 @@ tr:hover .task-context-btn,
 
 .category-link {
     display: block;
+    width: 100%;
+    min-height: 44px;
     padding: 10px 20px;
     color: var(--np-text-secondary);
+    background: transparent;
     text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+    border: 0;
     transition: all 0.2s ease;
     border-left: 3px solid transparent;
     font-size: 0.9rem;
@@ -3946,6 +3960,7 @@ tr:hover .task-context-btn,
 
 .template-use-btn {
     width: 100%;
+    min-height: 44px;
     background: #108bb9;
     color: white;
     border: none;
@@ -4902,6 +4917,7 @@ tr:hover .task-context-btn,
     display: block;
     width: 100%;
     height: 100%;
+    touch-action: none;
 }
 
 /* Node hover effects */
@@ -5272,6 +5288,29 @@ tr:hover .task-context-btn,
     display: block;
     width: 100%;
     height: 100%;
+    touch-action: none;
+}
+
+.portfolio-benefits-map-svg {
+    touch-action: none;
+}
+
+@media (pointer: coarse) {
+    .mindmap-toolbar-btn,
+    .mindmap-theme-toggle,
+    .mm-colour-swatch-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .mm-plus-btn {
+        opacity: 1;
+    }
+
+    .mm-plus-btn,
+    .ben-node {
+        cursor: pointer;
+    }
 }
 
 /* Linked-to tags in detail pane */
