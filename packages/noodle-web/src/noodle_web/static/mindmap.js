@@ -2209,6 +2209,7 @@ function initMindmap() {
         mindmapSvg.addEventListener('touchstart', mindmapHandleTouchStart, { passive: false });
         mindmapSvg.addEventListener('touchmove', mindmapHandleTouchMove, { passive: false });
         mindmapSvg.addEventListener('touchend', mindmapHandleTouchEnd);
+        mindmapSvg.addEventListener('touchcancel', mindmapHandleTouchEnd);
 
         // Click on background to deselect
         mindmapSvg.addEventListener('click', (e) => {
@@ -2531,5 +2532,50 @@ document.addEventListener('dblclick', function(e) {
     if (entry) {
         mindmapSelectNode(entry.node);
         mindmapStartEditing(entry.node);
+    }
+});
+
+let mindmapTouchEditStart = null;
+const mindmapTouchEditPointers = new Set();
+let mindmapTouchEditWasMulti = false;
+document.addEventListener('pointerdown', function(e) {
+    if (e.pointerType === 'mouse' || e.button !== 0) return;
+    mindmapTouchEditPointers.add(e.pointerId);
+    if (mindmapTouchEditPointers.size > 1) mindmapTouchEditWasMulti = true;
+    const nodeEl = e.target.closest('.mm-node');
+    if (!nodeEl) return;
+    const nodeId = parseInt(nodeEl.dataset.nodeId, 10);
+    const entry = mindmapNodeElements.find(ne => ne.node.id === nodeId);
+    if (!entry) return;
+    mindmapTouchEditStart = {
+        pointerId: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        node: entry.node,
+        wasSelected: mindmapSelectedNode === entry.node
+    };
+});
+document.addEventListener('pointerup', function(e) {
+    mindmapTouchEditPointers.delete(e.pointerId);
+    const wasMulti = mindmapTouchEditWasMulti;
+    if (mindmapTouchEditPointers.size === 0) mindmapTouchEditWasMulti = false;
+    if (!mindmapTouchEditStart ||
+        e.pointerId !== mindmapTouchEditStart.pointerId) return;
+    const distance = Math.hypot(
+        e.clientX - mindmapTouchEditStart.x,
+        e.clientY - mindmapTouchEditStart.y
+    );
+    const editStart = mindmapTouchEditStart;
+    mindmapTouchEditStart = null;
+    if (!wasMulti && editStart.wasSelected && distance < 8) {
+        mindmapSelectNode(editStart.node);
+        mindmapStartEditing(editStart.node);
+    }
+});
+document.addEventListener('pointercancel', function(e) {
+    mindmapTouchEditPointers.delete(e.pointerId);
+    if (mindmapTouchEditPointers.size === 0) mindmapTouchEditWasMulti = false;
+    if (mindmapTouchEditStart?.pointerId === e.pointerId) {
+        mindmapTouchEditStart = null;
     }
 });

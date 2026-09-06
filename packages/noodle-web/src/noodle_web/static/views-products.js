@@ -837,36 +837,43 @@ function initPbs() {
         pbsApplyTransform();
     }, { passive: false });
 
-    container.addEventListener('mousedown', (e) => {
+    let panPointerId = null;
+    container.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         if (e.target.closest('.pbs-node')) return;
+        panPointerId = e.pointerId;
         pbsIsDragging = true;
         pbsDragStartX = e.clientX;
         pbsDragStartY = e.clientY;
         pbsDragStartPanX = pbsPanX;
         pbsDragStartPanY = pbsPanY;
         container.style.cursor = 'grabbing';
+        container.setPointerCapture(e.pointerId);
         e.preventDefault();
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+        document.addEventListener('pointercancel', onPointerUp);
     });
 
-    const onMouseMove = (e) => {
-        if (!pbsIsDragging) return;
+    const onPointerMove = (e) => {
+        if (!pbsIsDragging || e.pointerId !== panPointerId) return;
         pbsPanX = pbsDragStartPanX + (e.clientX - pbsDragStartX);
         pbsPanY = pbsDragStartPanY + (e.clientY - pbsDragStartY);
         pbsApplyTransform();
     };
 
-    const onMouseUp = () => {
-        if (!pbsIsDragging) return;
+    const onPointerUp = (e) => {
+        if (!pbsIsDragging || e.pointerId !== panPointerId) return;
         pbsIsDragging = false;
         container.style.cursor = '';
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        if (container.hasPointerCapture(panPointerId)) {
+            container.releasePointerCapture(panPointerId);
+        }
+        panPointerId = null;
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener('pointercancel', onPointerUp);
     };
-
-    container.addEventListener('mousedown', () => {
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    });
 }
 
 function pbsApplyTransform() {
@@ -1275,6 +1282,7 @@ let pfDragConnection = null;     // { sourceKey, startX, startY } during drag-co
 let pfDragLine = null;           // SVG path element for live bezier preview
 let pfSelectedArrow = null;      // { sourceKey, targetKey } of selected dependency arrow
 let pfPositionsCache = null;     // cached positions for connector lookups
+let pfPendingConnectionSource = null; // tap connector, then tap a target node
 
 const PF_NODE_W = 140;
 const PF_NODE_H = 44;
@@ -1744,13 +1752,16 @@ function initProductFlow() {
 
     // Click on empty space deselects arrows
     container.addEventListener('click', (e) => {
-        if (!e.target.closest('.pf-node') && !e.target.closest('.pf-arrow') && pfSelectedArrow) {
-            pfGroup.querySelectorAll('.pf-arrow.selected').forEach(el => {
-                el.classList.remove('selected');
-                el.setAttribute('stroke', '#E8833A');
-                el.setAttribute('stroke-width', '2');
-            });
-            pfSelectedArrow = null;
+        if (!e.target.closest('.pf-node') && !e.target.closest('.pf-arrow')) {
+            pfClearPendingConnection();
+            if (pfSelectedArrow) {
+                pfGroup.querySelectorAll('.pf-arrow.selected').forEach(el => {
+                    el.classList.remove('selected');
+                    el.setAttribute('stroke', '#E8833A');
+                    el.setAttribute('stroke-width', '2');
+                });
+                pfSelectedArrow = null;
+            }
         }
     });
 
@@ -1761,46 +1772,66 @@ function initProductFlow() {
         if ((e.key === 'Delete' || e.key === 'Backspace') && pfSelectedArrow) {
             e.preventDefault();
             pfDeleteSelectedArrow();
+        } else if (e.key === 'Escape' && pfPendingConnectionSource) {
+            e.preventDefault();
+            pfClearPendingConnection();
         }
     });
 
-    container.addEventListener('mousedown', (e) => {
+    let panPointerId = null;
+    container.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
         if (e.target.closest('.pf-node')) return;
         if (e.target.closest('.pf-connector-out')) return;
+        panPointerId = e.pointerId;
         pfIsDragging = true;
         pfDragStartX = e.clientX;
         pfDragStartY = e.clientY;
         pfDragStartPanX = pfPanX;
         pfDragStartPanY = pfPanY;
         container.style.cursor = 'grabbing';
+        container.setPointerCapture(e.pointerId);
         e.preventDefault();
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
     });
 
     const onMove = (e) => {
-        if (!pfIsDragging) return;
+        if (!pfIsDragging || e.pointerId !== panPointerId) return;
         pfPanX = pfDragStartPanX + (e.clientX - pfDragStartX);
         pfPanY = pfDragStartPanY + (e.clientY - pfDragStartY);
         pfApplyTransform();
     };
-    const onUp = () => {
-        if (!pfIsDragging) return;
+    const onUp = (e) => {
+        if (!pfIsDragging || e.pointerId !== panPointerId) return;
         pfIsDragging = false;
         container.style.cursor = '';
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+        if (container.hasPointerCapture(panPointerId)) {
+            container.releasePointerCapture(panPointerId);
+        }
+        panPointerId = null;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
     };
-    container.addEventListener('mousedown', () => {
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-    });
 }
 
 function pfApplyTransform() {
     if (pfGroup) pfGroup.setAttribute('transform', `translate(${pfPanX},${pfPanY}) scale(${pfZoom})`);
 }
 
+function pfClearPendingConnection() {
+    pfPendingConnectionSource = null;
+    if (pfGroup) {
+        pfGroup.querySelectorAll('.pf-connector-out.pending')
+            .forEach(connector => connector.classList.remove('pending'));
+    }
+}
+
 function pfRender(positions, allTasks, topLevelSummaries) {
     if (!pfSvg) return;
+    pfClearPendingConnection();
     if (pfGroup) pfGroup.remove();
     pfGroup = pbsCreateSVGElement('g', { 'transform': `translate(${pfPanX},${pfPanY}) scale(${pfZoom})` });
     pfSvg.appendChild(pfGroup);
@@ -1883,6 +1914,16 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const isDiamondNode = !!pos.isDiamond;
 
         const g = pbsCreateSVGElement('g', { 'class': 'pf-node', 'style': 'cursor: pointer;' });
+        g.dataset.key = key;
+        g.addEventListener('click', (event) => {
+            if (!pfPendingConnectionSource) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (pfPendingConnectionSource !== key) {
+                pfCreateDependency(pfPendingConnectionSource, key);
+            }
+            pfClearPendingConnection();
+        });
 
         // Invisible hit area for hover (extends to cover connectors)
         const connPad = 20;
@@ -2079,10 +2120,27 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             'stroke': '#fff', 'stroke-width': '2', 'stroke-linecap': 'round'
         }));
         const srcKey = key;
-        rightConn.addEventListener('mousedown', (e) => {
+        rightConn.setAttribute('role', 'button');
+        rightConn.setAttribute('tabindex', '0');
+        rightConn.setAttribute('aria-label', `Connect ${task.name} to another product`);
+        rightConn.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return;
             e.stopPropagation();
             e.preventDefault();
             pfStartDragConnect(srcKey, rightCx, rightCy, e);
+        });
+        const selectConnectionSource = (e) => {
+            e.stopPropagation();
+            pfClearPendingConnection();
+            pfPendingConnectionSource = srcKey;
+            rightConn.classList.add('pending');
+        };
+        rightConn.addEventListener('click', selectConnectionSource);
+        rightConn.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectConnectionSource(e);
+            }
         });
         connectors.appendChild(rightConn);
 
@@ -2167,7 +2225,16 @@ function pfRender(positions, allTasks, topLevelSummaries) {
 // ── Product Flow: Drag-to-connect ─────────────────────────────────────
 
 function pfStartDragConnect(sourceKey, startX, startY, e) {
-    pfDragConnection = { sourceKey, startX, startY };
+    pfDragConnection = {
+        sourceKey,
+        startX,
+        startY,
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        sourceElement: e.currentTarget,
+        moved: false
+    };
 
     // Create preview bezier line
     pfDragLine = pbsCreateSVGElement('path', {
@@ -2180,7 +2247,14 @@ function pfStartDragConnect(sourceKey, startX, startY, e) {
     const container = document.getElementById('productFlowContainer');
 
     const onMove = (e) => {
-        if (!pfDragConnection || !pfDragLine) return;
+        if (!pfDragConnection || !pfDragLine ||
+            e.pointerId !== pfDragConnection.pointerId) return;
+        if (Math.hypot(
+            e.clientX - pfDragConnection.startClientX,
+            e.clientY - pfDragConnection.startClientY
+        ) >= 8) {
+            pfDragConnection.moved = true;
+        }
         // Convert mouse position to SVG coordinates
         const rect = container.getBoundingClientRect();
         const mouseX = (e.clientX - rect.left - pfPanX) / pfZoom;
@@ -2206,8 +2280,10 @@ function pfStartDragConnect(sourceKey, startX, startY, e) {
     };
 
     const onUp = (e) => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+        if (!pfDragConnection || e.pointerId !== pfDragConnection.pointerId) return;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
 
         if (pfDragLine) { pfDragLine.remove(); pfDragLine = null; }
 
@@ -2219,7 +2295,12 @@ function pfStartDragConnect(sourceKey, startX, startY, e) {
         const mouseY = (e.clientY - rect.top - pfPanY) / pfZoom;
         const target = pfFindNearestInput(mouseX, mouseY);
 
-        if (target && target.key !== pfDragConnection.sourceKey && target.dist < 50) {
+        if (e.type !== 'pointercancel' && !pfDragConnection.moved) {
+            pfClearPendingConnection();
+            pfPendingConnectionSource = pfDragConnection.sourceKey;
+            pfDragConnection.sourceElement.classList.add('pending');
+        } else if (e.type !== 'pointercancel' &&
+            target && target.key !== pfDragConnection.sourceKey && target.dist < 50) {
             pfCreateDependency(pfDragConnection.sourceKey, target.key);
         }
 
@@ -2229,8 +2310,9 @@ function pfStartDragConnect(sourceKey, startX, startY, e) {
         pfDragConnection = null;
     };
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
 }
 
 function pfFindNearestInput(x, y) {

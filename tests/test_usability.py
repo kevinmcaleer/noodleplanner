@@ -493,6 +493,265 @@ class TestResponsiveLayout:
         browser.set_window_size(1280, 900)
 
 
+class TestTouchInteractions:
+    """Verify representative touch paths in a real browser."""
+
+    def test_shared_controls_have_touch_targets(self, browser, app_server):
+        browser.set_window_size(375, 667)
+        browser.get(app_server)
+
+        export_button = browser.find_element(By.CSS_SELECTOR, ".plan-subnav-btn")
+        min_height = browser.execute_script(
+            "return parseFloat(getComputedStyle(arguments[0]).minHeight)",
+            export_button,
+        )
+        assert min_height >= 44
+
+        result = browser.execute_script("""
+            templatesData = {categories: ['Touch'], templates: []};
+            currentCategory = 'all';
+            renderTemplatesModal();
+            const button = document.querySelector('[data-category="Touch"]');
+            const beforeHash = location.hash;
+            button.click();
+            return {
+                tag: button.tagName,
+                category: currentCategory,
+                hashUnchanged: location.hash === beforeHash,
+                minHeight: parseFloat(getComputedStyle(button).minHeight)
+            };
+        """)
+        assert result == {
+            "tag": "BUTTON",
+            "category": "Touch",
+            "hashUnchanged": True,
+            "minHeight": 44,
+        }
+        browser.set_window_size(1280, 900)
+
+    def test_gantt_touch_tap_edits_and_cancel_does_not(self, browser, app_server):
+        browser.get(app_server)
+        result = browser.execute_script("""
+            const cell = document.createElement('td');
+            document.body.appendChild(cell);
+            let edits = 0;
+            setupGanttEditableCell(cell, () => { edits += 1; });
+            const fire = (type, x) => cell.dispatchEvent(new PointerEvent(type, {
+                bubbles: true,
+                pointerId: 41,
+                pointerType: 'touch',
+                button: 0,
+                clientX: x,
+                clientY: 10
+            }));
+            fire('pointerdown', 10);
+            fire('pointercancel', 10);
+            const afterCancel = edits;
+            fire('pointerdown', 10);
+            fire('pointerup', 12);
+            cell.remove();
+            return {afterCancel, afterTap: edits};
+        """)
+        assert result == {"afterCancel": 0, "afterTap": 1}
+
+    def test_gantt_pointer_drag_moves_once_and_cancel_restores(
+        self, browser, app_server
+    ):
+        browser.get(app_server)
+        result = browser.execute_script("""
+            const originalRender = renderText;
+            const originalSyncStart = syncGanttStartDateToEditor;
+            renderText = () => {};
+            syncGanttStartDateToEditor = () => {};
+            ganttPixelsPerDay = 10;
+
+            const makeBar = () => {
+                const bar = document.createElement('div');
+                bar.style.left = '0px';
+                bar.style.width = '50px';
+                bar.setPointerCapture = () => {};
+                bar.hasPointerCapture = () => false;
+                document.body.appendChild(bar);
+                return bar;
+            };
+            const fire = (target, type, id, x) => target.dispatchEvent(
+                new PointerEvent(type, {
+                    bubbles: true, pointerId: id, pointerType: 'touch',
+                    button: 0, clientX: x, clientY: 10
+                })
+            );
+
+            const movedTask = {
+                start: '2026-09-07', finish: '2026-09-09',
+                duration_days: 3, is_summary: false
+            };
+            ganttTasks = [movedTask];
+            const movedBar = makeBar();
+            setupBarDragListeners(movedBar, movedTask, 0);
+            fire(movedBar, 'pointerdown', 51, 0);
+            fire(document, 'pointermove', 51, 20);
+            fire(document, 'pointerup', 51, 20);
+
+            const cancelledTask = {
+                start: '2026-09-07', finish: '2026-09-09',
+                duration_days: 3, is_summary: false
+            };
+            ganttTasks = [cancelledTask];
+            const cancelledBar = makeBar();
+            setupBarDragListeners(cancelledBar, cancelledTask, 0);
+            fire(cancelledBar, 'pointerdown', 52, 0);
+            fire(document, 'pointermove', 52, 20);
+            fire(document, 'pointercancel', 52, 20);
+
+            const output = {
+                movedStart: movedTask.start,
+                movedFinish: movedTask.finish,
+                cancelledStart: cancelledTask.start,
+                cancelledLeft: cancelledBar.style.left
+            };
+            movedBar.remove();
+            cancelledBar.remove();
+            renderText = originalRender;
+            syncGanttStartDateToEditor = originalSyncStart;
+            return output;
+        """)
+        assert result == {
+            "movedStart": "2026-09-09",
+            "movedFinish": "2026-09-11",
+            "cancelledStart": "2026-09-07",
+            "cancelledLeft": "0px",
+        }
+
+    def test_noodlesheet_second_touch_edits_selected_cell(
+        self, browser, app_server
+    ):
+        browser.get(app_server)
+        result = browser.execute_script("""
+            const host = document.createElement('div');
+            document.body.appendChild(host);
+            const sheet = new NoodleSheet(host, {
+                sheets: [{
+                    name: 'Touch',
+                    dbml: 'Table touch {\\n  name text\\n}',
+                    markdown: '| Name |\\n| --- |\\n| Task |'
+                }]
+            });
+            const tap = () => {
+                const cell = host.querySelector('td[data-row="0"][data-col="0"]');
+                cell.dispatchEvent(new PointerEvent('pointerdown', {
+                    bubbles: true, pointerId: 42, pointerType: 'touch',
+                    isPrimary: true, button: 0, clientX: 10, clientY: 10
+                }));
+                cell.dispatchEvent(new PointerEvent('pointerup', {
+                    bubbles: true, pointerId: 42, pointerType: 'touch',
+                    isPrimary: true, button: 0, clientX: 10, clientY: 10
+                }));
+            };
+            tap();
+            const selected = sheet.selection.row === 0 && sheet.selection.col === 0;
+            tap();
+            const editing = sheet.editing;
+            sheet.destroy();
+            host.remove();
+            return {selected, editing};
+        """)
+        assert result == {"selected": True, "editing": True}
+
+    def test_kanban_has_tap_move_fallback(self, browser, app_server):
+        browser.get(app_server)
+        result = browser.execute_script("""
+            const board = new KanbanBoard('progress');
+            const task = {
+                lineNumber: 2,
+                name: 'Touch task',
+                resourcesArray: [],
+                dependenciesArray: [],
+                labelsArray: [],
+                progressStatus: 'not_started',
+                percent: 0,
+                duration: 1,
+                priority: 'Low',
+                comment: ''
+            };
+            const nextTask = {...task, lineNumber: 3, name: 'Next task'};
+            const source = {id: 'not-started', title: 'Not Started', name: 'Not Started', tasks: [task, nextTask]};
+            const target = {id: 'complete', title: 'Complete', name: 'Complete', tasks: []};
+            board.tasks = [task, nextTask];
+            board.columns = [source, target];
+            let movedTo = null;
+            let reordered = null;
+            let opened = 0;
+            board.handleCardDrop = (_line, column) => { movedTo = column.id; };
+            board.handleCardReorder = (line, targetLine, before) => {
+                reordered = {line, targetLine, before};
+            };
+            board.openTaskModal = () => { opened += 1; };
+            const card = board.renderCard(task, source);
+            document.body.appendChild(card);
+            const select = card.querySelector('.kanban-card-move-select');
+            select.value = '1';
+            select.dispatchEvent(new Event('change', {bubbles: true}));
+            select.dispatchEvent(new KeyboardEvent('keydown', {
+                bubbles: true, key: 'Enter'
+            }));
+            card.querySelector('.kanban-card-order-down').click();
+            movedTo = null;
+            const targetBody = document.createElement('div');
+            targetBody.className = 'kanban-column-body';
+            targetBody.dataset.columnTitle = 'Complete';
+            targetBody.dataset.columnIndex = '1';
+            document.body.appendChild(targetBody);
+            const originalElementFromPoint = document.elementFromPoint;
+            document.elementFromPoint = () => targetBody;
+            card.setPointerCapture = () => {};
+            card.hasPointerCapture = () => false;
+            const fire = (type, x) => card.dispatchEvent(new PointerEvent(type, {
+                bubbles: true, pointerId: 43, pointerType: 'touch',
+                button: 0, clientX: x, clientY: 10
+            }));
+            fire('pointerdown', 0);
+            fire('pointermove', 20);
+            fire('pointerup', 20);
+            const draggedTo = movedTo;
+            document.elementFromPoint = originalElementFromPoint;
+            targetBody.remove();
+            const label = select.getAttribute('aria-label');
+            card.remove();
+            return {movedTo, draggedTo, label, opened, reordered};
+        """)
+        assert result["movedTo"] == "complete"
+        assert result["draggedTo"] == "complete"
+        assert result["opened"] == 0
+        assert result["reordered"] == {
+            "line": 2,
+            "targetLine": 3,
+            "before": False,
+        }
+        assert result["label"].startswith("Move Touch task")
+
+    def test_diagram_pointer_pan_finishes_cleanly(self, browser, app_server):
+        browser.get(app_server)
+        result = browser.execute_script("""
+            initPbs();
+            const container = document.getElementById('pbsContainer');
+            container.setPointerCapture = () => {};
+            container.hasPointerCapture = () => false;
+            pbsPanX = 0;
+            pbsPanY = 0;
+            const fire = (target, type, x, y) => target.dispatchEvent(
+                new PointerEvent(type, {
+                    bubbles: true, pointerId: 61, pointerType: 'touch',
+                    button: 0, clientX: x, clientY: y
+                })
+            );
+            fire(container, 'pointerdown', 10, 10);
+            fire(document, 'pointermove', 35, 25);
+            fire(document, 'pointerup', 35, 25);
+            return {panX: pbsPanX, panY: pbsPanY, dragging: pbsIsDragging};
+        """)
+        assert result == {"panX": 25, "panY": 15, "dragging": False}
+
+
 class TestHealthEndpoint:
     """Verify the health endpoint works from a browser context."""
 

@@ -959,6 +959,7 @@ function pbmZoomToFit(layoutResult) {
  */
 function pbmSetupInteraction() {
     if (!pbmSvg) return;
+    let activePointerId = null;
 
     pbmSvg.addEventListener('wheel', function(e) {
         e.preventDefault();
@@ -974,26 +975,35 @@ function pbmSetupInteraction() {
         pbmApplyTransform(false);
     }, { passive: false });
 
-    pbmSvg.addEventListener('mousedown', function(e) {
+    pbmSvg.addEventListener('pointerdown', function(e) {
         if (e.button !== 0) return;
+        activePointerId = e.pointerId;
         pbmIsDragging = true;
         pbmDragStartX = e.clientX;
         pbmDragStartY = e.clientY;
         pbmDragStartPanX = pbmPanX;
         pbmDragStartPanY = pbmPanY;
+        pbmSvg.setPointerCapture(e.pointerId);
         e.preventDefault();
     });
 
-    document.addEventListener('mousemove', function(e) {
-        if (!pbmIsDragging) return;
+    pbmSvg.addEventListener('pointermove', function(e) {
+        if (!pbmIsDragging || e.pointerId !== activePointerId) return;
         pbmPanX = pbmDragStartPanX + (e.clientX - pbmDragStartX);
         pbmPanY = pbmDragStartPanY + (e.clientY - pbmDragStartY);
         pbmApplyTransform(false);
     });
 
-    document.addEventListener('mouseup', function() {
+    const endPointer = function(e) {
+        if (e.pointerId !== activePointerId) return;
         pbmIsDragging = false;
-    });
+        if (pbmSvg.hasPointerCapture(activePointerId)) {
+            pbmSvg.releasePointerCapture(activePointerId);
+        }
+        activePointerId = null;
+    };
+    pbmSvg.addEventListener('pointerup', endPointer);
+    pbmSvg.addEventListener('pointercancel', endPointer);
 }
 
 /**

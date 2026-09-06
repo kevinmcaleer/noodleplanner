@@ -74,6 +74,46 @@ function closeAllNavMenus(except) {
     });
 }
 
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.nav-menu-item')) {
+        closeAllNavMenus();
+    }
+}, true);
+
+document.addEventListener('keydown', function(e) {
+    const menu = e.target.closest('.nav-menu');
+    if (menu) {
+        const items = Array.from(menu.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])'));
+        const index = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const direction = e.key === 'ArrowDown' ? 1 : -1;
+            items[(index + direction + items.length) % items.length]?.focus();
+        } else if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            document.activeElement.click();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            const config = NAV_DROPDOWN_MENUS.find(item => item.menuId === menu.id);
+            closeAllNavMenus();
+            if (config) document.getElementById(config.btnId)?.focus();
+        }
+        return;
+    }
+
+    const config = NAV_DROPDOWN_MENUS.find(item => item.btnId === e.target.id);
+    if (config && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        toggleDropdownMenu(config.menuId, config.btnId, e);
+        document.getElementById(config.menuId)
+            ?.querySelector('[role="menuitem"]')
+            ?.focus();
+    }
+});
+
 // Navigate to Project (Dashboard with plan subnav)
 // Named switchToProjectNav to avoid collision with portfolio.js switchToProject(projectId)
 function switchToProjectNav() {
@@ -156,11 +196,19 @@ function renderTemplatesModal() {
 
     // Render categories
     const categoryList = document.getElementById('categoryList');
-    categoryList.innerHTML = '<li><a href="#" class="category-link active" data-category="all" onclick="filterTemplates(\'all\')">All Templates</a></li>';
-
-    templatesData.categories.forEach(category => {
+    categoryList.innerHTML = '';
+    const categories = [{ value: 'all', label: 'All Templates' }]
+        .concat(templatesData.categories.map(category => ({ value: category, label: category })));
+    categories.forEach(({ value, label }) => {
         const li = document.createElement('li');
-        li.innerHTML = `<a href="#" class="category-link" data-category="${category}" onclick="filterTemplates('${category}')">${category}</a>`;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'category-link';
+        button.dataset.category = value;
+        button.textContent = label;
+        button.classList.toggle('active', value === currentCategory);
+        button.addEventListener('click', () => filterTemplates(value));
+        li.appendChild(button);
         categoryList.appendChild(li);
     });
 
@@ -198,9 +246,11 @@ function renderTemplateGrid(containerId, templates) {
                     <span class="template-category">${template.category}</span>
                     <span class="template-author">by ${template.author}</span>
                 </div>
-                <button class="template-use-btn" onclick="useTemplate('${template.id}')">Use This Template</button>
+                <button class="template-use-btn" data-template-id="${template.id}">Use This Template</button>
             </div>
         `;
+        card.querySelector('.template-use-btn')
+            .addEventListener('click', () => useTemplate(template.id));
         container.appendChild(card);
     });
 
@@ -218,7 +268,9 @@ function filterTemplates(category) {
     document.querySelectorAll('.category-link').forEach(link => {
         link.classList.remove('active');
     });
-    document.querySelector(`[data-category="${category}"]`).classList.add('active');
+    const activeLink = Array.from(document.querySelectorAll('.category-link'))
+        .find(link => link.dataset.category === category);
+    if (activeLink) activeLink.classList.add('active');
 
     // Filter and render templates
     let filteredTemplates = templatesData.templates;
@@ -230,7 +282,8 @@ function filterTemplates(category) {
 }
 
 async function useTemplate(templateId) {
-    const btn = document.querySelector(`.template-use-btn[onclick="useTemplate('${templateId}')"]`);
+    const btn = Array.from(document.querySelectorAll('.template-use-btn'))
+        .find(button => button.dataset.templateId === String(templateId));
     const originalText = btn ? btn.textContent : '';
 
     try {
@@ -1024,4 +1077,3 @@ document.addEventListener('DOMContentLoaded', function() {
         startTour();
     }, 1000);
 });
-

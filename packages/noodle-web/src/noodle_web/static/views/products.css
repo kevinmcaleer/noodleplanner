@@ -27,6 +27,7 @@
     background:
         radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
     background-size: 24px 24px;
+    touch-action: none;
 }
 
 .pbs-canvas-wrapper:active {
@@ -421,6 +422,34 @@
 #product-flow-view .product-flow-content {
     flex: 1;
     min-height: 0;
+}
+
+#productFlowContainer {
+    touch-action: none;
+}
+
+.pf-connector-out.pending circle {
+    stroke: #ffd43b;
+    stroke-width: 4;
+}
+
+@media (pointer: coarse) {
+    .pbs-add-btns,
+    .pf-connectors,
+    .pf-diamond-popup {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .product-comp-actions {
+        visibility: visible;
+    }
+
+    .product-comp-action-btn,
+    .pbs-toolbar-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
 }
 
 /* ── Product Details Form ────────────────────────────────────────── */

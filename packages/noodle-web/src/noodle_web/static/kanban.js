@@ -1220,6 +1220,8 @@ class KanbanBoard {
         const columnEl = document.createElement('div');
         columnEl.className = 'kanban-column';
         columnEl.setAttribute('data-column-id', column.id);
+        columnEl.setAttribute('data-column-title', column.title);
+        columnEl.setAttribute('data-column-index', this.columns.indexOf(column));
         columnEl.setAttribute('role', 'region');
         columnEl.setAttribute('aria-label', `${column.name} column with ${column.tasks.length} task${column.tasks.length !== 1 ? 's' : ''}`);
 
@@ -1261,8 +1263,8 @@ class KanbanBoard {
         // Make title editable in bucket view (except No Bucket)
         if (this.viewMode === 'bucket' && column.title !== 'No Bucket') {
             titleEl.style.cursor = 'pointer';
-            titleEl.title = 'Double-click to rename bucket';
-            titleEl.addEventListener('dblclick', (e) => {
+            titleEl.title = 'Click to rename bucket';
+            titleEl.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.startInlineBucketRename(titleEl, column.title);
             });
@@ -1342,6 +1344,8 @@ class KanbanBoard {
                     this.handleColumnReorder(draggedColumnTitle, column.title, insertBefore);
                 }
             });
+
+            this.setupPointerColumnDrag(columnEl, headerEl, column);
         }
 
         // Add colour picker button in phase view
@@ -1357,6 +1361,34 @@ class KanbanBoard {
                 this.showColumnColourPicker(column.title, colourBtn);
             });
             headerEl.appendChild(colourBtn);
+
+            const columnActions = document.createElement('div');
+            columnActions.className = 'kanban-column-order-actions';
+            const columnIndex = this.columns.indexOf(column);
+            [
+                { label: 'Move column left', delta: -1, symbol: '\u2190' },
+                { label: 'Move column right', delta: 1, symbol: '\u2192' }
+            ].forEach(({ label, delta, symbol }) => {
+                const targetColumn = this.columns[columnIndex + delta];
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'kanban-column-order-btn';
+                button.textContent = symbol;
+                button.setAttribute('aria-label', `${label}: ${column.title}`);
+                button.disabled = !targetColumn;
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    if (targetColumn) {
+                        this.handleColumnReorder(
+                            column.title,
+                            targetColumn.title,
+                            delta < 0
+                        );
+                    }
+                });
+                columnActions.appendChild(button);
+            });
+            headerEl.appendChild(columnActions);
         }
 
         // Apply theme colour to column header and full column
@@ -1414,7 +1446,7 @@ class KanbanBoard {
             `;
         } else {
             visibleTasks.forEach(task => {
-                const cardEl = this.renderCard(task);
+                const cardEl = this.renderCard(task, column);
                 bodyEl.appendChild(cardEl);
             });
         }
@@ -1445,7 +1477,7 @@ class KanbanBoard {
     /**
      * Render a single task card
      */
-    renderCard(task) {
+    renderCard(task, column) {
         const cardEl = document.createElement('div');
         cardEl.className = 'kanban-card';
         cardEl.setAttribute('data-task-line', task.lineNumber);
@@ -1471,6 +1503,12 @@ class KanbanBoard {
         // Make card clickable (but prevent click during drag)
         cardEl.style.cursor = 'grab';
         cardEl.addEventListener('click', (e) => {
+            if (cardEl.dataset.suppressNextClick === 'true') {
+                delete cardEl.dataset.suppressNextClick;
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
             if (!cardEl.classList.contains('dragging')) {
                 // If summary task and user clicks the drill-down button, handle it
                 if (e.target.classList.contains('drill-down-btn')) {
@@ -1484,6 +1522,7 @@ class KanbanBoard {
 
         // Keyboard navigation - Enter/Space to open task
         cardEl.addEventListener('keydown', (e) => {
+            if (e.target.closest('button, input, select, a')) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 if (isSummaryTask && e.shiftKey) {
@@ -1507,6 +1546,8 @@ class KanbanBoard {
             cardEl.classList.remove('dragging');
             cardEl.style.cursor = 'grab';
         });
+
+        this.setupPointerCardDrag(cardEl, task, column);
 
         // Drag over card for reordering within column
         cardEl.addEventListener('dragover', (e) => {
@@ -1622,6 +1663,58 @@ class KanbanBoard {
         }
 
         titleRowEl.appendChild(headerEl);
+
+        const moveSelect = document.createElement('select');
+        moveSelect.className = 'kanban-card-move-select';
+        moveSelect.setAttribute('aria-label', `Move ${task.name} to another ${this.viewMode}`);
+        const movePlaceholder = document.createElement('option');
+        movePlaceholder.value = '';
+        movePlaceholder.textContent = 'Move\u2026';
+        moveSelect.appendChild(movePlaceholder);
+        this.columns.forEach((targetColumn, targetIndex) => {
+            if (targetColumn === column) return;
+            const option = document.createElement('option');
+            option.value = String(targetIndex);
+            option.textContent = targetColumn.title;
+            moveSelect.appendChild(option);
+        });
+        moveSelect.addEventListener('click', event => event.stopPropagation());
+        moveSelect.addEventListener('change', event => {
+            event.stopPropagation();
+            const targetColumn = this.columns[parseInt(moveSelect.value, 10)];
+            if (targetColumn) this.handleCardDrop(task.lineNumber, targetColumn);
+        });
+        titleRowEl.appendChild(moveSelect);
+
+        if (this.viewMode !== 'bucket' && this.viewMode !== 'label') {
+            const orderActions = document.createElement('div');
+            orderActions.className = 'kanban-card-order-actions';
+            const taskIndex = column.tasks.indexOf(task);
+            [
+                { label: 'Move task up', delta: -1, symbol: '\u2191' },
+                { label: 'Move task down', delta: 1, symbol: '\u2193' }
+            ].forEach(({ label, delta, symbol }) => {
+                const targetTask = column.tasks[taskIndex + delta];
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `kanban-card-order-btn kanban-card-order-${delta < 0 ? 'up' : 'down'}`;
+                button.textContent = symbol;
+                button.setAttribute('aria-label', `${label}: ${task.name}`);
+                button.disabled = !targetTask || this.sortByPriority;
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    if (targetTask) {
+                        this.handleCardReorder(
+                            task.lineNumber,
+                            targetTask.lineNumber,
+                            delta < 0
+                        );
+                    }
+                });
+                orderActions.appendChild(button);
+            });
+            titleRowEl.appendChild(orderActions);
+        }
         cardEl.appendChild(titleRowEl);
 
         // Card body with metadata
@@ -1718,6 +1811,167 @@ class KanbanBoard {
         }
 
         return cardEl;
+    }
+
+    setupPointerColumnDrag(columnEl, headerEl, column) {
+        let gesture = null;
+
+        headerEl.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' || event.button !== 0) return;
+            if (event.target.closest('button, input, select, a')) return;
+            gesture = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                target: null,
+                insertBefore: false,
+                dragging: false
+            };
+            headerEl.setPointerCapture(event.pointerId);
+        });
+
+        headerEl.addEventListener('pointermove', event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            const distance = Math.hypot(
+                event.clientX - gesture.startX,
+                event.clientY - gesture.startY
+            );
+            if (!gesture.dragging && distance < 8) return;
+            gesture.dragging = true;
+            event.preventDefault();
+            columnEl.classList.add('dragging-column');
+            document.querySelectorAll('.kanban-column.drop-left, .kanban-column.drop-right')
+                .forEach(item => item.classList.remove('drop-left', 'drop-right'));
+
+            const target = document.elementFromPoint(event.clientX, event.clientY)
+                ?.closest('.kanban-column');
+            if (!target || target === columnEl) {
+                gesture.target = null;
+                return;
+            }
+            const rect = target.getBoundingClientRect();
+            gesture.target = target;
+            gesture.insertBefore = event.clientX < rect.left + rect.width / 2;
+            target.classList.add(gesture.insertBefore ? 'drop-left' : 'drop-right');
+        });
+
+        const finish = event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            const completedGesture = gesture;
+            gesture = null;
+            columnEl.classList.remove('dragging-column');
+            document.querySelectorAll('.kanban-column.drop-left, .kanban-column.drop-right')
+                .forEach(item => item.classList.remove('drop-left', 'drop-right'));
+            if (headerEl.hasPointerCapture(event.pointerId)) {
+                headerEl.releasePointerCapture(event.pointerId);
+            }
+            if (event.type !== 'pointercancel' &&
+                completedGesture.dragging && completedGesture.target) {
+                this.handleColumnReorder(
+                    column.title,
+                    completedGesture.target.dataset.columnTitle,
+                    completedGesture.insertBefore
+                );
+            }
+        };
+
+        headerEl.addEventListener('pointerup', finish);
+        headerEl.addEventListener('pointercancel', finish);
+    }
+
+    setupPointerCardDrag(cardEl, task, sourceColumn) {
+        let gesture = null;
+
+        cardEl.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'mouse' || event.button !== 0) return;
+            if (event.target.closest('button, input, select, a')) return;
+            gesture = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                targetCard: null,
+                targetColumn: null,
+                insertBefore: false,
+                dragging: false
+            };
+            cardEl.setPointerCapture(event.pointerId);
+        });
+
+        cardEl.addEventListener('pointermove', event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            const distance = Math.hypot(
+                event.clientX - gesture.startX,
+                event.clientY - gesture.startY
+            );
+            if (!gesture.dragging && distance < 8) return;
+            gesture.dragging = true;
+            event.preventDefault();
+            cardEl.classList.add('dragging');
+            document.querySelectorAll('.kanban-card.drop-before, .kanban-card.drop-after')
+                .forEach(item => item.classList.remove('drop-before', 'drop-after'));
+            document.querySelectorAll('.kanban-column-body.drag-over')
+                .forEach(item => item.classList.remove('drag-over'));
+
+            const hit = document.elementFromPoint(event.clientX, event.clientY);
+            const targetCard = hit?.closest('.kanban-card');
+            const targetColumn = hit?.closest('.kanban-column-body');
+            gesture.targetCard = targetCard && targetCard !== cardEl ? targetCard : null;
+            gesture.targetColumn = targetColumn;
+
+            if (gesture.targetCard) {
+                const rect = gesture.targetCard.getBoundingClientRect();
+                gesture.insertBefore = event.clientY < rect.top + rect.height / 2;
+                gesture.targetCard.classList.add(
+                    gesture.insertBefore ? 'drop-before' : 'drop-after'
+                );
+            } else if (targetColumn) {
+                targetColumn.classList.add('drag-over');
+            }
+        });
+
+        const finish = event => {
+            if (!gesture || event.pointerId !== gesture.pointerId) return;
+            const completedGesture = gesture;
+            gesture = null;
+            cardEl.classList.remove('dragging');
+            document.querySelectorAll('.kanban-card.drop-before, .kanban-card.drop-after')
+                .forEach(item => item.classList.remove('drop-before', 'drop-after'));
+            document.querySelectorAll('.kanban-column-body.drag-over')
+                .forEach(item => item.classList.remove('drag-over'));
+            if (cardEl.hasPointerCapture(event.pointerId)) {
+                cardEl.releasePointerCapture(event.pointerId);
+            }
+            if (completedGesture.dragging && event.type !== 'pointercancel') {
+                cardEl.dataset.suppressNextClick = 'true';
+                setTimeout(() => {
+                    delete cardEl.dataset.suppressNextClick;
+                }, 0);
+            }
+            if (event.type === 'pointercancel' ||
+                !completedGesture.dragging || !completedGesture.targetColumn) return;
+
+            const targetColumnIndex = parseInt(
+                completedGesture.targetColumn.dataset.columnIndex,
+                10
+            );
+            const targetColumn = this.columns[targetColumnIndex];
+            if (!targetColumn) return;
+
+            const sameColumn = targetColumn === sourceColumn;
+            if (completedGesture.targetCard && sameColumn &&
+                this.viewMode !== 'bucket' && this.viewMode !== 'label') {
+                this.handleCardReorder(
+                    task.lineNumber,
+                    parseInt(completedGesture.targetCard.dataset.taskLine),
+                    completedGesture.insertBefore
+                );
+            } else if (!sameColumn) {
+                this.handleCardDrop(task.lineNumber, targetColumn);
+            }
+        };
+
+        cardEl.addEventListener('pointerup', finish);
+        cardEl.addEventListener('pointercancel', finish);
     }
 
     /**

@@ -5457,6 +5457,8 @@ tr:hover .task-context-btn,
     display: flex;
     align-items: center;
     gap: 5px;
+    min-width: 44px;
+    min-height: 44px;
 }
 
 .export-btn:hover {
@@ -7782,9 +7784,15 @@ tr:hover .task-context-btn,
 
 .category-link {
     display: block;
+    width: 100%;
+    min-height: 44px;
     padding: 10px 20px;
     color: #666;
+    background: transparent;
+    border: 0;
     text-decoration: none;
+    text-align: left;
+    cursor: pointer;
     transition: all var(--np-anim-duration) var(--np-anim-easing);
     border-left: 3px solid transparent;
     font-size: 0.9rem;
@@ -7909,6 +7917,7 @@ tr:hover .task-context-btn,
 
 .template-use-btn {
     width: 100%;
+    min-height: 44px;
     background: #108bb9;
     color: white;
     border: none;
