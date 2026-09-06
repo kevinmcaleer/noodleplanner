@@ -587,11 +587,14 @@ export function calculateWorkbookEvm(tasks, budgetItems = [], now = new Date()) 
 
     const projectStart = new Date(Math.min(...starts.map((date) => date.getTime())));
     const projectEnd = new Date(Math.max(...finishes.map((date) => date.getTime())));
-    const totalProjectDays = Math.round((projectEnd.getTime() - projectStart.getTime()) / 86400000);
-    if (totalProjectDays <= 0) return null;
+    const rawProjectDays = Math.round((projectEnd.getTime() - projectStart.getTime()) / 86400000);
+    const totalProjectDays = rawProjectDays > 0 ? rawProjectDays : 1;
 
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const elapsedDays = Math.max(0, Math.round((today.getTime() - projectStart.getTime()) / 86400000));
+    const rawElapsedDays = Math.round((today.getTime() - projectStart.getTime()) / 86400000);
+    const elapsedDays = rawProjectDays > 0
+        ? Math.max(0, rawElapsedDays)
+        : (today >= projectStart ? 1 : 0);
     const timeElapsedFraction = Math.min(1.0, elapsedDays / totalProjectDays);
 
     let BAC = 0;
@@ -1105,26 +1108,28 @@ export async function importBudgetExcelInBrowser(input, options = {}) {
     const worksheet = workbook.worksheets[0];
     const headers = worksheet.getRow(1).values.slice(1).map((value) => String(value || '').toLowerCase().trim());
     const fieldNames = {
-        id: 'id',
-        description: 'description',
-        estimate: 'estimate',
-        forecast: 'forecast',
-        type: 'type',
-        invoice: 'invoice',
-        po: 'po',
-        supplier: 'supplier',
-        total: 'total',
-        ordered: 'date_ordered',
-        received: 'date_received',
-        category: 'category',
+        'id': 'id',
+        'description': 'description',
+        'estimate': 'estimate',
+        'forecast': 'forecast',
+        'type': 'type',
+        'invoice': 'invoice',
+        'po': 'po',
+        'supplier': 'supplier',
+        'total': 'total',
+        'ordered': 'date_ordered',
+        'date ordered': 'date_ordered',
+        'received': 'date_received',
+        'date received': 'date_received',
+        'category': 'category',
     };
     const colMap = {};
     headers.forEach((header, index) => {
-        Object.entries(fieldNames).forEach(([needle, field]) => {
-            if (header.includes(needle) && colMap[field] === undefined) {
-                colMap[field] = index;
-            }
-        });
+        const normalized = String(header || '').replace(/\s+/g, ' ').trim();
+        const field = fieldNames[normalized];
+        if (field && colMap[field] === undefined) {
+            colMap[field] = index;
+        }
     });
     const validTypes = new Set(['Capex', 'Opex', 'One-off']);
     const validCategories = new Set(['Consultancy', 'Resource', 'Travel', 'Infrastructure', 'Hardware', 'Software']);

@@ -337,6 +337,31 @@ test('budget workbook stays valid when there are no items and date cells import 
   assert.equal(result.items[0].date_received, '2026-01-10');
 });
 
+
+test('budget import matches exact headers so missing PO does not steal Description', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Budget');
+  sheet.addRow(['Description', 'Ordered', 'ID', 'Estimate', 'Received', 'Category']);
+  const row = sheet.addRow(['Laptop', new Date(2026, 0, 4), 3, 12.5, new Date(2026, 0, 10), 'Hardware']);
+  row.getCell(2).numFmt = 'yyyy-mm-dd';
+  row.getCell(5).numFmt = 'yyyy-mm-dd';
+  const bytes = await workbook.xlsx.writeBuffer();
+  const result = await importBudgetExcelInBrowser(bytes, { ExcelJS });
+  assert.equal(result.items[0].description, 'Laptop');
+  assert.equal(result.items[0].po, '');
+  assert.equal(result.items[0].date_ordered, '2026-01-04');
+  assert.equal(result.items[0].date_received, '2026-01-10');
+});
+
+test('same-day schedules still produce EVM metrics', () => {
+  const evm = calculateWorkbookEvm([
+    { start: '2026-01-04', finish: '2026-01-04', duration_days: 1, percent: 100, is_summary: false },
+  ], [], new Date(2026, 0, 4, 12, 0));
+  assert.equal(evm.BAC, 1);
+  assert.equal(evm.PV, 1);
+  assert.equal(evm.EV, 1);
+});
+
 test('deliverables role resolution reverses full resource names back to shortnames', () => {
   const data = buildDeliverablesData(sampleParseResult().tasks, sampleParseResult().resource_map, sampleParseResult().resource_roles, sampleParseResult().stakeholders);
   assert.deepEqual(data.people, ['ap', 'jd', 'qa']);
