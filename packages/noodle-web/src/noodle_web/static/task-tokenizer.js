@@ -6,7 +6,7 @@ const TaskLineTokenizer = (() => {
         ['recurrence', /\[repeats\s+[^\]]+\]/gi],
         ['bucket', /\{[^}]+\}/g],
     ];
-    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|\b\d+%\b|\b\d{4}-\d{2}-\d{2}\b/g;
+    const tokenPattern = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\b\d{4}-\d{2}-\d{2}\b/g;
 
     function addToken(tokens, line, type, start, end) {
         tokens.push({ type, start, end, text: line.slice(start, end) });

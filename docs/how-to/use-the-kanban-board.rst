@@ -17,12 +17,13 @@ After rendering your plan, click **Board** in the project sub-navigation bar.
 Choose a Grouping Mode
 -----------------------
 
-Use the **Group by** dropdown at the top of the board to change how tasks are grouped into columns:
+Use the **View by** dropdown at the top of the board to change how tasks are grouped into columns:
 
 - **Phase** — columns correspond to your plan phases (most common)
 - **Resource** — one column per team member
 - **Progress** — columns group by completion bracket (Not Started, In Progress, Complete)
 - **Label** — columns based on task labels
+- **Bucket** — columns based on task bucket
 
 Move Cards
 -----------
@@ -32,6 +33,13 @@ Cards can be dragged between columns. Moving a card:
 - Updates the task's phase (when grouped by phase)
 - Updates the resource (when grouped by resource)
 - Updates the completion bracket (when grouped by progress)
+
+The Markdown plan is updated immediately and exactly once, so the change is
+reflected in every other view and survives a reload.
+
+To move a focused card without a mouse, press ``Alt+Left`` or ``Alt+Right``.
+The **Move…** control on each card provides the same operation for keyboard and
+touch users. Press ``Escape`` to cancel a drag before dropping it.
 
 Click a Card
 -------------
@@ -51,7 +59,14 @@ Each card shows:
 Filter the Board
 -----------------
 
-Use the filter controls at the top to show only tasks for a specific resource or RAG status.
+Use **Hide Completed** to filter out completed cards and **Sort by Priority** to
+order visible cards. Use the triangle in a column header to collapse or expand
+that column.
+
+The selected view mode, filters, sorting, and collapsed columns are remembered
+separately for each project and restored when the page reloads. The board is
+always re-derived from the current Markdown when opened, including on the first
+load of a project.
 
 Related
 --------

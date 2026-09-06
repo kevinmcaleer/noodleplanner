@@ -6,6 +6,7 @@
 
 class KanbanBoard {
     constructor(viewMode = 'phase') {
+        this.defaultViewMode = viewMode;
         this.viewMode = viewMode; // 'phase', 'resource', 'progress', 'label', 'bucket'
         this.sortByPriority = false; // Sort tasks by priority within columns
         this.hideCompleted = false; // Hide tasks with 100% progress
@@ -19,6 +20,118 @@ class KanbanBoard {
         this.themeColours = {}; // Column background colours from front matter Theme section
         this.currentParentTask = null; // Track current hierarchy level for drill-down
         this.hierarchyBreadcrumb = []; // Breadcrumb trail for navigation
+        this.collapsedColumns = new Set();
+        this.activeDrag = null;
+        this.restorePreferences();
+        this.handleDragEscape = event => {
+            if (event.key !== 'Escape' || !this.activeDrag) return;
+            event.preventDefault();
+            this.activeDrag.cancelled = true;
+            this.clearDropIndicators();
+        };
+        document.addEventListener('keydown', this.handleDragEscape);
+    }
+
+    preferenceKey() {
+        const projectId = typeof getCurrentProjectId === 'function'
+            ? getCurrentProjectId()
+            : 'default';
+        return `noodle_kanban_preferences_${projectId || 'default'}`;
+    }
+
+    restorePreferences() {
+        const key = this.preferenceKey();
+        this.viewMode = this.defaultViewMode;
+        this.sortByPriority = false;
+        this.hideCompleted = false;
+        this.collapsedColumns = new Set();
+        try {
+            const saved = JSON.parse(localStorage.getItem(key) || '{}');
+            const modes = ['phase', 'resource', 'progress', 'label', 'bucket'];
+            if (modes.includes(saved.viewMode)) this.viewMode = saved.viewMode;
+            this.sortByPriority = saved.sortByPriority === true;
+            this.hideCompleted = saved.hideCompleted === true;
+            this.collapsedColumns = new Set(
+                Array.isArray(saved.collapsedColumns) ? saved.collapsedColumns : []
+            );
+        } catch (error) {
+            console.warn('Could not restore Kanban preferences:', error);
+        }
+        this.loadedPreferenceKey = key;
+        this.syncPreferenceControls();
+    }
+
+    savePreferences() {
+        try {
+            const key = this.preferenceKey();
+            localStorage.setItem(key, JSON.stringify({
+                viewMode: this.viewMode,
+                sortByPriority: this.sortByPriority,
+                hideCompleted: this.hideCompleted,
+                collapsedColumns: Array.from(this.collapsedColumns)
+            }));
+            this.loadedPreferenceKey = key;
+        } catch (error) {
+            console.warn('Could not save Kanban preferences:', error);
+        }
+    }
+
+    syncPreferenceControls() {
+        const mode = document.getElementById('kanbanViewMode');
+        const sort = document.getElementById('kanbanSortPriority');
+        const hide = document.getElementById('kanbanHideCompleted');
+        if (mode) mode.value = this.viewMode;
+        if (sort) sort.checked = this.sortByPriority;
+        if (hide) hide.checked = this.hideCompleted;
+    }
+
+    /**
+     * The Markdown editor is the single source of truth for every board mutation.
+     * Write it once, emit one input event, then derive the board again immediately.
+     */
+    commitMarkdown(nextText, options = {}) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || nextText === editor.value) return false;
+
+        if (window.kanbanIsUpdating) window.kanbanIsUpdating(true);
+        editor.value = nextText;
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) kanbanEditor.value = nextText;
+        if (typeof getCurrentProjectId === 'function') {
+            const projectId = getCurrentProjectId();
+            if (projectId && typeof updateCachedProject === 'function') {
+                updateCachedProject(projectId, { planText: nextText });
+            } else if (projectId && typeof saveProject === 'function') {
+                saveProject(projectId, { planText: nextText });
+            }
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        if (window.kanbanIsUpdating) window.kanbanIsUpdating(false);
+
+        this.parse();
+        this.render();
+        this.renderBreadcrumb();
+
+        if (options.openTaskLine && typeof openTaskForm === 'function') {
+            openTaskForm(options.openTaskLine);
+        }
+        if (options.renderAll !== false && typeof renderText === 'function') {
+            Promise.resolve(renderText()).catch(error => {
+                console.error('Kanban update render failed:', error);
+            });
+        }
+        return true;
+    }
+
+    clearDropIndicators() {
+        document.querySelectorAll(
+            '.kanban-card.dragging, .kanban-card.drop-before, .kanban-card.drop-after, ' +
+            '.kanban-column.dragging-column, .kanban-column.drop-left, .kanban-column.drop-right, ' +
+            '.kanban-column-body.drag-over'
+        ).forEach(element => element.classList.remove(
+            'dragging', 'drop-before', 'drop-after', 'dragging-column',
+            'drop-left', 'drop-right', 'drag-over'
+        ));
     }
 
     /**
@@ -32,19 +145,19 @@ class KanbanBoard {
         }
 
         const planText = editor.value;
-        if (!planText || !planText.trim()) {
-            this.tasks = [];
-            this.columns = [];
-            return;
-        }
-
-        const lines = planText.split('\n');
         this.tasks = [];
+        this.columns = [];
         this.phases = [];
         this.resourceMap = {};
         this.stakeholderShortnames = new Set();
         this.labelsFromFrontMatter = [];
+        this.createdBuckets = [];
         this.themeColours = {};
+        if (!planText || !planText.trim()) {
+            return;
+        }
+
+        const lines = planText.split('\n');
         let currentPhase = null;
         let currentIndent = 0;
         let inFrontMatter = false;
@@ -108,6 +221,10 @@ class KanbanBoard {
                     const labelsString = match[1];
                     this.labelsFromFrontMatter = labelsString.split(',').map(l => l.trim()).filter(l => l);
                 }
+            }
+            if (inFrontMatter && line.trim().match(/^buckets:\s*\[([^\]]*)\]/)) {
+                const match = line.trim().match(/^buckets:\s*\[([^\]]*)\]/);
+                this.createdBuckets = match[1].split(',').map(value => value.trim()).filter(Boolean);
             }
         }
 
@@ -998,6 +1115,14 @@ class KanbanBoard {
             return;
         }
 
+        const boardScrollLeft = boardContainer.scrollLeft;
+        const columnScroll = new Map(
+            Array.from(boardContainer.querySelectorAll('.kanban-column-body'))
+                .map(body => [body.dataset.columnId, body.scrollTop])
+        );
+        const focusedCard = document.activeElement?.closest?.('.kanban-card');
+        const focusedTaskName = focusedCard?.dataset.taskName || null;
+
         // Set ARIA attributes for the board
         boardContainer.setAttribute('role', 'main');
         boardContainer.setAttribute('aria-label', `Kanban board in ${this.viewMode} view`);
@@ -1013,18 +1138,29 @@ class KanbanBoard {
         }
 
         // Render each column (skip empty columns when hiding completed tasks)
+        const fragment = document.createDocumentFragment();
         this.columns.forEach(column => {
             if (this.hideCompleted && this.isColumnEmptyAfterFilter(column)) {
                 return;
             }
             const columnEl = this.renderColumn(column);
-            boardContainer.appendChild(columnEl);
+            fragment.appendChild(columnEl);
         });
 
         // Add "Add Column" button for phase, resource, label, and bucket views
         if (this.viewMode === 'phase' || this.viewMode === 'label' || this.viewMode === 'resource' || this.viewMode === 'bucket') {
             const addColumnEl = this.renderAddColumnButton();
-            boardContainer.appendChild(addColumnEl);
+            fragment.appendChild(addColumnEl);
+        }
+        boardContainer.appendChild(fragment);
+        boardContainer.scrollLeft = boardScrollLeft;
+        boardContainer.querySelectorAll('.kanban-column-body').forEach(body => {
+            body.scrollTop = columnScroll.get(body.dataset.columnId) || 0;
+        });
+        if (focusedTaskName) {
+            const matchingCard = Array.from(boardContainer.querySelectorAll('.kanban-card'))
+                .find(card => card.dataset.taskName === focusedTaskName);
+            matchingCard?.focus({ preventScroll: true });
         }
     }
 
@@ -1224,6 +1360,9 @@ class KanbanBoard {
         columnEl.setAttribute('data-column-index', this.columns.indexOf(column));
         columnEl.setAttribute('role', 'region');
         columnEl.setAttribute('aria-label', `${column.name} column with ${column.tasks.length} task${column.tasks.length !== 1 ? 's' : ''}`);
+        const columnKey = `${this.viewMode}:${column.id}`;
+        const isCollapsed = this.collapsedColumns.has(columnKey);
+        columnEl.classList.toggle('collapsed', isCollapsed);
 
         // Filter out completed tasks if hideCompleted is enabled
         const visibleTasks = this.hideCompleted
@@ -1277,6 +1416,25 @@ class KanbanBoard {
         countEl.textContent = `${visibleCount} ${visibleCount === 1 ? 'task' : 'tasks'}`;
         headerEl.appendChild(countEl);
 
+        const collapseBtn = document.createElement('button');
+        collapseBtn.type = 'button';
+        collapseBtn.className = 'kanban-column-collapse';
+        collapseBtn.textContent = isCollapsed ? '\u25b6' : '\u25bc';
+        collapseBtn.title = `${isCollapsed ? 'Expand' : 'Collapse'} ${column.title}`;
+        collapseBtn.setAttribute('aria-label', collapseBtn.title);
+        collapseBtn.setAttribute('aria-expanded', String(!isCollapsed));
+        collapseBtn.addEventListener('click', event => {
+            event.stopPropagation();
+            if (this.collapsedColumns.has(columnKey)) {
+                this.collapsedColumns.delete(columnKey);
+            } else {
+                this.collapsedColumns.add(columnKey);
+            }
+            this.savePreferences();
+            this.render();
+        });
+        headerEl.appendChild(collapseBtn);
+
         // Add delete button for label view (except Unlabeled)
         if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
             const deleteBtn = document.createElement('button');
@@ -1297,7 +1455,9 @@ class KanbanBoard {
             columnEl.classList.add('draggable-column');
 
             columnEl.addEventListener('dragstart', (e) => {
+                if (e.target !== columnEl) return;
                 columnEl.classList.add('dragging-column');
+                this.activeDrag = { type: 'column', cancelled: false };
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('application/x-column', column.title);
                 // Prevent card drag events from interfering
@@ -1305,7 +1465,9 @@ class KanbanBoard {
             });
 
             columnEl.addEventListener('dragend', (e) => {
-                columnEl.classList.remove('dragging-column');
+                if (e.target !== columnEl) return;
+                this.clearDropIndicators();
+                this.activeDrag = null;
             });
 
             columnEl.addEventListener('dragover', (e) => {
@@ -1335,7 +1497,7 @@ class KanbanBoard {
                 columnEl.classList.remove('drop-left', 'drop-right');
 
                 const draggedColumnTitle = e.dataTransfer.getData('application/x-column');
-                if (draggedColumnTitle && draggedColumnTitle !== column.title) {
+                if (!this.activeDrag?.cancelled && draggedColumnTitle && draggedColumnTitle !== column.title) {
                     // Determine insert position
                     const rect = columnEl.getBoundingClientRect();
                     const midpoint = rect.left + rect.width / 2;
@@ -1412,6 +1574,8 @@ class KanbanBoard {
         bodyEl.className = 'kanban-column-body';
         bodyEl.setAttribute('data-column-id', column.id);
         bodyEl.setAttribute('data-column-title', column.title);
+        bodyEl.setAttribute('data-column-index', this.columns.indexOf(column));
+        bodyEl.setAttribute('data-drop-target', 'column');
         if (column.shortname) {
             bodyEl.setAttribute('data-column-shortname', column.shortname);
         }
@@ -1432,9 +1596,11 @@ class KanbanBoard {
 
         bodyEl.addEventListener('drop', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             bodyEl.classList.remove('drag-over');
 
             const taskLineNumber = parseInt(e.dataTransfer.getData('text/plain'));
+            if (this.activeDrag?.cancelled || !Number.isInteger(taskLineNumber)) return;
             this.handleCardDrop(taskLineNumber, column);
         });
 
@@ -1485,7 +1651,7 @@ class KanbanBoard {
         cardEl.setAttribute('draggable', 'true');
         cardEl.setAttribute('role', 'button');
         cardEl.setAttribute('tabindex', '0');
-        cardEl.setAttribute('aria-label', `Task: ${task.name}. Press Enter to edit, or drag to move.`);
+        cardEl.setAttribute('aria-label', `Task: ${task.name}. Press Enter to edit. Alt plus Left or Right moves it between columns.`);
 
         // Apply conditional formatting
         if (typeof getConditionalFormatting === 'function') {
@@ -1520,9 +1686,16 @@ class KanbanBoard {
             }
         });
 
-        // Keyboard navigation - Enter/Space to open task
+        // Keyboard navigation - edit or move without a mouse
         cardEl.addEventListener('keydown', (e) => {
             if (e.target.closest('button, input, select, a')) return;
+            if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                e.preventDefault();
+                const direction = e.key === 'ArrowLeft' ? -1 : 1;
+                const targetColumn = this.columns[this.columns.indexOf(column) + direction];
+                if (targetColumn) this.handleCardDrop(task.lineNumber, targetColumn);
+                return;
+            }
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 if (isSummaryTask && e.shiftKey) {
@@ -1538,13 +1711,15 @@ class KanbanBoard {
         cardEl.addEventListener('dragstart', (e) => {
             cardEl.classList.add('dragging');
             cardEl.style.cursor = 'grabbing';
+            this.activeDrag = { type: 'card', cancelled: false };
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', task.lineNumber.toString());
         });
 
         cardEl.addEventListener('dragend', (e) => {
-            cardEl.classList.remove('dragging');
+            this.clearDropIndicators();
             cardEl.style.cursor = 'grab';
+            this.activeDrag = null;
         });
 
         this.setupPointerCardDrag(cardEl, task, column);
@@ -1588,6 +1763,7 @@ class KanbanBoard {
             cardEl.classList.remove('drop-before', 'drop-after');
 
             const draggedLineNumber = parseInt(e.dataTransfer.getData('text/plain'));
+            if (this.activeDrag?.cancelled || !Number.isInteger(draggedLineNumber)) return;
 
             if (this.viewMode === 'bucket' || this.viewMode === 'label') {
                 // In bucket/label view, update assignment instead of reordering
@@ -1827,6 +2003,7 @@ class KanbanBoard {
                 insertBefore: false,
                 dragging: false
             };
+            this.activeDrag = { type: 'column-pointer', cancelled: false };
             headerEl.setPointerCapture(event.pointerId);
         });
 
@@ -1865,7 +2042,7 @@ class KanbanBoard {
             if (headerEl.hasPointerCapture(event.pointerId)) {
                 headerEl.releasePointerCapture(event.pointerId);
             }
-            if (event.type !== 'pointercancel' &&
+            if (event.type !== 'pointercancel' && !this.activeDrag?.cancelled &&
                 completedGesture.dragging && completedGesture.target) {
                 this.handleColumnReorder(
                     column.title,
@@ -1873,6 +2050,7 @@ class KanbanBoard {
                     completedGesture.insertBefore
                 );
             }
+            this.activeDrag = null;
         };
 
         headerEl.addEventListener('pointerup', finish);
@@ -1894,6 +2072,7 @@ class KanbanBoard {
                 insertBefore: false,
                 dragging: false
             };
+            this.activeDrag = { type: 'card-pointer', cancelled: false };
             cardEl.setPointerCapture(event.pointerId);
         });
 
@@ -1947,7 +2126,9 @@ class KanbanBoard {
                     delete cardEl.dataset.suppressNextClick;
                 }, 0);
             }
-            if (event.type === 'pointercancel' ||
+            const wasCancelled = this.activeDrag?.cancelled;
+            this.activeDrag = null;
+            if (event.type === 'pointercancel' || wasCancelled ||
                 !completedGesture.dragging || !completedGesture.targetColumn) return;
 
             const targetColumnIndex = parseInt(
@@ -2096,36 +2277,7 @@ class KanbanBoard {
                 break;
         }
 
-        if (updated) {
-            // Prevent circular updates
-            if (window.kanbanIsUpdating) {
-                window.kanbanIsUpdating(true);
-            }
-
-            // Update editor
-            editor.value = lines.join('\n');
-
-            // Dispatch input event to trigger editor listeners (e.g., line numbers)
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-            // Trigger immediate re-parse and render of Kanban and all views
-            setTimeout(() => {
-                this.parse();
-                this.render();
-
-                // Trigger main render to update all views (Report, Summary, Timeline, etc.)
-                if (typeof renderText === 'function') {
-                    renderText();
-                }
-
-                // Re-enable editor listener after update
-                setTimeout(() => {
-                    if (window.kanbanIsUpdating) {
-                        window.kanbanIsUpdating(false);
-                    }
-                }, 100);
-            }, 50);
-        }
+        if (updated) this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -2201,34 +2353,7 @@ class KanbanBoard {
             lines.splice(targetPhaseEnd, 0, ...phaseBlock);
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban and all views
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Trigger main render to update all views (Report, Summary, Timeline, etc.)
-            if (typeof renderText === 'function') {
-                renderText();
-            }
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -2263,34 +2388,7 @@ class KanbanBoard {
             lines.splice(adjustedTargetLine, 0, draggedLine);
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban and all views
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Trigger main render to update all views (Report, Summary, Timeline, etc.)
-            if (typeof renderText === 'function') {
-                renderText();
-            }
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -2393,46 +2491,7 @@ class KanbanBoard {
         const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
         lines[taskLineNumber - 1] = updatedLine;
 
-        // Immediately update the card visually without waiting for rerender
-        if (cardEl) {
-            this.updateCardVisual(cardEl, task, newPercent);
-        }
-
-        // Update the task object so state stays in sync
-        task.percent = newPercent;
-        task.progressStatus = newPercent >= 100 ? 'complete' : (newPercent > 0 ? 'in_progress' : 'not_started');
-
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor (markdown)
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Sync kanban editor
-        const kanbanEditor = document.getElementById('kanbanPlanEditor');
-        if (kanbanEditor) {
-            kanbanEditor.value = editor.value;
-            kanbanEditor.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-
-        // Trigger main render to update other views (gantt, etc.)
-        setTimeout(() => {
-            if (typeof renderText === 'function') {
-                renderText();
-            }
-
-            // Re-enable editor listener after update
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -2802,40 +2861,9 @@ class KanbanBoard {
         // Insert the new task
         lines.splice(insertIndex, 0, newTaskLine);
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners (e.g., line numbers, render)
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
         // Calculate the line number of the new task (insertIndex is 0-based, line numbers are 1-based)
         const newTaskLineNumber = insertIndex + 1;
-
-        // Refresh Kanban
-        setTimeout(() => {
-            this.parse();
-            this.render();
-            this.renderBreadcrumb();
-
-            // Open the task form for the new task
-            setTimeout(() => {
-                if (typeof openTaskForm === 'function') {
-                    openTaskForm(newTaskLineNumber);
-                }
-            }, 200);
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'), { openTaskLine: newTaskLineNumber });
     }
 
     /**
@@ -2921,31 +2949,7 @@ class KanbanBoard {
         // Insert the new lines at the calculated position
         lines.splice(insertIndex, 0, ...linesToAdd);
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners (e.g., line numbers, render)
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban
-        setTimeout(() => {
-            this.parse();
-            this.groupTasksByViewMode();
-            this.render();
-            this.renderBreadcrumb();
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -3009,29 +3013,7 @@ class KanbanBoard {
             lines.unshift('---');  // Opening ---
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners (e.g., line numbers, render)
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -3042,10 +3024,31 @@ class KanbanBoard {
         if (!bucketName || bucketName.trim() === '') {
             return;
         }
-
-        this.createdBuckets.push(bucketName.trim());
-        this.parse();
-        this.render();
+        const name = bucketName.trim();
+        if (this.createdBuckets.includes(name)) return;
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+        const lines = editor.value.split('\n');
+        let inFrontMatter = false;
+        let frontMatterEnd = -1;
+        let bucketsLine = -1;
+        for (let index = 0; index < lines.length; index++) {
+            if (lines[index].trim() === '---') {
+                if (!inFrontMatter) inFrontMatter = true;
+                else { frontMatterEnd = index; break; }
+            } else if (inFrontMatter && /^buckets:\s*\[/.test(lines[index].trim())) {
+                bucketsLine = index;
+            }
+        }
+        const buckets = [...this.createdBuckets, name];
+        if (bucketsLine >= 0) {
+            lines[bucketsLine] = `buckets: [${buckets.join(', ')}]`;
+        } else if (frontMatterEnd >= 0) {
+            lines.splice(frontMatterEnd, 0, `buckets: [${buckets.join(', ')}]`);
+        } else {
+            lines.unshift('---', `buckets: [${buckets.join(', ')}]`, '---', '');
+        }
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -3096,36 +3099,7 @@ class KanbanBoard {
         lines.splice(insertIndex, 0, taskLine);
         const newTaskLineNumber = insertIndex + 1; // Line numbers are 1-based
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban and open task form
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Open the task form for the new task
-            setTimeout(() => {
-                if (typeof openTaskForm === 'function') {
-                    openTaskForm(newTaskLineNumber);
-                }
-            }, 200);
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'), { openTaskLine: newTaskLineNumber });
     }
 
     /**
@@ -3211,27 +3185,8 @@ class KanbanBoard {
             delete this.themeColours[oldPhaseName];
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor and save theme colours to reflect the rename
-        editor.value = lines.join('\n');
-        this.saveThemeColours();
-
-        // Refresh Kanban
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        // Save the renamed phase and its theme colour in one Markdown commit.
+        this.saveThemeColours(lines.join('\n'));
     }
 
     /**
@@ -3307,29 +3262,7 @@ class KanbanBoard {
             }
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -3399,30 +3332,23 @@ class KanbanBoard {
             );
         }
 
+        const bucketLine = lines.findIndex(line => /^\s*buckets:\s*\[/.test(line));
+        if (bucketLine >= 0) {
+            lines[bucketLine] = lines[bucketLine].replace(
+                /\[([^\]]*)\]/,
+                (_match, values) => `[${values.split(',').map(value =>
+                    value.trim() === oldBucketName ? newBucketName : value.trim()
+                ).join(', ')}]`
+            );
+        }
+
         // Update user-created buckets list
         const bucketIndex = this.createdBuckets.indexOf(oldBucketName);
         if (bucketIndex !== -1) {
             this.createdBuckets[bucketIndex] = newBucketName;
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        editor.value = lines.join('\n');
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -3503,29 +3429,7 @@ class KanbanBoard {
             }
         }
 
-        // Prevent circular updates
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
-        // Update editor
-        editor.value = lines.join('\n');
-
-        // Dispatch input event to trigger editor listeners
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Refresh Kanban
-        setTimeout(() => {
-            this.parse();
-            this.render();
-
-            // Re-enable editor listener
-            setTimeout(() => {
-                if (window.kanbanIsUpdating) {
-                    window.kanbanIsUpdating(false);
-                }
-            }, 100);
-        }, 50);
+        this.commitMarkdown(lines.join('\n'));
     }
 
     /**
@@ -3552,11 +3456,11 @@ class KanbanBoard {
     /**
      * Save theme colours to front matter
      */
-    saveThemeColours() {
+    saveThemeColours(sourceText = null) {
         const editor = document.getElementById('planEditor');
         if (!editor) return;
 
-        let content = editor.value;
+        let content = sourceText === null ? editor.value : sourceText;
 
         // Build theme section
         let themeSection = '';
@@ -3582,8 +3486,7 @@ class KanbanBoard {
             content = '---\n' + themeSection + '---\n\n' + content;
         }
 
-        editor.value = content;
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        this.commitMarkdown(content);
     }
 
     /**
@@ -3596,24 +3499,7 @@ class KanbanBoard {
             delete this.themeColours[columnTitle];
         }
 
-        // Prevent the debounced editor input handler from triggering a second re-parse
-        if (window.kanbanIsUpdating) {
-            window.kanbanIsUpdating(true);
-        }
-
         this.saveThemeColours();
-
-        // Re-parse and re-render immediately, preserving drill-down state
-        this.parse();
-        this.render();
-        this.renderBreadcrumb();
-
-        // Re-enable editor listener after update
-        setTimeout(() => {
-            if (window.kanbanIsUpdating) {
-                window.kanbanIsUpdating(false);
-            }
-        }, 1100); // Longer than the 1000ms debounce to prevent stale re-parse
     }
 
     /**
@@ -3710,6 +3596,7 @@ class KanbanBoard {
      */
     switchViewMode(newMode) {
         this.viewMode = newMode;
+        this.savePreferences();
         this.groupTasksByViewMode();
         this.render();
     }
@@ -3733,6 +3620,9 @@ function syncKanbanFromEditor() {
         initializeKanban();
     }
 
+    if (kanbanBoard.loadedPreferenceKey !== kanbanBoard.preferenceKey()) {
+        kanbanBoard.restorePreferences();
+    }
     kanbanBoard.parse();
     kanbanBoard.render();
     kanbanBoard.renderBreadcrumb();
@@ -3760,6 +3650,7 @@ function toggleKanbanPrioritySort(enabled) {
     }
 
     kanbanBoard.sortByPriority = enabled;
+    kanbanBoard.savePreferences();
     kanbanBoard.parse();
     kanbanBoard.render();
     if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('board_sort_priority', enabled);
@@ -3775,6 +3666,7 @@ function toggleKanbanHideCompleted(enabled) {
     }
 
     kanbanBoard.hideCompleted = enabled;
+    kanbanBoard.savePreferences();
     kanbanBoard.parse();
     kanbanBoard.render();
     if (typeof syncToolbarToSettings === 'function') syncToolbarToSettings('board_hide_completed', enabled);
@@ -3823,19 +3715,6 @@ if (document.readyState === 'loading') {
  * Setup auto-sync between editor and Kanban
  */
 function setupKanbanAutoSync() {
-    // Listen for tab switches via the plan sub-nav Board button
-    const kanbanSubnavBtn = document.querySelector('.plan-subnav-btn[data-view="kanban"]');
-    if (kanbanSubnavBtn) {
-        kanbanSubnavBtn.addEventListener('click', () => {
-            // Auto-load Kanban when switching to Kanban tab
-            setTimeout(() => {
-                if (document.getElementById('kanban-tab').classList.contains('active')) {
-                    syncKanbanFromEditor();
-                }
-            }, 100);
-        });
-    }
-
     // Listen for editor changes (debounced to avoid too frequent updates)
     const editor = document.getElementById('planEditor');
     if (editor) {
@@ -3869,13 +3748,9 @@ function setupKanbanAutoSync() {
     const saveButton = document.querySelector('[onclick*="saveTask"]');
     if (saveButton) {
         saveButton.addEventListener('click', () => {
-            setTimeout(() => {
-                if (document.getElementById('kanban-tab').classList.contains('active') && kanbanBoard) {
-                    kanbanBoard.parse();
-                    kanbanBoard.render();
-                    kanbanBoard.renderBreadcrumb();
-                }
-            }, 500);
+            if (document.getElementById('kanban-tab').classList.contains('active') && kanbanBoard) {
+                syncKanbanFromEditor();
+            }
         });
     }
 }

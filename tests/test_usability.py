@@ -458,6 +458,150 @@ class TestKeyboardNavigation:
             )
 
 
+class TestKanbanReliability:
+    """Regression coverage for the board reliability overhaul (#785 / #471)."""
+
+    PLAN = "Phase One\n  Task A 0%\nPhase Two\n  Task B 0%"
+
+    def _load_plan(self, browser, app_server):
+        browser.get(app_server)
+        browser.execute_script(
+            """
+            const project = {
+                id: 'issue-785-test',
+                name: 'Kanban reliability',
+                planText: arguments[0],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            localStorage.setItem('noodleplanner_projects', JSON.stringify({[project.id]: project}));
+            localStorage.setItem('noodleplanner_current_project', project.id);
+            for (const key of Object.keys(localStorage)) {
+                if (key.startsWith('noodle_kanban_preferences_')) localStorage.removeItem(key);
+            }
+            """,
+            self.PLAN,
+        )
+        browser.refresh()
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+
+    def test_kanban_renders_on_first_activation_and_is_idempotent(
+        self, browser, app_server
+    ):
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            const board = document.getElementById('kanbanBoard');
+            const firstCard = board.querySelector('.kanban-card');
+            firstCard.focus();
+            kanbanBoard.render();
+            const once = board.innerHTML;
+            kanbanBoard.render();
+            return {
+                active: document.getElementById('kanban-tab').classList.contains('active'),
+                cards: board.querySelectorAll('.kanban-card').length,
+                identical: once === board.innerHTML,
+                focused: document.activeElement?.dataset.taskName
+            };
+            """
+        )
+        assert result == {
+            "active": True,
+            "cards": 2,
+            "identical": True,
+            "focused": "Task A",
+        }
+
+    def test_drag_between_columns_writes_markdown_exactly_once(
+        self, browser, app_server
+    ):
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            const editor = document.getElementById('planEditor');
+            let inputEvents = 0;
+            editor.addEventListener('input', () => inputEvents++);
+            const source = document.querySelector('.kanban-card[data-task-name="Task A"]');
+            const target = document.querySelector(
+                '.kanban-column-body[data-column-title="Phase Two"]'
+            );
+            const transfer = new DataTransfer();
+            source.dispatchEvent(new DragEvent('dragstart', {
+                bubbles: true, cancelable: true, dataTransfer: transfer
+            }));
+            target.dispatchEvent(new DragEvent('dragover', {
+                bubbles: true, cancelable: true, dataTransfer: transfer
+            }));
+            target.dispatchEvent(new DragEvent('drop', {
+                bubbles: true, cancelable: true, dataTransfer: transfer
+            }));
+            source.dispatchEvent(new DragEvent('dragend', {
+                bubbles: true, dataTransfer: transfer
+            }));
+            return {text: editor.value, inputEvents};
+            """
+        )
+        assert result["inputEvents"] == 1
+        assert "Phase Two\n  Task B 0%\n  Task A 0%" in result["text"]
+
+    def test_keyboard_move_and_preferences_survive_reload(
+        self, browser, app_server
+    ):
+        self._load_plan(browser, app_server)
+        moved = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            const card = document.querySelector('.kanban-card[data-task-name="Task A"]');
+            card.focus();
+            card.dispatchEvent(new KeyboardEvent('keydown', {
+                bubbles: true, cancelable: true, altKey: true, key: 'ArrowRight'
+            }));
+            switchKanbanView('progress');
+            toggleKanbanPrioritySort(true);
+            toggleKanbanHideCompleted(true);
+            document.querySelector('.kanban-column-collapse').click();
+            return document.getElementById('planEditor').value;
+            """
+        )
+        assert "Phase Two\n  Task B 0%\n  Task A 0%" in moved
+
+        browser.refresh()
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+        restored = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            return {
+                mode: document.getElementById('kanbanViewMode').value,
+                sort: document.getElementById('kanbanSortPriority').checked,
+                hide: document.getElementById('kanbanHideCompleted').checked,
+                collapsed: document.querySelectorAll('.kanban-column.collapsed').length
+            };
+            """
+        )
+        browser.execute_script(
+            """
+            for (const key of Object.keys(localStorage)) {
+                if (key.startsWith('noodle_kanban_preferences_')) localStorage.removeItem(key);
+            }
+            kanbanBoard.sortByPriority = false;
+            kanbanBoard.hideCompleted = false;
+            kanbanBoard.collapsedColumns.clear();
+            """
+        )
+        assert restored == {
+            "mode": "progress",
+            "sort": True,
+            "hide": True,
+            "collapsed": 1,
+        }
+
+
 class TestResponsiveLayout:
     """Verify the layout adapts to different viewport sizes."""
 
@@ -512,7 +656,6 @@ class TestTouchInteractions:
                 item.style.display = 'block';
             });
         """)
-
         browser.execute_script("arguments[0].scrollIntoView({block: 'nearest'});", button)
         touch = ActionBuilder(browser, mouse=PointerInput("touch", "finger"))
         touch.pointer_action.move_to(button)
