@@ -11,6 +11,9 @@ Import a Plan
 3. Choose your ``.mpp`` or ``.xml`` file
 4. NoodlePlanner converts the project data into plan text in the editor
 
+You can also drop the ``.mpp`` or ``.xml`` file anywhere on the NoodlePlanner
+window; it is imported into a new project.
+
 The importer reads tasks, durations, dates, resources, dependencies, and progress from the Microsoft Project file and generates NoodlePlanner markdown.
 
 Supported Formats

@@ -160,6 +160,24 @@ Render the Plan
 
 Press **Ctrl+Enter** (Windows/Linux) or **Cmd+Enter** (Mac) to render.
 
+Import a File by Dropping It on the Window
+-------------------------------------------
+
+Any file dropped anywhere on the NoodlePlanner window is treated as an
+import. A "Drop to import" panel appears while you drag, and the file is
+routed by its type:
+
+- ``.md``, ``.markdown`` or ``.txt`` — a new project is created from the
+  plan text and opened in the editor
+- ``.xlsx`` or ``.xls`` — the Excel import wizard opens
+- ``.mpp`` or ``.xml`` — the Microsoft Project file is imported into a new
+  project
+- ``.json`` — a NoodlePlanner project export is added to your projects
+
+Dropping several Markdown or JSON files at once imports each of them.
+Excel and Microsoft Project files are imported one at a time. Anything else
+is refused with a message saying what can be dropped.
+
 Related
 --------
 

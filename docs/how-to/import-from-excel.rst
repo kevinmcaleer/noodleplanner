@@ -9,7 +9,7 @@ Import a Plan
 1. Click **Tools** in the project sub-navigation
 2. Select **Import → Excel**
 3. The **Import Wizard** dialog opens
-4. Click **Browse** or drag your ``.xlsx`` file onto the upload area
+4. Click **Browse** or drag your ``.xlsx`` file onto the upload area (or drop it anywhere on the NoodlePlanner window)
 5. The wizard shows a preview of the detected columns and rows
 6. Map the spreadsheet columns to NoodlePlanner fields:
    - Task Name
