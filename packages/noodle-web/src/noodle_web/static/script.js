@@ -973,6 +973,19 @@ async function renderPlan() {
     return renderText();
 }
 
+/**
+ * True when the user has opted back into the server-side PDF and Word
+ * exports (localStorage np-server-exports=1): the fallback kept while the
+ * browser-side exports are confirmed to match them (issue #792).
+ */
+function useServerExports() {
+    try {
+        return localStorage.getItem('np-server-exports') === '1';
+    } catch (e) {
+        return false;
+    }
+}
+
 async function exportFile(format, prefix) {
     const text = document.getElementById('planEditor').value.trim();
 
@@ -1037,6 +1050,24 @@ async function exportFile(format, prefix) {
         } catch (error) {
             console.error('Browser Excel/CSV export failed, falling back to backend:', error);
         }
+    }
+
+    // The PDF is built in the browser too, from the same scheduled plan; the
+    // only request is for the font it embeds (issue #792). The server route
+    // stays available behind localStorage np-server-exports=1.
+    if (exportPDF && !useServerExports()) {
+        try {
+            const parse = await currentParseResult(text);
+            const { exportPdfInBrowser } = await import('/static/pdf-export.js');
+            const { filename, warnings } = await exportPdfInBrowser(parse, text);
+            const note = warnings.length
+                ? ' (' + warnings.length + ' font note' + (warnings.length === 1 ? '' : 's') + ' in the browser console)'
+                : '';
+            showMessage('editor', 'success', 'Exported ' + filename + note);
+        } catch (error) {
+            showMessage('editor', 'error', 'PDF export failed: ' + error.message);
+        }
+        return;
     }
 
     await render(text, null, exportExcel, exportCSV, exportPPT, exportPDF, prefix, exportMSProject);
@@ -10499,8 +10530,24 @@ async function exportCommsToWord() {
         return;
     }
 
+    const projectName = document.getElementById('reportProjectTitle')?.textContent || 'Project';
+
+    // Built in the browser with the vendored docx library; nothing is sent to
+    // the server (issue #792). The /api/comms/export-docx route stays
+    // available behind localStorage np-server-exports=1.
+    if (!useServerExports()) {
+        try {
+            const { exportCommsDocxInBrowser } = await import('/static/docx-export.js');
+            await exportCommsDocxInBrowser(commsItems, projectName);
+            if (typeof setStatusMessage === 'function') setStatusMessage('Comms plan exported', 3000);
+        } catch (e) {
+            console.error('Comms export error:', e);
+            if (typeof setStatusMessage === 'function') setStatusMessage('Failed to export comms plan: ' + e.message, 3000);
+        }
+        return;
+    }
+
     try {
-        const projectName = document.getElementById('reportProjectTitle')?.textContent || 'Project';
         const response = await fetch('/api/comms/export-docx', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
