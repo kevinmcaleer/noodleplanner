@@ -2272,6 +2272,14 @@ Build
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                                         Import Project
                                     </button>
+                                    <button class="portfolio-more-menu-item" onclick="downloadStoreBackup(); closePortfolioMoreMenu();">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        Back Up All Projects
+                                    </button>
+                                    <button class="portfolio-more-menu-item" onclick="restoreStoreBackup(); closePortfolioMoreMenu();">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                        Restore Backup
+                                    </button>
                                     <button class="portfolio-more-menu-item" onclick="exportPortfolioReport(); closePortfolioMoreMenu();">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                         Export Report
@@ -3433,6 +3441,7 @@ Build
                     <button class="settings-tab-btn" data-tab="timeline" onclick="switchSettingsTab('timeline')" role="tab" aria-selected="false">Timeline</button>
                     <button class="settings-tab-btn" data-tab="theme" onclick="switchSettingsTab('theme')" role="tab" aria-selected="false">Theme</button>
                     <button class="settings-tab-btn" data-tab="ai" onclick="switchSettingsTab('ai')" role="tab" aria-selected="false">AI</button>
+                    <button class="settings-tab-btn" data-tab="storage" onclick="switchSettingsTab('storage')" role="tab" aria-selected="false">Storage</button>
                 </div>
 
                 <!-- Gantt Tab -->
@@ -3540,6 +3549,24 @@ Build
                     <button type="button" class="btn-primary" onclick="openAISettingsModal(); closeSettingsPanel();" style="min-height: 44px;">
                         <i class="bi bi-robot" aria-hidden="true"></i> Open AI Settings
                     </button>
+                </div>
+
+                <!-- Storage Tab (issue #794) -->
+                <div id="settingsTab-storage" class="settings-tab-content storage-settings" role="tabpanel">
+                    <h3>Browser Storage</h3>
+                    <p class="settings-ai-description">Your projects are stored in this browser only. Download a backup to keep a copy or move to another machine.</p>
+                    <div id="storageSettingsSummary"></div>
+                    <small id="storageSettingsQuota"></small>
+                    <div class="storage-settings-actions">
+                        <button type="button" class="btn-primary" onclick="downloadStoreBackup()">
+                            <i class="bi bi-download" aria-hidden="true"></i> Download backup
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="restoreStoreBackup()">
+                            <i class="bi bi-upload" aria-hidden="true"></i> Restore backup&hellip;
+                        </button>
+                    </div>
+                    <small>A backup holds every project, its version history and programme dependencies in one JSON file. Restoring adds what is missing and keeps what is already here.</small>
+                    <div id="storageSettingsLegacy" class="storage-settings-legacy" style="display: none;"></div>
                 </div>
             </div>
         </div>
@@ -3926,6 +3953,7 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>

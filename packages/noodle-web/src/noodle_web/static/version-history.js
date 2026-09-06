@@ -38,6 +38,9 @@ function getVersionHistoryKey(projectId) {
 }
 
 function getVersionHistory(projectId) {
+    if (typeof projectStoreActive === 'function' && projectStoreActive()) {
+        return NoodleStore.getVersionHistory(projectId);
+    }
     try {
         const raw = localStorage.getItem(getVersionHistoryKey(projectId));
         return raw ? JSON.parse(raw) : [];
@@ -77,6 +80,12 @@ function trimHistoryToBudget(history) {
  * (after telling the user) when not even one snapshot fits.
  */
 function saveVersionHistory(projectId, history) {
+    if (typeof projectStoreActive === 'function' && projectStoreActive()) {
+        // IndexedDB has room for the full fifty snapshots; only the count cap
+        // applies. Snapshots that have not changed are not rewritten.
+        NoodleStore.setVersionHistory(projectId, history.slice(0, MAX_VERSIONS_PER_PROJECT));
+        return true;
+    }
     const key = getVersionHistoryKey(projectId);
     let entries = trimHistoryToBudget(history);
     let quotaDropped = 0; // entries lost to the quota, over and above the budget cap
@@ -668,11 +677,18 @@ function initVersionHistory() {
     updateVersionBadge();
 }
 
-// Run cleanup on app load
+// Run cleanup on app load, once the store has read its records.
+function scheduleInitVersionHistory() {
+    if (typeof NoodleStore !== 'undefined' && NoodleStore && typeof NoodleStore.whenReady === 'function') {
+        NoodleStore.whenReady().then(initVersionHistory);
+    } else {
+        initVersionHistory();
+    }
+}
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initVersionHistory);
+    document.addEventListener('DOMContentLoaded', scheduleInitVersionHistory);
 } else {
-    initVersionHistory();
+    scheduleInitVersionHistory();
 }
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -21,6 +21,10 @@ let dependencyPropagationCache = {};
  * @returns {Array} Array of dependency objects
  */
 function getAllProgrammeDependencies() {
+    if (typeof projectStoreActive === 'function' && projectStoreActive()) {
+        const deps = NoodleStore.getMeta(NoodleStore.DEPS_META_KEY);
+        return Array.isArray(deps) ? deps.map(d => ({ ...d })) : [];
+    }
     try {
         const raw = localStorage.getItem(PROGRAMME_DEPS_KEY);
         return raw ? JSON.parse(raw) : [];
@@ -36,6 +40,10 @@ function getAllProgrammeDependencies() {
  * @returns {boolean}
  */
 function saveAllProgrammeDependencies(deps) {
+    if (typeof projectStoreActive === 'function' && projectStoreActive()) {
+        NoodleStore.setMeta(NoodleStore.DEPS_META_KEY, deps);
+        return true;
+    }
     try {
         localStorage.setItem(PROGRAMME_DEPS_KEY, JSON.stringify(deps));
         return true;

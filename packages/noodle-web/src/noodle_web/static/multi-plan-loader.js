@@ -329,6 +329,17 @@ function importProjectsFromJSON(jsonData) {
             throw new Error('Invalid import format: missing projects');
         }
 
+        // A whole-store backup (Settings → Storage → Download backup) carries
+        // version history and programme dependencies as well as projects.
+        if (importData.format === 'noodleplanner-store' && typeof restoreStoreBackupFromJSON === 'function') {
+            const restored = restoreStoreBackupFromJSON(importData);
+            if (!restored) {
+                return { imported: 0, skipped: 0, total: 0, error: 'Could not restore the backup' };
+            }
+            return { imported: restored.projects, skipped: restored.skipped,
+                total: restored.projects + restored.skipped, snapshots: restored.snapshots };
+        }
+
         const currentProjects = getAllProjects();
         let imported = 0;
         let skipped = 0;
@@ -483,9 +494,19 @@ function onProjectSelectorChange(projectId) {
     }
 }
 
-// Initialize on page load
+// Initialize on page load, once the project store has read its records
+// from IndexedDB (a few milliseconds; falls through at once when the store
+// is using localStorage).
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
+        if (typeof NoodleStore !== 'undefined' && NoodleStore && typeof NoodleStore.whenReady === 'function') {
+            NoodleStore.whenReady().then(initMultiPlanLoader);
+        } else {
+            initMultiPlanLoader();
+        }
+    });
+
+    function initMultiPlanLoader() {
         // Load all projects into cache on startup
         loadAllProjectsIntoCache();
 
@@ -507,5 +528,5 @@ if (typeof window !== 'undefined') {
         setInterval(() => {
             loadAllProjectsIntoCache();
         }, 5 * 60 * 1000);
-    });
+    }
 }

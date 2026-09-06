@@ -73,10 +73,24 @@ function getLastStorageFailure() {
     return lastStorageFailure;
 }
 
+// ---------------------------------------------------------------------------
+// Backing store (issue #794)
+//
+// When project-store.js has an IndexedDB database the functions below read
+// and write its in-memory copy and the store writes through in the
+// background. When IndexedDB is unavailable they fall back to the original
+// localStorage blob, quota handling and all.
+// ---------------------------------------------------------------------------
+
+function projectStoreActive() {
+    return typeof NoodleStore !== 'undefined' && NoodleStore && NoodleStore.isActive();
+}
+
 /**
  * Get all projects from local storage
  */
 function getAllProjects() {
+    if (projectStoreActive()) return NoodleStore.getAllProjects();
     try {
         const projectsJson = localStorage.getItem(PROJECTS_KEY);
         return projectsJson ? JSON.parse(projectsJson) : {};
@@ -95,6 +109,13 @@ function getAllProjects() {
  * way. Returns false only after the user has been shown the failure.
  */
 function saveAllProjects(projects) {
+    if (projectStoreActive()) {
+        // Only the records that changed are written, in the background. A
+        // write that fails later is reported by the store through
+        // reportStorageFailure(); the in-memory copy stays authoritative.
+        NoodleStore.replaceProjects(projects);
+        return true;
+    }
     const json = JSON.stringify(projects);
     let error = null;
     let evicted = 0;
@@ -191,10 +212,14 @@ function deleteProject(projectId) {
     }
 
     // Remove version history for the deleted project
-    try {
-        localStorage.removeItem('noodle_history_' + projectId);
-    } catch (e) {
-        // Ignore errors if key does not exist
+    if (projectStoreActive()) {
+        NoodleStore.deleteVersionHistory(projectId);
+    } else {
+        try {
+            localStorage.removeItem('noodle_history_' + projectId);
+        } catch (e) {
+            // Ignore errors if key does not exist
+        }
     }
 
     return saveAllProjects(projects);
@@ -339,11 +364,198 @@ function importProject(jsonData) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Whole-store backup and restore, and the Storage settings tab (issue #794)
+// ---------------------------------------------------------------------------
+
+function formatStorageBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/**
+ * Download everything in the store — every project, its version history
+ * and the programme dependencies — as one JSON file. The same file restores
+ * on another machine through restoreStoreBackup() or a drop on the window.
+ */
+function downloadStoreBackup() {
+    let data;
+    if (projectStoreActive()) {
+        data = NoodleStore.exportSnapshot();
+    } else {
+        // Legacy store: assemble the same shape from localStorage.
+        const projects = getAllProjects();
+        const versions = [];
+        Object.keys(projects).forEach(function (id) {
+            const history = (typeof getVersionHistory === 'function') ? getVersionHistory(id) : [];
+            if (history.length) versions.push({ projectId: id, entries: history });
+        });
+        const meta = {};
+        if (typeof getAllProgrammeDependencies === 'function') {
+            const deps = getAllProgrammeDependencies();
+            if (deps.length) meta.programmeDependencies = deps;
+        }
+        data = { format: 'noodleplanner-store', formatVersion: 1, exportedAt: new Date().toISOString(),
+            projects: Object.values(projects), versions: versions, meta: meta };
+    }
+    const json = JSON.stringify(data);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'noodleplanner-backup-' + new Date().toISOString().split('T')[0] + '.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    if (typeof setStatusMessage === 'function') {
+        setStatusMessage('Backup downloaded: ' + data.projects.length + ' project' + (data.projects.length === 1 ? '' : 's') +
+            ', ' + formatStorageBytes(json.length), 6000);
+    }
+    return data;
+}
+
+/**
+ * Restore a backup made by downloadStoreBackup(). Projects already in this
+ * browser are kept; the backup's other projects, their history and any
+ * programme dependencies are added. Returns the import summary or null.
+ */
+function restoreStoreBackupFromJSON(jsonData) {
+    let data;
+    try {
+        data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+    } catch (e) {
+        return null;
+    }
+    if (!data || data.format !== 'noodleplanner-store' || !Array.isArray(data.projects)) return null;
+    let result;
+    if (projectStoreActive()) {
+        result = NoodleStore.importSnapshot(data, { mode: 'merge' });
+    } else {
+        const projects = getAllProjects();
+        result = { mode: 'merge', projects: 0, skipped: 0, snapshots: 0, dependencies: 0 };
+        data.projects.forEach(function (p) {
+            if (!p || !p.id || typeof p.planText !== 'string' || projects[p.id]) { result.skipped++; return; }
+            projects[p.id] = p;
+            result.projects++;
+        });
+        if (!saveAllProjects(projects)) return null;
+        (data.versions || []).forEach(function (v) {
+            if (v && v.projectId && projects[v.projectId] && typeof saveVersionHistory === 'function' &&
+                typeof getVersionHistory === 'function' && getVersionHistory(v.projectId).length === 0) {
+                saveVersionHistory(v.projectId, v.entries || []);
+                result.snapshots += (v.entries || []).length;
+            }
+        });
+    }
+    if (typeof clearProjectCache === 'function') clearProjectCache();
+    if (typeof loadAllProjectsIntoCache === 'function') loadAllProjectsIntoCache();
+    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    if (typeof renderProjectsList === 'function') {
+        try { renderProjectsList(); } catch (e) { /* portfolio not showing */ }
+    }
+    return result;
+}
+
+/** File picker for restoreStoreBackupFromJSON(). */
+function restoreStoreBackup() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = function () {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const result = restoreStoreBackupFromJSON(e.target.result);
+            if (!result) {
+                if (typeof showToast === 'function') showToast(file.name + ' is not a NoodlePlanner backup', 'error');
+                return;
+            }
+            const msg = 'Restored ' + result.projects + ' project' + (result.projects === 1 ? '' : 's') +
+                (result.snapshots ? ' and ' + result.snapshots + ' version snapshot' + (result.snapshots === 1 ? '' : 's') : '') +
+                (result.skipped ? ' (' + result.skipped + ' already here, kept)' : '');
+            if (typeof showToast === 'function') showToast(msg, 'success');
+            if (typeof setStatusMessage === 'function') setStatusMessage(msg, 8000);
+            renderStorageSettings();
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+/** Remove the pre-migration localStorage copy, after the user confirms. */
+function removeLegacyStorageCopy() {
+    if (!projectStoreActive()) return;
+    const legacy = NoodleStore.legacyDataPresent();
+    if (!legacy) return;
+    const ok = confirm('Remove the old copy of ' + legacy.projects + ' project' + (legacy.projects === 1 ? '' : 's') +
+        ' and ' + legacy.snapshots + ' version snapshot' + (legacy.snapshots === 1 ? '' : 's') +
+        ' from localStorage?\n\nThis copy has not been updated since your projects moved to the new store, ' +
+        'so nothing you have done since then is in it. Your current projects are not affected.');
+    if (!ok) return;
+    NoodleStore.cleanupLegacyStorage();
+    if (typeof showToast === 'function') showToast('Old localStorage copy removed', 'success');
+    renderStorageSettings();
+}
+
+/** Fill the Storage tab of the settings panel. Safe to call when it is absent. */
+function renderStorageSettings() {
+    const el = document.getElementById('storageSettingsSummary');
+    if (!el) return;
+    const active = projectStoreActive();
+    const lines = [];
+    if (active) {
+        const u = NoodleStore.usage();
+        lines.push('<p><strong>Store:</strong> IndexedDB (' + NoodleStore.DB_NAME + ')</p>');
+        lines.push('<p>' + u.projects + ' project' + (u.projects === 1 ? '' : 's') + ' (' + formatStorageBytes(u.planBytes) + ' of plan text), ' +
+            u.snapshots + ' version snapshot' + (u.snapshots === 1 ? '' : 's') + ' (' + formatStorageBytes(u.snapshotBytes) + ')</p>');
+        const failure = getLastStorageFailure();
+        if (failure) lines.push('<p class="storage-settings-warning">' + failure.message + '</p>');
+    } else {
+        const projects = getAllProjects();
+        const reason = (typeof NoodleStore !== 'undefined' && NoodleStore.failure()) ? NoodleStore.failure().message : 'IndexedDB is not available';
+        lines.push('<p><strong>Store:</strong> localStorage (fallback: ' + reason + ')</p>');
+        lines.push('<p>' + Object.keys(projects).length + ' project' + (Object.keys(projects).length === 1 ? '' : 's') +
+            '. localStorage is limited to about 5 MB; download a backup regularly.</p>');
+    }
+    el.innerHTML = lines.join('');
+
+    const quotaEl = document.getElementById('storageSettingsQuota');
+    if (quotaEl && typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+        navigator.storage.estimate().then(function (est) {
+            if (est && est.quota) {
+                quotaEl.textContent = 'This site may use up to ' + formatStorageBytes(est.quota) +
+                    ' of browser storage; ' + formatStorageBytes(est.usage || 0) + ' in use.';
+            }
+        }).catch(function () { /* not available */ });
+    }
+
+    const legacyEl = document.getElementById('storageSettingsLegacy');
+    if (legacyEl) {
+        const legacy = active ? NoodleStore.legacyDataPresent() : null;
+        if (legacy) {
+            const m = NoodleStore.migrationSummary();
+            legacyEl.style.display = '';
+            legacyEl.innerHTML =
+                '<h4>Old localStorage copy</h4>' +
+                '<p>Your projects moved to the new store' + (m && m.at ? ' on ' + new Date(m.at).toLocaleDateString() : '') +
+                '. The copy left in localStorage (' + legacy.projects + ' project' + (legacy.projects === 1 ? '' : 's') + ', ' +
+                legacy.snapshots + ' snapshot' + (legacy.snapshots === 1 ? '' : 's') + ', ' + formatStorageBytes(legacy.bytes) +
+                ') is no longer updated. Once you are happy everything is here, you can remove it.</p>' +
+                '<button type="button" class="btn-secondary" onclick="removeLegacyStorageCopy()">Remove old copy</button>';
+        } else {
+            legacyEl.style.display = 'none';
+            legacyEl.innerHTML = '';
+        }
+    }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         isStorageQuotaError,
         reportStorageFailure,
         getLastStorageFailure,
+        projectStoreActive,
         getAllProjects,
         saveAllProjects,
         createProject,
@@ -355,5 +567,8 @@ if (typeof module !== 'undefined' && module.exports) {
         setCurrentProjectId,
         saveCurrentProjectState,
         importProject,
+        downloadStoreBackup,
+        restoreStoreBackupFromJSON,
+        renderStorageSettings,
     };
 }
