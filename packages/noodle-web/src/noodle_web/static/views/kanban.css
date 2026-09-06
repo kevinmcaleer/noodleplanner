@@ -205,6 +205,32 @@
     transition: all 0.2s;
 }
 
+.kanban-column.collapsed {
+    min-width: 64px;
+    width: 64px;
+}
+
+.kanban-column.collapsed .kanban-column-header {
+    min-height: 180px;
+    writing-mode: vertical-rl;
+}
+
+.kanban-column.collapsed .kanban-column-body,
+.kanban-column.collapsed .kanban-column-footer,
+.kanban-column.collapsed .kanban-column-order-actions,
+.kanban-column.collapsed .kanban-column-colour-btn {
+    display: none;
+}
+
+.kanban-column-collapse {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    min-width: 28px;
+    min-height: 28px;
+}
+
 .kanban-column.draggable-column {
     cursor: move;
 }

@@ -722,11 +722,9 @@ NavigationController.register('kanban', {
         closeAllNavMenus();
         setActiveNavTab('planTab');
         updatePlanSubnav('kanban');
-        setTimeout(() => {
-            if (typeof syncKanbanFromEditor === 'function') {
-                syncKanbanFromEditor();
-            }
-        }, 50);
+        if (typeof syncKanbanFromEditor === 'function') {
+            syncKanbanFromEditor();
+        }
     },
     deactivate: deactivateKanban
 });

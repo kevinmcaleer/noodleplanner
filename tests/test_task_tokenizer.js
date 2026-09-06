@@ -34,6 +34,8 @@ equal(context.parseTaskLine('Release 3y', 1).duration, '3', 'year durations are 
 equal(context.parseTaskLine('Release 3y', 1).name, 'Release', 'year durations are excluded from task names');
 equal(context.parseTaskLine('Launch! 2d', 1).priority, 'Low', 'punctuation in task names is not priority');
 equal(context.parseTaskLine('Launch! 2d', 1).name, 'Launch!', 'task-name punctuation is preserved');
+equal(context.parseTaskLine('Task A 0%', 1).percent, '0', 'trailing percentages are parsed');
+equal(context.parseTaskLine('Task A 0%', 1).name, 'Task A', 'trailing percentages are excluded from task names');
 equal(tokenTypes('Build ~8h 2d'), [['effort', '~8h'], ['duration', '2d']], 'effort and duration have source spans');
 equal(context.parseTaskLine('Build ~8h 2d', 1).effortTotal, '8', 'effort metadata is parsed from the shared grammar');
 equal(tokenTypes('Task 2d [depends $product:FS +2d]'), [['duration', '2d'], ['dependency', '[depends $product:FS +2d]']],
