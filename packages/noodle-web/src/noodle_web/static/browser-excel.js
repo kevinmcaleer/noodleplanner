@@ -192,6 +192,10 @@ async function ensureExcelJsLoaded() {
     await new Promise((resolve, reject) => {
         const existing = document.querySelector(`script[src="${EXCELJS_CDN_URL}"]`);
         if (existing) {
+            if (globalThis.ExcelJS) {
+                resolve();
+                return;
+            }
             existing.addEventListener('load', resolve, { once: true });
             existing.addEventListener('error', () => reject(new Error('Failed to load ExcelJS')), { once: true });
             return;
@@ -447,12 +451,12 @@ function addResourcesSheet(workbook, parseResult) {
 }
 
 function addBudgetSheet(workbook, items) {
-    if (!Array.isArray(items) || items.length === 0) return null;
+    const budgetItems = Array.isArray(items) ? items : [];
     const worksheet = workbook.addWorksheet('Budget');
     worksheet.addRow(XL_BUDGET_HEADERS);
     setHeaderStyle(worksheet.getRow(1), '667EEA', { bold: true, color: 'FFFFFF', size: 11 });
 
-    items.forEach((item) => {
+    budgetItems.forEach((item) => {
         const row = worksheet.addRow([
             item.id || '',
             item.description || '',
@@ -472,20 +476,22 @@ function addBudgetSheet(workbook, items) {
         });
     });
 
-    const totalRow = worksheet.addRow([
-        '',
-        'TOTALS',
-        items.reduce((sum, item) => sum + Number(item.estimate || 0), 0),
-        items.reduce((sum, item) => sum + Number(item.forecast || 0), 0),
-        '', '', '', '',
-        items.reduce((sum, item) => sum + Number(item.total || 0), 0),
-        '', '', '',
-    ]);
-    totalRow.getCell(2).font = fontStyle({ bold: true });
-    [3, 4, 9].forEach((column) => {
-        totalRow.getCell(column).font = fontStyle({ bold: true });
-        totalRow.getCell(column).numFmt = '#,##0.00';
-    });
+    if (budgetItems.length > 0) {
+        const totalRow = worksheet.addRow([
+            '',
+            'TOTALS',
+            budgetItems.reduce((sum, item) => sum + Number(item.estimate || 0), 0),
+            budgetItems.reduce((sum, item) => sum + Number(item.forecast || 0), 0),
+            '', '', '', '',
+            budgetItems.reduce((sum, item) => sum + Number(item.total || 0), 0),
+            '', '', '',
+        ]);
+        totalRow.getCell(2).font = fontStyle({ bold: true });
+        [3, 4, 9].forEach((column) => {
+            totalRow.getCell(column).font = fontStyle({ bold: true });
+            totalRow.getCell(column).numFmt = '#,##0.00';
+        });
+    }
 
     XL_BUDGET_COLUMN_WIDTHS.forEach((width, index) => {
         worksheet.getColumn(index + 1).width = width;
@@ -1140,6 +1146,10 @@ export async function importBudgetExcelInBrowser(input, options = {}) {
         };
         const type = String(getCell('type', 'Capex'));
         const category = String(getCell('category', 'Consultancy'));
+        const normaliseDateCell = (value) => {
+            if (value instanceof Date) return formatDate(value);
+            return String(value || '');
+        };
         items.push({
             id: parseInt(getCell('id', items.length + 1), 10) || (items.length + 1),
             description,
@@ -1150,8 +1160,8 @@ export async function importBudgetExcelInBrowser(input, options = {}) {
             po: String(getCell('po', '')),
             supplier: String(getCell('supplier', '')),
             total: safeFloat(getCell('total', 0)),
-            date_ordered: String(getCell('date_ordered', '')),
-            date_received: String(getCell('date_received', '')),
+            date_ordered: normaliseDateCell(getCell('date_ordered', '')),
+            date_received: normaliseDateCell(getCell('date_received', '')),
             category: validCategories.has(category) ? category : 'Consultancy',
         });
     });

@@ -319,6 +319,24 @@ test('standalone RAID and budget imports round-trip entirely in the browser', as
   ]);
 });
 
+
+test('budget workbook stays valid when there are no items and date cells import as YYYY-MM-DD', async () => {
+  const emptyBudgetWorkbook = await createBudgetWorkbook([], { ExcelJS });
+  assert.deepEqual(emptyBudgetWorkbook.worksheets.map((sheet) => sheet.name), ['Budget']);
+  assert.deepEqual(emptyBudgetWorkbook.getWorksheet('Budget').getRow(1).values.slice(1), XL_BUDGET_HEADERS);
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Budget');
+  sheet.addRow(XL_BUDGET_HEADERS);
+  const row = sheet.addRow([3, 'Laptop', 12.5, 15, 'Capex', 'I-3', 'P-3', 'Shop', 9.25, new Date(2026, 0, 4), new Date(2026, 0, 10), 'Hardware']);
+  row.getCell(10).numFmt = 'yyyy-mm-dd';
+  row.getCell(11).numFmt = 'yyyy-mm-dd';
+  const bytes = await workbook.xlsx.writeBuffer();
+  const result = await importBudgetExcelInBrowser(bytes, { ExcelJS });
+  assert.equal(result.items[0].date_ordered, '2026-01-04');
+  assert.equal(result.items[0].date_received, '2026-01-10');
+});
+
 test('deliverables role resolution reverses full resource names back to shortnames', () => {
   const data = buildDeliverablesData(sampleParseResult().tasks, sampleParseResult().resource_map, sampleParseResult().resource_roles, sampleParseResult().stakeholders);
   assert.deepEqual(data.people, ['ap', 'jd', 'qa']);
