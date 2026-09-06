@@ -67,6 +67,39 @@ PDF
 A printable version of the project report.
 
 - Access: **Tools** → **Export → PDF**
+- Filename: ``{project-name}.pdf``, or ``{project-name} v{version}.pdf`` when
+  the front matter carries a ``version``
+
+Built entirely in the browser with `jsPDF <https://github.com/parallax/jsPDF>`_
+from the plan the page has already scheduled; no plan data reaches the server.
+The page content is the same monospaced report the ASCII view shows, and the
+browser builder is checked line for line against the Python one over the whole
+plan corpus in ``tests/test_pdf_docx_browser_export.mjs``. Paper size is A4 by
+default; ``localStorage`` key ``np-pdf-page-size`` set to ``letter`` switches
+it. See :doc:`../how-to/export-your-plan` for font coverage.
+
+.. note::
+
+   **Why jsPDF and not pdfmake.** The export is a monospaced text report, not
+   a laid-out document, so pdfmake's richer layout engine buys nothing here
+   while costing about five times the download (529 KB gzipped against 112 KB).
+   Neither library's built-in fonts cover the accented names that appear in
+   real plans, so a font had to be embedded either way; DejaVu Sans Mono is
+   vendored alongside jsPDF for that. If the PDF ever becomes a formatted
+   report rather than a text dump, pdfmake becomes the better choice and this
+   decision should be revisited.
+
+Word (``.docx``)
+~~~~~~~~~~~~~~~~~
+
+The communications plan as a landscape Word document.
+
+- Access: **Comms Plan** view → **Export as Word**
+- Filename: ``{project-name} - Communications Plan.docx``
+
+Built in the browser with the `docx <https://docx.js.org/>`_ library, and
+checked against the Python version for the same text, table shape, landscape
+orientation and borders.
 
 Microsoft Project XML (``.xml``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

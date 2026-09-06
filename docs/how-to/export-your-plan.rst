@@ -56,6 +56,28 @@ PDF
 Creates a printable version of the project report.
 
 1. Click **Tools** → **Export → PDF**
+2. The file downloads as ``{project-name}.pdf`` (or ``{project-name} v{version}.pdf``
+   when the plan's front matter carries a ``version``)
+
+The PDF is built **entirely in your browser** from the plan the page has
+already scheduled, so no plan data is sent to the server. The only request it
+makes is for the font it embeds.
+
+Paper size defaults to A4. To switch to US Letter, set this once from the
+browser console:
+
+.. code-block:: javascript
+
+   localStorage.setItem('np-pdf-page-size', 'letter')
+
+Fonts and non-English text
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The PDF embeds DejaVu Sans Mono, which covers Latin, Latin Extended,
+Greek and Cyrillic — so accented names such as ``Kévin`` render correctly.
+It does **not** cover Chinese, Japanese or Korean. Characters outside its
+coverage are drawn as ``□`` rather than dropped, and the export logs which
+ones to the browser console so nothing disappears silently.
 
 Microsoft Project (``.mpp``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

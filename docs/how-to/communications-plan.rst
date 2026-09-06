@@ -71,6 +71,9 @@ plan table and downloads it to your browser.
 
 The exported file is named ``<Project Name> - Communications Plan.docx``.
 
+The document is built in your browser, so the plan is not sent to the server
+to produce it.
+
 Excel Export
 -------------
 
