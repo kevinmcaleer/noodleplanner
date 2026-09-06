@@ -1587,22 +1587,40 @@ async function updateAllViews(planText, projectName) {
             project_name: projectName || null
         };
 
-        const response = await fetch('/api/parse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (!response.ok) {
-            console.error('Failed to parse plan');
-            // Even if the API call failed, try to extract highlights
-            // from the plan text on the client side as a fallback.
-            updateHighlightsView(extractHighlightsFromText(planText));
-            if (typeof updateMindmap === 'function') updateMindmap([]);
-            return;
+        // The browser can schedule the plan itself, which removes the request
+        // this function makes on every edit (issue #793). Off unless
+        // localStorage np-local-engine is "1"; the engine is held to the same
+        // answers as the server by tests/test_engine_conformance.mjs.
+        let result = null;
+        try {
+            const engine = await import('/static/engine/local-parse.js');
+            if (engine.useLocalEngine()) {
+                const localResult = engine.localParse(planText, projectName);
+                if (localResult.success) result = localResult;
+                else console.warn('[engine] local scheduling failed; falling back to the server');
+            }
+        } catch (engineError) {
+            console.warn('[engine] unavailable; using the server:', engineError);
         }
 
-        const result = await response.json();
+        if (!result) {
+            const response = await fetch('/api/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                console.error('Failed to parse plan');
+                // Even if the API call failed, try to extract highlights
+                // from the plan text on the client side as a fallback.
+                updateHighlightsView(extractHighlightsFromText(planText));
+                if (typeof updateMindmap === 'function') updateMindmap([]);
+                return;
+            }
+
+            result = await response.json();
+        }
 
         // If the user switched projects while we were waiting, discard this
         // stale response so we don't overwrite the new project's data.

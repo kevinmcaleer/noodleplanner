@@ -1,0 +1,48 @@
+# Two engines schedule a plan: the Python one in noodle_core (used by the CLI
+# and the server) and the JavaScript one in static/engine (used by the
+# browser). They are kept honest by a shared corpus — plans in,
+# scheduled output out — and divergence fails the build. See issue #793 and
+# tests/fixtures/conformance/.
+name: Engine conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install the workspace
+        run: uv sync --all-packages
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The expectations are generated from the Python engine, so a change
+      # there shows up here as a stale corpus rather than as a mismatch
+      # blamed on the browser.
+      - name: The corpus is up to date with the Python engine
+        run: uv run scripts/build_conformance_corpus.py --check
+
+      - name: The Python engine still matches the corpus
+        run: uv run pytest tests/test_conformance_corpus.py -q -p no:cacheprovider
+
+      - name: The browser engine matches the corpus
+        run: node --test tests/test_engine_conformance.mjs
+
+      - name: The browser engine matches Python on dates and the task grammar
+        run: node --test tests/test_engine_date_math.mjs tests/test_engine_tokeniser.mjs
