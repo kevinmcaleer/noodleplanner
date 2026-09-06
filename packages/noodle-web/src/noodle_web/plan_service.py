@@ -329,15 +329,27 @@ class PlanService:
 
     # -- Parsing (structured JSON for UI) -----------------------------------
 
-    def parse(self, plan_text: str, project_name: Optional[str] = None) -> ParseResult:
+    def parse(
+        self,
+        plan_text: str,
+        project_name: Optional[str] = None,
+        include_ascii: bool = False,
+    ) -> ParseResult:
         """Parse a plan and return structured data for the frontend.
 
         This always returns highlights, RAID items, and baseline items even
         when task parsing fails, so the frontend can display partial results.
 
+        The plan is parsed and scheduled exactly once per call. The ASCII
+        table (``ascii_output``) is only built when ``include_ascii`` is set:
+        no frontend caller of ``/api/parse`` reads it, it schedules the whole
+        plan a second time, and it cost roughly half of every parse (issue
+        #789). ``/render`` still produces it.
+
         Args:
             plan_text: Raw plan text (may include YAML front matter).
             project_name: Optional override for the project name.
+            include_ascii: Also build the ASCII table into ``ascii_output``.
 
         Returns:
             ParseResult with all structured data.
@@ -363,13 +375,17 @@ class PlanService:
             resolved_name = self._resolve_project_name(plan_text, project_name)
             converted = convert_plan_format_to_standard(plan_text)
 
-            ascii_output = text_to_markdown_table(
-                converted,
-                is_yaml=False,
-                project_name=resolved_name,
-                terminal_width=120,
-                original_text=plan_text,
-            )
+            # Opt-in only: text_to_markdown_table schedules the plan again from
+            # scratch, and /api/parse callers never read the result.
+            ascii_output = ""
+            if include_ascii:
+                ascii_output = text_to_markdown_table(
+                    converted,
+                    is_yaml=False,
+                    project_name=resolved_name,
+                    terminal_width=120,
+                    original_text=plan_text,
+                )
 
             resource_map, _ = parse_resource_mappings(plan_text)
             resource_roles = parse_resource_roles(plan_text)

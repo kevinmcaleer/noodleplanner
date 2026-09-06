@@ -217,6 +217,9 @@ class RenderRequest(BaseModel):
     export_ppt: bool = Field(False)
     export_pdf: bool = Field(False)
     export_msproject: bool = Field(False)
+    # /api/parse only: also build the ASCII table. Off by default because no
+    # frontend caller reads it and it schedules the plan a second time (#789).
+    include_ascii: bool = Field(False)
 
 
 
@@ -567,7 +570,9 @@ async def parse_plan(data: RenderRequest):
     """Parse a project plan and return structured JSON data for tabbed views."""
     logger.info("Parse request received")
 
-    result = plan_service.parse(data.plan_text, project_name=data.project_name)
+    result = plan_service.parse(
+        data.plan_text, project_name=data.project_name, include_ascii=data.include_ascii
+    )
 
     response = {
         "success": result.success,

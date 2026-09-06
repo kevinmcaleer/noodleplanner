@@ -4,6 +4,7 @@ Depends on: date_math (for parse_duration_to_days used inside extract_metadata).
 """
 
 import re
+
 import logging
 from datetime import timedelta
 from dateutil.parser import parse as parse_date
@@ -11,6 +12,35 @@ from dateutil.parser import parse as parse_date
 from .date_math import parse_duration_to_days
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Task-line patterns, compiled once. extract_metadata runs once per task line
+# on every parse, and these used to be recompiled (or at least re-looked-up in
+# re's cache) about forty times per task (#789).
+# ---------------------------------------------------------------------------
+_TOKEN_SPLIT = re.compile(r'(?<!\\)\s+')
+_QUALITY_ROLE = re.compile(r'^(.+?):(P|R|A)$', re.IGNORECASE)
+_DEPENDS_BLOCK = re.compile(r'\[depends[^\]]*\]', re.IGNORECASE)
+_DELIVERABLE = re.compile(r'([/^])?\$([A-Za-z_][A-Za-z0-9_-]*)')
+_LABEL = re.compile(r'#([^@%#!\s]+)')
+_BRACKET_DEP = re.compile(r'\[depends\s*:?\s*([^\]]*)\]', re.IGNORECASE)
+_LAG_LEAD = re.compile(r'^(.+?)\s+([+\-]\d+[dwmy])$')
+_DEP_TYPE = re.compile(r'^(.+?):(FS|SS|FF|SF)$', re.IGNORECASE)
+_RECURRENCE = re.compile(r'\[repeats\s+([^\]]+)\]', re.IGNORECASE)
+_BUCKET = re.compile(r'\{([^}]+)\}')
+_PRIORITY = re.compile(r'(?<!\w)(!!!|!!|!)(?!["\'])')
+_BANG_COMMENT = re.compile(r'!(?:"([^"]+)"|\'([^\']+)\')')
+_DQ_COMMENT = re.compile(r'"([^"]+)"')
+_SQ_COMMENT = re.compile(r"'([^']+)'")
+_EFFORT = re.compile(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?')
+_PERCENT = re.compile(r'(\d{1,3})%')
+_LEGACY_PERCENT = re.compile(r'\bp(\d{1,3})\b')
+_LEVELLED = re.compile(r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]', re.IGNORECASE)
+_DATE = re.compile(r'(\d{4}-\d{2}-\d{2})')
+_DURATION = re.compile(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b')
+_LEGACY_DURATION = re.compile(r':p(\d+)d')
+_DESCRIPTION = re.compile(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)")
+_PERCENT_TOKEN = re.compile(r'\s*\b\d{1,3}%')
 
 
 def parse_recurrence(recurrence_str):
@@ -164,7 +194,7 @@ def generate_recurrence_occurrences(task, window_start, window_end):
 
 def extract_metadata(task_str, task_name=None):
     meta = {}
-    tokens = re.split(r'(?<!\\)\s+', task_str)
+    tokens = _TOKEN_SPLIT.split(task_str)
     resources = [t for t in tokens if t.startswith('@')]
 
     # Separate quality-role assignments (@resource:P/R/A) from regular resources
@@ -173,7 +203,7 @@ def extract_metadata(task_str, task_name=None):
     for r in resources:
         name = r.lstrip('@')
         # Check for :P, :R, or :A suffix (case-insensitive)
-        qr_match = re.match(r'^(.+?):(P|R|A)$', name, re.IGNORECASE)
+        qr_match = _QUALITY_ROLE.match(name)
         if qr_match:
             res_name = qr_match.group(1)
             role_letter = qr_match.group(2).upper()
@@ -188,13 +218,12 @@ def extract_metadata(task_str, task_name=None):
 
     # Extract deliverable/product marker using $ prefix (e.g. $fuselage, $avionics)
     # Supports product type prefixes: /$name (group), ^$name (external), $name (internal)
-    deliverable_pattern = r'([/^])?\$([A-Za-z_][A-Za-z0-9_-]*)'
     # A $token inside [depends ...] is a reference to another product, not
     # this task's own deliverable, so search the line with that block removed.
     # Otherwise "Build [depends $GW2]" registers Build as $GW2 and the
     # dependency resolves to Build itself.
-    outside_depends = re.sub(r'\[depends[^\]]*\]', '', task_str, flags=re.IGNORECASE)
-    deliverable_match = re.search(deliverable_pattern, outside_depends)
+    outside_depends = _DEPENDS_BLOCK.sub('', task_str)
+    deliverable_match = _DELIVERABLE.search(outside_depends)
     if deliverable_match:
         meta['deliverable'] = deliverable_match.group(2)
         prefix = deliverable_match.group(1)
@@ -206,8 +235,7 @@ def extract_metadata(task_str, task_name=None):
             meta['product_type'] = 'internal'
 
     # Extract labels/tags using # prefix (e.g. #urgent, #DEV)
-    label_pattern = r'#([^@%#!\s]+)'
-    label_matches = re.findall(label_pattern, task_str)
+    label_matches = _LABEL.findall(task_str)
     if label_matches:
         meta['labels'] = [l.strip() for l in label_matches]
 
@@ -217,8 +245,7 @@ def extract_metadata(task_str, task_name=None):
     # Valid types: FS (default), SS, FF, SF
     # A colon after the keyword ([depends: task1]) is accepted too — the .mpp
     # importer writes that form, and users type it.
-    bracket_dep_pattern = r'\[depends\s*:?\s*([^\]]*)\]'
-    bracket_dep_match = re.search(bracket_dep_pattern, task_str, re.IGNORECASE)
+    bracket_dep_match = _BRACKET_DEP.search(task_str)
     if bracket_dep_match:
         # Split by comma and parse each dependency with optional lag/lead
         raw_deps = bracket_dep_match.group(1).strip()
@@ -233,12 +260,12 @@ def extract_metadata(task_str, task_name=None):
                 if not dep_spec:
                     continue
                 # Check for lag/lead time: "TaskName +2d" or "TaskName:SS +2d"
-                lag_lead_match = re.search(r'^(.+?)\s+([+\-]\d+[dwmy])$', dep_spec)
+                lag_lead_match = _LAG_LEAD.search(dep_spec)
                 if lag_lead_match:
                     dep_task_name = lag_lead_match.group(1).strip()
                     lag_lead_str = lag_lead_match.group(2)
                     # Check for dependency type suffix on the task name
-                    type_match = re.search(r'^(.+?):(FS|SS|FF|SF)$', dep_task_name, re.IGNORECASE)
+                    type_match = _DEP_TYPE.search(dep_task_name)
                     if type_match:
                         dep_task_name = type_match.group(1).strip()
                         dep_type = type_match.group(2).upper()
@@ -248,7 +275,7 @@ def extract_metadata(task_str, task_name=None):
                     lag_lead_map[dep_task_name] = lag_lead_str
                 else:
                     # Check for dependency type suffix: "TaskName:SS"
-                    type_match = re.search(r'^(.+?):(FS|SS|FF|SF)$', dep_spec, re.IGNORECASE)
+                    type_match = _DEP_TYPE.search(dep_spec)
                     if type_match:
                         dep_task_name = type_match.group(1).strip()
                         dep_type = type_match.group(2).upper()
@@ -269,8 +296,7 @@ def extract_metadata(task_str, task_name=None):
         meta['depends'] = dep_list
 
     # Extract recurrence using [repeats ...] syntax
-    recurrence_pattern = r'\[repeats\s+([^\]]+)\]'
-    recurrence_match = re.search(recurrence_pattern, task_str, re.IGNORECASE)
+    recurrence_match = _RECURRENCE.search(task_str)
     if recurrence_match:
         meta['recurrence'] = parse_recurrence(recurrence_match.group(1))
 
@@ -282,14 +308,14 @@ def extract_metadata(task_str, task_name=None):
     else:
         logger.debug("[NOT SEQUENTIAL] Task '%s' not sequential (task_str: '%s')", task_name, task_str)
     # Extract bucket name from {BucketName} syntax
-    bucket_match = re.search(r'\{([^}]+)\}', task_str)
+    bucket_match = _BUCKET.search(task_str)
     if bucket_match:
         meta['bucket'] = bucket_match.group(1).strip()
 
     # Extract priority from ! markers (!!!=Urgent, !!=Important, !=Medium, none=Low)
     # Must check for !!! before !! before ! to match greedily
     # Only match standalone ! markers, not !"comment" patterns
-    priority_match = re.search(r'(?<!\w)(!!!|!!|!)(?!["\'])', task_str)
+    priority_match = _PRIORITY.search(task_str)
     if priority_match:
         marker = priority_match.group(1)
         if marker == '!!!':
@@ -302,22 +328,22 @@ def extract_metadata(task_str, task_name=None):
         meta['priority'] = 'Low'
 
     # Support both !"comment" and "comment" formats
-    comment_match = re.search(r'!(?:"([^"]+)"|\'([^\']+)\')', task_str)
+    comment_match = _BANG_COMMENT.search(task_str)
     if comment_match:
         meta['comment'] = comment_match.group(1) if comment_match.group(1) is not None else comment_match.group(2)
     else:
         # Also support plain quoted text as comments
-        comment_match = re.search(r'"([^"]+)"', task_str)
+        comment_match = _DQ_COMMENT.search(task_str)
         if comment_match:
             meta['comment'] = comment_match.group(1)
         else:
-            comment_match = re.search(r"'([^']+)'", task_str)
+            comment_match = _SQ_COMMENT.search(task_str)
             if comment_match:
                 meta['comment'] = comment_match.group(1)
 
     # Extract effort using ~ prefix: ~8h, ~3d, ~8h/16h, ~2d/5d
     # Format: ~completed/total or ~total (if no slash, it's the total with 0 completed)
-    effort_match = re.search(r'~(\d+(?:\.\d+)?)(h|d)(?:/(\d+(?:\.\d+)?)(h|d))?', task_str)
+    effort_match = _EFFORT.search(task_str)
     if effort_match:
         completed_val = float(effort_match.group(1))
         completed_unit = effort_match.group(2)
@@ -341,12 +367,12 @@ def extract_metadata(task_str, task_name=None):
             meta['effort_remaining_unit'] = completed_unit
 
     # Support both new format (10%) and old format (p10)
-    percent_match = re.search(r'(\d{1,3})%', task_str)
+    percent_match = _PERCENT.search(task_str)
     if percent_match:
         meta['percent'] = max(0, min(100, int(percent_match.group(1))))
     else:
         # Fall back to old format
-        percent_match = re.search(r'\bp(\d{1,3})\b', task_str)
+        percent_match = _LEGACY_PERCENT.search(task_str)
         if percent_match:
             meta['percent'] = max(0, min(100, int(percent_match.group(1))))
 
@@ -371,8 +397,7 @@ def extract_metadata(task_str, task_name=None):
     # honours the levelled start. The flag is stripped from the string
     # used for other date matching so the embedded YYYY-MM-DD isn't picked
     # up twice.
-    levelled_pattern = r'\[levelled\s+@?(\S+)\s+(\d{4}-\d{2}-\d{2})\s*\]'
-    levelled_match = re.search(levelled_pattern, task_str, re.IGNORECASE)
+    levelled_match = _LEVELLED.search(task_str)
     task_str_for_dates = task_str
     if levelled_match:
         meta['levelled'] = {
@@ -385,14 +410,14 @@ def extract_metadata(task_str, task_name=None):
         meta['start'] = parse_date(levelled_match.group(2))
         meta['due'] = levelled_match.group(2)
     else:
-        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', task_str_for_dates)
+        date_match = _DATE.search(task_str_for_dates)
         if date_match:
             meta['due'] = date_match.group(1)
             meta['start'] = parse_date(date_match.group(1))
 
     # Support new simple format: 10d, 2w, 3m, 1y
     # Use negative lookbehind to avoid matching effort tokens (prefixed with ~)
-    duration_match = re.search(r'(?<!~)(?<![~/])\b(\d+)([dwmy])\b', task_str)
+    duration_match = _DURATION.search(task_str)
     if duration_match:
         value = int(duration_match.group(1))
         unit = duration_match.group(2)
@@ -406,15 +431,15 @@ def extract_metadata(task_str, task_name=None):
             meta['duration'] = timedelta(days=value * 365)  # Approximate year as 365 days
     else:
         # Fall back to old format :p10d
-        duration_match = re.search(r':p(\d+)d', task_str)
+        duration_match = _LEGACY_DURATION.search(task_str)
         if duration_match:
             meta['duration'] = timedelta(days=int(duration_match.group(1)))
 
-    desc_match = re.match(r"\*?(.*?)([/^]?\$[A-Za-z]|@|#|!|\"|{|\[|\d{4}-\d{2}-\d{2}|:p\d+d|\d+[dwmy]|\d+%|~\d|$)", task_str)
+    desc_match = _DESCRIPTION.match(task_str)
     if desc_match:
         desc = desc_match.group(1).strip()
         # Safety: strip any percent tokens that slipped into the description
-        desc = re.sub(r'\s*\b\d{1,3}%', '', desc).strip()
+        desc = _PERCENT_TOKEN.sub('', desc).strip()
         meta['description'] = desc
     return meta
 
