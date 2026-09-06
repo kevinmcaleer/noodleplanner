@@ -1,16 +1,25 @@
 {
   "name": "noodleplanner",
   "private": true,
-  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: mppwriter is vendored into static/vendor/mppwriter by `npm run vendor:mppwriter`.",
+  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: the libraries the browser loads (mppwriter, jspdf, docx, DejaVu Sans Mono, exceljs) are vendored into static/vendor/<lib> by the `npm run vendor:<lib>` scripts.",
   "license": "MIT",
   "scripts": {
     "vendor:mppwriter": "node scripts/vendor-mppwriter.mjs",
-    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
+    "vendor:jspdf": "node scripts/vendor-jspdf.mjs",
+    "vendor:docx": "node scripts/vendor-docx.mjs",
+    "vendor:dejavu": "node scripts/vendor-dejavu.mjs",
+    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu",
+    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_pdf_docx_browser_export.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
+    "dejavu-fonts-ttf": "2.37.3",
+    "docx": "9.7.1",
     "exceljs": "4.4.0",
     "fake-indexeddb": "6.2.5",
-    "mppwriter": "0.4.0"
+    "jspdf": "4.2.1",
+    "jszip": "3.10.1",
+    "mppwriter": "0.4.0",
+    "pdfjs-dist": "6.3.289"
   },
   "overrides": {
     "uuid": "11.1.1"
