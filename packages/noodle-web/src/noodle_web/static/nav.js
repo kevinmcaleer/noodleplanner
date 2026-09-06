@@ -395,8 +395,44 @@ function updateNavActiveState(viewName) {
 
 // Navigation constants (PLAN_VIEWS, TRACKING_VIEWS, etc.) are in state.js
 
+const RIBBON_SCOPE_VIEW_MAP = {
+    gantt: ['tasks', 'gantt', 'calendar', 'milestones', 'timeline'],
+    board: ['kanban', 'mindmap', 'deliverables', 'product-flow'],
+    tracking: ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm', 'comms', 'lessons']
+};
+
+function getRibbonScopeForView(viewName) {
+    if (RIBBON_SCOPE_VIEW_MAP.gantt.includes(viewName)) return 'gantt';
+    if (RIBBON_SCOPE_VIEW_MAP.board.includes(viewName)) return 'board';
+    if (RIBBON_SCOPE_VIEW_MAP.tracking.includes(viewName)) return 'tracking';
+    return 'default';
+}
+
+function updateProjectRibbon(viewName) {
+    const ribbon = document.getElementById('projectRibbon');
+    if (!ribbon) return;
+
+    const isProjectView = ALL_PROJECT_VIEWS.includes(viewName);
+    ribbon.classList.toggle('visible', isProjectView);
+    if (!isProjectView) return;
+
+    const scope = getRibbonScopeForView(viewName);
+    ribbon.querySelectorAll('.ribbon-view-group').forEach(group => {
+        const isScopeMatch = group.dataset.ribbonScope === scope;
+        group.classList.toggle('active', isScopeMatch);
+        if (isScopeMatch) {
+            group.querySelectorAll('.ribbon-tab[data-view]').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.view === viewName);
+                tab.setAttribute('aria-selected', tab.dataset.view === viewName ? 'true' : 'false');
+            });
+        }
+    });
+}
+
 // Show or hide all sub-navs and highlight the active button
 function updatePlanSubnav(viewName) {
+    updateProjectRibbon(viewName);
+
     SUBNAV_GROUPS.forEach(({ id, views }) => {
         const subnav = document.getElementById(id);
         if (!subnav) return;

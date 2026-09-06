@@ -12,6 +12,11 @@
         font-size: 0.82em;
     }
 
+    .ribbon-tab,
+    .ribbon-action-btn {
+        min-height: 40px;
+    }
+
     .gantt-table-side {
         width: 280px;
     }
@@ -146,6 +151,34 @@
     .plan-subnav-btn {
         padding: 4px 8px;
         font-size: 0.8em;
+    }
+
+    .ribbon-toolbar {
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .ribbon-view-tabs,
+    .ribbon-actions {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .ribbon-view-tabs::-webkit-scrollbar,
+    .ribbon-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .ribbon-view-group {
+        flex-wrap: nowrap;
+    }
+
+    .ribbon-tab,
+    .ribbon-action-btn {
+        min-height: 44px;
+        white-space: nowrap;
     }
 
     /* Hide the vertical splitter on mobile, show a horizontal toggle instead */
@@ -526,4 +559,3 @@
         opacity: 1;
     }
 }
-
