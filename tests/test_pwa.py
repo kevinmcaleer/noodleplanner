@@ -118,6 +118,11 @@ class TestPage:
         assert "window.addEventListener('online', checkForUpdate)" in html
         assert "60 * 60 * 1000" in html
 
+    def test_page_displays_the_app_and_build_version(self, client):
+        html = client.get("/").text
+        assert 'id="statusBarAppVersion"' in html
+        assert f"App v{app.version}+{STATIC_VERSION}" in html
+
     def test_csp_allows_a_same_origin_worker_and_manifest(self, client):
         csp = client.get("/").headers["content-security-policy"]
         assert "default-src 'self'" in csp

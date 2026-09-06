@@ -24,6 +24,8 @@ try:
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options as ChromeOptions
     from selenium.webdriver.chrome.service import Service as ChromeService
+    from selenium.webdriver.common.actions.action_builder import ActionBuilder
+    from selenium.webdriver.common.actions.pointer_input import PointerInput
     from selenium.webdriver.common.by import By
     from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support.ui import WebDriverWait
@@ -495,6 +497,60 @@ class TestResponsiveLayout:
 
 class TestTouchInteractions:
     """Verify representative touch paths in a real browser."""
+
+    def test_tools_menu_opens_above_tablet_scroll_container(
+        self, browser, app_server
+    ):
+        browser.set_window_size(1024, 768)
+        browser.get(app_server)
+        browser.find_element(By.ID, "planTab").click()
+        button = WebDriverWait(browser, 5).until(
+            EC.element_to_be_clickable((By.ID, "toolsDropdownBtn"))
+        )
+        browser.execute_script("""
+            document.querySelectorAll('.raid-export-item').forEach(function (item) {
+                item.style.display = 'block';
+            });
+        """)
+
+        browser.execute_script("arguments[0].scrollIntoView({block: 'nearest'});", button)
+        touch = ActionBuilder(browser, mouse=PointerInput("touch", "finger"))
+        touch.pointer_action.move_to(button)
+        touch.pointer_action.pointer_down()
+        touch.pointer_action.pointer_up()
+        touch.perform()
+
+        result = browser.execute_script("""
+            const button = document.getElementById('toolsDropdownBtn');
+            const menu = document.getElementById('toolsDropdownMenu');
+            const rect = menu.getBoundingClientRect();
+            const statusBarTop = document.querySelector('.status-bar').getBoundingClientRect().top;
+            const lastItem = menu.querySelector('.raid-export-item:last-child');
+            menu.scrollTop = menu.scrollHeight;
+            const lastRect = lastItem.getBoundingClientRect();
+            const hit = document.elementFromPoint(
+                lastRect.left + lastRect.width / 2,
+                lastRect.top + lastRect.height / 2
+            );
+            return {
+                expanded: button.getAttribute('aria-expanded'),
+                shown: menu.classList.contains('show'),
+                positioned: menu.classList.contains('nav-menu-viewport'),
+                clearOfStatusBar: rect.bottom <= statusBarTop,
+                lastItemHit: hit === lastItem || lastItem.contains(hit),
+                menuBottom: rect.bottom,
+                statusBarTop: statusBarTop,
+                lastItemTop: lastRect.top,
+                lastItemBottom: lastRect.bottom,
+                hitClass: hit ? hit.className : null
+            };
+        """)
+        assert result["expanded"] == "true"
+        assert result["shown"] is True
+        assert result["positioned"] is True
+        assert result["clearOfStatusBar"] is True
+        assert result["lastItemHit"] is True, result
+        browser.set_window_size(1280, 900)
 
     def test_shared_controls_have_touch_targets(self, browser, app_server):
         browser.set_window_size(375, 667)

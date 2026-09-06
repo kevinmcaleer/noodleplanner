@@ -125,6 +125,13 @@
     flex-shrink: 0;
 }
 
+.status-bar-app-version {
+    color: var(--np-text-muted, #888888);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+
 .status-bar-btn {
     display: inline-flex;
     align-items: center;

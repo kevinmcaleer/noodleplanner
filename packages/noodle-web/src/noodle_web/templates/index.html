@@ -4266,6 +4266,9 @@ Build
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
         <div class="status-bar-right">
+            <span class="status-bar-app-version" id="statusBarAppVersion"
+                  title="NoodlePlanner application version and deployed build"
+                  aria-label="NoodlePlanner application version {{ app_version }}, build {{ v }}">App v{{ app_version }}+{{ v }}</span>
             <button class="status-bar-btn status-bar-version-btn" id="statusBarVersionBtn" onclick="toggleVersionHistoryPanel()" title="Version History" aria-label="Toggle version history">
                 <i class="bi bi-clock-history"></i>
                 <span class="status-bar-btn-label" id="statusBarVersion">v1.0</span>

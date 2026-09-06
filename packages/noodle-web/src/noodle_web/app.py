@@ -119,12 +119,19 @@ templates = Jinja2Templates(directory=str(package_dir / "templates"))
 
 
 def _static_version():
-    """Generate a cache-busting version string from static file contents."""
-    static_dir = package_dir / "static"
-    h = hashlib.md5()
-    for f in sorted(static_dir.rglob("*")):
-        if f.is_file():
-            h.update(str(f.stat().st_mtime_ns).encode())
+    """Generate a deterministic build ID from the web app's served sources."""
+    files = list(package_dir.rglob("*.py"))
+    for root_name in ("static", "templates"):
+        files.extend(
+            path for path in (package_dir / root_name).rglob("*")
+            if path.is_file()
+        )
+
+    h = hashlib.sha256()
+    for f in sorted(set(files)):
+        h.update(f.relative_to(package_dir).as_posix().encode())
+        h.update(b"\0")
+        h.update(f.read_bytes())
     return h.hexdigest()[:8]
 
 
@@ -228,6 +235,7 @@ async def index(request: Request):
     """Serve the main HTML page."""
     return templates.TemplateResponse(request, "index.html", {
         "v": STATIC_VERSION,
+        "app_version": app.version,
     })
 
 
@@ -236,6 +244,7 @@ async def index_with_template(request: Request, template_content: str = Form(Non
     """Serve the main HTML page with template content pre-loaded."""
     return templates.TemplateResponse(request, "index.html", {
         "v": STATIC_VERSION,
+        "app_version": app.version,
         "template_content": template_content,
     })
 
