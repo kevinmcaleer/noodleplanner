@@ -430,6 +430,38 @@ class TestSubNavigation:
             "Gantt sub-view button not active after click"
 
 
+class TestRibbonNavigation:
+    """Verify the project ribbon switches scope and active tabs by view context."""
+
+    def test_ribbon_scope_updates_for_gantt_board_and_tracking(self, browser, app_server):
+        browser.get(app_server)
+        result = browser.execute_script(
+            """
+            switchToView('gantt');
+            const ganttScope = document.querySelector('#projectRibbon .ribbon-view-group.active')?.dataset.ribbonScope;
+            const ganttTab = document.querySelector('#projectRibbon .ribbon-view-group.active .ribbon-tab.active')?.dataset.view;
+
+            switchPlanSubnavToBoard();
+            const boardScope = document.querySelector('#projectRibbon .ribbon-view-group.active')?.dataset.ribbonScope;
+            const boardTab = document.querySelector('#projectRibbon .ribbon-view-group.active .ribbon-tab.active')?.dataset.view;
+
+            switchToView('comms');
+            const trackingScope = document.querySelector('#projectRibbon .ribbon-view-group.active')?.dataset.ribbonScope;
+            const trackingTab = document.querySelector('#projectRibbon .ribbon-view-group.active .ribbon-tab.active')?.dataset.view;
+
+            return { ganttScope, ganttTab, boardScope, boardTab, trackingScope, trackingTab };
+            """
+        )
+        assert result == {
+            "ganttScope": "gantt",
+            "ganttTab": "gantt",
+            "boardScope": "board",
+            "boardTab": "kanban",
+            "trackingScope": "tracking",
+            "trackingTab": "comms",
+        }
+
+
 class TestKeyboardNavigation:
     """Verify basic keyboard accessibility."""
 

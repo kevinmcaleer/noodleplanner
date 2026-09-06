@@ -27,6 +27,9 @@ class TestRibbonToolbar:
         assert 'data-ribbon-scope="tracking"' in html
         assert "RAID Log" in html
         assert "Comms Plan" in html
+        assert 'data-view="product-flow"' in html
+        assert 'role="tab"' in html
+        assert 'aria-selected="true"' in html
 
     def test_ribbon_uses_icons_not_emojis_for_toolbar_actions(self):
         with open(

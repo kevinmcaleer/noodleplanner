@@ -1,36 +1,37 @@
 <div class="editor-toolbar ribbon-toolbar" id="projectRibbon" role="toolbar" aria-label="Project ribbon toolbar">
     <div class="ribbon-view-tabs">
         <div class="ribbon-view-group active" data-ribbon-scope="default" role="tablist" aria-label="Project views">
-            <button class="ribbon-tab active" data-view="project-report" onclick="switchPlanSubnavToDashboard()">Dashboard</button>
-            <button class="ribbon-tab" data-view="tasks" onclick="switchToView('tasks')">Tasks</button>
-            <button class="ribbon-tab" data-view="gantt" onclick="switchToView('gantt')">Gantt</button>
-            <button class="ribbon-tab" data-view="kanban" onclick="switchPlanSubnavToBoard()">Board</button>
-            <button class="ribbon-tab" data-view="raid" onclick="switchToView('raid')">RAID</button>
-            <button class="ribbon-tab" data-view="comms" onclick="switchToView('comms')">Comms</button>
+            <button class="ribbon-tab active" role="tab" aria-selected="true" data-view="project-report" onclick="switchPlanSubnavToDashboard()">Dashboard</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="tasks" onclick="switchToView('tasks')">Tasks</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="gantt" onclick="switchToView('gantt')">Gantt</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="kanban" onclick="switchPlanSubnavToBoard()">Board</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="raid" onclick="switchToView('raid')">RAID</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="comms" onclick="switchToView('comms')">Comms</button>
         </div>
         <div class="ribbon-view-group" data-ribbon-scope="gantt" role="tablist" aria-label="Gantt view tabs">
-            <button class="ribbon-tab" data-view="tasks" onclick="switchToView('tasks')">Tasks</button>
-            <button class="ribbon-tab" data-view="gantt" onclick="switchToView('gantt')">Gantt</button>
-            <button class="ribbon-tab" data-view="calendar" onclick="switchToView('calendar')">Calendar</button>
-            <button class="ribbon-tab" data-view="milestones" onclick="switchToView('milestones')">Milestones</button>
-            <button class="ribbon-tab" data-view="timeline" onclick="switchToView('timeline')">Timeline</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="tasks" onclick="switchToView('tasks')">Tasks</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="gantt" onclick="switchToView('gantt')">Gantt</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="calendar" onclick="switchToView('calendar')">Calendar</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="milestones" onclick="switchToView('milestones')">Milestones</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="timeline" onclick="switchToView('timeline')">Timeline</button>
         </div>
         <div class="ribbon-view-group" data-ribbon-scope="board" role="tablist" aria-label="Board view tabs">
-            <button class="ribbon-tab" data-view="tasks" onclick="switchToView('tasks')">Tasks</button>
-            <button class="ribbon-tab" data-view="kanban" onclick="switchPlanSubnavToBoard()">Board</button>
-            <button class="ribbon-tab" data-view="mindmap" onclick="switchToView('mindmap')">Mind Map</button>
-            <button class="ribbon-tab" data-view="deliverables" onclick="switchToView('deliverables')">Deliverables</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="tasks" onclick="switchToView('tasks')">Tasks</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="kanban" onclick="switchPlanSubnavToBoard()">Board</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="mindmap" onclick="switchToView('mindmap')">Mind Map</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="deliverables" onclick="switchToView('deliverables')">Deliverables</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="product-flow" onclick="switchToView('product-flow')">Product Flow</button>
         </div>
         <div class="ribbon-view-group" data-ribbon-scope="tracking" role="tablist" aria-label="Tracking view tabs">
-            <button class="ribbon-tab" data-view="raid" onclick="switchToView('raid')">RAID Log</button>
-            <button class="ribbon-tab" data-view="actions" onclick="switchToView('actions')">Actions</button>
-            <button class="ribbon-tab" data-view="highlights" onclick="switchToView('highlights')">Highlights</button>
-            <button class="ribbon-tab" data-view="lookahead" onclick="switchToView('lookahead')">Look-Ahead</button>
-            <button class="ribbon-tab" data-view="analysis" onclick="switchToView('analysis')">Analysis</button>
-            <button class="ribbon-tab" data-view="budget" onclick="switchToView('budget')">Budget</button>
-            <button class="ribbon-tab" data-view="evm" onclick="switchToView('evm')">EVM</button>
-            <button class="ribbon-tab" data-view="comms" onclick="switchToView('comms')">Comms Plan</button>
-            <button class="ribbon-tab" data-view="lessons" onclick="switchToView('lessons')">Lessons</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="raid" onclick="switchToView('raid')">RAID Log</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="actions" onclick="switchToView('actions')">Actions</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="highlights" onclick="switchToView('highlights')">Highlights</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="lookahead" onclick="switchToView('lookahead')">Look-Ahead</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="analysis" onclick="switchToView('analysis')">Analysis</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="budget" onclick="switchToView('budget')">Budget</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="evm" onclick="switchToView('evm')">EVM</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="comms" onclick="switchToView('comms')">Comms Plan</button>
+            <button class="ribbon-tab" role="tab" aria-selected="false" data-view="lessons" onclick="switchToView('lessons')">Lessons</button>
         </div>
     </div>
     <div class="ribbon-actions" role="group" aria-label="Editor actions">
