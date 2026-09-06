@@ -105,7 +105,7 @@ Once rendered you can explore your project through multiple views using the sub-
 Step 5: Save Your Work
 -----------------------
 
-NoodlePlanner keeps your plan in the browser's local storage automatically. To save a copy as a Markdown file:
+NoodlePlanner keeps your plan in your browser automatically (in an IndexedDB database on this machine; nothing is sent to a server). To save a copy as a Markdown file:
 
 - Press **Ctrl+S** (Windows/Linux) or **Cmd+S** (Mac) to download your plan as a ``.md`` file
 - Or click the **Save** icon (floppy disk) in the editor toolbar
@@ -113,6 +113,9 @@ NoodlePlanner keeps your plan in the browser's local storage automatically. To s
 You can also export to other formats via **Tools** → **Export** (Excel, PowerPoint, PDF, CSV).
 
 To reload a saved plan, drag and drop the ``.md`` file onto the editor.
+
+To keep a copy of *every* project, with its version history, use
+**Settings → Storage → Download backup**. See :doc:`/how-to/back-up-your-projects`.
 
 Next Steps
 ----------

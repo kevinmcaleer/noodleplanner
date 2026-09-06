@@ -16,6 +16,11 @@ const VERSION_HISTORY_PREFIX = 'noodle_history_';
 const VERSION_RETENTION_KEY = 'noodle_version_retention_days';
 const DEFAULT_RETENTION_DAYS = 14;
 const MAX_VERSIONS_PER_PROJECT = 50; // safety cap to limit localStorage usage
+// Each snapshot is a full copy of the plan, so fifty of a 21 KB plan is a
+// megabyte: a fifth of the whole localStorage quota for one project (#794).
+// History is capped by bytes as well as by count, and is the first thing
+// evicted when a plan save hits the quota.
+const MAX_HISTORY_BYTES_PER_PROJECT = 512 * 1024;
 
 // ---------------------------------------------------------------------------
 // Read-only mode state
@@ -33,6 +38,9 @@ function getVersionHistoryKey(projectId) {
 }
 
 function getVersionHistory(projectId) {
+    if (typeof projectStoreActive === 'function' && projectStoreActive()) {
+        return NoodleStore.getVersionHistory(projectId);
+    }
     try {
         const raw = localStorage.getItem(getVersionHistoryKey(projectId));
         return raw ? JSON.parse(raw) : [];
@@ -42,14 +50,122 @@ function getVersionHistory(projectId) {
     }
 }
 
-function saveVersionHistory(projectId, history) {
-    try {
-        localStorage.setItem(getVersionHistoryKey(projectId), JSON.stringify(history));
-        return true;
-    } catch (e) {
-        console.error('Error saving version history:', e);
-        return false;
+/**
+ * Approximate storage cost of a history array (characters of plan text).
+ */
+function historyBytes(history) {
+    let total = 0;
+    for (let i = 0; i < history.length; i++) {
+        total += (history[i].planText || '').length + 80;
     }
+    return total;
+}
+
+/**
+ * Drop the oldest entries (history is newest-first) until the array fits
+ * the count and byte caps. Returns a new array; the input is not modified.
+ */
+function trimHistoryToBudget(history) {
+    let trimmed = history.slice(0, MAX_VERSIONS_PER_PROJECT);
+    while (trimmed.length > 1 && historyBytes(trimmed) > MAX_HISTORY_BYTES_PER_PROJECT) {
+        trimmed = trimmed.slice(0, trimmed.length - 1);
+    }
+    return trimmed;
+}
+
+/**
+ * Write a project's history. Never lets history block a plan save: on a
+ * quota error the older half is dropped and the write retried until it fits,
+ * and the user is told. Returns true when the history was written, false
+ * (after telling the user) when not even one snapshot fits.
+ */
+function saveVersionHistory(projectId, history) {
+    if (typeof projectStoreActive === 'function' && projectStoreActive()) {
+        // IndexedDB has room for the full fifty snapshots; only the count cap
+        // applies. Snapshots that have not changed are not rewritten.
+        NoodleStore.setVersionHistory(projectId, history.slice(0, MAX_VERSIONS_PER_PROJECT));
+        return true;
+    }
+    const key = getVersionHistoryKey(projectId);
+    let entries = trimHistoryToBudget(history);
+    let quotaDropped = 0; // entries lost to the quota, over and above the budget cap
+    for (;;) {
+        try {
+            if (entries.length === 0) {
+                localStorage.removeItem(key);
+            } else {
+                localStorage.setItem(key, JSON.stringify(entries));
+            }
+            if (quotaDropped > 0 && typeof showStorageNotice === 'function') {
+                showStorageNotice('history-trimmed',
+                    'Browser storage is nearly full: ' + quotaDropped + ' older plan version' + (quotaDropped === 1 ? '' : 's') +
+                    ' were removed. Your plan itself is safe.', 'warning', false);
+            }
+            return true;
+        } catch (e) {
+            const quota = (typeof isStorageQuotaError === 'function') ? isStorageQuotaError(e) : false;
+            if (!quota || entries.length === 0) {
+                if (typeof reportStorageFailure === 'function') {
+                    reportStorageFailure('version history', e);
+                } else {
+                    console.error('Error saving version history:', e);
+                }
+                return false;
+            }
+            const keep = Math.floor(entries.length / 2);
+            if (keep === 0) {
+                // Not even one snapshot fits. Leave whatever history is already
+                // stored alone rather than deleting it, and say so.
+                if (typeof reportStorageFailure === 'function') {
+                    reportStorageFailure('version history', e);
+                } else {
+                    console.error('Error saving version history:', e);
+                }
+                return false;
+            }
+            quotaDropped += entries.length - keep;
+            entries = entries.slice(0, keep);
+        }
+    }
+}
+
+/**
+ * Free localStorage by evicting the older half of every project's version
+ * history (and any history that has already shrunk to one entry). Called by
+ * saveAllProjects when a plan save hits the quota: the current plan text is
+ * always worth more than old snapshots of it. Returns the number of
+ * snapshots removed, 0 when there was nothing left to evict.
+ */
+function freeVersionHistorySpace() {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(VERSION_HISTORY_PREFIX) === 0) keys.push(k);
+    }
+    let removed = 0;
+    keys.forEach(function (key) {
+        let history;
+        try {
+            history = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch (e) {
+            history = [];
+        }
+        if (!Array.isArray(history) || history.length <= 1) {
+            removed += history.length || 0;
+            localStorage.removeItem(key);
+            return;
+        }
+        const keep = Math.floor(history.length / 2);
+        try {
+            localStorage.setItem(key, JSON.stringify(history.slice(0, keep)));
+            removed += history.length - keep;
+        } catch (e) {
+            // Even the smaller write failed: give the whole history up.
+            localStorage.removeItem(key);
+            removed += history.length;
+        }
+    });
+    return removed;
 }
 
 function getRetentionDays() {
@@ -561,9 +677,28 @@ function initVersionHistory() {
     updateVersionBadge();
 }
 
-// Run cleanup on app load
+// Run cleanup on app load, once the store has read its records.
+function scheduleInitVersionHistory() {
+    if (typeof NoodleStore !== 'undefined' && NoodleStore && typeof NoodleStore.whenReady === 'function') {
+        NoodleStore.whenReady().then(initVersionHistory);
+    } else {
+        initVersionHistory();
+    }
+}
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initVersionHistory);
+    document.addEventListener('DOMContentLoaded', scheduleInitVersionHistory);
 } else {
-    initVersionHistory();
+    scheduleInitVersionHistory();
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        MAX_VERSIONS_PER_PROJECT,
+        MAX_HISTORY_BYTES_PER_PROJECT,
+        getVersionHistory,
+        saveVersionHistory,
+        saveVersionSnapshot,
+        trimHistoryToBudget,
+        freeVersionHistorySpace,
+    };
 }

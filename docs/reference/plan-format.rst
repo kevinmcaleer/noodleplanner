@@ -298,16 +298,21 @@ they are until the view edits them.
 Where plan data lives
 ----------------------
 
-The browser stores each project's plan text verbatim under one
-``localStorage`` key (``static/project-storage.js``) and nothing else about
-the plan. Everything the views show is derived from that text on each
-render. The other keys the app uses are:
+The browser stores each project's plan text verbatim as one record in an
+IndexedDB database (``static/project-store.js``, see
+:doc:`/explanation/browser-local-store`) and nothing else about the plan.
+Everything the views show is derived from that text on each render. The
+other records the app keeps are:
 
-* version history — snapshots of the plan text, derived;
-* programme dependency propagation results — a cache of computed RAG for
-  the links declared in the front matter's ``dependencies`` key, derived;
-* theme, panel widths, mind-map colours, AI settings — UI preferences,
-  not plan data.
+* version history — snapshots of the plan text, one record each, derived;
+* programme dependencies — the links declared in the front matter's
+  ``dependencies`` key, kept as one metadata record so the portfolio can
+  propagate RAG across projects, derived;
+* theme, panel widths, mind-map colours, AI settings — UI preferences in
+  ``localStorage``, not plan data.
+
+Browsers without IndexedDB fall back to the previous single
+``localStorage`` key; the plan text is stored verbatim either way.
 
 There is no server-side persistence of plans, by design.
 

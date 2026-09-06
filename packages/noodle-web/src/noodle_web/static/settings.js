@@ -355,6 +355,11 @@ function switchSettingsTab(tabName) {
     document.querySelectorAll('.settings-tab-content').forEach(content => {
         content.classList.toggle('active', content.id === 'settingsTab-' + tabName);
     });
+
+    // The Storage tab shows live figures from the project store (#794)
+    if (tabName === 'storage' && typeof renderStorageSettings === 'function') {
+        renderStorageSettings();
+    }
 }
 
 // ---------------------------------------------------------------------------
