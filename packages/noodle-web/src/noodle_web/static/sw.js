@@ -16,7 +16,8 @@
  *
  * `__STATIC_VERSION__` is substituted by the /sw.js route from the same hash
  * the templates use for cache-busting, so every deployment installs a fresh
- * worker and clears the previous cache.
+ * worker and clears the previous cache. The page listens for that worker to
+ * take control and reloads once so an open installed app picks up the deploy.
  */
 const VERSION = "__STATIC_VERSION__";
 const CACHE = "noodleplanner-" + VERSION;
