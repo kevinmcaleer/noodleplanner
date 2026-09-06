@@ -51,6 +51,13 @@ Generates a presentation-ready report slide showing project overview, timeline, 
 1. Click **Tools** → **Export → PowerPoint**
 2. The file downloads as ``{project-name}.pptx``
 
+The report deck is built **in your browser**: a four-quadrant slide
+(milestones, up next, latest highlight, risks and issues) followed by a
+dedicated slide for the latest highlight, with the timeline image embedded
+when one has been captured. The portfolio deck, exported from the
+**Portfolio** view, adds an overview table and a combined risks slide before
+one slide per project. No plan data is sent to the server for either.
+
 PDF
 ~~~~
 

@@ -225,6 +225,29 @@ async function exportPortfolioReport() {
             timeline_image: timelineImageB64
         };
 
+        // The deck is built in the browser from this payload; nothing is sent
+        // to the server (issue #791). np-server-exports=1 keeps the server
+        // route, the same flag the other document exports use.
+        const serverExports = (() => {
+            try {
+                return typeof localStorage !== 'undefined' && localStorage.getItem('np-server-exports') === '1';
+            } catch (e) {
+                return false;
+            }
+        })();
+
+        if (!serverExports) {
+            const { exportPortfolioPptxInBrowser } = await import('/static/pptx-export.js');
+            const { filename } = await exportPortfolioPptxInBrowser(
+                { portfolio_name: payload.portfolio_name, date: payload.date, projects: payload.projects, timeline_image: payload.timeline_image },
+                payload.project_reports
+            );
+            if (typeof showMessage === 'function') {
+                showMessage('editor', 'success', 'Exported ' + filename);
+            }
+            return;
+        }
+
         const response = await fetch('/api/portfolio/export-pptx', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

@@ -9,8 +9,9 @@
     "vendor:docx": "node scripts/vendor-docx.mjs",
     "vendor:dejavu": "node scripts/vendor-dejavu.mjs",
     "vendor:exceljs": "node scripts/vendor-exceljs.mjs",
-    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs",
-    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_pdf_docx_browser_export.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
+    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:pptxgenjs",
+    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_pdf_docx_browser_export.mjs tests/test_pptx_browser_export.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done",
+    "vendor:pptxgenjs": "node scripts/vendor-pptxgenjs.mjs"
   },
   "devDependencies": {
     "dejavu-fonts-ttf": "2.37.3",
@@ -20,7 +21,8 @@
     "jspdf": "4.2.1",
     "jszip": "3.10.1",
     "mppwriter": "0.4.0",
-    "pdfjs-dist": "6.3.289"
+    "pdfjs-dist": "6.3.289",
+    "pptxgenjs": "4.0.1"
   },
   "overrides": {
     "uuid": "11.1.1"
