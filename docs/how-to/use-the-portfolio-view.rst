@@ -157,7 +157,7 @@ Status Bar Warnings
 
 NoodlePlanner monitors your programme dependencies and shows warnings in the status bar:
 
-- **Red warning** — a dependent project referenced in the front matter is missing from local storage. This means the project has been deleted or not yet imported.
+- **Red warning** — a dependent project referenced in the front matter is missing from this browser's project store. This means the project has been deleted or not yet imported.
 - **Amber warning** — a dependent activity has a non-green RAG status (Amber or Red), indicating a risk to your project's schedule.
 
 These warnings help you proactively manage cross-project risks during steering meetings and daily standups.
