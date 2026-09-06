@@ -92,7 +92,7 @@
    "priority": "Important",
    "product_type": "internal",
    "quality_roles": {},
-   "rag": "Behind Schedule",
+   "rag": "On Track",
    "recurrence": null,
    "resources": "Kevin McAleer",
    "start": "2026-06-01",
@@ -128,7 +128,7 @@
    "priority": "Low",
    "product_type": "internal",
    "quality_roles": {},
-   "rag": "Behind Schedule",
+   "rag": "On Track",
    "recurrence": null,
    "resources": "Kevin McAleer, , Adam Reid",
    "start": "2026-06-01",
@@ -166,7 +166,7 @@
    "priority": "Urgent",
    "product_type": "internal",
    "quality_roles": {},
-   "rag": "Task Overdue",
+   "rag": "Not Started",
    "recurrence": null,
    "resources": "",
    "start": "2026-06-04",
@@ -242,7 +242,7 @@
    "priority": "Low",
    "product_type": "internal",
    "quality_roles": {},
-   "rag": "Task Overdue",
+   "rag": "Not Started",
    "recurrence": null,
    "resources": "",
    "start": "2026-06-04",
@@ -280,7 +280,7 @@
    "quality_roles": {
     "adam": "R"
    },
-   "rag": "Task Overdue",
+   "rag": "Not Started",
    "recurrence": null,
    "resources": "",
    "start": "2026-06-04",
@@ -318,7 +318,7 @@
    "quality_roles": {
     "kev": "A"
    },
-   "rag": "Task Overdue",
+   "rag": "Not Started",
    "recurrence": null,
    "resources": "",
    "start": "2026-06-04",
@@ -354,7 +354,7 @@
    "priority": "Low",
    "product_type": "internal",
    "quality_roles": {},
-   "rag": "Task Overdue",
+   "rag": "Not Started",
    "recurrence": {
     "days": [],
     "frequency": "weekly",

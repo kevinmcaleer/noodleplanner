@@ -52,10 +52,16 @@ class _FrozenDatetime(_datetime.datetime):
 
 
 def freeze_time() -> None:
-    """Point the scheduler's clock at FROZEN_TODAY."""
-    from noodle_core import date_math
+    """Point every clock the payload depends on at FROZEN_TODAY.
+
+    Two modules read the time: ``date_math`` starts undated tasks from today,
+    and ``exporters`` compares against today to decide each task's RAG. Both
+    have to be frozen, or the corpus records a RAG that changes tomorrow.
+    """
+    from noodle_core import date_math, exporters
 
     date_math.datetime = _FrozenDatetime
+    exporters.datetime = _FrozenDatetime
 
 
 def build(plan_text: str, project_name: str | None = None) -> dict:
