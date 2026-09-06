@@ -541,10 +541,33 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         if 'duration' not in t or t['duration'] is None:
             t['duration'] = timedelta(days=1)
 
+    # One pass over the task list serves every summary roll-up and the
+    # re-ordering below; both used to rescan all_tasks per summary (#789).
+    # Order within each child list is the original order, and the first
+    # summary carrying a name wins, exactly as the per-summary scans did.
+    children_by_parent = {}
+    summary_by_name = {}
+    for t in all_tasks:
+        parent_name = t.get('parent')
+        if parent_name:
+            children_by_parent.setdefault(parent_name, []).append(t)
+        if t.get('summary') and t.get('name') and t['name'] not in summary_by_name:
+            summary_by_name[t['name']] = t
+    summaries_done = set()
+
     # Calculate summary task dates from children
     def calculate_summary_dates(task_name):
-        """Calculate start/finish for a summary task from its children."""
-        children = [t for t in all_tasks if t.get('parent') == task_name]
+        """Calculate start/finish for a summary task from its children.
+
+        Each summary is computed once, bottom-up. Before, every call rescanned
+        all_tasks for children and recursed into nested summaries without
+        remembering them, so a 300-summary plan did this 1,200 times (#789).
+        """
+        if task_name in summaries_done:
+            return
+        summaries_done.add(task_name)
+
+        children = children_by_parent.get(task_name, [])
         if not children:
             return
 
@@ -553,8 +576,8 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             if child.get('summary'):
                 calculate_summary_dates(child['name'])
 
-        # Get the summary task
-        summary_task = next((t for t in all_tasks if t.get('name') == task_name and t.get('summary')), None)
+        # Get the summary task (the first with that name, as before)
+        summary_task = summary_by_name.get(task_name)
         if not summary_task:
             return
 
@@ -598,11 +621,9 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
             # Add the task itself
             ordered.append(task)
 
-            # If it's a summary task, add its children
+            # If it's a summary task, add its children (original order)
             if task.get('summary'):
-                children = [t for t in all_tasks if t.get('parent') == task['name']]
-                # Sort children to maintain original order
-                for child in children:
+                for child in children_by_parent.get(task['name'], []):
                     add_task_and_children(child)
 
         # Start with top-level tasks (no parent)

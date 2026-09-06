@@ -278,10 +278,17 @@ class TestPlanServiceParse:
         result = service.parse(plan_with_frontmatter, project_name="Override")
         assert result.project_name == "Override"
 
-    def test_has_ascii_output(self, service, sample_plan):
+    def test_ascii_output_is_opt_in(self, service, sample_plan):
+        """parse() no longer builds the ASCII table by default: nothing that
+        calls /api/parse reads it and it scheduled the plan twice (#789)."""
         result = service.parse(sample_plan)
-        assert isinstance(result.ascii_output, str)
-        assert len(result.ascii_output) > 0
+        assert result.ascii_output == ""
+
+        with_ascii = service.parse(sample_plan, include_ascii=True)
+        assert isinstance(with_ascii.ascii_output, str)
+        assert len(with_ascii.ascii_output) > 0
+        # everything else is unchanged by the flag
+        assert with_ascii.tasks == result.tasks
 
     def test_has_front_matter(self, service, plan_with_frontmatter):
         result = service.parse(plan_with_frontmatter)
