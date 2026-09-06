@@ -8,16 +8,17 @@
  * friends in script.js), which is where they were parsed client-side even
  * before this.
  *
- * Off by default. Set `np-local-engine` to "1" in localStorage to use it, or
- * to "0" to force the server once it becomes the default. `useLocalEngine()`
- * is what script.js asks.
+ * On by default, now that the browser engine matches the Python one across
+ * the whole conformance corpus. Set `np-local-engine` to "0" in localStorage
+ * to force the server, or "1" to be explicit. `useLocalEngine()` is what
+ * script.js asks.
  */
 import { scheduleTasksFromText, dayOf } from "./scheduler.js";
 
 export const LOCAL_ENGINE_KEY = "np-local-engine";
 
 /** Whether this browser should schedule locally rather than call the server. */
-export function useLocalEngine(defaultOn = false) {
+export function useLocalEngine(defaultOn = true) {
   try {
     const setting = localStorage.getItem(LOCAL_ENGINE_KEY);
     if (setting === "1") return true;
