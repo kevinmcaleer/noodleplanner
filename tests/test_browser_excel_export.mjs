@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ExcelJS from 'exceljs';
 
 import {
-  EXCELJS_CDN_URL,
+  EXCELJS_URL,
   XL_TASK_HEADERS,
   XL_BUDGET_HEADERS,
   XL_RAID_HEADERS,
@@ -437,8 +437,28 @@ test('the page and scripts are pinned and wired for browser Excel export', () =>
   const workerJs = readFileSync(join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static', 'browser-excel-worker.js'), 'utf8');
   const packageJson = readFileSync(join(repo, 'package.json'), 'utf8');
 
-  assert.ok(!index.includes(EXCELJS_CDN_URL));
+  assert.ok(!index.includes(EXCELJS_URL));
   assert.ok(scriptJs.includes("browserExcelExportsEnabled()"));
+
+  // ExcelJS is vendored, never fetched from a CDN: the app is installable as
+  // a PWA and must export offline, and its service worker only caches
+  // same-origin /static/ (issue #790).
+  assert.ok(EXCELJS_URL.startsWith('/static/'), `ExcelJS must load from /static/, got ${EXCELJS_URL}`);
+  const vendored = join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static', 'vendor', 'exceljs');
+  assert.ok(existsSync(join(vendored, 'exceljs.min.js')), 'exceljs is not vendored; run `npm run vendor:exceljs`');
+  assert.equal(
+    readFileSync(join(vendored, 'VERSION'), 'utf8').trim(),
+    JSON.parse(packageJson).devDependencies.exceljs,
+    'the vendored exceljs is not the pinned release; run `npm run vendor:exceljs`',
+  );
+  for (const source of [readFileSync(join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static', 'browser-excel.js'), 'utf8'), workerJs]) {
+    assert.ok(!/cdn\.jsdelivr|unpkg\.com/.test(source), 'a CDN URL crept back into the Excel export');
+  }
+
+  // The browser path is the default; the server exporters are one flag away,
+  // and it is the same flag the PDF and Word exports use.
+  assert.ok(scriptJs.includes('useServerExports()'), 'the Excel default should key off the shared flag');
+  assert.ok(!scriptJs.includes("'noodleplanner_browser_excel'"), 'the old opt-in flag is still being read');
   assert.ok(scriptJs.includes("import('/static/browser-excel.js')"));
   assert.ok(scriptJs.includes('budgetItems,'));
   assert.ok(scriptJs.includes('server CPU 0 ms'));

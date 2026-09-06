@@ -1088,9 +1088,15 @@ async function currentParseResult(planText) {
     return lastParseResult.result;
 }
 
+/**
+ * Excel and CSV are built in the browser by default (issue #790): the plan
+ * never leaves the machine and the server spends no CPU on an export. The
+ * server exporters remain one flag away, shared with the PDF and Word
+ * exports — localStorage np-server-exports=1 (see useServerExports).
+ */
 function browserExcelExportsEnabled() {
     try {
-        return typeof localStorage !== 'undefined' && localStorage.getItem('noodleplanner_browser_excel') === 'on';
+        return !useServerExports();
     } catch (_error) {
         return false;
     }

@@ -1,4 +1,8 @@
-export const EXCELJS_CDN_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+// ExcelJS is vendored, not fetched from a CDN: the app is installable as a
+// PWA and must export offline, its service worker only caches same-origin
+// /static/, and the deployment is self-hosted behind a tunnel (issue #790).
+// Refresh it with `npm run vendor:exceljs`.
+export const EXCELJS_URL = '/static/vendor/exceljs/exceljs.min.js';
 export const BROWSER_EXCEL_WORKER_URL = '/static/browser-excel-worker.js';
 export const EXCELJS_LOAD_TIMEOUT_MS = 30000;
 
@@ -81,11 +85,15 @@ function hasNodeProcess() {
 
 let excelJsLoadPromise = null;
 
+/**
+ * The browser path is the default (issue #790); the server exporters stay
+ * one flag away, the same flag the PDF and Word exports use.
+ */
 export function browserExcelEnabled() {
     try {
-        return typeof localStorage !== 'undefined' && localStorage.getItem('noodleplanner_browser_excel') === 'on';
+        return !(typeof localStorage !== 'undefined' && localStorage.getItem('np-server-exports') === '1');
     } catch (_error) {
-        return false;
+        return true;
     }
 }
 
@@ -201,7 +209,7 @@ async function ensureExcelJsLoaded() {
     }
 
     if (!excelJsLoadPromise) {
-        document.querySelectorAll(`script[src="${EXCELJS_CDN_URL}"]`).forEach((script) => script.remove());
+        document.querySelectorAll(`script[src="${EXCELJS_URL}"]`).forEach((script) => script.remove());
         excelJsLoadPromise = new Promise((resolve, reject) => {
             const script = document.createElement('script');
             const timeout = window.setTimeout(() => {
@@ -212,7 +220,7 @@ async function ensureExcelJsLoaded() {
                 window.clearTimeout(timeout);
                 callback();
             };
-            script.src = EXCELJS_CDN_URL;
+            script.src = EXCELJS_URL;
             script.onload = () => finish(resolve);
             script.onerror = () => finish(() => {
                 script.remove();
@@ -1004,7 +1012,7 @@ export async function createPlanWorkbookBufferInWorker(parseResult, options = {}
                     budgetItems: Array.isArray(options.budgetItems) ? options.budgetItems : [],
                     now: options.now instanceof Date ? options.now.toISOString() : null,
                 },
-                excelJsUrl: EXCELJS_CDN_URL,
+                excelJsUrl: EXCELJS_URL,
             });
         } catch (error) {
             finish(reject, error);
