@@ -1107,7 +1107,7 @@ class TestImportFromMpp:
         assert "Resources:" not in result
 
     def test_import_non_adjacent_dependency(self):
-        """Non-adjacent predecessor uses [depends: ...] instead of *."""
+        """Non-adjacent predecessor uses [depends ...] instead of * (no colon, #808)."""
         import datetime
 
         task1 = MppTask(
@@ -1144,7 +1144,7 @@ class TestImportFromMpp:
         with patch("noodle_core.mpp_reader.MppProject.read", return_value=project):
             result = import_from_mpp(b"\x00")
 
-        assert "[depends: Task A]" in result
+        assert "[depends Task A]" in result
 
     def test_import_multiple_dependencies(self):
         """Multiple predecessors use [depends: ...] format."""

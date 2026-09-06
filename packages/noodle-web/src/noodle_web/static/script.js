@@ -4228,9 +4228,9 @@ function generateRecurrenceOccurrences(task, windowStart, windowEnd) {
 function updateDependencyReferences(lines, oldName, newName) {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (!/\[depends\s+[^\]]+\]/i.test(line)) continue;
+        if (!/\[depends(?::\s*|\s+)[^\]]+\]/i.test(line)) continue;
 
-        lines[i] = line.replace(/\[depends\s+([^\]]+)\]/gi, function(match, depsContent) {
+        lines[i] = line.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/gi, function(match, depsContent) {
             const deps = depsContent.split(',').map(d => d.trim());
             let changed = false;
 
@@ -4275,9 +4275,9 @@ function updateDeliverableReferences(lines, oldId, newId) {
     const newToken = '$' + newId;
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (!/\[depends\s+[^\]]+\]/i.test(line)) continue;
+        if (!/\[depends(?::\s*|\s+)[^\]]+\]/i.test(line)) continue;
 
-        lines[i] = line.replace(/\[depends\s+([^\]]+)\]/gi, function(match, depsContent) {
+        lines[i] = line.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/gi, function(match, depsContent) {
             const deps = depsContent.split(',').map(d => d.trim());
             let changed = false;
 
@@ -4474,13 +4474,13 @@ function parseTaskLine(line, lineNum) {
 
     // Handle dependencies (everything in square brackets [depends ...])
     const dependencies = [];
-    const dependsMatch = text.match(/\[depends\s+([^\]]+)\]/i);
+    const dependsMatch = text.match(/\[depends(?::\s*|\s+)([^\]]+)\]/i);
     if (dependsMatch) {
         // Parse dependencies - can be comma-separated
         const depText = dependsMatch[1];
         dependencies.push(...depText.split(',').map(d => d.trim()).filter(d => d));
         // Remove the dependency from the text
-        text = text.replace(/\[depends\s+[^\]]+\]/i, '').trim();
+        text = text.replace(/\[depends(?::\s*|\s+)[^\]]+\]/i, '').trim();
     }
 
     // Split by spaces to get tokens
@@ -13451,7 +13451,7 @@ function openTaskInspectorByDeliverable(deliverableId) {
     const lines = editor.value.split('\n');
     for (let i = 0; i < lines.length; i++) {
         // Match the $token on this line (not inside [depends])
-        const lineWithoutDepends = lines[i].replace(/\[depends\s+[^\]]*\]/gi, '');
+        const lineWithoutDepends = lines[i].replace(/\[depends(?::\s*|\s+)[^\]]*\]/gi, '');
         if (lineWithoutDepends.includes(token)) {
             openTaskInspector(i + 1);
             return;

@@ -67,7 +67,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             // Supports straight quotes "...", curly/smart quotes \u201c...\u201d, and mixed
             taskText = taskText.replace(/!?["\u201c][^"\u201d]*["\u201d]/g, '').trim();
             // Remove [depends ...] blocks
-            taskText = taskText.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
+            taskText = taskText.replace(/\[depends(?::\s*|\s+)[^\]]+\]/gi, '').trim();
             // Remove bucket names in curly braces
             taskText = taskText.replace(/\{[^}]+\}/g, '').trim();
             // Remove priority markers
@@ -237,7 +237,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
 
             // Highlight dependencies EARLY to protect lag/lead from duration highlighter
             // (e.g., [depends Task1, Task2:SS +2d])
-            highlighted = highlighted.replace(/\[depends\s+([^\]]+)\]/gi, (match, deps) => {
+            highlighted = highlighted.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/gi, (match, deps) => {
                 // Split dependencies and validate each one
                 const depParts = deps.split(',').map(d => d.trim()).filter(d => d);
                 const highlightedParts = depParts.map(dep => {
@@ -764,7 +764,7 @@ function extractTaskNameFromEditorLine(line) {
  * If the line already has a [depends ...] block, the new dependency is appended.
  */
 function addDependencyToLine(line, dependencyName) {
-    const dependsPattern = /\[depends\s+([^\]]+)\]/i;
+    const dependsPattern = /\[depends(?::\s*|\s+)([^\]]+)\]/i;
     const existingMatch = line.match(dependsPattern);
 
     if (existingMatch) {
@@ -799,7 +799,7 @@ function addStarDependencyToLine(line) {
 function lineHasDependency(line) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith('*')) return true;
-    if (/\[depends\s+[^\]]+\]/i.test(line)) return true;
+    if (/\[depends(?::\s*|\s+)[^\]]+\]/i.test(line)) return true;
     return false;
 }
 

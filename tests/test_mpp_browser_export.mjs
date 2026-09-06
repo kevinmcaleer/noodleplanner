@@ -187,9 +187,9 @@ test("a file exported by the browser imports back as plan markdown", { skip: !ro
   assert.equal(line("Phase 1"), "Phase 1");
   assert.equal(line("Proposal"), '  Proposal 1d @kmcaleer 100% "Signed off by the board"');
   assert.equal(line("Approval"), "  *Approval 0d @kmcaleer");
-  assert.equal(line("Build"), "  Build 5d @areid @kmcaleer 50% [depends: Approval +2d]");
-  assert.equal(line("Phase 2"), "Phase 2 [depends: Phase 1]");
-  assert.equal(line("Review"), "  Review 2d @kmcaleer [depends: Build:SS -7d]");
+  assert.equal(line("Build"), "  Build 5d @areid @kmcaleer 50% [depends Approval +2d]");
+  assert.equal(line("Phase 2"), "Phase 2 [depends Phase 1]");
+  assert.equal(line("Review"), "  Review 2d @kmcaleer [depends Build:SS -7d]");
   assert.equal(line("Ship"), "  Ship 1d");
 
   // and the plan schedules again with the same outline and leaf durations
@@ -236,7 +236,7 @@ test("markdown from a read project mirrors the Python importer's shape", () => {
       "Phase",
       "  Design 2d @alice 25%",
       "  *Build 3d @bjones @bjones2",
-      "  Done 0d [depends: Build:FF +1d]",
+      "  Done 0d [depends Build:FF +1d]",
       "",
     ].join("\n"),
   );

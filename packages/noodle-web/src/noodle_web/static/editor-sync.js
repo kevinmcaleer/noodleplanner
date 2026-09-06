@@ -506,7 +506,7 @@ function syncGanttPredecessorsToEditor(task, taskIndex) {
             }
 
             // Replace or add/remove the [depends ...] block in the line
-            const dependsPattern = /\[depends\s+[^\]]+\]/i;
+            const dependsPattern = /\[depends(?::\s*|\s+)[^\]]+\]/i;
             let updatedLine;
             if (dependsPattern.test(line)) {
                 if (newDependsStr) {

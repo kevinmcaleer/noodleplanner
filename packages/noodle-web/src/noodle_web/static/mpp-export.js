@@ -417,7 +417,8 @@ function lagToken(lagDays) {
  *
  * Mirrors noodle_core.msproject.import_from_mpp (front matter with resource
  * shortnames, indented outline, `*` for a single link to the previous task,
- * `[depends: …]` otherwise) and additionally keeps what that importer drops:
+ * `[depends …]` otherwise, without the colon the Python importer wrote, #808)
+ * and additionally keeps what that importer drops:
  * milestones as `0d`, dependency type and lag as `Name:SS +2d`, and task
  * notes as a quoted comment.
  */
@@ -492,7 +493,7 @@ export function projectToMarkdown(project) {
           const type = r.type && r.type !== "FS" ? `:${r.type}` : "";
           return `${nameByUid.get(r.predUid)}${type}${lagToken(r.lagDays)}`;
         });
-        parts.push(`[depends: ${refs.join(", ")}]`);
+        parts.push(`[depends ${refs.join(", ")}]`);
       }
     }
 
