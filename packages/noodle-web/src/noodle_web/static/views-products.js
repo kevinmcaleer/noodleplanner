@@ -2283,13 +2283,13 @@ function pfCreateDependency(sourceKey, targetKey) {
     if (line.includes(`$${sourceId}`)) return;
 
     // Add or update [depends ...] block
-    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    const dependsMatch = line.match(/\[depends(?::\s*|\s+)([^\]]*)\]/i);
     let newLine;
     if (dependsMatch) {
         // Append to existing [depends ...] block
         const existingDeps = dependsMatch[1].trim();
         const newDeps = existingDeps ? `${existingDeps}, $${sourceId}` : `$${sourceId}`;
-        newLine = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${newDeps}]`);
+        newLine = line.replace(/\[depends(?::\s*|\s+)[^\]]*\]/i, `[depends ${newDeps}]`);
     } else {
         // Add new [depends $sourceId] before any trailing comment
         const commentMatch = line.match(/(\s+"[^"]*"\s*)$/);
@@ -2347,7 +2347,7 @@ function pfDeleteSelectedArrow() {
     if (!line) return;
 
     // Remove $sourceId from [depends ...] block
-    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    const dependsMatch = line.match(/\[depends(?::\s*|\s+)([^\]]*)\]/i);
     if (!dependsMatch) return;
 
     const deps = dependsMatch[1].split(',').map(d => d.trim()).filter(d => {
@@ -2359,9 +2359,9 @@ function pfDeleteSelectedArrow() {
     let newLine;
     if (deps.length === 0) {
         // Remove entire [depends ...] block
-        newLine = line.replace(/\s*\[depends\s+[^\]]*\]/i, '');
+        newLine = line.replace(/\s*\[depends(?::\s*|\s+)[^\]]*\]/i, '');
     } else {
-        newLine = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${deps.join(', ')}]`);
+        newLine = line.replace(/\[depends(?::\s*|\s+)[^\]]*\]/i, `[depends ${deps.join(', ')}]`);
     }
 
     lines[lineNum] = newLine;
@@ -2694,7 +2694,7 @@ function checkDuplicateDeliverables() {
     const seenIds = {};
     for (let i = 0; i < lines.length; i++) {
         // Strip [depends ...] blocks so we don't count dependency references as definitions
-        const lineWithoutDepends = lines[i].replace(/\[depends\s+[^\]]*\]/gi, '');
+        const lineWithoutDepends = lines[i].replace(/\[depends(?::\s*|\s+)[^\]]*\]/gi, '');
         let match;
         while ((match = idRegex.exec(lineWithoutDepends)) !== null) {
             const id = match[1].toLowerCase();
@@ -2823,7 +2823,7 @@ function checkDuplicateDeliverables() {
         // Collect task name
         let tn = trimmed2.replace(/^\*\s*/, '');
         tn = tn.replace(/!?["\u201c][^"\u201d]*["\u201d]/g, '').trim();
-        tn = tn.replace(/\[depends\s+[^\]]+\]/gi, '').trim();
+        tn = tn.replace(/\[depends(?::\s*|\s+)[^\]]+\]/gi, '').trim();
         const tnMatch = tn.match(/^(.+?)(?:\s+[/^]?\$|\s+[@#!"{~\[]|\s+\d+[dwmy]\b|\s+\d+%|\s+\d{4}-\d{2}-\d{2}|\s*$)/);
         const tnName = tnMatch ? tnMatch[1].trim() : '';
         if (tnName) {
@@ -2834,7 +2834,7 @@ function checkDuplicateDeliverables() {
     }
 
     const missingDeps = new Set();
-    const depLineRe = /\[depends\s+([^\]]+)\]/gi;
+    const depLineRe = /\[depends(?::\s*|\s+)([^\]]+)\]/gi;
     for (let i = 0; i < lines.length; i++) {
         let dm2;
         while ((dm2 = depLineRe.exec(lines[i])) !== null) {
@@ -2888,7 +2888,7 @@ function checkDuplicateDeliverables() {
         // Strip comments, [depends], and metadata to isolate the task name
         let nameOnly = trimmed3.replace(/^\*\s*/, '');
         nameOnly = nameOnly.replace(/!?["\u201c][^"\u201d]*["\u201d]/g, '');
-        nameOnly = nameOnly.replace(/\[depends\s+[^\]]+\]/gi, '');
+        nameOnly = nameOnly.replace(/\[depends(?::\s*|\s+)[^\]]+\]/gi, '');
         // Get just the name portion (before metadata tokens)
         const nmMatch = nameOnly.match(/^(.+?)(?:\s+[/^]?\$|\s+[@#!"{~\[]|\s+\d+[dwmy]\b|\s+\d+%|\s+\d{4}-\d{2}-\d{2}|\s*$)/);
         const nm = nmMatch ? nmMatch[1] : '';
@@ -3638,7 +3638,7 @@ function saveProductForm() {
         cleaned = cleaned.substring(origTaskName.length);
     }
     cleaned = cleaned
-        .replace(/\[depends\s+[^\]]*\]/i, '')
+        .replace(/\[depends(?::\s*|\s+)[^\]]*\]/i, '')
         .replace(/"[^"]*"/g, '')
         .replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '')
         .replace(/\[repeats\s+[^\]]*\]/i, '');
@@ -4035,10 +4035,10 @@ function productAddDep(delivId) {
     const line = lines[lineNum];
     if (line.includes(`$${delivId}`)) return; // already has this dep
 
-    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    const dependsMatch = line.match(/\[depends(?::\s*|\s+)([^\]]*)\]/i);
     if (dependsMatch) {
         const existing = dependsMatch[1].trim();
-        lines[lineNum] = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${existing}, $${delivId}]`);
+        lines[lineNum] = line.replace(/\[depends(?::\s*|\s+)[^\]]*\]/i, `[depends ${existing}, $${delivId}]`);
     } else {
         const commentMatch = line.match(/(\s+"[^"]*"\s*)$/);
         if (commentMatch) {
@@ -4070,7 +4070,7 @@ function productRemoveDep(delivId) {
 
     const lines = editor.value.split('\n');
     const line = lines[lineNum];
-    const dependsMatch = line.match(/\[depends\s+([^\]]*)\]/i);
+    const dependsMatch = line.match(/\[depends(?::\s*|\s+)([^\]]*)\]/i);
     if (!dependsMatch) return;
 
     const deps = dependsMatch[1].split(',').map(d => d.trim()).filter(d => {
@@ -4079,9 +4079,9 @@ function productRemoveDep(delivId) {
     });
 
     if (deps.length === 0) {
-        lines[lineNum] = line.replace(/\s*\[depends\s+[^\]]*\]/i, '');
+        lines[lineNum] = line.replace(/\s*\[depends(?::\s*|\s+)[^\]]*\]/i, '');
     } else {
-        lines[lineNum] = line.replace(/\[depends\s+[^\]]*\]/i, `[depends ${deps.join(', ')}]`);
+        lines[lineNum] = line.replace(/\[depends(?::\s*|\s+)[^\]]*\]/i, `[depends ${deps.join(', ')}]`);
     }
 
     editor.value = lines.join('\n');
@@ -4168,7 +4168,7 @@ function _findDeliverableLineIdx(text, deliverable) {
         const line = lines[i];
         if (!tokenRe.test(line)) continue;
         // Strip [depends ...] blocks and check if token remains
-        const withoutDeps = line.replace(/\[depends\s+[^\]]*\]/gi, '');
+        const withoutDeps = line.replace(/\[depends(?::\s*|\s+)[^\]]*\]/gi, '');
         if (tokenRe.test(withoutDeps)) return i;
     }
     return -1;

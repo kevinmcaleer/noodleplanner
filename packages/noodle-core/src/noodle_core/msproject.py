@@ -897,14 +897,14 @@ def import_from_mpp(file_bytes: bytes) -> str:
                     dep_prefix = "*"
                 else:
                     pred_name = task_id_to_name[dep_uids[0]]
-                    parts.append(f"[depends: {pred_name}]")
+                    parts.append(f"[depends {pred_name}]")
             elif len(dep_uids) == 1:
                 pred_name = task_id_to_name[dep_uids[0]]
-                parts.append(f"[depends: {pred_name}]")
+                parts.append(f"[depends {pred_name}]")
             else:
                 dep_names = [task_id_to_name[uid] for uid in dep_uids]
                 deps_str = ", ".join(dep_names)
-                parts.append(f"[depends: {deps_str}]")
+                parts.append(f"[depends {deps_str}]")
 
         line = f"{indent}{dep_prefix}{' '.join(parts)}"
         lines.append(line)

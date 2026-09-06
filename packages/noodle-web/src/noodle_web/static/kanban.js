@@ -253,7 +253,7 @@ class KanbanBoard {
                 return raw
                     .replace(/^\*\s*/, '')
                     .replace(/\$[A-Za-z_][A-Za-z0-9_-]*/g, '')
-                    .replace(/\[depends\s+[^\]]*\]/gi, '')
+                    .replace(/\[depends(?::\s*|\s+)[^\]]*\]/gi, '')
                     .replace(/\[repeats\s+[^\]]*\]/gi, '')
                     .replace(/"[^"]*"/g, '')
                     .replace(/\s+/g, ' ')
@@ -2242,9 +2242,9 @@ class KanbanBoard {
         const trimmed = line.trim();
 
         // If line already has a [depends ...] block, add to it
-        const dependsMatch = trimmed.match(/\[depends\s+([^\]]+)\]/i);
+        const dependsMatch = trimmed.match(/\[depends(?::\s*|\s+)([^\]]+)\]/i);
         if (dependsMatch) {
-            return line.replace(/\[depends\s+([^\]]+)\]/i, `[depends $1, ${dependency}]`);
+            return line.replace(/\[depends(?::\s*|\s+)([^\]]+)\]/i, `[depends $1, ${dependency}]`);
         } else {
             // Add [depends dependency] at the end (before comment if present)
             if (trimmed.includes('"')) {
