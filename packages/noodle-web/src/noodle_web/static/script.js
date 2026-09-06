@@ -1242,6 +1242,20 @@ async function exportReportPptx() {
         timeline_image: timelineImageB64
     };
 
+    // The deck is built in the browser from this payload; nothing is sent to
+    // the server (issue #791). np-server-exports=1 keeps the server route.
+    if (!useServerExports()) {
+        try {
+            const { exportReportPptxInBrowser } = await import('/static/pptx-export.js');
+            const { filename } = await exportReportPptxInBrowser(payload);
+            showMessage('editor', 'success', 'Exported ' + filename);
+        } catch (error) {
+            console.error('Browser PowerPoint export failed:', error);
+            showMessage('editor', 'error', 'Failed to export report: ' + error.message);
+        }
+        return;
+    }
+
     try {
         const response = await fetch('/api/export-report-pptx', {
             method: 'POST',

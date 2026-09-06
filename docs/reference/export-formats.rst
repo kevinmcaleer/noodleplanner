@@ -61,6 +61,24 @@ A single-slide project report presentation:
 - Access: **Tools** → **Export → PowerPoint**
 - Contains: project header, timeline graphic, milestones table, highlights, risks and issues
 
+PowerPoint (``.pptx``)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The project report deck, and the portfolio deck covering every project.
+
+- Access: **Tools** → **Export Report to PowerPoint**; the portfolio deck from
+  the **Portfolio** view's export button
+- Filenames: ``{project-name} - Report.pptx`` and
+  ``{portfolio-name} - Portfolio Report.pptx``
+
+Both are built in the browser with `PptxGenJS <https://gitbrent.github.io/PptxGenJS/>`_
+from the payload the page already assembles, so no plan data reaches the
+server. The report deck is a four-quadrant slide (milestones, up next, latest
+highlight, risks and issues) plus a dedicated highlight slide; the portfolio
+deck adds an overview table and a combined risks slide before one slide per
+project. Captured timeline images are embedded. The browser and Python decks
+are compared slide by slide in ``tests/test_pptx_browser_export.mjs``.
+
 PDF
 ~~~~
 
