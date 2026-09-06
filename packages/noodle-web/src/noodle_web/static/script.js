@@ -864,6 +864,8 @@ window.addEventListener('load', function() {
     initializeUploadTab();
     initializeEditorDragDrop();
     initializeKanbanEditorDragDrop();
+    // The whole window accepts dropped files as imports (issue #811)
+    if (typeof initializeWindowDropImport === 'function') initializeWindowDropImport();
     if (typeof EditorUndoManager !== 'undefined') {
         EditorUndoManager.init();
     }

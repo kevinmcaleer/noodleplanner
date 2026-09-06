@@ -6705,3 +6705,44 @@ tr:hover .task-context-btn,
     pointer-events: none;
 }
 
+
+/* ---------------------------------------------------------------------------
+   Whole-window file drop (issue #811): any file dropped on the page is an
+   import request. The overlay is created by static/window-drop.js and shown
+   only while a file is being dragged over the window.
+   --------------------------------------------------------------------------- */
+#windowDropOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    pointer-events: none;
+    background: rgba(16, 139, 185, 0.12);
+    align-items: center;
+    justify-content: center;
+}
+
+#windowDropOverlay.active {
+    display: flex;
+}
+
+#windowDropOverlay .window-drop-panel {
+    margin: 24px;
+    padding: 32px 40px;
+    border: 3px dashed #108BB9;
+    border-radius: 12px;
+    background: var(--np-bg, #ffffff);
+    color: var(--np-text, #333333);
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+#windowDropOverlay .window-drop-panel h2 {
+    margin: 0 0 8px 0;
+    font-size: 1.4em;
+}
+
+#windowDropOverlay .window-drop-panel p {
+    margin: 0;
+    color: var(--np-text-muted, #666666);
+}
