@@ -350,7 +350,10 @@ function importProjectsFromJSON(jsonData) {
             }
         });
 
-        saveAllProjects(currentProjects);
+        if (!saveAllProjects(currentProjects)) {
+            // The storage layer has already told the user why.
+            return { imported: 0, skipped, total: imported + skipped, error: 'Could not write to browser storage' };
+        }
         clearProjectCache();
         loadAllProjectsIntoCache();
 
