@@ -55,6 +55,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
 
    explanation/rag-status
    explanation/scheduling-engine
+   explanation/browser-local-store
    explanation/diataxis
 
 Indices and tables
