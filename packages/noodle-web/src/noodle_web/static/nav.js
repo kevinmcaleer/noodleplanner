@@ -34,6 +34,43 @@ const NAV_DROPDOWN_MENUS = [
     { menuId: 'toolsDropdownMenu', btnId: 'toolsDropdownBtn' }
 ];
 
+function resetNavMenuPosition(menu) {
+    menu.classList.remove('nav-menu-viewport');
+    menu.style.removeProperty('top');
+    menu.style.removeProperty('left');
+    menu.style.removeProperty('max-height');
+}
+
+function positionNavMenu(menu, btn) {
+    if (!btn) return;
+
+    menu.classList.add('nav-menu-viewport');
+    const edgeGap = 8;
+    const buttonRect = btn.getBoundingClientRect();
+    const statusBar = document.querySelector('.status-bar');
+    const statusBarTop = statusBar && getComputedStyle(statusBar).display !== 'none'
+        ? statusBar.getBoundingClientRect().top
+        : window.innerHeight;
+    const viewportBottom = Math.min(window.innerHeight, statusBarTop) - edgeGap;
+    menu.style.maxHeight = `${Math.max(44, viewportBottom - edgeGap)}px`;
+    const menuRect = menu.getBoundingClientRect();
+    const left = Math.max(
+        edgeGap,
+        Math.min(buttonRect.left, window.innerWidth - menuRect.width - edgeGap)
+    );
+    let top = buttonRect.bottom + 4;
+
+    if (top + menuRect.height > viewportBottom) {
+        top = Math.max(
+            edgeGap,
+            Math.min(buttonRect.top - menuRect.height - 4, viewportBottom - menuRect.height)
+        );
+    }
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+}
+
 // Close nav dropdown menus when clicking outside
 document.addEventListener('click', function(e) {
     NAV_DROPDOWN_MENUS.forEach(({ menuId, btnId }) => {
@@ -41,6 +78,7 @@ document.addEventListener('click', function(e) {
         const btn = document.getElementById(btnId);
         if (menu && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
             menu.classList.remove('show');
+            resetNavMenuPosition(menu);
             if (btn) btn.setAttribute('aria-expanded', 'false');
         }
     });
@@ -57,6 +95,11 @@ function toggleDropdownMenu(menuId, btnId, event) {
     closeAllNavMenus(menuId);
 
     menu.classList.toggle('show');
+    if (menu.classList.contains('show')) {
+        positionNavMenu(menu, btn);
+    } else {
+        resetNavMenuPosition(menu);
+    }
     if (btn) {
         btn.setAttribute('aria-expanded', menu.classList.contains('show') ? 'true' : 'false');
     }
@@ -67,7 +110,10 @@ function closeAllNavMenus(except) {
     NAV_DROPDOWN_MENUS.forEach(({ menuId, btnId }) => {
         if (menuId !== except) {
             const m = document.getElementById(menuId);
-            if (m) m.classList.remove('show');
+            if (m) {
+                m.classList.remove('show');
+                resetNavMenuPosition(m);
+            }
             const b = document.getElementById(btnId);
             if (b) b.setAttribute('aria-expanded', 'false');
         }

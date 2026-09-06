@@ -355,6 +355,16 @@ svg.icon {
     margin-top: 4px;
 }
 
+.nav-menu.nav-menu-viewport {
+    position: fixed;
+    margin-top: 0;
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
 /* Active state for dropdown menu items (current view indicator) */
 .nav-menu-item.active {
     background: #e8f0fe;
@@ -365,4 +375,3 @@ svg.icon {
 .nav-menu-item.active:hover {
     background: #d4e5fc;
 }
-

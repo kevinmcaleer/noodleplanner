@@ -54,6 +54,10 @@ When the new version is ready, NoodlePlanner saves the current project and
 reloads the page automatically. The first installation does not cause an
 extra reload.
 
+The status bar shows the running application and build version, for example
+``App v1.0.0+a1b2c3d4``. The value after ``+`` is derived from the deployed
+application files and changes whenever a new build is running.
+
 For administrators
 -------------------
 
