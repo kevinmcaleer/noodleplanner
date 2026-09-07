@@ -332,6 +332,27 @@ Whiteboard rows
   moves its row to the end of the table, which is how "bring to front"
   persists across a reload -- z-order is never stored as a separate field.
 
+Adding and removing notes
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The board is a curated subset of the plan's summary tasks, not every
+phase automatically. **Add note** (toolbar, or the empty-state shortcut)
+opens a picker listing every summary task not already on the board, each
+labelled with its own ``Phase › Sub-phase`` parent path so two same-named
+summary tasks in different phases are tellable apart; a search box
+filters by name or path. Adding one or several at once writes one row per
+task, each placed in the first free space of the current view that does
+not overlap an existing note, all in a single edit to this section.
+
+**Remove from board**, on a note's ``...`` menu, deletes only that note's
+row from this table -- the summary task and every one of its children are
+left completely untouched in the outline above. There is no confirmation
+prompt; like every other whiteboard edit, it is a single, ordinary undo
+step. Re-adding a task that was previously removed gets a freshly
+computed position (per the placement rule above), never the row's old,
+possibly stale ``X``/``Y`` from before it was removed -- nothing here
+remembers a removed row's coordinates.
+
 Note colour precedence
 ~~~~~~~~~~~~~~~~~~~~~~~
 

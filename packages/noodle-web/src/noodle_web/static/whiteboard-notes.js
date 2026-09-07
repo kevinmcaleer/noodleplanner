@@ -523,6 +523,221 @@ function wbMoveTaskToEnd(items, taskName) {
     return { items: next, changed: true };
 }
 
+// ── Board membership pure helpers (issue #847 -- no DOM, unit tested) ───
+//
+// "Which summary tasks aren't on the board yet", "where does a new note
+// go without overlapping anything", and "Phase › Sub-phase" path-building
+// for the Add-note picker. Kept alongside the drag/resize pure helpers
+// above for the same reason: no DOM, easy to hit from
+// tests/test_whiteboard_notes.js's vm sandbox, and free of any dependency
+// on wbLastTasks/wbLastPlanText module state so callers (and tests) always
+// pass in exactly the data being reasoned about.
+
+const WB_TASK_PATH_SEP = ' › '; // same glyph msproject-task-diff.js uses for the same idea
+
+/** name -> first task with that name, in document order. `.parent` links
+ * (and every other name-based lookup in this codebase, e.g.
+ * wbBuildNoteViewModel's own task lookup) are name-only, so a lookup by
+ * name alone can never be fully disambiguated when two tasks share a
+ * name -- "first in document order" is simply a deterministic, consistent
+ * choice for that inherent ambiguity, matching Array.find()'s own
+ * first-match semantics used elsewhere in this file. */
+function wbTasksByName(tasks) {
+    const byName = new Map();
+    (tasks || []).forEach(t => { if (t && t.name && !byName.has(t.name)) byName.set(t.name, t); });
+    return byName;
+}
+
+/**
+ * The ancestor chain for `task` (an actual task *object*, not just its
+ * name) -- root-most phase first, immediate parent last -- excluding the
+ * task itself, built by walking `.parent` links (the same relation
+ * wbDirectChildren() uses; see scheduler.js). Starting from the object
+ * itself (rather than re-resolving `task.name` back through `byName`)
+ * matters: it's exactly what keeps two *same-named* summary tasks'
+ * *own* paths correct (each walk starts from the right one), even though
+ * resolving any single *ancestor* name past that point still shares the
+ * whole codebase's inherent name-only-lookup limitation (the very
+ * ambiguity #838 describes, and that this picker's path display exists to
+ * make visible rather than to fully eliminate -- eliminating it would
+ * need stable task IDs, out of scope here). A cycle-guard (visited-name
+ * set) makes this safe against malformed data even though the engine
+ * should never produce one.
+ */
+function wbAncestorNamesForTask(byName, task) {
+    const chain = [];
+    const visited = new Set();
+    let current = task;
+    while (current && current.parent && !visited.has(current.parent)) {
+        visited.add(current.parent);
+        chain.unshift(current.parent);
+        current = byName.get(current.parent);
+    }
+    return chain;
+}
+
+/**
+ * The ancestor chain for `taskName` -- for callers that only have a name,
+ * not the task object itself (e.g. a caller working from a whiteboard
+ * row's own `.task` string). Resolves `taskName` via wbTasksByName()'s
+ * first-match rule; see wbAncestorNamesForTask() for why the *entries*
+ * built by wbSummaryTaskEntries() below deliberately don't go through
+ * this extra name round-trip for their own identity.
+ */
+function wbTaskAncestorNames(tasks, taskName) {
+    const byName = wbTasksByName(tasks);
+    return wbAncestorNamesForTask(byName, byName.get(taskName));
+}
+
+/**
+ * "Phase › Sub-phase" display string for `taskName`'s ancestors (not
+ * including itself) -- what the Add-note picker shows under a task's name
+ * so two same-named summary tasks in different phases are tellable apart
+ * (the ambiguity #838 describes). '' for a top-level task.
+ */
+function wbTaskAncestorPath(tasks, taskName) {
+    return wbTaskAncestorNames(tasks, taskName).join(WB_TASK_PATH_SEP);
+}
+
+/**
+ * Every summary task (`is_summary === true`, matching how every other
+ * view in this codebase distinguishes a phase/sub-phase from a leaf --
+ * see e.g. portfolio-status.js) as a picker entry: `{ name, path }`, in
+ * `tasks`' own document order. Each entry's path is built from *its own*
+ * task object (see wbAncestorNamesForTask()), so two summary tasks that
+ * happen to share a name still each get their own correct path.
+ */
+function wbSummaryTaskEntries(tasks) {
+    const byName = wbTasksByName(tasks);
+    return (tasks || [])
+        .filter(t => t && t.is_summary && t.name)
+        .map(t => ({ name: t.name, path: wbAncestorNamesForTask(byName, t).join(WB_TASK_PATH_SEP) }));
+}
+
+/**
+ * The Add-note picker's actual list: every summary task not already
+ * represented by a whiteboard row (`rows` -- parseWhiteboardMarkdown()
+ * output, or anything with a `.task` string per item), matched
+ * case-insensitively like every other whiteboard row lookup in this file.
+ */
+function wbTasksNotOnBoard(tasks, rows) {
+    const onBoard = new Set((rows || []).map(r => r && r.task && r.task.toLowerCase()).filter(Boolean));
+    return wbSummaryTaskEntries(tasks).filter(entry => !onBoard.has(entry.name.toLowerCase()));
+}
+
+/**
+ * Case-insensitive substring match against both a picker entry's name and
+ * its parent path -- "Search filters the picker by name and by parent
+ * path" (issue #847's acceptance criteria, verbatim). Blank/whitespace
+ * query matches everything.
+ */
+function wbFilterPickerEntries(entries, query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return entries || [];
+    return (entries || []).filter(entry =>
+        (entry.name && entry.name.toLowerCase().includes(q)) ||
+        (entry.path && entry.path.toLowerCase().includes(q))
+    );
+}
+
+/** Axis-aligned rectangle overlap, with an optional buffer `gap` treated
+ * as also-forbidden (so two notes never end up touching edge-to-edge). */
+function wbRectsOverlap(a, b, gap = 0) {
+    return !(
+        a.x + a.width + gap <= b.x ||
+        b.x + b.width + gap <= a.x ||
+        a.y + a.height + gap <= b.y ||
+        b.y + b.height + gap <= a.y
+    );
+}
+
+/**
+ * The first free `width` x `height` rectangle for a new note: scans a
+ * `width+gap` x `height+gap` grid anchored at `viewportRect`'s top-left,
+ * left-to-right then top-to-bottom (a plain shelf-pack -- deliberately
+ * not clever, just correct), rejecting any candidate that overlaps an
+ * existing rect in `existingRects` (by `gap`) or falls outside
+ * `viewportRect`. This is what makes a single add land "visible in the
+ * current viewport, not overlapping an existing note" and a multi-add lay
+ * out as "a tidy grid" (scanning in row-major order): the acceptance
+ * criteria, verbatim.
+ *
+ * If the viewport is entirely full (every on-screen grid cell taken),
+ * scanning continues downward past the viewport's bottom edge, so this
+ * always terminates with a genuinely free rect rather than looping
+ * forever or silently overlapping something -- the one case this can't
+ * satisfy "visible in the current viewport" for, by construction (there's
+ * nowhere left to put it), but it still never overlaps.
+ */
+function wbFindFreeSpacePosition(existingRects, viewportRect, width, height, gap = 24) {
+    const vp = viewportRect || { x: 0, y: 0, width: 1200, height: 800 };
+    const rects = existingRects || [];
+    const startX = vp.x + gap;
+    const startY = vp.y + gap;
+    const colStep = width + gap;
+    const rowStep = height + gap;
+    const cols = Math.max(1, Math.floor((vp.width - gap) / colStep));
+    const viewportRows = Math.max(1, Math.floor((vp.height - gap) / rowStep));
+    const overflowRows = 500; // generous, finite safety cap once the viewport itself is full
+
+    for (let row = 0; row < viewportRows + overflowRows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const candidate = { x: startX + col * colStep, y: startY + row * rowStep, width, height };
+            if (!rects.some(r => wbRectsOverlap(candidate, r, gap))) {
+                return { x: Math.round(candidate.x), y: Math.round(candidate.y) };
+            }
+        }
+    }
+    // Unreachable in practice (500 extra rows is thousands of notes deep),
+    // but never leave the caller without a valid, non-overlapping answer.
+    const bottom = rects.reduce((max, r) => Math.max(max, r.y + r.height), vp.y);
+    return { x: Math.round(startX), y: Math.round(bottom + gap) };
+}
+
+/**
+ * Whiteboard rows to *append* for adding `taskNames` (in that order):
+ * each gets a fresh, non-overlapping position from wbFindFreeSpacePosition(),
+ * computed against `existingItems` *plus* every row already produced
+ * earlier in this same call -- which is what turns a batch add into "a
+ * tidy grid" instead of every new note landing on top of the last one.
+ *
+ * Deliberately stateless/pure: it only ever looks at `existingItems` (the
+ * whiteboard rows actually in the plan text right now) and never at any
+ * previously-removed row for the same task name, which is exactly why
+ * re-adding a previously-removed summary task gets a *fresh* free-space
+ * placement rather than its old, possibly-stale position (issue #847's
+ * acceptance criteria, verbatim) -- there is no cache here to be stale.
+ *
+ * Returns plain row objects shaped like parseWhiteboardMarkdown() output
+ * (`colour`/`width`/`height` left at "use the default", `collapsed:
+ * false`) ready to concat onto `existingItems` for a single
+ * updatePlanWhiteboardText() call -- one Markdown commit for the whole
+ * batch, per the acceptance criteria.
+ */
+function wbBuildAddNoteRows(existingItems, viewportRect, taskNames, options = {}) {
+    const width = options.width || WB_NOTE_DEFAULT_WIDTH;
+    const height = options.height || WB_NOTE_DEFAULT_HEIGHT;
+    const gap = options.gap != null ? options.gap : 24;
+
+    const rects = (existingItems || []).map(item => ({
+        x: item.x || 0,
+        y: item.y || 0,
+        width: item.width || width,
+        height: item.height || height,
+    }));
+
+    const rows = [];
+    (taskNames || []).forEach(taskName => {
+        const pos = wbFindFreeSpacePosition(rects, viewportRect, width, height, gap);
+        rects.push({ x: pos.x, y: pos.y, width, height });
+        rows.push({
+            task: taskName, x: pos.x, y: pos.y,
+            colour: '', width: null, height: null, collapsed: false,
+        });
+    });
+    return rows;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         wbDirectChildren, wbHasChildren, wbChildCount, wbIsChildComplete,
@@ -533,6 +748,9 @@ if (typeof module !== 'undefined' && module.exports) {
         wbResolveNoteColour,
         wbDragBoardDelta, wbClampNoteWidth, wbClampNoteHeight,
         wbExceedsMoveThreshold, wbMoveTaskToEnd,
+        wbTaskAncestorNames, wbTaskAncestorPath, wbSummaryTaskEntries,
+        wbTasksNotOnBoard, wbFilterPickerEntries, wbRectsOverlap,
+        wbFindFreeSpacePosition, wbBuildAddNoteRows,
     };
 }
 
@@ -605,6 +823,14 @@ function wbRenderNotes() {
             wbNoteNodes.delete(name);
         }
     }
+
+    // Empty state (issue #847): purposeful "what is this board for" copy
+    // + Add note / Add all summary tasks, shown whenever nothing actually
+    // rendered -- covers both a genuinely empty ---whiteboard--- section
+    // and one that only has orphan rows (rows naming a task that no
+    // longer exists), which is exactly right: an orphan-only board is, to
+    // the user looking at it, indistinguishable from an empty one.
+    wbUpdateEmptyState(viewModels.length > 0);
 }
 
 /** Build the static DOM skeleton for one note, cached refs for updates. */
@@ -1311,15 +1537,54 @@ function wbBuildNoteMenu(taskName) {
     menu.id = 'wbNoteMenu';
     menu.className = 'wb-note-menu';
     menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', 'Note colour');
+    menu.setAttribute('aria-label', 'Note options');
 
     const list = document.createElement('ul');
     list.className = 'wb-note-menu-list';
     menu.appendChild(list);
 
     wbAppendColourMenuSection(list, taskName);
+    wbAppendRemoveMenuSection(list, taskName);
 
     return menu;
+}
+
+/**
+ * Append issue #847's entire contribution to the note menu: a divider
+ * (this is a destructive-ish, unrelated action, set apart from the colour
+ * grid above it) followed by a single "Remove from board" action.
+ *
+ * Wording is deliberate, per the issue's explicit requirement that this
+ * must never read as "delete the phase": the button says "from board" (not
+ * "delete note"/"delete task"), and both its title tooltip and aria-label
+ * spell out that the task and its subtasks are untouched -- this action
+ * only ever calls wbRemoveNoteFromBoard(), which edits nothing but the
+ * ---whiteboard--- table (see that function's own doc comment). No
+ * confirmation dialog (the issue calls this out as "confirm-free but
+ * undoable"): wbRemoveNoteFromBoard()'s single wbCommitMarkdown() call is
+ * one ordinary undo step, exactly like every other whiteboard mutation.
+ */
+function wbAppendRemoveMenuSection(list, taskName) {
+    const dividerLi = document.createElement('li');
+    dividerLi.className = 'wb-note-menu-divider';
+    dividerLi.setAttribute('role', 'separator');
+    list.appendChild(dividerLi);
+
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-remove';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Remove from board';
+    btn.title = 'Removes this note from the whiteboard only -- the task and its subtasks stay in your plan';
+    btn.setAttribute('aria-label', 'Remove from board. This only removes the note; the task and its subtasks stay in your plan.');
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbRemoveNoteFromBoard(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
 }
 
 /**
@@ -1407,9 +1672,47 @@ function wbBuildColourSwatchButton(colour, taskName, currentColour) {
 }
 
 /**
+ * The screen-space vertical band a note menu is allowed to occupy: below
+ * the whiteboard canvas's own top edge (never the app's header/nav chrome
+ * above it) and above the status bar's own top edge (never that chrome
+ * either), each inset by `edgeGap`. Falls back to the bare viewport edges
+ * if either landmark isn't in the DOM. Factored out of wbOpenNoteMenu()
+ * because issue #847 made the menu taller (an extra "Remove from board"
+ * section past #849's colour-only version), which made both the
+ * flip-above-the-button case *and* the plain below-the-button case newly
+ * able to reach into the app's own chrome on a short viewport -- see
+ * wbOpenNoteMenu()'s own comment.
+ */
+function wbNoteMenuSafeBounds(edgeGap) {
+    const doc = (typeof document !== 'undefined') ? document : null;
+    const canvas = doc ? doc.getElementById('whiteboardContainer') : null;
+    const statusBar = doc ? doc.querySelector('.status-bar') : null;
+    const top = canvas ? canvas.getBoundingClientRect().top + edgeGap : edgeGap;
+    const winHeight = (typeof window !== 'undefined') ? window.innerHeight : top + 600;
+    const bottom = statusBar ? statusBar.getBoundingClientRect().top - edgeGap : winHeight - edgeGap;
+    return { top, bottom };
+}
+
+/**
  * Open the `...` menu for one note, anchored under its button. Positions
- * like nav.js's positionNavMenu(): flip above the button instead of
- * below if there isn't room, clamp horizontally to the viewport.
+ * like nav.js's positionNavMenu(), extended with a hard vertical safe
+ * band (wbNoteMenuSafeBounds(): the canvas's own top edge down to the
+ * status bar's own top edge) the menu must never cross, on either side of
+ * the button:
+ *
+ *   - Below the button whenever that's the roomier (or only) side that
+ *     fits within the safe band -- the default, matching #849.
+ *   - Above the button otherwise, symmetrically bounded by the band's top.
+ *   - Either way, the menu's own height is capped to whatever room that
+ *     chosen side actually has (never past the button itself, never past
+ *     the band edge); wb-note-menu's overflow-y:auto (views/whiteboard.css)
+ *     makes any content that doesn't fit scroll, rather than the menu
+ *     ever overflowing into the nav bar, the status bar, or its own
+ *     trigger button (which would silently break the click-to-close
+ *     toggle). This distinction matters because issue #847 made the menu
+ *     taller (an extra "Remove from board" section past #849's
+ *     colour-only version) than a naive "flip if it doesn't fit below,
+ *     else give up" rule can safely handle on a short viewport.
  */
 function wbOpenNoteMenu(taskName, btn) {
     wbCloseNoteMenu();
@@ -1418,14 +1721,26 @@ function wbOpenNoteMenu(taskName, btn) {
     document.body.appendChild(menu);
 
     const edgeGap = 8;
+    const bounds = wbNoteMenuSafeBounds(edgeGap);
     const btnRect = btn.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
+
     let left = Math.min(btnRect.left, window.innerWidth - menuRect.width - edgeGap);
     left = Math.max(edgeGap, left);
-    let top = btnRect.bottom + 4;
-    if (top + menuRect.height > window.innerHeight - edgeGap) {
-        top = Math.max(edgeGap, btnRect.top - menuRect.height - 4);
+
+    const spaceBelow = bounds.bottom - (btnRect.bottom + 4);
+    const spaceAbove = (btnRect.top - 4) - bounds.top;
+
+    let top;
+    if (menuRect.height <= spaceBelow || spaceBelow >= spaceAbove) {
+        top = btnRect.bottom + 4;
+        menu.style.maxHeight = `${Math.max(80, Math.min(menuRect.height, spaceBelow))}px`;
+    } else {
+        const height = Math.max(80, Math.min(menuRect.height, spaceAbove));
+        top = btnRect.top - 4 - height;
+        menu.style.maxHeight = `${height}px`;
     }
+
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
 
@@ -1590,4 +1905,420 @@ function wbFlushPendingColourPicks() {
     });
     wbPendingColourPicks.clear();
     wbCommitMarkdown(planText);
+}
+
+// ── Board membership: remove, empty state, Add-note picker (issue #847) ──
+//
+// Removing is a single row-delete + single wbCommitMarkdown() (see
+// wbRemoveNoteFromBoard()). Adding (single or multi-select) goes through
+// the same wbCommitAddNotes() regardless of whether it was triggered from
+// the picker's "Add note" button or the empty state's "Add all summary
+// tasks" shortcut, so both are guaranteed the "one Markdown commit, one
+// undo step" acceptance criterion by construction -- there is only one
+// code path that ever writes new rows.
+//
+// The picker itself (wbOpenAddNotePicker() and friends) follows the same
+// "single floating element, appended to document.body, rebuilt on each
+// open" convention as the `...` note menu above (see that section's
+// header comment) -- open/close/Escape/outside-click all mirror
+// wbOpenNoteMenu()/wbCloseNoteMenu()/wbNoteMenuOutsideClick()/
+// wbNoteMenuKeydown(), just for a bigger dialog instead of a small popup.
+
+/** The whiteboard rows currently in the plan text (see wbLastPlanText) --
+ * the same read wbRenderNotes() itself does, factored out so the picker
+ * and the remove/add commit paths don't each re-derive it separately. */
+function wbCurrentWhiteboardItems() {
+    if (typeof extractWhiteboardFromPlanText !== 'function' || typeof parseWhiteboardMarkdown !== 'function') {
+        return [];
+    }
+    const section = extractWhiteboardFromPlanText(wbLastPlanText);
+    return section ? parseWhiteboardMarkdown(section) : [];
+}
+
+/** Every summary task not currently on the board, right now. */
+function wbSummaryTasksNotOnBoard() {
+    return wbTasksNotOnBoard(wbLastTasks, wbCurrentWhiteboardItems());
+}
+
+/**
+ * Delete every whiteboard row naming `taskName` (case-insensitive, so this
+ * also cleans up an accidental duplicate row rather than leaving one
+ * behind) and commit -- the entire "Remove from board" action. Only ever
+ * calls updatePlanWhiteboardText(), which -- per its own doc comment --
+ * rewrites nothing but the ---whiteboard--- section: the task outline,
+ * every other back-matter section, and the front matter are byte-for-byte
+ * untouched, which is the whole point (removing a note must never read as
+ * deleting the task). Returns false (no-op, no commit) if there was
+ * nothing to remove.
+ */
+function wbRemoveNoteFromBoard(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const section = extractWhiteboardFromPlanText(planText);
+    const items = parseWhiteboardMarkdown(section);
+    const key = String(taskName).toLowerCase();
+    const next = items.filter(item => !(item && item.task && item.task.toLowerCase() === key));
+    if (next.length === items.length) return false; // no matching row -- nothing to do
+
+    const nextText = updatePlanWhiteboardText(planText, next);
+    return wbCommitMarkdown(nextText);
+}
+
+/**
+ * Add `taskNames` to the board: one free-space rect per name (via
+ * wbBuildAddNoteRows(), scanning the *current* viewport -- see
+ * whiteboard.js's wbCurrentViewportBoardRect()), appended to the current
+ * rows, written and committed in a single call. This is the one and only
+ * place new whiteboard rows get written, whether the caller is the
+ * picker's multi-select "Add" button or the empty state's "Add all
+ * summary tasks" shortcut -- see this section's header comment.
+ */
+function wbCommitAddNotes(taskNames) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    const names = (taskNames || []).filter(Boolean);
+    if (!editor || !names.length) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const section = extractWhiteboardFromPlanText(planText);
+    const items = parseWhiteboardMarkdown(section);
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    const newRows = wbBuildAddNoteRows(items, viewport, names, {
+        width: WB_NOTE_DEFAULT_WIDTH,
+        height: WB_NOTE_DEFAULT_HEIGHT,
+    });
+
+    const nextText = updatePlanWhiteboardText(planText, items.concat(newRows));
+    return wbCommitMarkdown(nextText);
+}
+
+/** "Add all summary tasks" (the empty state's second action): every
+ * not-yet-added summary task, in one commit. False (no-op) if the board
+ * already includes every summary task (including "there are no summary
+ * tasks at all yet"). */
+function wbAddAllSummaryTasks() {
+    const entries = wbSummaryTasksNotOnBoard();
+    if (!entries.length) return false;
+    return wbCommitAddNotes(entries.map(entry => entry.name));
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────
+
+/** Get-or-create the empty-state overlay inside #whiteboardContainer,
+ * wiring its two actions once. Lives alongside (not inside) the SVG, so
+ * it's ordinary HTML rather than another foreignObject. */
+function wbEnsureEmptyStateEl() {
+    const container = (typeof document !== 'undefined') ? document.getElementById('whiteboardContainer') : null;
+    if (!container) return null;
+    let el = container.querySelector('.wb-empty-state');
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.className = 'wb-empty-state';
+    el.innerHTML = [
+        '<div class="wb-empty-state-inner">',
+        '<h3 class="wb-empty-state-title">Nothing on the board yet</h3>',
+        '<p class="wb-empty-state-body">The whiteboard is a curated view of your plan, not every phase automatically &mdash; add the summary tasks you want to track here.</p>',
+        '<div class="wb-empty-state-actions">',
+        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" id="wbEmptyStateAddBtn">Add note</button>',
+        '<button type="button" class="wb-empty-state-btn" id="wbEmptyStateAddAllBtn">Add all summary tasks</button>',
+        '</div>',
+        '</div>',
+    ].join('');
+    container.appendChild(el);
+
+    const addBtn = el.querySelector('#wbEmptyStateAddBtn');
+    const addAllBtn = el.querySelector('#wbEmptyStateAddAllBtn');
+    if (addBtn) addBtn.addEventListener('click', () => wbOpenAddNotePicker());
+    if (addAllBtn) addAllBtn.addEventListener('click', () => wbAddAllSummaryTasks());
+
+    return el;
+}
+
+/** Show the empty state iff there are no rendered notes right now. */
+function wbUpdateEmptyState(hasNotes) {
+    const el = wbEnsureEmptyStateEl();
+    if (!el) return;
+    el.classList.toggle('wb-empty-state-hidden', !!hasNotes);
+}
+
+// ── Add-note picker ──────────────────────────────────────────────────────
+
+// Only one picker is ever open at a time (matches wbNoteMenuState's single
+// slot above). { entries: [{name, path}], selected: Set<name>, query }
+// while open, else null.
+let wbAddPickerState = null;
+
+/**
+ * Open the Add-note picker: a modal dialog listing every summary task not
+ * already on the board (see wbSummaryTasksNotOnBoard()), each showing its
+ * "Phase › Sub-phase" parent path so same-named tasks in different phases
+ * are tellable apart, with a search box and multi-select checkboxes.
+ * Building the entry list fresh on open (not cached) means it can never
+ * go stale across repeated opens in one session.
+ */
+function wbOpenAddNotePicker() {
+    wbCloseAddNotePicker();
+
+    wbAddPickerState = {
+        entries: wbSummaryTasksNotOnBoard(),
+        selected: new Set(),
+        query: '',
+    };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'wbAddNoteOverlay';
+    overlay.className = 'wb-add-note-overlay';
+    overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) wbCloseAddNotePicker();
+    });
+
+    const dialog = document.createElement('div');
+    dialog.id = 'wbAddNoteDialog';
+    dialog.className = 'wb-add-note-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'wbAddNoteTitle');
+    dialog.addEventListener('mousedown', (e) => e.stopPropagation());
+
+    const header = document.createElement('div');
+    header.className = 'wb-add-note-header';
+    const title = document.createElement('h2');
+    title.id = 'wbAddNoteTitle';
+    title.className = 'wb-add-note-title';
+    title.textContent = 'Add notes to whiteboard';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'wb-add-note-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => wbCloseAddNotePicker());
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.id = 'wbAddNoteSearch';
+    search.className = 'wb-add-note-search';
+    search.placeholder = 'Search by name or phase…';
+    search.setAttribute('aria-label', 'Search summary tasks not yet on the board');
+    search.addEventListener('input', () => {
+        wbAddPickerState.query = search.value;
+        wbRenderAddNoteList();
+    });
+
+    const list = document.createElement('ul');
+    list.id = 'wbAddNoteList';
+    list.className = 'wb-add-note-list';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-multiselectable', 'true');
+    list.setAttribute('aria-label', 'Summary tasks not on the board');
+
+    const footer = document.createElement('div');
+    footer.className = 'wb-add-note-footer';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'wb-add-note-cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => wbCloseAddNotePicker());
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.id = 'wbAddNoteSubmit';
+    submitBtn.className = 'wb-add-note-submit';
+    submitBtn.textContent = 'Add note';
+    submitBtn.disabled = true;
+    submitBtn.addEventListener('click', () => wbSubmitAddNotePicker());
+    footer.appendChild(cancelBtn);
+    footer.appendChild(submitBtn);
+
+    dialog.appendChild(header);
+    dialog.appendChild(search);
+    dialog.appendChild(list);
+    dialog.appendChild(footer);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    wbRenderAddNoteList();
+    document.addEventListener('keydown', wbAddNotePickerKeydown, true);
+    search.focus();
+}
+
+/** Close the picker, if open, and return focus to the toolbar/empty-state
+ * button that opened it (whichever exists). */
+function wbCloseAddNotePicker() {
+    const overlay = document.getElementById('wbAddNoteOverlay');
+    if (overlay) overlay.remove();
+    document.removeEventListener('keydown', wbAddNotePickerKeydown, true);
+    wbAddPickerState = null;
+
+    const returnFocusBtn = document.getElementById('whiteboardAddNoteBtn') || document.getElementById('wbEmptyStateAddBtn');
+    if (returnFocusBtn) returnFocusBtn.focus();
+}
+
+/** Rebuild the picker's <ul> from the current search query + selection. */
+function wbRenderAddNoteList() {
+    const list = document.getElementById('wbAddNoteList');
+    if (!list || !wbAddPickerState) return;
+
+    const filtered = wbFilterPickerEntries(wbAddPickerState.entries, wbAddPickerState.query);
+    list.innerHTML = '';
+    if (!filtered.length) {
+        const empty = document.createElement('li');
+        empty.className = 'wb-add-note-empty';
+        empty.setAttribute('role', 'presentation');
+        empty.textContent = wbAddPickerState.entries.length
+            ? 'No summary tasks match your search'
+            : 'Every summary task is already on the board';
+        list.appendChild(empty);
+    } else {
+        filtered.forEach(entry => list.appendChild(wbBuildAddNoteListItem(entry)));
+    }
+    wbUpdateAddNoteSubmitState();
+}
+
+/** One picker row: a checkbox + name + (if any) "Phase › Sub-phase" path. */
+function wbBuildAddNoteListItem(entry) {
+    const li = document.createElement('li');
+    li.className = 'wb-add-note-item';
+    li.setAttribute('role', 'option');
+    li.tabIndex = -1;
+    li.dataset.taskName = entry.name;
+    const selected = wbAddPickerState.selected.has(entry.name);
+    li.setAttribute('aria-selected', selected ? 'true' : 'false');
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'wb-add-note-checkbox';
+    checkbox.checked = selected;
+    checkbox.tabIndex = -1;
+    checkbox.setAttribute('aria-hidden', 'true');
+    li.appendChild(checkbox);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'wb-add-note-item-text';
+    const name = document.createElement('span');
+    name.className = 'wb-add-note-item-name';
+    name.textContent = entry.name;
+    textWrap.appendChild(name);
+    if (entry.path) {
+        const path = document.createElement('span');
+        path.className = 'wb-add-note-item-path';
+        path.textContent = entry.path;
+        textWrap.appendChild(path);
+    }
+    li.appendChild(textWrap);
+
+    li.addEventListener('click', () => {
+        wbToggleAddNoteSelection(entry.name);
+        li.focus();
+    });
+
+    return li;
+}
+
+/** Toggle one entry's selection in place (no full list rebuild, so
+ * keyboard focus on the row being toggled is never lost). */
+function wbToggleAddNoteSelection(taskName) {
+    if (!wbAddPickerState) return;
+    if (wbAddPickerState.selected.has(taskName)) {
+        wbAddPickerState.selected.delete(taskName);
+    } else {
+        wbAddPickerState.selected.add(taskName);
+    }
+
+    const list = document.getElementById('wbAddNoteList');
+    const item = list && Array.from(list.children).find(li => li.dataset && li.dataset.taskName === taskName);
+    if (item) {
+        const selected = wbAddPickerState.selected.has(taskName);
+        item.setAttribute('aria-selected', selected ? 'true' : 'false');
+        const checkbox = item.querySelector('.wb-add-note-checkbox');
+        if (checkbox) checkbox.checked = selected;
+    }
+    wbUpdateAddNoteSubmitState();
+}
+
+/** Keep the "Add note(s)" button's enabled state + label (count) current. */
+function wbUpdateAddNoteSubmitState() {
+    const btn = document.getElementById('wbAddNoteSubmit');
+    if (!btn || !wbAddPickerState) return;
+    const count = wbAddPickerState.selected.size;
+    btn.disabled = count === 0;
+    btn.textContent = count > 1 ? `Add ${count} notes` : 'Add note';
+}
+
+/** All actual <li role="option"> rows currently rendered (excludes the
+ * "no matches"/"nothing left" placeholder row, which isn't one). */
+function wbAddNoteListItems() {
+    const list = document.getElementById('wbAddNoteList');
+    return list ? Array.from(list.querySelectorAll('.wb-add-note-item')) : [];
+}
+
+/**
+ * Keyboard handling for the open picker -- mirrors wbNoteMenuKeydown()'s
+ * conventions (Escape closes + refocuses the trigger; Arrow keys move
+ * focus) adapted for a search box + listbox instead of a flat menu:
+ * ArrowDown from the search field enters the list; ArrowUp from the
+ * list's first row returns to the search field; Space/Enter toggles the
+ * focused row's selection.
+ */
+function wbAddNotePickerKeydown(e) {
+    if (!wbAddPickerState) return;
+
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        wbCloseAddNotePicker();
+        return;
+    }
+
+    const items = wbAddNoteListItems();
+    const search = document.getElementById('wbAddNoteSearch');
+    const active = document.activeElement;
+    const onSearch = !!(search && active === search);
+    const index = items.indexOf(active);
+
+    if (e.key === 'ArrowDown') {
+        if (!items.length) return;
+        e.preventDefault();
+        if (onSearch || index === -1) {
+            items[0].focus();
+        } else {
+            items[(index + 1) % items.length].focus();
+        }
+    } else if (e.key === 'ArrowUp') {
+        if (onSearch) return;
+        e.preventDefault();
+        if (index <= 0) {
+            if (search) search.focus();
+        } else {
+            items[index - 1].focus();
+        }
+    } else if (e.key === 'Home' && !onSearch && items.length) {
+        e.preventDefault();
+        items[0].focus();
+    } else if (e.key === 'End' && !onSearch && items.length) {
+        e.preventDefault();
+        items[items.length - 1].focus();
+    } else if ((e.key === ' ' || e.key === 'Enter') && index !== -1) {
+        e.preventDefault();
+        wbToggleAddNoteSelection(items[index].dataset.taskName);
+    }
+}
+
+/** The picker's "Add note"/"Add N notes" submit button. */
+function wbSubmitAddNotePicker() {
+    if (!wbAddPickerState || !wbAddPickerState.selected.size) return;
+    const taskNames = Array.from(wbAddPickerState.selected);
+    wbCloseAddNotePicker();
+    wbCommitAddNotes(taskNames);
 }

@@ -48,6 +48,7 @@ function assertClose(actual, expected, msg, eps = 1e-6) {
         wbViewportStorageKey,
         wbSerializeViewport,
         wbParseViewport,
+        wbViewportToBoardRect,
     } = sandbox;
 
     // NOTE: WB_MIN_ZOOM/WB_MAX_ZOOM are declared `const` at module scope in
@@ -95,6 +96,43 @@ function assertClose(actual, expected, msg, eps = 1e-6) {
         const next = wbAnchoredZoomPan(panX, panY, oldZoom, newZoom, anchorX, anchorY);
         assertClose(next.panX + newZoom * boardX, anchorX, 'anchored zoom-out keeps board point under cursor (x)');
         assertClose(next.panY + newZoom * boardY, anchorY, 'anchored zoom-out keeps board point under cursor (y)');
+    }
+
+    // wbViewportToBoardRect() (issue #847): the inverse of the same
+    // translate(pan) scale(zoom) transform exercised above -- given the
+    // current pan/zoom and an on-screen window, it must recover the exact
+    // board-space rectangle that window shows right now.
+    {
+        // At 100% zoom with no pan, the screen window maps 1:1 onto board
+        // space starting at the origin.
+        const identity = wbViewportToBoardRect(0, 0, 1, 1200, 800);
+        assertClose(identity.x, 0, 'no pan/zoom: viewport rect x is the screen origin');
+        assertClose(identity.y, 0, 'no pan/zoom: viewport rect y is the screen origin');
+        assertClose(identity.width, 1200, 'no pan/zoom: viewport rect width matches the screen 1:1');
+        assertClose(identity.height, 800, 'no pan/zoom: viewport rect height matches the screen 1:1');
+
+        // Panned and zoomed: the board point currently rendering at the
+        // screen origin must be recoverable from panX/panY/zoom, and the
+        // rect's size must shrink by 1/zoom (zoomed in -> less board is
+        // visible for the same screen size).
+        const panX = 100, panY = -50, zoom = 2;
+        const rect = wbViewportToBoardRect(panX, panY, zoom, 1200, 800);
+        // screen = pan + zoom * board  =>  board = (screen - pan) / zoom, at screen (0,0):
+        assertClose(rect.x, (0 - panX) / zoom, 'panned/zoomed viewport rect x is the inverse transform of the screen origin');
+        assertClose(rect.y, (0 - panY) / zoom, 'panned/zoomed viewport rect y is the inverse transform of the screen origin');
+        assertClose(rect.width, 1200 / zoom, 'panned/zoomed viewport rect width is screen width / zoom');
+        assertClose(rect.height, 800 / zoom, 'panned/zoomed viewport rect height is screen height / zoom');
+
+        // Round-trip through wbAnchoredZoomPan()'s own screen = pan + zoom
+        // * board relationship: the board point this rect claims is under
+        // the screen origin must actually render back at the screen
+        // origin under the same pan/zoom.
+        assertClose(panX + zoom * rect.x, 0, 'the rect\'s own top-left board point renders back at the screen origin (x)');
+        assertClose(panY + zoom * rect.y, 0, 'the rect\'s own top-left board point renders back at the screen origin (y)');
+
+        // An invalid/zero zoom must never divide by zero.
+        const safe = wbViewportToBoardRect(0, 0, 0, 1200, 800);
+        assert(isFinite(safe.x) && isFinite(safe.width), 'a zero zoom falls back to treating it as 1 rather than producing Infinity/NaN');
     }
 
     // Per-project storage key convention (mirrors mindmap_branch_colours_<projectId>).
