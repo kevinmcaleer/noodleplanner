@@ -93,9 +93,9 @@ const VIEW_FOR_LABEL = {
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
     Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Benefits: 'benefits', Analysis: 'analysis',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
-    'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', 'Project Report': 'project-report',
+    'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
     Milestones: 'milestones', 'Mind Map': 'mindmap', Whiteboard: 'whiteboard', PBS: 'pbs', Products: 'pbs',
-    'Product Flow': 'product-flow', Deliverables: 'deliverables',
+    'Product Flow': 'product-flow', Deliverables: 'deliverables', Editor: 'editor',
 };
 
 function switchView(view) {
@@ -125,6 +125,19 @@ const RAID_IMPORT_FORMATS = [
     { label: 'Excel (.xlsx)', run: () => document.getElementById('raidXlUpload')?.click() },
     { label: 'Markdown (.md)', run: () => document.getElementById('raidMdUpload')?.click() },
 ];
+const GANTT_SCALES = ['days', 'weeks', 'months', 'quarters', 'years'].map((scale) => ({
+    label: scale.charAt(0).toUpperCase() + scale.slice(1),
+    run: () => {
+        const el = document.getElementById('ganttScale');
+        if (!el) return;
+        el.value = scale;
+        el.dispatchEvent(new Event('change'));
+    },
+}));
+const KANBAN_GROUP_MODES = ['phase', 'resource', 'progress', 'label', 'bucket'].map((mode) => ({
+    label: mode.charAt(0).toUpperCase() + mode.slice(1),
+    run: () => switchKanbanView(mode),
+}));
 
 /** Tab/context-scoped overrides, checked before the generic label map. */
 function scopedAction(scopeId, label) {
@@ -145,8 +158,10 @@ function scopedAction(scopeId, label) {
         'kanban:Resource': () => switchKanbanView('resource'),
         'kanban:Progress': () => switchKanbanView('progress'),
         'kanban:Label': () => switchKanbanView('label'),
+        'kanban:Group by': () => openFormatMenu(KANBAN_GROUP_MODES, 'Group by'),
         'whiteboard:Mind Map': switchView('mindmap'),
         'whiteboard:Whiteboard': switchView('whiteboard'),
+        'gantt:Day/Week/Month': () => openFormatMenu(GANTT_SCALES, 'Scale'),
     };
     return table[`${scopeId}:${label}`];
 }
@@ -174,6 +189,9 @@ const LABEL_ACTIONS = {
     'Critical Path': () => toggleGanttCheckbox('ganttShowCriticalPath'),
     Baseline: () => toggleGanttCheckbox('ganttShowBaseline'),
     Dependencies: () => toggleGanttCheckbox('ganttShowDependencies'),
+    Deps: () => toggleGanttCheckbox('ganttShowDependencies'),
+    Risk: () => addRaidItem(),
+    Issue: () => addRaidItem(),
 
     'Dark Mode': () => setThemeChoice(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
 
@@ -211,7 +229,7 @@ function resolveAction(scopeId, label) {
  * refreshRibbon() replaces .ribbon-tabstrip's innerHTML wholesale, which
  * would destroy that popover the instant it opened, so these must skip
  * the post-action refresh rather than re-render over their own menu. */
-const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project']);
+const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month']);
 
 function runAction(scopeId, label) {
     const action = resolveAction(scopeId, label);
@@ -350,7 +368,7 @@ function renderButton(scopeId, tuple, kind) {
 function isButtonActive(scopeId, label, live) {
     if (label === 'Critical Path') return live.ganttShowCriticalPath;
     if (label === 'Baseline') return live.ganttShowBaseline;
-    if (label === 'Dependencies') return live.ganttShowDependencies;
+    if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
