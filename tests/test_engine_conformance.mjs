@@ -17,6 +17,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { dayOf, scheduleTasksFromText } from "../packages/noodle-web/src/noodle_web/static/engine/scheduler.js";
+import { planBody } from "../packages/noodle-web/src/noodle_web/static/engine/local-parse.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const CORPUS = join(repo, "tests", "fixtures", "conformance");
@@ -80,16 +81,6 @@ function calendarFrom(planText) {
     }
   }
   return { holidays, resourceNonWorkingDays, resourceMap };
-}
-
-/** The plan body: the outline, without front matter or back matter. */
-function planBody(planText) {
-  let text = planText;
-  const fm = /^---\n[\s\S]*?\n---\n?/.exec(text);
-  if (fm) text = text.slice(fm[0].length);
-  const backMatter = /^---[a-z][a-z -]*---$/m.exec(text);
-  if (backMatter) text = text.slice(0, backMatter.index);
-  return text;
 }
 
 /** Fields both engines compute; the rest of the payload is not this engine's. */
