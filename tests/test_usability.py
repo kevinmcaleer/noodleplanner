@@ -102,7 +102,12 @@ def _create_chrome_driver():
     """Create a headless Chrome WebDriver instance.
 
     Tries webdriver-manager first for automatic chromedriver management,
-    then falls back to system-installed chromedriver.
+    then falls back to system-installed chromedriver/chromium -- the same
+    explicit-path convention every other Selenium test file in this repo
+    already uses (see e.g. test_whiteboard_notes.py's own
+    _create_chrome_driver()), needed because Selenium Manager's own
+    auto-download does not work on linux/aarch64 (e.g. Raspberry Pi) dev
+    environments.
     """
     options = ChromeOptions()
     options.add_argument("--headless=new")
@@ -110,6 +115,11 @@ def _create_chrome_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1280,900")
+
+    import os
+
+    if os.path.exists("/usr/bin/chromium"):
+        options.binary_location = "/usr/bin/chromium"
 
     # Try webdriver-manager first
     try:
@@ -122,6 +132,9 @@ def _create_chrome_driver():
 
     # Fall back to system chromedriver
     try:
+        if os.path.exists("/usr/bin/chromedriver"):
+            service = ChromeService("/usr/bin/chromedriver")
+            return webdriver.Chrome(service=service, options=options)
         return webdriver.Chrome(options=options)
     except WebDriverException:
         pytest.skip("Chrome/chromedriver not available on this system")

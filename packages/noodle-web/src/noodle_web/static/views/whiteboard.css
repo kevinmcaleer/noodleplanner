@@ -343,7 +343,9 @@
    small <foreignObject> -- so it is never clipped to the note's own
    width/height. Structured as a plain <ul> of <li> items so a later
    issue can append "Remove from board" / "Open task" items without
-   touching these rules.
+   touching these rules -- #850's "Open task details" item
+   (.wb-note-menu-open-task, wbAppendOpenTaskMenuSection()) is exactly
+   that, styled identically to .wb-note-menu-default below.
    ======================================== */
 
 .wb-note-menu {
@@ -384,7 +386,8 @@
     padding: 4px 4px 0;
 }
 
-.wb-note-menu-default {
+.wb-note-menu-default,
+.wb-note-menu-open-task {
     display: block;
     width: 100%;
     text-align: left;
@@ -398,7 +401,9 @@
 }
 
 .wb-note-menu-default:hover,
-.wb-note-menu-default:focus-visible {
+.wb-note-menu-default:focus-visible,
+.wb-note-menu-open-task:hover,
+.wb-note-menu-open-task:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
     outline: 2px solid var(--np-accent, #667eea);
     outline-offset: 1px;

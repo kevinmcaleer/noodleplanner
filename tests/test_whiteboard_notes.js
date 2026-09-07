@@ -53,6 +53,7 @@ const {
     wbNoteZoomTier,
     wbBuildNoteViewModel,
     wbNoteViewModels,
+    wbBuildPeekLevel,
     wbPalette,
     wbShadeColour,
     wbDerivedPaletteColour,
@@ -210,6 +211,43 @@ const tasks = [
     const rows = [row, buildRow, orphanRow];
     const models = wbNoteViewModels(rows, tasks);
     assert(models.length === 2, 'wbNoteViewModels skips orphan rows and returns one model per valid row');
+}
+
+// ── wbBuildPeekLevel (issue #850 -- task-peek popover's view-model) ─────
+{
+    const buildLevel = wbBuildPeekLevel('Build', tasks);
+    assert(buildLevel !== null, 'a known task builds a peek level');
+    assert(buildLevel.task.name === 'Build', 'the level carries the requested task');
+    assert(buildLevel.children.length === 2, 'Build has exactly 2 direct children (Widget, Nested)');
+
+    const nestedInPeek = buildLevel.children.find(c => c.task.name === 'Nested');
+    const widgetInPeek = buildLevel.children.find(c => c.task.name === 'Widget');
+    assert(nestedInPeek.hasChildren === true && nestedInPeek.childCount === 2,
+        'a peek row for a child-with-children carries the same hasChildren/childCount a note row does');
+    assert(nestedInPeek.complete === false, 'Nested (0%) is not complete');
+    assert(widgetInPeek.hasChildren === false, 'a leaf child has no drill-down badge in the peek either');
+    assert(widgetInPeek.complete === true, 'Widget (100%) is complete');
+    assert(widgetInPeek.resources.length === 1 && widgetInPeek.resources[0] === 'Sam Smith',
+        'each peek row carries *that child\'s own* resources (unlike a note footer, which only shows the summary\'s own)');
+
+    const caseInsensitive = wbBuildPeekLevel('build', tasks);
+    assert(caseInsensitive !== null && caseInsensitive.task.name === 'Build',
+        'peek level lookup is case-insensitive, matching plan-format.rst\'s Task-matching rule');
+
+    const nestedLevel = wbBuildPeekLevel('Nested', tasks);
+    assert(nestedLevel.children.map(c => c.task.name).join(',') === 'Sub A,Sub B',
+        'drilling into Nested (a grandchild of Build) lists its own direct children -- the recursive step');
+    assert(nestedLevel.children.every(c => c.hasChildren === false),
+        'Sub A/Sub B are leaves -- no further drill-down badge');
+
+    assert(wbBuildPeekLevel('Does Not Exist', tasks) === null,
+        'an unknown task name yields no peek level, so callers can fail closed');
+    assert(wbBuildPeekLevel('', tasks) === null, 'an empty task name yields no peek level');
+    assert(wbBuildPeekLevel('Build', null) === null, 'a missing tasks array yields no peek level');
+
+    const emptyLevel = wbBuildPeekLevel('Empty Phase', tasks);
+    assert(emptyLevel !== null && emptyLevel.children.length === 0,
+        'a childless task still builds a level (an empty peek), matching the note body\'s own empty-state handling');
 }
 
 // ── Colour precedence (issue #849) ──────────────────────────────────────
