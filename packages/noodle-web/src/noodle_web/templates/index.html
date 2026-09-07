@@ -516,7 +516,7 @@
                             Export RAID to Excel
                         </div>
                         <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
-                            Upload RAID Excel
+                            Sync RAID with Excel
                         </div>
                     </div>
                 </div>
@@ -3442,6 +3442,7 @@ Build
                     <button class="settings-tab-btn" data-tab="theme" onclick="switchSettingsTab('theme')" role="tab" aria-selected="false">Theme</button>
                     <button class="settings-tab-btn" data-tab="ai" onclick="switchSettingsTab('ai')" role="tab" aria-selected="false">AI</button>
                     <button class="settings-tab-btn" data-tab="storage" onclick="switchSettingsTab('storage')" role="tab" aria-selected="false">Storage</button>
+                    <button class="settings-tab-btn" data-tab="sync" onclick="switchSettingsTab('sync')" role="tab" aria-selected="false">Sync</button>
                 </div>
 
                 <!-- Gantt Tab -->
@@ -3567,6 +3568,13 @@ Build
                     </div>
                     <small>A backup holds every project, its version history and programme dependencies in one JSON file. Restoring adds what is missing and keeps what is already here.</small>
                     <div id="storageSettingsLegacy" class="storage-settings-legacy" style="display: none;"></div>
+                </div>
+
+                <!-- Sync Tab (issue #761) -->
+                <div id="settingsTab-sync" class="settings-tab-content" role="tabpanel">
+                    <h3>Sync</h3>
+                    <p class="settings-ai-description">Files this plan is linked to, and when they last synced. Nothing syncs automatically — sync only runs when you trigger it here or from the Tools menu.</p>
+                    <div id="syncSettingsList" class="sync-settings-list"></div>
                 </div>
             </div>
         </div>
@@ -3805,6 +3813,47 @@ Build
 
                 <!-- Loading spinner -->
                 <div id="wizardSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAID Excel Sync Review Modal (issue #761) -->
+    <div id="raidSyncOverlay" class="modal-overlay" onclick="if(event.target===this) closeRaidSyncReview()" role="dialog" aria-modal="true" aria-label="Sync RAID with Excel">
+        <div class="task-form-modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Sync RAID with Excel</h2>
+                <button class="close-btn" onclick="closeRaidSyncReview()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="raidSyncSummary" style="color: var(--text-secondary, #666); margin-bottom: 15px;"></p>
+                <div id="raidSyncEmpty" style="display:none; padding: 20px 0; color: var(--text-secondary, #666);">
+                    No changes since the last sync — your plan and the Excel file already match.
+                </div>
+                <div id="raidSyncList" class="raid-sync-list"></div>
+                <!-- Loading spinner -->
+                <div id="raidSyncSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color, #e0e0e0);">
+                <button class="btn btn-secondary" onclick="closeRaidSyncReview()">Cancel</button>
+                <button class="btn btn-primary" id="raidSyncApplyBtn" onclick="applyRaidSyncReview()">Apply Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MS Project Sync Review Modal (issue #842) -->
+    <div id="mspSyncOverlay" class="modal-overlay" onclick="if(event.target===this) closeMspSyncReview()" role="dialog" aria-modal="true" aria-label="Sync MS Project Schedule">
+        <div class="task-form-modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Sync MS Project Schedule</h2>
+                <button class="close-btn" onclick="closeMspSyncReview()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="mspSyncSummary" style="color: var(--text-secondary, #666); margin-bottom: 15px;"></p>
+                <div id="mspSyncList" class="msp-sync-list"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color, #e0e0e0);">
+                <button class="btn btn-secondary" onclick="closeMspSyncReview()">Cancel</button>
+                <button class="btn btn-primary" onclick="applyMspSyncReview()">Apply Selected</button>
             </div>
         </div>
     </div>

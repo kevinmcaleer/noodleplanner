@@ -17,6 +17,9 @@ from noodle_core import (
     parse_baseline_markdown,
     generate_baseline_text,
     update_plan_baseline,
+    strip_budget,
+    strip_benefits,
+    strip_comms,
     parse_benefits_markdown,
     parse_budget_markdown,
     parse_raid_markdown,
@@ -1054,6 +1057,145 @@ class TestUpdatePlanRaidLog:
         extracted = extract_raid_log(result)
         assert 'Risk one' in extracted
         assert 'Issue two' in extracted
+
+
+class TestStrayBareSeparatorNormalizedAway:
+    """Regression tests for a stray ``---`` between the task list and
+    back-matter (kevinmcaleer/Snakie#976).
+
+    The bare ``---`` separator only has meaning as a visual lead-in to
+    the ``---highlights---`` section. Historically only ``strip_highlights``
+    removed it; ``strip_raid_log``, ``strip_budget``, ``strip_benefits``,
+    ``strip_comms``, ``strip_lessons`` and ``strip_baseline`` preserved it
+    verbatim as if it were plan content whenever it happened to precede
+    one of *their* sections instead (e.g. a hand-typed separator, or a
+    leftover from a highlights section that was since removed via a path
+    that didn't normalize it away). That meant a plan touched only via
+    those code paths (e.g. the AI chat assistant, which calls straight
+    into these functions server-side) would carry the stray line forever.
+    """
+
+    STRAY_RAID_PLAN = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---raid log---
+| Type | Description | Status | Score | Owner | Date |
+|------|-------------|--------|-------|-------|------|
+| Risk | Old item    | Open   | 4     | Eve   | 2026-01-01 |"""
+
+    def test_strip_raid_log_removes_stray_separator_without_highlights(self):
+        """A bare --- with no highlights section serves no purpose and
+        should not survive stripping the RAID log."""
+        result = strip_raid_log(self.STRAY_RAID_PLAN)
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+        assert '---' not in result
+
+    def test_strip_budget_removes_stray_separator_without_highlights(self):
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---budget---
+| Description | Estimate |
+|-------------|----------|
+| Server      | 100      |"""
+        result = strip_budget(text)
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+
+    def test_strip_benefits_removes_stray_separator_without_highlights(self):
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---benefits---
+| Title | Status |
+|-------|--------|
+| Speed | Open   |"""
+        result = strip_benefits(text)
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+
+    def test_strip_comms_removes_stray_separator_without_highlights(self):
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---comms---
+| Activity | Audience |
+|----------|----------|
+| Update   | Team     |"""
+        result = strip_comms(text)
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+
+    def test_strip_lessons_removes_stray_separator_without_highlights(self):
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---lessons learned---
+Some lesson."""
+        result = strip_lessons(text)
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+
+    def test_strip_baseline_removes_stray_separator_without_highlights(self):
+        text = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---baseline---
+| Task Name | Start | Finish | Duration |
+|-----------|-------|--------|----------|"""
+        result = strip_baseline(text)
+        assert result.rstrip() == 'Phase 1\n  Task 1 @john 3d'
+
+    def test_update_plan_raid_log_normalizes_stray_separator(self):
+        """update_plan_raid_log is the function the AI chat assistant calls
+        server-side to add/edit/remove RAID items. It should not preserve
+        a purposeless stray --- from an earlier save."""
+        items = [
+            {'type': 'Issue', 'title': 'New item', 'status': 'Closed',
+             'score': 12, 'owner': 'Bob', 'date': '2026-02-13'},
+        ]
+        result = update_plan_raid_log(self.STRAY_RAID_PLAN, items)
+        assert result.count('\n---\n') == 0
+        assert not any(line.strip() == '---' for line in result.split('\n'))
+
+    def test_update_plan_raid_log_idempotent_second_save_matches_first(self):
+        """Saving twice in a row (the real regression invariant) must
+        produce byte-identical output the second time — no accumulation."""
+        items = [
+            {'type': 'Risk', 'title': 'Server fail', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+        ]
+        first = update_plan_raid_log(self.STRAY_RAID_PLAN, items)
+        second = update_plan_raid_log(first, items)
+        assert second == first
+
+    def test_highlights_separator_still_preserved_when_highlights_present(self):
+        """The fix must not remove the legitimate separator when a
+        highlights section genuinely follows it."""
+        plan = """Phase 1
+  Task 1 @john 3d
+
+---
+
+---highlights---
+## 2026-02-13 @Alice
+- Status update"""
+        items = [
+            {'type': 'Risk', 'title': 'Server fail', 'status': 'Open',
+             'score': 8, 'owner': 'Alice', 'date': '2026-02-13'},
+        ]
+        result = update_plan_raid_log(plan, items)
+        assert '\n\n---\n\n---highlights---' in result
+        # Exactly one bare separator line, not zero and not duplicated.
+        assert sum(1 for line in result.split('\n') if line.strip() == '---') == 1
 
 
 class TestRaidLogNotParsedAsTasks:
