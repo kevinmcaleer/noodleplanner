@@ -1,5 +1,5 @@
 /* PptxGenJS 4.0.1 @ 2025-06-25T23:35:35.098Z */
-import JSZip from 'jszip';
+import JSZip from "../jszip/jszip.esm.mjs";
 
 /******************************************************************************
 Copyright (c) Microsoft Corporation.
