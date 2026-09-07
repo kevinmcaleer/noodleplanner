@@ -3952,6 +3952,24 @@ Build
         </div>
     </div>
 
+    <div id="statusLogOverlay" class="modal-overlay" onclick="if(event.target===this) closeStatusLogFullscreen()" role="dialog" aria-modal="true" aria-label="Status Message Log">
+        <div class="task-form-modal status-log-modal" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Status Message Log</h2>
+                <div class="status-log-modal-header-actions">
+                    <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
+                        <i class="bi bi-download"></i>
+                        <span>Save to file</span>
+                    </button>
+                    <button class="close-btn" onclick="closeStatusLogFullscreen()" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body status-log-modal-body">
+                <div class="status-log-list status-log-list-full" id="statusLogFullList"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Templates Modal -->
     <div id="templatesModalOverlay" class="modal-overlay templates-overlay" role="dialog" aria-modal="true" aria-label="Project Templates">
         <div class="templates-modal">
@@ -4361,6 +4379,26 @@ Build
             <span class="status-bar-separator"></span>
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
+        <div class="status-bar-history-wrap">
+            <button class="status-bar-btn status-bar-history-btn" id="statusBarHistoryBtn" onclick="toggleStatusHistoryPopup()" title="Status message history" aria-label="Status message history" aria-haspopup="true" aria-expanded="false">
+                <i class="bi bi-bell"></i>
+            </button>
+            <div class="status-bar-history-popup" id="statusBarHistoryPopup" role="dialog" aria-label="Recent status messages">
+                <div class="status-log-popup-header">
+                    <span>Recent messages</span>
+                    <div class="status-log-popup-header-actions">
+                        <button type="button" class="status-log-icon-btn" onclick="openStatusLogFullscreen()" title="Open full log">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="status-log-list" id="statusBarHistoryList"></div>
+                <div class="status-log-popup-more" id="statusBarHistoryMore"></div>
+            </div>
+        </div>
         <div class="status-bar-right">
             <span class="status-bar-app-version" id="statusBarAppVersion"
                   title="NoodlePlanner application version and deployed build"

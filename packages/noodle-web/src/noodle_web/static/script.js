@@ -15375,6 +15375,15 @@ document.addEventListener('keydown', function(e) {
         }
     }
 
+    // Escape closes the status message log
+    if (e.key === 'Escape') {
+        const statusLogOverlay = document.getElementById('statusLogOverlay');
+        if (statusLogOverlay && statusLogOverlay.classList.contains('active')) {
+            closeStatusLogFullscreen();
+            return;
+        }
+    }
+
     // 'g' then letter navigation (only from non-input contexts)
     if (!isEditable && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (e.key === 'g' && !pendingGoKey) {

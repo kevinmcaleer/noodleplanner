@@ -3,30 +3,221 @@
  * Provides status messages and project RAG indicator updates.
  */
 
-let statusMessageTimer = null;
+// ---------------------------------------------------------------------------
+// Status message log
+//
+// Several independent checks (circular dependencies, MS Project assignment
+// risk, cross-project dependency RAG, duplicate deliverables, plain toasts
+// like "Saved") all want to show something in the status bar's single-line
+// centre slot. Historically each one just overwrote `#statusBarMessage`
+// directly, so whichever ran last -- or whichever transient toast fired
+// next -- silently erased anyone else's warning, Fix button included. That
+// is why a real warning (e.g. the MS Project assignment-risk "Fix It") could
+// go invisible: something else painted over it a moment later.
+//
+// Every message now goes through `pushStatusLogEntry`, which keeps a
+// session-long log instead of a single DOM slot. A message with a `key` is
+// "sticky": pushing the same key again updates that one entry in place
+// (and does nothing at all if the text hasn't changed, so a warning that is
+// still true after every keystroke doesn't spam the log); a message with no
+// key is a one-off event and always gets its own new entry. The compact bar
+// always shows whichever *unexpired* entry is newest, so a transient toast
+// fading out reveals a still-active sticky warning underneath it instead of
+// leaving the bar blank. The full history -- including live Fix buttons --
+// is available from the clock icon next to the bar, and from there as a
+// scrollable fullscreen log that can be saved to a text file.
+// ---------------------------------------------------------------------------
+
+const STATUS_LOG_MAX = 200;
+const STATUS_POPUP_VISIBLE = 10;
+
+let statusLog = [];
+let statusLogNextId = 1;
+let statusPopupOpen = false;
+
+/**
+ * Add or update an entry in the status log.
+ *
+ * @param {object} entry
+ * @param {string} entry.text
+ * @param {string} [entry.key] - sticky identity; re-pushing the same key
+ *   updates that entry in place instead of appending a new one.
+ * @param {string} [entry.suffix] - plain text appended after any actions
+ *   (e.g. "(+2 more)").
+ * @param {string} [entry.color] - CSS color for the message text.
+ * @param {Array}  [entry.actions] - [{label, title, onClick, kind}], kind is
+ *   'button' (default, a Fix-style action) or 'link' (an inline text link).
+ * @param {number} [entry.duration] - ms after which this entry stops being
+ *   shown in the compact bar (it stays in the log/popup/fullscreen history).
+ *   Omit, or pass 0, for a sticky/persistent entry.
+ */
+function pushStatusLogEntry(entry) {
+    const now = Date.now();
+    const text = entry.text || '';
+    const color = entry.color || null;
+    const actions = entry.actions || [];
+    const suffix = entry.suffix || '';
+    const expiresAt = entry.duration ? now + entry.duration : null;
+
+    if (entry.key) {
+        const existing = statusLog.find(function (e) { return e.key === entry.key; });
+        if (existing) {
+            const unchanged = existing.text === text && existing.color === color && existing.suffix === suffix;
+            existing.actions = actions;
+            existing.expiresAt = expiresAt;
+            if (!unchanged) {
+                existing.text = text;
+                existing.color = color;
+                existing.suffix = suffix;
+                existing.timestamp = now;
+            }
+            renderStatusBarUI();
+            return existing;
+        }
+    }
+
+    const item = {
+        id: statusLogNextId++,
+        key: entry.key || null,
+        text: text,
+        suffix: suffix,
+        color: color,
+        actions: actions,
+        timestamp: now,
+        expiresAt: expiresAt
+    };
+    statusLog.push(item);
+    if (statusLog.length > STATUS_LOG_MAX) {
+        statusLog.splice(0, statusLog.length - STATUS_LOG_MAX);
+    }
+    renderStatusBarUI();
+    return item;
+}
+
+/** Remove a sticky entry by key (e.g. once the condition it warned about is fixed). */
+function clearStatusLogEntry(key) {
+    if (!key) return;
+    const idx = statusLog.findIndex(function (e) { return e.key === key; });
+    if (idx === -1) return;
+    statusLog.splice(idx, 1);
+    renderStatusBarUI();
+}
+
+function statusLogByRecency() {
+    // id (a monotonic push counter) breaks ties between entries pushed in
+    // the same millisecond, so "newest first" stays correct even then.
+    return statusLog.slice().sort(function (a, b) { return (b.timestamp - a.timestamp) || (b.id - a.id); });
+}
+
+/**
+ * Which entry the compact bar shows. A brief transient toast (has an
+ * expiresAt in the future -- "Saved", "Comms plan exported", ...) always
+ * gets its moment, since that's the whole point of it. Once no transient
+ * toast is active, a sticky warning that carries a Fix action always wins
+ * the slot over one that doesn't, regardless of which was pushed more
+ * recently -- an actionable warning must not be silently outranked by a
+ * passive one (this is what "the Fix It button needs to be visible" means).
+ * Ties within a tier go to the most recently updated entry.
+ */
+function currentCompactStatusEntry() {
+    const now = Date.now();
+    const visible = statusLog.filter(function (e) { return !e.expiresAt || e.expiresAt > now; });
+    if (!visible.length) return null;
+
+    // id is a monotonic push counter, used to break same-millisecond ties.
+    const newest = function (list) {
+        return list.reduce(function (a, b) {
+            return (b.timestamp > a.timestamp || (b.timestamp === a.timestamp && b.id > a.id)) ? b : a;
+        });
+    };
+
+    const transientActive = visible.filter(function (e) { return e.expiresAt; });
+    if (transientActive.length) return newest(transientActive);
+
+    const actionable = visible.filter(function (e) { return e.actions && e.actions.length > 0; });
+    return newest(actionable.length ? actionable : visible);
+}
+
+function renderStatusBarUI() {
+    renderStatusBarCompact();
+    updateStatusBarHistoryToggle();
+    if (statusPopupOpen) renderStatusHistoryPopup();
+    const overlay = document.getElementById('statusLogOverlay');
+    if (overlay && overlay.classList.contains('active')) renderStatusLogFullscreen();
+}
+
+function renderStatusBarCompact() {
+    const el = document.getElementById('statusBarMessage');
+    if (!el) return;
+    const entry = currentCompactStatusEntry();
+    el.innerHTML = '';
+    el.style.color = '';
+    if (!entry) return;
+    el.appendChild(buildStatusEntryNode(entry));
+
+    // A transient entry's expiry doesn't delete data, it just needs the
+    // compact bar to re-render once the clock runs out so a still-active
+    // sticky warning underneath it can take its place.
+    if (entry.expiresAt) {
+        const remaining = entry.expiresAt - Date.now();
+        if (remaining > 0) setTimeout(renderStatusBarUI, remaining + 20);
+    }
+}
+
+/** Build the DOM for one entry: message text, then its actions, then any suffix. */
+function buildStatusEntryNode(entry) {
+    const frag = document.createDocumentFragment();
+    const textSpan = document.createElement('span');
+    if (entry.color) textSpan.style.color = entry.color;
+    textSpan.appendChild(document.createTextNode(entry.text));
+    frag.appendChild(textSpan);
+
+    (entry.actions || []).forEach(function (action) {
+        var node;
+        if (action.kind === 'link') {
+            node = document.createElement('a');
+            node.href = '#';
+            node.className = 'status-bar-task-link';
+        } else {
+            node = document.createElement('button');
+            node.type = 'button';
+            node.className = 'status-bar-fix-btn';
+        }
+        node.textContent = action.label;
+        if (action.title) node.title = action.title;
+        if (entry.color && action.kind === 'link') node.style.color = entry.color;
+        node.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            action.onClick();
+        });
+        frag.appendChild(node);
+    });
+
+    if (entry.suffix) {
+        frag.appendChild(document.createTextNode(entry.suffix));
+    }
+    return frag;
+}
 
 /**
  * Display a message in the status bar. Clears automatically after the given
  * duration (defaults to 5000ms). Pass 0 for a persistent message.
+ *
+ * @param {string} message
+ * @param {number} [duration]
+ * @param {string} [key] - pass a stable key to update/replace the same
+ *   entry on repeat calls (e.g. a rate-limited recurring notice) instead of
+ *   adding a new log line every time. Passing an empty message with a key
+ *   clears that entry.
  */
-function setStatusMessage(message, duration) {
+function setStatusMessage(message, duration, key) {
     if (duration === undefined) duration = 5000;
-    const el = document.getElementById('statusBarMessage');
-    if (!el) return;
-
-    if (statusMessageTimer) {
-        clearTimeout(statusMessageTimer);
-        statusMessageTimer = null;
+    if (!message) {
+        if (key) clearStatusLogEntry(key);
+        return;
     }
-
-    el.textContent = message;
-
-    if (duration > 0) {
-        statusMessageTimer = setTimeout(function () {
-            el.textContent = '';
-            statusMessageTimer = null;
-        }, duration);
-    }
+    pushStatusLogEntry({ text: message, duration: duration, key: key || null });
 }
 
 /**
@@ -37,9 +228,10 @@ function setStatusMessage(message, duration) {
  * Called from updateAllViews after the parse result is available.
  */
 function updateStatusBarDependencies(dependencies) {
-    const el = document.getElementById('statusBarMessage');
-    if (!el) return;
-    if (!dependencies || dependencies.length === 0) return;
+    if (!dependencies || dependencies.length === 0) {
+        clearStatusLogEntry('programme-dependencies');
+        return;
+    }
 
     const projects = (typeof listProjects === 'function') ? listProjects() : [];
     const projectNames = {};
@@ -85,12 +277,16 @@ function updateStatusBarDependencies(dependencies) {
     });
 
     if (errors.length > 0) {
-        el.textContent = '\u26a0 ' + errors[0];
-        el.style.color = '#d32f2f';
+        pushStatusLogEntry({ key: 'programme-dependencies', text: '⚠ ' + errors[0], color: '#d32f2f' });
     } else if (warnings.length > 0) {
-        el.textContent = '\u26a0 ' + warnings[0] +
-            (warnings.length > 1 ? ' (+' + (warnings.length - 1) + ' more)' : '');
-        el.style.color = '#f57c00';
+        pushStatusLogEntry({
+            key: 'programme-dependencies',
+            text: '⚠ ' + warnings[0],
+            suffix: warnings.length > 1 ? ' (+' + (warnings.length - 1) + ' more)' : '',
+            color: '#f57c00'
+        });
+    } else {
+        clearStatusLogEntry('programme-dependencies');
     }
 }
 
@@ -141,6 +337,9 @@ function updateStatusBarRAG(frontMatter, tasks) {
  * Show a statusbar message identifying the task driving an amber or red RAG.
  * The task name is clickable and opens the task inspector.
  * Clears the message when status is green or blue.
+ *
+ * This targets its own element (#statusBarRAGMsg), not the shared message
+ * log, so it does not compete with the warnings/toasts above.
  */
 function updateStatusBarRAGMessage(ragStatus, tasks) {
     var msgSpan = document.getElementById('statusBarRAGMsg');
@@ -199,7 +398,7 @@ function updateStatusBarRAGMessage(ragStatus, tasks) {
     msgSpan.innerHTML = '';
     msgSpan.style.color = color;
 
-    var textBefore = document.createTextNode(statusLabel + ' \u2014 ');
+    var textBefore = document.createTextNode(statusLabel + ' — ');
     msgSpan.appendChild(textBefore);
 
     var link = document.createElement('a');
@@ -234,7 +433,6 @@ function updateStatusBarRAGMessage(ragStatus, tasks) {
 function updateCircularDependencyWarnings(result) {
     var tasks = (result && result.tasks) || [];
     var editor = document.getElementById('planEditor');
-    var el = document.getElementById('statusBarMessage');
 
     var lineMap = {};
     var problems = [];
@@ -275,51 +473,38 @@ function updateCircularDependencyWarnings(result) {
     // Re-run the editor's syntax highlighting so the tokens turn red.
     if (editor && editor._updateLineNumbers) editor._updateLineNumbers();
 
-    if (!el) return;
-
     if (problems.length === 0) {
-        // Only clear a message this function put there.
-        if (el.dataset.circularWarning === '1') {
-            el.textContent = '';
-            el.style.color = '';
-            delete el.dataset.circularWarning;
-        }
+        clearStatusLogEntry('circular-dependency');
         return;
     }
 
     var first = problems[0];
-    el.innerHTML = '';
-    el.dataset.circularWarning = '1';
-    el.style.color = '#d32f2f';
-
-    el.appendChild(document.createTextNode('⚠ Circular dependency: ' + first.message));
+    var actions = [];
 
     if (first.line > 0) {
-        var link = document.createElement('a');
-        link.href = '#';
-        link.className = 'status-bar-task-link';
-        link.textContent = ' (line ' + first.line + ')';
-        link.title = 'Go to line ' + first.line;
-        link.addEventListener('click', function (e) {
-            e.preventDefault();
-            goToEditorLine(first.line);
+        actions.push({
+            kind: 'link',
+            label: ' (line ' + first.line + ')',
+            title: 'Go to line ' + first.line,
+            onClick: function () { goToEditorLine(first.line); }
         });
-        el.appendChild(link);
     }
 
     if (first.fixable) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'status-bar-fix-btn';
-        btn.textContent = 'Fix';
-        btn.title = 'Remove this dependency from the [depends ...] list';
-        btn.addEventListener('click', function () { fixCircularDependency(0); });
-        el.appendChild(btn);
+        actions.push({
+            label: 'Fix',
+            title: 'Remove this dependency from the [depends ...] list',
+            onClick: function () { fixCircularDependency(0); }
+        });
     }
 
-    if (problems.length > 1) {
-        el.appendChild(document.createTextNode(' (+' + (problems.length - 1) + ' more)'));
-    }
+    pushStatusLogEntry({
+        key: 'circular-dependency',
+        text: '⚠ Circular dependency: ' + first.message,
+        color: '#d32f2f',
+        actions: actions,
+        suffix: problems.length > 1 ? ' (+' + (problems.length - 1) + ' more)' : ''
+    });
 }
 
 /**
@@ -374,12 +559,7 @@ function fixCircularDependency(index) {
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
 
-    var el = document.getElementById('statusBarMessage');
-    if (el) {
-        el.textContent = '';
-        el.style.color = '';
-        delete el.dataset.circularWarning;
-    }
+    clearStatusLogEntry('circular-dependency');
     setStatusMessage('Removed circular dependency from "' + problem.task + '"', 4000);
 
     if (typeof renderText === 'function') setTimeout(function () { renderText(); }, 10);
@@ -429,39 +609,28 @@ if (typeof window !== 'undefined') {
 }
 
 function updateMppAssignmentWarnings(result) {
-    var el = document.getElementById('statusBarMessage');
-    if (!el || !_mppExportModule) return;
+    if (!_mppExportModule) return;
 
     var risky = _mppExportModule.findAssignmentDateRiskTasks(result);
     window._mppAssignmentRiskTasks = risky;
 
     if (risky.length === 0) {
-        // Only clear a message this function put there.
-        if (el.dataset.mppAssignmentWarning === '1') {
-            el.textContent = '';
-            el.style.color = '';
-            delete el.dataset.mppAssignmentWarning;
-        }
+        clearStatusLogEntry('mpp-assignment-risk');
         return;
     }
 
     var first = risky[0];
-    el.innerHTML = '';
-    el.dataset.mppAssignmentWarning = '1';
-    el.style.color = '#f57c00';
-    el.appendChild(document.createTextNode('⚠ ' + _mppExportModule.assignmentDateRiskMessage(first)));
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'status-bar-fix-btn';
-    btn.textContent = 'Fix It';
-    btn.title = 'Round this task’s percent complete to 0% or 100% so Microsoft Project can represent the assignment exactly';
-    btn.addEventListener('click', function () { fixMppAssignmentWarning(0); });
-    el.appendChild(btn);
-
-    if (risky.length > 1) {
-        el.appendChild(document.createTextNode(' (+' + (risky.length - 1) + ' more)'));
-    }
+    pushStatusLogEntry({
+        key: 'mpp-assignment-risk',
+        text: '⚠ ' + _mppExportModule.assignmentDateRiskMessage(first),
+        color: '#f57c00',
+        suffix: risky.length > 1 ? ' (+' + (risky.length - 1) + ' more)' : '',
+        actions: [{
+            label: 'Fix It',
+            title: 'Round this task’s percent complete to 0% or 100% so Microsoft Project can represent the assignment exactly',
+            onClick: function () { fixMppAssignmentWarning(0); }
+        }]
+    });
 }
 
 /**
@@ -496,12 +665,7 @@ function fixMppAssignmentWarning(index) {
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     editor.dispatchEvent(new Event('input'));
 
-    var el = document.getElementById('statusBarMessage');
-    if (el) {
-        el.textContent = '';
-        el.style.color = '';
-        delete el.dataset.mppAssignmentWarning;
-    }
+    clearStatusLogEntry('mpp-assignment-risk');
     setStatusMessage('Set "' + problem.name + '" to ' + newPercent + '% so Microsoft Project can represent the assignment', 4000);
 
     if (typeof renderText === 'function') setTimeout(function () { renderText(); }, 10);
@@ -522,4 +686,148 @@ function goToEditorLine(lineNumber) {
     var lineHeight = parseFloat(style.lineHeight) || (parseFloat(style.fontSize) * 1.5);
     editor.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
     editor.dispatchEvent(new Event('scroll'));
+}
+
+// ---------------------------------------------------------------------------
+// Status history popup + fullscreen log + save-to-file
+// ---------------------------------------------------------------------------
+
+function updateStatusBarHistoryToggle() {
+    var btn = document.getElementById('statusBarHistoryBtn');
+    if (!btn) return;
+    var count = statusLog.length;
+    var hasActionable = statusLog.some(function (e) { return e.actions && e.actions.length > 0; });
+    btn.classList.toggle('has-entries', count > 0);
+    btn.classList.toggle('has-actionable', hasActionable);
+    btn.title = count > 0
+        ? count + ' status message' + (count === 1 ? '' : 's') + (hasActionable ? ' — action needed' : '')
+        : 'Status message history';
+    btn.setAttribute('aria-expanded', statusPopupOpen ? 'true' : 'false');
+}
+
+function toggleStatusHistoryPopup() {
+    if (statusPopupOpen) {
+        closeStatusHistoryPopup();
+    } else {
+        openStatusHistoryPopup();
+    }
+}
+
+function openStatusHistoryPopup() {
+    statusPopupOpen = true;
+    renderStatusHistoryPopup();
+    var popup = document.getElementById('statusBarHistoryPopup');
+    if (popup) popup.classList.add('active');
+    updateStatusBarHistoryToggle();
+    document.addEventListener('mousedown', handleStatusPopupOutsideClick, true);
+    document.addEventListener('keydown', handleStatusPopupEscape, true);
+}
+
+function closeStatusHistoryPopup() {
+    statusPopupOpen = false;
+    var popup = document.getElementById('statusBarHistoryPopup');
+    if (popup) popup.classList.remove('active');
+    updateStatusBarHistoryToggle();
+    document.removeEventListener('mousedown', handleStatusPopupOutsideClick, true);
+    document.removeEventListener('keydown', handleStatusPopupEscape, true);
+}
+
+function handleStatusPopupOutsideClick(e) {
+    var popup = document.getElementById('statusBarHistoryPopup');
+    var btn = document.getElementById('statusBarHistoryBtn');
+    if (!popup) return;
+    if (popup.contains(e.target) || (btn && btn.contains(e.target))) return;
+    closeStatusHistoryPopup();
+}
+
+function handleStatusPopupEscape(e) {
+    if (e.key === 'Escape') closeStatusHistoryPopup();
+}
+
+function renderStatusEntryList(container, entries, emptyText) {
+    container.innerHTML = '';
+    if (!entries.length) {
+        var empty = document.createElement('div');
+        empty.className = 'status-log-empty';
+        empty.textContent = emptyText;
+        container.appendChild(empty);
+        return;
+    }
+    entries.forEach(function (entry) {
+        var row = document.createElement('div');
+        row.className = 'status-log-row';
+        if (entry.actions && entry.actions.length) row.classList.add('status-log-row-actionable');
+
+        var time = document.createElement('span');
+        time.className = 'status-log-time';
+        var d = new Date(entry.timestamp);
+        time.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        row.appendChild(time);
+
+        var body = document.createElement('span');
+        body.className = 'status-log-body';
+        body.appendChild(buildStatusEntryNode(entry));
+        row.appendChild(body);
+
+        container.appendChild(row);
+    });
+}
+
+function renderStatusHistoryPopup() {
+    var container = document.getElementById('statusBarHistoryList');
+    if (!container) return;
+    var recent = statusLogByRecency().slice(0, STATUS_POPUP_VISIBLE);
+    renderStatusEntryList(container, recent, 'No messages yet.');
+
+    var moreNote = document.getElementById('statusBarHistoryMore');
+    if (moreNote) {
+        var extra = statusLog.length - recent.length;
+        moreNote.textContent = extra > 0 ? '+' + extra + ' earlier message' + (extra === 1 ? '' : 's') + ' in the full log' : '';
+    }
+}
+
+function openStatusLogFullscreen() {
+    closeStatusHistoryPopup();
+    var overlay = document.getElementById('statusLogOverlay');
+    if (!overlay) return;
+    overlay.classList.add('active');
+    renderStatusLogFullscreen();
+}
+
+function closeStatusLogFullscreen() {
+    var overlay = document.getElementById('statusLogOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+function renderStatusLogFullscreen() {
+    var container = document.getElementById('statusLogFullList');
+    if (!container) return;
+    renderStatusEntryList(container, statusLogByRecency(), 'No messages yet this session.');
+}
+
+/** Plain-text export of the full session log, oldest first. */
+function saveStatusLogToFile() {
+    var entries = statusLog.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
+    var lines = entries.map(function (e) {
+        var d = new Date(e.timestamp);
+        var stamp = d.toISOString().slice(0, 19).replace('T', ' ');
+        var text = e.text + (e.suffix || '');
+        if (e.actions && e.actions.length) {
+            text += ' [action available: ' + e.actions.map(function (a) { return a.label.trim(); }).join(', ') + ']';
+        }
+        return '[' + stamp + '] ' + text;
+    });
+    var content = lines.length ? lines.join('\n') + '\n' : 'No status messages this session.\n';
+
+    var blob = new Blob([content], { type: 'text/plain' });
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var now = new Date();
+    var timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-').replace('T', '_');
+    a.download = 'noodleplanner-status-log_' + timestamp + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 }

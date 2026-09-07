@@ -238,6 +238,10 @@ body {
         padding: 2px 0;
     }
 
+    .status-bar-history-wrap {
+        order: 2;
+    }
+
     .status-bar-right {
         order: 2;
         flex-shrink: 0;
@@ -247,7 +251,8 @@ body {
         min-height: 44px;
     }
 
-    .status-bar-btn {
+    .status-bar-btn,
+    .status-bar-history-btn {
         min-height: 44px;
         min-width: 44px;
     }
@@ -462,4 +467,175 @@ body {
 .vh-current-label {
     font-weight: 600;
     color: var(--np-accent, #4a90d9);
+}
+
+/* ========================================
+   Status message history: popup + fullscreen log
+   ======================================== */
+
+.status-bar-history-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.status-bar-history-btn {
+    position: relative;
+}
+
+.status-bar-history-btn.has-entries::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--np-text-muted, #999999);
+}
+
+.status-bar-history-btn.has-actionable::after {
+    background: #d32f2f;
+}
+
+.status-bar-history-popup {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: min(420px, calc(100vw - 24px));
+    max-height: 60vh;
+    background: var(--np-bg, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    z-index: 1060;
+    flex-direction: column;
+}
+
+.status-bar-history-popup.active {
+    display: flex;
+}
+
+.status-log-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--np-text, #333333);
+}
+
+.status-log-popup-header-actions,
+.status-log-modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-log-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 2px 8px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 4px;
+    background: var(--np-input-bg, #ffffff);
+    color: var(--np-text, #333333);
+    cursor: pointer;
+    font-size: 0.85em;
+}
+
+.status-log-icon-btn:hover {
+    border-color: var(--np-accent, #667eea);
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.status-log-icon-btn:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: 1px;
+}
+
+.status-log-popup-more {
+    padding: 6px 10px;
+    font-size: 0.82em;
+    color: var(--np-text-muted, #888888);
+    text-align: center;
+    border-top: 1px solid var(--np-border, #e0e0e0);
+}
+
+.status-log-popup-more:empty {
+    display: none;
+}
+
+.status-log-list {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.status-log-list-full {
+    max-height: calc(100vh - 220px);
+}
+
+.status-log-empty {
+    padding: 16px 10px;
+    color: var(--np-text-muted, #888888);
+    font-style: italic;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+.status-log-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    font-size: 0.88em;
+    line-height: 1.4;
+}
+
+.status-log-row:last-child {
+    border-bottom: none;
+}
+
+.status-log-row-actionable {
+    background: var(--np-bg-hover, #f7f7f9);
+}
+
+.status-log-time {
+    flex-shrink: 0;
+    color: var(--np-text-muted, #888888);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.85em;
+    padding-top: 1px;
+}
+
+.status-log-body {
+    min-width: 0;
+    word-break: break-word;
+}
+
+.status-log-body .status-bar-fix-btn {
+    margin-left: 6px;
+}
+
+.status-log-modal-body {
+    padding: 0;
+}
+
+.status-log-modal-header-actions .status-log-icon-btn span {
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .status-bar-history-popup {
+        right: -8px;
+        width: calc(100vw - 16px);
+    }
 }

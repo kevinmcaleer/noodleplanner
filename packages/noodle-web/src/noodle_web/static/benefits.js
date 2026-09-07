@@ -1259,22 +1259,28 @@ function detectRedundantLinks() {
  */
 function showRedundantLinkWarnings() {
     const redundant = detectRedundantLinks();
-    const el = document.getElementById('statusBarMessage');
-    if (!el) return;
+    if (typeof pushStatusLogEntry !== 'function' || typeof clearStatusLogEntry !== 'function') return;
 
-    if (redundant.length === 0) return;
+    if (redundant.length === 0) {
+        clearStatusLogEntry('benefits-redundant-links');
+        return;
+    }
 
     const label = redundant.length === 1 ? '1 redundant link' : redundant.length + ' redundant links';
-    const links = redundant.slice(0, 5).map(r => {
-        const fromEsc = (r.fromTitle || '').replace(/</g, '&lt;').replace(/'/g, "\\'");
-        const toEsc = (r.toTitle || '').replace(/</g, '&lt;').replace(/'/g, "\\'");
-        return '<a href="#" class="status-bar-task-link" onclick="event.preventDefault(); confirmRemoveRedundantLink(' +
-            r.fromId + ',' + r.toId + ',\'' + fromEsc + '\',\'' + toEsc + '\')" title="Click to remove this redundant link">' +
-            fromEsc + ' → ' + toEsc + '</a>';
-    }).join(', ');
+    const shown = redundant.slice(0, 5);
+    const actions = shown.map((r, i) => ({
+        kind: 'link',
+        label: (i === 0 ? '' : ', ') + r.fromTitle + ' \u2192 ' + r.toTitle,
+        title: 'Click to remove this redundant link',
+        onClick: () => confirmRemoveRedundantLink(r.fromId, r.toId, r.fromTitle, r.toTitle)
+    }));
 
-    const suffix = redundant.length > 5 ? '…' : '';
-    el.innerHTML = '\u26A0 ' + label + ': ' + links + suffix;
+    pushStatusLogEntry({
+        key: 'benefits-redundant-links',
+        text: '\u26A0 ' + label + ': ',
+        actions: actions,
+        suffix: redundant.length > 5 ? '\u2026' : ''
+    });
 }
 
 /**
