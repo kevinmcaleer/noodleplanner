@@ -77,6 +77,12 @@ Testing & Launch
   UAT @alex @sam 3d [depends Code review]
   *Bug fixes @jamie 2d
   Go Live 0d [depends Bug fixes]
+
+---whiteboard---
+| Task                 | X   | Y   | Colour  | Width | Height | Collapsed |
+|----------------------|-----|-----|---------|-------|--------|-----------|
+| Discovery & Planning | 80  | 60  | #4A90D9 | 280   | 220    | no        |
+| Design               | 420 | 60  |         | 280   | 240    | no        |
 """
 
 # ---------------------------------------------------------------------------
@@ -183,6 +189,18 @@ def switch_to_view(driver, view_id):
         "project-report": "switchPlanSubnavToDashboard()",
         "kanban": "switchPlanSubnavToBoard()",
     }
+    # After a fresh driver.get() reload, the trailing <script> tags that
+    # define switchToView()/switchPlanSubnavToDashboard() etc. can still
+    # be loading even once #planEditor (much earlier in the DOM) and a
+    # >200-char body (wait_for_render()'s check) are already present --
+    # this was observed to intermittently throw "switchToView is not
+    # defined" here. Wait for the specific function to exist before
+    # calling it, rather than a fixed sleep.
+    fn_name = "switchPlanSubnavToDashboard" if view_id == "project-report" \
+        else "switchPlanSubnavToBoard" if view_id == "kanban" else "switchToView"
+    WebDriverWait(driver, 10).until(
+        lambda d: d.execute_script(f"return typeof {fn_name} === 'function';")
+    )
     js = special.get(view_id, f"switchToView('{view_id}')")
     driver.execute_script(js)
     time.sleep(2)  # let view render and animations settle
@@ -304,10 +322,13 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "resources")
     capture_full(driver, section / "mr-01-resource-table.png")
 
-    # wb-01: Whiteboard (empty canvas — issue #845 ships pan/zoom only,
-    # no notes yet, so this just shows the dot-grid surface and toolbar)
+    # wb-01: Whiteboard post-it notes (issue #846) — the sample plan's
+    # ---whiteboard--- back matter puts "Discovery & Planning" and
+    # "Design" on the board; fit-to-content frames both real notes.
     switch_to_view(driver, "whiteboard")
-    capture_full(driver, section / "wb-01-whiteboard-empty.png")
+    driver.execute_script("if (typeof whiteboardZoomFit === 'function') whiteboardZoomFit();")
+    time.sleep(0.4)
+    capture_full(driver, section / "wb-01-whiteboard-notes.png")
 
 
 def capture_reference(driver, base_url):

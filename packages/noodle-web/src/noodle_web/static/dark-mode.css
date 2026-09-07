@@ -2688,3 +2688,14 @@ body {
 [data-theme="dark"] .wb-grid-dot {
     fill: #3a3a3a;
 }
+
+/* ── Whiteboard notes (dark) — issue #846 ────────────────────────────────
+   Note body/header/footer already read var(--np-*) tokens, which already
+   flip for dark mode via the overrides above -- no separate colour rules
+   needed for those. Only the hardcoded (non-token) rgba() hover tint in
+   views/whiteboard.css needs a dark-safe equivalent. */
+
+[data-theme="dark"] .wb-note-menu-btn:hover,
+[data-theme="dark"] .wb-note-menu-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+}
