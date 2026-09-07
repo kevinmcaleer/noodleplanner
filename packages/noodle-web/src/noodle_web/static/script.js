@@ -8001,61 +8001,218 @@ async function exportRaidExcel() {
     }
 }
 
+// RAID Excel is a registered sync target (issue #761): rather than blindly
+// overwriting raidItems with whatever the workbook contains, read it,
+// diff it against the current plan and the last-synced snapshot, and let
+// the user review additions/updates/removals/conflicts before anything
+// is applied.
 async function uploadRaidExcel(event) {
     const file = event.target.files[0];
+    event.target.value = '';
     if (!file) return;
 
     if (!file.name.endsWith('.xlsx')) {
         alert('Please select an Excel (.xlsx) file.');
-        event.target.value = '';
         return;
     }
+
+    let externalItems = null;
 
     if (browserExcelExportsEnabled()) {
         try {
             const module = await import('/static/browser-excel.js');
             const data = await module.importRaidExcelInBrowser(file);
-            if (data.items.length === 0) {
-                alert('No RAID items found in the Excel file.');
-            } else {
-                raidItems = data.items;
-                raidNextId = Math.max(...data.items.map(i => i.id)) + 1;
-                renderRaidTable();
-            }
-            event.target.value = '';
-            return;
+            externalItems = data.items;
         } catch (error) {
             console.error('Browser RAID import failed, falling back to backend:', error);
         }
     }
 
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
+    if (externalItems === null) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
 
-        const response = await fetch('/api/raid/import-excel', {
-            method: 'POST',
-            body: formData
-        });
+            const response = await fetch('/api/raid/import-excel', {
+                method: 'POST',
+                body: formData
+            });
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Import failed');
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Import failed');
+            }
+
+            const data = await response.json();
+            externalItems = data.items;
+        } catch (error) {
+            alert('Failed to import Excel: ' + error.message);
+            return;
         }
-
-        const data = await response.json();
-        if (data.items.length === 0) {
-            alert('No RAID items found in the Excel file.');
-        } else {
-            raidItems = data.items;
-            raidNextId = Math.max(...data.items.map(i => i.id)) + 1;
-            renderRaidTable();
-        }
-    } catch (error) {
-        alert('Failed to import Excel: ' + error.message);
     }
 
-    event.target.value = '';
+    if (externalItems.length === 0) {
+        alert('No RAID items found in the Excel file.');
+        return;
+    }
+
+    await openRaidSyncReview(externalItems, file.name);
+}
+
+async function openRaidSyncReview(externalItems, filename) {
+    const module = await import('/static/raid-sync.js');
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const syncState = module.getRaidSyncState(projectId);
+    const baseItems = (syncState && syncState.items) || [];
+
+    const entries = module.diffRaidSync(raidItems, externalItems, baseItems);
+
+    raidSyncPendingEntries = entries;
+    raidSyncPendingChoices = {};
+    entries.forEach(entry => {
+        raidSyncPendingChoices[entry.id] = module.defaultRaidSyncChoice(entry.kind);
+    });
+    raidSyncPendingFilename = filename;
+
+    renderRaidSyncReview(entries);
+
+    const overlay = document.getElementById('raidSyncOverlay');
+    if (overlay) overlay.classList.add('active');
+}
+
+function renderRaidSyncReview(entries) {
+    const summary = document.getElementById('raidSyncSummary');
+    const emptyEl = document.getElementById('raidSyncEmpty');
+    const listEl = document.getElementById('raidSyncList');
+    const applyBtn = document.getElementById('raidSyncApplyBtn');
+    if (!summary || !emptyEl || !listEl || !applyBtn) return;
+
+    if (entries.length === 0) {
+        summary.textContent = '';
+        emptyEl.style.display = 'block';
+        listEl.style.display = 'none';
+        applyBtn.style.display = 'none';
+        return;
+    }
+
+    emptyEl.style.display = 'none';
+    listEl.style.display = 'flex';
+    applyBtn.style.display = '';
+    summary.textContent = entries.length + ' change' + (entries.length === 1 ? '' : 's') +
+        ' found since the last sync. Review and choose what to apply.';
+
+    const sideRow = (label, item) =>
+        '<div class="raid-sync-entry-side"><div class="raid-sync-entry-side-label">' + escapeHtml(label) +
+        '</div>' + escapeHtml(item.title || '(untitled)') + ' — ' + escapeHtml(item.status || '') + '</div>';
+
+    listEl.innerHTML = '';
+    entries.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'raid-sync-entry raid-sync-kind-' + entry.kind;
+
+        const item = entry.external || entry.local;
+        const badge = '<span class="raid-sync-kind-badge raid-sync-kind-' + entry.kind + '">' + entry.kind + '</span>';
+
+        let sidesHtml = '';
+        let choiceHtml = '';
+        const checked = raidSyncPendingChoices[entry.id];
+
+        if (entry.kind === 'conflict') {
+            sidesHtml = '<div class="raid-sync-entry-sides">' +
+                sideRow('Your plan', entry.local) + sideRow('Excel file', entry.external) + '</div>';
+            choiceHtml =
+                '<label><input type="radio" name="raid-sync-choice-' + entry.id + '" value="keep-mine" ' +
+                (checked === 'keep-mine' ? 'checked' : '') + ' onchange="setRaidSyncChoice(' + entry.id + ", 'keep-mine')\"> Keep mine</label>" +
+                '<label><input type="radio" name="raid-sync-choice-' + entry.id + '" value="keep-theirs" ' +
+                (checked === 'keep-theirs' ? 'checked' : '') + ' onchange="setRaidSyncChoice(' + entry.id + ", 'keep-theirs')\"> Keep Excel</label>";
+        } else if (entry.kind === 'updated') {
+            sidesHtml = '<div class="raid-sync-entry-sides">' +
+                sideRow('Your plan', entry.local) + sideRow('Excel file', entry.external) + '</div>';
+            choiceHtml = raidSyncCheckboxHtml(entry.id, checked === 'accept', 'Apply update');
+        } else if (entry.kind === 'added') {
+            choiceHtml = raidSyncCheckboxHtml(entry.id, checked === 'accept', 'Add to plan');
+        } else if (entry.kind === 'removed') {
+            choiceHtml = raidSyncCheckboxHtml(entry.id, checked === 'accept', 'Remove from plan');
+        }
+
+        row.innerHTML =
+            '<div class="raid-sync-entry-body">' +
+            '<div class="raid-sync-entry-title">' + badge + ' #' + entry.id + ' — ' + escapeHtml(item.title || '(untitled)') + '</div>' +
+            '<div class="raid-sync-entry-detail">' + escapeHtml(item.type || '') + ' · ' + escapeHtml(item.status || '') + '</div>' +
+            sidesHtml +
+            '</div>' +
+            '<div class="raid-sync-entry-choice">' + choiceHtml + '</div>';
+        listEl.appendChild(row);
+    });
+}
+
+function raidSyncCheckboxHtml(id, isChecked, label) {
+    return '<label><input type="checkbox" ' + (isChecked ? 'checked' : '') +
+        ' onchange="setRaidSyncChoice(' + id + ", this.checked ? 'accept' : 'reject')\"> " + escapeHtml(label) + '</label>';
+}
+
+function setRaidSyncChoice(id, choice) {
+    raidSyncPendingChoices[id] = choice;
+}
+
+function closeRaidSyncReview() {
+    const overlay = document.getElementById('raidSyncOverlay');
+    if (overlay) overlay.classList.remove('active');
+    raidSyncPendingEntries = [];
+    raidSyncPendingChoices = {};
+    raidSyncPendingFilename = '';
+}
+
+async function applyRaidSyncReview() {
+    const module = await import('/static/raid-sync.js');
+    const merged = module.applyRaidSyncDiff(raidItems, raidSyncPendingEntries, raidSyncPendingChoices);
+
+    raidItems = merged;
+    raidNextId = merged.length ? Math.max(...merged.map(i => i.id)) + 1 : 1;
+    renderRaidTable();
+    syncRaidLogToPlanText();
+
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const syncedAt = new Date();
+    const syncedAtIso = syncedAt.toISOString();
+    module.setRaidSyncState(projectId, {
+        filename: raidSyncPendingFilename,
+        items: merged,
+        syncedAt: syncedAtIso
+    });
+
+    const editor = document.getElementById('planEditor');
+    if (editor) {
+        const pad = (n) => String(n).padStart(2, '0');
+        const stamp = syncedAt.getFullYear() + '-' + pad(syncedAt.getMonth() + 1) + '-' + pad(syncedAt.getDate()) +
+            ' ' + pad(syncedAt.getHours()) + ':' + pad(syncedAt.getMinutes());
+        let text = editor.value;
+        text = module.upsertFrontMatterField(text, 'excel_file', raidSyncPendingFilename);
+        text = module.upsertFrontMatterField(text, 'excel_file_synced', stamp);
+        setEditorValuePreservingCursor(editor, text);
+        const kanbanEditor = document.getElementById('kanbanPlanEditor');
+        if (kanbanEditor) kanbanEditor.value = text;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    showMessage('editor', 'success', 'RAID synced with Excel.');
+
+    // Write-back (issue #761 step 4): hand the merged state back out as a
+    // fresh download so the user's file matches the plan again. This
+    // version doesn't retain a File System Access API handle, so the user
+    // re-saves over their original file — see the issue for silent-handle
+    // support as a follow-up.
+    try {
+        const excelModule = await import('/static/browser-excel.js');
+        await excelModule.exportRaidExcelInBrowser(merged, {
+            projectName: 'RAID',
+            filename: raidSyncPendingFilename || 'raid.xlsx'
+        });
+    } catch (error) {
+        console.error('RAID sync write-back export failed:', error);
+    }
+
+    closeRaidSyncReview();
 }
 
 
