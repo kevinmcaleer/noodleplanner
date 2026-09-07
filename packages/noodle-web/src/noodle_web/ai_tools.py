@@ -17,6 +17,7 @@ from noodle_core.format_converter import (
     HIGHLIGHTS_START,
     HIGHLIGHTS_END,
     RAID_LOG_START,
+    WHITEBOARD_START,
     extract_baseline,
     extract_benefits,
     extract_budget,
@@ -44,7 +45,8 @@ from noodle_core.format_converter import (
 )
 
 # ---------------------------------------------------------------------------
-# Section order for reassembly: budget, benefits, raid log, comms, baseline
+# Section order for reassembly: budget, benefits, raid log, comms, baseline,
+# whiteboard
 # ---------------------------------------------------------------------------
 
 SECTION_MARKERS = [
@@ -53,6 +55,7 @@ SECTION_MARKERS = [
     RAID_LOG_START,
     COMMS_START,
     BASELINE_START,
+    WHITEBOARD_START,
 ]
 
 

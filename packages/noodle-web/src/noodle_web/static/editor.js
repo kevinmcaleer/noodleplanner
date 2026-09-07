@@ -41,6 +41,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inRaidLog = false;
         let inBaseline = false;
         let inBudget = false;
+        let inWhiteboard = false;
         for (let i = 0; i < allLines.length; i++) {
             const trimmed = allLines[i].trim();
             if (trimmed === '---') {
@@ -53,7 +54,8 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             if (inBudget && (trimmed === '---raid log---')) { inBudget = false; }
             if (trimmed === '---raid log---') { inRaidLog = true; continue; }
             if (trimmed === '---baseline---') { inBaseline = true; continue; }
-            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.includes('===')) continue;
+            if (trimmed === '---whiteboard---') { inWhiteboard = true; continue; }
+            if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudget || inWhiteboard || !trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.includes('===')) continue;
 
             const taskMetadata = TaskLineTokenizer.metadata(allLines[i]).values;
             if (taskMetadata.name) {
@@ -120,6 +122,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inBudgetSection = false;
         let inRaidLogSection = false;
         let inBaselineSection = false;
+        let inWhiteboardSection = false;
         // Dependency tokens the last parse flagged as circular, keyed by
         // 1-based line number (see updateCircularDependencyWarnings).
         const circularByLine = window._circularDependencyLines || {};
@@ -269,6 +272,20 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
             // Dim lines inside baseline section
             if (inBaselineSection) {
+                if (line.trim() === '---whiteboard---') {
+                    inBaselineSection = false;
+                    inWhiteboardSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Track whiteboard section
+            if (line.trim() === '---whiteboard---') {
+                inWhiteboardSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside whiteboard section
+            if (inWhiteboardSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
 

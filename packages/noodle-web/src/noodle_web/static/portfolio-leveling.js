@@ -288,7 +288,7 @@ function annotateTaskWithLevellingFlag(planText, taskName, resource, proposedSta
         if (trimmed === '---') { inFront = !inFront; continue; }
         if (inFront) continue;
         // Skip special sections (highlights, raid, etc.)
-        if (/^---(highlights|budget|raid log|comms|baseline|benefits)/i.test(trimmed)) {
+        if (/^---(highlights|budget|raid log|comms|baseline|benefits|lessons learned|whiteboard)/i.test(trimmed)) {
             inSpecial = true;
             continue;
         }
