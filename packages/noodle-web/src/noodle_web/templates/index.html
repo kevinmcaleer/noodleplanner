@@ -4046,6 +4046,7 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
@@ -4356,6 +4357,7 @@ Build
             <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project" aria-label="Select project"></select>
             <span class="status-bar-rag" id="statusBarRAG" title="Project RAG status" aria-label="Project RAG status"></span>
             <span id="statusBarRAGMsg" class="status-bar-rag-msg"></span>
+            <span id="localFileLinkStatus" class="status-bar-local-file" aria-live="polite"></span>
             <span class="status-bar-separator"></span>
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>

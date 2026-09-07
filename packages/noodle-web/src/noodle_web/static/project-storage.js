@@ -211,6 +211,11 @@ function deleteProject(projectId) {
         localStorage.removeItem(CURRENT_PROJECT_KEY);
     }
 
+    // Drop any retained on-disk file link for this project (issue #767)
+    if (typeof LocalFileAccess !== 'undefined') {
+        LocalFileAccess.unlink(projectId);
+    }
+
     // Remove version history for the deleted project
     if (projectStoreActive()) {
         NoodleStore.deleteVersionHistory(projectId);
