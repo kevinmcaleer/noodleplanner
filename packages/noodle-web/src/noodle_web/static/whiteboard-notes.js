@@ -99,6 +99,25 @@
  * wbHandleTouchStart() is taught to step aside (return early) for any
  * touch that starts on a note (or any other in-canvas element), so canvas
  * panning/pinch-zoom never double-fires alongside a note drag.
+ *
+ * Task peek (issue #850): clicking a child row's count badge -- or the row
+ * itself, for a child that has one -- no longer escalates straight to the
+ * full task-details form. It opens task-peek.js's reusable TaskPeek
+ * popover instead (see wbTogglePeekFor()/wbOpenChildPeek() below), rooted
+ * at that child, listing *its* own direct children (name, assignee chips,
+ * completion checkbox, and a further count badge for grandchildren-with-
+ * children -- the peek is itself recursively drillable, with its own
+ * breadcrumb). wbBuildPeekLevel() builds the peek's {task, children}
+ * view-model for one level, reusing this file's existing
+ * wbDirectChildren()/wbHasChildren()/wbChildCount()/wbIsChildComplete()/
+ * wbResourceList() helpers rather than a second child-shape builder --
+ * task-peek.js itself stays whiteboard-agnostic; this is the only file
+ * that knows about wbLastTasks. "Open task details" -- reachable from the
+ * peek's own header and, independently, from a new item on the note's
+ * `...` menu (wbAppendOpenTaskMenuSection()) -- now escalates through
+ * wbOpenChildTask() to openTaskFormByName() (the same task-details form
+ * product views open), not the read-only Task Inspector that badge click
+ * used to jump to directly.
  */
 
 // ── Configuration ───────────────────────────────────────────────────────
@@ -464,6 +483,40 @@ function wbNoteViewModels(rows, tasks, themeColours = {}) {
         .filter(Boolean);
 }
 
+/**
+ * Build the task-peek popover's (issue #850) view-model for one level: the
+ * task named `taskName` plus its direct children, each annotated exactly
+ * like a note's own body rows (see wbBuildNoteViewModel() above) --
+ * hasChildren/childCount drive the drill-down badge, complete drives the
+ * checkbox -- plus each child's own `resources`, since a peek row shows
+ * *that child's* assignees (unlike a note's footer, which only shows the
+ * summary task's own). Reuses wbDirectChildren()/wbHasChildren()/
+ * wbChildCount()/wbIsChildComplete()/wbResourceList() rather than a second
+ * child-shape builder, so a peek row and a note's own todo row can never
+ * quietly disagree about what "has children" or "complete" means for the
+ * same task.
+ *
+ * Returns null for an unknown task name (e.g. renamed/deleted out from
+ * under an open peek) so callers -- task-peek.js's tpRender()/tpDrillInto()
+ * -- can fail closed instead of rendering a stale level.
+ */
+function wbBuildPeekLevel(taskName, tasks) {
+    if (!taskName || !tasks) return null;
+    const key = String(taskName).toLowerCase();
+    const task = tasks.find(t => t && String(t.name).toLowerCase() === key);
+    if (!task) return null;
+
+    const children = wbDirectChildren(tasks, task.name).map(child => ({
+        task: child,
+        hasChildren: wbHasChildren(tasks, child.name),
+        childCount: wbChildCount(tasks, child.name),
+        complete: wbIsChildComplete(child),
+        resources: wbResourceList(child.resources),
+    }));
+
+    return { task, children };
+}
+
 // ── Drag/resize pure helpers (issue #848 -- no DOM, unit tested directly) ─
 
 /**
@@ -528,7 +581,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbDirectChildren, wbHasChildren, wbChildCount, wbIsChildComplete,
         wbNoteProgress, wbGetInitials, wbResourceList, wbRelativeLuminance,
         wbContrastRatio, wbContrastTextColour, wbNoteZoomTier,
-        wbBuildNoteViewModel, wbNoteViewModels,
+        wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel,
         wbPalette, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
         wbResolveNoteColour,
         wbDragBoardDelta, wbClampNoteWidth, wbClampNoteHeight,
@@ -1120,29 +1173,96 @@ function wbBuildChildRow(childVm) {
         const badge = document.createElementNS(XHTML_NS, 'button');
         badge.setAttribute('type', 'button');
         badge.setAttribute('class', 'wb-note-count-badge');
+        badge.setAttribute('aria-haspopup', 'dialog');
+        badge.setAttribute('aria-expanded', 'false');
         badge.textContent = `${childVm.childCount} ▾`;
-        badge.setAttribute('aria-label', `${child.name} has ${childVm.childCount} subtasks. Open task.`);
+        badge.setAttribute('aria-label', `${child.name} has ${childVm.childCount} subtasks. Peek subtasks.`);
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
-            wbOpenChildTask(child.name);
+            wbTogglePeekFor(child.name, badge);
         });
         row.appendChild(badge);
+
+        // The badge's own click already stopPropagation()s, so this row-
+        // level listener only ever fires for a click on the row's own
+        // name/blank area -- the issue's "click a todo's child-count
+        // badge, or the todo row itself" affordance.
+        row.classList.add('wb-note-row-drillable');
+        row.addEventListener('click', () => wbTogglePeekFor(child.name, badge));
     }
 
     return row;
 }
 
 /**
- * Open the task inspector for a note-body child, per #846's scope: reuse
- * the existing task-inspector opener rather than building a new "open a
- * task" flow (that flow is a later issue). Falls back to a console.log
- * no-op if the inspector isn't available in this build.
+ * Toggle the task-peek popover (issue #850, task-peek.js) for `taskName`,
+ * anchored near `anchorEl` (the badge, or row, that was clicked). Clicking
+ * the badge/row for whichever task's peek is already open closes it again
+ * -- mirrors the `...` menu's own open/close toggle (wbOpenNoteMenu()/
+ * wbCloseNoteMenu()); otherwise it opens (or re-roots, if a different
+ * task's peek was open) a fresh peek listing that task's own direct
+ * children.
+ */
+function wbTogglePeekFor(taskName, anchorEl) {
+    if (typeof TaskPeek === 'undefined' || !TaskPeek) {
+        wbOpenChildTask(taskName); // peek component not loaded in this build -- escalate straight to details
+        return;
+    }
+    if (TaskPeek.isOpenFor(taskName)) {
+        TaskPeek.close();
+        return;
+    }
+    wbOpenChildPeek(taskName, anchorEl);
+}
+
+/**
+ * Build the peek's root level for `taskName` from the current wbLastTasks
+ * and open it. The popover is anchored to the note *card* containing
+ * `anchorEl` (not the badge/row itself), so it reads as attached to the
+ * whole note -- the issue's "anchored to the note" wording -- while
+ * `anchorEl` (the actual badge/row clicked) is still what gets focus back
+ * on close. Wires the peek's callbacks to this file's own existing commit
+ * paths: onToggle -> wbToggleChildComplete() (the exact same percent-
+ * writing path a note's own checkbox uses), onOpenDetails ->
+ * wbOpenChildTask() (the same "open the task-details form" escalation the
+ * note `...` menu's new item uses -- see wbAppendOpenTaskMenuSection()).
+ */
+function wbOpenChildPeek(taskName, anchorEl) {
+    if (typeof TaskPeek === 'undefined' || !TaskPeek) return;
+    const level = wbBuildPeekLevel(taskName, wbLastTasks);
+    if (!level) return;
+
+    const card = (anchorEl && anchorEl.closest) ? anchorEl.closest('.wb-note-card') : null;
+
+    TaskPeek.open({
+        anchorEl: card || anchorEl,
+        triggerEl: anchorEl,
+        level,
+        resolveLevel: (name) => wbBuildPeekLevel(name, wbLastTasks),
+        onToggle: (task, checked) => wbToggleChildComplete(task, checked),
+        onOpenDetails: (task) => wbOpenChildTask(task.name),
+    });
+}
+
+/**
+ * Escalate to the existing task-details FORM for `taskName` (issue #850)
+ * -- the same editable form product views open via openTaskFormByName()
+ * (see views-products.js's switchProductToTaskForm(), views-search.js,
+ * views-tables.js), not the read-only Task Inspector this function used
+ * to jump to directly before the peek existed. Reused as-is from both
+ * entry points this issue adds: the peek's own "Open task details" header
+ * button (task-peek.js) and the note `...` menu's new "Open task details"
+ * item (wbAppendOpenTaskMenuSection() below) -- neither builds a second
+ * way to open that form. Falls back to the Task Inspector, then a
+ * console.log no-op, if neither is available in this build.
  */
 function wbOpenChildTask(taskName) {
-    if (typeof openTaskInspectorByName === 'function') {
+    if (typeof openTaskFormByName === 'function') {
+        openTaskFormByName(taskName);
+    } else if (typeof openTaskInspectorByName === 'function') {
         openTaskInspectorByName(taskName);
     } else {
-        console.log('[whiteboard] open task (no inspector available):', taskName);
+        console.log('[whiteboard] open task (no task form available):', taskName);
     }
 }
 
@@ -1300,8 +1420,8 @@ function wbReconcileColourOverrides(rows, themeColours) {
  *   - #847 "Remove from board": append one more <li> holding a
  *     <button role="menuitem"> to `list`, same shape as the "Default
  *     colour" button below; call wbCloseNoteMenu() from its handler.
- *   - #850 "Open task": same shape again, reusing wbOpenChildTask()
- *     (defined earlier in this file) or equivalent from its handler.
+ *   - #850 "Open task details": done -- see wbAppendOpenTaskMenuSection()
+ *     below, reusing wbOpenChildTask() (defined earlier in this file).
  * Neither of those needs to know how many colour swatches exist, and
  * the colour section doesn't need to know they exist either -- they
  * only ever share `list`.
@@ -1311,15 +1431,39 @@ function wbBuildNoteMenu(taskName) {
     menu.id = 'wbNoteMenu';
     menu.className = 'wb-note-menu';
     menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', 'Note colour');
+    menu.setAttribute('aria-label', 'Note options');
 
     const list = document.createElement('ul');
     list.className = 'wb-note-menu-list';
     menu.appendChild(list);
 
     wbAppendColourMenuSection(list, taskName);
+    wbAppendOpenTaskMenuSection(list, taskName);
 
     return menu;
+}
+
+/**
+ * Append this issue's (#850) entire contribution to the note menu: a
+ * single "Open task details" action, reusing wbOpenChildTask() (the same
+ * escalation the peek's own header button calls) rather than building a
+ * second way to open the task-details form.
+ */
+function wbAppendOpenTaskMenuSection(list, taskName) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-open-task';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Open task details';
+    btn.setAttribute('aria-label', `Open task details for ${taskName}`);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbOpenChildTask(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
 }
 
 /**
