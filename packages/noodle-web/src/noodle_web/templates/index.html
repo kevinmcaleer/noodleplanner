@@ -1749,7 +1749,11 @@ Changes here are synced automatically."></textarea>
                     <!-- Kanban Board Panel -->
                     <div class="kanban-panel">
                         <div class="kanban-container">
-                            <div class="kanban-header" role="toolbar" aria-label="Kanban view controls">
+                            <!-- Kept as the value/checked source of truth (kanban.js's
+                                 syncPreferenceControls() reads/writes these ids); hidden
+                                 because the command ribbon's Board group (#894, #898) now
+                                 gives every one of these same controls a Metro-styled home. -->
+                            <div class="kanban-header" role="toolbar" aria-label="Kanban view controls" style="display: none;">
                                 <div class="kanban-view-switcher">
                                     <label for="kanbanViewMode">View by:</label>
                                     <select id="kanbanViewMode" class="form-select" onchange="switchKanbanView(this.value)" aria-label="Select Kanban view mode">
