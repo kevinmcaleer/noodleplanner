@@ -7187,3 +7187,87 @@ tr:hover .task-context-btn,
     white-space: nowrap;
     cursor: pointer;
 }
+
+/* ========================================
+   Command Ribbon (#833, #839, #891)
+   Renders from ribbon-commands.js -- see that file for the data.
+   Same fixed gradient as .modal-header: unchanged across themes.
+   ======================================== */
+.command-ribbon {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+    overflow-x: auto;
+}
+
+.command-ribbon:empty {
+    display: none;
+}
+
+.ribbon-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 2px 12px;
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
+}
+
+.ribbon-group:last-child {
+    border-right: none;
+}
+
+.ribbon-group-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.ribbon-cmd-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+    transition: background-color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.ribbon-cmd-btn i {
+    font-size: 16px;
+}
+
+.ribbon-cmd-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.ribbon-cmd-btn.active {
+    background: rgba(255, 255, 255, 0.92);
+    color: #108BB9;
+}
+
+.ribbon-cmd-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.ribbon-cmd-label {
+    line-height: 1;
+}
+
+.ribbon-group-label {
+    margin-top: 4px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.75);
+}
