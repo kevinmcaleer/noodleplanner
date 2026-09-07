@@ -6930,6 +6930,19 @@ tr:hover .task-context-btn,
     color: var(--text-secondary, #666);
 }
 
+/* Honest status colouring (issue #761's sync-file-linking follow-up): a
+   revoked/expired permission or an unsupported browser must read as
+   different from a healthy one-click link at a glance, not just in text. */
+.sync-target-status-needs-relink {
+    color: #e67700 !important;
+    font-weight: 600;
+}
+
+.sync-target-status-unsupported {
+    color: var(--text-secondary, #666);
+    font-style: italic;
+}
+
 .sync-target-actions {
     display: flex;
     align-items: center;

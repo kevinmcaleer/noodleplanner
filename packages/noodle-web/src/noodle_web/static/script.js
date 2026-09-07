@@ -8150,17 +8150,114 @@ async function exportRaidExcel() {
     }
 }
 
-// RAID Excel is a registered sync target (issue #761): rather than blindly
-// overwriting raidItems with whatever the workbook contains, read it,
-// diff it against the current plan and the last-synced snapshot, and let
-// the user review additions/updates/removals/conflicts before anything
-// is applied.
+// RAID Excel is a registered sync target (issue #761, extended by its
+// sync-file-linking follow-up). This target's key into LocalFileAccess's
+// per-target handle map (local-file-access.js) -- distinct from the main
+// plan file's default 'plan' target, and from MSP_SYNC_TARGET_KEY below.
+const RAID_SYNC_TARGET_KEY = 'raid-excel';
+const RAID_XLSX_PICKER_OPTIONS = {
+    id: 'noodleplanner-raid-excel',
+    types: [{
+        description: 'RAID Excel workbook',
+        accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+    }],
+    excludeAcceptAllOption: false,
+    multiple: false,
+};
+
+// Rather than blindly overwriting raidItems with whatever the workbook
+// contains, read it, diff it against the current plan and the last-synced
+// snapshot, and let the user review additions/updates/removals/conflicts
+// before anything is applied. This is the plain upload-input path (the
+// hidden #raidXlUpload input, and the Firefox/Safari fallback from
+// syncRaidExcelTarget below); processRaidExcelSyncInput does the actual
+// import work shared with the linked-handle path.
 async function uploadRaidExcel(event) {
     const file = event.target.files[0];
     event.target.value = '';
     if (!file) return;
+    await processRaidExcelSyncInput(file, file.name);
+}
 
-    if (!file.name.endsWith('.xlsx')) {
+/**
+ * Entry point for the Settings > Sync tab's "Sync Now" button on the RAID
+ * Excel target -- the fix for issue #761's follow-up report that sync never
+ * remembered which file to sync to, so every sync opened a fresh OS picker.
+ *
+ * MUST run as a direct click handler with no prior await: re-granting a
+ * revoked permission (LocalFileAccess.requestWritePermission) needs
+ * transient user activation, which doesn't survive unrelated awaits before
+ * it. The path taken depends purely on LocalFileAccess's current state for
+ * this project/target -- there's no separate "is this the first sync?" flag
+ * to keep in sync with it:
+ *
+ *   - unsupported (Firefox/Safari, no File System Access API): falls back
+ *     to the plain upload input, same as before -- there's no one-click
+ *     story possible there, and this says so.
+ *   - needs-relink (a handle survived reload but permission wasn't
+ *     restored, or a previous write failed): asks for permission again on
+ *     the SAME handle first; only opens a fresh picker if that's refused.
+ *   - unlinked: opens the native picker and links the chosen file for next
+ *     time.
+ *   - linked: reads straight from the handle -- genuinely one click, no
+ *     dialog of any kind.
+ */
+async function syncRaidExcelTarget() {
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Sync to a file on disk — choose the Excel file each time instead.', 'info');
+        }
+        document.getElementById('raidXlUpload')?.click();
+        return;
+    }
+
+    await LocalFileAccess.ensureRestored(projectId);
+    let status = LocalFileAccess.getLinkStatus(projectId, RAID_SYNC_TARGET_KEY);
+
+    if (status === 'needs-relink') {
+        const granted = await LocalFileAccess.requestWritePermission(projectId, RAID_SYNC_TARGET_KEY);
+        status = granted ? 'linked' : 'unlinked';
+    }
+
+    if (status === 'linked') {
+        let read = null;
+        try {
+            read = await LocalFileAccess.readLinkedFile(projectId, RAID_SYNC_TARGET_KEY, 'arraybuffer');
+        } catch (error) {
+            console.error('Could not read linked RAID Excel file:', error);
+            // readLinkedFile() already dropped the link on a hard failure
+            // (or flagged needs-relink on a permission failure); either way
+            // fall through to a fresh picker below instead of leaving the
+            // user stuck on an error.
+        }
+        if (read) {
+            await processRaidExcelSyncInput(read.content, read.name);
+            return;
+        }
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndLinkFile(projectId, RAID_SYNC_TARGET_KEY, RAID_XLSX_PICKER_OPTIONS, 'arraybuffer');
+    } catch (error) {
+        showMessage('editor', 'error', 'Failed to open RAID Excel file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    await processRaidExcelSyncInput(picked.content, picked.name);
+}
+
+/**
+ * Shared by uploadRaidExcel (a File, from the plain upload input) and
+ * syncRaidExcelTarget (raw bytes, from a linked handle) --
+ * browser-excel.js's loadWorkbookInput() accepts either a File or an
+ * ArrayBuffer.
+ */
+async function processRaidExcelSyncInput(input, filename) {
+    if (filename && !filename.toLowerCase().endsWith('.xlsx')) {
         alert('Please select an Excel (.xlsx) file.');
         return;
     }
@@ -8170,7 +8267,7 @@ async function uploadRaidExcel(event) {
     if (browserExcelExportsEnabled()) {
         try {
             const module = await import('/static/browser-excel.js');
-            const data = await module.importRaidExcelInBrowser(file);
+            const data = await module.importRaidExcelInBrowser(input);
             externalItems = data.items;
         } catch (error) {
             console.error('Browser RAID import failed, falling back to backend:', error);
@@ -8180,6 +8277,9 @@ async function uploadRaidExcel(event) {
     if (externalItems === null) {
         try {
             const formData = new FormData();
+            const file = input instanceof File ? input : new File([input], filename || 'raid.xlsx', {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
             formData.append('file', file);
 
             const response = await fetch('/api/raid/import-excel', {
@@ -8205,12 +8305,12 @@ async function uploadRaidExcel(event) {
         return;
     }
 
-    await openRaidSyncReview(externalItems, file.name);
+    await openRaidSyncReview(externalItems, filename);
 }
 
 async function openRaidSyncReview(externalItems, filename) {
     const module = await import('/static/raid-sync.js');
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     const syncState = module.getRaidSyncState(projectId);
     const baseItems = (syncState && syncState.items) || [];
 
@@ -8321,7 +8421,7 @@ async function applyRaidSyncReview() {
     renderRaidTable();
     syncRaidLogToPlanText();
 
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     const syncedAt = new Date();
     const syncedAtIso = syncedAt.toISOString();
     module.setRaidSyncState(projectId, {
@@ -8346,17 +8446,43 @@ async function applyRaidSyncReview() {
 
     showMessage('editor', 'success', 'RAID synced with Excel.');
 
-    // Write-back (issue #761 step 4): hand the merged state back out as a
-    // fresh download so the user's file matches the plan again. This
-    // version doesn't retain a File System Access API handle, so the user
-    // re-saves over their original file — see the issue for silent-handle
-    // support as a follow-up.
+    // Write-back (issue #761 step 4, extended by the sync-file-linking
+    // follow-up): hand the merged state back out to the Excel file. When
+    // this project's RAID target is linked to a real file on disk
+    // (LocalFileAccess), write straight back through that handle — no
+    // dialog, no download, matching the "press Sync and it updates both
+    // files" report. Otherwise (Firefox/Safari, or no link yet) this falls
+    // back to the original download-a-copy behaviour, unchanged.
     try {
         const excelModule = await import('/static/browser-excel.js');
-        await excelModule.exportRaidExcelInBrowser(merged, {
+        const filename = raidSyncPendingFilename || 'raid.xlsx';
+        const linked = typeof LocalFileAccess !== 'undefined' &&
+            LocalFileAccess.getLinkStatus(projectId, RAID_SYNC_TARGET_KEY) === 'linked';
+
+        const result = await excelModule.exportRaidExcelInBrowser(merged, {
             projectName: 'RAID',
-            filename: raidSyncPendingFilename || 'raid.xlsx'
+            filename: filename,
+            download: !linked
         });
+
+        if (linked) {
+            const writeResult = await LocalFileAccess.writeLinkedFile(projectId, RAID_SYNC_TARGET_KEY, result.buffer);
+            if (writeResult && writeResult.ok) {
+                if (typeof showToast === 'function') {
+                    showToast('Wrote changes back to ' + writeResult.filename + ' — no download needed.', 'success');
+                }
+            } else {
+                // Don't strand the user's changes only in the plan: fall
+                // back to a download so the workbook still gets updated
+                // somehow, and explain why the one-click write didn't land.
+                await excelModule.exportRaidExcelInBrowser(merged, { projectName: 'RAID', filename: filename });
+                const reason = writeResult && writeResult.needsRelink
+                    ? ' Re-link it in Settings > Sync to restore one-click sync.' : '';
+                if (typeof showToast === 'function') {
+                    showToast('Could not write back to the linked file — downloaded a copy instead.' + reason, 'error');
+                }
+            }
+        }
     } catch (error) {
         console.error('RAID sync write-back export failed:', error);
     }
@@ -9430,6 +9556,118 @@ function triggerMSProjectUpload() {
     input.click();
 }
 
+// This target's key into LocalFileAccess's per-target handle map
+// (local-file-access.js) -- distinct from the main plan file's default
+// 'plan' target, and from RAID_SYNC_TARGET_KEY above.
+const MSP_SYNC_TARGET_KEY = 'msproject';
+const MSP_FILE_PICKER_OPTIONS = {
+    id: 'noodleplanner-msproject',
+    types: [{
+        description: 'MS Project file',
+        accept: {
+            'application/vnd.ms-project': ['.mpp'],
+            'application/xml': ['.xml'],
+            'text/xml': ['.xml'],
+        },
+    }],
+    excludeAcceptAllOption: false,
+    multiple: false,
+};
+
+/**
+ * Entry point for the Settings > Sync tab's "Sync Now" button on the MS
+ * Project target -- mirrors syncRaidExcelTarget() above; see its comment
+ * for the full reasoning on why the path taken depends purely on
+ * LocalFileAccess's current link status, and why this must run with no
+ * await before the first LocalFileAccess call.
+ */
+async function syncMSProjectTarget() {
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Sync to a file on disk — choose the MS Project file each time instead.', 'info');
+        }
+        triggerMSProjectUpload();
+        return;
+    }
+
+    await LocalFileAccess.ensureRestored(projectId);
+    let status = LocalFileAccess.getLinkStatus(projectId, MSP_SYNC_TARGET_KEY);
+
+    if (status === 'needs-relink') {
+        const granted = await LocalFileAccess.requestWritePermission(projectId, MSP_SYNC_TARGET_KEY);
+        status = granted ? 'linked' : 'unlinked';
+    }
+
+    if (status === 'linked') {
+        let read = null;
+        try {
+            read = await LocalFileAccess.readLinkedFile(projectId, MSP_SYNC_TARGET_KEY, 'arraybuffer');
+        } catch (error) {
+            console.error('Could not read linked MS Project file:', error);
+        }
+        if (read) {
+            await processMSProjectSyncInput(read.content, read.name);
+            return;
+        }
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndLinkFile(projectId, MSP_SYNC_TARGET_KEY, MSP_FILE_PICKER_OPTIONS, 'arraybuffer');
+    } catch (error) {
+        showMessage('editor', 'error', 'Failed to open MS Project file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    await processMSProjectSyncInput(picked.content, picked.name);
+}
+
+/**
+ * Shared by uploadMSProjectFile (a File, from the plain upload input) and
+ * syncMSProjectTarget (raw bytes, from a linked handle). Native .mpp files
+ * are parsed entirely in the browser (issue #770); MSPDI .xml still goes to
+ * the server, same as before.
+ */
+async function processMSProjectSyncInput(bytesOrFile, filename) {
+    if (/\.mpp$/i.test(filename || '')) {
+        try {
+            const { importMppBytes } = await import('/static/mpp-export.js');
+            const bytes = bytesOrFile instanceof ArrayBuffer
+                ? new Uint8Array(bytesOrFile)
+                : new Uint8Array(await bytesOrFile.arrayBuffer());
+            const markdown = importMppBytes(bytes);
+            await applyImportedMspMarkdown(markdown, filename);
+        } catch (error) {
+            showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+        }
+        return;
+    }
+
+    const formData = new FormData();
+    const file = bytesOrFile instanceof File ? bytesOrFile : new File([bytesOrFile], filename || 'schedule.xml', { type: 'application/xml' });
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/msproject/import', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to import MS Project file');
+        }
+
+        const result = await response.json();
+        await applyImportedMspMarkdown(result.markdown, filename);
+    } catch (error) {
+        showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+    }
+}
+
 // Applies a freshly-imported MS Project task tree to the editor. The import
 // only ever contains a bare title + Resources front matter and a task
 // tree -- it knows nothing about version, project manager, RAG,
@@ -9470,6 +9708,46 @@ async function finishMspImport(finalTextOrMarkdown, filename) {
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     showMessage('editor', 'success', 'MS Project file imported successfully!');
     await renderText();
+
+    // Write-back (issue #761's sync-file-linking follow-up): before this,
+    // the MS Project sync flow only ever pulled the schedule INTO the plan
+    // -- nothing produced updated .mpp bytes as part of a sync. When this
+    // project's MS Project target is linked to a real .mpp file on disk,
+    // build fresh bytes from the just-merged plan (mpp-export.js, the same
+    // browser-side builder the Tools > Export > MS Project (.mpp) menu item
+    // uses) and write them straight back through the handle -- no dialog,
+    // no download. MSPDI .xml has no writer in this codebase (only a
+    // reader, for the legacy server-side import path), so sync stays
+    // import-only for that format; Settings > Sync says so explicitly.
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+    const mppLinked = typeof LocalFileAccess !== 'undefined' &&
+        /\.mpp$/i.test(filename || '') &&
+        LocalFileAccess.getLinkStatus(projectId, MSP_SYNC_TARGET_KEY) === 'linked';
+
+    if (mppLinked) {
+        try {
+            const parse = await currentParseResult(finalText);
+            const { exportMppInBrowser } = await import('/static/mpp-export.js');
+            const { bytes } = await exportMppInBrowser(parse, parse.project_name || null, { download: function () {} });
+            const writeResult = await LocalFileAccess.writeLinkedFile(projectId, MSP_SYNC_TARGET_KEY, bytes);
+            if (writeResult && writeResult.ok) {
+                if (typeof showToast === 'function') {
+                    showToast('Wrote the schedule back to ' + writeResult.filename + ' — no download needed.', 'success');
+                }
+            } else {
+                const reason = writeResult && writeResult.needsRelink
+                    ? ' Re-link it in Settings > Sync to restore one-click sync.' : '';
+                if (typeof showToast === 'function') {
+                    showToast('Could not write the schedule back to the linked .mpp file.' + reason, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('MS Project sync write-back failed:', error);
+            if (typeof showToast === 'function') {
+                showToast('Could not rebuild the .mpp file for write-back: ' + error.message, 'error');
+            }
+        }
+    }
 }
 
 async function openMspSyncReview(currentText, importedMarkdown, filename) {
@@ -9486,7 +9764,7 @@ async function openMspSyncReview(currentText, importedMarkdown, filename) {
     // one-sided change, and stop a deliberately-removed task being
     // resurrected. No snapshot (first-ever sync) falls back to a plain
     // two-way diff, same as before.
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     const syncState = syncModule.getMspSyncState(projectId);
     const baseTaskBody = syncState ? syncState.taskBody : undefined;
 
@@ -9614,7 +9892,7 @@ async function applyMspSyncReview() {
     const sections = syncModule.extractBackMatterSections(current.rest);
     const finalText = syncModule.assemblePlanText(mergedFrontMatterLines, newTaskBody, sections);
 
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     syncModule.setMspSyncState(projectId, { taskBody: newTaskBody, syncedAt: new Date().toISOString() });
 
     const filename = mspSyncPendingFilename;
@@ -9632,39 +9910,12 @@ function closeMspSyncReviewSilently() {
     mspSyncPendingChoices = {};
 }
 
+// Native .mpp files are read in the browser with mppwriter; nothing is
+// uploaded (issue #770). Only MSPDI .xml still goes to the server. Delegates
+// to processMSProjectSyncInput, shared with the linked-handle sync path
+// (syncMSProjectTarget above).
 async function uploadMSProjectFile(file) {
-    // Native .mpp files are read in the browser with mppwriter; nothing is
-    // uploaded (issue #770). Only MSPDI .xml still goes to the server.
-    if (/\.mpp$/i.test(file.name || '')) {
-        try {
-            const { importMppFile } = await import('/static/mpp-export.js');
-            const markdown = await importMppFile(file);
-            await applyImportedMspMarkdown(markdown, file.name);
-        } catch (error) {
-            showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
-        }
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const response = await fetch('/api/msproject/import', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Failed to import MS Project file');
-        }
-
-        const result = await response.json();
-        await applyImportedMspMarkdown(result.markdown, file.name);
-    } catch (error) {
-        showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
-    }
+    await processMSProjectSyncInput(file, file.name);
 }
 
 // ===== Excel Import Wizard =====
