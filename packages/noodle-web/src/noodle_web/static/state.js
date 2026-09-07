@@ -99,6 +99,11 @@ let raidItemPendingDeleteId = null;
 let raidEditorIsUpdating = false;
 let raidEditorDebounceTimer = null;
 
+// RAID <-> Excel sync review state (issue #761)
+let raidSyncPendingEntries = [];
+let raidSyncPendingChoices = {};
+let raidSyncPendingFilename = '';
+
 // Excel wizard state
 let excelWizardFile = null;
 let excelWizardData = null;
@@ -206,3 +211,10 @@ const ALL_PROJECT_VIEWS = [...PLAN_VIEWS, ...TRACKING_VIEWS, ...RESOURCES_VIEWS]
 const SUBNAV_GROUPS = [
     { id: 'planSubnav', views: ALL_PROJECT_VIEWS }
 ];
+
+// MS Project sync review state (issue #842)
+let mspSyncPendingCurrentText = '';
+let mspSyncPendingImportedMarkdown = '';
+let mspSyncPendingFilename = '';
+let mspSyncPendingDiff = null;
+let mspSyncPendingChoices = {};
