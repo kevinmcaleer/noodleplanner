@@ -319,3 +319,48 @@ test("pptxgenjs is vendored at the pinned version and loads from /static/", () =
   assert.ok(source.includes('from "./vendor/pptxgenjs/pptxgen.es.js"'), "the exporter should import the vendored copy");
   assert.ok(!/cdn\.jsdelivr|unpkg\.com/.test(source), "a CDN URL crept into the PowerPoint export");
 });
+
+test("jszip is vendored at the pinned version, for pptxgenjs's ES build to import", () => {
+  const pkg = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
+  const pinned = pkg.devDependencies.jszip;
+  const vendored = join(repo, "packages", "noodle-web", "src", "noodle_web", "static", "vendor", "jszip");
+
+  assert.ok(existsSync(join(vendored, "jszip.min.mjs")), "jszip is not vendored; run `npm run vendor:jszip`");
+  assert.ok(existsSync(join(vendored, "jszip.esm.mjs")), "the jszip ES module shim is missing; run `npm run vendor:jszip`");
+  assert.equal(readFileSync(join(vendored, "VERSION"), "utf8").trim(), pinned, "vendored copy is not the pinned release");
+});
+
+test("pptxgenjs's ES build has no bare import specifiers a browser would reject", () => {
+  // pptxgenjs 4.0.1's dist/pptxgen.es.js externalizes JSZip as a bare
+  // `import JSZip from 'jszip'` rather than bundling it inline. Node
+  // resolves that fine against node_modules, which is exactly why a plain
+  // Node test (like the ones above, which import pptx-export.js directly)
+  // would not have caught the browser-only failure in issue #977 /
+  // kevinmcaleer/Snakie#977: "Failed to resolve module specifier 'jszip'.
+  // Relative references must start with either '/', './', or '../'." This
+  // check reads the vendored file's source directly, the way a browser
+  // would see it, so a future pptxgenjs (or jszip) version bump that
+  // reintroduces a bare specifier fails here instead of only in a browser.
+  const vendorRoot = join(repo, "packages", "noodle-web", "src", "noodle_web", "static", "vendor");
+  const files = [
+    join(vendorRoot, "pptxgenjs", "pptxgen.es.js"),
+    join(vendorRoot, "jszip", "jszip.esm.mjs"),
+  ];
+
+  // Matches `import ... from "spec"`, `import "spec"`, and `export ... from "spec"`.
+  const specifierPattern = /\b(?:import|export)\b\s+(?:[^"'();]+?\s+from\s+)?["']([^"']+)["']/g;
+  const isBrowserResolvable = (specifier) => /^(\.{1,2}\/|\/|[a-zA-Z][a-zA-Z0-9+.-]*:)/.test(specifier);
+
+  for (const file of files) {
+    assert.ok(existsSync(file), `${file} is missing; run \`npm run vendor:pptxgenjs\``);
+    const source = readFileSync(file, "utf8");
+    const bare = [...source.matchAll(specifierPattern)].map((m) => m[1]).filter((s) => !isBrowserResolvable(s));
+    assert.deepEqual(
+      bare,
+      [],
+      `${file} has bare import specifier(s) a browser cannot resolve: ${bare.join(", ")}. ` +
+        "Rewrite them to relative paths pointing at a vendored copy (see scripts/vendor-pptxgenjs.mjs " +
+        "and scripts/vendor-jspdf.mjs for the established pattern).",
+    );
+  }
+});
