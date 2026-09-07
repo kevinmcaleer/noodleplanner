@@ -12,13 +12,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+// Node has no global localStorage; getMspSyncState/setMspSyncState/
+// clearMspSyncState need one to actually exercise their real behaviour
+// rather than silently no-op through their try/catch guards.
+globalThis.localStorage = (() => {
+  const store = new Map();
+  return {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+})();
+
 import {
   mergeFrontMatter,
   extractBackMatterSections,
   stripBackMatterSections,
   mergeImportedTasks,
-  summarizeMerge,
   upsertFrontMatterField,
+  getMspSyncState,
+  setMspSyncState,
+  clearMspSyncState,
 } from '../packages/noodle-web/src/noodle_web/static/msproject-sync.js';
 
 test('mergeFrontMatter replaces an existing key in place, preserving order', () => {
@@ -191,20 +205,21 @@ test('mergeImportedTasks on a plan with no back matter produces no dangling sect
   assert.doesNotMatch(merged, /Old Task/);
 });
 
-test('summarizeMerge lists exactly the sections that will be preserved', () => {
-  const currentPlan = [
-    '---', 'title: Plan', '---', '# Plan', '- Task 1', '',
-    '---', '', '---budget---', 'budget content', '',
-    '---lessons learned---', 'lessons content',
-  ].join('\n');
-  const summary = summarizeMerge(currentPlan, '---\ntitle: Plan\n---\n\nTask A\n');
-  assert.deepEqual(summary.preservedSections, ['budget', 'lessons learned']);
+test('getMspSyncState returns null when nothing has been synced yet', () => {
+  assert.equal(getMspSyncState('test-project-1'), null);
 });
 
-test('summarizeMerge reports nothing preserved for a plan with no back matter', () => {
-  const currentPlan = '---\ntitle: Plan\n---\n# Plan\n- Task 1\n';
-  const summary = summarizeMerge(currentPlan, '---\ntitle: Plan\n---\n\nTask A\n');
-  assert.deepEqual(summary.preservedSections, []);
+test('setMspSyncState / getMspSyncState round-trip, scoped per project', () => {
+  setMspSyncState('test-project-2', { taskBody: 'Task A  1d', syncedAt: '2026-09-07T12:00:00Z' });
+  const state = getMspSyncState('test-project-2');
+  assert.equal(state.taskBody, 'Task A  1d');
+  assert.equal(getMspSyncState('a-different-project'), null);
+});
+
+test('clearMspSyncState removes a stored snapshot', () => {
+  setMspSyncState('test-project-3', { taskBody: 'Task A  1d' });
+  clearMspSyncState('test-project-3');
+  assert.equal(getMspSyncState('test-project-3'), null);
 });
 
 test('upsertFrontMatterField adds msproject_file and msproject_file_synced', () => {

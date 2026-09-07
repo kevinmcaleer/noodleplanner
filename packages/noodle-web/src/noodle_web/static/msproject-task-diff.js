@@ -97,24 +97,48 @@ function descendantsOf(node, outline) {
 /**
  * Diff a local task outline against a freshly-imported one, matched by
  * (name, ancestor-path) identity. Returns entries in a stable order --
- * removed first (most consequential), then updated, then added -- each
- * carrying enough of the local/imported node for a review UI to render.
+ * conflicts first (most consequential), then removed, then updated, then
+ * added -- each carrying enough of the local/imported/base node for a
+ * review UI to render.
  *
  * A removed *summary* task's children are not each listed separately (that
  * would turn one real decision -- "this phase is gone" -- into a wall of
  * redundant rows); only "removal roots" (nodes whose parent still exists,
  * or has no parent) get their own entry, carrying `descendantCount` so a
  * review UI can warn how many child lines would be cascade-removed with it.
+ *
+ * `baseBody` is optional: the task outline as it stood at the last
+ * successful sync (see msp-sync-state.js), enabling a proper three-way
+ * diff instead of a plain two-way comparison:
+ *  - Omitted entirely: every local/imported difference is reported as-is
+ *    (removed/updated/added), same as a first-ever sync -- there's no
+ *    history to reason about who changed what.
+ *  - Provided: a task present locally but not in the import is only
+ *    flagged "removed" if it existed at the last sync (otherwise it's a
+ *    fresh local addition the import simply doesn't know about yet, not a
+ *    deletion to review). A task present in the import but not locally is
+ *    only flagged "added" if it did NOT exist at the last sync (otherwise
+ *    the plan deliberately removed it, and re-importing shouldn't
+ *    resurrect it). A task changed on both sides since the last sync is a
+ *    "conflict" instead of an "updated" -- changed on the import side only
+ *    is still "updated"; changed on the plan side only means the import is
+ *    the stale one, so there's nothing to review.
  */
-export function diffTaskOutline(localBody, importedBody) {
+export function diffTaskOutline(localBody, importedBody, baseBody) {
     const local = parseTaskOutline(localBody);
     const imported = parseTaskOutline(importedBody);
     const importedByKey = new Map(imported.map((n) => [n.key, n]));
     const localByKey = new Map(local.map((n) => [n.key, n]));
 
+    const hasBase = baseBody !== undefined;
+    const base = hasBase ? parseTaskOutline(baseBody) : [];
+    const baseByKey = new Map(base.map((n) => [n.key, n]));
+
     const removedKeys = new Set();
     for (const node of local) {
-        if (!importedByKey.has(node.key)) removedKeys.add(node.key);
+        if (importedByKey.has(node.key)) continue;
+        if (hasBase && !baseByKey.has(node.key)) continue; // fresh local addition -- import just doesn't know yet
+        removedKeys.add(node.key);
     }
 
     const entries = [];
@@ -134,23 +158,39 @@ export function diffTaskOutline(localBody, importedBody) {
             continue;
         }
         const other = importedByKey.get(node.key);
-        if (node.raw.trim() !== other.raw.trim()) {
+        if (!other) continue; // fresh local addition, nothing to compare yet
+        if (node.raw.trim() === other.raw.trim()) continue; // unchanged
+
+        if (!hasBase) {
+            entries.push({ key: node.key, kind: 'updated', local: node, imported: other });
+            continue;
+        }
+        const baseNode = baseByKey.get(node.key) || null;
+        const localChanged = !baseNode || baseNode.raw.trim() !== node.raw.trim();
+        const importedChanged = !baseNode || baseNode.raw.trim() !== other.raw.trim();
+        if (localChanged && importedChanged) {
+            entries.push({ key: node.key, kind: 'conflict', local: node, imported: other, base: baseNode });
+        } else if (importedChanged) {
             entries.push({ key: node.key, kind: 'updated', local: node, imported: other });
         }
+        // else: only the local side changed since the last sync -- the
+        // import is stale, not the plan. Nothing to review.
     }
 
     for (const node of imported) {
         if (matchedKeys.has(node.key)) continue;
+        if (hasBase && baseByKey.has(node.key)) continue; // plan deliberately removed it -- don't resurrect
         entries.push({ key: node.key, kind: 'added', local: null, imported: node });
     }
 
-    const order = { removed: 0, updated: 1, added: 2 };
+    const order = { conflict: 0, removed: 1, updated: 2, added: 3 };
     entries.sort((a, b) => order[a.kind] - order[b.kind] || a.key.localeCompare(b.key));
     return { entries, local, imported, localByKey };
 }
 
 export function defaultTaskSyncChoice(kind) {
     if (kind === 'updated' || kind === 'added') return 'accept';
+    if (kind === 'conflict') return 'keep-mine'; // never silently take the external value on an unreviewed conflict
     return 'reject'; // removed defaults to reject -- cascading deletes need an explicit opt-in
 }
 
@@ -228,7 +268,9 @@ export function applyTaskDiff(localBody, diffResult, choices) {
     });
 
     for (const entry of entries) {
-        if (entry.kind !== 'updated' || choices[entry.key] !== 'accept') continue;
+        const takesImportedContent = (entry.kind === 'updated' && choices[entry.key] === 'accept') ||
+            (entry.kind === 'conflict' && choices[entry.key] === 'keep-theirs');
+        if (!takesImportedContent) continue; // conflict with no choice, or 'keep-mine', leaves the local line untouched
         const idx = keyToIndex.get(entry.key);
         if (idx === undefined) continue;
         lines[idx] = ' '.repeat(entry.local.indent) + entry.imported.raw.replace(/^\s*/, '');

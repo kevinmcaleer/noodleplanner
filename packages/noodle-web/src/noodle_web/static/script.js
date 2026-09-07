@@ -9174,7 +9174,16 @@ async function openMspSyncReview(currentText, importedMarkdown, filename) {
     const localTaskBody = syncModule.stripBackMatterSections(current.rest);
     const importedTaskBody = syncModule.stripBackMatterSections(imported.rest);
 
-    const diff = diffModule.diffTaskOutline(localTaskBody, importedTaskBody);
+    // A remembered last-synced snapshot (per project) upgrades this to a
+    // real three-way diff -- able to tell a genuine conflict from a
+    // one-sided change, and stop a deliberately-removed task being
+    // resurrected. No snapshot (first-ever sync) falls back to a plain
+    // two-way diff, same as before.
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const syncState = syncModule.getMspSyncState(projectId);
+    const baseTaskBody = syncState ? syncState.taskBody : undefined;
+
+    const diff = diffModule.diffTaskOutline(localTaskBody, importedTaskBody, baseTaskBody);
 
     if (diff.entries.length === 0) {
         // Task trees already match -- nothing to review, just record the
@@ -9182,6 +9191,7 @@ async function openMspSyncReview(currentText, importedMarkdown, filename) {
         const mergedFrontMatterLines = syncModule.mergeFrontMatter(current.lines, imported.lines);
         const sections = syncModule.extractBackMatterSections(current.rest);
         const finalText = syncModule.assemblePlanText(mergedFrontMatterLines, localTaskBody, sections);
+        syncModule.setMspSyncState(projectId, { taskBody: localTaskBody, syncedAt: new Date().toISOString() });
         await finishMspImport(finalText, filename);
         showMessage('editor', 'success', 'MS Project schedule already matches -- nothing to sync.');
         return;
@@ -9210,7 +9220,7 @@ function renderMspSyncReview(entries) {
         ' found since the last sync. Review and choose what to apply. Renamed or moved tasks show as a removal plus an addition -- plan markdown has no persistent task ID to match on otherwise.';
 
     listEl.innerHTML = '';
-    entries.forEach((entry) => {
+    entries.forEach((entry, entryIndex) => {
         const row = document.createElement('div');
         row.className = 'msp-sync-entry msp-sync-kind-' + entry.kind;
 
@@ -9220,21 +9230,28 @@ function renderMspSyncReview(entries) {
 
         let detail = '';
         let sidesHtml = '';
-        let choiceLabel = '';
+        let choiceHtml = '';
 
-        if (entry.kind === 'removed') {
+        if (entry.kind === 'conflict') {
+            sidesHtml = '<div class="msp-sync-entry-sides">' +
+                '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">Your plan</div>' + escapeHtml(entry.local.raw.trim()) + '</div>' +
+                '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">MS Project</div>' + escapeHtml(entry.imported.raw.trim()) + '</div>' +
+                '</div>';
+            choiceHtml = '<label><input type="radio" name="msp-sync-choice-conflict-' + entryIndex + '"' + (checked === 'keep-mine' ? ' checked' : '') + '> Keep mine</label>' +
+                '<label><input type="radio" name="msp-sync-choice-conflict-' + entryIndex + '"' + (checked === 'keep-theirs' ? ' checked' : '') + '> Keep MS Project</label>';
+        } else if (entry.kind === 'removed') {
             detail = entry.descendantCount > 0
                 ? 'Also removes ' + entry.descendantCount + ' sub-task' + (entry.descendantCount === 1 ? '' : 's')
                 : '';
-            choiceLabel = 'Remove';
+            choiceHtml = '<label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') + '> Remove</label>';
         } else if (entry.kind === 'updated') {
             sidesHtml = '<div class="msp-sync-entry-sides">' +
                 '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">Your plan</div>' + escapeHtml(entry.local.raw.trim()) + '</div>' +
                 '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">MS Project</div>' + escapeHtml(entry.imported.raw.trim()) + '</div>' +
                 '</div>';
-            choiceLabel = 'Apply update';
+            choiceHtml = '<label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') + '> Apply update</label>';
         } else if (entry.kind === 'added') {
-            choiceLabel = 'Add to plan';
+            choiceHtml = '<label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') + '> Add to plan</label>';
         }
 
         row.innerHTML =
@@ -9243,15 +9260,20 @@ function renderMspSyncReview(entries) {
             (detail ? '<div class="msp-sync-entry-detail">' + escapeHtml(detail) + '</div>' : '') +
             sidesHtml +
             '</div>' +
-            '<div class="msp-sync-entry-choice"><label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') +
-            '> ' + escapeHtml(choiceLabel) + '</label></div>';
+            '<div class="msp-sync-entry-choice">' + choiceHtml + '</div>';
 
         // Task keys can contain arbitrary characters from task names --
         // wired via addEventListener with the key held in a closure rather
         // than string-interpolated into an inline handler, so nothing in a
         // task name can break out of the generated markup.
-        const checkbox = row.querySelector('input[type="checkbox"]');
-        checkbox.addEventListener('change', () => setMspSyncChoice(entry.key, checkbox.checked ? 'accept' : 'reject'));
+        if (entry.kind === 'conflict') {
+            const [keepMine, keepTheirs] = row.querySelectorAll('input[type="radio"]');
+            keepMine.addEventListener('change', () => { if (keepMine.checked) setMspSyncChoice(entry.key, 'keep-mine'); });
+            keepTheirs.addEventListener('change', () => { if (keepTheirs.checked) setMspSyncChoice(entry.key, 'keep-theirs'); });
+        } else {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', () => setMspSyncChoice(entry.key, checkbox.checked ? 'accept' : 'reject'));
+        }
 
         listEl.appendChild(row);
     });
@@ -9284,6 +9306,9 @@ async function applyMspSyncReview() {
     const mergedFrontMatterLines = syncModule.mergeFrontMatter(current.lines, imported.lines);
     const sections = syncModule.extractBackMatterSections(current.rest);
     const finalText = syncModule.assemblePlanText(mergedFrontMatterLines, newTaskBody, sections);
+
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    syncModule.setMspSyncState(projectId, { taskBody: newTaskBody, syncedAt: new Date().toISOString() });
 
     const filename = mspSyncPendingFilename;
     closeMspSyncReviewSilently();

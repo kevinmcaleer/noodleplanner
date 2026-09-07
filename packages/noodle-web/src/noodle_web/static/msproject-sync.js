@@ -226,21 +226,40 @@ export function upsertFrontMatterField(text, key, value) {
     return `---\n${key}: ${value}\n---\n${text}`;
 }
 
+const MSP_SYNC_STORAGE_PREFIX = 'noodleplanner:msp-sync:';
+
 /**
- * A short, human-readable summary of what a merge will change, for a
- * confirm-before-apply prompt: which back-matter sections survive, and
- * whether the front matter picked up new fields from the import.
+ * The task outline text as it stood at the last successful MS Project sync,
+ * scoped per project -- the "base" msproject-task-diff.js's diffTaskOutline
+ * needs for a three-way diff (so it can tell a genuine conflict from a
+ * one-sided change, and stop a deliberately-removed task from being
+ * resurrected by the next reimport). It's an implementation cache, not plan
+ * content, so it lives in localStorage rather than the markdown -- same
+ * reasoning as raid-sync.js's getRaidSyncState/setRaidSyncState, which this
+ * mirrors.
  */
-export function summarizeMerge(currentPlanText, importedMarkdown) {
-    const current = splitFrontMatter(currentPlanText);
-    const sections = extractBackMatterSections(current.rest);
-    const preserved = [];
-    if (sections.highlights) preserved.push('highlights');
-    if (sections.budget) preserved.push('budget');
-    if (sections.benefits) preserved.push('benefits');
-    if (sections.raidLog) preserved.push('RAID log');
-    if (sections.comms) preserved.push('communications plan');
-    if (sections.lessons) preserved.push('lessons learned');
-    if (sections.baseline) preserved.push('baseline');
-    return { preservedSections: preserved };
+export function getMspSyncState(projectId) {
+    try {
+        const raw = localStorage.getItem(MSP_SYNC_STORAGE_PREFIX + (projectId || 'default'));
+        return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+        console.warn('Failed to read MS Project sync state:', error);
+        return null;
+    }
+}
+
+export function setMspSyncState(projectId, state) {
+    try {
+        localStorage.setItem(MSP_SYNC_STORAGE_PREFIX + (projectId || 'default'), JSON.stringify(state));
+    } catch (error) {
+        console.warn('Failed to persist MS Project sync state:', error);
+    }
+}
+
+export function clearMspSyncState(projectId) {
+    try {
+        localStorage.removeItem(MSP_SYNC_STORAGE_PREFIX + (projectId || 'default'));
+    } catch (error) {
+        console.warn('Failed to clear MS Project sync state:', error);
+    }
 }

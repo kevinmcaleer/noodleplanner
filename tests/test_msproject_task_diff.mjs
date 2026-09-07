@@ -265,6 +265,94 @@ test('milestones (0d, no percent) and dependency shorthand round-trip through th
   assert.equal(nodes[2].name, 'Gate');
 });
 
+// --- three-way diff (base / last-synced snapshot provided) ---
+
+test('with a base, changed-on-both-sides is a conflict instead of an update', () => {
+  const base = BASE; // last-synced snapshot: original 2d
+  const local = BASE.replace('Task A1  2d', 'Task A1  5d'); // plan changed it since last sync
+  const imported = BASE.replace('Task A1  2d', 'Task A1  9d'); // MS Project also changed it
+  const { entries } = diffTaskOutline(local, imported, base);
+  const entry = entries.find((e) => e.key === 'Phase A › Task A1');
+  assert.equal(entry.kind, 'conflict');
+});
+
+test('with a base, changed on the imported side only is still an update', () => {
+  const base = BASE;
+  const local = BASE; // plan unchanged since last sync
+  const imported = BASE.replace('Task A1  2d', 'Task A1  9d');
+  const { entries } = diffTaskOutline(local, imported, base);
+  const entry = entries.find((e) => e.key === 'Phase A › Task A1');
+  assert.equal(entry.kind, 'updated');
+});
+
+test('with a base, changed on the local side only produces no entry (import is stale)', () => {
+  const base = BASE;
+  const local = BASE.replace('Task A1  2d', 'Task A1  5d'); // plan changed it
+  const imported = BASE; // MS Project still has the old value
+  const { entries } = diffTaskOutline(local, imported, base);
+  assert.deepEqual(entries.filter((e) => e.key === 'Phase A › Task A1'), []);
+});
+
+test('with a base, a task removed from the plan since last sync is not resurrected by reimport', () => {
+  const base = BASE; // Task A2 existed at last sync
+  const local = BASE.replace('  Task A2  3d\n', ''); // plan deliberately removed it
+  const imported = BASE; // MS Project still has it (stale copy, or never told about the removal)
+  const { entries } = diffTaskOutline(local, imported, base);
+  assert.deepEqual(entries.filter((e) => e.key === 'Phase A › Task A2'), []);
+});
+
+test('with a base, a task added to the plan since last sync (not yet in MS Project) produces no entry', () => {
+  const base = BASE; // Task A3 did not exist at last sync
+  const local = BASE.replace('Phase B', '  Task A3  1d\nPhase B'); // plan added it locally
+  const imported = BASE; // MS Project doesn't know about it yet
+  const { entries } = diffTaskOutline(local, imported, base);
+  assert.deepEqual(entries.filter((e) => e.key === 'Phase A › Task A3'), []);
+});
+
+test('with a base, a task removed from MS Project since last sync is still flagged removed', () => {
+  const base = BASE;
+  const local = BASE; // plan hasn't touched it
+  const imported = BASE.replace('  Task A2  3d\n', ''); // MS Project removed it
+  const { entries } = diffTaskOutline(local, imported, base);
+  const entry = entries.find((e) => e.key === 'Phase A › Task A2');
+  assert.equal(entry.kind, 'removed');
+});
+
+test('with a base, a genuinely new MS Project task (not in base) is still flagged added', () => {
+  const base = BASE;
+  const local = BASE;
+  const imported = BASE + '\nPhase C\n  Task C1  1d';
+  const { entries } = diffTaskOutline(local, imported, base);
+  const keys = entries.map((e) => e.key);
+  assert.ok(keys.includes('Phase C'));
+  assert.ok(keys.includes('Phase C › Task C1'));
+});
+
+test('defaultTaskSyncChoice: conflict defaults to keep-mine', () => {
+  assert.equal(defaultTaskSyncChoice('conflict'), 'keep-mine');
+});
+
+test('applyTaskDiff: an unreviewed conflict keeps the local value', () => {
+  const base = BASE;
+  const local = BASE.replace('Task A1  2d', 'Task A1  5d');
+  const imported = BASE.replace('Task A1  2d', 'Task A1  9d');
+  const diff = diffTaskOutline(local, imported, base);
+  const result = applyTaskDiff(local, diff, {});
+  assert.ok(result.includes('Task A1  5d'));
+  assert.ok(!result.includes('Task A1  9d'));
+});
+
+test('applyTaskDiff: a conflict resolved keep-theirs takes the imported value', () => {
+  const base = BASE;
+  const local = BASE.replace('Task A1  2d', 'Task A1  5d');
+  const imported = BASE.replace('Task A1  2d', 'Task A1  9d');
+  const diff = diffTaskOutline(local, imported, base);
+  const entry = diff.entries.find((e) => e.key === 'Phase A › Task A1');
+  const result = applyTaskDiff(local, diff, { [entry.key]: 'keep-theirs' });
+  assert.ok(result.includes('Task A1  9d'));
+  assert.ok(!result.includes('Task A1  5d'));
+});
+
 test('a duration change on the second of two identically-named siblings matches the right one', () => {
   const local = ['Phase A', '  Review 1d', '  Build 1d', '  Review 1d'].join('\n');
   const imported = ['Phase A', '  Review 1d', '  Build 1d', '  Review 2d'].join('\n');
