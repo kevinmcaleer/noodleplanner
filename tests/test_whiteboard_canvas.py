@@ -351,14 +351,20 @@ class TestZoom:
 
 class TestKeyboard:
     def _focus_canvas_via_tab(self, browser):
-        # Tab from the last toolbar button onto the canvas wrapper, which
-        # sits immediately after it in DOM order — a real, browser-native
-        # focus change (not a scripted .focus() call), so :focus-visible
-        # engages the way it would for an actual keyboard user.
+        # Tab from the last zoom-toolbar button onto the canvas wrapper --
+        # a real, browser-native focus change (not a scripted .focus()
+        # call), so :focus-visible engages the way it would for an actual
+        # keyboard user. One extra Tab stop sits in between as of issue
+        # #847: the "Add note" toolbar button, which DOM-order sits right
+        # after the zoom controls and right before the canvas wrapper.
         reset_btn = browser.find_element(
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
+        ActionChains(browser).send_keys(Keys.TAB).perform()
+        time.sleep(0.1)
+        add_note_id = browser.execute_script("return document.activeElement.id;")
+        assert add_note_id == "whiteboardAddNoteBtn", f"expected the Add note button focused, got {add_note_id!r}"
         ActionChains(browser).send_keys(Keys.TAB).perform()
         time.sleep(0.2)
         active_id = browser.execute_script("return document.activeElement.id;")

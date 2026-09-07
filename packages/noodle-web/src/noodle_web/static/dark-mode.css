@@ -2709,3 +2709,11 @@ body {
 [data-theme="dark"] .wb-note-menu-swatch.selected {
     border-color: #ffffff;
 }
+
+/* ── Board membership (dark) — issue #847 ────────────────────────────────
+   The "Add note" toolbar button reuses .wb-toolbar-btn (already themed
+   above); the note menu's "Remove from board" item, the empty state, and
+   the Add-note picker dialog all read var(--np-*) tokens exclusively
+   (including var(--np-overlay) for the picker's backdrop, same token
+   .modal-overlay already uses) -- no colour is hardcoded for light mode,
+   so nothing here needs a dark-specific override. */

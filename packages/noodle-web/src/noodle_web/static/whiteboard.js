@@ -199,6 +199,46 @@ function wbCanvasCenter() {
 }
 
 /**
+ * Convert an on-screen viewport (a `screenWidth` x `screenHeight` window
+ * whose top-left is (0,0) in canvas-relative screen space -- the same
+ * space wbHandleWheel()'s anchorX/anchorY use) into a board-space
+ * rectangle, given the current pan/zoom. This is the inverse of the
+ * `translate(panX, panY) scale(zoom)` transform wbApplyTransform() applies
+ * (see wbAnchoredZoomPan()'s comment for the same screen = pan + zoom *
+ * board relationship this un-does): a board point p renders at screen
+ * point `pan + zoom * p`, so the screen origin (0,0) maps back to board
+ * point `-pan / zoom`, and a screenWidth/screenHeight window maps to a
+ * `screenWidth/zoom` x `screenHeight/zoom` board-space window.
+ *
+ * Pure (no DOM) so it's unit-testable directly -- see
+ * wbCurrentViewportBoardRect() below for the live-state wrapper issue
+ * #847's Add-note flow (whiteboard-notes.js) actually calls.
+ */
+function wbViewportToBoardRect(panX, panY, zoom, screenWidth, screenHeight) {
+    const z = (typeof zoom === 'number' && zoom > 0) ? zoom : 1;
+    return {
+        x: -panX / z,
+        y: -panY / z,
+        width: screenWidth / z,
+        height: screenHeight / z,
+    };
+}
+
+/**
+ * wbViewportToBoardRect() for the whiteboard's live canvas size and
+ * current pan/zoom -- "the current viewport", in board coordinates, that
+ * issue #847's Add-note flow places new notes inside. Falls back to a
+ * generous default rect if the canvas hasn't been built yet (the picker
+ * can only be opened from the whiteboard tab, so in practice wbSvg is
+ * always set by the time this is called).
+ */
+function wbCurrentViewportBoardRect() {
+    if (!wbSvg) return { x: 0, y: 0, width: 1200, height: 800 };
+    const rect = wbSvg.getBoundingClientRect();
+    return wbViewportToBoardRect(wbPanX, wbPanY, wbZoom, rect.width, rect.height);
+}
+
+/**
  * Zoom by `factor`, anchored on a screen-space point relative to the
  * canvas (so the board point under that point stays fixed).
  */

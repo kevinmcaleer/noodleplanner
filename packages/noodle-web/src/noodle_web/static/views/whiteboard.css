@@ -353,6 +353,13 @@
     z-index: 1000;
     min-width: 176px;
     max-width: 220px;
+    /* Issue #847 added a section (divider + "Remove from board") past
+       #849's colour-only version, so this can now be taller than the
+       space wbOpenNoteMenu()'s flip-above/clamp logic has to work with on
+       a short viewport -- scroll internally rather than ever overflowing
+       past the viewport or the clamped safe area. */
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
     background: var(--np-surface, #ffffff);
     border: 1px solid var(--np-border, #e0e0e0);
     border-radius: 8px;
@@ -490,5 +497,315 @@ body.wb-note-drag-active * {
 @media (max-width: 700px) {
     .wb-toolbar-hint {
         display: none;
+    }
+}
+
+/* ========================================
+   Board membership (issue #847): "Add note" toolbar button, the note
+   menu's "Remove from board" item, the empty state, and the Add-note
+   picker dialog.
+   ======================================== */
+
+.wb-toolbar-btn-add {
+    width: auto;
+    gap: 6px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wb-note-menu-divider {
+    height: 1px;
+    margin: 2px 4px;
+    background: var(--np-border, #e0e0e0);
+    list-style: none;
+}
+
+.wb-note-menu-remove {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--np-red, #d9534f);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.wb-note-menu-remove:hover,
+.wb-note-menu-remove:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: 2px solid var(--np-red, #d9534f);
+    outline-offset: 1px;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+
+.wb-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    padding: 24px;
+}
+
+.wb-empty-state.wb-empty-state-hidden {
+    display: none;
+}
+
+.wb-empty-state-inner {
+    pointer-events: auto;
+    max-width: 380px;
+    text-align: center;
+    background: var(--np-surface, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px var(--np-shadow, rgba(0, 0, 0, 0.12));
+    padding: 28px 24px;
+}
+
+.wb-empty-state-title {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--np-text, #333333);
+}
+
+.wb-empty-state-body {
+    margin: 0 0 18px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--np-text-secondary, #666666);
+}
+
+.wb-empty-state-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.wb-empty-state-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333333);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.wb-empty-state-btn:hover,
+.wb-empty-state-btn:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-empty-state-btn-primary {
+    background: var(--np-accent, #667eea);
+    border-color: var(--np-accent, #667eea);
+    color: #ffffff;
+}
+
+.wb-empty-state-btn-primary:hover,
+.wb-empty-state-btn-primary:focus-visible {
+    background: var(--np-accent-hover, #5a6fd8);
+}
+
+/* ── Add-note picker ──────────────────────────────────────────────────── */
+
+.wb-add-note-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: var(--np-overlay, rgba(0, 0, 0, 0.45));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.wb-add-note-dialog {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 460px;
+    max-height: min(600px, 90vh);
+    background: var(--np-surface, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px var(--np-shadow, rgba(0, 0, 0, 0.3));
+    overflow: hidden;
+}
+
+.wb-add-note-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.wb-add-note-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--np-text, #333333);
+}
+
+.wb-add-note-close {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--np-text-secondary, #666666);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.wb-add-note-close:hover,
+.wb-add-note-close:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    color: var(--np-text, #333333);
+}
+
+.wb-add-note-search {
+    margin: 12px 16px 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333333);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.wb-add-note-search:focus-visible {
+    outline: 2px solid var(--np-accent, #667eea);
+    outline-offset: 1px;
+}
+
+.wb-add-note-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 8px 8px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 120px;
+}
+
+.wb-add-note-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.wb-add-note-item:hover,
+.wb-add-note-item:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-add-note-item[aria-selected="true"] {
+    background: var(--np-blue-subtle, #eaf3fb);
+}
+
+.wb-add-note-checkbox {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+}
+
+.wb-add-note-item-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.wb-add-note-item-name {
+    font-size: 13px;
+    color: var(--np-text, #333333);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wb-add-note-item-path {
+    font-size: 11px;
+    color: var(--np-text-secondary, #666666);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wb-add-note-empty {
+    padding: 20px 12px;
+    text-align: center;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--np-text-muted, #888888);
+}
+
+.wb-add-note-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--np-border, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.wb-add-note-cancel,
+.wb-add-note-submit {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.wb-add-note-cancel {
+    border: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333333);
+}
+
+.wb-add-note-cancel:hover {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-add-note-submit {
+    border: 1px solid var(--np-accent, #667eea);
+    background: var(--np-accent, #667eea);
+    color: #ffffff;
+}
+
+.wb-add-note-submit:hover:not(:disabled) {
+    background: var(--np-accent-hover, #5a6fd8);
+}
+
+.wb-add-note-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (pointer: coarse) {
+    .wb-toolbar-btn-add {
+        width: auto;
+        padding: 0 14px;
     }
 }
