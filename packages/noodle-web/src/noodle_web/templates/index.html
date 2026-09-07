@@ -3442,6 +3442,7 @@ Build
                     <button class="settings-tab-btn" data-tab="theme" onclick="switchSettingsTab('theme')" role="tab" aria-selected="false">Theme</button>
                     <button class="settings-tab-btn" data-tab="ai" onclick="switchSettingsTab('ai')" role="tab" aria-selected="false">AI</button>
                     <button class="settings-tab-btn" data-tab="storage" onclick="switchSettingsTab('storage')" role="tab" aria-selected="false">Storage</button>
+                    <button class="settings-tab-btn" data-tab="sync" onclick="switchSettingsTab('sync')" role="tab" aria-selected="false">Sync</button>
                 </div>
 
                 <!-- Gantt Tab -->
@@ -3567,6 +3568,13 @@ Build
                     </div>
                     <small>A backup holds every project, its version history and programme dependencies in one JSON file. Restoring adds what is missing and keeps what is already here.</small>
                     <div id="storageSettingsLegacy" class="storage-settings-legacy" style="display: none;"></div>
+                </div>
+
+                <!-- Sync Tab (issue #761) -->
+                <div id="settingsTab-sync" class="settings-tab-content" role="tabpanel">
+                    <h3>Sync</h3>
+                    <p class="settings-ai-description">Files this plan is linked to, and when they last synced. Nothing syncs automatically — sync only runs when you trigger it here or from the Tools menu.</p>
+                    <div id="syncSettingsList" class="sync-settings-list"></div>
                 </div>
             </div>
         </div>

@@ -360,6 +360,108 @@ function switchSettingsTab(tabName) {
     if (tabName === 'storage' && typeof renderStorageSettings === 'function') {
         renderStorageSettings();
     }
+
+    // The Sync tab shows the current plan's linked sync targets (#761)
+    if (tabName === 'sync' && typeof renderSyncSettings === 'function') {
+        renderSyncSettings();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sync tab (#761): linked sync targets and their last-synced state
+// ---------------------------------------------------------------------------
+
+const SYNC_TARGET_DEFS = [
+    {
+        key: 'excel',
+        label: 'RAID Log',
+        icon: 'bi-file-earmark-spreadsheet',
+        fileField: 'excel_file',
+        syncedField: 'excel_file_synced',
+        syncLabel: 'Sync Now',
+        syncAction: () => { document.getElementById('raidXlUpload')?.click(); },
+    },
+    {
+        key: 'msproject',
+        label: 'MS Project Schedule',
+        icon: 'bi-diagram-3',
+        fileField: 'msproject_file',
+        syncedField: 'msproject_file_synced',
+        syncLabel: 'Import Now',
+        syncAction: () => { if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload(); },
+    },
+];
+
+function getSyncFrontMatterField(text, key) {
+    const match = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return null;
+    const fieldMatch = match[1].match(new RegExp('^' + key + ':\\s*(.+)$', 'm'));
+    return fieldMatch ? fieldMatch[1].trim() : null;
+}
+
+function renderSyncSettings() {
+    const el = document.getElementById('syncSettingsList');
+    if (!el) return;
+    const editor = document.getElementById('planEditor');
+    const text = editor ? editor.value : '';
+
+    el.innerHTML = SYNC_TARGET_DEFS.map((def, idx) => {
+        const file = getSyncFrontMatterField(text, def.fileField);
+        const synced = getSyncFrontMatterField(text, def.syncedField);
+        const infoHtml = '<div class="sync-target-info"><i class="bi ' + def.icon + '" aria-hidden="true"></i> <strong>' +
+            escapeHtml(def.label) + '</strong>' +
+            (file
+                ? '<small>Linked to ' + escapeHtml(file) + (synced ? ' — last synced ' + escapeHtml(synced) : '') + '</small>'
+                : '<small>Not linked to a file yet</small>') +
+            '</div>';
+        const unlinkBtn = file
+            ? '<button type="button" class="btn-sm sync-target-unlink" data-sync-target-idx="' + idx + '" title="Forget this link">Unlink</button>'
+            : '';
+        return '<div class="sync-target-row">' + infoHtml +
+            '<div class="sync-target-actions">' +
+            '<button type="button" class="btn-secondary" data-sync-target-idx="' + idx + '" data-sync-action="1">' + escapeHtml(def.syncLabel) + '</button>' +
+            unlinkBtn +
+            '</div></div>';
+    }).join('');
+
+    el.querySelectorAll('[data-sync-action]').forEach((btn) => {
+        btn.addEventListener('click', () => SYNC_TARGET_DEFS[Number(btn.dataset.syncTargetIdx)].syncAction());
+    });
+    el.querySelectorAll('.sync-target-unlink').forEach((btn) => {
+        btn.addEventListener('click', () => unlinkSyncTarget(SYNC_TARGET_DEFS[Number(btn.dataset.syncTargetIdx)].key));
+    });
+}
+
+async function unlinkSyncTarget(key) {
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+    const def = SYNC_TARGET_DEFS.find((d) => d.key === key);
+    if (!def) return;
+    if (!confirm('Forget this link? The file itself is not affected — only NoodlePlanner\'s memory of it.')) return;
+
+    let text = editor.value;
+    for (const field of [def.fileField, def.syncedField]) {
+        text = text.replace(new RegExp('^' + field + ':.*\\n?', 'm'), '');
+    }
+    if (typeof setEditorValuePreservingCursor === 'function') {
+        setEditorValuePreservingCursor(editor, text);
+    } else {
+        editor.value = text;
+    }
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    if (key === 'excel') {
+        try {
+            const module = await import('/static/raid-sync.js');
+            const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+            module.clearRaidSyncState(projectId);
+        } catch (error) {
+            console.warn('Failed to clear RAID sync snapshot:', error);
+        }
+    }
+
+    renderSyncSettings();
+    showMessage('editor', 'success', 'Sync link removed.');
 }
 
 // ---------------------------------------------------------------------------

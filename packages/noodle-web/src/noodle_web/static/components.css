@@ -6895,3 +6895,50 @@ tr:hover .task-context-btn,
     cursor: pointer;
     margin-bottom: 4px;
 }
+
+/* Sync settings tab (issue #761) */
+.sync-settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.sync-target-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    background: var(--bg-secondary, #f8f9fa);
+}
+
+.sync-target-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.sync-target-info strong {
+    color: var(--text-primary, #212529);
+}
+
+.sync-target-info small {
+    color: var(--text-secondary, #666);
+}
+
+.sync-target-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.sync-target-unlink {
+    color: #c62828;
+    border: 1px solid #c62828;
+    background: none;
+}
