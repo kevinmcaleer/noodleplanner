@@ -391,8 +391,12 @@ other records the app keeps are:
 * programme dependencies — the links declared in the front matter's
   ``dependencies`` key, kept as one metadata record so the portfolio can
   propagate RAG across projects, derived;
-* theme, panel widths, mind-map colours, AI settings — UI preferences in
-  ``localStorage``, not plan data.
+* theme, panel widths, mind-map colours, whiteboard pan/zoom, AI settings —
+  UI preferences in ``localStorage``, not plan data. A note's own layout
+  (``X``/``Y``/``Width``/``Height``/``Colour``) is different: it is plan
+  data, stored in the ``---whiteboard---`` section above like everything
+  else in this table. See :doc:`/explanation/whiteboard-layout-vs-viewport`
+  for why the split falls where it does.
 
 Browsers without IndexedDB fall back to the previous single
 ``localStorage`` key; the plan text is stored verbatim either way.
