@@ -9123,6 +9123,49 @@ function triggerMSProjectUpload() {
     input.click();
 }
 
+// Applies a freshly-imported MS Project task tree to the editor. The import
+// only ever contains a bare title + Resources front matter and a task
+// tree -- it knows nothing about version, project manager, RAG,
+// last_saved, custom fields, or any back-matter section (highlights,
+// budget, benefits, RAID log, comms, lessons learned, baseline). A blind
+// `editor.value = markdown` therefore silently destroys all of that, every
+// time. This merges the import into the existing plan shell instead (see
+// msproject-sync.js / issue #842), and confirms with the user first since
+// there's no per-task diff to review, only a whole-tree replace.
+async function applyImportedMspMarkdown(markdown, filename) {
+    const module = await import('/static/msproject-sync.js');
+    const editor = document.getElementById('planEditor');
+    const currentText = editor.value;
+
+    let finalText;
+    if (!currentText.trim() || !/\S/.test(currentText.replace(/^---[\s\S]*?---/, ''))) {
+        // Blank or task-less plan -- nothing to preserve, no need to ask.
+        finalText = markdown;
+    } else {
+        const summary = module.summarizeMerge(currentText, markdown);
+        const warning = summary.preservedSections.length
+            ? `Importing will replace the task list. Your ${summary.preservedSections.join(', ')} ${summary.preservedSections.length === 1 ? 'section' : 'sections'} will be kept as-is.`
+            : 'Importing will replace the task list.';
+        if (!confirm(warning + ' Continue?')) {
+            showMessage('editor', 'info', 'MS Project import cancelled.');
+            return;
+        }
+        finalText = module.mergeImportedTasks(currentText, markdown);
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
+        ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    finalText = module.upsertFrontMatterField(finalText, 'msproject_file', filename);
+    finalText = module.upsertFrontMatterField(finalText, 'msproject_file_synced', stamp);
+
+    editor.value = finalText;
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    showMessage('editor', 'success', 'MS Project file imported successfully!');
+    await renderText();
+}
+
 async function uploadMSProjectFile(file) {
     // Native .mpp files are read in the browser with mppwriter; nothing is
     // uploaded (issue #770). Only MSPDI .xml still goes to the server.
@@ -9130,11 +9173,7 @@ async function uploadMSProjectFile(file) {
         try {
             const { importMppFile } = await import('/static/mpp-export.js');
             const markdown = await importMppFile(file);
-            const editor = document.getElementById('planEditor');
-            editor.value = markdown;
-            if (editor._updateLineNumbers) editor._updateLineNumbers();
-            showMessage('editor', 'success', 'MS Project file imported successfully!');
-            await renderText();
+            await applyImportedMspMarkdown(markdown, file.name);
         } catch (error) {
             showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
         }
@@ -9156,12 +9195,7 @@ async function uploadMSProjectFile(file) {
         }
 
         const result = await response.json();
-        const editor = document.getElementById('planEditor');
-        editor.value = result.markdown;
-        showMessage('editor', 'success', 'MS Project file imported successfully!');
-
-        // Auto-render the imported plan
-        await renderText();
+        await applyImportedMspMarkdown(result.markdown, file.name);
     } catch (error) {
         showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
     }
