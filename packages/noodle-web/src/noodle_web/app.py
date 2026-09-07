@@ -60,6 +60,7 @@ from .ai_service import (
 )
 from .security import (
     SecurityHeadersMiddleware,
+    StaticCacheControlMiddleware,
     RateLimitMiddleware,
     BodySizeLimitMiddleware,
     ErrorSanitizationMiddleware,
@@ -197,6 +198,10 @@ app.add_middleware(
 
 # Security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Force revalidation of /static/ assets instead of a CDN/proxy caching them
+# for an unbounded default TTL with no way to invalidate on demand (#977).
+app.add_middleware(StaticCacheControlMiddleware)
 
 # Request body size limit
 app.add_middleware(BodySizeLimitMiddleware)

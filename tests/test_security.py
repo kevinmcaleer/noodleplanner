@@ -99,6 +99,35 @@ class TestSecurityHeaders:
 
 
 # ---------------------------------------------------------------------------
+# Static Asset Cache Control (#977)
+# ---------------------------------------------------------------------------
+
+
+class TestStaticCacheControl:
+    """A CDN/proxy caching a static asset for its own default TTL with no
+    way to invalidate it on demand (observed: a Cloudflare edge kept
+    serving a fixed bug's pre-fix bytes for hours) is exactly what
+    Cache-Control: no-cache on /static/ responses prevents -- it forces
+    revalidation against the origin's ETag on every request instead.
+    """
+
+    def test_static_asset_has_no_cache_header(self, client):
+        response = client.get("/static/script.js")
+        assert response.headers.get("Cache-Control") == "no-cache"
+
+    def test_vendored_module_has_no_cache_header(self, client):
+        """The exact class of file that #977 was actually about: an
+        unversioned path reached only through another JS module's own
+        `import`, never through Jinja2's ?v= templating."""
+        response = client.get("/static/vendor/pptxgenjs/pptxgen.es.js")
+        assert response.headers.get("Cache-Control") == "no-cache"
+
+    def test_non_static_endpoint_is_unaffected(self, client):
+        response = client.get("/health")
+        assert response.headers.get("Cache-Control") is None
+
+
+# ---------------------------------------------------------------------------
 # Rate Limiting
 # ---------------------------------------------------------------------------
 

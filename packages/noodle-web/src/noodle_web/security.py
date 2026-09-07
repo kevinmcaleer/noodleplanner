@@ -64,6 +64,48 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 # ---------------------------------------------------------------------------
+# Static Asset Cache Control Middleware
+# ---------------------------------------------------------------------------
+
+
+class StaticCacheControlMiddleware(BaseHTTPMiddleware):
+    """Force revalidation on every /static/ response instead of letting an
+    intermediary (a CDN edge, a corporate proxy) cache it for an arbitrary
+    default TTL with no way to invalidate it on demand.
+
+    Most static assets already carry a per-deploy ?v= hash in their URL
+    (see STATIC_VERSION in app.py) and so are safe to cache indefinitely --
+    a changed file gets a changed URL. But a handful of files are reached
+    through a plain, unversioned path: dynamic `import()` calls inside
+    already-served JS modules (e.g. script.js importing '/static/
+    pptx-export.js'), and vendored libraries' own internal imports of their
+    dependencies (e.g. pptxgen.es.js importing the jszip shim) -- none of
+    which go through Jinja2 templating, so they can't pick up ?v=.
+
+    Without this, fixing a bug in one of those files can still appear
+    broken for users behind a CDN that cached the old bytes for its own
+    default TTL (observed: jszip/#977's fix was correctly deployed and
+    served fresh from origin, but a stale Cloudflare edge cache kept
+    serving the pre-fix file for hours afterward).
+
+    `no-cache` does not mean "don't cache" -- it means "cache, but always
+    revalidate with the origin first" (a conditional GET against the
+    ETag/Last-Modified StaticFiles already sends). For unchanged files that
+    revalidation is a fast 304; for changed ones it picks up the new bytes
+    immediately instead of waiting out a TTL. Applied uniformly rather than
+    only to the unversioned paths, since revalidating a ?v=-versioned asset
+    is equally cheap and this stays correct if a future asset is added
+    without going through the version-hash convention.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        if request.url.path.startswith("/static/") and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+# ---------------------------------------------------------------------------
 # Rate Limiting Middleware
 # ---------------------------------------------------------------------------
 
