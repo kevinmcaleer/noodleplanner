@@ -371,24 +371,40 @@ function switchSettingsTab(tabName) {
 // Sync tab (#761): linked sync targets and their last-synced state
 // ---------------------------------------------------------------------------
 
+// `targetKey` is LocalFileAccess's per-target handle key (local-file-access.js)
+// -- it must match RAID_SYNC_TARGET_KEY / MSP_SYNC_TARGET_KEY in script.js.
+// Duplicated as a literal here rather than referencing those constants
+// directly: settings.js loads before script.js (see the file header above),
+// so the constants don't exist yet at *parse* time, and a literal avoids
+// relying on load-order for something this easy to get wrong silently.
 const SYNC_TARGET_DEFS = [
     {
         key: 'excel',
+        targetKey: 'raid-excel',
         label: 'RAID Log',
         icon: 'bi-file-earmark-spreadsheet',
         fileField: 'excel_file',
         syncedField: 'excel_file_synced',
         syncLabel: 'Sync Now',
-        syncAction: () => { document.getElementById('raidXlUpload')?.click(); },
+        relinkLabel: 'Re-link…',
+        syncAction: () => {
+            if (typeof syncRaidExcelTarget === 'function') syncRaidExcelTarget();
+            else document.getElementById('raidXlUpload')?.click();
+        },
     },
     {
         key: 'msproject',
+        targetKey: 'msproject',
         label: 'MS Project Schedule',
         icon: 'bi-diagram-3',
         fileField: 'msproject_file',
         syncedField: 'msproject_file_synced',
-        syncLabel: 'Import Now',
-        syncAction: () => { if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload(); },
+        syncLabel: 'Sync Now',
+        relinkLabel: 'Re-link…',
+        syncAction: () => {
+            if (typeof syncMSProjectTarget === 'function') syncMSProjectTarget();
+            else if (typeof triggerMSProjectUpload === 'function') triggerMSProjectUpload();
+        },
     },
 ];
 
@@ -399,27 +415,70 @@ function getSyncFrontMatterField(text, key) {
     return fieldMatch ? fieldMatch[1].trim() : null;
 }
 
-function renderSyncSettings() {
+/**
+ * Render the Sync tab's status line for one target from LocalFileAccess's
+ * current link status, honestly distinguishing what's remembered where
+ * (issue #761's follow-up report: the front-matter filename/timestamp is
+ * portable but was always purely cosmetic; whether Sync is actually
+ * one-click depends on a browser-local file handle that front matter can
+ * never hold — see local-file-access.js's header comment for why a real
+ * "file URL" isn't something the File System Access API exposes at all).
+ */
+function syncTargetStatusLine(status, def, linkedName, file, synced) {
+    const lastSynced = synced ? ' — last synced ' + escapeHtml(synced) : '';
+    if (status === 'linked') {
+        return 'Linked to ' + escapeHtml(linkedName || file || '') + ' in this browser' + lastSynced + '.';
+    }
+    if (status === 'needs-relink') {
+        return 'Linked to ' + escapeHtml(linkedName || file || 'a file') +
+            ', but this browser needs permission again before it can sync — click Re-link below.';
+    }
+    if (status === 'unsupported') {
+        return file
+            ? 'Was synced to ' + escapeHtml(file) + lastSynced + '. This browser can’t remember the file — choose it again each time you sync.'
+            : 'Not linked to a file yet. This browser can’t remember the file — choose it each time you sync.';
+    }
+    // 'unlinked' in a browser that DOES support linking.
+    return file
+        ? 'Was synced to ' + escapeHtml(file) + lastSynced + ' elsewhere — re-link to continue one-click syncing here.'
+        : 'Not linked to a file yet — the first sync will ask you to choose one.';
+}
+
+async function renderSyncSettings() {
     const el = document.getElementById('syncSettingsList');
     if (!el) return;
     const editor = document.getElementById('planEditor');
     const text = editor ? editor.value : '';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+
+    const hasLocalFileAccess = typeof LocalFileAccess !== 'undefined';
+    const supported = hasLocalFileAccess && LocalFileAccess.isSupported();
+    // Restore any handles persisted from a previous page load before
+    // reading status, so a returning user sees "needs re-linking" (or
+    // "linked") immediately rather than a stale "not linked yet".
+    if (supported) {
+        await LocalFileAccess.ensureRestored(projectId);
+    }
 
     el.innerHTML = SYNC_TARGET_DEFS.map((def, idx) => {
         const file = getSyncFrontMatterField(text, def.fileField);
         const synced = getSyncFrontMatterField(text, def.syncedField);
+        const status = supported ? LocalFileAccess.getLinkStatus(projectId, def.targetKey) : 'unsupported';
+        const linkedName = supported ? LocalFileAccess.getLinkedFileName(projectId, def.targetKey) : null;
+
         const infoHtml = '<div class="sync-target-info"><i class="bi ' + def.icon + '" aria-hidden="true"></i> <strong>' +
             escapeHtml(def.label) + '</strong>' +
-            (file
-                ? '<small>Linked to ' + escapeHtml(file) + (synced ? ' — last synced ' + escapeHtml(synced) : '') + '</small>'
-                : '<small>Not linked to a file yet</small>') +
+            '<small class="sync-target-status sync-target-status-' + status + '">' +
+            syncTargetStatusLine(status, def, linkedName, file, synced) + '</small>' +
             '</div>';
-        const unlinkBtn = file
+
+        const buttonLabel = status === 'needs-relink' ? def.relinkLabel : def.syncLabel;
+        const unlinkBtn = (file || status === 'linked' || status === 'needs-relink')
             ? '<button type="button" class="btn-sm sync-target-unlink" data-sync-target-idx="' + idx + '" title="Forget this link">Unlink</button>'
             : '';
         return '<div class="sync-target-row">' + infoHtml +
             '<div class="sync-target-actions">' +
-            '<button type="button" class="btn-secondary" data-sync-target-idx="' + idx + '" data-sync-action="1">' + escapeHtml(def.syncLabel) + '</button>' +
+            '<button type="button" class="btn-secondary" data-sync-target-idx="' + idx + '" data-sync-action="1">' + escapeHtml(buttonLabel) + '</button>' +
             unlinkBtn +
             '</div></div>';
     }).join('');
@@ -450,7 +509,22 @@ async function unlinkSyncTarget(key) {
     }
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+
+    // Clear the remembered File System Access handle too (issue #761's
+    // sync-file-linking follow-up): forgetting the link must forget the
+    // browser-local handle in IndexedDB as well, not just the front-matter
+    // label and the diff-state snapshot below — otherwise "Unlink" would
+    // lie about what it did, and the very next sync would silently reuse
+    // the handle the user just asked to forget.
+    if (typeof LocalFileAccess !== 'undefined') {
+        try {
+            await LocalFileAccess.unlink(projectId, def.targetKey);
+        } catch (error) {
+            console.warn('Failed to clear linked file handle:', error);
+        }
+    }
+
     if (key === 'excel') {
         try {
             const module = await import('/static/raid-sync.js');
