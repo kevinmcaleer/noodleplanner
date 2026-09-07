@@ -99,6 +99,11 @@ let raidItemPendingDeleteId = null;
 let raidEditorIsUpdating = false;
 let raidEditorDebounceTimer = null;
 
+// RAID <-> Excel sync review state (issue #761)
+let raidSyncPendingEntries = [];
+let raidSyncPendingChoices = {};
+let raidSyncPendingFilename = '';
+
 // Excel wizard state
 let excelWizardFile = null;
 let excelWizardData = null;
