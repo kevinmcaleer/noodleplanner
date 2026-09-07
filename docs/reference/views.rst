@@ -55,6 +55,11 @@ Mind Map
 
 A radial diagram showing the project hierarchy (phases and tasks as nodes). Supports keyboard navigation, branch colour customisation, and copy-as-image export. See :doc:`../how-to/use-the-mind-map`.
 
+Whiteboard
+~~~~~~~~~~~
+
+An infinite, free-form canvas with pan and zoom. Drag empty space to pan, scroll or pinch to zoom (25%-400%, anchored on the pointer), and use the toolbar's Fit and 100% buttons to reset the view. Fully keyboard-operable: arrow keys pan, ``+``/``-`` zoom, ``0`` resets to 100%, ``f`` fits. Pan and zoom are remembered per project. This view does not read or write plan data.
+
 Stakeholders
 ~~~~~~~~~~~~~
 

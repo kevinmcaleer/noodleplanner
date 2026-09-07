@@ -682,6 +682,7 @@ const OUTPUT_VIEWS = {
     'timeline': 'planTab',
     'milestones': 'planTab',
     'mindmap': 'planTab',
+    'whiteboard': 'planTab',
     'stakeholders': 'planTab',
     'benefits': 'planTab',
     'highlights': 'planTab',

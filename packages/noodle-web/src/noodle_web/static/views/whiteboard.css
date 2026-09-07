@@ -1,0 +1,117 @@
+/* ========================================
+   Whiteboard View Styles (issue #845)
+
+   Light-mode base rules live here; dark-mode overrides for these same
+   classes live in dark-mode.css under [data-theme="dark"], matching the
+   split used by views/kanban.css rather than the components.css/style.css
+   mirroring convention (that mirroring is for the two big shared
+   stylesheets, not per-view files like this one).
+   ======================================== */
+
+.wb-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.wb-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #d0d0d0;
+    flex-shrink: 0;
+}
+
+.wb-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.wb-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #c0c0c0;
+    border-radius: 6px;
+    background: #e4e4e4;
+    color: #444;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.wb-toolbar-btn:hover:not(:disabled) {
+    background: #d4d4d4;
+    border-color: #108BB9;
+    color: #111;
+}
+
+.wb-toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.wb-zoom-label {
+    font-size: 12px;
+    color: #666;
+    min-width: 40px;
+    text-align: center;
+    user-select: none;
+}
+
+.wb-toolbar-hint {
+    font-size: 11px;
+    color: #777;
+    margin-left: auto;
+    white-space: normal;
+}
+
+.wb-canvas-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    background: #f5f5f5;
+    outline: none;
+    cursor: grab;
+}
+
+.wb-canvas-wrapper:focus-visible {
+    outline: 2px solid #108BB9;
+    outline-offset: -3px;
+}
+
+.wb-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+}
+
+.wb-svg.wb-dragging {
+    cursor: grabbing;
+}
+
+.wb-grid-dot {
+    fill: #cfcfcf;
+}
+
+@media (pointer: coarse) {
+    .wb-toolbar-btn {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+@media (max-width: 700px) {
+    .wb-toolbar-hint {
+        display: none;
+    }
+}
