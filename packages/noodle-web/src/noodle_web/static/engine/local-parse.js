@@ -1,19 +1,30 @@
 /**
  * The local stand-in for `POST /api/parse` (issue #793).
  *
- * `localParse(planText, projectName)` assembles the same object the endpoint
- * returns, so `updateAllViews` can be handed either one: the scheduled tasks
- * come from the browser engine, and the back-matter sections from the
- * extractors the page already carries (`extractHighlightsFromText` and
- * friends in script.js), which is where they were parsed client-side even
- * before this.
+ * `localParse(planText, projectName)` returns the same object the endpoint
+ * returns, so `updateAllViews` can be handed either one. The payload itself
+ * is built by ./plan-engine.js, which is held to the Python engine field for
+ * field by tests/test_engine_conformance.mjs; this module adds only what is
+ * particular to running inside the page:
+ *
+ *   - the localStorage switch that chooses engine or server, and
+ *   - the back-matter tables (RAID, comms, benefits, lessons, baseline) that
+ *     the engine does not read yet, which come from the extractors script.js
+ *     already carries — where they were parsed client-side even before this.
  *
  * On by default, now that the browser engine matches the Python one across
  * the whole conformance corpus. Set `np-local-engine` to "0" in localStorage
  * to force the server, or "1" to be explicit. `useLocalEngine()` is what
  * script.js asks.
  */
-import { scheduleTasksFromText, dayOf } from "./scheduler.js";
+import { parsePlan, unsupportedSections } from "./plan-engine.js";
+import {
+  frontMatterLines,
+  parseFrontMatter,
+  parseNonWorkingDays,
+  parseResourceMappings,
+} from "./front-matter.js";
+import { convertPlanFormatToStandard } from "./plan-text.js";
 
 export const LOCAL_ENGINE_KEY = "np-local-engine";
 
@@ -31,101 +42,25 @@ export function useLocalEngine(defaultOn = true) {
 
 /** The front-matter block's raw text, or "" when there is none. */
 export function frontMatterText(planText) {
-  const match = /^---\n([\s\S]*?)\n---/.exec(String(planText || ""));
-  return match ? match[1] : "";
+  return frontMatterLines(planText).join("\n");
 }
 
-/** The plan body: no front matter, and nothing from the first back-matter marker on. */
+/** The plan as the scheduler reads it: no front matter, no back matter. */
 export function planBody(planText) {
-  let text = String(planText || "");
-  const fm = /^---\n[\s\S]*?\n---\n?/.exec(text);
-  if (fm) text = text.slice(fm[0].length);
-  const marker = /^---[a-z][a-z -]*---$/m.exec(text);
-  if (marker) text = text.slice(0, marker.index);
-  return text;
-}
-
-/**
- * Front matter as the server returns it: simple `key: value` pairs, with
- * list-valued keys collected. Values are kept as written.
- */
-export function parseFrontMatter(planText) {
-  const out = {};
-  let currentList = null;
-
-  for (const raw of frontMatterText(planText).split("\n")) {
-    if (!raw.trim()) continue;
-
-    if (raw.trimStart().startsWith("- ")) {
-      if (currentList) out[currentList].push(raw.trim().slice(2).trim());
-      continue;
-    }
-    const kv = /^([^:]+):\s*(.*)$/.exec(raw);
-    if (!kv) continue;
-    const key = kv[1].trim();
-    const value = kv[2].trim();
-    if (value === "") {
-      currentList = key;
-      out[key] = [];
-    } else {
-      currentList = null;
-      out[key] = value;
-    }
-  }
-  return out;
+  return convertPlanFormatToStandard(planText);
 }
 
 /** Resource shortnames to display names, from the front matter's list. */
 export function parseResourceMap(planText) {
-  const map = {};
-  for (const raw of frontMatterText(planText).split("\n")) {
-    const entry = /^-\s*@(\S+?):\s*(.*)$/.exec(raw.trim());
-    if (!entry) continue;
-    let rest = entry[2].replace(/,?\s*non-working\s*\[[^\]]*\]\s*$/, "");
-    map[entry[1].toLowerCase()] = rest.split(",")[0].trim();
-  }
-  return map;
+  return parseResourceMappings(planText).resourceMap;
 }
 
 /** Project-wide and per-resource non-working days, as day-number sets. */
 export function parseCalendar(planText) {
-  const holidays = new Set();
-  const resourceNonWorkingDays = new Map();
-  let inList = false;
-
-  for (const raw of frontMatterText(planText).split("\n")) {
-    const line = raw.trim();
-    const lower = line.toLowerCase();
-
-    if (lower === "non-working-days:" || lower === "holidays:") { inList = true; continue; }
-    if (inList) {
-      if (line.startsWith("- ")) {
-        const entry = line.slice(2).trim();
-        const named = /^(?:(.+?):\s*)?(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?$/.exec(entry);
-        if (named) {
-          const start = dayOf(named[2]);
-          const end = named[3] ? dayOf(named[3]) : start;
-          for (let d = start; d <= end; d++) holidays.add(d);
-        }
-        continue;
-      }
-      inList = false;
-    }
-
-    const resource = /^-\s*@(\S+?):\s*(.*)$/.exec(line);
-    if (!resource) continue;
-    const nwd = /non-working\s*\[([^\]]*)\]/.exec(resource[2]);
-    if (!nwd) continue;
-    const days = new Set();
-    for (const part of nwd[1].split(",")) {
-      const span = part.trim();
-      const range = /^(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/.exec(span);
-      if (range) for (let d = dayOf(range[1]); d <= dayOf(range[2]); d++) days.add(d);
-      else if (/^\d{4}-\d{2}-\d{2}$/.test(span)) days.add(dayOf(span));
-    }
-    resourceNonWorkingDays.set(resource[1].toLowerCase(), days);
-  }
-  return { holidays, resourceNonWorkingDays };
+  return {
+    holidays: parseNonWorkingDays(planText),
+    resourceNonWorkingDays: parseResourceMappings(planText).resourceNonWorkingDays,
+  };
 }
 
 /** Call a section extractor the page defines, or fall back to []. */
@@ -140,64 +75,48 @@ function fromPage(name, ...args) {
   }
 }
 
+/** The back-matter lists plan-engine.js does not read, and who can. */
+const PAGE_EXTRACTORS = {
+  raid_items: "extractRaidItemsFromPlanText",
+  comms_items: "extractCommsItemsFromPlanText",
+  benefits_items: "extractBenefitsItemsFromPlanText",
+  lessons_items: "extractLessonsItemsFromPlanText",
+  baseline_items: "extractBaselineItemsFromPlanText",
+};
+
 /**
  * The `/api/parse` payload, computed locally.
  *
  * @param {string} planText
  * @param {string} [projectName]
- * @param {object} [options] { applyCalendar } — the server ignores the
- *   front-matter calendar (see the conformance test), so this does too
- *   unless asked, to keep the two engines answering alike.
+ * @param {object} [options] { today, applyCalendar } — the server ignores the
+ *   front-matter calendar (see tests/test_engine_conformance.mjs), so this
+ *   does too unless asked, to keep the two engines answering alike.
  */
 export function localParse(planText, projectName = null, options = {}) {
   const text = String(planText || "");
-  const frontMatter = parseFrontMatter(text);
-  const resourceMap = parseResourceMap(text);
+  const result = parsePlan(text, {
+    projectName,
+    today: options.today,
+    applyCalendar: options.applyCalendar,
+  });
 
-  const resolvedName = projectName || frontMatter.title || "Project";
+  // /api/parse only fills this in when asked (#789), and no caller reads it.
+  result.ascii_output = "";
 
-  const scheduleOptions = { resourceMap };
-  if (options.applyCalendar) {
-    const { holidays, resourceNonWorkingDays } = parseCalendar(text);
-    scheduleOptions.holidays = holidays;
-    scheduleOptions.resourceNonWorkingDays = resourceNonWorkingDays;
+  for (const [key, extractor] of Object.entries(PAGE_EXTRACTORS)) {
+    if (!result[key] || !result[key].length) result[key] = fromPage(extractor, text);
   }
 
-  let tasks = [];
-  let success = true;
-  let error = null;
-  try {
-    tasks = scheduleTasksFromText(planBody(text), scheduleOptions);
-  } catch (e) {
-    success = false;
-    error = e.message;
-    console.error("[engine] scheduling failed:", e);
-  }
-
-  return {
-    success,
-    error,
-    project_name: resolvedName,
-    ascii_output: "",            // opt-in on the server too (#789)
-    front_matter: frontMatter,
-    resource_map: resourceMap,
-    tasks,
-    updated_plan_text: null,     // the labels rewrite stays server-side (#771)
-    highlights: fromPage("extractHighlightsFromText", text),
-    raid_items: fromPage("extractRaidItemsFromPlanText", text),
-    comms_items: fromPage("extractCommsItemsFromPlanText", text),
-    baseline_items: fromPage("extractBaselineItemsFromPlanText", text),
-    benefits_items: fromPage("extractBenefitsItemsFromPlanText", text),
-    lessons_items: fromPage("extractLessonsItemsFromPlanText", text),
-    stakeholders: fromPage("extractStakeholdersFromPlanText", text),
-    dependencies: [],
-    resource_roles: {},
-  };
+  return result;
 }
+
+export { parseFrontMatter, parsePlan, unsupportedSections };
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     localParse, useLocalEngine, parseFrontMatter, parseResourceMap,
-    parseCalendar, planBody, frontMatterText, LOCAL_ENGINE_KEY,
+    parseCalendar, planBody, frontMatterText, unsupportedSections,
+    LOCAL_ENGINE_KEY,
   };
 }

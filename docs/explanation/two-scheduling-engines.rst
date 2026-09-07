@@ -20,9 +20,36 @@ has no browser, and neither does anything that drives NoodlePlanner as a
 library. So the Python engine stays, and there are two implementations:
 
 - ``packages/noodle-core/src/noodle_core/`` — ``scheduling_engine.py``,
-  ``metadata.py``, ``date_math.py``. Used by the CLI and by the server.
-- ``packages/noodle-web/src/noodle_web/static/engine/`` — ``scheduler.js``,
-  ``tokeniser.js``, ``date-math.js``. Used by the browser.
+  ``metadata.py``, ``date_math.py``, ``format_converter.py``,
+  ``front_matter_parser.py``. Used by the CLI and by the server.
+- ``packages/noodle-web/src/noodle_web/static/engine/`` — ``plan-engine.js``
+  (the entry point), ``scheduler.js``, ``plan-text.js``, ``front-matter.js``,
+  ``date-math.js`` and ``tokeniser.js``. Used by the browser.
+
+One call does the whole job, and it needs nothing from the page — no DOM, no
+``fetch``, no clock unless you give it one — so it can be moved into a Web
+Worker unchanged::
+
+    import { parsePlan } from "/static/engine/plan-engine.js";
+
+    const result = parsePlan(editor.value);          // the /api/parse payload
+    const dated  = parsePlan(text, { today: "2026-06-01" });
+
+``engine/local-parse.js`` is the only part that knows it is in a page: it
+reads the ``np-local-engine`` switch below, and fills in the back-matter
+tables (RAID, comms, benefits, lessons, baseline) from the extractors
+``script.js`` already carries, which the engine itself does not read yet.
+
+One grammar, not two
+~~~~~~~~~~~~~~~~~~~~~
+
+A task line is taken apart in exactly one place:
+``static/task-tokenizer.js``. It defines each construct once and offers three
+readings of the same tokens — source spans for the syntax highlighter, values
+for the editor's forms, and the field-for-field port of
+``metadata.extract_metadata`` the scheduler wants. ``engine/tokeniser.js`` is
+only the ES-module face of that file, so the engine and the editor cannot
+disagree about what a line says (issue #748).
 
 The alternative — one implementation, with the CLI shelling out to a
 JavaScript runtime, or the browser running Python through Pyodide — was
@@ -51,7 +78,9 @@ divergence fails the build:
    * - ``tests/test_conformance_corpus.py``
      - The Python engine no longer matches the recorded answers
    * - ``tests/test_engine_conformance.mjs``
-     - The browser engine diverged from the corpus
+     - The browser engine diverged from the corpus — the whole payload, not
+       just the tasks — or from Python on the bundled templates and on the
+       corners the corpus does not reach
    * - ``tests/test_engine_date_math.mjs``
      - Working-day arithmetic differs, compared directly against Python
    * - ``tests/test_engine_tokeniser.mjs``
@@ -108,8 +137,8 @@ engine bug — from the browser console::
 Known differences
 ------------------
 
-One difference is deliberate, and worth knowing about because it looks like a
-bug in the browser engine and is not.
+Three differences are deliberate, and worth knowing about because each looks
+like a bug in the browser engine and is not.
 
 **The front-matter calendar is ignored on the web path.** Both engines can
 schedule around project-wide and per-resource non-working days, but
@@ -117,9 +146,25 @@ schedule around project-wide and per-resource non-working days, but
 ``schedule_tasks(phases)`` with no holidays, so the ``non-working-days:``
 front matter is parsed and then unused when the server answers
 ``/api/parse``. The browser engine matches that, so the two agree. Wiring the
-calendar through is a one-line change on the Python side, and when it is made
-the corpus will need regenerating and the browser engine will need
-``applyCalendar`` turned on to match.
+calendar through is a one-line change on the Python side — and while making
+it, note that ``schedule_tasks`` compares ``datetime.date`` holidays against
+``datetime.datetime`` task dates, so a holiday set never matches today even
+where one *is* passed. When both are fixed the corpus will need regenerating
+and the browser engine will need ``applyCalendar`` turned on to match.
+
+**A typed or lagged ``$product`` dependency schedules as a plain
+finish-to-start.** ``[depends $scope:SS +2d]`` records the type and the lag
+under the name as written, ``$scope``, while the dependency itself is
+resolved to the task that declares the product before the scheduler looks the
+type up — so it misses. Both engines do this, and the payload carries the
+unresolved key, because the corpus is generated from the Python.
+
+**The back-matter tables are not read by the engine.** ``raid_items``,
+``comms_items``, ``benefits_items``, ``lessons_items`` and ``baseline_items``
+come back empty from ``parsePlan``; in the page, ``local-parse.js`` fills
+them from the extractors ``script.js`` carries.
+``unsupportedSections(planText)`` reports which of them a given plan has, so
+a caller that needs them can go to the server instead.
 
 Related
 --------

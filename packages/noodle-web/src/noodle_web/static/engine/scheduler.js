@@ -27,7 +27,7 @@ import { extractMetadata } from "./tokeniser.js";
 
 export const MAX_NESTING_DEPTH = 20;
 export const MAX_TASK_NAME_LENGTH = 500;
-export const MAX_TASK_COUNT = 5000;
+export const MAX_TASK_COUNT = 10000;
 
 // --- the outline tree (natural_language_to_yaml) ------------------------------
 
@@ -195,16 +195,12 @@ export function scheduleTasks(allTasks, options = {}) {
       const resolved = deliverableLookup.get(dep.slice(1).toLowerCase());
       return resolved === undefined ? dep : resolved;
     });
-    // the type and lag maps are keyed by the name as written
-    for (const map of ["dependency_types", "lag_lead"]) {
-      if (!t[map]) continue;
-      const rebuilt = {};
-      for (const [key, value] of Object.entries(t[map])) {
-        const resolved = key.startsWith("$") ? deliverableLookup.get(key.slice(1).toLowerCase()) : undefined;
-        rebuilt[resolved === undefined ? key : resolved] = value;
-      }
-      t[map] = rebuilt;
-    }
+    // The type and lag maps keep the key as written, `$product` and all,
+    // which is exactly what the Python does — and why a typed or lagged
+    // product dependency ("[depends $scope:SS +2d]") schedules as a plain
+    // finish-to-start there: the lookup below is by resolved name and misses.
+    // Reproduced rather than fixed, so both engines answer alike; fixing it
+    // belongs in noodle_core first, with a corpus update.
   }
 
   // last definition wins, as the Python's dict comprehension does

@@ -203,3 +203,31 @@ test("the sequential marker and its lag are read", () => {
   assert.equal(extractMetadata("*Task 3d").sequential, true);
   assert.equal(extractMetadata("Task 3d").sequential, undefined);
 });
+
+test("there is one grammar, shared by the engine and the editor (#748)", async () => {
+  // The engine's tokeniser is the ES-module face of static/task-tokenizer.js,
+  // not a second copy of its patterns: the same function objects come back.
+  const shared = (await import("../packages/noodle-web/src/noodle_web/static/task-tokenizer.js")).default;
+  assert.equal(extractMetadata, shared.extractMetadata, "the engine must reuse the shared reader");
+  assert.equal(parseRecurrence, shared.parseRecurrence);
+  assert.equal(bankersRound, shared.bankersRound);
+  assert.equal(typeof shared.tokenize, "function", "the highlighter's lexer lives there too");
+  assert.equal(typeof shared.metadata, "function", "and so does the editor's reading");
+
+  // Both readings come from the same fragment table, so a construct cannot be
+  // respelled for one without the other.
+  const line = 'Design 3d @kev 50% #tag $prod {Bucket} [depends Scope:SS +2d] "note"';
+  const spans = shared.tokenize(line).map((token) => token.type);
+  for (const type of ["duration", "resource", "percent", "label", "product", "bucket", "dependency", "comment"]) {
+    assert.ok(spans.includes(type), `the lexer lost the ${type} token`);
+  }
+  const meta = shared.extractMetadata(line, "Design");
+  assert.equal(meta.duration_days, 3);
+  assert.equal(meta.resources, "kev");
+  assert.equal(meta.percent, 50);
+  assert.deepEqual(meta.labels, ["tag"]);
+  assert.equal(meta.deliverable, "prod");
+  assert.equal(meta.bucket, "Bucket");
+  assert.deepEqual(meta.depends, ["Scope"]);
+  assert.equal(meta.comment, "note");
+});
