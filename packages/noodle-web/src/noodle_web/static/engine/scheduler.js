@@ -7,12 +7,14 @@
  *
  * Faithfulness over tidiness: where the Python does something surprising,
  * this reproduces it rather than improving on it, because the conformance
- * corpus pins both engines to the same answers. Two examples worth knowing:
+ * corpus pins both engines to the same answers. One example worth knowing:
  *
- * * Tasks are keyed by name in a map while the tree is built, so two siblings
- *   sharing a name collapse into one. That is a real (reported) quirk of the
- *   Python; fixing it belongs in the Python first, with a corpus update.
  * * Dependency lookup is case-insensitive and last-definition-wins.
+ *
+ * (Two siblings sharing a name used to collapse into one while the tree was
+ * built -- see the _uid/_parentUid note above buildTasks. That was a real,
+ * reported bug (#838), fixed in the Python first with a corpus update, and
+ * mirrored here.)
  */
 import {
   addWorkingDays,
@@ -99,21 +101,20 @@ export function buildTasks(text) {
     stack.push(node);
   }
 
-  // The Python keys children by name in a dict, so siblings sharing a name
-  // collapse to the last one. Reproduced here with a Map, which also keeps
-  // insertion order for numeric-looking names (a plain object would not).
-  const collapse = (node) => {
-    const seen = new Map();
-    for (const child of node.children) seen.set(child.name, child);
-    return [...seen.values()];
-  };
-
+  // Each task gets an internal identity (_uid) distinct from its display
+  // name, plus its parent's identity (_parentUid). Two siblings -- or any
+  // two tasks anywhere in the plan -- can share a display name; grouping or
+  // de-duplicating by name (as an earlier version of this file did, via a
+  // Map keyed by child.name) silently merges or drops one of them. That was
+  // a real, reported bug in the Python (#838), fixed there first with the
+  // same _uid/_parentUid approach; this mirrors it so both engines agree on
+  // every fixture, including ones with duplicate sibling/phase names.
   const tasks = [];
-  const walk = (node, parentName, depth) => {
+  const walk = (node, parentName, depth, parentUid) => {
     if (depth > MAX_NESTING_DEPTH) {
       throw new Error(`Task nesting depth exceeds maximum of ${MAX_NESTING_DEPTH}`);
     }
-    for (const child of collapse(node)) {
+    for (const child of node.children) {
       if (child.name.length > MAX_TASK_NAME_LENGTH) {
         throw new Error(`Task name '${child.name.slice(0, 50)}...' exceeds maximum length`);
       }
@@ -130,6 +131,8 @@ export function buildTasks(text) {
         meta.parent = parentName;
         meta.phase = parentName || "";
         meta.summary = false;
+        meta._uid = tasks.length;
+        meta._parentUid = parentUid;
         tasks.push(meta);
       } else {
         // A summary: its own line may still carry resources, depends, a comment
@@ -153,12 +156,14 @@ export function buildTasks(text) {
         if (summaryMeta.quality_roles) summary.quality_roles = summaryMeta.quality_roles;
         if (summaryMeta.dependency_types) summary.dependency_types = summaryMeta.dependency_types;
         if (summaryMeta.lag_lead) summary.lag_lead = summaryMeta.lag_lead;
+        summary._uid = tasks.length;
+        summary._parentUid = parentUid;
         tasks.push(summary);
-        walk(child, child.name, depth + 1);
+        walk(child, child.name, depth + 1, summary._uid);
       }
     }
   };
-  walk(root, null, 0);
+  walk(root, null, 0, null);
   return tasks;
 }
 
@@ -297,11 +302,14 @@ export function scheduleTasks(allTasks, options = {}) {
       return;
     }
 
-    // Default: alongside the first dated sibling, else today
-    const parentName = t.parent;
+    // Default: alongside the first dated sibling, else today.
+    // Matched by parent identity (_parentUid), not parent name, so two
+    // same-named phases elsewhere in the plan don't bleed their children's
+    // default start dates into each other (#838).
+    const parentUid = t._parentUid;
     let start = null;
-    if (parentName) {
-      const sibling = allTasks.find((o) => o.parent === parentName && !o.summary && o.start !== undefined && o.start !== null);
+    if (parentUid !== null) {
+      const sibling = allTasks.find((o) => o._parentUid === parentUid && !o.summary && o.start !== undefined && o.start !== null);
       if (sibling) start = sibling.start;
     }
     t.start = start === null ? todayWorkingDay(taskHolidays, today) : start;
@@ -317,24 +325,29 @@ export function scheduleTasks(allTasks, options = {}) {
   }
 
   // --- summary roll-up, indexed once (#789) ---
+  //
+  // Grouped by _uid/_parentUid, not by name -- see the note above buildTasks.
+  // Two summaries (or two of anything) can share a name; a name-keyed
+  // "first one wins" map would merge or drop one of their subtrees (#838).
+  // _uid is unique per task by construction, so no such tie-break is needed.
   const childrenByParent = new Map();
-  const summaryByName = new Map();
+  const summaryByUid = new Map();
   for (const t of allTasks) {
-    if (t.parent) {
-      if (!childrenByParent.has(t.parent)) childrenByParent.set(t.parent, []);
-      childrenByParent.get(t.parent).push(t);
+    if (t._parentUid !== null) {
+      if (!childrenByParent.has(t._parentUid)) childrenByParent.set(t._parentUid, []);
+      childrenByParent.get(t._parentUid).push(t);
     }
-    if (t.summary && t.name && !summaryByName.has(t.name)) summaryByName.set(t.name, t);
+    if (t.summary) summaryByUid.set(t._uid, t);
   }
   const done = new Set();
-  const rollUp = (name) => {
-    if (done.has(name)) return;
-    done.add(name);
-    const children = childrenByParent.get(name) || [];
+  const rollUp = (uid) => {
+    if (done.has(uid)) return;
+    done.add(uid);
+    const children = childrenByParent.get(uid) || [];
     if (!children.length) return;
-    for (const child of children) if (child.summary) rollUp(child.name);
+    for (const child of children) if (child.summary) rollUp(child._uid);
 
-    const summary = summaryByName.get(name);
+    const summary = summaryByUid.get(uid);
     if (!summary) return;
     const starts = children.filter((c) => c.start !== undefined).map((c) => c.start);
     const finishes = children.filter((c) => c.finish !== undefined).map((c) => c.finish);
@@ -349,18 +362,18 @@ export function scheduleTasks(allTasks, options = {}) {
       summary.percent = Math.trunc(percents.reduce((a, b) => a + b, 0) / percents.length);
     }
   };
-  for (const t of allTasks) if (t.summary) rollUp(t.name);
+  for (const t of allTasks) if (t.summary) rollUp(t._uid);
 
   // --- ordering: a summary immediately before its children ---
   const ordered = [];
   const processed = new Set();
   const addTask = (task) => {
-    if (!task.name || processed.has(task.name)) return;
-    processed.add(task.name);
+    if (task._uid === undefined || processed.has(task._uid)) return;
+    processed.add(task._uid);
     ordered.push(task);
-    if (task.summary) for (const child of childrenByParent.get(task.name) || []) addTask(child);
+    if (task.summary) for (const child of childrenByParent.get(task._uid) || []) addTask(child);
   };
-  for (const t of allTasks) if (!t.parent) addTask(t);
+  for (const t of allTasks) if (t._parentUid === null) addTask(t);
 
   inheritSummaryResources(ordered);
   flagCircularDependencies(ordered);
@@ -368,25 +381,31 @@ export function scheduleTasks(allTasks, options = {}) {
   return ordered;
 }
 
-/** inherit_summary_resources: a summary's resource fills in its children's. */
+/**
+ * inherit_summary_resources: a summary's resource fills in its children's.
+ *
+ * Grouped by _parentUid, not by parent name -- two summaries can share a
+ * name (#838), and matching by name would leak a resource into an unrelated
+ * same-named phase's children.
+ */
 function inheritSummaryResources(tasks) {
   const byParent = new Map();
   for (const t of tasks) {
-    if (!t.parent) continue;
-    if (!byParent.has(t.parent)) byParent.set(t.parent, []);
-    byParent.get(t.parent).push(t);
+    if (t._parentUid === null || t._parentUid === undefined) continue;
+    if (!byParent.has(t._parentUid)) byParent.set(t._parentUid, []);
+    byParent.get(t._parentUid).push(t);
   }
-  const propagate = (parentName, resource) => {
-    for (const child of byParent.get(parentName) || []) {
+  const propagate = (parentUid, resource) => {
+    for (const child of byParent.get(parentUid) || []) {
       if (!child.resources) {
         child.resources = resource;
         child.inherited_resource = true;
       }
-      if (child.summary) propagate(child.name, child.resources || resource);
+      if (child.summary) propagate(child._uid, child.resources || resource);
     }
   };
   for (const t of tasks) {
-    if (t.summary && t.resources) propagate(t.name, t.resources);
+    if (t.summary && t.resources) propagate(t._uid, t.resources);
   }
 }
 
