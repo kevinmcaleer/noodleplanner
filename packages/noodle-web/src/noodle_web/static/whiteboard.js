@@ -338,6 +338,16 @@ function wbHandleMouseUp() {
 }
 
 function wbHandleTouchStart(e) {
+    // A touch that starts on a note (header, body, resize handle, ...) or
+    // any other in-canvas element is never a canvas pan/pinch gesture --
+    // whiteboard-notes.js's own touch handlers own it instead (issue #848;
+    // see wbNoteHeaderTouchStart()/wbNoteResizeTouchStart() there, and the
+    // matching target check in wbHandleMouseDown() just below for the
+    // mouse equivalent this mirrors).
+    if (e.target && e.target !== wbSvg && e.target !== wbGroup &&
+        !(e.target.closest && e.target.closest('.wb-grid'))) {
+        return;
+    }
     if (e.touches.length === 1) {
         wbIsDragging = true;
         wbDragStartX = e.touches[0].clientX;

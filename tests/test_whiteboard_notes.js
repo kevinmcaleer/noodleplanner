@@ -58,6 +58,11 @@ const {
     wbDerivedPaletteColour,
     wbThemeColourFor,
     wbResolveNoteColour,
+    wbDragBoardDelta,
+    wbClampNoteWidth,
+    wbClampNoteHeight,
+    wbExceedsMoveThreshold,
+    wbMoveTaskToEnd,
 } = sandbox;
 
 // WB_NOTE_TITLE_ONLY_ZOOM is declared `const` at module scope in
@@ -273,6 +278,76 @@ const tasks = [
     const vmWithRowColour = wbBuildNoteViewModel(overrideRow, tasks, themeColours);
     assert(vmWithRowColour.colour === '#010203' && vmWithRowColour.colourSource === 'row',
         'a row Colour still wins over a Theme: entry when both are present');
+}
+
+// ── Drag/resize pure helpers (issue #848) ───────────────────────────────
+{
+    // wbDragBoardDelta: screen-space pointer movement divided by zoom, so
+    // a dragged note tracks the pointer exactly at every zoom level.
+    {
+        const { dx, dy } = wbDragBoardDelta(100, 100, 150, 130, 1);
+        assertClose(dx, 50, 'at 100% zoom, board delta equals screen delta (x)');
+        assertClose(dy, 30, 'at 100% zoom, board delta equals screen delta (y)');
+    }
+    {
+        // At 400% zoom, the same screen-space movement is a quarter as far
+        // in board units (the note is magnified 4x, so it must travel 4x
+        // less board distance to keep up with the same screen distance).
+        const { dx, dy } = wbDragBoardDelta(100, 100, 180, 100, 4);
+        assertClose(dx, 20, 'at 400% zoom, board delta is screen delta / 4');
+        assertClose(dy, 0, 'no vertical screen movement means no vertical board delta');
+    }
+    {
+        // At 25% zoom, the same screen-space movement is 4x as far in
+        // board units (the note is shrunk 4x, so it must travel 4x
+        // further in board units to keep up with the same screen distance).
+        const { dx } = wbDragBoardDelta(0, 0, 40, 0, 0.25);
+        assertClose(dx, 160, 'at 25% zoom, board delta is screen delta / 0.25 (i.e. x4)');
+    }
+    assertClose(wbDragBoardDelta(0, 0, 10, 0, 0).dx, 10, 'a zero/invalid zoom falls back to treating it as 1 rather than dividing by zero');
+
+    // wbClampNoteWidth / wbClampNoteHeight: a note can never be resized
+    // smaller than its header (the existing WB_NOTE_MIN_* used by
+    // rendering) nor past a sensible maximum.
+    assert(wbClampNoteWidth(10) === 160, 'width clamps up to the minimum (fits the header)');
+    assert(wbClampNoteHeight(10) === 120, 'height clamps up to the minimum (fits the header)');
+    assert(wbClampNoteWidth(5000) === 900, 'width clamps down to the sensible maximum');
+    assert(wbClampNoteHeight(5000) === 900, 'height clamps down to the sensible maximum');
+    assert(wbClampNoteWidth(300) === 300, 'a width already in range is left untouched');
+    assert(wbClampNoteWidth(300.6) === 301, 'a fractional in-range width is rounded to a whole board unit');
+
+    // wbExceedsMoveThreshold: click-vs-drag (and touch tap-vs-cancel)
+    // disambiguation.
+    assert(wbExceedsMoveThreshold(0, 0, 1, 1, 3) === false, 'a sub-threshold wobble does not count as a move');
+    assert(wbExceedsMoveThreshold(0, 0, 10, 0, 3) === true, 'a movement past the threshold counts as a drag');
+    assert(wbExceedsMoveThreshold(0, 0, 0, 0, 3) === false, 'zero movement is never past any positive threshold');
+
+    // wbMoveTaskToEnd: the row-order-derived z-order rule -- "clicking or
+    // dragging a note brings it to the front" persisted as "this row's
+    // rendered/created last" (see wbRenderNotes()'s creation order).
+    {
+        const items = [{ task: 'A' }, { task: 'B' }, { task: 'C' }];
+        const { items: moved, changed } = wbMoveTaskToEnd(items, 'A');
+        assert(changed === true, 'moving a non-last row reports changed=true');
+        assert(moved.map(i => i.task).join(',') === 'B,C,A', 'the named row moves to the end, others keep their relative order');
+        assert(items.map(i => i.task).join(',') === 'A,B,C', 'the original array is never mutated in place');
+    }
+    {
+        const items = [{ task: 'A' }, { task: 'B' }, { task: 'C' }];
+        const { items: moved, changed } = wbMoveTaskToEnd(items, 'C');
+        assert(changed === false, 'a row already last reports changed=false (avoids a spurious write)');
+        assert(moved === items, 'an already-last row returns the same array reference, not a copy');
+    }
+    {
+        const items = [{ task: 'A' }, { task: 'B' }];
+        const { changed } = wbMoveTaskToEnd(items, 'a'); // case-insensitive, per plan-format.rst's Task-matching rule
+        assert(changed === true, 'task matching for reorder is case-insensitive');
+    }
+    {
+        const items = [{ task: 'A' }];
+        const { items: result, changed } = wbMoveTaskToEnd(items, 'Does Not Exist');
+        assert(changed === false && result === items, 'an unknown task name is a safe no-op');
+    }
 }
 
 // ── Summary ──────────────────────────────────────────────────────────────
