@@ -563,6 +563,15 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
+    // If switching to whiteboard view, initialise (or re-activate) the
+    // canvas after layout is ready. Pan/zoom are pure view state — this
+    // never reads or writes plan text.
+    if (tabName === 'whiteboard' && typeof initWhiteboard === 'function') {
+        setTimeout(() => {
+            initWhiteboard();
+        }, 50);
+    }
+
     // If switching to benefits view, refit the diagram. The initial fit
     // inside updateBenefits() may have run while the view was hidden, so
     // benSvg.getBoundingClientRect() returned a 0×0 viewport — leaving the

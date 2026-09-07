@@ -1720,12 +1720,16 @@ function mindmapClearToEmpty() {
     if (placeholder) placeholder.style.display = '';
     if (content) content.style.display = 'none';
 
-    // Clear task lines from the plan text, preserving front matter and RAID log
+    // Clear task lines from the plan text, preserving front matter and
+    // every back-matter section (highlights, budget, benefits, RAID log,
+    // comms, lessons learned, baseline, whiteboard) -- not just RAID log,
+    // or a plan whose only back matter was e.g. a whiteboard section
+    // would have it silently dropped here.
     const editor = document.getElementById('planEditor');
     if (editor) {
         const currentText = editor.value;
         let frontMatter = '';
-        let raidLog = '';
+        let backMatter = '';
         const lines = currentText.split('\n');
 
         let inFrontMatter = false;
@@ -1739,12 +1743,18 @@ function mindmapClearToEmpty() {
             frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n';
         }
 
-        const raidIdx = currentText.indexOf('---raid log---');
-        if (raidIdx >= 0) {
-            raidLog = '\n' + currentText.substring(raidIdx);
+        let backMatterIdx = -1;
+        for (const marker of ['---highlights---', '---budget---', '---benefits---',
+                              '---raid log---', '---comms---', '---lessons learned---',
+                              '---baseline---', '---whiteboard---']) {
+            const idx = currentText.indexOf(marker);
+            if (idx !== -1 && (backMatterIdx === -1 || idx < backMatterIdx)) backMatterIdx = idx;
+        }
+        if (backMatterIdx >= 0) {
+            backMatter = '\n' + currentText.substring(backMatterIdx);
         }
 
-        editor.value = frontMatter + raidLog;
+        editor.value = frontMatter + backMatter;
         editor.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
@@ -1780,7 +1790,7 @@ function mindmapSyncToEditor() {
     // Preserve front matter
     const currentText = editor.value;
     let frontMatter = '';
-    let raidLog = '';
+    let backMatter = '';
     const lines = currentText.split('\n');
 
     let inFrontMatter = false;
@@ -1800,10 +1810,19 @@ function mindmapSyncToEditor() {
         frontMatter = lines.slice(0, fmEnd + 1).join('\n') + '\n\n';
     }
 
-    // Preserve RAID log
-    const raidIdx = currentText.indexOf('---raid log---');
-    if (raidIdx >= 0) {
-        raidLog = '\n' + currentText.substring(raidIdx);
+    // Preserve every back-matter section (highlights, budget, benefits,
+    // RAID log, comms, lessons learned, baseline, whiteboard) -- not just
+    // RAID log, or a plan whose only back matter was e.g. a whiteboard
+    // section would have it silently dropped here.
+    let backMatterIdx = -1;
+    for (const marker of ['---highlights---', '---budget---', '---benefits---',
+                          '---raid log---', '---comms---', '---lessons learned---',
+                          '---baseline---', '---whiteboard---']) {
+        const idx = currentText.indexOf(marker);
+        if (idx !== -1 && (backMatterIdx === -1 || idx < backMatterIdx)) backMatterIdx = idx;
+    }
+    if (backMatterIdx >= 0) {
+        backMatter = '\n' + currentText.substring(backMatterIdx);
     }
 
     // Build plan text from tree
@@ -1847,7 +1866,7 @@ function mindmapSyncToEditor() {
 
     writeNode(mindmapTree, 0);
 
-    editor.value = frontMatter + planLines.join('\n') + raidLog;
+    editor.value = frontMatter + planLines.join('\n') + backMatter;
 
     // Dispatch input event to trigger re-render
     editor.dispatchEvent(new Event('input', { bubbles: true }));

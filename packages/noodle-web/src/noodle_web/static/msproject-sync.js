@@ -8,8 +8,8 @@
 // replace therefore silently discards version, project manager, RAG,
 // last_saved, any custom front matter fields, and every back-matter section
 // (highlights, budget, benefits, RAID log, comms, lessons learned,
-// baseline) -- a more severe version of the "blind overwrite" bug #841
-// fixed for RAID Excel.
+// baseline, whiteboard) -- a more severe version of the "blind overwrite"
+// bug #841 fixed for RAID Excel.
 //
 // This module merges an imported task tree into the *existing* plan shell
 // instead of replacing it outright: the current plan's front matter fields
@@ -33,6 +33,7 @@ const SECTION_MARKERS = [
     '---comms---',
     '---lessons learned---',
     '---baseline---',
+    '---whiteboard---',
 ];
 const HIGHLIGHTS_END = '---end-highlights---';
 
@@ -112,30 +113,29 @@ function extractSection(text, startMarker, endMarkers) {
 
 /**
  * Pull every back-matter section (highlights, budget, benefits, RAID log,
- * comms, lessons learned, baseline) out of a plan's body text (the part
- * after front matter). Returns each section's raw content plus whether the
- * plan had an explicit ---end-highlights--- marker, so it can be rebuilt
- * faithfully.
+ * comms, lessons learned, baseline, whiteboard) out of a plan's body text
+ * (the part after front matter). Returns each section's raw content plus
+ * whether the plan had an explicit ---end-highlights--- marker, so it can
+ * be rebuilt faithfully.
  */
 export function extractBackMatterSections(bodyText) {
-    const [highlightsStart, budgetStart, benefitsStart, raidStart, commsStart, lessonsStart, baselineStart] = SECTION_MARKERS;
+    const [highlightsStart, budgetStart, benefitsStart, raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart] = SECTION_MARKERS;
     // extractSection is called with HIGHLIGHTS_START separately below since
     // it has its own end marker precedence.
     const highlights = extractSection(bodyText, highlightsStart,
-        [HIGHLIGHTS_END, budgetStart, benefitsStart, raidStart, commsStart, lessonsStart, baselineStart]);
+        [HIGHLIGHTS_END, budgetStart, benefitsStart, raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart]);
     const hasEndHighlights = bodyText.includes(HIGHLIGHTS_END);
     const budget = extractSection(bodyText, budgetStart,
-        [benefitsStart, raidStart, commsStart, lessonsStart, baselineStart]);
+        [benefitsStart, raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart]);
     const benefits = extractSection(bodyText, benefitsStart,
-        [raidStart, commsStart, lessonsStart, baselineStart]);
-    const raidLog = extractSection(bodyText, raidStart, [commsStart, lessonsStart, baselineStart]);
-    const comms = extractSection(bodyText, commsStart, [lessonsStart, baselineStart]);
-    const lessons = extractSection(bodyText, lessonsStart, [baselineStart]);
-    const baseline = bodyText.indexOf(baselineStart) !== -1
-        ? bodyText.substring(bodyText.indexOf(baselineStart) + baselineStart.length).replace(/^\r?\n+/, '')
-        : '';
+        [raidStart, commsStart, lessonsStart, baselineStart, whiteboardStart]);
+    const raidLog = extractSection(bodyText, raidStart, [commsStart, lessonsStart, baselineStart, whiteboardStart]);
+    const comms = extractSection(bodyText, commsStart, [lessonsStart, baselineStart, whiteboardStart]);
+    const lessons = extractSection(bodyText, lessonsStart, [baselineStart, whiteboardStart]);
+    const baseline = extractSection(bodyText, baselineStart, [whiteboardStart]);
+    const whiteboard = extractSection(bodyText, whiteboardStart, []);
 
-    return { highlights, hasEndHighlights, budget, benefits, raidLog, comms, lessons, baseline };
+    return { highlights, hasEndHighlights, budget, benefits, raidLog, comms, lessons, baseline, whiteboard };
 }
 
 /**
@@ -181,6 +181,7 @@ export function assemblePlanText(frontMatterLines, taskBody, sections) {
     result = appendSection(result, '---comms---', sections.comms);
     result = appendSection(result, '---lessons learned---', sections.lessons);
     result = appendSection(result, '---baseline---', sections.baseline);
+    result = appendSection(result, '---whiteboard---', sections.whiteboard);
 
     return result;
 }

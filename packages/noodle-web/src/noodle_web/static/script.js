@@ -89,7 +89,8 @@ function mergeDuplicateSections(text) {
     const HIGHLIGHTS_START = '---highlights---';
     const HIGHLIGHTS_END = '---end-highlights---';
     const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
-                      '---raid log---', '---comms---', '---lessons learned---', '---baseline---'];
+                      '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
+                      '---whiteboard---'];
 
     for (const marker of sections) {
         const firstIdx = text.indexOf(marker);
@@ -116,7 +117,8 @@ function mergeDuplicateSections(text) {
                     const endMarker = remaining.indexOf(HIGHLIGHTS_END, afterStart);
                     const nextSection = remaining.indexOf('---budget---', afterStart);
                     const nextRaid = remaining.indexOf('---raid log---', afterStart);
-                    for (const ei of [endMarker, nextSection, nextRaid]) {
+                    const nextWhiteboard = remaining.indexOf('---whiteboard---', afterStart);
+                    for (const ei of [endMarker, nextSection, nextRaid, nextWhiteboard]) {
                         if (ei !== -1 && ei < endIdx) endIdx = ei;
                     }
                     const sectionText = HIGHLIGHTS_START + remaining.substring(afterStart, endIdx);
@@ -682,6 +684,7 @@ const OUTPUT_VIEWS = {
     'timeline': 'planTab',
     'milestones': 'planTab',
     'mindmap': 'planTab',
+    'whiteboard': 'planTab',
     'stakeholders': 'planTab',
     'benefits': 'planTab',
     'highlights': 'planTab',
@@ -1678,6 +1681,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
+            { name: 'localFileStatus',         fn: () => { if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator(); } },
             { name: 'statusBarDeps',           fn: () => { if (typeof updateStatusBarDependencies === 'function') updateStatusBarDependencies(result.dependencies); } },
             { name: 'mppAssignmentWarning',    fn: () => { if (typeof updateMppAssignmentWarnings === 'function') updateMppAssignmentWarnings(result); } },
             // Last, so a circular-dependency warning is not overwritten by the
@@ -1734,7 +1738,18 @@ function showMessage(prefix, type, text) {
     }
 }
 
-function downloadMarkdown() {
+/**
+ * Save the active plan (Ctrl+S and the toolbar 💾 button).
+ *
+ * issue #767: when the current project was opened from disk via the File
+ * System Access API (openLocalPlanFile below), this writes straight back to
+ * that same file with no dialog and no re-prompt — LocalFileAccess retains
+ * the file handle. Otherwise (Firefox/Safari, or a project never linked to a
+ * file) this falls back to the original download-a-copy flow, unchanged,
+ * and says so explicitly so the user knows they need to replace the file
+ * themselves.
+ */
+async function downloadMarkdown() {
     const editor = getActiveEditor();
     const content = editor.value;
     const messageTarget = isBoardViewActive() ? 'kanban' : 'editor';
@@ -1744,27 +1759,41 @@ function downloadMarkdown() {
         return;
     }
 
-    // Create a blob with the markdown content
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = window.URL.createObjectURL(blob);
-
-    // Create download link
-    const a = document.createElement('a');
-    a.href = url;
-
-    // Increment version in front matter before saving
+    // Increment version in front matter before saving — same for both the
+    // disk-linked path and the download fallback.
     const versionedContent = incrementPlanVersion(editor);
-    // Re-create the blob with updated content
-    const versionedBlob = new Blob([versionedContent], { type: 'text/markdown' });
-    const versionedUrl = window.URL.createObjectURL(versionedBlob);
-    a.href = versionedUrl;
-    window.URL.revokeObjectURL(url);
 
     // Persist the version bump to project storage and sync editors
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) kanbanEditor.value = versionedContent;
     if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
     editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isLinked(currentProjectId)) {
+        const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
+        if (result && result.ok) {
+            if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+            showMessage(messageTarget, 'success', 'Saved to ' + result.filename + ' on disk');
+            return;
+        }
+        if (result && !result.ok) {
+            // The link was dropped by saveToLinkedFile; fall through to the
+            // download fallback below so the edit is not lost, but tell the
+            // user their file on disk was NOT updated.
+            if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+            console.error('Could not write to linked file:', result.error);
+            if (typeof showToast === 'function') {
+                showToast('Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
+            }
+        }
+    }
+
+    // Fallback: download a copy (Firefox/Safari, or no file linked)
+    const blob = new Blob([versionedContent], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
 
     // Use project name + version for filename, falling back to timestamp
     const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
@@ -1786,7 +1815,110 @@ function downloadMarkdown() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
-    showMessage(messageTarget, 'success', 'Markdown file downloaded!');
+    const fallbackNote = (typeof LocalFileAccess !== 'undefined' && !LocalFileAccess.isSupported())
+        ? ' — replace the file on disk yourself' : '';
+    showMessage(messageTarget, 'success', 'Markdown file downloaded!' + fallbackNote);
+}
+
+/**
+ * Open a plan from the user's real filesystem (issue #767).
+ *
+ * On Chromium/Edge this uses the File System Access API and retains the
+ * file handle, so later saves of this project write straight back to the
+ * same file with no re-prompt (see downloadMarkdown() above). Everywhere
+ * else there is no handle to keep, so this falls back to the existing
+ * upload flow — opening still works, but saving stays a download-a-copy
+ * operation, and the status bar makes that explicit
+ * (updateLocalFileStatusIndicator).
+ *
+ * A file opened this way still gets a normal project entry via
+ * createProject/saveProject, so every other view — which reads from
+ * in-memory project state, not the file — keeps working exactly as it does
+ * for any other project. The linked file on disk becomes the save target in
+ * addition to that localStorage/IndexedDB entry, not instead of it.
+ */
+async function openLocalPlanFile() {
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Save to a file on disk — use Upload, then Save to download a copy to replace it.', 'info');
+        }
+        uploadPlanFile();
+        return;
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndReadFile();
+    } catch (error) {
+        console.error('Error opening local file:', error);
+        showMessage(isBoardViewActive() ? 'kanban' : 'editor', 'error', 'Failed to open file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    clearPlanTrackingData();
+
+    // Save whatever project is currently open before switching away from it.
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+
+    const boardView = isBoardViewActive();
+    const projectName = picked.name.replace(/\.(md|markdown)$/i, '');
+    const project = createProject(projectName);
+    saveProject(project.id, { planText: picked.text });
+    setCurrentProjectId(project.id);
+    LocalFileAccess.link(project.id, picked.handle, picked.name);
+    if (typeof updateProjectBreadcrumb === 'function') updateProjectBreadcrumb(project.name);
+
+    const editor = document.getElementById('planEditor');
+    if (editor) editor.value = picked.text;
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = picked.text;
+
+    if (!boardView) {
+        // Switch to the editor tab (mirrors renderFile())
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        const editorTab = document.querySelector('[onclick*="editor"]');
+        if (editorTab) editorTab.classList.add('active');
+        const editorTabContent = document.getElementById('editor-tab');
+        if (editorTabContent) editorTabContent.classList.add('active');
+    }
+
+    const activeEditor = boardView ? (kanbanEditor || editor) : editor;
+    if (activeEditor) activeEditor.dispatchEvent(new Event('input'));
+
+    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+
+    const messageTarget = boardView ? 'kanban' : 'editor';
+    showMessage(messageTarget, 'success', 'Opened ' + picked.name + ' — linked for saving');
+
+    if (boardView) {
+        // Stay on the board, same as handleBoardFileUpload()
+        await render(picked.text, null, false, false, false, false, 'kanban');
+    } else {
+        await renderText();
+    }
+}
+
+/**
+ * Reflect whether the current project is linked to a file on disk in the
+ * status bar (issue #767) — which Save behaviour is in effect should always
+ * be visible, not something the user discovers by watching for a dialog
+ * that never appears (or unexpectedly does).
+ */
+function updateLocalFileStatusIndicator() {
+    const el = document.getElementById('localFileLinkStatus');
+    if (!el) return;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && projectId && LocalFileAccess.isLinked(projectId)) {
+        const name = LocalFileAccess.getLinkedFileName(projectId);
+        el.textContent = '🔗 ' + name;
+        el.title = 'Saves write straight back to ' + name + ' on disk — no download, no re-prompt';
+    } else {
+        el.textContent = '';
+        el.title = '';
+    }
 }
 
 // Task Form Modal Functions
@@ -4084,7 +4216,17 @@ function saveTask() {
         updateDependencyReferences(lines, oldTaskName, name);
     }
 
-    editor.value = lines.join('\n');
+    let newPlanText = lines.join('\n');
+
+    // Auto-update the task's whiteboard row(s), if any (issue #844). A
+    // no-op unless the plan has a whiteboard row for this task name --
+    // whiteboard rows only ever reference summary tasks, but renaming a
+    // non-summary task here costs nothing extra to check.
+    if (oldTaskName && name && oldTaskName !== name && typeof renamePlanWhiteboardTask === 'function') {
+        newPlanText = renamePlanWhiteboardTask(newPlanText, oldTaskName, name);
+    }
+
+    editor.value = newPlanText;
 
     // Trigger input event to update line numbers and render
     // (the editor's own input handler debounces renderText at 1s)
@@ -4811,6 +4953,7 @@ function getAllTaskNames() {
     let inRaidLog = false;
     let inBaseline = false;
     let inBudgetSec = false;
+    let inWhiteboard = false;
 
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
@@ -4823,9 +4966,10 @@ function getAllTaskNames() {
         if (inBudgetSec && trimmed === '---raid log---') { inBudgetSec = false; }
         if (trimmed === '---raid log---') { inRaidLog = true; continue; }
         if (trimmed === '---baseline---') { inBaseline = true; continue; }
+        if (trimmed === '---whiteboard---') { inWhiteboard = true; continue; }
 
         // Skip non-task content
-        if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudgetSec) continue;
+        if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudgetSec || inWhiteboard) continue;
         if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
         const task = parseTaskLine(lines[i], i + 1);
@@ -7861,12 +8005,13 @@ function extractRaidLogFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Stop at the next section marker (budget, comms, lessons learned, or
-    // baseline) if present. This must match every other section marker
-    // (comms in particular) so that a comms plan following the RAID log
-    // is never swept into the extracted RAID log text -- see #978.
+    // Stop at the next section marker (budget, comms, lessons learned,
+    // baseline, or whiteboard) if present. This must match every other
+    // section marker (comms in particular) so that a comms plan following
+    // the RAID log is never swept into the extracted RAID log text -- see
+    // #978.
     let endIdx = planText.length;
-    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
         const mIdx = planText.indexOf(sectionMarker, afterMarker);
         if (mIdx !== -1 && mIdx < endIdx) {
             endIdx = mIdx;
@@ -8851,9 +8996,10 @@ function checkResourceCapitalization(planText, resourceMap) {
             return;
         }
 
-        // Track excluded sections (highlights, RAID log, budget, baseline)
+        // Track excluded sections (highlights, RAID log, budget, baseline, whiteboard)
         if (trimmed === '---highlights---' || trimmed === '---raid log---' ||
-            trimmed === '---budget---' || trimmed === '---baseline---') {
+            trimmed === '---budget---' || trimmed === '---baseline---' ||
+            trimmed === '---whiteboard---') {
             inExcludedSection = true;
             return;
         }
@@ -11231,8 +11377,10 @@ function extractCommsFromPlanText(planText) {
     const afterStart = startIdx + COMMS_START.length;
 
     let endIdx = planText.length;
-    const blIdx = planText.indexOf(BASELINE_START, afterStart);
-    if (blIdx !== -1 && blIdx < endIdx) endIdx = blIdx;
+    for (const marker of [LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -11390,21 +11538,20 @@ function updatePlanCommsText(planText, items) {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const benefitsText = extractSection(planText, BENEFITS_START_M,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -11421,7 +11568,7 @@ function updatePlanCommsText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline, whiteboard
     let result = base;
 
     if (highlightsText) {
@@ -11451,6 +11598,10 @@ function updatePlanCommsText(planText, items) {
 
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -11929,17 +12080,14 @@ function extractBudgetFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Budget section ends at the RAID log marker or EOF
-    const raidIdx = planText.indexOf('---raid log---', afterMarker);
-    if (raidIdx !== -1) {
-        return planText.substring(afterMarker, raidIdx).trim();
+    // Budget section ends at whichever other section marker occurs next
+    // in the actual text, or EOF.
+    let endIdx = planText.length;
+    for (const other of ['---raid log---', COMMS_START, '---benefits---', LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
+        const oIdx = planText.indexOf(other, afterMarker);
+        if (oIdx !== -1 && oIdx < endIdx) endIdx = oIdx;
     }
-    // Also stop at baseline
-    const blIdx = planText.indexOf('---baseline---', afterMarker);
-    if (blIdx !== -1) {
-        return planText.substring(afterMarker, blIdx).trim();
-    }
-    return planText.substring(afterMarker).trim();
+    return planText.substring(afterMarker, endIdx).trim();
 }
 
 function extractBudgetItemsFromPlanText(planText) {
@@ -12006,22 +12154,21 @@ function updatePlanBudgetText(planText, items) {
 
     // Extract every trailing section so we can re-append them in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const benefitsText = extractSection(planText, BENEFITS_START,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const raidText = extractSection(planText, RAID_LOG_START,
-        [COMMS_START, LESSONS_START, BASELINE_START]);
+        [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const commsText = extractSection(planText, COMMS_START,
-        [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections from base to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -12040,7 +12187,7 @@ function updatePlanBudgetText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline, whiteboard
     let result = base;
 
     // Re-append highlights
@@ -12072,6 +12219,9 @@ function updatePlanBudgetText(planText, items) {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -12547,21 +12697,20 @@ function updatePlanRaidLogText(planText, items) {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const benefitsText = extractSection(planText, BENEFITS_START_M,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -12579,7 +12728,7 @@ function updatePlanRaidLogText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline, whiteboard
     let result = base;
 
     if (highlightsText) {
@@ -12608,6 +12757,9 @@ function updatePlanRaidLogText(planText, items) {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -12754,7 +12906,17 @@ function extractBaselineFromPlanText(planText) {
     const idx = planText.indexOf(marker);
     if (idx === -1) return [];
 
-    const section = planText.substring(idx + marker.length).trim();
+    const afterStart = idx + marker.length;
+    // Baseline is not always the last section any more (a whiteboard
+    // section, or anything else, may follow it): stop at whichever other
+    // section marker occurs next, not just at EOF.
+    let endIdx = planText.length;
+    for (const other of [WHITEBOARD_START]) {
+        const oi = planText.indexOf(other, afterStart);
+        if (oi !== -1 && oi < endIdx) endIdx = oi;
+    }
+
+    const section = planText.substring(afterStart, endIdx).trim();
     return parseBaselineMarkdown(section);
 }
 
@@ -12858,18 +13020,318 @@ function syncBaselineToPlanText() {
  * Update plan text with baseline section.
  */
 function updatePlanBaselineText(planText, items) {
-    // Strip existing baseline section
+    // Preserve the whiteboard section, which is canonically last (after
+    // baseline) but must survive being edited via the baseline view.
+    let whiteboardText = '';
+    const wbIdx = planText.indexOf(WHITEBOARD_START);
+    if (wbIdx !== -1) {
+        whiteboardText = planText.substring(wbIdx + WHITEBOARD_START.length).replace(/^\n+/, '').replace(/\n+$/, '');
+    }
+
+    // Strip existing baseline section, stopping at whichever marker
+    // (whiteboard, or EOF) actually follows it in the text.
     let base = planText;
     const startIdx = base.indexOf(BASELINE_START);
     if (startIdx !== -1) {
-        base = base.substring(0, startIdx).replace(/\n+$/, '');
+        let endIdx = base.length;
+        if (wbIdx !== -1 && wbIdx > startIdx) endIdx = wbIdx;
+        base = (base.substring(0, startIdx) + base.substring(endIdx)).replace(/\n+$/, '');
+    } else if (wbIdx !== -1) {
+        base = base.substring(0, wbIdx).replace(/\n+$/, '');
     }
     base = base.replace(/\n+$/, '');
 
     const table = generateBaselineTable();
-    if (!table) return base;
+    let result = base;
+    if (table) {
+        result = result + '\n\n' + BASELINE_START + '\n' + table;
+    }
 
-    return base + '\n\n' + BASELINE_START + '\n' + table;
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
+    }
+
+    return result;
+}
+
+// =====================================================================
+// Whiteboard back matter (issue #844)
+//
+// Storage-format only: no canvas, no notes, no rendering here. A future
+// whiteboard view (#845 and siblings) will read/write through these
+// helpers. The section is round-tripped using the marker
+// ---whiteboard--- followed by a table with columns:
+//
+//   Task | X | Y | Colour | Width | Height | Collapsed
+//
+// matched by name, not position -- see docs/reference/plan-format.rst.
+// This mirrors the JS-side convention already used by
+// parseThemeColours()/saveThemeColours() (kanban.js) for a read/write
+// helper pair, and the Python-side parse_whiteboard_markdown /
+// generate_whiteboard_text pair in format_converter.py.
+// =====================================================================
+
+/**
+ * Extract the raw ---whiteboard--- section text from plan text, or ''
+ * if there isn't one.
+ */
+function extractWhiteboardFromPlanText(planText) {
+    if (!planText) return '';
+    const startIdx = planText.indexOf(WHITEBOARD_START);
+    if (startIdx === -1) return '';
+    const afterStart = startIdx + WHITEBOARD_START.length;
+
+    // Whiteboard is canonically the last back-matter section, but stay
+    // defensive in case some other marker follows it in hand-edited text.
+    let endIdx = planText.length;
+    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
+
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+/**
+ * Parse a whiteboard markdown table into an array of note objects.
+ *
+ * Columns are matched by name, not position: Task | X | Y | Colour |
+ * Width | Height | Collapsed in any order, extra columns tolerated and
+ * ignored. Nothing is ever dropped: an orphan row (Task matches no
+ * summary task) or a duplicate Task is still returned as-is -- use
+ * validateWhiteboardRows() for warnings about those. width/height are
+ * null when the column is empty or absent ("use the default note size").
+ */
+function parseWhiteboardMarkdown(text) {
+    if (!text) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+    function parseRow(line) {
+        let parts = line.split(/(?<!\\)\|/);
+        if (parts.length && !parts[0].trim()) parts = parts.slice(1);
+        if (parts.length && !parts[parts.length - 1].trim()) parts = parts.slice(0, -1);
+        return parts.map(c => c.trim());
+    }
+
+    let headerIndex = -1;
+    let headers = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].includes('|')) continue;
+        const cells = parseRow(lines[i]).map(c => c.toLowerCase());
+        if (cells.includes('task')) {
+            headerIndex = i;
+            headers = cells;
+            break;
+        }
+    }
+    if (headerIndex === -1) return [];
+
+    const aliases = {
+        task: 'task', x: 'x', y: 'y', colour: 'colour', color: 'colour',
+        width: 'width', height: 'height', collapsed: 'collapsed',
+    };
+    const colMap = {};
+    headers.forEach((h, idx) => {
+        if (aliases[h] && !(aliases[h] in colMap)) colMap[aliases[h]] = idx;
+    });
+
+    function safeInt(val, fallback) {
+        const n = parseInt(val, 10);
+        return Number.isNaN(n) ? fallback : n;
+    }
+
+    const items = [];
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (line.replace(/[|\- ]/g, '') === '') continue; // separator row
+        if (line.startsWith('//')) continue;
+
+        const cells = parseRow(line);
+        if (!cells.length) continue;
+
+        function getCell(field, fallback) {
+            const idx = colMap[field];
+            if (idx !== undefined && idx < cells.length) return cells[idx].replace(/\\\|/g, '|');
+            return fallback !== undefined ? fallback : '';
+        }
+
+        const taskName = getCell('task', '');
+        if (!taskName) continue;
+
+        const widthStr = getCell('width', '').trim();
+        const heightStr = getCell('height', '').trim();
+        const collapsedStr = getCell('collapsed', '').trim().toLowerCase();
+
+        items.push({
+            task: taskName,
+            x: safeInt(getCell('x', '0'), 0),
+            y: safeInt(getCell('y', '0'), 0),
+            colour: getCell('colour', ''),
+            width: widthStr ? safeInt(widthStr, null) : null,
+            height: heightStr ? safeInt(heightStr, null) : null,
+            collapsed: ['yes', 'true', '1'].includes(collapsedStr),
+        });
+    }
+    return items;
+}
+
+/**
+ * Generate a formatted markdown table from whiteboard note items,
+ * columns padded to their widest entry (matching the other back-matter
+ * generators). Returns '' if there are no items.
+ */
+function generateWhiteboardText(items) {
+    if (!items || items.length === 0) return '';
+    const headers = ['Task', 'X', 'Y', 'Colour', 'Width', 'Height', 'Collapsed'];
+
+    const escapePipe = (value) => String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const cellOrBlank = (value) => (value === null || value === undefined || value === '') ? '' : String(value);
+
+    const rows = items.map(item => [
+        escapePipe(item.task || ''),
+        escapePipe(String(item.x != null ? item.x : 0)),
+        escapePipe(String(item.y != null ? item.y : 0)),
+        escapePipe(item.colour || ''),
+        escapePipe(cellOrBlank(item.width)),
+        escapePipe(cellOrBlank(item.height)),
+        escapePipe(item.collapsed ? 'yes' : 'no'),
+    ]);
+
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
+
+    const pad = (s, w) => s + ' '.repeat(Math.max(0, w - s.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Return warnings for orphan and duplicate whiteboard rows. Mirrors
+ * Python's validate_whiteboard_rows(): neither rule removes anything
+ * from `items`, this only reports (see docs/reference/plan-format.rst).
+ *
+ * @param {Array} items - parseWhiteboardMarkdown() output.
+ * @param {Iterable} [summaryTaskNames] - valid summary task names to
+ *   check rows against; orphan checking is skipped if omitted.
+ */
+function validateWhiteboardRows(items, summaryTaskNames) {
+    // Task is matched case-insensitively, the same as dependency name
+    // resolution (see "Resolution rules" in plan-format.rst).
+    const warnings = [];
+    const nameCounts = {};
+    items.forEach(item => {
+        const key = item.task.toLowerCase();
+        nameCounts[key] = (nameCounts[key] || 0) + 1;
+    });
+
+    const seenDuplicates = new Set();
+    items.forEach(item => {
+        const name = item.task;
+        const key = name.toLowerCase();
+        if (nameCounts[key] > 1 && !seenDuplicates.has(key)) {
+            seenDuplicates.add(key);
+            warnings.push({
+                type: 'duplicate',
+                task: name,
+                message: `Multiple whiteboard rows reference task '${name}'; the later row wins.`,
+            });
+        }
+    });
+
+    if (summaryTaskNames) {
+        const validNames = new Set(Array.from(summaryTaskNames, (n) => n.toLowerCase()));
+        const seenOrphans = new Set();
+        items.forEach(item => {
+            const name = item.task;
+            const key = name.toLowerCase();
+            if (name && !validNames.has(key) && !seenOrphans.has(key)) {
+                seenOrphans.add(key);
+                warnings.push({
+                    type: 'orphan',
+                    task: name,
+                    message: `Whiteboard row references unknown task '${name}'; kept in the file but not rendered.`,
+                });
+            }
+        });
+    }
+
+    return warnings;
+}
+
+/**
+ * Update plan text with the given whiteboard items, rewriting only the
+ * ---whiteboard--- section (canonical layout) and leaving every other
+ * back-matter section, front matter, and the task outline untouched.
+ * If `items` is empty, any existing whiteboard section is removed.
+ *
+ * Not wired to any per-keystroke/per-frame UI event in this issue (no
+ * canvas yet -- #845/#846), so it is not wrapped in a DebounceTimer; a
+ * future save-triggering caller should follow the DebounceTimer
+ * convention used elsewhere in this file (e.g. resourceDebounceTimer).
+ */
+function updatePlanWhiteboardText(planText, items) {
+    const startIdx = planText.indexOf(WHITEBOARD_START);
+    let before = planText;
+    let after = '';
+    if (startIdx !== -1) {
+        const afterStart = startIdx + WHITEBOARD_START.length;
+        let endIdx = planText.length;
+        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+            const mIdx = planText.indexOf(marker, afterStart);
+            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+        }
+        before = planText.substring(0, startIdx);
+        after = planText.substring(endIdx);
+    }
+    before = before.replace(/\n+$/, '');
+
+    const table = generateWhiteboardText(items);
+    let result = before;
+    if (table) {
+        result = result + '\n\n' + WHITEBOARD_START + '\n' + table;
+    }
+    if (after) {
+        result = result.replace(/\n+$/, '') + '\n\n' + after.replace(/^\n+/, '');
+    }
+    return result;
+}
+
+/**
+ * Rename rule: rename sync for whiteboard rows.
+ *
+ * Exact precedent: kanban.js's renamePhase() migrates the themeColours
+ * key on phase rename (see the "Update theme colour key if phase had a
+ * colour" block there). This is the equivalent migration for whiteboard
+ * rows, which live in the plan body rather than front matter, so it
+ * operates on the plan text directly. Every row whose Task matches
+ * oldName is updated to newName; a no-op if there is no whiteboard
+ * section or no matching row.
+ */
+function renamePlanWhiteboardTask(planText, oldName, newName) {
+    if (!planText || !oldName || !newName || oldName === newName) return planText;
+    const section = extractWhiteboardFromPlanText(planText);
+    if (!section) return planText;
+
+    const items = parseWhiteboardMarkdown(section);
+    if (!items.length) return planText;
+
+    let changed = false;
+    items.forEach(item => {
+        if (item.task === oldName) {
+            item.task = newName;
+            changed = true;
+        }
+    });
+    if (!changed) return planText;
+
+    return updatePlanWhiteboardText(planText, items);
 }
 
 /**
@@ -13502,9 +13964,10 @@ function extractHighlightsFromText(text) {
 
     const afterStart = startIdx + HIGHLIGHTS_START.length;
 
-    // Find the end: explicit end marker, budget section, raid log section, or EOF
+    // Find the end: explicit end marker, budget section, raid log section,
+    // whiteboard section, or EOF
     let endIdx = text.length;
-    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER]) {
+    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER, WHITEBOARD_START]) {
         const idx = text.indexOf(marker, afterStart);
         if (idx !== -1 && idx < endIdx) {
             endIdx = idx;
@@ -13849,7 +14312,7 @@ function updatePlanHighlightsText(planText, highlights) {
     const HIGHLIGHTS_END = '---end-highlights---';
     const BASELINE_START = '---baseline---';
     // All section markers that can terminate highlights
-    const END_MARKERS = [HIGHLIGHTS_END, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, BASELINE_START];
+    const END_MARKERS = [HIGHLIGHTS_END, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, BASELINE_START, WHITEBOARD_START];
 
     // Extract each trailing section so we can re-append them in canonical order
     function extractSection(text, startMarker, endMarkers) {
@@ -13864,19 +14327,18 @@ function updatePlanHighlightsText(planText, highlights) {
         return text.substring(afterStart, endIdx).replace(/^\n+/, '').replace(/\n+$/, '');
     }
 
-    const budgetText = extractSection(planText, BUDGET_START, ['---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const benefitsText = extractSection(planText, '---benefits---', [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+    const budgetText = extractSection(planText, BUDGET_START, ['---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const benefitsText = extractSection(planText, '---benefits---', [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections from base to get just tasks + front matter
     let base = planText;
     // Strip from earliest section marker onwards
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -13909,7 +14371,7 @@ function updatePlanHighlightsText(planText, highlights) {
         result = base + '\n\n---\n\n' + section;
     }
 
-    // Re-append sections in canonical order: budget, benefits, raid, comms, baseline
+    // Re-append sections in canonical order: budget, benefits, raid, comms, lessons, baseline, whiteboard
     if (budgetText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BUDGET_START + '\n' + budgetText;
     }
@@ -13927,6 +14389,9 @@ function updatePlanHighlightsText(planText, highlights) {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -14906,6 +15371,15 @@ document.addEventListener('keydown', function(e) {
         const overlay = document.getElementById('shortcutsOverlay');
         if (overlay && overlay.classList.contains('active')) {
             closeShortcutsModal();
+            return;
+        }
+    }
+
+    // Escape closes the status message log
+    if (e.key === 'Escape') {
+        const statusLogOverlay = document.getElementById('statusLogOverlay');
+        if (statusLogOverlay && statusLogOverlay.classList.contains('active')) {
+            closeStatusLogFullscreen();
             return;
         }
     }

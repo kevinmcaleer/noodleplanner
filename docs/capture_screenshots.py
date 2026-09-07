@@ -304,6 +304,11 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "resources")
     capture_full(driver, section / "mr-01-resource-table.png")
 
+    # wb-01: Whiteboard (empty canvas — issue #845 ships pan/zoom only,
+    # no notes yet, so this just shows the dot-grid surface and toolbar)
+    switch_to_view(driver, "whiteboard")
+    capture_full(driver, section / "wb-01-whiteboard-empty.png")
+
 
 def capture_reference(driver, base_url):
     """Capture screenshots for the reference section."""

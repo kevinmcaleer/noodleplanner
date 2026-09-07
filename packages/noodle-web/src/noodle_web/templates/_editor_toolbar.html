@@ -23,7 +23,10 @@
     <button class="toolbar-btn" onclick="uploadPlanFile()" title="Upload a plan file">
         <i class="bi bi-upload"></i>
     </button>
-    <button class="toolbar-btn" onclick="downloadMarkdown()" title="Download as Markdown">
+    <button class="toolbar-btn" id="openLocalFileBtn" onclick="openLocalPlanFile()" title="Open a .md file from disk (links Save to it on Chromium/Edge — no re-prompt)">
+        <i class="bi bi-folder2-open"></i>
+    </button>
+    <button class="toolbar-btn" id="saveMarkdownBtn" onclick="downloadMarkdown()" title="Save (writes to the linked file, or downloads a copy)">
         <i class="bi bi-download"></i>
     </button>
     <div class="toolbar-separator"></div>

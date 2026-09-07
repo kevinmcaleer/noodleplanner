@@ -471,7 +471,8 @@ async function getAgentSystemPrompt() {
         '- `---budget---` — budget table\n' +
         '- `---raid log---` — risks, assumptions, issues, dependencies table\n' +
         '- `---comms---` — communications plan table\n' +
-        '- `---baseline---` — baseline snapshot\n\n' +
+        '- `---baseline---` — baseline snapshot\n' +
+        '- `---whiteboard---` — whiteboard/todo-list note layout (Task, X, Y, Colour, Width, Height, Collapsed); never treat its rows as tasks\n\n' +
         '## How to make changes to the plan\n\n' +
         'You have tools available to modify the plan. ALWAYS use the provided tools (like add_stakeholder, add_task, etc.) ' +
         'to make changes. NEVER output plan text directly. Just call the appropriate tool and then explain what you did.';

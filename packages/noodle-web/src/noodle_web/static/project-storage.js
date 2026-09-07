@@ -37,7 +37,9 @@ const storageNoticeTimes = {};
  * persistent status-bar line is what keeps the user informed in between.
  */
 function showStorageNotice(what, message, type, persistent) {
-    if (typeof setStatusMessage === 'function') setStatusMessage(message, persistent ? 0 : 8000);
+    if (typeof setStatusMessage === 'function') {
+        setStatusMessage(message, persistent ? 0 : 8000, persistent ? 'storage-failure' : null);
+    }
     const now = Date.now();
     if (typeof showToast === 'function' && !(storageNoticeTimes[what] > now - 60000)) {
         storageNoticeTimes[what] = now;
@@ -66,6 +68,7 @@ function reportStorageFailure(what, error) {
 function clearStorageFailure() {
     if (!lastStorageFailure) return;
     lastStorageFailure = null;
+    if (typeof clearStatusLogEntry === 'function') clearStatusLogEntry('storage-failure');
     if (typeof setStatusMessage === 'function') setStatusMessage('Saved \u2014 browser storage is working again', 5000);
 }
 
@@ -209,6 +212,11 @@ function deleteProject(projectId) {
     // If deleting current project, clear current project ID
     if (getCurrentProjectId() === projectId) {
         localStorage.removeItem(CURRENT_PROJECT_KEY);
+    }
+
+    // Drop any retained on-disk file link for this project (issue #767)
+    if (typeof LocalFileAccess !== 'undefined') {
+        LocalFileAccess.unlink(projectId);
     }
 
     // Remove version history for the deleted project

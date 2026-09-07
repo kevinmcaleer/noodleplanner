@@ -11,12 +11,13 @@ COMMS_START = '---comms---'
 BENEFITS_START = '---benefits---'
 BASELINE_START = '---baseline---'
 LESSONS_START = '---lessons learned---'
+WHITEBOARD_START = '---whiteboard---'
 
 # Every back-matter section marker. The canonical write order (see the
 # update_plan_* functions below, e.g. update_plan_highlights) puts these
 # in the order: highlights, budget, benefits, raid log, comms, lessons
-# learned, baseline. Nothing enforces that order in hand-edited or
-# AI-chat-edited plan text, though, so any function that finds "the next
+# learned, baseline, whiteboard. Nothing enforces that order in hand-edited
+# or AI-chat-edited plan text, though, so any function that finds "the next
 # section marker"
 # after a given section must scan for *every other* marker here and take
 # whichever occurs earliest -- not just the ones that are supposed to come
@@ -26,6 +27,7 @@ LESSONS_START = '---lessons learned---'
 ALL_SECTION_MARKERS = (
     HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
     RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+    WHITEBOARD_START,
 )
 
 
@@ -119,7 +121,8 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights, budget, RAID log, comms, lessons, and baseline sections before processing
+    # Strip highlights, budget, RAID log, comms, lessons, baseline, and
+    # whiteboard sections before processing
     text = strip_highlights(text)
     text = strip_budget(text)
     text = strip_raid_log(text)
@@ -127,6 +130,7 @@ def convert_plan_format_to_standard(text: str) -> str:
     text = strip_benefits(text)
     text = strip_lessons(text)
     text = strip_baseline(text)
+    text = strip_whiteboard(text)
     lines = text.split('\n')
     output_lines = []
     in_frontmatter = False
@@ -228,7 +232,7 @@ def extract_highlights(text: str) -> list:
     # occurs next in the actual text, or EOF.
     end_idx = len(text)
     for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START,
-                   COMMS_START, LESSONS_START, BASELINE_START):
+                   COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -314,7 +318,7 @@ def strip_highlights(text: str) -> str:
     end_idx = len(text)
     end_len = 0
     for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START,
-                   COMMS_START, LESSONS_START, BASELINE_START):
+                   COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -365,14 +369,16 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve any existing budget, benefits, RAID log, comms, lessons, and baseline that follow highlights
+    # Preserve any existing budget, benefits, RAID log, comms, lessons,
+    # baseline, and whiteboard sections that follow highlights
     budget_text = extract_budget(plan_text)
     benefits_text = extract_benefits(plan_text)
     raid_log_text = extract_raid_log(plan_text)
     comms_text = extract_comms_plan(plan_text)
     lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_lessons(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text))))))).rstrip('\n')
+    whiteboard_text = extract_whiteboard(plan_text)
+    base = strip_whiteboard(strip_baseline(strip_lessons(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text)))))))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
@@ -403,6 +409,10 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     # Re-append the baseline if it was present
     if baseline_text:
         result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
+
+    # Re-append the whiteboard section if it was present
+    if whiteboard_text:
+        result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
 
     return result
 
@@ -868,8 +878,8 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
 
     Replaces the existing ``---raid log---`` section or appends a new
     one after the highlights section.  If *raid_items* is empty, any
-    existing RAID log section is removed.  Preserves any baseline
-    section that follows.
+    existing RAID log section is removed.  Preserves any comms, lessons,
+    baseline, and whiteboard sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -878,11 +888,12 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the comms, lessons, and baseline sections
+    # Preserve the comms, lessons, baseline, and whiteboard sections
     comms_text = extract_comms_plan(plan_text)
     lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_lessons(strip_comms(strip_raid_log(plan_text)))).rstrip('\n')
+    whiteboard_text = extract_whiteboard(plan_text)
+    base = strip_whiteboard(strip_baseline(strip_lessons(strip_comms(strip_raid_log(plan_text))))).rstrip('\n')
     table = generate_raid_log_text(raid_items)
 
     result = base
@@ -900,6 +911,10 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     # Re-append the baseline if it was present
     if baseline_text:
         result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
+
+    # Re-append the whiteboard section if it was present
+    if whiteboard_text:
+        result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
 
     return result
 
@@ -1097,8 +1112,8 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
 
     Replaces the existing ``---comms---`` section or appends a new
     one after the RAID log section.  If *comms_items* is empty, any
-    existing comms section is removed.  Preserves any baseline
-    section that follows.
+    existing comms section is removed.  Preserves any lessons learned,
+    baseline, and whiteboard sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -1107,10 +1122,11 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the lessons learned and baseline sections
+    # Preserve the lessons learned, baseline, and whiteboard sections
     lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_lessons(strip_comms(plan_text))).rstrip('\n')
+    whiteboard_text = extract_whiteboard(plan_text)
+    base = strip_whiteboard(strip_baseline(strip_lessons(strip_comms(plan_text)))).rstrip('\n')
     table = generate_comms_plan_text(comms_items)
 
     result = base
@@ -1125,33 +1141,47 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
     if baseline_text:
         result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
 
+    # Re-append the whiteboard section if it was present
+    if whiteboard_text:
+        result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
     return result
 
 
 def extract_baseline(text: str) -> str:
     """Extract the baseline section text from plan text.
 
-    Returns the raw text between ``---baseline---`` and EOF,
-    or an empty string if no baseline section is present.
+    Returns the raw text between ``---baseline---`` and whichever other
+    section marker occurs next in the actual text (not just the ones that
+    are supposed to follow it in canonical order -- a whiteboard section
+    that ends up positioned after the baseline must still bound it), or
+    EOF. Returns an empty string if no baseline section is present.
     """
     start_idx = text.find(BASELINE_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(BASELINE_START)
-    return text[after_start:].strip()
+    end_idx = _next_marker_idx(text, after_start, exclude=(BASELINE_START,))
+    return text[after_start:end_idx].strip()
 
 
 def strip_baseline(text: str) -> str:
     """Remove the baseline section from plan text.
 
     Returns the plan text without the ``---baseline---`` block.
+    Preserves whatever other section actually follows the baseline
+    section in the text, regardless of canonical order.
     """
     start_idx = text.find(BASELINE_START)
     if start_idx == -1:
         return text
 
     before = _strip_trailing_bare_separator(text[:start_idx])
+    end_idx = _next_marker_idx(text, start_idx, exclude=(BASELINE_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
+
     return before
 
 
@@ -1270,6 +1300,7 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     Replaces the existing ``---baseline---`` section or appends a new
     one at the end of the plan text (after RAID log).  If
     *baseline_items* is empty, any existing baseline section is removed.
+    Preserves any whiteboard section that follows.
 
     Args:
         plan_text: The full plan text.
@@ -1278,14 +1309,20 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the comms section when updating baseline
-    base = strip_baseline(plan_text).rstrip('\n')
+    # Preserve the whiteboard section when updating baseline
+    whiteboard_text = extract_whiteboard(plan_text)
+    base = strip_whiteboard(strip_baseline(plan_text)).rstrip('\n')
     table = generate_baseline_text(baseline_items)
 
-    if not table:
-        return base
+    result = base
+    if table:
+        result = result + '\n\n' + BASELINE_START + '\n' + table
 
-    return base + '\n\n' + BASELINE_START + '\n' + table
+    # Re-append the whiteboard section if it was present
+    if whiteboard_text:
+        result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
+    return result
 
 
 def export_comms_to_docx(comms_items: list, project_name: str = "Project") -> bytes:
@@ -1772,8 +1809,8 @@ def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
 
     Replaces the existing ``---lessons learned---`` section or appends a
     new one after the comms plan.  If *lessons_items* is empty, any
-    existing lessons section is removed.  Preserves any baseline section
-    that follows.
+    existing lessons section is removed.  Preserves any baseline and
+    whiteboard sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -1782,9 +1819,10 @@ def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the baseline section
+    # Preserve the baseline and whiteboard sections
     baseline_text = extract_baseline(plan_text)
-    base = strip_baseline(strip_lessons(plan_text)).rstrip('\n')
+    whiteboard_text = extract_whiteboard(plan_text)
+    base = strip_whiteboard(strip_baseline(strip_lessons(plan_text))).rstrip('\n')
     table = generate_lessons_text(lessons_items)
 
     result = base
@@ -1794,4 +1832,331 @@ def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
     if baseline_text:
         result = result.rstrip('\n') + '\n\n' + BASELINE_START + '\n' + baseline_text
 
+    if whiteboard_text:
+        result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
     return result
+
+
+# =====================================================================
+# Whiteboard (issue #844)
+#
+# The whiteboard view (#840) lets a user drag summary tasks onto a free
+# canvas as notes with a position, colour, and size. That layout is plan
+# data, not a UI preference, so it round-trips through the plan text the
+# same way every other back-matter section does: a marker followed by a
+# Markdown table, columns matched by name.
+#
+# The section is round-tripped using the marker ``---whiteboard---``
+# followed by a table with columns:
+#
+#   Task | X | Y | Colour | Width | Height | Collapsed
+#
+# ``Task`` names a summary task by name. ``X``/``Y`` are integer board
+# coordinates in unzoomed CSS pixels, origin top-left of the board's own
+# coordinate space (not the viewport). ``Colour`` is ``#RRGGBB`` or empty
+# (empty means inherit the palette). ``Width``/``Height`` are optional;
+# empty means the default note size. ``Collapsed`` is ``yes``/``no``.
+#
+# This module is storage-format only: no canvas, no notes, no rendering.
+# See docs/reference/plan-format.rst for the documented format, including
+# the orphan-row and duplicate-``Task`` rules implemented by
+# ``validate_whiteboard_rows`` below.
+# =====================================================================
+
+
+def extract_whiteboard(text: str) -> str:
+    """Extract the whiteboard section text from plan text.
+
+    Returns the raw text between ``---whiteboard---`` and whichever other
+    section marker occurs next in the actual text (not just the ones that
+    are supposed to follow it in canonical order), or EOF. Returns an
+    empty string if no whiteboard section is present.
+    """
+    start_idx = text.find(WHITEBOARD_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(WHITEBOARD_START)
+    end_idx = _next_marker_idx(text, after_start, exclude=(WHITEBOARD_START,))
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_whiteboard(text: str) -> str:
+    """Remove the whiteboard section from plan text.
+
+    Returns the plan text without the ``---whiteboard---`` block,
+    suitable for passing to the task parser.  Preserves whatever other
+    section actually follows the whiteboard section in the text,
+    regardless of canonical order.
+    """
+    start_idx = text.find(WHITEBOARD_START)
+    if start_idx == -1:
+        return text
+
+    before = _strip_trailing_bare_separator(text[:start_idx])
+    end_idx = _next_marker_idx(text, start_idx, exclude=(WHITEBOARD_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
+
+    return before
+
+
+def parse_whiteboard_markdown(text: str) -> list:
+    """Parse a whiteboard markdown table into a list of note dicts.
+
+    Columns are matched by name, not position: ``Task | X | Y | Colour |
+    Width | Height | Collapsed`` in any order, with extra columns
+    tolerated and ignored.
+
+    Nothing is ever dropped: a row whose ``Task`` matches no summary task
+    (an orphan -- e.g. because the task was renamed by hand) or that
+    duplicates another row's ``Task`` is still returned as-is. Use
+    ``validate_whiteboard_rows`` to get warnings for those cases; it is up
+    to the caller (a future whiteboard view) to decide what to render.
+
+    Args:
+        text: Markdown text containing a whiteboard table.
+
+    Returns:
+        List of dicts with keys: task, x, y, colour, width, height,
+        collapsed. ``width``/``height`` are ``None`` when the column is
+        empty or absent, meaning "use the default note size".
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    def parse_row(line):
+        """Parse a markdown table row into cells, handling escaped pipes."""
+        parts = re.split(r'(?<!\\)\|', line)
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        return [cell.strip() for cell in parts]
+
+    # Find the header row: the first table row that has a "task" cell.
+    header_index = -1
+    headers = []
+    for i, line in enumerate(lines):
+        if '|' not in line:
+            continue
+        cells = [c.strip().lower() for c in parse_row(line)]
+        if 'task' in cells:
+            header_index = i
+            headers = cells
+            break
+
+    if header_index == -1:
+        return []
+
+    aliases = {
+        'task': 'task',
+        'x': 'x',
+        'y': 'y',
+        'colour': 'colour',
+        'color': 'colour',
+        'width': 'width',
+        'height': 'height',
+        'collapsed': 'collapsed',
+    }
+    col_map = {}
+    for idx, header in enumerate(headers):
+        if header in aliases and aliases[header] not in col_map:
+            col_map[aliases[header]] = idx
+
+    def safe_int(value, default=0):
+        try:
+            return int(str(value).strip())
+        except (ValueError, TypeError):
+            return default
+
+    items = []
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        # Skip separator row (all dashes)
+        if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+        if line.lstrip().startswith('//'):
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        task_name = get_cell('task', '')
+        if not task_name:
+            continue
+
+        width_str = get_cell('width', '').strip()
+        height_str = get_cell('height', '').strip()
+        collapsed_str = get_cell('collapsed', '').strip().lower()
+
+        items.append({
+            'task': task_name,
+            'x': safe_int(get_cell('x', '0')),
+            'y': safe_int(get_cell('y', '0')),
+            'colour': get_cell('colour', ''),
+            'width': safe_int(width_str) if width_str else None,
+            'height': safe_int(height_str) if height_str else None,
+            'collapsed': collapsed_str in ('yes', 'true', '1'),
+        })
+
+    return items
+
+
+def validate_whiteboard_rows(items: list, summary_task_names=None) -> list:
+    """Return warnings for orphan and duplicate whiteboard rows.
+
+    Two rules, documented in ``docs/reference/plan-format.rst``:
+
+    * Duplicate ``Task``: keying by name is ambiguous when two summary
+      tasks share a name (see issue #838). The rule matches the one
+      already documented for dependency name resolution -- the later row
+      wins -- and both rows are kept in the file.
+    * Orphan ``Task``: a row whose ``Task`` matches no summary task (for
+      example because the task was renamed by hand, which looks
+      identical to a delete-plus-add) is kept in the file, not rendered,
+      and reported here rather than silently dropped.
+
+    Neither rule removes anything from *items* -- this only reports.
+
+    Args:
+        items: The list returned by ``parse_whiteboard_markdown``.
+        summary_task_names: Iterable of valid summary task names to check
+            rows against. If ``None``, orphan checking is skipped (only
+            duplicate-``Task`` warnings are returned).
+
+    Returns:
+        List of dicts: ``{'type': 'duplicate'|'orphan', 'task': ..., 'message': ...}``.
+    """
+    # Task is matched case-insensitively, the same as dependency name
+    # resolution (see "Resolution rules" in plan-format.rst).
+    warnings = []
+
+    name_counts = {}
+    for item in items:
+        name_counts[item['task'].lower()] = name_counts.get(item['task'].lower(), 0) + 1
+
+    seen_duplicates = set()
+    for item in items:
+        name = item['task']
+        key = name.lower()
+        if name_counts.get(key, 0) > 1 and key not in seen_duplicates:
+            seen_duplicates.add(key)
+            warnings.append({
+                'type': 'duplicate',
+                'task': name,
+                'message': (
+                    f"Multiple whiteboard rows reference task '{name}'; "
+                    "the later row wins."
+                ),
+            })
+
+    if summary_task_names is not None:
+        valid_names = {n.lower() for n in summary_task_names}
+        seen_orphans = set()
+        for item in items:
+            name = item['task']
+            key = name.lower()
+            if name and key not in valid_names and key not in seen_orphans:
+                seen_orphans.add(key)
+                warnings.append({
+                    'type': 'orphan',
+                    'task': name,
+                    'message': (
+                        f"Whiteboard row references unknown task '{name}'; "
+                        "kept in the file but not rendered."
+                    ),
+                })
+
+    return warnings
+
+
+def generate_whiteboard_text(items: list) -> str:
+    """Generate a formatted markdown table from whiteboard note items.
+
+    Each column is padded to the width of its widest entry for clean,
+    readable markdown output.
+
+    Args:
+        items: List of dicts with keys: task, x, y, colour, width,
+            height, collapsed. Missing keys default sensibly (0 for x/y,
+            empty for colour/width/height, False for collapsed).
+
+    Returns:
+        The formatted markdown table string, or empty string if there
+        are no items.
+    """
+    if not items:
+        return ''
+
+    headers = ['Task', 'X', 'Y', 'Colour', 'Width', 'Height', 'Collapsed']
+
+    def escape_pipe(value):
+        return str(value).replace('|', '\\|').replace('\n', ' ')
+
+    def cell_or_blank(value):
+        return '' if value in (None, '') else str(value)
+
+    rows = []
+    for item in items:
+        rows.append([
+            escape_pipe(item.get('task', '')),
+            escape_pipe(str(item.get('x', 0))),
+            escape_pipe(str(item.get('y', 0))),
+            escape_pipe(item.get('colour', '') or ''),
+            escape_pipe(cell_or_blank(item.get('width'))),
+            escape_pipe(cell_or_blank(item.get('height'))),
+            escape_pipe('yes' if item.get('collapsed') else 'no'),
+        ])
+
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def format_row(cells):
+        padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
+        return '| ' + ' | '.join(padded) + ' |'
+
+    separator = '|' + '|'.join('-' * (widths[i] + 2) for i in range(len(headers))) + '|'
+
+    lines = [format_row(headers), separator]
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)
+
+
+def update_plan_whiteboard(plan_text: str, items: list) -> str:
+    """Update plan text with the given whiteboard table.
+
+    Replaces the existing ``---whiteboard---`` section or appends a new
+    one at the end of the plan text.  If *items* is empty, any existing
+    whiteboard section is removed.  The whiteboard section is canonically
+    the last back-matter section (see plan-format.rst), so nothing needs
+    to be preserved and re-appended after it.
+
+    Args:
+        plan_text: The full plan text.
+        items: List of whiteboard note dicts (see ``parse_whiteboard_markdown``).
+
+    Returns:
+        Updated plan text.
+    """
+    base = strip_whiteboard(plan_text).rstrip('\n')
+    table = generate_whiteboard_text(items)
+
+    if not table:
+        return base
+
+    return base + '\n\n' + WHITEBOARD_START + '\n' + table

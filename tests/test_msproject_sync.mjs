@@ -100,6 +100,9 @@ test('extractBackMatterSections pulls out every section verbatim', () => {
     '',
     '---baseline---',
     'baseline text',
+    '',
+    '---whiteboard---',
+    '| Task | X | Y |',
   ].join('\n');
 
   const sections = extractBackMatterSections(body);
@@ -111,6 +114,21 @@ test('extractBackMatterSections pulls out every section verbatim', () => {
   assert.equal(sections.comms, 'comms text');
   assert.equal(sections.lessons, 'lessons text');
   assert.equal(sections.baseline, 'baseline text');
+  assert.equal(sections.whiteboard, '| Task | X | Y |');
+});
+
+test('extractBackMatterSections stops baseline before a following whiteboard section', () => {
+  // Before issue #844, baseline was assumed to always be last and read to
+  // EOF unconditionally -- this would have swallowed a following
+  // whiteboard section whole.
+  const body = [
+    '# Plan', '- Task 1', '',
+    '---baseline---', 'baseline text', '',
+    '---whiteboard---', 'whiteboard text',
+  ].join('\n');
+  const sections = extractBackMatterSections(body);
+  assert.equal(sections.baseline, 'baseline text');
+  assert.equal(sections.whiteboard, 'whiteboard text');
 });
 
 test('extractBackMatterSections returns empty strings when a plan has no back matter', () => {
@@ -123,6 +141,7 @@ test('extractBackMatterSections returns empty strings when a plan has no back ma
   assert.equal(sections.comms, '');
   assert.equal(sections.lessons, '');
   assert.equal(sections.baseline, '');
+  assert.equal(sections.whiteboard, '');
 });
 
 test('stripBackMatterSections leaves only the task outline', () => {
@@ -194,6 +213,24 @@ test('mergeImportedTasks preserves front matter fields and every back-matter sec
   assert.match(merged, /\| 1  \| risk \| A risk \|/);
 });
 
+test('mergeImportedTasks preserves a whiteboard section (issue #844)', () => {
+  const currentPlan = [
+    '---', 'title: Old Project Plan', '---',
+    '# Old Project Plan', '- Old Task 1', '',
+    '---', '',
+    '---whiteboard---',
+    '| Task | X | Y |',
+    '|------|---|---|',
+    '| Old Task 1 | 120 | 80 |',
+  ].join('\n');
+  const importedMarkdown = ['---', 'title: Reimported', '---', '', 'New Task 1  5d'].join('\n');
+
+  const merged = mergeImportedTasks(currentPlan, importedMarkdown);
+  assert.match(merged, /---whiteboard---\n\| Task \| X \| Y \|/);
+  assert.match(merged, /\| Old Task 1 \| 120 \| 80 \|/);
+  assert.match(merged, /New Task 1  5d/);
+});
+
 test('mergeImportedTasks on a plan with no back matter produces no dangling section markers', () => {
   const currentPlan = '---\ntitle: Plan\n---\n# Plan\n- Old Task\n';
   const importedMarkdown = '---\ntitle: Plan\n---\n\nNew Task  2d\n';
@@ -201,6 +238,7 @@ test('mergeImportedTasks on a plan with no back matter produces no dangling sect
   assert.doesNotMatch(merged, /---budget---/);
   assert.doesNotMatch(merged, /---raid log---/);
   assert.doesNotMatch(merged, /---benefits---/);
+  assert.doesNotMatch(merged, /---whiteboard---/);
   assert.match(merged, /New Task  2d/);
   assert.doesNotMatch(merged, /Old Task/);
 });

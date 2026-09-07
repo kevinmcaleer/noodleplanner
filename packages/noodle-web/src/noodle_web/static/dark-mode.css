@@ -2653,3 +2653,38 @@ body {
 [data-theme="dark"] .pbm-node--change text {
     fill: #e0e0e0;
 }
+
+/* ── Whiteboard (dark) — issue #845 ──────────────────────────────────── */
+
+[data-theme="dark"] .wb-toolbar {
+    background: #1e1e1e;
+    border-bottom-color: #333;
+}
+
+[data-theme="dark"] .wb-toolbar-btn {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #ccc;
+}
+
+[data-theme="dark"] .wb-toolbar-btn:hover:not(:disabled) {
+    background: #3a3a3a;
+    border-color: #108BB9;
+    color: #fff;
+}
+
+[data-theme="dark"] .wb-zoom-label {
+    color: #999;
+}
+
+[data-theme="dark"] .wb-toolbar-hint {
+    color: #777;
+}
+
+[data-theme="dark"] .wb-canvas-wrapper {
+    background: #1a1a1a;
+}
+
+[data-theme="dark"] .wb-grid-dot {
+    fill: #3a3a3a;
+}

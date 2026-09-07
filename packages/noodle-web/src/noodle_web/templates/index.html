@@ -82,6 +82,7 @@
     <link rel="stylesheet" href="/static/components.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/gantt.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/kanban.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
@@ -214,6 +215,16 @@
           <line x1="14.5" y1="12" x2="18.5" y2="12"/>
           <line x1="14.5" y1="13.5" x2="18.5" y2="17.5"/>
         </symbol>
+        <!-- whiteboard (dot-grid canvas) -->
+        <symbol id="icon-whiteboard" viewBox="0 0 24 24">
+          <rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none"/>
+          <circle cx="8" cy="9.5" r="1"/>
+          <circle cx="12" cy="9.5" r="1"/>
+          <circle cx="16" cy="9.5" r="1"/>
+          <circle cx="8" cy="14.5" r="1"/>
+          <circle cx="12" cy="14.5" r="1"/>
+          <circle cx="16" cy="14.5" r="1"/>
+        </symbol>
         <!-- pbs (product breakdown structure) -->
         <symbol id="icon-pbs" viewBox="0 0 24 24">
           <rect x="8" y="2" width="8" height="5" rx="1"/>
@@ -336,7 +347,7 @@
                 <!-- Views dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="viewsDropdownBtn"
-                            data-dropdown-views="tasks,gantt,kanban,calendar,milestones,timeline,mindmap"
+                            data-dropdown-views="tasks,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
                             onclick="toggleDropdownMenu('viewsDropdownMenu', 'viewsDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="viewsDropdownMenu">
                         Views &#9662;
@@ -362,6 +373,9 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="mindmap" onclick="switchToView('mindmap'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="whiteboard" onclick="switchToView('whiteboard'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-whiteboard"/></svg> Whiteboard
                         </div>
                     </div>
                 </div>
@@ -1337,6 +1351,35 @@ Press Enter to render..."></textarea>
                                 </div>
                                 <div class="mindmap-canvas-wrapper" id="mindmapContainer" tabindex="0">
                                     <!-- SVG mind map rendered by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Whiteboard View -->
+                        <div id="whiteboard-view" class="output-tab-content">
+                            <div class="wb-content">
+                                <div class="wb-toolbar" role="toolbar" aria-label="Whiteboard view controls">
+                                    <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn" id="whiteboardZoomInBtn" onclick="whiteboardZoomIn()" title="Zoom in" aria-label="Zoom in">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <span class="wb-zoom-label" id="whiteboardZoomLabel">100%</span>
+                                        <button class="wb-toolbar-btn" id="whiteboardZoomOutBtn" onclick="whiteboardZoomOut()" title="Zoom out" aria-label="Zoom out">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <button class="wb-toolbar-btn" onclick="whiteboardZoomFit()" title="Fit to content" aria-label="Fit to content">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                                        </button>
+                                        <button class="wb-toolbar-btn" onclick="whiteboardZoomReset()" title="Reset to 100%" aria-label="Reset zoom to 100%">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="wb-toolbar-hint">
+                                        Drag or scroll to pan &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; Arrow keys pan &middot; +/&minus; zoom &middot; 0 resets &middot; f fits
+                                    </div>
+                                </div>
+                                <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas, an empty pannable and zoomable surface">
+                                    <!-- SVG whiteboard rendered by JavaScript -->
                                 </div>
                             </div>
                         </div>
@@ -3909,6 +3952,24 @@ Build
         </div>
     </div>
 
+    <div id="statusLogOverlay" class="modal-overlay" onclick="if(event.target===this) closeStatusLogFullscreen()" role="dialog" aria-modal="true" aria-label="Status Message Log">
+        <div class="task-form-modal status-log-modal" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Status Message Log</h2>
+                <div class="status-log-modal-header-actions">
+                    <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
+                        <i class="bi bi-download"></i>
+                        <span>Save to file</span>
+                    </button>
+                    <button class="close-btn" onclick="closeStatusLogFullscreen()" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body status-log-modal-body">
+                <div class="status-log-list status-log-list-full" id="statusLogFullList"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Templates Modal -->
     <div id="templatesModalOverlay" class="modal-overlay templates-overlay" role="dialog" aria-modal="true" aria-label="Project Templates">
         <div class="templates-modal">
@@ -4003,6 +4064,7 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
@@ -4021,6 +4083,7 @@ Build
     <script src="/static/portfolio-lessons.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
+    <script src="/static/whiteboard.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/lessons.js?v={{ v }}"></script>
     <script src="/static/trend-report.js?v={{ v }}"></script>
@@ -4312,9 +4375,30 @@ Build
             <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project" aria-label="Select project"></select>
             <span class="status-bar-rag" id="statusBarRAG" title="Project RAG status" aria-label="Project RAG status"></span>
             <span id="statusBarRAGMsg" class="status-bar-rag-msg"></span>
+            <span id="localFileLinkStatus" class="status-bar-local-file" aria-live="polite"></span>
             <span class="status-bar-separator"></span>
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
+        <div class="status-bar-history-wrap">
+            <button class="status-bar-btn status-bar-history-btn" id="statusBarHistoryBtn" onclick="toggleStatusHistoryPopup()" title="Status message history" aria-label="Status message history" aria-haspopup="true" aria-expanded="false">
+                <i class="bi bi-bell"></i>
+            </button>
+            <div class="status-bar-history-popup" id="statusBarHistoryPopup" role="dialog" aria-label="Recent status messages">
+                <div class="status-log-popup-header">
+                    <span>Recent messages</span>
+                    <div class="status-log-popup-header-actions">
+                        <button type="button" class="status-log-icon-btn" onclick="openStatusLogFullscreen()" title="Open full log">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="status-log-list" id="statusBarHistoryList"></div>
+                <div class="status-log-popup-more" id="statusBarHistoryMore"></div>
+            </div>
+        </div>
         <div class="status-bar-right">
             <span class="status-bar-app-version" id="statusBarAppVersion"
                   title="NoodlePlanner application version and deployed build"

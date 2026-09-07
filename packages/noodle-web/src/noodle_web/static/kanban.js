@@ -291,6 +291,7 @@ class KanbanBoard {
         let inRaidLog = false;
         let inBaseline = false;
         let inBudget = false;
+        let inWhiteboard = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -349,7 +350,13 @@ class KanbanBoard {
                 continue;
             }
 
-            if (inHighlights || inRaidLog || inBaseline || inBudget) {
+            // Track and skip whiteboard section (extends to end of file)
+            if (trimmedLine === '---whiteboard---') {
+                inWhiteboard = true;
+                continue;
+            }
+
+            if (inHighlights || inRaidLog || inBaseline || inBudget || inWhiteboard) {
                 continue;
             }
 
@@ -3185,8 +3192,18 @@ class KanbanBoard {
             delete this.themeColours[oldPhaseName];
         }
 
-        // Save the renamed phase and its theme colour in one Markdown commit.
-        this.saveThemeColours(lines.join('\n'));
+        // Update the phase's whiteboard row(s), if any (issue #844). The
+        // whiteboard's Task column lives in the plan body, not front
+        // matter, so this operates on the text directly rather than a
+        // themeColours-style in-memory key.
+        let renamedText = lines.join('\n');
+        if (typeof renamePlanWhiteboardTask === 'function') {
+            renamedText = renamePlanWhiteboardTask(renamedText, oldPhaseName, trimmedNewName);
+        }
+
+        // Save the renamed phase, its theme colour, and its whiteboard
+        // row in one Markdown commit.
+        this.saveThemeColours(renamedText);
     }
 
     /**
