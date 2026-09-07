@@ -12,6 +12,41 @@ BENEFITS_START = '---benefits---'
 BASELINE_START = '---baseline---'
 LESSONS_START = '---lessons learned---'
 
+# Every back-matter section marker. The canonical write order (see the
+# update_plan_* functions below, e.g. update_plan_highlights) puts these
+# in the order: highlights, budget, benefits, raid log, comms, lessons
+# learned, baseline. Nothing enforces that order in hand-edited or
+# AI-chat-edited plan text, though, so any function that finds "the next
+# section marker"
+# after a given section must scan for *every other* marker here and take
+# whichever occurs earliest -- not just the ones that are supposed to come
+# later in canonical order. Otherwise a section that ends up out of its
+# canonical position can be silently swallowed into (or split across) a
+# neighbouring section. See kevinmcaleer/Snakie#978.
+ALL_SECTION_MARKERS = (
+    HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+    RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+)
+
+
+def _next_marker_idx(text: str, from_idx: int, exclude: tuple) -> int:
+    """Find the earliest index, at or after *from_idx*, of any section
+    marker other than those in *exclude*.
+
+    Returns ``len(text)`` if none of the other markers appear.  Used so
+    that "where does this section end" is always computed the same way --
+    the closest marker actually present in the text -- regardless of
+    whether the plan happens to have its sections in canonical order.
+    """
+    end_idx = len(text)
+    for marker in ALL_SECTION_MARKERS:
+        if marker in exclude:
+            continue
+        idx = text.find(marker, from_idx)
+        if idx != -1 and idx < end_idx:
+            end_idx = idx
+    return end_idx
+
 
 def _is_valid_yaml_value(value: str) -> bool:
     """Check if a string looks like a valid YAML scalar value.
@@ -189,9 +224,11 @@ def extract_highlights(text: str) -> list:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, budget, raid log section, comms, baseline, or EOF
+    # Find the end: explicit end marker, or whichever other section marker
+    # occurs next in the actual text, or EOF.
     end_idx = len(text)
-    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START,
+                   COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -272,10 +309,12 @@ def strip_highlights(text: str) -> str:
 
     after_start = start_idx + len(HIGHLIGHTS_START)
 
-    # Find the end: explicit end marker, budget, raid log section, comms, baseline, or EOF
+    # Find the end: explicit end marker, or whichever other section marker
+    # occurs next in the actual text, or EOF.
     end_idx = len(text)
     end_len = 0
-    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, BASELINE_START):
+    for marker in (HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START,
+                   COMMS_START, LESSONS_START, BASELINE_START):
         idx = text.find(marker, after_start)
         if idx != -1 and idx < end_idx:
             end_idx = idx
@@ -371,22 +410,17 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
 def extract_raid_log(text: str) -> str:
     """Extract the RAID log section text from plan text.
 
-    Returns the raw text between ``---raid log---`` and the next section
-    marker (``---budget---``, ``---baseline---``) or EOF, or an empty
-    string if no RAID log section is present.
+    Returns the raw text between ``---raid log---`` and whichever other
+    section marker occurs next in the actual text (not just the ones that
+    are supposed to follow it in canonical order), or EOF.  Returns an
+    empty string if no RAID log section is present.
     """
     start_idx = text.find(RAID_LOG_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(RAID_LOG_START)
-
-    # Find the end: budget, comms, lessons, baseline section, or EOF
-    end_idx = len(text)
-    for marker in (BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
+    end_idx = _next_marker_idx(text, after_start, exclude=(RAID_LOG_START,))
 
     return text[after_start:end_idx].strip()
 
@@ -395,21 +429,18 @@ def strip_raid_log(text: str) -> str:
     """Remove the RAID log section from plan text.
 
     Returns the plan text without the ``---raid log---`` block,
-    suitable for passing to the task parser.  Preserves any budget
-    or baseline section that follows the RAID log.
+    suitable for passing to the task parser.  Preserves whatever other
+    section actually follows the RAID log in the text, regardless of
+    canonical order.
     """
     start_idx = text.find(RAID_LOG_START)
     if start_idx == -1:
         return text
 
     before = _strip_trailing_bare_separator(text[:start_idx])
-
-    # Preserve sections that follow the RAID log (budget, comms, lessons, or baseline)
-    for marker in (BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, start_idx)
-        if idx != -1:
-            after = text[idx:]
-            return before + '\n\n' + after
+    end_idx = _next_marker_idx(text, start_idx, exclude=(RAID_LOG_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
 
     return before
 
@@ -417,22 +448,16 @@ def strip_raid_log(text: str) -> str:
 def extract_budget(text: str) -> str:
     """Extract the budget section text from plan text.
 
-    Returns the raw text between ``---budget---`` and the next section
-    marker (``---raid log---``, ``---baseline---``) or EOF, or an empty
-    string if no budget section is present.
+    Returns the raw text between ``---budget---`` and whichever other
+    section marker occurs next in the actual text, or EOF.  Returns an
+    empty string if no budget section is present.
     """
     start_idx = text.find(BUDGET_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(BUDGET_START)
-
-    # Find the end: benefits, RAID log, comms, lessons, baseline, or EOF
-    end_idx = len(text)
-    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
+    end_idx = _next_marker_idx(text, after_start, exclude=(BUDGET_START,))
 
     return text[after_start:end_idx].strip()
 
@@ -441,63 +466,17 @@ def strip_budget(text: str) -> str:
     """Remove the budget section from plan text.
 
     Returns the plan text without the ``---budget---`` block.
-    Preserves any RAID log and baseline sections that follow.
+    Preserves whatever other section actually follows the budget section
+    in the text, regardless of canonical order.
     """
     start_idx = text.find(BUDGET_START)
     if start_idx == -1:
         return text
 
     before = _strip_trailing_bare_separator(text[:start_idx])
-
-    # Preserve sections that follow the budget
-    for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, start_idx)
-        if idx != -1:
-            after = text[idx:]
-            return before + '\n\n' + after
-
-    return before
-
-
-def extract_benefits(text: str) -> str:
-    """Extract the benefits section text from plan text.
-
-    Returns the raw text between ``---benefits---`` and the next section
-    marker or EOF, or an empty string if no benefits section is present.
-    """
-    start_idx = text.find(BENEFITS_START)
-    if start_idx == -1:
-        return ''
-
-    after_start = start_idx + len(BENEFITS_START)
-
-    end_idx = len(text)
-    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
-
-    return text[after_start:end_idx].strip()
-
-
-def strip_benefits(text: str) -> str:
-    """Remove the benefits section from plan text.
-
-    Returns the plan text without the ``---benefits---`` block.
-    Preserves any RAID log, comms, lessons, and baseline sections that follow.
-    """
-    start_idx = text.find(BENEFITS_START)
-    if start_idx == -1:
-        return text
-
-    before = _strip_trailing_bare_separator(text[:start_idx])
-
-    # Preserve sections that follow the benefits
-    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, start_idx)
-        if idx != -1:
-            after = text[idx:]
-            return before + '\n\n' + after
+    end_idx = _next_marker_idx(text, start_idx, exclude=(BUDGET_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
 
     return before
 
@@ -928,22 +907,19 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
 def extract_comms_plan(text: str) -> str:
     """Extract the comms plan section text from plan text.
 
-    Returns the raw text between ``---comms---`` and the next section
-    marker (``---lessons learned---`` or ``---baseline---``) or EOF, or
-    an empty string if no comms section is present.
+    Returns the raw text between ``---comms---`` and whichever other
+    section marker occurs next in the actual text (not just the ones
+    that are supposed to follow it in canonical order -- a RAID log,
+    budget, or benefits section that ends up positioned after the comms
+    section must still bound it, or its content leaks into the comms
+    text). Returns an empty string if no comms section is present.
     """
     start_idx = text.find(COMMS_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(COMMS_START)
-
-    # Find the end: lessons or baseline section or EOF
-    end_idx = len(text)
-    for marker in (LESSONS_START, BASELINE_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
+    end_idx = _next_marker_idx(text, after_start, exclude=(COMMS_START,))
 
     return text[after_start:end_idx].strip()
 
@@ -952,20 +928,17 @@ def strip_comms(text: str) -> str:
     """Remove the comms plan section from plan text.
 
     Returns the plan text without the ``---comms---`` block.
-    Preserves any lessons learned and baseline sections that follow.
+    Preserves whatever other section actually follows the comms section
+    in the text, regardless of canonical order.
     """
     start_idx = text.find(COMMS_START)
     if start_idx == -1:
         return text
 
     before = _strip_trailing_bare_separator(text[:start_idx])
-
-    # Preserve sections that follow the comms section
-    for marker in (LESSONS_START, BASELINE_START):
-        idx = text.find(marker, start_idx)
-        if idx != -1:
-            after = text[idx:]
-            return before + '\n\n' + after
+    end_idx = _next_marker_idx(text, start_idx, exclude=(COMMS_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
 
     return before
 
@@ -1412,21 +1385,16 @@ def export_comms_to_docx(comms_items: list, project_name: str = "Project") -> by
 def extract_benefits(text: str) -> str:
     """Extract the benefits section text from plan text.
 
-    Returns the raw text between ``---benefits---`` and the next section
-    marker or EOF, or an empty string if no benefits section is present.
+    Returns the raw text between ``---benefits---`` and whichever other
+    section marker occurs next in the actual text, or EOF.  Returns an
+    empty string if no benefits section is present.
     """
     start_idx = text.find(BENEFITS_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(BENEFITS_START)
-
-    # Find the end: next section marker or EOF
-    end_idx = len(text)
-    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
+    end_idx = _next_marker_idx(text, after_start, exclude=(BENEFITS_START,))
 
     return text[after_start:end_idx].strip()
 
@@ -1435,20 +1403,17 @@ def strip_benefits(text: str) -> str:
     """Remove the benefits section from plan text.
 
     Returns the plan text without the ``---benefits---`` block.
+    Preserves whatever other section actually follows the benefits
+    section in the text, regardless of canonical order.
     """
     start_idx = text.find(BENEFITS_START)
     if start_idx == -1:
         return text
 
     before = _strip_trailing_bare_separator(text[:start_idx])
-
-    # Preserve any section that follows the benefits block
-    after_start = start_idx + len(BENEFITS_START)
-    for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
-        idx = text.find(marker, after_start)
-        if idx != -1:
-            after = text[idx:]
-            return before + '\n\n' + after
+    end_idx = _next_marker_idx(text, start_idx, exclude=(BENEFITS_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
 
     return before
 
@@ -1597,21 +1562,16 @@ def parse_benefits_markdown(text: str) -> list:
 def extract_lessons(text: str) -> str:
     """Extract the lessons learned section text from plan text.
 
-    Returns the raw text between ``---lessons learned---`` and the next
-    section marker (``---baseline---``) or EOF, or an empty string if no
-    lessons learned section is present.
+    Returns the raw text between ``---lessons learned---`` and whichever
+    other section marker occurs next in the actual text, or EOF.  Returns
+    an empty string if no lessons learned section is present.
     """
     start_idx = text.find(LESSONS_START)
     if start_idx == -1:
         return ''
 
     after_start = start_idx + len(LESSONS_START)
-
-    end_idx = len(text)
-    for marker in (BASELINE_START,):
-        idx = text.find(marker, after_start)
-        if idx != -1 and idx < end_idx:
-            end_idx = idx
+    end_idx = _next_marker_idx(text, after_start, exclude=(LESSONS_START,))
 
     return text[after_start:end_idx].strip()
 
@@ -1620,20 +1580,17 @@ def strip_lessons(text: str) -> str:
     """Remove the lessons learned section from plan text.
 
     Returns the plan text without the ``---lessons learned---`` block.
-    Preserves any baseline section that follows.
+    Preserves whatever other section actually follows it in the text,
+    regardless of canonical order.
     """
     start_idx = text.find(LESSONS_START)
     if start_idx == -1:
         return text
 
     before = _strip_trailing_bare_separator(text[:start_idx])
-
-    # Preserve baseline section if it follows
-    for marker in (BASELINE_START,):
-        idx = text.find(marker, start_idx)
-        if idx != -1:
-            after = text[idx:]
-            return before + '\n\n' + after
+    end_idx = _next_marker_idx(text, start_idx, exclude=(LESSONS_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
 
     return before
 

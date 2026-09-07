@@ -17,9 +17,14 @@ from noodle_core import (
     parse_baseline_markdown,
     generate_baseline_text,
     update_plan_baseline,
+    extract_budget,
     strip_budget,
+    extract_benefits,
     strip_benefits,
+    extract_comms_plan,
     strip_comms,
+    update_plan_comms,
+    generate_comms_plan_text,
     parse_benefits_markdown,
     parse_budget_markdown,
     parse_raid_markdown,
@@ -2223,6 +2228,143 @@ class TestLessonsPreservedDuringSectionUpdates:
         assert '---raid log---' in result
         assert '---lessons learned---' in result
         assert 'Pair programming worked' in result
+
+
+class TestRaidCommsSectionCollision:
+    """Regression tests for kevinmcaleer/Snakie#978: the comms plan
+    section was showing up on the RAID (risks and issues) log.
+
+    Root cause had two parts:
+
+    1. A duplicate, out-of-sync client-side implementation in script.js
+       (``extractRaidLogFromPlanText``) only stopped at ``---budget---``
+       or ``---baseline---``, not ``---comms---`` or
+       ``---lessons learned---`` -- unlike this module's
+       ``extract_raid_log``, which already stopped correctly. That JS bug
+       is covered separately in tests/test_raid_comms_section_collision.mjs.
+
+    2. Several extract_*/strip_* functions here computed "the next
+       section marker" by returning on the *first* marker found while
+       scanning a fixed, canonical-order marker list, rather than the
+       *earliest-occurring* marker actually present in the text. Under
+       non-canonical section ordering (e.g. a hand-edited or AI-edited
+       plan with comms ahead of budget) this could drop or duplicate an
+       entire section on a round trip. This class covers that second bug.
+    """
+
+    def test_extract_raid_log_stops_before_comms(self):
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---raid log---\n"
+            "| Type | Description |\n|------|-------------|\n| risk | Server fail |\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Kickoff  |"
+        )
+        raid_text = extract_raid_log(text)
+        assert 'Server fail' in raid_text
+        assert '---comms---' not in raid_text
+        assert 'Kickoff' not in raid_text
+
+    def test_extract_comms_plan_stops_before_a_following_lessons_section(self):
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Kickoff  |\n\n"
+            "---lessons learned---\nDon't do that again."
+        )
+        comms_text = extract_comms_plan(text)
+        assert 'Kickoff' in comms_text
+        assert '---lessons learned---' not in comms_text
+        assert "Don't do that again." not in comms_text
+
+    def test_extract_comms_plan_stops_at_an_out_of_order_budget_section(self):
+        # Non-canonical order: comms ahead of budget. This is reachable via
+        # hand editing or the AI chat assistant, since nothing enforces
+        # canonical ordering in the raw plan text.
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Kickoff  |\n\n"
+            "---budget---\n"
+            "| Item |\n|------|\n| Licence |"
+        )
+        comms_text = extract_comms_plan(text)
+        assert 'Kickoff' in comms_text
+        assert '---budget---' not in comms_text
+        assert 'Licence' not in comms_text
+
+    def test_update_plan_raid_log_does_not_duplicate_an_out_of_order_budget_section(self):
+        # Reproduces the data-duplication bug found while investigating
+        # #978: with comms ahead of budget (non-canonical), the old
+        # strip_raid_log/extract_comms_plan implementation caused the
+        # budget section to be duplicated in the result.
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---raid log---\n"
+            "| Type | Description |\n|------|-------------|\n| risk | old |\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Kickoff  |\n\n"
+            "---budget---\n"
+            "| Item |\n|------|\n| Licence |"
+        )
+        result = update_plan_raid_log(text, [
+            {'type': 'risk', 'title': 'new risk', 'description': 'd', 'status': 'open',
+             'impact': 3, 'likelihood': 3, 'score': 9, 'owner': 'kev'},
+        ])
+        assert result.count('---budget---') == 1
+        assert result.count('---comms---') == 1
+        assert 'Kickoff' in result
+        assert 'Licence' in result
+
+    def test_update_plan_comms_does_not_duplicate_an_out_of_order_raid_log_section(self):
+        # Same scenario, mirrored: updating comms must not duplicate a
+        # RAID log section that ends up positioned after it.
+        text = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Old activity |\n\n"
+            "---raid log---\n"
+            "| Type | Description |\n|------|-------------|\n| risk | R1 |"
+        )
+        result = update_plan_comms(text, [
+            {'activity': 'Kickoff', 'audience': 'All', 'content': 'Intro',
+             'frequency': 'Once', 'channel': 'Email', 'owner': 'PM', 'status': 'done'},
+        ])
+        assert result.count('---raid log---') == 1
+        assert 'R1' in result
+        assert 'Kickoff' in result
+
+    def test_strip_one_section_preserves_every_other_section_in_any_order(self):
+        """Stripping a single section must leave every *other* section's
+        marker and content fully intact, no matter which order the
+        sections happen to appear in the text."""
+        sections = {
+            '---budget---': ('| Item |', strip_budget),
+            '---benefits---': ('| Benefit |', strip_benefits),
+            '---raid log---': ('| risk | R1 |', strip_raid_log),
+            '---comms---': ('| Kickoff |', strip_comms),
+        }
+        bodies = {
+            '---budget---': '| Item |\n|------|\n| B1 |',
+            '---benefits---': '| Benefit |\n|---------|\n| Faster |',
+            '---raid log---': '| Type | Description |\n|------|-------------|\n| risk | R1 |',
+            '---comms---': '| Activity |\n|----------|\n| Kickoff |',
+        }
+
+        import itertools
+        for order in itertools.permutations(bodies):
+            text = "Phase 1\n  Task 1 @john 3d\n\n" + "\n\n".join(
+                f"{marker}\n{bodies[marker]}" for marker in order
+            )
+            for stripped_marker in order:
+                _, stripper = sections[stripped_marker]
+                result = stripper(text)
+                assert stripped_marker not in result, (order, stripped_marker, result)
+                for other_marker, (needle, _) in sections.items():
+                    if other_marker == stripped_marker:
+                        continue
+                    assert other_marker in result, (order, stripped_marker, other_marker, result)
+                    assert needle in result, (order, stripped_marker, other_marker, result)
 
 
 if __name__ == "__main__":
