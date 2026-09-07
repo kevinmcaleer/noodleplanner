@@ -175,6 +175,10 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         phases: Nested dict structure from natural_language_to_yaml or YAML.
                 Leaf tasks have {'_text': str, '_level': int}
                 Summary tasks have nested dicts with '_level' and '_is_summary' markers
+                A child dict may carry an optional '_name' marker; when present it is
+                the task's true name and takes precedence over its dict key (used by
+                natural_language_to_yaml to give duplicate sibling names distinct dict
+                keys internally while preserving the real name -- see issue #838).
         holidays: Set of project-wide holiday dates to skip when scheduling.
         resource_non_working_days: Dict mapping lowercase resource shortnames to
                 sets of datetime.date for resource-specific non-working days.
@@ -185,7 +189,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
     """
     all_tasks = []
 
-    def create_leaf_task(text, task_name, level, parent_name):
+    def create_leaf_task(text, task_name, level, parent_name, parent_uid=None):
         """Create a leaf task from text and metadata, appending it to all_tasks."""
         if len(task_name) > MAX_TASK_NAME_LENGTH:
             raise ValueError(
@@ -203,9 +207,14 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                 f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
                 f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
             )
+        # Internal identity, distinct from the (possibly duplicated) display
+        # name -- see the '_uid'/'_parent_uid' note below for why this
+        # exists.
+        meta['_uid'] = len(all_tasks)
+        meta['_parent_uid'] = parent_uid
         all_tasks.append(meta)
 
-    def traverse_nested_dict(node, parent_name=None, parent_level=-1, depth=0):
+    def traverse_nested_dict(node, parent_name=None, parent_level=-1, depth=0, parent_uid=None):
         """Recursively traverse nested dict and extract tasks."""
         if depth > MAX_NESTING_DEPTH:
             raise ValueError(
@@ -216,7 +225,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         if isinstance(node, list):
             # Handle list of dicts at top level
             for item in node:
-                traverse_nested_dict(item, parent_name, parent_level, depth)
+                traverse_nested_dict(item, parent_name, parent_level, depth, parent_uid)
             return
 
         if not isinstance(node, dict):
@@ -242,7 +251,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                 else:
                     task_name = text
 
-            create_leaf_task(text, task_name, level, parent_name)
+            create_leaf_task(text, task_name, level, parent_name, parent_uid)
             return
 
         # This is a summary task with children
@@ -256,23 +265,31 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
             # Check if child is a leaf or summary
             if isinstance(value, dict):
+                # natural_language_to_yaml disambiguates duplicate sibling
+                # names with a unique dict key (since dict keys must be
+                # unique) and stashes the real name under '_name'. Prefer
+                # that when present so duplicate siblings keep their true,
+                # user-visible name; hand-authored YAML plans (which have no
+                # '_name') fall back to the dict key exactly as before.
+                true_name = value.get('_name', key) if isinstance(value, dict) else key
+
                 if '_text' in value:
                     # Leaf task
-                    create_leaf_task(value['_text'], key, value.get('_level', level + 1), parent_name)
+                    create_leaf_task(value['_text'], true_name, value.get('_level', level + 1), parent_name, parent_uid)
                 elif '_is_summary' in value or any(isinstance(v, dict) for v in value.values()):
                     # Summary task with children
-                    if len(key) > MAX_TASK_NAME_LENGTH:
+                    if len(true_name) > MAX_TASK_NAME_LENGTH:
                         raise ValueError(
-                            f"Task name '{key[:50]}...' exceeds maximum length of "
+                            f"Task name '{true_name[:50]}...' exceeds maximum length of "
                             f"{MAX_TASK_NAME_LENGTH} characters. "
                             f"Set NOODLE_MAX_TASK_NAME_LENGTH environment variable to increase."
                         )
                     # Build summary metadata from base fields + optional extracted metadata
                     summary_text = value.get('_summary_text', '')
-                    summary_meta_data = extract_metadata(summary_text, key) if summary_text else {}
+                    summary_meta_data = extract_metadata(summary_text, true_name) if summary_text else {}
                     summary_meta = {
-                        'name': key,
-                        'description': key,
+                        'name': true_name,
+                        'description': true_name,
                         'level': value.get('_level', level + 1),
                         'parent': parent_name,
                         'phase': parent_name or '',
@@ -293,12 +310,21 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
                             f"Task count exceeds maximum of {MAX_TASK_COUNT}. "
                             f"Reduce tasks or set NOODLE_MAX_TASK_COUNT environment variable."
                         )
+                    # Internal identity, distinct from the (possibly
+                    # duplicated) display name. children_by_parent /
+                    # build_ordered_list below key off this rather than
+                    # off 'name', so that two summary tasks sharing a name
+                    # (anywhere in the tree, not just as siblings) each
+                    # keep their own subtree instead of one being merged
+                    # into or dropped in favour of the other (#838).
+                    summary_meta['_uid'] = len(all_tasks)
+                    summary_meta['_parent_uid'] = parent_uid
                     all_tasks.append(summary_meta)
                     # Recursively process children
-                    traverse_nested_dict(value, parent_name=key, parent_level=value.get('_level', level + 1), depth=depth + 1)
+                    traverse_nested_dict(value, parent_name=true_name, parent_level=value.get('_level', level + 1), depth=depth + 1, parent_uid=summary_meta['_uid'])
                 else:
                     # Single key-value that might be a simple dict
-                    traverse_nested_dict(value, parent_name=key, parent_level=level + 1, depth=depth + 1)
+                    traverse_nested_dict(value, parent_name=true_name, parent_level=level + 1, depth=depth + 1, parent_uid=parent_uid)
 
     # Start traversal
     if isinstance(phases, list):
@@ -516,12 +542,16 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         else:
             # Default: start in parallel (at parent's start or now)
             # Look for parent task or first sibling to determine start
-            parent_name = t.get('parent')
-            if parent_name:
-                # Find first sibling (non-summary task with same parent)
+            parent_uid = t.get('_parent_uid')
+            if parent_uid is not None:
+                # Find first sibling (non-summary task with same parent).
+                # Matched by parent identity (_parent_uid), not parent name,
+                # so that two same-named phases elsewhere in the tree don't
+                # bleed their children's default start dates into each
+                # other (#838).
                 first_sibling = None
                 for j in range(len(all_tasks)):
-                    if (all_tasks[j].get('parent') == parent_name and
+                    if (all_tasks[j].get('_parent_uid') == parent_uid and
                         not all_tasks[j].get('summary') and
                         'start' in all_tasks[j]):
                         first_sibling = all_tasks[j]
@@ -543,41 +573,47 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
     # One pass over the task list serves every summary roll-up and the
     # re-ordering below; both used to rescan all_tasks per summary (#789).
-    # Order within each child list is the original order, and the first
-    # summary carrying a name wins, exactly as the per-summary scans did.
+    # Order within each child list is the original order.
+    #
+    # Grouped by _uid/_parent_uid (an identity assigned per task when it was
+    # created above), not by name. Two tasks -- summary or leaf -- can share
+    # a display name anywhere in the tree, as siblings or otherwise; keying
+    # this by name would silently merge or drop one of them, which is
+    # exactly the data-loss bug reported in #838. _uid is unique per task by
+    # construction, so no "first one with this name wins" tie-break is
+    # needed any more.
     children_by_parent = {}
-    summary_by_name = {}
+    summary_by_uid = {}
     for t in all_tasks:
-        parent_name = t.get('parent')
-        if parent_name:
-            children_by_parent.setdefault(parent_name, []).append(t)
-        if t.get('summary') and t.get('name') and t['name'] not in summary_by_name:
-            summary_by_name[t['name']] = t
+        parent_uid = t.get('_parent_uid')
+        if parent_uid is not None:
+            children_by_parent.setdefault(parent_uid, []).append(t)
+        if t.get('summary'):
+            summary_by_uid[t['_uid']] = t
     summaries_done = set()
 
     # Calculate summary task dates from children
-    def calculate_summary_dates(task_name):
+    def calculate_summary_dates(uid):
         """Calculate start/finish for a summary task from its children.
 
         Each summary is computed once, bottom-up. Before, every call rescanned
         all_tasks for children and recursed into nested summaries without
         remembering them, so a 300-summary plan did this 1,200 times (#789).
         """
-        if task_name in summaries_done:
+        if uid in summaries_done:
             return
-        summaries_done.add(task_name)
+        summaries_done.add(uid)
 
-        children = children_by_parent.get(task_name, [])
+        children = children_by_parent.get(uid, [])
         if not children:
             return
 
         # Recursively calculate for any summary children first
         for child in children:
             if child.get('summary'):
-                calculate_summary_dates(child['name'])
+                calculate_summary_dates(child['_uid'])
 
-        # Get the summary task (the first with that name, as before)
-        summary_task = summary_by_name.get(task_name)
+        summary_task = summary_by_uid.get(uid)
         if not summary_task:
             return
 
@@ -601,7 +637,7 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
     # Calculate dates for all summary tasks
     for t in all_tasks:
         if t.get('summary'):
-            calculate_summary_dates(t['name'])
+            calculate_summary_dates(t['_uid'])
 
     # Re-order tasks so summary tasks appear immediately before their children
     def build_ordered_list():
@@ -611,23 +647,21 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
 
         def add_task_and_children(task):
             """Recursively add task and its children in order."""
-            # Ensure task has a name
-            if 'name' not in task:
+            uid = task.get('_uid')
+            if uid is None or uid in processed:
                 return
-            if task['name'] in processed:
-                return
-            processed.add(task['name'])
+            processed.add(uid)
 
             # Add the task itself
             ordered.append(task)
 
             # If it's a summary task, add its children (original order)
             if task.get('summary'):
-                for child in children_by_parent.get(task['name'], []):
+                for child in children_by_parent.get(uid, []):
                     add_task_and_children(child)
 
         # Start with top-level tasks (no parent)
-        top_level = [t for t in all_tasks if not t.get('parent')]
+        top_level = [t for t in all_tasks if t.get('_parent_uid') is None]
         for task in top_level:
             add_task_and_children(task)
 
@@ -796,12 +830,24 @@ def natural_language_to_yaml(text, project_name="Project"):
         result = {}
         for child in node['children']:
             child_result = tree_to_nested_dict(child)
-            if '_text' in child_result:
-                # Leaf task
-                result[child['name']] = child_result
+            key = child['name'] if '_text' in child_result else child['full_name']
+            if key in result:
+                # Duplicate sibling name. Dict keys must be unique, so give
+                # this child its own key (a suffix that cannot appear in a
+                # parsed task name) rather than overwriting the earlier
+                # sibling's entry -- re-assigning an existing dict key keeps
+                # the key's original insertion position but replaces its
+                # value, which would both drop the earlier sibling's subtree
+                # and leave the survivor in the wrong outline position.
+                # Using a fresh key for every duplicate preserves outline
+                # order (each child gets its own insertion-ordered slot) and
+                # keeps every duplicate's subtree intact. The true name is
+                # recovered by the consumer (schedule_tasks) via '_name'.
+                dedup_key = f"{key}\x00{len(result)}"
+                child_result['_name'] = key
+                result[dedup_key] = child_result
             else:
-                # Summary task with children
-                result[child['full_name']] = child_result
+                result[key] = child_result
 
         # Mark as summary with level
         result['_level'] = node['level']

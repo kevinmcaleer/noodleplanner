@@ -632,14 +632,29 @@ def inherit_summary_resources(tasks):
         summary_resource = task.get('resources', '')
         if not summary_resource:
             continue
-        parent_name = task.get('name')
-        _propagate_resource_to_children(tasks, parent_name, summary_resource)
+        # schedule_tasks tags every task with a '_uid' identity, distinct
+        # from its (possibly duplicated) display name; use that to match
+        # children when present so that two summary tasks sharing a name
+        # (#838) don't leak resources into each other's children. Callers
+        # that pass hand-built task dicts without '_uid' (e.g. tests
+        # exercising this function directly) fall back to matching by name,
+        # exactly as before.
+        if '_uid' in task:
+            _propagate_resource_to_children(tasks, task['_uid'], summary_resource, by_uid=True)
+        else:
+            _propagate_resource_to_children(tasks, task.get('name'), summary_resource, by_uid=False)
 
 
-def _propagate_resource_to_children(tasks, parent_name, resource):
-    """Recursively assign inherited resource to unassigned children."""
+def _propagate_resource_to_children(tasks, parent_key, resource, by_uid=False):
+    """Recursively assign inherited resource to unassigned children.
+
+    ``parent_key`` is a task '_uid' when ``by_uid`` is True, otherwise a
+    parent display name (the pre-#838 behaviour, kept for callers that don't
+    supply '_uid').
+    """
     for task in tasks:
-        if task.get('parent') != parent_name:
+        task_parent_key = task.get('_parent_uid') if by_uid else task.get('parent')
+        if task_parent_key != parent_key:
             continue
         if task.get('summary'):
             # If child summary has no resource, inherit from parent
@@ -647,7 +662,8 @@ def _propagate_resource_to_children(tasks, parent_name, resource):
                 task['resources'] = resource
                 task['inherited_resource'] = True
             # Recurse into child summary's children
-            _propagate_resource_to_children(tasks, task['name'], task.get('resources', ''))
+            child_key = task.get('_uid') if by_uid else task.get('name')
+            _propagate_resource_to_children(tasks, child_key, task.get('resources', ''), by_uid=by_uid)
         else:
             # Leaf task: only assign if no resource already set
             if not task.get('resources'):
