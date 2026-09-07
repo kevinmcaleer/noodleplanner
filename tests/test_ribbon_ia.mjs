@@ -1,0 +1,118 @@
+/**
+ * ribbon-ia.js -- data integrity for the ribbon's command catalogue
+ * (design handoff "Ribbon Toolbar (option 2a)", #833 follow-up).
+ *
+ * This module was hand-ported from the design's ribbon-ia.json; these
+ * tests catch transcription mistakes (a typo'd icon id, a duplicate tab,
+ * a contextForView entry pointing at a tab that doesn't exist) rather
+ * than testing behaviour, which lives in ribbon.js.
+ *
+ *   node --test tests/test_ribbon_ia.mjs
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+import {
+  SCOPES, FILE_MENU, QUICK_ACTIONS, TABS, CONTEXTUAL_TABS, CONTEXT_FOR_VIEW, contextualTabFor,
+} from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
+
+const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+
+/** Every symbol id defined in the app's sprite (index.html), sans "icon-". */
+function spriteIconIds() {
+  const html = readFileSync(`${repo}/packages/noodle-web/src/noodle_web/templates/index.html`, "utf8");
+  const ids = new Set();
+  for (const m of html.matchAll(/<symbol id="icon-([a-z0-9-]+)"/g)) ids.add(m[1]);
+  return ids;
+}
+
+/** Every [icon, label] / [icon, label, 'caret'] tuple across every group in a tab list. */
+function buttonsIn(tabs) {
+  const out = [];
+  for (const tab of tabs) {
+    for (const group of tab.groups) {
+      for (const b of group.lg || []) out.push({ tab: tab.id, group: group.name, kind: "lg", tuple: b });
+      for (const col of group.cols || []) {
+        for (const b of col) out.push({ tab: tab.id, group: group.name, kind: "sm", tuple: b });
+      }
+    }
+  }
+  return out;
+}
+
+test("every button icon exists in the app's SVG sprite", () => {
+  const known = spriteIconIds();
+  const missing = [];
+  for (const { tab, group, tuple } of [...buttonsIn(TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+    if (!known.has(tuple[0])) missing.push(`${tab}/${group}: icon "${tuple[0]}" for "${tuple[1]}"`);
+  }
+  assert.deepEqual(missing, [], `unknown icon ids:\n${missing.join("\n")}`);
+});
+
+test("file menu, quick actions and contextual-tab icons also exist in the sprite", () => {
+  const known = spriteIconIds();
+  const missing = [];
+  for (const f of FILE_MENU) if (!known.has(f.icon)) missing.push(`fileMenu: "${f.icon}" for "${f.label}"`);
+  for (const q of QUICK_ACTIONS) if (!known.has(q.icon)) missing.push(`quickActions: "${q.icon}" for "${q.label}"`);
+  for (const s of SCOPES) if (!known.has(s.icon)) missing.push(`scopes: "${s.icon}" for "${s.label}"`);
+  for (const c of CONTEXTUAL_TABS) if (!known.has(c.icon)) missing.push(`contextualTabs: "${c.icon}" for "${c.label}"`);
+  assert.deepEqual(missing, []);
+});
+
+test("every button tuple has a non-empty icon and label", () => {
+  for (const { tab, group, tuple } of [...buttonsIn(TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+    assert.ok(tuple[0], `${tab}/${group}: empty icon`);
+    assert.ok(tuple[1], `${tab}/${group}: empty label for icon "${tuple[0]}"`);
+    if (tuple[2] !== undefined) assert.equal(tuple[2], "caret", `${tab}/${group}: unexpected 3rd element "${tuple[2]}"`);
+  }
+});
+
+test("tab ids are unique, and match the design's Home/Plan/Track/Resources/Report/View order", () => {
+  const ids = TABS.map((t) => t.id);
+  assert.deepEqual(ids, [...new Set(ids)]);
+  assert.deepEqual(ids, ["home", "plan", "track", "resources", "report", "view"]);
+});
+
+test("contextual tab ids are unique and every one has an accent, tint and onAccent colour", () => {
+  const ids = CONTEXTUAL_TABS.map((c) => c.id);
+  assert.deepEqual(ids, [...new Set(ids)]);
+  for (const c of CONTEXTUAL_TABS) {
+    assert.match(c.accent, /^#[0-9a-f]{6}$/i, `${c.id}: bad accent`);
+    assert.match(c.tint, /^#[0-9a-f]{6}$/i, `${c.id}: bad tint`);
+    assert.match(c.onAccent, /^#[0-9a-f]{6}$/i, `${c.id}: bad onAccent`);
+    assert.ok(c.accentToken.startsWith("--np-"), `${c.id}: accentToken should be an --np-* custom property`);
+  }
+});
+
+test("every group has at least one button", () => {
+  for (const { tab, groups } of [...TABS, ...CONTEXTUAL_TABS]) {
+    for (const g of groups) {
+      const count = (g.lg || []).length + (g.cols || []).reduce((n, col) => n + col.length, 0);
+      assert.ok(count > 0, `${tab || g.name}/${g.name} has no buttons`);
+    }
+  }
+});
+
+test("every contextForView value names a real contextual tab", () => {
+  const ctxIds = new Set(CONTEXTUAL_TABS.map((c) => c.id));
+  for (const [view, ctx] of Object.entries(CONTEXT_FOR_VIEW)) {
+    assert.ok(ctxIds.has(ctx), `contextForView["${view}"] = "${ctx}" is not a real contextual tab`);
+  }
+});
+
+test("contextualTabFor resolves a mapped view and returns null for an unmapped one", () => {
+  assert.equal(contextualTabFor("raid").id, "raid");
+  assert.equal(contextualTabFor("mindmap").id, "whiteboard");
+  assert.equal(contextualTabFor("editor"), null);
+  assert.equal(contextualTabFor(null), null);
+});
+
+test("a caret button is always a small (cols) button, never a large one", () => {
+  // The design's large buttons are single-purpose (README: lg = 0-2 per
+  // group, first in the row) -- caret/gallery behaviour is only specified
+  // for the two-row small-button columns.
+  for (const { tab, group, kind, tuple } of [...buttonsIn(TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+    if (tuple[2] === "caret") assert.equal(kind, "sm", `${tab}/${group}: "${tuple[1]}" is a caret lg button`);
+  }
+});

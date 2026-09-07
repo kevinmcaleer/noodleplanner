@@ -7189,85 +7189,510 @@ tr:hover .task-context-btn,
 }
 
 /* ========================================
-   Command Ribbon (#833, #839, #891)
-   Renders from ribbon-commands.js -- see that file for the data.
-   Same fixed gradient as .modal-header: unchanged across themes.
+   Ribbon (design handoff "Ribbon Toolbar option 2a", #833 follow-up)
+   Three stacked bars: title (38px), tab strip (34px), ribbon body (98px).
+   Renders from ribbon-ia.js; see that file for the command catalogue and
+   the design's README for the pixel spec this is ported from.
    ======================================== */
-.command-ribbon {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    padding: 6px 12px;
-    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
-    overflow-x: auto;
+.ribbon-shell {
+    position: relative;
 }
 
-.command-ribbon:empty {
-    display: none;
+/* -- 1. Title bar -- */
+.ribbon-titlebar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 38px;
+    padding: 0 10px;
+    background: var(--np-dark-blue);
+    color: #fff;
+    z-index: 5;
+}
+
+.ribbon-mark {
+    height: 22px;
+    width: 22px;
+    display: block;
+    border-radius: 50%;
+}
+
+.ribbon-scope-track {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.ribbon-scope-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    background: transparent;
+    color: #a9c7d4;
+}
+
+.ribbon-scope-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-scope-btn.active {
+    background: var(--np-blue);
+    color: #fff;
+}
+
+.ribbon-titlebar-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.22);
+    flex-shrink: 0;
+}
+
+.ribbon-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.ribbon-quick-btn {
+    display: flex;
+    padding: 5px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #cfe0e7;
+}
+
+.ribbon-quick-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-quick-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.ribbon-doc-title {
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    color: #a9c7d4;
+    margin-left: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ribbon-titlebar-spacer {
+    flex: 1;
+    min-width: 8px;
+}
+
+.ribbon-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 23px;
+    padding: 0 11px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #cfe0e7;
+    font-size: 11px;
+    white-space: nowrap;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.ribbon-search svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+}
+
+.ribbon-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 23px;
+    height: 23px;
+    border-radius: 50%;
+    background: var(--np-blue);
+    color: #fff;
+    font-weight: 600;
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* -- 2. Tab strip -- */
+.ribbon-tabstrip {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: 34px;
+    padding: 0 8px;
+    background: #f4f7f8;
+    border-bottom: 1px solid #d8e1e5;
+    z-index: 4;
+}
+
+.ribbon-file-btn {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    margin-right: 10px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    background: var(--np-red);
+    color: #fff;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.ribbon-file-btn:hover {
+    background: #a81919;
+}
+
+.ribbon-tab-btn {
+    height: 34px;
+    padding: 0 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 400;
+    font-size: 12.5px;
+    line-height: 1;
+    font-family: inherit;
+    color: #4a626d;
+}
+
+.ribbon-tab-btn:hover {
+    color: var(--np-dark-blue);
+}
+
+.ribbon-tab-btn.active {
+    border-bottom-color: var(--np-blue);
+    color: var(--np-dark-blue);
+}
+
+.ribbon-tab-btn.contextual {
+    margin-left: 14px;
+    color: #2c4a56;
+    animation: ribbonCtxIn 0.22s ease both;
+}
+
+.ribbon-tab-btn.contextual.active {
+    color: var(--np-dark-blue);
+}
+
+@keyframes ribbonCtxIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.ribbon-tabstrip-spacer {
+    flex: 1;
+}
+
+.ribbon-collapse-btn {
+    padding: 0 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6b7b83;
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 1;
+    font-family: inherit;
+    align-self: center;
+}
+
+.ribbon-file-menu {
+    position: absolute;
+    top: 34px;
+    left: 8px;
+    width: 290px;
+    padding: 6px;
+    background: var(--np-dark-blue);
+    border-radius: 0 6px 6px 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.35);
+    animation: ribbonCtxIn 0.16s ease both;
+    z-index: 6;
+}
+
+.ribbon-file-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #e4eef2;
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 1;
+    font-family: inherit;
+    text-align: left;
+}
+
+.ribbon-file-menu-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.ribbon-file-menu-item svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.ribbon-file-menu-item-label {
+    flex: 1;
+}
+
+.ribbon-file-menu-item-kbd {
+    font: 400 10.5px/1 ui-monospace, Menlo, monospace;
+    color: #7fa5b5;
+}
+
+/* -- 3. Ribbon body -- */
+.ribbon-body {
+    display: flex;
+    align-items: stretch;
+    height: 98px;
+    padding: 0 6px;
+    background: #fbfdfd;
+    border-bottom: 1px solid #d8e1e5;
+    overflow: hidden;
 }
 
 .ribbon-group {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 2px 12px;
-    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    padding: 0 2px;
+    border-right: 1px solid rgba(2, 56, 77, 0.13);
     flex-shrink: 0;
 }
 
-.ribbon-group:last-child {
-    border-right: none;
-}
-
-.ribbon-group-buttons {
+.ribbon-group-row {
     display: flex;
-    gap: 4px;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 6px 8px 0;
 }
 
-.ribbon-cmd-btn {
+.ribbon-lg-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 4px 8px;
-    border: none;
-    border-radius: 5px;
-    background: rgba(255, 255, 255, 0.12);
-    color: white;
+    gap: 5px;
+    width: 70px;
+    padding: 5px 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
     cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
     font-size: 11px;
+    line-height: 1.2;
+    font-family: inherit;
+    text-align: center;
+    text-wrap: balance;
+}
+
+.ribbon-lg-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-sm-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding-top: 1px;
+}
+
+.ribbon-sm-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 23px;
+    padding: 0 7px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #20404d;
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
     white-space: nowrap;
-    transition: background-color var(--np-anim-duration) var(--np-anim-easing);
 }
 
-.ribbon-cmd-btn i {
-    font-size: 16px;
+.ribbon-sm-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
 }
 
-.ribbon-cmd-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.25);
+.ribbon-lg-btn:hover:not(:disabled),
+.ribbon-sm-btn:hover:not(:disabled) {
+    background: #e2f0f7;
+    border-color: #b6dced;
 }
 
-.ribbon-cmd-btn.active {
-    background: rgba(255, 255, 255, 0.92);
-    color: #108BB9;
-}
-
-.ribbon-cmd-btn:disabled {
+.ribbon-lg-btn:disabled,
+.ribbon-sm-btn:disabled {
     opacity: 0.4;
     cursor: default;
 }
 
-.ribbon-cmd-label {
+.ribbon-caret {
+    font-size: 8px;
+    color: #6b7b83;
+}
+
+.ribbon-group-caption {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 3px 10px 5px;
+    font-weight: 400;
+    font-size: 10px;
+    line-height: 1;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    color: #6b7b83;
+}
+
+.ribbon-launcher {
+    font-size: 9px;
+    color: #93a5ad;
+    cursor: pointer;
+}
+
+.ribbon-more {
+    order: 9;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 74px;
+    padding: 6px 4px 5px;
+    margin-left: auto;
+    border-left: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+.ribbon-more-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 66px;
+    padding: 5px 3px;
+    background: transparent;
+    border: 1px solid #cfdde3;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 1.2;
+    font-family: inherit;
+}
+
+.ribbon-more-btn:hover {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+.ribbon-more-chevron {
+    font-size: 15px;
     line-height: 1;
 }
 
-.ribbon-group-label {
-    margin-top: 4px;
-    text-align: center;
+.ribbon-more-caption {
+    font-weight: 400;
     font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: rgba(255, 255, 255, 0.75);
+    line-height: 1;
+    font-family: inherit;
+    color: #6b7b83;
+    text-align: center;
+}
+
+.ribbon-more-popover {
+    position: absolute;
+    top: 137px;
+    right: 6px;
+    width: 220px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #d8e1e5;
+    border-radius: 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    z-index: 7;
+    animation: ribbonCtxIn 0.16s ease both;
+}
+
+.ribbon-more-popover .ribbon-group {
+    border-right: none;
+    border-bottom: 1px solid rgba(2, 56, 77, 0.13);
+    padding: 6px 0;
+}
+
+.ribbon-more-popover .ribbon-group:last-child {
+    border-bottom: none;
+}
+
+.ribbon-more-popover .ribbon-group-row {
+    flex-wrap: wrap;
 }
