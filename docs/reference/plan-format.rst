@@ -286,6 +286,11 @@ position, so extra or reordered columns are tolerated), except highlights.
    * - ``---baseline---``
      - Table: ``Task Name | Start | Finish | Duration``, one row per task at
        the time the baseline was taken.
+   * - ``---whiteboard---``
+     - Table: ``Task | X | Y | Colour | Width | Height | Collapsed``, the
+       whiteboard/todo-list view's note layout (one row per note). See
+       `Whiteboard rows`_ below for the columns and the orphan/duplicate
+       rules.
 
 A ``# Heading`` line directly after a marker (``# RAID Log``) is allowed
 and kept.
@@ -294,6 +299,25 @@ Editing a section through its view (adding a RAID item, say) rewrites
 **that section only**, in the app's canonical table layout. The rest of the
 file is not touched. Hand-written tables are read as they are and left as
 they are until the view edits them.
+
+Whiteboard rows
+~~~~~~~~~~~~~~~~
+
+- ``Task`` names a summary task by name.
+- ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
+  top-left of the board's own coordinate space (not the viewport).
+- ``Colour`` is ``#RRGGBB`` or empty; empty means inherit the palette.
+- ``Width`` / ``Height`` are optional integers; empty means the default
+  note size.
+- ``Collapsed`` is ``yes`` or ``no``.
+- A row whose ``Task`` matches no summary task in the outline (for example
+  because the task was renamed by hand, which looks identical to a
+  delete-plus-add) is kept in the file, not rendered, and reported as a
+  warning -- the same "never remove a line you do not understand" rule
+  this page states elsewhere.
+- ``Task`` is matched case-insensitively against summary task names, the
+  same as dependency name resolution above. If two whiteboard rows name
+  the same task, the later one wins; avoid duplicate names.
 
 Where plan data lives
 ----------------------

@@ -34,6 +34,12 @@ from noodle_core import (
     parse_lessons_markdown,
     generate_lessons_text,
     update_plan_lessons,
+    extract_whiteboard,
+    strip_whiteboard,
+    parse_whiteboard_markdown,
+    validate_whiteboard_rows,
+    generate_whiteboard_text,
+    update_plan_whiteboard,
 )
 
 
@@ -2343,12 +2349,16 @@ class TestRaidCommsSectionCollision:
             '---benefits---': ('| Benefit |', strip_benefits),
             '---raid log---': ('| risk | R1 |', strip_raid_log),
             '---comms---': ('| Kickoff |', strip_comms),
+            '---baseline---': ('| Task A |', strip_baseline),
+            '---whiteboard---': ('| Phase 1 |', strip_whiteboard),
         }
         bodies = {
             '---budget---': '| Item |\n|------|\n| B1 |',
             '---benefits---': '| Benefit |\n|---------|\n| Faster |',
             '---raid log---': '| Type | Description |\n|------|-------------|\n| risk | R1 |',
             '---comms---': '| Activity |\n|----------|\n| Kickoff |',
+            '---baseline---': '| Task Name |\n|-----------|\n| Task A |',
+            '---whiteboard---': '| Task |\n|------|\n| Phase 1 |',
         }
 
         import itertools
@@ -2365,6 +2375,381 @@ class TestRaidCommsSectionCollision:
                         continue
                     assert other_marker in result, (order, stripped_marker, other_marker, result)
                     assert needle in result, (order, stripped_marker, other_marker, result)
+
+
+SAMPLE_WHITEBOARD = (
+    "| Task      | X   | Y   | Colour  | Width | Height | Collapsed |\n"
+    "|-----------|-----|-----|---------|-------|--------|-----------|\n"
+    "| Discovery | 120 | 80  | #4A90D9 | 240   | 200    | no        |\n"
+    "| Build     | 420 | 80  |         | 240   | 260    | no        |"
+)
+
+
+class TestExtractWhiteboard:
+    def test_absent_returns_empty_string(self):
+        assert extract_whiteboard("Phase 1\n  Task 1 3d") == ''
+
+    def test_extracts_the_section_body(self):
+        text = "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        result = extract_whiteboard(text)
+        assert 'Discovery' in result
+        assert 'Build' in result
+        assert '---whiteboard---' not in result
+
+    def test_stops_before_a_following_section_out_of_canonical_order(self):
+        # Whiteboard is canonically last, but nothing in the raw text
+        # enforces that -- a hand-edited or AI-edited plan could still
+        # put something after it.
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD +
+            "\n\n---baseline---\n| Task Name |\n|-----------|\n| Task 1 |"
+        )
+        result = extract_whiteboard(text)
+        assert 'Discovery' in result
+        assert '---baseline---' not in result
+        assert 'Task Name' not in result
+
+
+class TestStripWhiteboard:
+    def test_absent_returns_text_unchanged(self):
+        text = "Phase 1\n  Task 1 3d"
+        assert strip_whiteboard(text) == text
+
+    def test_removes_the_section(self):
+        text = "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        result = strip_whiteboard(text)
+        assert '---whiteboard---' not in result
+        assert 'Discovery' not in result
+        assert result.rstrip() == "Phase 1\n  Task 1 3d"
+
+    def test_preserves_a_section_that_follows_it(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD +
+            "\n\n---baseline---\n| Task Name |\n|-----------|\n| Task 1 |"
+        )
+        result = strip_whiteboard(text)
+        assert '---whiteboard---' not in result
+        assert 'Discovery' not in result
+        assert '---baseline---' in result
+        assert 'Task Name' in result
+
+
+class TestWhiteboardBaselineOrdering:
+    """The regression this issue's whiteboard section could reproduce for
+    baseline: before this issue, extract_baseline/strip_baseline read to
+    EOF unconditionally (baseline was assumed to always be last), which
+    would have swallowed a following whiteboard section whole."""
+
+    def test_extract_baseline_stops_before_a_following_whiteboard_section(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---baseline---\n"
+            "| Task Name |\n|-----------|\n| Task 1 |\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        baseline_text = extract_baseline(text)
+        assert 'Task Name' in baseline_text
+        assert '---whiteboard---' not in baseline_text
+        assert 'Discovery' not in baseline_text
+
+    def test_strip_baseline_preserves_a_following_whiteboard_section(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---baseline---\n"
+            "| Task Name |\n|-----------|\n| Task 1 |\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        result = strip_baseline(text)
+        assert '---baseline---' not in result
+        assert 'Task Name' not in result
+        assert '---whiteboard---' in result
+        assert 'Discovery' in result
+
+    def test_update_plan_baseline_preserves_a_following_whiteboard_section(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---baseline---\n"
+            "| Task Name |\n|-----------|\n| Old Task |\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        result = update_plan_baseline(text, [
+            {'name': 'Task 1', 'start': '2026-01-01', 'finish': '2026-01-02', 'duration': '2d'},
+        ])
+        assert '---whiteboard---' in result
+        assert 'Discovery' in result
+        assert 'Build' in result
+        # baseline was rewritten in canonical layout
+        assert 'Task 1' in result
+        assert 'Old Task' not in result
+        # canonical order: baseline before whiteboard
+        assert result.find('---baseline---') < result.find('---whiteboard---')
+
+
+class TestParseWhiteboardMarkdown:
+    def test_parses_every_column(self):
+        items = parse_whiteboard_markdown(SAMPLE_WHITEBOARD)
+        assert items == [
+            {'task': 'Discovery', 'x': 120, 'y': 80, 'colour': '#4A90D9',
+             'width': 240, 'height': 200, 'collapsed': False},
+            {'task': 'Build', 'x': 420, 'y': 80, 'colour': '',
+             'width': 240, 'height': 260, 'collapsed': False},
+        ]
+
+    def test_empty_text_returns_empty_list(self):
+        assert parse_whiteboard_markdown('') == []
+        assert parse_whiteboard_markdown('no table here') == []
+
+    def test_columns_are_matched_by_name_not_position(self):
+        # Reordered, plus an extra column the parser does not know about.
+        text = (
+            "| Note ID | Y  | Task      | X   | Colour  |\n"
+            "|---------|----|-----------|-----|---------|\n"
+            "| 1       | 80 | Discovery | 120 | #4A90D9 |"
+        )
+        items = parse_whiteboard_markdown(text)
+        assert items == [
+            {'task': 'Discovery', 'x': 120, 'y': 80, 'colour': '#4A90D9',
+             'width': None, 'height': None, 'collapsed': False},
+        ]
+
+    def test_empty_width_and_height_are_none(self):
+        text = (
+            "| Task | X | Y | Colour | Width | Height | Collapsed |\n"
+            "|------|---|---|--------|-------|--------|-----------|\n"
+            "| A    | 1 | 2 |        |       |        |           |"
+        )
+        items = parse_whiteboard_markdown(text)
+        assert items[0]['width'] is None
+        assert items[0]['height'] is None
+        assert items[0]['collapsed'] is False
+
+    def test_collapsed_yes_is_true(self):
+        text = (
+            "| Task | X | Y | Collapsed |\n"
+            "|------|---|---|-----------|\n"
+            "| A    | 1 | 2 | yes       |"
+        )
+        items = parse_whiteboard_markdown(text)
+        assert items[0]['collapsed'] is True
+
+    def test_orphan_row_is_kept_not_dropped(self):
+        """A Task that matches no summary task is preserved, never
+        silently dropped -- the 'never remove a line you do not
+        understand' rule."""
+        text = (
+            "| Task           | X   | Y  |\n"
+            "|----------------|-----|----|\n"
+            "| Discovery      | 120 | 80 |\n"
+            "| Old Phase Name | 420 | 80 |"
+        )
+        items = parse_whiteboard_markdown(text)
+        assert [i['task'] for i in items] == ['Discovery', 'Old Phase Name']
+
+    def test_duplicate_task_rows_are_both_kept(self):
+        text = (
+            "| Task      | X   | Y   |\n"
+            "|-----------|-----|-----|\n"
+            "| Discovery | 120 | 80  |\n"
+            "| Discovery | 500 | 300 |"
+        )
+        items = parse_whiteboard_markdown(text)
+        assert len(items) == 2
+        assert items[0]['x'] == 120
+        assert items[1]['x'] == 500
+
+
+class TestValidateWhiteboardRows:
+    def test_no_warnings_when_all_rows_are_valid_and_unique(self):
+        items = parse_whiteboard_markdown(SAMPLE_WHITEBOARD)
+        warnings = validate_whiteboard_rows(items, {'Discovery', 'Build'})
+        assert warnings == []
+
+    def test_orphan_row_produces_a_warning_but_is_not_removed_from_items(self):
+        items = [
+            {'task': 'Discovery', 'x': 0, 'y': 0, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+            {'task': 'Old Phase Name', 'x': 0, 'y': 0, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        warnings = validate_whiteboard_rows(items, {'Discovery'})
+        assert len(warnings) == 1
+        assert warnings[0]['type'] == 'orphan'
+        assert warnings[0]['task'] == 'Old Phase Name'
+        # nothing was removed
+        assert len(items) == 2
+
+    def test_duplicate_task_produces_one_warning_for_both_rows(self):
+        items = [
+            {'task': 'Discovery', 'x': 1, 'y': 1, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+            {'task': 'Discovery', 'x': 2, 'y': 2, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        warnings = validate_whiteboard_rows(items)
+        assert len(warnings) == 1
+        assert warnings[0]['type'] == 'duplicate'
+        assert warnings[0]['task'] == 'Discovery'
+        assert 'later row wins' in warnings[0]['message']
+
+    def test_orphan_checking_is_skipped_without_summary_task_names(self):
+        items = [
+            {'task': 'Anything', 'x': 0, 'y': 0, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        assert validate_whiteboard_rows(items) == []
+        assert validate_whiteboard_rows(items, None) == []
+
+    def test_task_is_matched_case_insensitively_against_summary_task_names(self):
+        """Matches the dependency-resolution convention already documented
+        in plan-format.rst: names are matched case-insensitively."""
+        items = [
+            {'task': 'discovery', 'x': 0, 'y': 0, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        assert validate_whiteboard_rows(items, {'Discovery'}) == []
+
+    def test_duplicate_detection_is_case_insensitive(self):
+        items = [
+            {'task': 'Discovery', 'x': 1, 'y': 1, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+            {'task': 'discovery', 'x': 2, 'y': 2, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        warnings = validate_whiteboard_rows(items)
+        assert len(warnings) == 1
+        assert warnings[0]['type'] == 'duplicate'
+
+
+class TestGenerateWhiteboardText:
+    def test_empty_list_returns_empty_string(self):
+        assert generate_whiteboard_text([]) == ''
+
+    def test_round_trips_through_parse(self):
+        items = parse_whiteboard_markdown(SAMPLE_WHITEBOARD)
+        text = generate_whiteboard_text(items)
+        assert parse_whiteboard_markdown(text) == items
+
+    def test_missing_width_height_render_as_empty_cells(self):
+        items = [
+            {'task': 'A', 'x': 1, 'y': 2, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        text = generate_whiteboard_text(items)
+        rows = [r.strip() for r in text.split('\n')]
+        data_row = rows[2]
+        cells = [c.strip() for c in data_row.strip('|').split('|')]
+        assert cells[4] == ''  # Width
+        assert cells[5] == ''  # Height
+
+    def test_collapsed_renders_as_yes_or_no(self):
+        items = [
+            {'task': 'A', 'x': 0, 'y': 0, 'colour': '', 'width': None, 'height': None, 'collapsed': True},
+            {'task': 'B', 'x': 0, 'y': 0, 'colour': '', 'width': None, 'height': None, 'collapsed': False},
+        ]
+        text = generate_whiteboard_text(items)
+        assert '| yes' in text
+        assert '| no ' in text or text.rstrip().endswith('no')
+
+
+class TestUpdatePlanWhiteboard:
+    def test_appends_a_new_section(self):
+        text = "Phase 1\n  Task 1 3d"
+        items = [{'task': 'Phase 1', 'x': 10, 'y': 20, 'colour': '', 'width': None, 'height': None, 'collapsed': False}]
+        result = update_plan_whiteboard(text, items)
+        assert '---whiteboard---' in result
+        assert 'Phase 1' in result.split('---whiteboard---')[1]
+
+    def test_replaces_an_existing_section(self):
+        text = "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        items = [{'task': 'Phase 1', 'x': 1, 'y': 1, 'colour': '', 'width': None, 'height': None, 'collapsed': False}]
+        result = update_plan_whiteboard(text, items)
+        assert result.count('---whiteboard---') == 1
+        assert 'Discovery' not in result
+        assert 'Phase 1' in result
+
+    def test_empty_items_removes_the_section(self):
+        text = "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        result = update_plan_whiteboard(text, [])
+        assert '---whiteboard---' not in result
+        assert result.rstrip() == "Phase 1\n  Task 1 3d"
+
+    def test_does_not_touch_other_sections(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---raid log---\n"
+            "| Type | Description |\n|------|-------------|\n| risk | R1 |\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        items = [{'task': 'Phase 1', 'x': 5, 'y': 5, 'colour': '', 'width': None, 'height': None, 'collapsed': False}]
+        result = update_plan_whiteboard(text, items)
+        assert '---raid log---' in result
+        assert 'R1' in result
+
+
+class TestWhiteboardNotParsedAsTasks:
+    """A ---whiteboard--- section must never be read as part of the task
+    outline -- in either direction (with vs without the section)."""
+
+    def test_convert_plan_format_strips_whiteboard(self):
+        text = "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        converted = convert_plan_format_to_standard(text)
+        assert '---whiteboard---' not in converted
+        assert 'Discovery' not in converted
+        assert 'Build' not in converted
+
+    def test_same_outline_with_and_without_whiteboard_section(self):
+        without = "Phase 1\n  Task 1 3d\n  Task 2 2d"
+        with_wb = without + "\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        assert convert_plan_format_to_standard(without) == convert_plan_format_to_standard(with_wb)
+
+
+class TestWhiteboardPreservedDuringSectionUpdates:
+    """Updates to other sections must not destroy the whiteboard table
+    (mirrors TestLessonsPreservedDuringSectionUpdates)."""
+
+    def test_update_highlights_preserves_whiteboard(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---highlights---\n## 2026-04-01 @Alice\n- Old\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        result = update_plan_highlights(plan, [
+            {'date': '2026-04-15', 'author': 'Bob', 'content': '- New'},
+        ])
+        assert '---highlights---' in result
+        assert '---whiteboard---' in result
+        assert 'Discovery' in result
+        assert result.find('---highlights---') < result.find('---whiteboard---')
+
+    def test_update_raid_log_preserves_whiteboard(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---raid log---\n"
+            "| Type | Description | Status | Score | Owner | Date |\n"
+            "|------|-------------|--------|-------|-------|------|\n"
+            "| risk | old         | open   | 9     | kev   | 2026 |\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        result = update_plan_raid_log(plan, [
+            {'type': 'risk', 'title': 'new risk', 'description': 'd', 'status': 'open',
+             'impact': 3, 'likelihood': 3, 'score': 9, 'owner': 'kev'},
+        ])
+        assert '---raid log---' in result
+        assert '---whiteboard---' in result
+        assert 'Discovery' in result
+
+    def test_update_comms_preserves_whiteboard(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Old |\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        result = update_plan_comms(plan, [
+            {'activity': 'Kickoff', 'audience': 'All', 'content': 'Intro',
+             'frequency': 'Once', 'channel': 'Email', 'owner': 'PM', 'status': 'done'},
+        ])
+        assert '---comms---' in result
+        assert '---whiteboard---' in result
+        assert 'Discovery' in result
+
+    def test_update_lessons_preserves_whiteboard(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---lessons learned---\n" + SAMPLE_LESSONS + "\n\n"
+            "---whiteboard---\n" + SAMPLE_WHITEBOARD
+        )
+        result = update_plan_lessons(plan, parse_lessons_markdown(SAMPLE_LESSONS))
+        assert '---lessons learned---' in result
+        assert '---whiteboard---' in result
+        assert 'Discovery' in result
 
 
 if __name__ == "__main__":

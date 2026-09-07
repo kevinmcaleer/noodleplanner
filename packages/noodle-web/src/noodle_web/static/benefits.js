@@ -223,20 +223,19 @@ function syncBenefitsToPlanText() {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -279,6 +278,9 @@ function syncBenefitsToPlanText() {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     const updatedText = result;
@@ -1761,7 +1763,7 @@ function updateBenefits() {
         // Find end of benefits section
         let benEnd = planText.length;
         const searchAfter = benStart + BENEFITS_START.length;
-        for (const marker of [BUDGET_START, RAID_LOG_START, BASELINE_START, COMMS_START]) {
+        for (const marker of [BUDGET_START, RAID_LOG_START, BASELINE_START, COMMS_START, LESSONS_START, WHITEBOARD_START]) {
             const idx = planText.indexOf(marker, searchAfter);
             if (idx !== -1 && idx < benEnd) benEnd = idx;
         }

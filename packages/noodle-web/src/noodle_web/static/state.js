@@ -149,6 +149,7 @@ const COMMS_START = '---comms---';
 const BASELINE_START = '---baseline---';
 const BENEFITS_START = '---benefits---';
 const LESSONS_START = '---lessons learned---';
+const WHITEBOARD_START = '---whiteboard---';
 
 // Benefits state
 let benefitItems = [];

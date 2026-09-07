@@ -68,6 +68,12 @@ from .format_converter import (
     parse_lessons_markdown,
     generate_lessons_text,
     update_plan_lessons,
+    extract_whiteboard,
+    strip_whiteboard,
+    parse_whiteboard_markdown,
+    validate_whiteboard_rows,
+    generate_whiteboard_text,
+    update_plan_whiteboard,
 )
 
 from .excel_importer import (
@@ -155,6 +161,12 @@ __all__ = [
     "parse_lessons_markdown",
     "generate_lessons_text",
     "update_plan_lessons",
+    "extract_whiteboard",
+    "strip_whiteboard",
+    "parse_whiteboard_markdown",
+    "validate_whiteboard_rows",
+    "generate_whiteboard_text",
+    "update_plan_whiteboard",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",
