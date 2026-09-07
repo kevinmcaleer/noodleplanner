@@ -2386,13 +2386,21 @@ Build
                             <input type="number" id="taskPercent" min="0" max="100" placeholder="0-100"
                                    style="width: 80px; flex-shrink: 0;"
                                    oninput="saveTask(); updateRagDisplay(); updateProgressBar()">
-                            <div class="progress" style="flex: 1; height: 25px;">
+                            <div class="progress percent-progress-clickable" id="taskProgressBarWrapper" style="flex: 1; height: 25px;"
+                                 title="Click to mark 100% complete" onclick="setTaskPercentQuick(100)">
                                 <div id="progressBar" class="progress-bar progress-bar-striped bg-success"
                                      role="progressbar" style="width: 0%; transition: width 0.3s ease;"
                                      aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                                     <span id="progressText"></span>
                                 </div>
                             </div>
+                        </div>
+                        <div class="percent-quick-toolbar" id="percentQuickToolbar" role="group" aria-label="Quick-set completion percentage">
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(0)">0%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(25)">25%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(50)">50%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(75)">75%</button>
+                            <button type="button" class="percent-quick-btn" onclick="setTaskPercentQuick(100)">100%</button>
                         </div>
                         <small id="percentHelperText" style="display: none; color: #666;">Auto-calculated from subtasks</small>
                     </div>
