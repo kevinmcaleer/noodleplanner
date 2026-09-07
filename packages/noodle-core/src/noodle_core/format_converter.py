@@ -239,6 +239,25 @@ def _parse_highlights_section(section: str) -> list:
     return highlights
 
 
+def _strip_trailing_bare_separator(text: str) -> str:
+    """Remove a trailing bare ``---`` separator line, if present.
+
+    The bare ``---`` line is only meaningful as a visual lead-in to the
+    highlights section.  Once whatever used to follow it (highlights, or
+    a hand-typed separator that was never followed by anything special)
+    has been stripped away, the ``---`` no longer marks anything and
+    should not be preserved as if it were plan content — otherwise it
+    lingers indefinitely between the task list and whatever back-matter
+    section happens to be first.  Multiple stacked bare lines are all
+    removed.
+    """
+    text = text.rstrip('\n')
+    lines = text.split('\n')
+    while lines and lines[-1].strip() == '---':
+        lines.pop()
+    return '\n'.join(lines).rstrip('\n')
+
+
 def strip_highlights(text: str) -> str:
     """Remove the highlights section from plan text.
 
@@ -264,14 +283,9 @@ def strip_highlights(text: str) -> str:
             # baseline markers so their strippers can still find them
             end_len = len(marker) if marker == HIGHLIGHTS_END else 0
 
-    before = text[:start_idx].rstrip('\n')
-    after = text[end_idx + end_len:].lstrip('\n')
-
     # Remove trailing --- separator that precedes the highlights section
-    lines = before.split('\n')
-    while lines and lines[-1].strip() == '---':
-        lines.pop()
-    before = '\n'.join(lines).rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
+    after = text[end_idx + end_len:].lstrip('\n')
 
     if after:
         return before + '\n' + after
@@ -388,7 +402,7 @@ def strip_raid_log(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
 
     # Preserve sections that follow the RAID log (budget, comms, lessons, or baseline)
     for marker in (BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START):
@@ -433,7 +447,7 @@ def strip_budget(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
 
     # Preserve sections that follow the budget
     for marker in (BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
@@ -476,7 +490,7 @@ def strip_benefits(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
 
     # Preserve sections that follow the benefits
     for marker in (RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START):
@@ -944,7 +958,7 @@ def strip_comms(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
 
     # Preserve sections that follow the comms section
     for marker in (LESSONS_START, BASELINE_START):
@@ -1164,7 +1178,7 @@ def strip_baseline(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
     return before
 
 
@@ -1426,7 +1440,7 @@ def strip_benefits(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
 
     # Preserve any section that follows the benefits block
     after_start = start_idx + len(BENEFITS_START)
@@ -1612,7 +1626,7 @@ def strip_lessons(text: str) -> str:
     if start_idx == -1:
         return text
 
-    before = text[:start_idx].rstrip('\n')
+    before = _strip_trailing_bare_separator(text[:start_idx])
 
     # Preserve baseline section if it follows
     for marker in (BASELINE_START,):
