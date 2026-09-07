@@ -318,6 +318,10 @@ Whiteboard rows
 - ``Task`` is matched case-insensitively against summary task names, the
   same as dependency name resolution above. If two whiteboard rows name
   the same task, the later one wins; avoid duplicate names.
+- Row order doubles as stacking order: the note whose row comes *last* in
+  the table renders in front of the others. Dragging or clicking a note
+  moves its row to the end of the table, which is how "bring to front"
+  persists across a reload -- z-order is never stored as a separate field.
 
 Where plan data lives
 ----------------------
