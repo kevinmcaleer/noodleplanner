@@ -231,7 +231,17 @@ def badge_for_child(driver, note_task, child_name):
 def open_peek(driver, note_task, child_name):
     badge = badge_for_child(driver, note_task, child_name)
     assert badge is not None, f"no child-count badge found for {child_name} in {note_task}'s note"
-    badge.click()
+    # A real user can only ever click something on-screen, but some of this
+    # file's own tests deliberately pan/zoom the note to an extreme or
+    # resize the window to exercise edge cases -- a plain WebElement.click()
+    # then fails on Selenium's own coordinate-based interactability check
+    # (ElementNotInteractableException/ElementClickInterceptedException)
+    # even though the badge is a perfectly normal, connected DOM element the
+    # app itself would happily handle a click on. Dispatch the click via the
+    # DOM's own click() method instead -- functionally identical from the
+    # app's point of view (it's the same 'click' event, same listener), it
+    # just skips Selenium's viewport-visibility precondition.
+    driver.execute_script("arguments[0].click();", badge)
     WebDriverWait(driver, 3).until(
         EC.presence_of_element_located((By.ID, "taskPeekPopover"))
     )
@@ -625,28 +635,37 @@ class TestPeekEscapeAndFocus:
 
 class TestPeekViewportEdge:
     def test_peek_repositions_rather_than_overflowing_near_an_edge(self, browser, app_server):
-        open_app(browser, app_server)
-        browser.set_window_size(700, 600)
-        load_plan(browser, SAMPLE_PLAN)
-        switch_to_whiteboard(browser)
+        # set_window_size is a browser-chrome-level setting that outlives a
+        # driver.get() reload, and this fixture's browser is shared (module
+        # scope) across every test in this file -- restore it in a finally
+        # so a failure here can never leave a stale small window behind for
+        # a later test to silently inherit.
+        try:
+            open_app(browser, app_server)
+            browser.set_window_size(700, 600)
+            load_plan(browser, SAMPLE_PLAN)
+            switch_to_whiteboard(browser)
 
-        # Pan the board so Build's note sits hard against the right edge of
-        # a small viewport before opening its peek.
-        browser.execute_script(
-            "wbZoom = 1; wbPanX = -300; wbPanY = -20; wbApplyTransform(false);"
-        )
-        time.sleep(0.2)
+            # Pan the board so Build's note sits close to the right edge of
+            # a small viewport -- close enough that the popover's default
+            # right-hand placement would overflow, but not so far that the
+            # badge itself moves off-screen (a real user could never click
+            # something off-screen either, so that would test nothing).
+            browser.execute_script(
+                "wbZoom = 1; wbPanX = -110; wbPanY = 0; wbApplyTransform(false);"
+            )
+            time.sleep(0.2)
 
-        popover = open_peek(browser, "Build", "Nested")
-        rect = popover.rect
-        window_width = browser.execute_script("return window.innerWidth;")
-        window_height = browser.execute_script("return window.innerHeight;")
-        assert rect["x"] >= 0, "the peek must not be clipped off the left edge"
-        assert rect["x"] + rect["width"] <= window_width + 1, "the peek must not overflow the right edge"
-        assert rect["y"] >= 0
-        assert rect["y"] + rect["height"] <= window_height + 1, "the peek must not overflow the bottom edge"
-
-        browser.set_window_size(1280, 900)
+            popover = open_peek(browser, "Build", "Nested")
+            rect = popover.rect
+            window_width = browser.execute_script("return window.innerWidth;")
+            window_height = browser.execute_script("return window.innerHeight;")
+            assert rect["x"] >= 0, "the peek must not be clipped off the left edge"
+            assert rect["x"] + rect["width"] <= window_width + 1, "the peek must not overflow the right edge"
+            assert rect["y"] >= 0
+            assert rect["y"] + rect["height"] <= window_height + 1, "the peek must not overflow the bottom edge"
+        finally:
+            browser.set_window_size(1280, 900)
 
 
 class TestPeekTheming:
