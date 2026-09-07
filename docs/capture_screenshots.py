@@ -85,6 +85,33 @@ Testing & Launch
 | Design               | 420 | 60  |         | 280   | 240    | no        |
 """
 
+# A small standalone plan for wb-03 (task-peek popover, issue #850): the
+# main SAMPLE_PLAN's summary tasks are all one level deep, so nothing on
+# its board ever shows a child-count badge. "Requirements gathering" here
+# has its own children, which is what makes the badge (and the popover it
+# opens) appear on the "Discovery & Planning" note.
+WHITEBOARD_PEEK_PLAN = """\
+---
+title: Website Redesign 2026
+project manager: Alex Chen
+Resources:
+- @alex: Alex Chen, Project Manager
+- @jamie: Jamie Smith, Developer
+---
+
+Discovery & Planning
+  Stakeholder interviews @alex 3d start:2026-04-14 100%
+  *Requirements gathering @alex @jamie 2d 75%
+    Interviews complete @alex 1d 100%
+    Draft brief @alex @jamie 1d 50%
+  Sign-off on requirements @alex 0d [depends Requirements gathering]
+
+---whiteboard---
+| Task                 | X   | Y   | Colour  | Width | Height | Collapsed |
+|----------------------|-----|-----|---------|-------|--------|-----------|
+| Discovery & Planning | 80  | 60  | #4A90D9 | 280   | 240    | no        |
+"""
+
 # ---------------------------------------------------------------------------
 # Driver setup
 # ---------------------------------------------------------------------------
@@ -330,6 +357,33 @@ def capture_how_to(driver, base_url):
     time.sleep(0.4)
     capture_full(driver, section / "wb-01-whiteboard-notes.png")
 
+    # wb-02: Note colour menu (issue #849) — open the first note's `...`
+    # menu so the Palette/Pastel/Dark swatch grid is visible.
+    menu_btn = driver.find_elements(By.CSS_SELECTOR, ".wb-note-menu-btn")
+    if menu_btn:
+        menu_btn[0].click()
+        time.sleep(0.4)
+        capture_full(driver, section / "wb-02-note-colour-menu.png")
+        driver.execute_script(
+            "if (typeof wbCloseNoteMenu === 'function') wbCloseNoteMenu();"
+        )
+        time.sleep(0.2)
+
+    # wb-03: Task-peek popover (issue #850) — drilling into a subtask
+    # that has its own children opens a lightweight popover rather than
+    # the full task form. Needs a plan with a grandchild task, so this
+    # loads its own small plan rather than reusing SAMPLE_PLAN.
+    load_plan(driver, WHITEBOARD_PEEK_PLAN)
+    wait_for_render(driver)
+    switch_to_view(driver, "whiteboard")
+    driver.execute_script("if (typeof whiteboardZoomFit === 'function') whiteboardZoomFit();")
+    time.sleep(0.4)
+    badge = driver.find_elements(By.CSS_SELECTOR, ".wb-note-count-badge")
+    if badge:
+        badge[0].click()
+        time.sleep(0.4)
+        capture_full(driver, section / "wb-03-task-peek.png")
+
 
 def capture_reference(driver, base_url):
     """Capture screenshots for the reference section."""
@@ -364,6 +418,17 @@ def capture_reference(driver, base_url):
         "#planSubnav",
         section / "vw-01-subnav.png",
     )
+
+    # vw-02: Views dropdown expanded — shows every entry in the Views
+    # menu, including Whiteboard (issue #845). toggleDropdownMenu() calls
+    # event.stopPropagation(), so it needs a real click (a synthetic JS
+    # call with no event would throw), not driver.execute_script().
+    views_btn = driver.find_element(By.ID, "viewsDropdownBtn")
+    views_btn.click()
+    time.sleep(0.5)
+    capture_full(driver, section / "vw-02-views-menu.png")
+    views_btn.click()
+    time.sleep(0.2)
 
 
 def capture_explanation(driver, base_url):

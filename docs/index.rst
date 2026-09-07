@@ -28,6 +28,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/use-the-timeline-view
    how-to/use-the-calendar-view
    how-to/use-the-mind-map
+   how-to/use-the-whiteboard
    how-to/use-the-stakeholders-view
    how-to/use-the-evm-view
    how-to/use-the-task-inspector
@@ -58,6 +59,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    explanation/scheduling-engine
    explanation/two-scheduling-engines
    explanation/browser-local-store
+   explanation/whiteboard-layout-vs-viewport
    explanation/diataxis
 
 Indices and tables
