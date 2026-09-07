@@ -1,7 +1,7 @@
 {
   "name": "noodleplanner",
   "private": true,
-  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: the libraries the browser loads (mppwriter, jspdf, docx, DejaVu Sans Mono, exceljs) are vendored into static/vendor/<lib> by the `npm run vendor:<lib>` scripts.",
+  "description": "Front-end tooling for NoodlePlanner. The app has no bundler: the libraries the browser loads (mppwriter, jspdf, docx, DejaVu Sans Mono, exceljs, jszip, pptxgenjs) are vendored into static/vendor/<lib> by the `npm run vendor:<lib>` scripts.",
   "license": "MIT",
   "scripts": {
     "vendor:mppwriter": "node scripts/vendor-mppwriter.mjs",
@@ -9,9 +9,10 @@
     "vendor:docx": "node scripts/vendor-docx.mjs",
     "vendor:dejavu": "node scripts/vendor-dejavu.mjs",
     "vendor:exceljs": "node scripts/vendor-exceljs.mjs",
-    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:pptxgenjs",
-    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_pdf_docx_browser_export.mjs tests/test_pptx_browser_export.mjs tests/test_engine_date_math.mjs tests/test_engine_tokeniser.mjs tests/test_engine_conformance.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs tests/test_raid_sync.mjs tests/test_msproject_sync.mjs tests/test_msproject_task_diff.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done",
-    "vendor:pptxgenjs": "node scripts/vendor-pptxgenjs.mjs"
+    "vendor:jszip": "node scripts/vendor-jszip.mjs",
+    "vendor:pptxgenjs": "node scripts/vendor-pptxgenjs.mjs",
+    "vendor": "npm run vendor:mppwriter && npm run vendor:jspdf && npm run vendor:docx && npm run vendor:dejavu && npm run vendor:exceljs && npm run vendor:jszip && npm run vendor:pptxgenjs",
+    "test:js": "node --test tests/test_mpp_browser_export.mjs tests/test_pdf_docx_browser_export.mjs tests/test_pptx_browser_export.mjs tests/test_engine_date_math.mjs tests/test_engine_tokeniser.mjs tests/test_engine_conformance.mjs tests/test_markdown_roundtrip.mjs tests/test_browser_excel_export.mjs tests/test_raid_sync.mjs tests/test_msproject_sync.mjs tests/test_msproject_task_diff.mjs && for f in tests/test_*.js; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
     "dejavu-fonts-ttf": "2.37.3",
