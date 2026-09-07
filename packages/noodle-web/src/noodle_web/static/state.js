@@ -206,3 +206,10 @@ const ALL_PROJECT_VIEWS = [...PLAN_VIEWS, ...TRACKING_VIEWS, ...RESOURCES_VIEWS]
 const SUBNAV_GROUPS = [
     { id: 'planSubnav', views: ALL_PROJECT_VIEWS }
 ];
+
+// MS Project sync review state (issue #842)
+let mspSyncPendingCurrentText = '';
+let mspSyncPendingImportedMarkdown = '';
+let mspSyncPendingFilename = '';
+let mspSyncPendingDiff = null;
+let mspSyncPendingChoices = {};

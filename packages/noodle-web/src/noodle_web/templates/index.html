@@ -3809,6 +3809,24 @@ Build
         </div>
     </div>
 
+    <!-- MS Project Sync Review Modal (issue #842) -->
+    <div id="mspSyncOverlay" class="modal-overlay" onclick="if(event.target===this) closeMspSyncReview()" role="dialog" aria-modal="true" aria-label="Sync MS Project Schedule">
+        <div class="task-form-modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Sync MS Project Schedule</h2>
+                <button class="close-btn" onclick="closeMspSyncReview()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="mspSyncSummary" style="color: var(--text-secondary, #666); margin-bottom: 15px;"></p>
+                <div id="mspSyncList" class="msp-sync-list"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color, #e0e0e0);">
+                <button class="btn btn-secondary" onclick="closeMspSyncReview()">Cancel</button>
+                <button class="btn btn-primary" onclick="applyMspSyncReview()">Apply Selected</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Keyboard Shortcuts Modal -->
     <div id="keyboardShortcutsOverlay" class="modal-overlay" onclick="if(event.target===this) closeKeyboardShortcuts()" role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts">
         <div class="task-form-modal" style="max-width: 600px;">

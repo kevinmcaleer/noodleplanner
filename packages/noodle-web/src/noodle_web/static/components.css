@@ -6794,3 +6794,97 @@ tr:hover .task-context-btn,
 .storage-settings-legacy { margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid rgba(128, 128, 128, 0.3); }
 .storage-settings-legacy h4 { margin: 0 0 0.25rem; font-size: 0.95rem; }
 .storage-settings-warning { color: #b42318; font-weight: 600; }
+
+/* MS Project sync review (issue #842) */
+.msp-sync-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.msp-sync-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    background: var(--bg-secondary, #f8f9fa);
+}
+
+.msp-sync-entry.msp-sync-kind-removed { border-left: 4px solid #c62828; }
+.msp-sync-entry.msp-sync-kind-added { border-left: 4px solid #2b8a3e; }
+.msp-sync-entry.msp-sync-kind-updated { border-left: 4px solid #1971c2; }
+
+.msp-sync-kind-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.msp-sync-kind-badge.msp-sync-kind-removed { background: #ffe0e0; color: #c62828; }
+.msp-sync-kind-badge.msp-sync-kind-added { background: #d3f9d8; color: #2b8a3e; }
+.msp-sync-kind-badge.msp-sync-kind-updated { background: #d0ebff; color: #1971c2; }
+
+.msp-sync-entry-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.msp-sync-entry-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-primary, #212529);
+}
+
+.msp-sync-entry-detail {
+    font-size: 0.85em;
+    color: var(--text-secondary, #666);
+}
+
+.msp-sync-entry-sides {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 0.85em;
+}
+
+.msp-sync-entry-side {
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.msp-sync-entry-side-label {
+    font-weight: 600;
+    color: var(--text-secondary, #666);
+    font-size: 0.8em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+    font-family: inherit;
+}
+
+.msp-sync-entry-choice {
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.msp-sync-entry-choice label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    white-space: nowrap;
+    cursor: pointer;
+}

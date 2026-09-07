@@ -36,7 +36,7 @@ const SECTION_MARKERS = [
 ];
 const HIGHLIGHTS_END = '---end-highlights---';
 
-function splitFrontMatter(text) {
+export function splitFrontMatter(text) {
     const match = text.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)([\s\S]*)$/);
     if (!match) {
         return { lines: [], rest: text };
@@ -161,6 +161,31 @@ function appendSection(text, marker, content) {
 }
 
 /**
+ * Assemble full plan text from its parts: front matter lines, a task body,
+ * and the back-matter sections extracted by extractBackMatterSections.
+ * Shared by the whole-tree merge (mergeImportedTasks) and the per-task diff
+ * apply flow (script.js's applyTaskSyncReview), which supplies its own
+ * task body built by msproject-task-diff.js's applyTaskDiff instead of
+ * taking the import's task tree wholesale.
+ */
+export function assemblePlanText(frontMatterLines, taskBody, sections) {
+    let result = '---\n' + frontMatterLines.join('\n') + '\n---\n' + taskBody;
+
+    result = appendSection(result, '---highlights---', sections.highlights);
+    if (sections.highlights && sections.hasEndHighlights) {
+        result = result.replace(/\n+$/, '') + '\n\n' + '---end-highlights---';
+    }
+    result = appendSection(result, '---budget---', sections.budget);
+    result = appendSection(result, '---benefits---', sections.benefits);
+    result = appendSection(result, '---raid log---', sections.raidLog);
+    result = appendSection(result, '---comms---', sections.comms);
+    result = appendSection(result, '---lessons learned---', sections.lessons);
+    result = appendSection(result, '---baseline---', sections.baseline);
+
+    return result;
+}
+
+/**
  * Merge a freshly-imported task tree into the current plan: the import's
  * front matter fields (title, Resources) are applied on top of the
  * current front matter (everything else -- version, project manager, rag,
@@ -177,20 +202,7 @@ export function mergeImportedTasks(currentPlanText, importedMarkdown) {
     const sections = extractBackMatterSections(current.rest);
     const importedTaskBody = stripBackMatterSections(imported.rest);
 
-    let result = '---\n' + mergedFrontMatterLines.join('\n') + '\n---\n' + importedTaskBody;
-
-    result = appendSection(result, '---highlights---', sections.highlights);
-    if (sections.highlights && sections.hasEndHighlights) {
-        result = result.replace(/\n+$/, '') + '\n\n' + '---end-highlights---';
-    }
-    result = appendSection(result, '---budget---', sections.budget);
-    result = appendSection(result, '---benefits---', sections.benefits);
-    result = appendSection(result, '---raid log---', sections.raidLog);
-    result = appendSection(result, '---comms---', sections.comms);
-    result = appendSection(result, '---lessons learned---', sections.lessons);
-    result = appendSection(result, '---baseline---', sections.baseline);
-
-    return result;
+    return assemblePlanText(mergedFrontMatterLines, importedTaskBody, sections);
 }
 
 /**
