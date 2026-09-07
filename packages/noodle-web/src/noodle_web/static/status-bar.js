@@ -410,6 +410,104 @@ function removeDependenciesFromLine(line, tokens) {
 }
 
 /**
+ * Microsoft Project ".mpp resource assigned outside dates" risk (Snakie#975).
+ *
+ * mpp-export.js's findAssignmentDateRiskTasks() flags a non-summary,
+ * non-milestone task with an assigned resource and a percent complete
+ * strictly between 0 and 100 -- pymppwriter/mppwriter only write that
+ * assignment's Work as an aggregate value, not a true timephased contour, and
+ * Microsoft Project can decide on open that the resource's work no longer
+ * fits the task's declared dates, offering to change the duration to
+ * accommodate it. Loaded lazily via dynamic import (the module is only
+ * needed once a plan has parsed) and cached on first resolution.
+ *
+ * Called from updateAllViews after the parse result is available.
+ */
+let _mppExportModule = null;
+if (typeof window !== 'undefined') {
+    import('/static/mpp-export.js').then(function (mod) { _mppExportModule = mod; }).catch(function () {});
+}
+
+function updateMppAssignmentWarnings(result) {
+    var el = document.getElementById('statusBarMessage');
+    if (!el || !_mppExportModule) return;
+
+    var risky = _mppExportModule.findAssignmentDateRiskTasks(result);
+    window._mppAssignmentRiskTasks = risky;
+
+    if (risky.length === 0) {
+        // Only clear a message this function put there.
+        if (el.dataset.mppAssignmentWarning === '1') {
+            el.textContent = '';
+            el.style.color = '';
+            delete el.dataset.mppAssignmentWarning;
+        }
+        return;
+    }
+
+    var first = risky[0];
+    el.innerHTML = '';
+    el.dataset.mppAssignmentWarning = '1';
+    el.style.color = '#f57c00';
+    el.appendChild(document.createTextNode('⚠ ' + _mppExportModule.assignmentDateRiskMessage(first)));
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'status-bar-fix-btn';
+    btn.textContent = 'Fix It';
+    btn.title = 'Round this task’s percent complete to 0% or 100% so Microsoft Project can represent the assignment exactly';
+    btn.addEventListener('click', function () { fixMppAssignmentWarning(0); });
+    el.appendChild(btn);
+
+    if (risky.length > 1) {
+        el.appendChild(document.createTextNode(' (+' + (risky.length - 1) + ' more)'));
+    }
+}
+
+/**
+ * Apply the fix for a flagged assignment-date-risk task: round its percent
+ * complete to whichever of 0% or 100% is nearer -- both are verified safe
+ * (see findAssignmentDateRiskTasks) -- then re-render.
+ */
+function fixMppAssignmentWarning(index) {
+    var risky = window._mppAssignmentRiskTasks || [];
+    var problem = risky[index];
+    var editor = document.getElementById('planEditor');
+    if (!problem || !editor || !_mppExportModule) return;
+
+    var lineNumber = (typeof findTaskLineNumber === 'function') ? findTaskLineNumber({ name: problem.name }) : -1;
+    if (lineNumber < 1) return;
+
+    var lines = editor.value.split('\n');
+    var line = lines[lineNumber - 1];
+    if (line === undefined) return;
+
+    var newPercent = _mppExportModule.safeAssignmentPercent(problem.percent);
+    var fixed = line.replace(/(^|[^\w])\d+%(?!\w)/, function (m, pre) { return pre + newPercent + '%'; });
+    if (fixed === line) return;
+
+    lines[lineNumber - 1] = fixed;
+    if (typeof setEditorValuePreservingCursor === 'function') {
+        setEditorValuePreservingCursor(editor, lines.join('\n'));
+    } else {
+        editor.value = lines.join('\n');
+    }
+
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    editor.dispatchEvent(new Event('input'));
+
+    var el = document.getElementById('statusBarMessage');
+    if (el) {
+        el.textContent = '';
+        el.style.color = '';
+        delete el.dataset.mppAssignmentWarning;
+    }
+    setStatusMessage('Set "' + problem.name + '" to ' + newPercent + '% so Microsoft Project can represent the assignment', 4000);
+
+    if (typeof renderText === 'function') setTimeout(function () { renderText(); }, 10);
+}
+
+/**
  * Move the editor cursor to the start of a line and scroll it into view.
  */
 function goToEditorLine(lineNumber) {
