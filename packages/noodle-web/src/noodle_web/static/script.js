@@ -7861,9 +7861,12 @@ function extractRaidLogFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Stop at the next section marker (budget or baseline) if present
+    // Stop at the next section marker (budget, comms, lessons learned, or
+    // baseline) if present. This must match every other section marker
+    // (comms in particular) so that a comms plan following the RAID log
+    // is never swept into the extracted RAID log text -- see #978.
     let endIdx = planText.length;
-    for (const sectionMarker of [BUDGET_START, BASELINE_START]) {
+    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START]) {
         const mIdx = planText.indexOf(sectionMarker, afterMarker);
         if (mIdx !== -1 && mIdx < endIdx) {
             endIdx = mIdx;
