@@ -450,13 +450,20 @@ async function unlinkSyncTarget(key) {
     }
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
     if (key === 'excel') {
         try {
             const module = await import('/static/raid-sync.js');
-            const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
             module.clearRaidSyncState(projectId);
         } catch (error) {
             console.warn('Failed to clear RAID sync snapshot:', error);
+        }
+    } else if (key === 'msproject') {
+        try {
+            const module = await import('/static/msproject-sync.js');
+            module.clearMspSyncState(projectId);
+        } catch (error) {
+            console.warn('Failed to clear MS Project sync snapshot:', error);
         }
     }
 
