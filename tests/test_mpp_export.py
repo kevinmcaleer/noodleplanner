@@ -141,3 +141,79 @@ def test_web_app_has_no_server_side_mpp_path():
     assert "/api/mpp/model" not in routes
     assert "export_mpp" not in web_module.RenderRequest.model_fields
     assert not hasattr(PlanService, "_export_mpp")
+
+
+# --- assignment/date consistency (kevinmcaleer/Snakie#975) ------------------
+#
+# pymppwriter/mppwriter write an assignment's Work as a single aggregate
+# value (assignment var entry 49) rather than a true timephased actual/
+# remaining contour. Per the library's own docs/FORMAT_NOTES.md ("Progress
+# on assigned tasks"), that is verified safe at 0% complete (no actual-work
+# data is written at all) and at 100% (a separately tested, already-flagged
+# ScheduleWarning: the task's dates hold, only the percentage reads back at
+# 99% on reopen) -- but a task with an assignment and a percent strictly
+# between 1 and 99 has only been checked against the library's own reader,
+# never against Microsoft Project's real scheduler. Task 81 from the report
+# ("Bradford optimisation 15d @Jack 53% 2026-08-24") is exactly that shape.
+
+TASK_81_SHAPE = """Backbone Project
+  Bradford
+    Bradford optimisation 15d @Jack 53% 2026-08-24
+"""
+
+
+def test_assignment_date_risk_flags_partial_percent_with_resource():
+    from noodle_core.mpp_writer import build_project_model
+
+    model = build_project_model(TASK_81_SHAPE, project_name="Backbone Project")
+    assert model["assignmentDateRisks"] == [
+        {"name": "Bradford optimisation", "percent": 53},
+    ]
+
+
+def test_assignment_date_risk_excludes_zero_and_full_percent():
+    from noodle_core.mpp_writer import build_project_model
+
+    plan = """Phase 1
+  Not started 5d @kevin 0%
+  Finished 5d @kevin 100%
+"""
+    model = build_project_model(plan, project_name="Percent")
+    assert model["assignmentDateRisks"] == []
+
+
+def test_assignment_date_risk_excludes_unassigned_and_summary_and_milestone():
+    from noodle_core.mpp_writer import build_project_model
+
+    plan = """Phase 1
+  Unassigned 5d 50%
+  *Kickoff 0d @kevin
+"""
+    model = build_project_model(plan, project_name="Shapes")
+    assert model["assignmentDateRisks"] == []
+    # the phase (summary) itself rolls up a mid-range percent too, but it has
+    # no assignment of its own and must not be flagged
+    assert all(r["name"] != "Phase 1" for r in model["assignmentDateRisks"])
+
+
+def test_assignment_date_risk_message_names_task_and_percent():
+    from noodle_core.mpp_writer import assignment_date_risk_message
+
+    message = assignment_date_risk_message({"name": "Bradford optimisation", "percent": 53})
+    assert "Bradford optimisation" in message
+    assert "53%" in message
+    assert "outside" in message
+
+
+@needs_template
+def test_export_logs_assignment_date_risk_warning(tmp_path, caplog):
+    from noodle_core.mpp_writer import export_to_mpp
+
+    out = tmp_path / "risk.mpp"
+    with caplog.at_level("WARNING", logger="noodle_core.mpp_writer"):
+        export_to_mpp(TASK_81_SHAPE, str(out), TEMPLATE, project_name="Backbone Project")
+
+    assert any(
+        "Bradford optimisation" in record.message and "53%" in record.message
+        for record in caplog.records
+    )

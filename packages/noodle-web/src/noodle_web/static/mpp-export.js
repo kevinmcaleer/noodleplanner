@@ -317,6 +317,64 @@ export function buildProjectFromParse(parse, projectName) {
   };
 }
 
+// --- assignment/date consistency (Snakie#975) --------------------------------
+//
+// mppwriter/pymppwriter write an assignment's Work as a single aggregate
+// value (assignment var entry 49) rather than a true timephased actual/
+// remaining contour. Per the library's own docs/FORMAT_NOTES.md ("Progress
+// on assigned tasks"), that is verified safe at 0% complete (no actual-work
+// data is written at all) and at 100% (a separately tested, already-flagged
+// ScheduleWarning: the task's dates hold, only the percentage reads back at
+// 99% on reopen) — but a task with an assignment and a percent strictly
+// between 1 and 99 has only been checked against the library's own reader,
+// never against Microsoft Project's real scheduler. That gap is what lets
+// Project's own reconciliation between a task's declared percent-complete
+// and its assignment's incomplete progress data decide the resource's work
+// no longer fits the task's stated dates, and offer to change the duration:
+// "The resource is assigned outside dates for task ... The duration of this
+// fixed duration task will change to accommodate the resource assignment."
+// Task 81 ("Bradford optimisation 15d @Jack 53% 2026-08-24") is exactly this
+// shape.
+
+/**
+ * Non-summary, non-milestone tasks with a resource assignment and a percent
+ * complete strictly between 0 and 100 — the shape that risks Microsoft
+ * Project's "resource is assigned outside dates" warning on open. Pure: only
+ * reads the fields already in a `/api/parse` payload, so this can run ahead
+ * of (or entirely without) building or opening the actual .mpp file.
+ */
+export function findAssignmentDateRiskTasks(parse) {
+  const tasks = (parse && parse.tasks) || [];
+  const risky = [];
+  for (const t of tasks) {
+    if (t.is_summary) continue;
+    const durationDays = Math.trunc(Number(t.duration_days) || 0);
+    if (durationDays <= 0) continue; // milestones carry no assignment work
+    if (splitResources(t.resources).length === 0) continue;
+    const percent = Math.trunc(Number(t.percent) || 0);
+    if (percent > 0 && percent < 100) {
+      risky.push({ name: String(t.name || ""), percent });
+    }
+  }
+  return risky;
+}
+
+/**
+ * The percent-complete this class of risk resolves to when "fixed": whichever
+ * of 0% (no progress written) or 100% (a separately safe, already-flagged
+ * case) is nearer the task's current percent.
+ */
+export function safeAssignmentPercent(percent) {
+  return percent >= 50 ? 100 : 0;
+}
+
+/** The status-bar/export-log message for one task {name, percent}. */
+export function assignmentDateRiskMessage(task) {
+  return `"${task.name}" is ${task.percent}% complete with an assigned resource; ` +
+    "Microsoft Project may report the resource as assigned outside the task's " +
+    "dates and change its duration to fit when the exported .mpp is opened.";
+}
+
 /**
  * Build the file bytes. Pure: no fetch, no DOM.
  * @param {object} project from buildProjectFromParse
@@ -381,6 +439,9 @@ export async function exportMppInBrowser(parse, projectName, io = {}) {
   const project = buildProjectFromParse(parse, projectName);
   const warnings = [];
   const bytes = buildMpp(project, template, (w) => warnings.push(w.message));
+  for (const task of findAssignmentDateRiskTasks(parse)) {
+    warnings.push(assignmentDateRiskMessage(task));
+  }
   for (const message of warnings) console.warn("[mpp]", message);
 
   const filename = `${filenameStem(project.title)}.mpp`;

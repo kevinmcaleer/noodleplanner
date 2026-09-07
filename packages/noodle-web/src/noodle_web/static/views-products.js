@@ -3074,13 +3074,17 @@ function checkDuplicateDeliverables() {
     // Apply yellow background highlights to the editor highlight layer
     applyDuplicateHighlights();
 
-    // A circular-dependency warning (updateCircularDependencyWarnings) owns
-    // the status bar while it is showing: it carries a Fix action, and the
-    // product warnings return once the plan is repaired.
+    // A circular-dependency warning (updateCircularDependencyWarnings) or an
+    // .mpp assignment-date-risk warning (updateMppAssignmentWarnings) owns
+    // the status bar while it is showing: both carry a Fix action, and the
+    // product warnings return once the plan is repaired. This check runs on
+    // a deferred timer (setTimeout in updatePbs), so without it a warning
+    // set earlier in the same render pass would flash and then vanish.
     const statusEl = document.getElementById('statusBarMessage');
     const circularWarningShowing = !!(statusEl && statusEl.dataset.circularWarning === '1');
+    const mppAssignmentWarningShowing = !!(statusEl && statusEl.dataset.mppAssignmentWarning === '1');
 
-    if (typeof setStatusMessage === 'function' && !circularWarningShowing) {
+    if (typeof setStatusMessage === 'function' && !circularWarningShowing && !mppAssignmentWarningShowing) {
         if (warnings.length > 0) {
             const el = document.getElementById('statusBarMessage');
             if (el) {

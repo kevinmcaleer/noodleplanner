@@ -144,7 +144,7 @@ def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
     ]
     project_start = min((t["start"] for t in out_tasks),
                         default=datetime.combine(datetime.now().date(), _WORK_START).isoformat())
-    return {
+    model = {
         "title": project_name,
         "start": project_start,
         "tasks": out_tasks,
@@ -153,6 +153,59 @@ def build_project_model(plan_text: str, project_name: str = "Project") -> dict:
         "assignments": out_assns,
         "comments": "Exported by NoodlePlanner",
     }
+    model["assignmentDateRisks"] = find_assignment_date_risk_tasks(model)
+    return model
+
+
+# --- assignment/date consistency (Snakie#975) -------------------------------
+#
+# pymppwriter/mppwriter write an assignment's Work as a single aggregate
+# value (assignment var entry 49) rather than a true timephased actual/
+# remaining contour. Per the library's own docs/FORMAT_NOTES.md ("Progress
+# on assigned tasks"), that is verified safe at 0% complete (no actual-work
+# data is written at all) and at 100% (a separately tested, already-flagged
+# ScheduleWarning: the task's dates hold, only the percentage reads back at
+# 99% on reopen) -- but a task with an assignment and a percent strictly
+# between 1 and 99 has only been checked against the library's own reader,
+# never against Microsoft Project's real scheduler. That gap is what lets
+# Project's own reconciliation between a task's declared percent-complete and
+# its assignment's incomplete progress data decide the resource's work no
+# longer fits the task's stated dates, and offer to change the duration:
+# "The resource is assigned outside dates for task ... The duration of this
+# fixed duration task will change to accommodate the resource assignment."
+# Task 81 ("Bradford optimisation 15d @Jack 53% 2026-08-24") is exactly this
+# shape.
+
+
+def find_assignment_date_risk_tasks(model: dict) -> list:
+    """Non-summary, non-milestone tasks in `model` with a resource assignment
+    and a percent complete strictly between 0 and 100 -- the shape that risks
+    Microsoft Project's "resource is assigned outside dates" warning on open.
+
+    Pure: only reads the model build_project_model already produced, so this
+    runs ahead of (or entirely without) writing the actual .mpp file.
+    """
+    assigned_uids = {a["taskUid"] for a in model.get("assignments", [])}
+    risky = []
+    for t in model.get("tasks", []):
+        if t["uid"] not in assigned_uids:
+            continue
+        if t.get("durationDays", 0) <= 0:
+            continue  # milestones carry no assignment work
+        percent = int(t.get("percentComplete", 0) or 0)
+        if 0 < percent < 100:
+            risky.append({"name": t["name"], "percent": percent})
+    return risky
+
+
+def assignment_date_risk_message(task: dict) -> str:
+    """The warning-log message for one task {"name", "percent"}."""
+    return (
+        f'"{task["name"]}" is {task["percent"]}% complete with an assigned '
+        "resource; Microsoft Project may report the resource as assigned "
+        "outside the task's dates and change its duration to fit when the "
+        "exported .mpp is opened."
+    )
 
 
 def export_to_mpp(
@@ -210,4 +263,6 @@ def export_to_mpp(
         writer.write(project, output_path)
     for w in caught:
         logger.warning("Native .mpp export: %s", w.message)
+    for risk in model["assignmentDateRisks"]:
+        logger.warning("Native .mpp export: %s", assignment_date_risk_message(risk))
     logger.info("Wrote native .mpp export to %s (%d tasks)", output_path, len(model["tasks"]))
