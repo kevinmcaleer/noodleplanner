@@ -4,6 +4,73 @@
  * Phase 1 MVP: Read-only, phase-based grouping
  */
 
+/**
+ * Parse the front-matter Theme: block into a { name: '#HEX' } map.
+ * Format: `Theme:\n- Name: #HEX\n`. Pure text read, no DOM -- the
+ * counterpart to buildPlanTextWithThemeColours() below; both are plain
+ * functions (not tied to a KanbanBoard instance) so anything that needs
+ * to read/write this shared block -- the mind map, and issue #849's
+ * whiteboard note colour menu -- can do so without depending on a
+ * KanbanBoard having been constructed.
+ */
+function parsePlanThemeColours(planText) {
+    const colours = {};
+    if (typeof extractFrontMatterSection !== 'function') return colours;
+
+    const section = extractFrontMatterSection(planText, 'Theme');
+    if (!section) return colours;
+
+    const lines = section.split('\n');
+    for (const line of lines) {
+        const match = line.match(/^-\s+(.+?):\s*(#[0-9A-Fa-f]{6})\s*$/);
+        if (match) {
+            colours[match[1].trim()] = match[2].toUpperCase();
+        }
+    }
+    return colours;
+}
+
+/**
+ * Rewrite `planText`'s front-matter Theme: block from a { name: '#HEX' }
+ * map, leaving every other front-matter key and the rest of the file
+ * untouched. Pure text transform -- no DOM, no commit -- so it can be
+ * shared by anything that needs to write this exact block (originally
+ * inline in KanbanBoard.saveThemeColours(); factored out so issue #849's
+ * whiteboard note colour menu can reuse the identical format/algorithm
+ * instead of hand-rolling a second Theme: writer, and can combine a
+ * Theme: change with another text edit into one Markdown commit).
+ *
+ * Format: `Theme:\n- Name: #HEX\n`, entries in `themeColours`' own
+ * iteration order. An empty map removes the block entirely.
+ */
+function buildPlanTextWithThemeColours(planText, themeColours) {
+    let content = planText;
+
+    let themeSection = '';
+    const entries = Object.entries(themeColours || {});
+    if (entries.length > 0) {
+        themeSection = 'Theme:\n';
+        for (const [name, colour] of entries) {
+            themeSection += `- ${name}: ${colour}\n`;
+        }
+    }
+
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (frontMatterMatch) {
+        const fmContent = removeFrontMatterSection(frontMatterMatch[1], 'Theme');
+        let newContent = fmContent.trimEnd();
+        if (themeSection) {
+            newContent += '\n' + themeSection;
+        }
+        const newFrontMatter = '---\n' + newContent.trim() + '\n---';
+        content = content.replace(/^---\s*\n[\s\S]*?\n---/, newFrontMatter);
+    } else if (themeSection) {
+        content = '---\n' + themeSection + '---\n\n' + content;
+    }
+
+    return content;
+}
+
 class KanbanBoard {
     constructor(viewMode = 'phase') {
         this.defaultViewMode = viewMode;
@@ -3454,20 +3521,7 @@ class KanbanBoard {
      * Format: Theme:\n- Column Name: #HEX\n
      */
     parseThemeColours(planText) {
-        const colours = {};
-        if (typeof extractFrontMatterSection !== 'function') return colours;
-
-        const section = extractFrontMatterSection(planText, 'Theme');
-        if (!section) return colours;
-
-        const lines = section.split('\n');
-        for (const line of lines) {
-            const match = line.match(/^-\s+(.+?):\s*(#[0-9A-Fa-f]{6})\s*$/);
-            if (match) {
-                colours[match[1].trim()] = match[2].toUpperCase();
-            }
-        }
-        return colours;
+        return parsePlanThemeColours(planText);
     }
 
     /**
@@ -3477,33 +3531,8 @@ class KanbanBoard {
         const editor = document.getElementById('planEditor');
         if (!editor) return;
 
-        let content = sourceText === null ? editor.value : sourceText;
-
-        // Build theme section
-        let themeSection = '';
-        const entries = Object.entries(this.themeColours);
-        if (entries.length > 0) {
-            themeSection = 'Theme:\n';
-            for (const [columnName, colour] of entries) {
-                themeSection += `- ${columnName}: ${colour}\n`;
-            }
-        }
-
-        // Replace or add theme section in front matter
-        const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-        if (frontMatterMatch) {
-            const fmContent = removeFrontMatterSection(frontMatterMatch[1], 'Theme');
-            let newContent = fmContent.trimEnd();
-            if (themeSection) {
-                newContent += '\n' + themeSection;
-            }
-            const newFrontMatter = '---\n' + newContent.trim() + '\n---';
-            content = content.replace(/^---\s*\n[\s\S]*?\n---/, newFrontMatter);
-        } else if (themeSection) {
-            content = '---\n' + themeSection + '---\n\n' + content;
-        }
-
-        this.commitMarkdown(content);
+        const content = sourceText === null ? editor.value : sourceText;
+        this.commitMarkdown(buildPlanTextWithThemeColours(content, this.themeColours));
     }
 
     /**
