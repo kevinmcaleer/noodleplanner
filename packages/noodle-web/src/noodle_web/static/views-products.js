@@ -3074,45 +3074,36 @@ function checkDuplicateDeliverables() {
     // Apply yellow background highlights to the editor highlight layer
     applyDuplicateHighlights();
 
-    // A circular-dependency warning (updateCircularDependencyWarnings) or an
-    // .mpp assignment-date-risk warning (updateMppAssignmentWarnings) owns
-    // the status bar while it is showing: both carry a Fix action, and the
-    // product warnings return once the plan is repaired. This check runs on
-    // a deferred timer (setTimeout in updatePbs), so without it a warning
-    // set earlier in the same render pass would flash and then vanish.
-    const statusEl = document.getElementById('statusBarMessage');
-    const circularWarningShowing = !!(statusEl && statusEl.dataset.circularWarning === '1');
-    const mppAssignmentWarningShowing = !!(statusEl && statusEl.dataset.mppAssignmentWarning === '1');
+    // Product-quality warnings are sticky (key 'duplicate-deliverables') like
+    // the circular-dependency and .mpp assignment-risk warnings; the status
+    // log's compact-bar priority (actionable sticky warnings beat passive
+    // ones) is what now keeps a Fix-able warning visible over this one, so
+    // this no longer needs to check whether those are currently showing.
+    if (typeof pushStatusLogEntry !== 'function' || typeof clearStatusLogEntry !== 'function') return;
 
-    if (typeof setStatusMessage === 'function' && !circularWarningShowing && !mppAssignmentWarningShowing) {
-        if (warnings.length > 0) {
-            const el = document.getElementById('statusBarMessage');
-            if (el) {
-                // Build HTML with clickable product names for "no activities" warnings
-                const emptyProducts = window._emptyProducts;
-                if (emptyProducts && emptyProducts.length > 0) {
-                    // Separate the "no activities" warning from other warnings
-                    const otherWarnings = warnings.filter(w => !w.includes('no activities'));
-                    const parts = [];
-                    if (otherWarnings.length > 0) {
-                        parts.push(otherWarnings.map(w => w.replace(/</g, '&lt;').replace(/>/g, '&gt;')).join(' \u00B7 '));
-                    }
-                    // Build clickable product links
-                    const label = emptyProducts.length === 1 ? 'Product has' : emptyProducts.length + ' products have';
-                    const links = emptyProducts.map(name => {
-                        const escaped = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        return '<a href="#" class="status-bar-task-link" onclick="event.preventDefault(); openTaskInspectorByDeliverable(\'' +
-                            escaped.replace(/'/g, "\\'") + '\')" title="Open task details">$' + escaped + '</a>';
-                    }).join(', ');
-                    parts.push(label + ' no activities: ' + links);
-                    el.innerHTML = '\u26A0 ' + parts.join(' \u00B7 ');
-                } else {
-                    setStatusMessage('\u26A0 ' + warnings.join(' \u00B7 '), 0);
-                }
-            }
-        } else {
-            setStatusMessage('', 0);
-        }
+    if (warnings.length === 0) {
+        clearStatusLogEntry('duplicate-deliverables');
+        return;
+    }
+
+    const emptyProducts = window._emptyProducts;
+    if (emptyProducts && emptyProducts.length > 0) {
+        // Separate the "no activities" warning (rendered as clickable product
+        // links) from any other plain-text warnings.
+        const otherWarnings = warnings.filter(w => !w.includes('no activities'));
+        const label = emptyProducts.length === 1 ? 'Product has' : emptyProducts.length + ' products have';
+        const text = '\u26A0 ' +
+            (otherWarnings.length > 0 ? otherWarnings.join(' \u00B7 ') + ' \u00B7 ' : '') +
+            label + ' no activities: ';
+        const actions = emptyProducts.map((name, i) => ({
+            kind: 'link',
+            label: (i === 0 ? '' : ', ') + '$' + name,
+            title: 'Open task details',
+            onClick: () => { if (typeof openTaskInspectorByDeliverable === 'function') openTaskInspectorByDeliverable(name); }
+        }));
+        pushStatusLogEntry({ key: 'duplicate-deliverables', text: text, actions: actions });
+    } else {
+        pushStatusLogEntry({ key: 'duplicate-deliverables', text: '\u26A0 ' + warnings.join(' \u00B7 ') });
     }
 }
 
