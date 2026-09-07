@@ -516,7 +516,7 @@
                             Export RAID to Excel
                         </div>
                         <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="document.getElementById('raidXlUpload').click(); event.stopPropagation();">
-                            Upload RAID Excel
+                            Sync RAID with Excel
                         </div>
                     </div>
                 </div>
@@ -3805,6 +3805,29 @@ Build
 
                 <!-- Loading spinner -->
                 <div id="wizardSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAID Excel Sync Review Modal (issue #761) -->
+    <div id="raidSyncOverlay" class="modal-overlay" onclick="if(event.target===this) closeRaidSyncReview()" role="dialog" aria-modal="true" aria-label="Sync RAID with Excel">
+        <div class="task-form-modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Sync RAID with Excel</h2>
+                <button class="close-btn" onclick="closeRaidSyncReview()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="raidSyncSummary" style="color: var(--text-secondary, #666); margin-bottom: 15px;"></p>
+                <div id="raidSyncEmpty" style="display:none; padding: 20px 0; color: var(--text-secondary, #666);">
+                    No changes since the last sync — your plan and the Excel file already match.
+                </div>
+                <div id="raidSyncList" class="raid-sync-list"></div>
+                <!-- Loading spinner -->
+                <div id="raidSyncSpinner" class="spinner" style="display:none; margin-top:10px;"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding: 15px 20px; border-top: 1px solid var(--border-color, #e0e0e0);">
+                <button class="btn btn-secondary" onclick="closeRaidSyncReview()">Cancel</button>
+                <button class="btn btn-primary" id="raidSyncApplyBtn" onclick="applyRaidSyncReview()">Apply Selected</button>
             </div>
         </div>
     </div>

@@ -43,15 +43,46 @@ Filter and Sort
 Export to Excel
 ----------------
 
-1. Click the **Export** button in the RAID log toolbar
+1. Open the **Tools** menu and choose **Export RAID to Excel**
 2. An ``.xlsx`` file will download with all RAID items formatted as a table
 
-Import from Excel
-------------------
+Sync with Excel
+----------------
 
-1. Click the **Import** button in the RAID log toolbar
-2. Select an Excel file in the expected RAID log format
-3. The imported items will replace (or merge with) the current RAID log
+Rather than a one-way, one-shot import that discards what's in the plan,
+RAID Excel is a **registered sync target**: NoodlePlanner reads the workbook,
+compares it against the plan *and* against what was seen at the last sync,
+and shows a reviewable list of changes before anything is applied — nothing
+is silently overwritten.
+
+1. Open the **Tools** menu and choose **Sync RAID with Excel**
+2. Select the ``.xlsx`` file to sync against
+3. Review the **Sync RAID with Excel** dialog. Each change is one of:
+
+   - **Added** — present in the workbook, not yet in the plan. Checked to
+     add by default.
+   - **Updated** — changed in the workbook since the last sync, unchanged in
+     the plan. Checked to apply by default.
+   - **Removed** — present at the last sync, now missing from the workbook.
+     Unchecked by default — removal always needs an explicit tick.
+   - **Conflict** — changed on *both* sides since the last sync. Choose
+     **Keep mine** (default) or **Keep Excel** per row; nothing is decided
+     for you.
+
+   A row you added locally that the workbook doesn't know about yet, or a
+   row you deliberately removed from the plan, is left alone and doesn't
+   appear in the list.
+4. Click **Apply Selected**. The plan's ``---raid log---`` table updates
+   with your choices, the linked filename and sync time are recorded in the
+   plan's front matter (``excel_file`` / ``excel_file_synced``), and an
+   updated ``.xlsx`` downloads automatically — save it over your original
+   file so both sides stay in step for the next sync.
+
+The last-synced snapshot that powers this comparison is kept in the
+browser's local storage, scoped to the project. Syncing the same project on
+a different device or browser starts fresh, so the first sync there treats
+every differing row as a conflict rather than assuming either side is
+correct.
 
 Save to Markdown
 -----------------
