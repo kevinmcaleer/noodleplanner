@@ -35,6 +35,22 @@ export function frontMatterText(planText) {
   return match ? match[1] : "";
 }
 
+/**
+ * Remove a trailing bare `---` separator line, if present. It's only
+ * meaningful as a visual lead-in to a back-matter section; once whatever
+ * followed it has been sliced away (or there was never anything there --
+ * a hand-typed divider with nothing after it), the `---` marks nothing and
+ * would otherwise be scheduled as a phantom task named "---". Mirrors
+ * format_converter.py's `_strip_trailing_bare_separator`. Multiple stacked
+ * bare lines are all removed.
+ */
+function stripTrailingBareSeparator(text) {
+  text = text.replace(/\n+$/, "");
+  const lines = text.split("\n");
+  while (lines.length && lines[lines.length - 1].trim() === "---") lines.pop();
+  return lines.join("\n");
+}
+
 /** The plan body: no front matter, and nothing from the first back-matter marker on. */
 export function planBody(planText) {
   let text = String(planText || "");
@@ -42,7 +58,7 @@ export function planBody(planText) {
   if (fm) text = text.slice(fm[0].length);
   const marker = /^---[a-z][a-z -]*---$/m.exec(text);
   if (marker) text = text.slice(0, marker.index);
-  return text;
+  return stripTrailingBareSeparator(text);
 }
 
 /**
