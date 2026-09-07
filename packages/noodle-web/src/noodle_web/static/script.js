@@ -9280,6 +9280,208 @@ function triggerMSProjectUpload() {
     input.click();
 }
 
+// Applies a freshly-imported MS Project task tree to the editor. The import
+// only ever contains a bare title + Resources front matter and a task
+// tree -- it knows nothing about version, project manager, RAG,
+// last_saved, custom fields, or any back-matter section (highlights,
+// budget, benefits, RAID log, comms, lessons learned, baseline). A blind
+// `editor.value = markdown` therefore silently destroys all of that, every
+// time. This merges the import into the existing plan shell instead (see
+// msproject-sync.js), and reviews the task tree itself as a per-task
+// accept/reject/conflict-free diff (msproject-task-diff.js, issue #842)
+// rather than replacing it wholesale -- tasks are matched by name and
+// outline position, since plan markdown has no persistent task ID; a
+// renamed or reparented task shows as removed + added rather than updated.
+async function applyImportedMspMarkdown(markdown, filename) {
+    const editor = document.getElementById('planEditor');
+    const currentText = editor.value;
+
+    if (!currentText.trim() || !/\S/.test(currentText.replace(/^---[\s\S]*?---/, ''))) {
+        // Blank or task-less plan -- nothing to diff against, no need to review.
+        await finishMspImport(markdown, filename);
+        return;
+    }
+
+    await openMspSyncReview(currentText, markdown, filename);
+}
+
+async function finishMspImport(finalTextOrMarkdown, filename) {
+    const module = await import('/static/msproject-sync.js');
+    const editor = document.getElementById('planEditor');
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
+        ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    let finalText = module.upsertFrontMatterField(finalTextOrMarkdown, 'msproject_file', filename);
+    finalText = module.upsertFrontMatterField(finalText, 'msproject_file_synced', stamp);
+
+    editor.value = finalText;
+    if (editor._updateLineNumbers) editor._updateLineNumbers();
+    showMessage('editor', 'success', 'MS Project file imported successfully!');
+    await renderText();
+}
+
+async function openMspSyncReview(currentText, importedMarkdown, filename) {
+    const syncModule = await import('/static/msproject-sync.js');
+    const diffModule = await import('/static/msproject-task-diff.js');
+
+    const current = syncModule.splitFrontMatter(currentText);
+    const imported = syncModule.splitFrontMatter(importedMarkdown);
+    const localTaskBody = syncModule.stripBackMatterSections(current.rest);
+    const importedTaskBody = syncModule.stripBackMatterSections(imported.rest);
+
+    // A remembered last-synced snapshot (per project) upgrades this to a
+    // real three-way diff -- able to tell a genuine conflict from a
+    // one-sided change, and stop a deliberately-removed task being
+    // resurrected. No snapshot (first-ever sync) falls back to a plain
+    // two-way diff, same as before.
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const syncState = syncModule.getMspSyncState(projectId);
+    const baseTaskBody = syncState ? syncState.taskBody : undefined;
+
+    const diff = diffModule.diffTaskOutline(localTaskBody, importedTaskBody, baseTaskBody);
+
+    if (diff.entries.length === 0) {
+        // Task trees already match -- nothing to review, just record the
+        // link and refresh front matter/back matter from the import.
+        const mergedFrontMatterLines = syncModule.mergeFrontMatter(current.lines, imported.lines);
+        const sections = syncModule.extractBackMatterSections(current.rest);
+        const finalText = syncModule.assemblePlanText(mergedFrontMatterLines, localTaskBody, sections);
+        syncModule.setMspSyncState(projectId, { taskBody: localTaskBody, syncedAt: new Date().toISOString() });
+        await finishMspImport(finalText, filename);
+        showMessage('editor', 'success', 'MS Project schedule already matches -- nothing to sync.');
+        return;
+    }
+
+    mspSyncPendingCurrentText = currentText;
+    mspSyncPendingImportedMarkdown = importedMarkdown;
+    mspSyncPendingFilename = filename;
+    mspSyncPendingDiff = diff;
+    mspSyncPendingChoices = {};
+    diff.entries.forEach((entry) => {
+        mspSyncPendingChoices[entry.key] = diffModule.defaultTaskSyncChoice(entry.kind);
+    });
+
+    renderMspSyncReview(diff.entries);
+    const overlay = document.getElementById('mspSyncOverlay');
+    if (overlay) overlay.classList.add('active');
+}
+
+function renderMspSyncReview(entries) {
+    const summary = document.getElementById('mspSyncSummary');
+    const listEl = document.getElementById('mspSyncList');
+    if (!summary || !listEl) return;
+
+    summary.textContent = entries.length + ' task change' + (entries.length === 1 ? '' : 's') +
+        ' found since the last sync. Review and choose what to apply. Renamed or moved tasks show as a removal plus an addition -- plan markdown has no persistent task ID to match on otherwise.';
+
+    listEl.innerHTML = '';
+    entries.forEach((entry, entryIndex) => {
+        const row = document.createElement('div');
+        row.className = 'msp-sync-entry msp-sync-kind-' + entry.kind;
+
+        const badge = '<span class="msp-sync-kind-badge msp-sync-kind-' + entry.kind + '">' + entry.kind + '</span>';
+        const displayName = (entry.local || entry.imported).name;
+        const checked = mspSyncPendingChoices[entry.key];
+
+        let detail = '';
+        let sidesHtml = '';
+        let choiceHtml = '';
+
+        if (entry.kind === 'conflict') {
+            sidesHtml = '<div class="msp-sync-entry-sides">' +
+                '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">Your plan</div>' + escapeHtml(entry.local.raw.trim()) + '</div>' +
+                '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">MS Project</div>' + escapeHtml(entry.imported.raw.trim()) + '</div>' +
+                '</div>';
+            choiceHtml = '<label><input type="radio" name="msp-sync-choice-conflict-' + entryIndex + '"' + (checked === 'keep-mine' ? ' checked' : '') + '> Keep mine</label>' +
+                '<label><input type="radio" name="msp-sync-choice-conflict-' + entryIndex + '"' + (checked === 'keep-theirs' ? ' checked' : '') + '> Keep MS Project</label>';
+        } else if (entry.kind === 'removed') {
+            detail = entry.descendantCount > 0
+                ? 'Also removes ' + entry.descendantCount + ' sub-task' + (entry.descendantCount === 1 ? '' : 's')
+                : '';
+            choiceHtml = '<label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') + '> Remove</label>';
+        } else if (entry.kind === 'updated') {
+            sidesHtml = '<div class="msp-sync-entry-sides">' +
+                '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">Your plan</div>' + escapeHtml(entry.local.raw.trim()) + '</div>' +
+                '<div class="msp-sync-entry-side"><div class="msp-sync-entry-side-label">MS Project</div>' + escapeHtml(entry.imported.raw.trim()) + '</div>' +
+                '</div>';
+            choiceHtml = '<label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') + '> Apply update</label>';
+        } else if (entry.kind === 'added') {
+            choiceHtml = '<label><input type="checkbox"' + (checked === 'accept' ? ' checked' : '') + '> Add to plan</label>';
+        }
+
+        row.innerHTML =
+            '<div class="msp-sync-entry-body">' +
+            '<div class="msp-sync-entry-title">' + badge + ' ' + escapeHtml(displayName) + '</div>' +
+            (detail ? '<div class="msp-sync-entry-detail">' + escapeHtml(detail) + '</div>' : '') +
+            sidesHtml +
+            '</div>' +
+            '<div class="msp-sync-entry-choice">' + choiceHtml + '</div>';
+
+        // Task keys can contain arbitrary characters from task names --
+        // wired via addEventListener with the key held in a closure rather
+        // than string-interpolated into an inline handler, so nothing in a
+        // task name can break out of the generated markup.
+        if (entry.kind === 'conflict') {
+            const [keepMine, keepTheirs] = row.querySelectorAll('input[type="radio"]');
+            keepMine.addEventListener('change', () => { if (keepMine.checked) setMspSyncChoice(entry.key, 'keep-mine'); });
+            keepTheirs.addEventListener('change', () => { if (keepTheirs.checked) setMspSyncChoice(entry.key, 'keep-theirs'); });
+        } else {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', () => setMspSyncChoice(entry.key, checkbox.checked ? 'accept' : 'reject'));
+        }
+
+        listEl.appendChild(row);
+    });
+}
+
+function setMspSyncChoice(key, choice) {
+    mspSyncPendingChoices[key] = choice;
+}
+
+function closeMspSyncReview() {
+    const overlay = document.getElementById('mspSyncOverlay');
+    if (overlay) overlay.classList.remove('active');
+    mspSyncPendingCurrentText = '';
+    mspSyncPendingImportedMarkdown = '';
+    mspSyncPendingFilename = '';
+    mspSyncPendingDiff = null;
+    mspSyncPendingChoices = {};
+    showMessage('editor', 'info', 'MS Project sync cancelled.');
+}
+
+async function applyMspSyncReview() {
+    const syncModule = await import('/static/msproject-sync.js');
+    const diffModule = await import('/static/msproject-task-diff.js');
+
+    const current = syncModule.splitFrontMatter(mspSyncPendingCurrentText);
+    const imported = syncModule.splitFrontMatter(mspSyncPendingImportedMarkdown);
+    const localTaskBody = syncModule.stripBackMatterSections(current.rest);
+
+    const newTaskBody = diffModule.applyTaskDiff(localTaskBody, mspSyncPendingDiff, mspSyncPendingChoices);
+    const mergedFrontMatterLines = syncModule.mergeFrontMatter(current.lines, imported.lines);
+    const sections = syncModule.extractBackMatterSections(current.rest);
+    const finalText = syncModule.assemblePlanText(mergedFrontMatterLines, newTaskBody, sections);
+
+    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    syncModule.setMspSyncState(projectId, { taskBody: newTaskBody, syncedAt: new Date().toISOString() });
+
+    const filename = mspSyncPendingFilename;
+    closeMspSyncReviewSilently();
+    await finishMspImport(finalText, filename);
+}
+
+function closeMspSyncReviewSilently() {
+    const overlay = document.getElementById('mspSyncOverlay');
+    if (overlay) overlay.classList.remove('active');
+    mspSyncPendingCurrentText = '';
+    mspSyncPendingImportedMarkdown = '';
+    mspSyncPendingFilename = '';
+    mspSyncPendingDiff = null;
+    mspSyncPendingChoices = {};
+}
+
 async function uploadMSProjectFile(file) {
     // Native .mpp files are read in the browser with mppwriter; nothing is
     // uploaded (issue #770). Only MSPDI .xml still goes to the server.
@@ -9287,11 +9489,7 @@ async function uploadMSProjectFile(file) {
         try {
             const { importMppFile } = await import('/static/mpp-export.js');
             const markdown = await importMppFile(file);
-            const editor = document.getElementById('planEditor');
-            editor.value = markdown;
-            if (editor._updateLineNumbers) editor._updateLineNumbers();
-            showMessage('editor', 'success', 'MS Project file imported successfully!');
-            await renderText();
+            await applyImportedMspMarkdown(markdown, file.name);
         } catch (error) {
             showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
         }
@@ -9313,12 +9511,7 @@ async function uploadMSProjectFile(file) {
         }
 
         const result = await response.json();
-        const editor = document.getElementById('planEditor');
-        editor.value = result.markdown;
-        showMessage('editor', 'success', 'MS Project file imported successfully!');
-
-        // Auto-render the imported plan
-        await renderText();
+        await applyImportedMspMarkdown(result.markdown, file.name);
     } catch (error) {
         showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
     }
