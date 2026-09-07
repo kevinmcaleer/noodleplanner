@@ -167,6 +167,10 @@ function wbApplyTransform(animate) {
         wbGroup.style.transition = '';
         wbGroup.setAttribute('transform', transformStr);
     }
+    // Notes (issue #846) degrade to a title-only card below a zoom
+    // threshold, independent of any plan-text change -- refresh that
+    // per-note class on every pan/zoom tick.
+    if (typeof wbUpdateNoteZoomTiers === 'function') wbUpdateNoteZoomTiers();
 }
 
 function wbUpdateZoomLabel() {
@@ -504,6 +508,11 @@ function initWhiteboard() {
         wbSvg = container.querySelector('svg.wb-svg');
         wbGroup = wbSvg.querySelector('.wb-layer');
     }
+
+    // Render notes (issue #846) before any fit-to-content below runs, so
+    // a first-ever open computes its bounding box against the real notes
+    // rather than an empty board.
+    if (typeof wbRenderNotes === 'function') wbRenderNotes();
 
     container.setAttribute('tabindex', '0');
     if (!container.dataset.wbKeydownBound) {

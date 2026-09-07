@@ -1667,6 +1667,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'resourceSheet',           fn: () => updateResourceSheetView(result) },
             { name: 'calendar',                fn: () => updateCalendarView(result) },
             { name: 'mindmap',                 fn: () => updateMindmapView(result) },
+            { name: 'whiteboard',              fn: () => { if (typeof updateWhiteboardView === 'function') updateWhiteboardView(result, planText); } },
             { name: 'pbs',                     fn: () => updatePbsView(result) },
             { name: 'deliverables',            fn: () => updateDeliverablesView(result) },
             { name: 'productFlow',             fn: () => updateProductFlowView(result) },
