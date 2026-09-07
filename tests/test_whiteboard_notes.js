@@ -53,6 +53,11 @@ const {
     wbNoteZoomTier,
     wbBuildNoteViewModel,
     wbNoteViewModels,
+    wbPalette,
+    wbShadeColour,
+    wbDerivedPaletteColour,
+    wbThemeColourFor,
+    wbResolveNoteColour,
 } = sandbox;
 
 // WB_NOTE_TITLE_ONLY_ZOOM is declared `const` at module scope in
@@ -200,6 +205,74 @@ const tasks = [
     const rows = [row, buildRow, orphanRow];
     const models = wbNoteViewModels(rows, tasks);
     assert(models.length === 2, 'wbNoteViewModels skips orphan rows and returns one model per valid row');
+}
+
+// ── Colour precedence (issue #849) ──────────────────────────────────────
+// Precedence, highest first: whiteboard row Colour -> Theme: entry ->
+// derived palette colour by outline position. See wbResolveNoteColour()
+// and this file's header comment in whiteboard-notes.js.
+{
+    const palette = wbPalette();
+    assert(Array.isArray(palette) && palette.length > 0, 'wbPalette() returns a non-empty swatch list');
+
+    // wbShadeColour: factor < 1 darkens, factor > 1 blends towards white.
+    assert(wbShadeColour('#808080', 0.5) === '#404040', 'factor 0.5 halves each channel');
+    assert(wbShadeColour('#000000', 1.5) === '#808080', 'factor 1.5 blends black half-way to white');
+    assert(wbShadeColour('#ffffff', 0.5) === '#808080', 'factor 0.5 halves white to mid-grey');
+
+    // wbDerivedPaletteColour: stable by the task's own index in `tasks`,
+    // not by row/insertion order, and wraps around the palette length.
+    const buildIndex = tasks.findIndex(t => t.name === 'Build');
+    assert(wbDerivedPaletteColour(tasks, 'Build') === palette[buildIndex % palette.length],
+        'derived colour matches the task\'s own index into the palette');
+    assert(wbDerivedPaletteColour(tasks, 'Phase 1') === wbDerivedPaletteColour(tasks, 'Phase 1'),
+        'derived colour is stable across repeated calls for the same task');
+    assert(wbDerivedPaletteColour(tasks, 'No Such Task') === palette[0],
+        'an unknown task name falls back to the palette\'s first entry rather than throwing');
+
+    // wbThemeColourFor: exact (case-sensitive) key match against the map,
+    // mirroring how kanban.js itself keys this map by literal task name.
+    const themeColours = { 'Build': '#112233', 'Phase 1': '#445566' };
+    assert(wbThemeColourFor('Build', themeColours) === '#112233', 'exact-name Theme: lookup');
+    assert(wbThemeColourFor('build', themeColours) === null, 'Theme: lookup is case-sensitive (unlike Task matching)');
+    assert(wbThemeColourFor('Nobody', themeColours) === null, 'no entry for this task returns null');
+    assert(wbThemeColourFor('Build', null) === null, 'a missing themeColours map returns null rather than throwing');
+
+    // wbResolveNoteColour: the full 3-tier precedence.
+    const buildTask = tasks.find(t => t.name === 'Build');
+    const rowWithColour = { task: 'Build', colour: '#abcdef' };
+    const rowNoColour = { task: 'Build', colour: '' };
+
+    const tier1 = wbResolveNoteColour(rowWithColour, buildTask, tasks, themeColours);
+    assert(tier1.colour === '#ABCDEF' && tier1.source === 'row',
+        'tier 1: a row Colour wins over Theme: and the derived palette');
+
+    const tier2 = wbResolveNoteColour(rowNoColour, buildTask, tasks, themeColours);
+    assert(tier2.colour === '#112233' && tier2.source === 'theme',
+        'tier 2: no row Colour falls back to the Theme: entry');
+
+    const tier3 = wbResolveNoteColour(rowNoColour, buildTask, tasks, {});
+    assert(tier3.colour === wbDerivedPaletteColour(tasks, 'Build') && tier3.source === 'derived',
+        'tier 3: no row Colour and no Theme: entry falls back to the derived palette colour');
+    assert(!!tier3.colour, 'the derived tier always yields a real colour -- a note is never left uncoloured');
+}
+
+// ── wbBuildNoteViewModel carries the resolved colour ────────────────────
+{
+    const themeColours = { 'Phase 1': '#334455' };
+    const row = { task: 'Phase 1', colour: '', x: 0, y: 0, width: null, height: null, collapsed: false };
+
+    const vmNoTheme = wbBuildNoteViewModel(row, tasks);
+    assert(vmNoTheme.colourSource === 'derived', 'omitting themeColours behaves as if there were no Theme: entries');
+
+    const vmWithTheme = wbBuildNoteViewModel(row, tasks, themeColours);
+    assert(vmWithTheme.colour === '#334455' && vmWithTheme.colourSource === 'theme',
+        'the view model surfaces the Theme:-sourced colour when present');
+
+    const overrideRow = { task: 'Phase 1', colour: '#010203', x: 0, y: 0, width: null, height: null, collapsed: false };
+    const vmWithRowColour = wbBuildNoteViewModel(overrideRow, tasks, themeColours);
+    assert(vmWithRowColour.colour === '#010203' && vmWithRowColour.colourSource === 'row',
+        'a row Colour still wins over a Theme: entry when both are present');
 }
 
 // ── Summary ──────────────────────────────────────────────────────────────

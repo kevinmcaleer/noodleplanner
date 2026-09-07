@@ -101,6 +101,15 @@ Keys the app reads
    * - ``theme``
      - ``light`` | ``dark`` | ``system``
      - UI theme when this plan is open.
+   * - ``Theme``
+     - list of ``- Task Name: #RRGGBB``
+     - Per-summary-task colour overrides, keyed by task name. Shared by the
+       Kanban board (column headers), the mind map (branch colours) and the
+       whiteboard/todo-list view's `...` note menu -- a colour set from any
+       one of the three shows up in the other two. Renaming a summary task
+       migrates its key here automatically. Not the same key as ``theme``
+       above (RST/YAML-style keys are matched case-sensitively by these
+       parsers); the two happen to share a name for unrelated reasons.
    * - ``start date``
      - ``YYYY-MM-DD``
      - Project start, shown on reports and read by the AI assistant. It does
@@ -306,7 +315,7 @@ Whiteboard rows
 - ``Task`` names a summary task by name.
 - ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
   top-left of the board's own coordinate space (not the viewport).
-- ``Colour`` is ``#RRGGBB`` or empty; empty means inherit the palette.
+- ``Colour`` is ``#RRGGBB`` or empty; see `Note colour precedence`_ below.
 - ``Width`` / ``Height`` are optional integers; empty means the default
   note size.
 - ``Collapsed`` is ``yes`` or ``no``.
@@ -318,6 +327,31 @@ Whiteboard rows
 - ``Task`` is matched case-insensitively against summary task names, the
   same as dependency name resolution above. If two whiteboard rows name
   the same task, the later one wins; avoid duplicate names.
+
+Note colour precedence
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Each note's colour (set from its `...` menu, top right of the note) is
+resolved in this order, highest priority first:
+
+1. The row's own ``Colour`` column above -- a per-board override. Still
+   read for backward compatibility with hand-edited plans, but as of the
+   `...` menu (issue #849) nothing in the app writes it any more: setting a
+   colour from the menu clears this column (if a hand-edit had set it) and
+   writes the ``Theme`` front-matter entry instead, so a note's colour is
+   never split across two places that could disagree.
+2. The plan's ``Theme`` front-matter entry (see the front matter table
+   above) for that summary task's name -- what the `...` menu actually
+   writes. This is the same block the Kanban board and mind map read and
+   write, so a colour set on any one of the three views shows up on the
+   other two, and renaming the summary task carries the colour with it
+   (the rename migrates the ``Theme`` key alongside the phase/task name).
+3. Otherwise, a colour derived from the task's position in the outline (the
+   same swatch palette the mind map's branch colours use). Every note
+   always has a colour by this rule -- there is no "uncoloured" state.
+   Choosing "Default colour" in the `...` menu removes both the ``Theme``
+   entry and any stray ``Colour`` column value, returning the note to this
+   derived colour.
 
 Where plan data lives
 ----------------------

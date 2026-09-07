@@ -2699,3 +2699,13 @@ body {
 [data-theme="dark"] .wb-note-menu-btn:focus-visible {
     background: rgba(255, 255, 255, 0.12);
 }
+
+/* ── Note colour menu (dark) — issue #849 ────────────────────────────────
+   Already reads var(--np-*) tokens for everything except the "selected"
+   swatch border, which needs an explicit light colour in dark mode (the
+   light-mode rule's var(--np-text, #333333) is too close to most swatch
+   colours to read as a highlight against a dark page). */
+
+[data-theme="dark"] .wb-note-menu-swatch.selected {
+    border-color: #ffffff;
+}

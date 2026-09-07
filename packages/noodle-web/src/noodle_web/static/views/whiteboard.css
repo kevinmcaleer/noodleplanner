@@ -323,6 +323,105 @@
     margin-left: 0;
 }
 
+/* ========================================
+   Note colour menu (issue #849)
+
+   A single floating popup appended to document.body (see
+   whiteboard-notes.js's wbOpenNoteMenu()), not inside the note's own
+   small <foreignObject> -- so it is never clipped to the note's own
+   width/height. Structured as a plain <ul> of <li> items so a later
+   issue can append "Remove from board" / "Open task" items without
+   touching these rules.
+   ======================================== */
+
+.wb-note-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 176px;
+    max-width: 220px;
+    background: var(--np-surface, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px var(--np-shadow, rgba(0, 0, 0, 0.18));
+    padding: 6px;
+    font-size: 12px;
+}
+
+.wb-note-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wb-note-menu-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--np-text-secondary, #666666);
+    padding: 4px 4px 0;
+}
+
+.wb-note-menu-default {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333333);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.wb-note-menu-default:hover,
+.wb-note-menu-default:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: 2px solid var(--np-accent, #667eea);
+    outline-offset: 1px;
+}
+
+.wb-note-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 0 4px;
+}
+
+.wb-note-menu-swatch {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--np-border, rgba(0, 0, 0, 0.15));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.wb-note-menu-swatch:focus-visible {
+    outline: 2px solid var(--np-accent, #667eea);
+    outline-offset: 2px;
+}
+
+.wb-note-menu-swatch.selected {
+    border-width: 2px;
+    border-color: var(--np-text, #333333);
+}
+
+.wb-note-menu-swatch-check {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    pointer-events: none;
+}
+
 /* Below ~40% zoom (or a row explicitly marked Collapsed) — title-only
    card, per the epic's zoom-degradation rule: never render illegibly
    small body/footer text. */
