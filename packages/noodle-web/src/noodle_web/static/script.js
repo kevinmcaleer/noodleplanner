@@ -1678,6 +1678,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
+            { name: 'localFileStatus',         fn: () => { if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator(); } },
             { name: 'statusBarDeps',           fn: () => { if (typeof updateStatusBarDependencies === 'function') updateStatusBarDependencies(result.dependencies); } },
             { name: 'mppAssignmentWarning',    fn: () => { if (typeof updateMppAssignmentWarnings === 'function') updateMppAssignmentWarnings(result); } },
             // Last, so a circular-dependency warning is not overwritten by the
@@ -1734,7 +1735,18 @@ function showMessage(prefix, type, text) {
     }
 }
 
-function downloadMarkdown() {
+/**
+ * Save the active plan (Ctrl+S and the toolbar 💾 button).
+ *
+ * issue #767: when the current project was opened from disk via the File
+ * System Access API (openLocalPlanFile below), this writes straight back to
+ * that same file with no dialog and no re-prompt — LocalFileAccess retains
+ * the file handle. Otherwise (Firefox/Safari, or a project never linked to a
+ * file) this falls back to the original download-a-copy flow, unchanged,
+ * and says so explicitly so the user knows they need to replace the file
+ * themselves.
+ */
+async function downloadMarkdown() {
     const editor = getActiveEditor();
     const content = editor.value;
     const messageTarget = isBoardViewActive() ? 'kanban' : 'editor';
@@ -1744,27 +1756,41 @@ function downloadMarkdown() {
         return;
     }
 
-    // Create a blob with the markdown content
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = window.URL.createObjectURL(blob);
-
-    // Create download link
-    const a = document.createElement('a');
-    a.href = url;
-
-    // Increment version in front matter before saving
+    // Increment version in front matter before saving — same for both the
+    // disk-linked path and the download fallback.
     const versionedContent = incrementPlanVersion(editor);
-    // Re-create the blob with updated content
-    const versionedBlob = new Blob([versionedContent], { type: 'text/markdown' });
-    const versionedUrl = window.URL.createObjectURL(versionedBlob);
-    a.href = versionedUrl;
-    window.URL.revokeObjectURL(url);
 
     // Persist the version bump to project storage and sync editors
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) kanbanEditor.value = versionedContent;
     if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
     editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isLinked(currentProjectId)) {
+        const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
+        if (result && result.ok) {
+            if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+            showMessage(messageTarget, 'success', 'Saved to ' + result.filename + ' on disk');
+            return;
+        }
+        if (result && !result.ok) {
+            // The link was dropped by saveToLinkedFile; fall through to the
+            // download fallback below so the edit is not lost, but tell the
+            // user their file on disk was NOT updated.
+            if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+            console.error('Could not write to linked file:', result.error);
+            if (typeof showToast === 'function') {
+                showToast('Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
+            }
+        }
+    }
+
+    // Fallback: download a copy (Firefox/Safari, or no file linked)
+    const blob = new Blob([versionedContent], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
 
     // Use project name + version for filename, falling back to timestamp
     const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
@@ -1786,7 +1812,110 @@ function downloadMarkdown() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
-    showMessage(messageTarget, 'success', 'Markdown file downloaded!');
+    const fallbackNote = (typeof LocalFileAccess !== 'undefined' && !LocalFileAccess.isSupported())
+        ? ' — replace the file on disk yourself' : '';
+    showMessage(messageTarget, 'success', 'Markdown file downloaded!' + fallbackNote);
+}
+
+/**
+ * Open a plan from the user's real filesystem (issue #767).
+ *
+ * On Chromium/Edge this uses the File System Access API and retains the
+ * file handle, so later saves of this project write straight back to the
+ * same file with no re-prompt (see downloadMarkdown() above). Everywhere
+ * else there is no handle to keep, so this falls back to the existing
+ * upload flow — opening still works, but saving stays a download-a-copy
+ * operation, and the status bar makes that explicit
+ * (updateLocalFileStatusIndicator).
+ *
+ * A file opened this way still gets a normal project entry via
+ * createProject/saveProject, so every other view — which reads from
+ * in-memory project state, not the file — keeps working exactly as it does
+ * for any other project. The linked file on disk becomes the save target in
+ * addition to that localStorage/IndexedDB entry, not instead of it.
+ */
+async function openLocalPlanFile() {
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Save to a file on disk — use Upload, then Save to download a copy to replace it.', 'info');
+        }
+        uploadPlanFile();
+        return;
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndReadFile();
+    } catch (error) {
+        console.error('Error opening local file:', error);
+        showMessage(isBoardViewActive() ? 'kanban' : 'editor', 'error', 'Failed to open file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    clearPlanTrackingData();
+
+    // Save whatever project is currently open before switching away from it.
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+
+    const boardView = isBoardViewActive();
+    const projectName = picked.name.replace(/\.(md|markdown)$/i, '');
+    const project = createProject(projectName);
+    saveProject(project.id, { planText: picked.text });
+    setCurrentProjectId(project.id);
+    LocalFileAccess.link(project.id, picked.handle, picked.name);
+    if (typeof updateProjectBreadcrumb === 'function') updateProjectBreadcrumb(project.name);
+
+    const editor = document.getElementById('planEditor');
+    if (editor) editor.value = picked.text;
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = picked.text;
+
+    if (!boardView) {
+        // Switch to the editor tab (mirrors renderFile())
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        const editorTab = document.querySelector('[onclick*="editor"]');
+        if (editorTab) editorTab.classList.add('active');
+        const editorTabContent = document.getElementById('editor-tab');
+        if (editorTabContent) editorTabContent.classList.add('active');
+    }
+
+    const activeEditor = boardView ? (kanbanEditor || editor) : editor;
+    if (activeEditor) activeEditor.dispatchEvent(new Event('input'));
+
+    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+
+    const messageTarget = boardView ? 'kanban' : 'editor';
+    showMessage(messageTarget, 'success', 'Opened ' + picked.name + ' — linked for saving');
+
+    if (boardView) {
+        // Stay on the board, same as handleBoardFileUpload()
+        await render(picked.text, null, false, false, false, false, 'kanban');
+    } else {
+        await renderText();
+    }
+}
+
+/**
+ * Reflect whether the current project is linked to a file on disk in the
+ * status bar (issue #767) — which Save behaviour is in effect should always
+ * be visible, not something the user discovers by watching for a dialog
+ * that never appears (or unexpectedly does).
+ */
+function updateLocalFileStatusIndicator() {
+    const el = document.getElementById('localFileLinkStatus');
+    if (!el) return;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && projectId && LocalFileAccess.isLinked(projectId)) {
+        const name = LocalFileAccess.getLinkedFileName(projectId);
+        el.textContent = '🔗 ' + name;
+        el.title = 'Saves write straight back to ' + name + ' on disk — no download, no re-prompt';
+    } else {
+        el.textContent = '';
+        el.title = '';
+    }
 }
 
 // Task Form Modal Functions
