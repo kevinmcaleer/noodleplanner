@@ -83,6 +83,30 @@ These shortcuts are available when the Mind Map view is active.
    * - ``Ctrl+Scroll`` / ``Cmd+Scroll``
      - Zoom in or out
 
+Whiteboard Shortcuts
+---------------------
+
+These shortcuts are available when the Whiteboard view's canvas has focus.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Shortcut
+     - Action
+   * - ``Arrow keys``
+     - Pan the board
+   * - ``+`` / ``-``
+     - Zoom in or out
+   * - ``0``
+     - Reset zoom to 100%
+   * - ``f``
+     - Fit to content
+   * - ``Scroll``
+     - Pan the board
+   * - ``Ctrl+Scroll`` / ``Cmd+Scroll`` / pinch
+     - Zoom in or out, anchored on the pointer
+
 File Operations
 ----------------
 
