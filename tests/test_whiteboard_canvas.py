@@ -182,20 +182,20 @@ def get_zoom_label(driver):
 
 
 class TestWhiteboardNavigationAndGrid:
-    def test_whiteboard_in_views_menu_and_opens_with_grid(self, browser, app_server):
+    def test_whiteboard_in_ribbon_and_opens_with_grid(self, browser, app_server):
+        # Discoverability moved from the old .plan-subnav Views dropdown to
+        # the ribbon's Plan tab > Model group (design handoff "Ribbon
+        # Toolbar option 2a", #833 follow-up) -- .plan-subnav is hidden now.
         open_app(browser, app_server)
         browser.execute_script("switchPlanSubnavToDashboard();")
         time.sleep(0.2)
 
-        # Open the real Views dropdown menu (as a user would) so the item's
-        # text is actually rendered/visible — WebDriver's .text reads
-        # visible text, and the menu starts closed (display: none).
-        browser.find_element(By.ID, "viewsDropdownBtn").click()
+        browser.find_element(By.CSS_SELECTOR, '.ribbon-tab-btn[data-tab="plan"]').click()
         time.sleep(0.2)
 
         item = WebDriverWait(browser, 5).until(
             EC.visibility_of_element_located(
-                (By.CSS_SELECTOR, '.nav-menu-item[data-view="whiteboard"]')
+                (By.CSS_SELECTOR, '.ribbon-body [data-scope-id="plan"][data-label="Whiteboard"]')
             )
         )
         assert "Whiteboard" in item.text
