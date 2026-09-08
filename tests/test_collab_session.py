@@ -787,129 +787,121 @@ class TestPresenceStylesAreReachable:
 class TestMultiJoinerRouting:
     """#967: the relay tags joiner->host frames with a sender id and routes
     host->joiner frames at one joiner, so the host can hold a separate
-    session key per joiner. It still never reads the frames themselves."""
+    session key per joiner. It still never reads the frames themselves.
+
+    Every test here drains the presence snapshot each join *and* each
+    disconnect pushes to the host (see #966). Leaving one queued
+    desynchronises every later `host_ws.receive_text()` on that socket,
+    which surfaces as a hang rather than a failure.
+    """
+
+    @staticmethod
+    def _join(client, info, host_ws, display_name):
+        """Connect a joiner, drain its ack and the host's presence snapshot,
+        and return `(socket, joiner_id)` -- the id the host addresses it by."""
+        joiner_ws = client.websocket_connect(f"/ws/session/{info['session_id']}").__enter__()
+        joiner_ws.send_text(json.dumps({
+            "type": "join", "code": info["join_code"], "display_name": display_name,
+        }))
+        joiner_ws.receive_text()  # ack
+        snapshot = json.loads(host_ws.receive_text())["joiners"]
+        joiner_id = next(j["id"] for j in snapshot if j["display_name"] == display_name)
+        return joiner_ws, joiner_id
+
+    @staticmethod
+    def _leave(joiner_ws, host_ws):
+        """Close a joiner and drain the presence snapshot its departure pushes."""
+        joiner_ws.__exit__(None, None, None)
+        host_ws.receive_text()  # presence after the disconnect
 
     def test_joiner_frame_reaches_host_tagged_with_sender_id(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
-                joiner_ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
-                }))
-                joiner_ws.receive_text()  # ack
-                presence = json.loads(host_ws.receive_text())
-                joiner_id = presence["joiners"][0]["id"]
+            joiner_ws, joiner_id = self._join(client, info, host_ws, "Alice")
 
-                joiner_ws.send_text("opaque-ciphertext")
-                wrapper = json.loads(host_ws.receive_text())
+            joiner_ws.send_text("opaque-ciphertext")
+            wrapper = json.loads(host_ws.receive_text())
 
-        assert wrapper["type"] == "from_joiner"
-        assert wrapper["joiner_id"] == joiner_id
-        assert wrapper["frame"] == "opaque-ciphertext"
+            assert wrapper["type"] == "from_joiner"
+            assert wrapper["joiner_id"] == joiner_id
+            assert wrapper["frame"] == "opaque-ciphertext"
+            self._leave(joiner_ws, host_ws)
 
     def test_two_joiners_are_distinguishable_to_the_host(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
-                alice_ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
-                }))
-                alice_ws.receive_text()
-                host_ws.receive_text()  # presence
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            bob_ws, bob_id = self._join(client, info, host_ws, "Bob")
 
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
-                    bob_ws.send_text(json.dumps({
-                        "type": "join", "code": info["join_code"], "display_name": "Bob",
-                    }))
-                    bob_ws.receive_text()
-                    host_ws.receive_text()  # presence
+            alice_ws.send_text("from-alice")
+            first = json.loads(host_ws.receive_text())
+            bob_ws.send_text("from-bob")
+            second = json.loads(host_ws.receive_text())
 
-                    alice_ws.send_text("from-alice")
-                    first = json.loads(host_ws.receive_text())
-                    bob_ws.send_text("from-bob")
-                    second = json.loads(host_ws.receive_text())
+            assert first["frame"] == "from-alice"
+            assert second["frame"] == "from-bob"
+            assert first["joiner_id"] == alice_id
+            assert second["joiner_id"] == bob_id
+            assert alice_id != bob_id, "each joiner needs its own key slot"
 
-        assert first["frame"] == "from-alice"
-        assert second["frame"] == "from-bob"
-        assert first["joiner_id"] != second["joiner_id"], "each joiner needs its own key slot"
+            self._leave(bob_ws, host_ws)
+            self._leave(alice_ws, host_ws)
 
     def test_addressed_frame_reaches_only_its_target(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
-                alice_ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
-                }))
-                alice_ws.receive_text()
-                alice_id = json.loads(host_ws.receive_text())["joiners"][0]["id"]
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            bob_ws, _bob_id = self._join(client, info, host_ws, "Bob")
 
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
-                    bob_ws.send_text(json.dumps({
-                        "type": "join", "code": info["join_code"], "display_name": "Bob",
-                    }))
-                    bob_ws.receive_text()
-                    host_ws.receive_text()  # presence
+            host_ws.send_text(json.dumps({
+                "type": "to_joiner", "joiner_id": alice_id, "frame": "for-alice-only",
+            }))
+            assert alice_ws.receive_text() == "for-alice-only"
 
-                    host_ws.send_text(json.dumps({
-                        "type": "to_joiner", "joiner_id": alice_id, "frame": "for-alice-only",
-                    }))
-                    assert alice_ws.receive_text() == "for-alice-only"
+            # Bob must not see it. A plain broadcast afterwards is what
+            # proves his socket was live and simply skipped: without it, an
+            # addressed frame going nowhere at all would pass just as well.
+            host_ws.send_text("broadcast-to-everyone")
+            assert bob_ws.receive_text() == "broadcast-to-everyone"
+            assert alice_ws.receive_text() == "broadcast-to-everyone"
 
-                    # Bob must not see it. A plain broadcast afterwards is
-                    # what proves his socket was live and simply skipped:
-                    # without this, an addressed frame silently going
-                    # nowhere would pass just as well.
-                    host_ws.send_text("broadcast-to-everyone")
-                    assert bob_ws.receive_text() == "broadcast-to-everyone"
+            self._leave(bob_ws, host_ws)
+            self._leave(alice_ws, host_ws)
 
     def test_addressed_frame_to_a_departed_joiner_is_dropped(self, client):
+        """A joiner id must never be recycled onto a later joiner, or a frame
+        addressed to someone who left lands on whoever inherited their id."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
-                alice_ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
-                }))
-                alice_ws.receive_text()
-                alice_id = json.loads(host_ws.receive_text())["joiners"][0]["id"]
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            self._leave(alice_ws, host_ws)
 
-            host_ws.receive_text()  # presence after Alice leaves
+            bob_ws, bob_id = self._join(client, info, host_ws, "Bob")
+            assert bob_id != alice_id, "a departed joiner's id must not be reused"
 
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
-                bob_ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Bob",
-                }))
-                bob_ws.receive_text()
-                host_ws.receive_text()  # presence
+            host_ws.send_text(json.dumps({
+                "type": "to_joiner", "joiner_id": alice_id, "frame": "for-a-ghost",
+            }))
+            # Must not be misdelivered to whoever is still connected.
+            host_ws.send_text("broadcast-to-everyone")
+            assert bob_ws.receive_text() == "broadcast-to-everyone"
 
-                host_ws.send_text(json.dumps({
-                    "type": "to_joiner", "joiner_id": alice_id, "frame": "for-a-ghost",
-                }))
-                # Must not be misdelivered to whoever is still connected.
-                host_ws.send_text("broadcast-to-everyone")
-                assert bob_ws.receive_text() == "broadcast-to-everyone"
+            self._leave(bob_ws, host_ws)
 
     def test_host_broadcast_still_reaches_every_joiner(self, client):
-        """The pubkey announcement relies on the untagged broadcast path,
-        so adding addressed delivery must not have replaced it."""
+        """The pubkey announcement relies on the untagged broadcast path, so
+        adding addressed delivery must not have replaced it."""
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
-                alice_ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
-                }))
-                alice_ws.receive_text()
-                host_ws.receive_text()
+            alice_ws, _alice_id = self._join(client, info, host_ws, "Alice")
+            bob_ws, _bob_id = self._join(client, info, host_ws, "Bob")
 
-                with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
-                    bob_ws.send_text(json.dumps({
-                        "type": "join", "code": info["join_code"], "display_name": "Bob",
-                    }))
-                    bob_ws.receive_text()
-                    host_ws.receive_text()
+            host_ws.send_text("everyone-gets-this")
+            assert alice_ws.receive_text() == "everyone-gets-this"
+            assert bob_ws.receive_text() == "everyone-gets-this"
 
-                    host_ws.send_text("everyone-gets-this")
-                    assert alice_ws.receive_text() == "everyone-gets-this"
-                    assert bob_ws.receive_text() == "everyone-gets-this"
+            self._leave(bob_ws, host_ws)
+            self._leave(alice_ws, host_ws)
 
     def test_routing_does_not_log_frame_contents(self, client, caplog):
         secret = "Routed Confidential Payload"

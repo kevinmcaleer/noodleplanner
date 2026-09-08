@@ -81,7 +81,7 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   quiet single-joiner session's status from going stale without adding
   another background task. The host can also remove ("kick") a joiner with
   a ``{"type": "kick", "joiner_id": ...}`` message (``joiner_id`` is the
-  same ``id(websocket)`` key ``SessionState.joiners`` and the presence
+  same stable ``Joiner.joiner_id`` key ``SessionState.joiners`` and the presence
   snapshot already use); ``SessionManager.kick_joiner()`` closes just that
   joiner's socket with the ``CLOSE_KICKED``/``CLOSE_REASON_KICKED`` pair
   below, following #965's close-code convention, without touching the
@@ -134,6 +134,7 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import os
 import secrets
@@ -197,12 +198,23 @@ _HANDSHAKE_SECRET_BYTES = 32
 PRESENCE_ACTIVE_WINDOW_SECONDS = int(os.getenv("COLLAB_PRESENCE_ACTIVE_WINDOW_SECONDS", "45"))
 
 
+# Joiner correlation ids. Deliberately NOT `id(websocket)`: CPython reuses
+# an object's address once it is garbage collected, so a joiner who left
+# could hand their id straight to the next joiner to connect. That made two
+# host actions land on the wrong person -- a `kick` aimed at the departed
+# joiner (#966) and a `to_joiner` frame addressed to them (#967) would both
+# hit whoever inherited the id. A process-wide counter is never reused, so
+# a stale id stays stale.
+_joiner_id_counter = itertools.count(1)
+
+
 @dataclass
 class Joiner:
     """A single connected joiner."""
 
     websocket: WebSocket
     display_name: str
+    joiner_id: int = field(default_factory=lambda: next(_joiner_id_counter))
     joined_at: float = field(default_factory=time.monotonic)
     last_activity: float = field(default_factory=time.monotonic)
 
@@ -240,9 +252,19 @@ class SessionState:
     def is_idle(self) -> bool:
         return (time.monotonic() - self.last_activity) > IDLE_TIMEOUT_SECONDS
 
+    def joiner_id_for(self, websocket: WebSocket) -> int | None:
+        """This socket's stable joiner id, or None if it isn't a joiner in
+        this session. Joiner counts are small (a planning session, not a
+        broadcast), so a scan is cheaper than maintaining a second index
+        that could drift out of sync with `joiners`."""
+        for joiner_id, joiner in self.joiners.items():
+            if joiner.websocket is websocket:
+                return joiner_id
+        return None
+
     def presence_snapshot(self) -> list[dict]:
         """Non-sensitive presence metadata for the host's presence panel
-        (#966): each joiner's correlation id (the same ``id(websocket)``
+        (#966): each joiner's correlation id (the same ``Joiner.joiner_id``
         key ``joiners`` is keyed by, used only so a host can name a joiner
         in a ``kick`` message), display name (already sent in the clear at
         join time, per #963), and the ``is_active()`` UX heuristic.
@@ -370,7 +392,8 @@ class SessionManager:
             return None
         if not code or not secrets.compare_digest(code, state.join_code):
             return None
-        state.joiners[id(websocket)] = Joiner(websocket=websocket, display_name=display_name)
+        joiner = Joiner(websocket=websocket, display_name=display_name)
+        state.joiners[joiner.joiner_id] = joiner
         state.touch()
         return state
 
@@ -417,7 +440,9 @@ class SessionManager:
         state = self._sessions.get(session_id)
         if state is None:
             return
-        state.joiners.pop(id(websocket), None)
+        joiner_id = state.joiner_id_for(websocket)
+        if joiner_id is not None:
+            state.joiners.pop(joiner_id, None)
 
     async def kick_joiner(self, session_id: str, joiner_id: int, *, code: int, reason: str) -> bool:
         """Host-initiated removal of a single joiner (#966): pops them from
