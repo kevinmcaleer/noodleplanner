@@ -19,6 +19,16 @@
  *     with escalation_level 'programme' or 'board' (a board-escalated item
  *     is still escalated at least as far as programme altitude, so it's
  *     included too).
+ *   - Dependencies (RAG board): real (#737) -- the portfolio-wide
+ *     dependency store (portfolio-dependencies.js, DEPS_META_KEY) filtered
+ *     down to links touching this programme's member projects
+ *     (filterDependenciesForProgramme(), tagging each 'internal' when both
+ *     ends are members or 'external' when one end reaches outside the
+ *     programme -- the issue's "inter/intra project" distinction), with
+ *     RAG health from the existing /api/programme-dependencies/propagate
+ *     endpoint reused as-is (propagateProgrammeDependencies()). See
+ *     portfolio-dependencies.js's header comment for why the dependency
+ *     store, not front matter, stays the single editable source.
  *   - SRO and vision/outcomes summary: stubbed -- #910's architecture has
  *     no programme-level file/storage (a programme is just a shared
  *     `programme:` slug on its member projects), and no per-project field
@@ -32,9 +42,13 @@
  * (parseAllProjects), portfolio-status.js (extractRAGStatus,
  * calculateProjectCompletionFromTasks), state.js (BENEFITS_START and
  * sibling section markers), benefits.js (parseBenefitsMarkdown), script.js
- * (NavigationController), ribbon.js (setRibbonScope) -- all loaded before
- * this file resolves any of these at call time (classic scripts, same
- * pattern as nav.js's own dependency on state.js).
+ * (NavigationController), ribbon.js (setRibbonScope), project-storage.js
+ * (listProjects), portfolio-dependencies.js (getAllProgrammeDependencies,
+ * propagateProgrammeDependencies, ragCircleHtml, ragToColour,
+ * showAddDependencyDialog, showEditDependencyDialog,
+ * confirmDeleteProgrammeDependency) -- all loaded before this file resolves
+ * any of these at call time (classic scripts, same pattern as nav.js's own
+ * dependency on state.js).
  */
 
 let currentProgrammeSlug = null;
@@ -245,6 +259,25 @@ function ragById(projectRags) {
 }
 
 /**
+ * Scope the portfolio-wide dependency store (getAllProgrammeDependencies(),
+ * portfolio-dependencies.js) down to the links relevant to one programme
+ * (#737): a dependency counts when either end -- the source task's project
+ * or the dependent task's project -- is a member of the programme. Tags
+ * each with 'internal' (both ends are members) or 'external' (one end
+ * reaches a project outside the programme), the issue's "intra-project"
+ * vs. "inter-project" distinction, so the board can show both without
+ * hiding which is which.
+ */
+function filterDependenciesForProgramme(deps, memberProjectIds) {
+    const members = new Set(memberProjectIds || []);
+    return (deps || [])
+        .filter((d) => d && (members.has(d.from_project_id) || members.has(d.to_project_id)))
+        .map((d) => Object.assign({}, d, {
+            scope: (members.has(d.from_project_id) && members.has(d.to_project_id)) ? 'internal' : 'external',
+        }));
+}
+
+/**
  * Render the member-project grid, reusing the portfolio grid card markup
  * (.portfolio-project-card) so it looks and dark-mode-behaves consistently
  * without new component CSS. `ragMap` is {[projectId]: 'red'|'amber'|
@@ -356,6 +389,80 @@ function renderProgrammeEscalatedRisks(items) {
     }).join('') + '</ul>';
 }
 
+/**
+ * Render the programme-scoped dependency RAG board (#737): every
+ * inter-/intra-project dependency touching this programme's member
+ * projects, filtered by filterDependenciesForProgramme() and health-checked
+ * by the same /api/programme-dependencies/propagate call the portfolio-wide
+ * dependencies view uses (portfolio-dependencies.js) -- reused, not
+ * recomputed. Add/Edit/Delete reuse that file's dialog and CRUD functions
+ * directly, so a dependency created here is the same store record the
+ * Portfolio > Dependencies view manages.
+ */
+function renderProgrammeDependencyBoard(deps, propagationResult) {
+    const el = document.getElementById('programmeDependencies');
+    if (!el) return;
+
+    const addLink = (typeof showAddDependencyDialog === 'function')
+        ? '<a href="javascript:void(0)" class="add-item-link" onclick="showAddDependencyDialog()">' +
+            '<span class="add-icon">+</span> Add Dependency</a>'
+        : '';
+
+    if (!deps || deps.length === 0) {
+        el.innerHTML = '<div class="programme-deps-toolbar">' + addLink + '</div>' +
+            '<p class="programme-empty-hint">No dependencies link this programme\'s member projects to other tasks yet.</p>';
+        return;
+    }
+
+    const projects = (typeof listProjects === 'function') ? listProjects() : [];
+    const projectNames = {};
+    projects.forEach((p) => { projectNames[p.id] = p.name; });
+
+    const propById = {};
+    if (propagationResult && propagationResult.results) {
+        propagationResult.results.forEach((r) => { propById[r.dependency_id] = r; });
+    }
+
+    let html = '<div class="programme-deps-toolbar">' + addLink + '</div>';
+    html += '<table class="dep-table" role="table" aria-label="Programme dependencies">';
+    html += '<thead><tr>' +
+        '<th scope="col">RAG</th>' +
+        '<th scope="col">Source Project</th>' +
+        '<th scope="col">Source Task</th>' +
+        '<th scope="col">Dependent Project</th>' +
+        '<th scope="col">Dependent Task</th>' +
+        '<th scope="col">Scope</th>' +
+        '<th scope="col">Status</th>' +
+        '<th scope="col">Actions</th>' +
+        '</tr></thead><tbody>';
+
+    deps.forEach((dep) => {
+        const prop = propById[dep.id];
+        const rag = prop ? prop.rag : 'grey';
+        const reason = prop ? prop.reason : 'Not yet evaluated';
+        const fromName = escapeHtml(projectNames[dep.from_project_id] || dep.from_project_id);
+        const toName = escapeHtml(projectNames[dep.to_project_id] || dep.to_project_id);
+        const scopeLabel = dep.scope === 'internal' ? 'Internal' : 'External';
+
+        html += '<tr>' +
+            '<td>' + ragCircleHtml(rag, reason) + '</td>' +
+            '<td>' + fromName + '</td>' +
+            '<td>' + escapeHtml(dep.from_task_name) + '</td>' +
+            '<td>' + toName + '</td>' +
+            '<td>' + escapeHtml(dep.to_task_name) + '</td>' +
+            '<td><span class="programme-dep-scope programme-dep-scope--' + dep.scope + '">' + scopeLabel + '</span></td>' +
+            '<td style="max-width:220px;font-size:0.85em;color:' + ragToColour(rag) + ';">' + escapeHtml(reason) + '</td>' +
+            '<td><button class="btn-secondary btn-sm" ' +
+            'onclick="showEditDependencyDialog(\'' + dep.id + '\')" aria-label="Edit dependency">Edit</button> ' +
+            '<button class="btn-danger btn-sm" ' +
+            'onclick="confirmDeleteProgrammeDependency(\'' + dep.id + '\')" aria-label="Delete dependency">Delete</button></td>' +
+            '</tr>';
+    });
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
 /** Open the source project's RAID form for an escalated item, drilling down from the programme dashboard. */
 function openProgrammeEscalatedItem(projectId, raidItemId) {
     if (typeof setRibbonScope === 'function') setRibbonScope('project');
@@ -411,11 +518,19 @@ async function loadProgrammeDashboardData(programme) {
     if (currentProgrammeSlug !== slugAtStart) return;
 
     const escalatedItems = aggregateEscalatedRaidItems(raidItemsByProject);
+    const allDeps = (typeof getAllProgrammeDependencies === 'function') ? getAllProgrammeDependencies() : [];
+    const scopedDeps = filterDependenciesForProgramme(allDeps, programme.projects.map((p) => p.id));
+    const dependencyPropagation = (scopedDeps.length > 0 && typeof propagateProgrammeDependencies === 'function')
+        ? await propagateProgrammeDependencies(parsedProjects, scopedDeps)
+        : null;
+
+    if (currentProgrammeSlug !== slugAtStart) return;
 
     renderProgrammeMemberGrid(programme, ragById(projectRags));
     renderProgrammeStatTiles(computeRagRollup(projectRags), aggregateBenefitsOnTrack(allBenefitItems), escalatedItems.length);
     renderProgrammeMilestones(pickKeyMilestones(allMilestones, 5));
     renderProgrammeEscalatedRisks(escalatedItems);
+    renderProgrammeDependencyBoard(scopedDeps, dependencyPropagation);
 }
 
 /**
@@ -433,6 +548,7 @@ function renderProgrammeView() {
     const tilesEl = document.getElementById('programmeStatTiles');
     const milestonesEl = document.getElementById('programmeMilestones');
     const escalatedEl = document.getElementById('programmeEscalatedRisks');
+    const depsEl = document.getElementById('programmeDependencies');
     if (!titleEl || !gridEl) return;
 
     const programme = getCurrentPortfolioProgramme();
@@ -446,6 +562,7 @@ function renderProgrammeView() {
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';
+        if (depsEl) depsEl.innerHTML = '';
         return;
     }
 
@@ -460,12 +577,14 @@ function renderProgrammeView() {
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';
+        if (depsEl) depsEl.innerHTML = '';
         return;
     }
 
     if (tilesEl) tilesEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (milestonesEl) milestonesEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (escalatedEl) escalatedEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
+    if (depsEl) depsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
 
     renderProgrammeMemberGrid(programme, {});
     loadProgrammeDashboardData(programme);
@@ -534,5 +653,6 @@ if (typeof module !== 'undefined' && module.exports) {
         aggregateBenefitsOnTrack,
         aggregateEscalatedRaidItems,
         ragById,
+        filterDependenciesForProgramme,
     };
 }
