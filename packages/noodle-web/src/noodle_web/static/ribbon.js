@@ -825,9 +825,16 @@ async function refreshRibbon() {
     const ctxTab = ia.contextualTabFor(live.view);
     const scopeTabs = activeScopeTabs(ia);
 
-    if (ctxTab && ribbonState.activeTab !== '__ctx' && ribbonState.lastView !== live.view) {
-        ribbonState.activeTab = '__ctx';
-    } else if (!ctxTab && ribbonState.activeTab === '__ctx') {
+    // #1003: navigating to a view with a contextual tab (e.g. Gantt, Board)
+    // used to steal focus by auto-switching the ribbon to that tab, even
+    // when the user clicked a button elsewhere (Home's "Gantt" tile, a
+    // breadcrumb, etc.) rather than the tab itself. The contextual tab is
+    // still shown in the strip (renderTabStrip()'s ctxHtml, below) so it's
+    // one click away -- it just no longer steals the currently active tab.
+    // Only fall back away from '__ctx' when its view is no longer current,
+    // so a user who *did* explicitly select the contextual tab isn't
+    // bounced off it by every subsequent refresh.
+    if (!ctxTab && ribbonState.activeTab === '__ctx') {
         ribbonState.activeTab = ribbonState.previousTab || scopeTabs[0].id;
     }
     // The active tab id may not exist in the current scope's tab set --
@@ -839,7 +846,6 @@ async function refreshRibbon() {
         ribbonState.activeTab = scopeTabs[0].id;
     }
     if (ctxTab) ribbonState.previousTab = ribbonState.activeTab === '__ctx' ? ribbonState.previousTab : ribbonState.activeTab;
-    ribbonState.lastView = live.view;
 
     const animate = ribbonState.animateTabSwitch;
     ribbonState.animateTabSwitch = false;
