@@ -2557,6 +2557,14 @@ function findTaskLineNumber(task) {
     const editor = document.getElementById('planEditor');
     if (!editor) return -1;
 
+    if (typeof NoodlePlanModel !== 'undefined') {
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const node = task && task._uid != null
+            ? model.findById(task._uid)
+            : model.findByName(task && task.name, task && task.level);
+        if (node) return model.lineNumber(node);
+    }
+
     const lines = editor.value.split('\n');
     for (let i = 0; i < lines.length; i++) {
         const parsed = parseTaskLine(lines[i], i + 1);
@@ -4211,15 +4219,31 @@ function saveTask() {
         }
     }
 
-    // Update the line
-    lines[currentTaskLineNumber - 1] = newLine;
-
-    // Auto-update dependencies if task was renamed
-    if (oldTaskName && name && oldTaskName !== name) {
-        updateDependencyReferences(lines, oldTaskName, name);
+    let newPlanText;
+    if (typeof NoodlePlanModel !== 'undefined') {
+        let model = NoodlePlanModel.modelForEditor(editor);
+        let node = model.tasks.find(task => model.lineNumber(task) === currentTaskLineNumber);
+        if (node) {
+            // Rename first while dependency edges still point at this object;
+            // serialising the graph updates every predecessor reference.
+            if (oldTaskName && name && oldTaskName !== name) {
+                model.rename(node, name);
+                model = NoodlePlanModel.PlanModel.parse(model.serialize());
+                node = model.findById(node.id);
+            }
+            model.updateLine(node, () => newLine);
+            newPlanText = model.serialize();
+        } else {
+            lines[currentTaskLineNumber - 1] = newLine;
+            newPlanText = lines.join('\n');
+        }
+    } else {
+        lines[currentTaskLineNumber - 1] = newLine;
+        if (oldTaskName && name && oldTaskName !== name) {
+            updateDependencyReferences(lines, oldTaskName, name);
+        }
+        newPlanText = lines.join('\n');
     }
-
-    let newPlanText = lines.join('\n');
 
     // Auto-update the task's whiteboard row(s), if any (issue #844). A
     // no-op unless the plan has a whiteboard row for this task name --
