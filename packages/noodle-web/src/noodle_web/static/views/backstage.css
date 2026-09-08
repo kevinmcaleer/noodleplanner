@@ -146,6 +146,33 @@
     color: var(--np-text, #333);
 }
 
+.backstage-template-card-desc {
+    font-size: 0.82em;
+    line-height: 1.35;
+    color: var(--np-text-secondary, #666);
+    /* Descriptions vary a lot in length; clamp so a wordy one can't stretch
+       the card out of the grid's 3/4 portrait ratio. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Loading / error line shown in the template grid alongside the Blank card,
+   which stays available either way. */
+.backstage-template-status {
+    grid-column: 1 / -1;
+    margin: 0;
+    align-self: center;
+    color: var(--np-text-secondary, #666);
+    font-size: 0.9em;
+}
+
+.backstage-template-status-error {
+    color: var(--np-red, #c21d1d);
+}
+
 .backstage-recent-empty {
     padding: 40px 20px;
     text-align: center;

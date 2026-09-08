@@ -146,16 +146,21 @@ function saveAllProjects(projects) {
 }
 
 /**
- * Create a new project
+ * Create a new project.
+ *
+ * `planText` seeds the plan body -- used when creating from a template
+ * (backstage.js) so the project is written once, already populated, rather
+ * than created empty and immediately saved over. Omitted means a blank plan,
+ * which is what every pre-existing caller gets.
  */
-function createProject(name) {
+function createProject(name, planText) {
     const projects = getAllProjects();
     const projectId = 'project-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
     const newProject = {
         id: projectId,
         name: name || 'Untitled Project',
-        planText: '',
+        planText: planText || '',
         createdAt: Date.now(),
         updatedAt: Date.now()
     };

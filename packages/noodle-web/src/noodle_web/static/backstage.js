@@ -16,14 +16,21 @@
  *     template-picker sub-view (#backstageTemplatesView) instead of the
  *     Recent grid. It is not the same feature as the ribbon's own
  *     "Templates" File-menu item (nav.js's openTemplatesModal(), which
- *     inserts a starter plan into the current project). Card rendering is
- *     a plain placeholder here -- #945 gives it the real portrait renderer,
- *     see renderTemplateCard() below -- and TEMPLATE_PICKER_TEMPLATES is a
- *     stub set for #946 to replace with the real seed templates.
+ *     inserts a starter plan into the *current* project, overwriting it).
+ *     Picking a card here **creates a new plan** and leaves Backstage --
+ *     see createPlanFromTemplate() below. Card rendering is still a plain
+ *     placeholder; #945 gives it the real portrait renderer, see
+ *     renderTemplateCard().
+ *   - Templates come from the same `/api/templates` endpoint the ribbon's
+ *     Templates modal already uses (app.py), not a hardcoded list.
  *
  * Depends on:
  *   - NavigationController (script.js) — view registry & navigateTo()
- *   - listProjects / getCurrentProjectId / switchToProject (project-storage.js / portfolio.js)
+ *   - listProjects / getCurrentProjectId / createProject / saveCurrentProjectState
+ *     (project-storage.js)
+ *   - switchToProject / switchMainTab / showNotification / renderProjectsList (portfolio.js)
+ *   - loadProjectIntoEditor / refreshProjectSelectors (multi-plan-loader.js)
+ *   - setFrontMatterField / renderProjectsTable (portfolio-projects-table.js)
  *   - FILE_ACTIONS / notAvailable (ribbon.js)
  */
 
@@ -109,22 +116,135 @@
         }).join('');
     }
 
+    // ── New plan creation ────────────────────────────────────────────────
+
+    /**
+     * The plan text a new project starts from, given a template's `.md`
+     * content and the name the user chose for the plan.
+     *
+     * Templates carry their own `title:` in front matter (e.g. "Software
+     * Delivery Project"), which would otherwise disagree with the project
+     * name everywhere the two are read side by side -- browser-excel.js and
+     * mpp-export.js both fall back between `frontMatter.title` and the
+     * project name. Rewriting it here keeps them in step from the start.
+     * Pure: exported for tests, no DOM.
+     */
+    function planTextFromTemplate(content, name) {
+        const text = content || '';
+        if (!name) return text;
+        if (typeof setFrontMatterField !== 'function') return text;
+        return setFrontMatterField(text, 'title', name);
+    }
+
+    /**
+     * Create a plan, load it, and leave Backstage for the editor.
+     *
+     * Follows portfolio.js's showCreateProjectDialog() -- the existing
+     * creation precedent -- and adds the switch out of Backstage, since
+     * unlike that dialog this is invoked from a view the new plan isn't
+     * visible in. `planText` empty means a blank plan.
+     */
+    async function createPlan(name, planText, message) {
+        if (typeof createProject !== 'function') {
+            if (typeof notAvailable === 'function') notAvailable('New plan');
+            return null;
+        }
+
+        // Save the outgoing project first: the editor still holds its text
+        // and it is still the current project until loadProjectIntoEditor
+        // below moves the pointer.
+        if (typeof saveCurrentProjectState === 'function') {
+            saveCurrentProjectState();
+        }
+
+        const project = createProject(name, planText);
+        if (!project) return null;
+
+        // Load first, switch second -- the same order portfolio.js's
+        // switchToProject() uses, so the editor never flashes the outgoing
+        // plan on the way in.
+        if (typeof loadProjectIntoEditor === 'function') {
+            await loadProjectIntoEditor(project.id);
+        }
+        if (typeof renderProjectsList === 'function') renderProjectsList();
+        if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+        if (typeof renderProjectsTable === 'function') renderProjectsTable();
+        if (typeof switchMainTab === 'function') switchMainTab('editor');
+        if (typeof showNotification === 'function') {
+            showNotification(message || ('Project created: ' + project.name));
+        }
+        return project;
+    }
+
+    /** Blank-plan card, and the rail's "New plan" -- same action, one path. */
+    async function createBlankPlan() {
+        const name = prompt('Enter project name:');
+        if (!name) return;
+        await createPlan(name, '');
+    }
+
+    /**
+     * Fetch a template's `.md` and start a new plan from it. This is the
+     * difference from the ribbon's Templates modal (nav.js useTemplate()),
+     * which loads template content over whatever plan is currently open.
+     */
+    async function createPlanFromTemplate(templateId, card) {
+        const label = card ? card.querySelector('.backstage-template-card-name') : null;
+        const originalLabel = label ? label.textContent : '';
+        try {
+            if (card) card.disabled = true;
+            if (label) label.textContent = 'Loading…';
+
+            const response = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
+            if (!response.ok) throw new Error('Failed to load template');
+            const template = await response.json();
+
+            const name = prompt('Name for the new plan:', template.title || '');
+            if (!name) return;
+
+            await createPlan(
+                name,
+                planTextFromTemplate(template.content, name),
+                `Created "${name}" from the ${template.title} template`
+            );
+        } catch (err) {
+            console.error('Error creating plan from template:', err);
+            if (typeof showNotification === 'function') {
+                showNotification('Could not create a plan from that template: ' + err.message, 'error');
+            }
+        } finally {
+            if (card) card.disabled = false;
+            if (label) label.textContent = originalLabel;
+        }
+    }
+
     // ── Template picker ─────────────────────────────────────────────────
 
-    // Stub set -- #946 replaces this with the real seed template list.
-    const TEMPLATE_PICKER_TEMPLATES = [
-        { id: 'software-project', name: 'Software project' },
-        { id: 'marketing-campaign', name: 'Marketing campaign' },
-    ];
+    // Cached `/api/templates` payload -- the same endpoint and shape the
+    // ribbon's Templates modal uses (nav.js's templatesData).
+    let templatePickerData = null;
+
+    async function loadTemplates() {
+        if (templatePickerData) return templatePickerData;
+        const response = await fetch('/api/templates');
+        if (!response.ok) throw new Error('Failed to load templates');
+        const data = await response.json();
+        templatePickerData = Array.isArray(data.templates) ? data.templates : [];
+        return templatePickerData;
+    }
 
     function renderTemplateCard(template) {
         // #945 replaces this body with the real portrait-rendered card.
+        const description = template.description
+            ? `<span class="backstage-template-card-desc">${escapeHtml(template.description)}</span>`
+            : '';
         return `
             <button type="button" class="backstage-template-card" data-template-id="${escapeHtml(template.id)}">
                 <span class="backstage-template-card-icon">
                     <svg class="icon" width="28" height="28" aria-hidden="true"><use href="#icon-doc"/></svg>
                 </span>
-                <span class="backstage-template-card-name">${escapeHtml(template.name)}</span>
+                <span class="backstage-template-card-name">${escapeHtml(template.title || template.id)}</span>
+                ${description}
             </button>
         `;
     }
@@ -140,10 +260,24 @@
         `;
     }
 
-    function renderTemplatePicker() {
+    async function renderTemplatePicker() {
         const grid = document.getElementById('backstageTemplateGrid');
         if (!grid) return;
-        grid.innerHTML = renderBlankPlanCard() + TEMPLATE_PICKER_TEMPLATES.map(renderTemplateCard).join('');
+
+        // Blank is always available, so render it before the fetch resolves
+        // rather than blanking the grid behind a spinner.
+        grid.innerHTML = renderBlankPlanCard() +
+            '<p class="backstage-template-status">Loading templates…</p>';
+
+        try {
+            const templates = await loadTemplates();
+            grid.innerHTML = renderBlankPlanCard() + templates.map(renderTemplateCard).join('');
+        } catch (err) {
+            console.error('Error loading templates:', err);
+            grid.innerHTML = renderBlankPlanCard() +
+                '<p class="backstage-template-status backstage-template-status-error">' +
+                'Templates could not be loaded. You can still start a blank plan.</p>';
+        }
     }
 
     function showTemplatesView() {
@@ -171,7 +305,15 @@
             rail.addEventListener('click', (e) => {
                 const actionBtn = e.target.closest('[data-backstage-action]');
                 if (actionBtn) {
-                    runFileAction(actionBtn.dataset.backstageAction);
+                    // "New plan" is the rail's spelling of the Blank card, so
+                    // it takes the same path -- FILE_ACTIONS' version creates
+                    // the project but leaves you looking at Backstage, which
+                    // is wrong from a view the new plan isn't listed in.
+                    if (actionBtn.dataset.backstageAction === 'New plan') {
+                        createBlankPlan();
+                    } else {
+                        runFileAction(actionBtn.dataset.backstageAction);
+                    }
                     return;
                 }
                 if (e.target.closest('#backstageTemplatesBtn')) {
@@ -202,13 +344,10 @@
                 const card = e.target.closest('.backstage-template-card[data-template-id]');
                 if (!card) return;
                 if (card.dataset.templateId === 'blank') {
-                    runFileAction('New plan');
+                    createBlankPlan();
                     return;
                 }
-                const template = TEMPLATE_PICKER_TEMPLATES.find((t) => t.id === card.dataset.templateId);
-                if (typeof notAvailable === 'function') {
-                    notAvailable(template ? template.name : 'This template');
-                }
+                createPlanFromTemplate(card.dataset.templateId, card);
             });
         }
 
@@ -238,9 +377,17 @@
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+    // Guarded so the file can be require()d under node for unit tests, where
+    // there is no document to wire up -- see tests/test_backstage_templates.js.
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { planTextFromTemplate };
     }
 })();

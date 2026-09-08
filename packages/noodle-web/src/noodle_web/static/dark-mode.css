@@ -2767,6 +2767,13 @@ body {
     filter: brightness(1.1);
 }
 
+/* --np-red is a brand palette colour with no dark variant; as body text on
+   the dark surface it is far too dark to read, so the template grid's error
+   line borrows the existing subtle red instead of inventing a new hex. */
+[data-theme="dark"] .backstage-template-status-error {
+    color: var(--np-red-subtle, #f5d0d0);
+}
+
 /* ── Whiteboard authoring: noodles + outline panel (dark) ────────────────
    Almost everything added for board-authored plan structure reads
    var(--np-*) tokens and flips for free. Only the rules that hardcode an
