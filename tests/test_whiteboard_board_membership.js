@@ -38,6 +38,25 @@ function assert(condition, msg) {
 
 const sandbox = { console };
 vm.createContext(sandbox);
+// The back-matter section markers wbInsertNewSummaryTaskLine() (issue #980)
+// scans for are ordinarily globals from state.js, a separate <script> tag
+// in the real app; this sandbox only loads whiteboard-notes.js, so they're
+// defined here with the exact same values (see state.js) before that
+// source runs. Node's vm module keeps top-level const/let bindings in the
+// context's own lexical environment across separate runInContext() calls,
+// so a later call (this file's own assertions, and whiteboard-notes.js's
+// function bodies) can still see them by plain identifier even though
+// they never become sandbox.* properties.
+vm.runInContext(`
+    const HIGHLIGHTS_START = '---highlights---';
+    const BUDGET_START = '---budget---';
+    const BENEFITS_START = '---benefits---';
+    const RAID_LOG_START = '---raid log---';
+    const COMMS_START = '---comms---';
+    const LESSONS_START = '---lessons learned---';
+    const BASELINE_START = '---baseline---';
+    const WHITEBOARD_START = '---whiteboard---';
+`, sandbox);
 vm.runInContext(source, sandbox);
 
 const {
@@ -49,6 +68,7 @@ const {
     wbRectsOverlap,
     wbFindFreeSpacePosition,
     wbBuildAddNoteRows,
+    wbInsertNewSummaryTaskLine,
 } = sandbox;
 
 // ── Fixture: a plan with two same-named summary tasks in different
@@ -233,6 +253,47 @@ const tasks = [
     const readdRect = { x: readd.x, y: readd.y, width: opts.width, height: opts.height };
     const xRect = { x: xRow.x, y: xRow.y, width: opts.width, height: opts.height };
     assert(!wbRectsOverlap(readdRect, xRect, opts.gap), 're-adding must not overlap whatever now occupies the board');
+}
+
+// ── wbInsertNewSummaryTaskLine: the picker's "create new" outline edit
+// (issue #980) -- a pure text transform, no DOM, so it's covered here
+// rather than only in the Selenium suite. ────────────────────────────
+{
+    // No back-matter at all: the new phase (its own line, plus a
+    // placeholder child line so the outline parser -- engine/scheduler.js
+    // buildTasks() -- classifies it as a summary task immediately rather
+    // than a leaf) lands at the very end.
+    const plain = 'Phase 1\n  Discovery\n    Research @sam 2d\n';
+    const plainResult = wbInsertNewSummaryTaskLine(plain, 'Launch');
+    assert(plainResult.endsWith('Launch\n  New Task\n'), 'appends the new phase + placeholder child at the end of a plan with no back matter');
+    assert(plainResult.startsWith('Phase 1\n  Discovery\n    Research @sam 2d\n\nLaunch\n  New Task'),
+        'the existing outline is left otherwise untouched');
+
+    // A whiteboard section already exists: the new lines must land in the
+    // outline, *before* ---whiteboard---, not inside or after it.
+    const withBoard = 'Phase 1\n  Discovery\n\n---whiteboard---\n| Task | X | Y |\n|------|---|---|\n| Discovery | 10 | 20 |\n';
+    const withBoardResult = wbInsertNewSummaryTaskLine(withBoard, 'Launch');
+    const boardMarkerIdx = withBoardResult.indexOf('---whiteboard---');
+    const launchIdx = withBoardResult.indexOf('Launch');
+    const childIdx = withBoardResult.indexOf('  New Task');
+    assert(launchIdx !== -1 && launchIdx < boardMarkerIdx, 'the new phase line lands before ---whiteboard---, not inside/after it');
+    assert(childIdx !== -1 && childIdx < boardMarkerIdx, 'its placeholder child line lands before ---whiteboard--- too');
+    assert(withBoardResult.includes('| Discovery | 10 | 20 |'), 'the existing whiteboard section survives untouched');
+
+    // Multiple back-matter sections: the new lines must land before the
+    // *first* one encountered (earliest in the text), matching
+    // extractWhiteboardFromPlanText()'s own marker scan.
+    const withMany = 'Phase 1\n  Discovery\n\n---budget---\nsome budget text\n\n---whiteboard---\n| Task | X | Y |\n|------|---|---|\n';
+    const withManyResult = wbInsertNewSummaryTaskLine(withMany, 'Launch');
+    const budgetIdx = withManyResult.indexOf('---budget---');
+    const launchIdx2 = withManyResult.indexOf('Launch');
+    assert(launchIdx2 !== -1 && launchIdx2 < budgetIdx, 'the new task line lands before the earliest back-matter marker');
+
+    // A blank/whitespace-only name is a no-op (the caller -- the picker's
+    // form -- is responsible for its own "enter a name" validation; this
+    // function just refuses to write anything either way).
+    const blankResult = wbInsertNewSummaryTaskLine(plain, '   ');
+    assert(blankResult === plain, 'a blank/whitespace-only name is a no-op');
 }
 
 if (failures > 0) {

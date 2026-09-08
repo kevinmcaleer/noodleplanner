@@ -803,7 +803,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbExceedsMoveThreshold, wbMoveTaskToEnd,
         wbTaskAncestorNames, wbTaskAncestorPath, wbSummaryTaskEntries,
         wbTasksNotOnBoard, wbFilterPickerEntries, wbRectsOverlap,
-        wbFindFreeSpacePosition, wbBuildAddNoteRows,
+        wbFindFreeSpacePosition, wbBuildAddNoteRows, wbInsertNewSummaryTaskLine,
     };
 }
 
@@ -2158,6 +2158,107 @@ function wbAddAllSummaryTasks() {
     return wbCommitAddNotes(entries.map(entry => entry.name));
 }
 
+/**
+ * Insert a brand-new, top-level *summary* task named `taskName` at the end
+ * of the plan's task outline -- i.e. after every existing outline line but
+ * before the first back-matter section marker (Highlights, Budget,
+ * Benefits, RAID log, Comms, Lessons learned, Baseline, Whiteboard --
+ * the same marker list extractWhiteboardFromPlanText()/
+ * updatePlanWhiteboardText() scan for), so the new task lands inside the
+ * outline itself rather than inside, or after, some other back-matter
+ * section.
+ *
+ * Pure text transform -- no DOM, no commit -- so
+ * wbCreateAndAddSummaryTask() below can compose it with the whiteboard-row
+ * edit into a single wbCommitMarkdown() call rather than two.
+ */
+function wbInsertNewSummaryTaskLine(planText, taskName) {
+    const text = planText || '';
+    const name = String(taskName || '').trim();
+    if (!name) return text;
+
+    const markers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START,
+                      COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
+    let insertIdx = text.length;
+    markers.forEach(marker => {
+        const idx = text.indexOf(marker);
+        if (idx !== -1 && idx < insertIdx) insertIdx = idx;
+    });
+
+    const before = text.substring(0, insertIdx).replace(/\n+$/, '');
+    const after = text.substring(insertIdx);
+
+    // The parent line plus one placeholder child ("New Task", 2-space
+    // indented) -- not just a bare parent line -- because the outline
+    // parser (engine/scheduler.js buildTasks()) only ever classifies a
+    // task as a summary when it *has* a child; a childless bare line
+    // parses as an ordinary leaf task instead. This is exactly the same
+    // two-line shape KanbanBoard.addNewPhase()'s "drilling down" branch
+    // (kanban.js) already writes to make a brand-new phase register as a
+    // summary/column immediately, reused here so the task this creates is
+    // a real summary task from the moment it's created, not a leaf that
+    // only becomes one later if the user happens to add a child. The
+    // placeholder is an ordinary task like any other -- rename it,
+    // replace it, or add more children/delete it entirely from the task
+    // outline exactly as with any other task.
+    const newLines = name + '\n  New Task';
+
+    // A blank-line separator before the new lines (when there's existing
+    // outline content to separate them from) matches how top-level
+    // phases/sections are conventionally spaced in a plan's outline (see
+    // e.g. SAMPLE_PLAN in tests/test_whiteboard_board_membership.py) --
+    // the new phase reads as its own top-level entry, not a continuation
+    // of whatever came before it.
+    let result = before ? before + '\n\n' + newLines : newLines;
+    result = after ? result + '\n\n' + after.replace(/^\n+/, '') : result + '\n';
+    return result;
+}
+
+/**
+ * The Add-note picker's "create new" affordance's entire action: create a
+ * brand-new top-level summary task named `taskName` in the outline (see
+ * wbInsertNewSummaryTaskLine()) AND add it to the board as a note, as one
+ * combined edit -- a single wbCommitMarkdown() call, so what the user
+ * experiences as one action ("type a name, hit Create") is also one undo
+ * step, matching wbCommitAddNotes()'s own "one Markdown commit" rule (see
+ * this section's header comment). Mirrors wbCommitAddNotes() for the
+ * row-building half (same free-space placement via wbBuildAddNoteRows(),
+ * same updatePlanWhiteboardText() call) but folds the outline insertion
+ * into the same text transform first instead of committing twice.
+ *
+ * Returns false (no-op, no commit) for a blank/whitespace-only name or a
+ * name that already exists in the outline (case-insensitively) -- the
+ * caller is expected to surface that back to the user rather than silently
+ * create a confusing duplicate.
+ */
+function wbCreateAndAddSummaryTask(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    const name = String(taskName || '').trim();
+    if (!editor || !name) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const key = name.toLowerCase();
+    const duplicate = (wbLastTasks || []).some(t => t && t.name && t.name.toLowerCase() === key);
+    if (duplicate) return false;
+
+    const withNewTask = wbInsertNewSummaryTaskLine(editor.value, name);
+
+    const section = extractWhiteboardFromPlanText(withNewTask);
+    const items = parseWhiteboardMarkdown(section);
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    const newRows = wbBuildAddNoteRows(items, viewport, [name], {
+        width: WB_NOTE_DEFAULT_WIDTH,
+        height: WB_NOTE_DEFAULT_HEIGHT,
+    });
+
+    const nextText = updatePlanWhiteboardText(withNewTask, items.concat(newRows));
+    return wbCommitMarkdown(nextText);
+}
+
 // ── Empty state ──────────────────────────────────────────────────────────
 
 /** Get-or-create the empty-state overlay inside #whiteboardContainer,
@@ -2209,9 +2310,13 @@ let wbAddPickerState = null;
  * Open the Add-note picker: a modal dialog listing every summary task not
  * already on the board (see wbSummaryTasksNotOnBoard()), each showing its
  * "Phase › Sub-phase" parent path so same-named tasks in different phases
- * are tellable apart, with a search box and multi-select checkboxes.
- * Building the entry list fresh on open (not cached) means it can never
- * go stale across repeated opens in one session.
+ * are tellable apart, with a search box and multi-select checkboxes, plus
+ * a "+ New phase" create-new-task affordance (see wbBuildCreateSection()
+ * below) that stays available whether or not there's anything left to
+ * pick -- so a brainstorming session is never blocked on "does a phase
+ * for this already exist?" Building the entry list fresh on open (not
+ * cached) means it can never go stale across repeated opens in one
+ * session.
  */
 function wbOpenAddNotePicker() {
     wbCloseAddNotePicker();
@@ -2220,6 +2325,7 @@ function wbOpenAddNotePicker() {
         entries: wbSummaryTasksNotOnBoard(),
         selected: new Set(),
         query: '',
+        creatingOpen: false,
     };
 
     const overlay = document.createElement('div');
@@ -2270,6 +2376,8 @@ function wbOpenAddNotePicker() {
     list.setAttribute('aria-multiselectable', 'true');
     list.setAttribute('aria-label', 'Summary tasks not on the board');
 
+    const createSection = wbBuildCreateSection();
+
     const footer = document.createElement('div');
     footer.className = 'wb-add-note-footer';
     const cancelBtn = document.createElement('button');
@@ -2290,13 +2398,101 @@ function wbOpenAddNotePicker() {
     dialog.appendChild(header);
     dialog.appendChild(search);
     dialog.appendChild(list);
+    dialog.appendChild(createSection);
     dialog.appendChild(footer);
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
     wbRenderAddNoteList();
     document.addEventListener('keydown', wbAddNotePickerKeydown, true);
-    search.focus();
+
+    // The dead-end case (nothing left to pick) forces the create form
+    // open in place of the list/search -- see wbRenderAddNoteList() --
+    // so the create input, not the now-hidden search box, is what should
+    // actually get the picker's opening focus.
+    if (!wbAddPickerState.entries.length) {
+        const createInput = document.getElementById('wbAddNoteCreateInput');
+        if (createInput) createInput.focus();
+    } else {
+        search.focus();
+    }
+}
+
+/**
+ * Build the picker's "create a new summary task" affordance: a collapsed
+ * "+ New phase" toggle button plus the (initially hidden) name input +
+ * "Create and add" button it reveals, wired to wbSubmitCreateSummaryTask().
+ * Kept as one self-contained block -- appended as a sibling of #wbAddNoteList
+ * rather than inserted inside it -- both because it needs to survive
+ * wbRenderAddNoteList()'s `list.innerHTML = ''` rebuilds on every keystroke
+ * in the search box, and because it is deliberately a separate, secondary
+ * action from the list's checkbox multi-select rather than another kind of
+ * row in it (see wbRenderAddNoteList()'s doc comment for how the two ends
+ * -- the always-available toggle here and the forced-open dead-end case --
+ * share this exact same form).
+ */
+function wbBuildCreateSection() {
+    const section = document.createElement('div');
+    section.id = 'wbAddNoteCreate';
+    section.className = 'wb-add-note-create';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'wbAddNoteCreateToggle';
+    toggle.className = 'wb-add-note-create-toggle';
+    toggle.textContent = '+ New phase';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', 'wbAddNoteCreateForm');
+    toggle.addEventListener('click', () => wbToggleCreateSummaryTaskForm());
+
+    const intro = document.createElement('p');
+    intro.id = 'wbAddNoteCreateIntro';
+    intro.className = 'wb-add-note-create-intro';
+    intro.hidden = true;
+
+    const form = document.createElement('div');
+    form.id = 'wbAddNoteCreateForm';
+    form.className = 'wb-add-note-create-form';
+    form.hidden = true;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'wbAddNoteCreateInput';
+    input.className = 'wb-add-note-create-input';
+    input.placeholder = 'New phase name…';
+    input.setAttribute('aria-label', 'New summary task name');
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            wbSubmitCreateSummaryTask();
+        }
+    });
+    input.addEventListener('input', () => {
+        const errorEl = document.getElementById('wbAddNoteCreateError');
+        if (errorEl && !errorEl.hidden) { errorEl.hidden = true; errorEl.textContent = ''; }
+    });
+
+    const createBtn = document.createElement('button');
+    createBtn.type = 'button';
+    createBtn.id = 'wbAddNoteCreateBtn';
+    createBtn.className = 'wb-add-note-create-btn';
+    createBtn.textContent = 'Create and add';
+    createBtn.addEventListener('click', () => wbSubmitCreateSummaryTask());
+
+    form.appendChild(input);
+    form.appendChild(createBtn);
+
+    const error = document.createElement('p');
+    error.id = 'wbAddNoteCreateError';
+    error.className = 'wb-add-note-create-error';
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+
+    section.appendChild(toggle);
+    section.appendChild(intro);
+    section.appendChild(form);
+    section.appendChild(error);
+    return section;
 }
 
 /** Close the picker, if open, and return focus to the toolbar/empty-state
@@ -2311,25 +2507,152 @@ function wbCloseAddNotePicker() {
     if (returnFocusBtn) returnFocusBtn.focus();
 }
 
-/** Rebuild the picker's <ul> from the current search query + selection. */
+/**
+ * Rebuild the picker's <ul> from the current search query + selection.
+ *
+ * The true dead-end case -- `entries` itself is empty, i.e. there is
+ * nothing left to pick no matter what's typed in search -- hides the now-
+ * pointless search box and list entirely and forces the create-new-task
+ * form (see wbBuildCreateSection()/wbShowCreateSummaryTaskForm()) open in
+ * their place, instead of the old non-actionable "Every summary task is
+ * already on the board" message. That's different from a *search*
+ * producing no matches (there's still something to pick, the query just
+ * doesn't match it), which keeps its own, unrelated, already-correct
+ * "No summary tasks match your search" message untouched.
+ */
 function wbRenderAddNoteList() {
     const list = document.getElementById('wbAddNoteList');
+    const search = document.getElementById('wbAddNoteSearch');
     if (!list || !wbAddPickerState) return;
 
-    const filtered = wbFilterPickerEntries(wbAddPickerState.entries, wbAddPickerState.query);
-    list.innerHTML = '';
-    if (!filtered.length) {
-        const empty = document.createElement('li');
-        empty.className = 'wb-add-note-empty';
-        empty.setAttribute('role', 'presentation');
-        empty.textContent = wbAddPickerState.entries.length
-            ? 'No summary tasks match your search'
-            : 'Every summary task is already on the board';
-        list.appendChild(empty);
+    const deadEnd = wbAddPickerState.entries.length === 0;
+    list.hidden = deadEnd;
+    if (search) search.hidden = deadEnd;
+
+    if (deadEnd) {
+        list.innerHTML = '';
+        wbShowCreateSummaryTaskForm({ forced: true });
     } else {
-        filtered.forEach(entry => list.appendChild(wbBuildAddNoteListItem(entry)));
+        const filtered = wbFilterPickerEntries(wbAddPickerState.entries, wbAddPickerState.query);
+        list.innerHTML = '';
+        if (!filtered.length) {
+            const empty = document.createElement('li');
+            empty.className = 'wb-add-note-empty';
+            empty.setAttribute('role', 'presentation');
+            empty.textContent = 'No summary tasks match your search';
+            list.appendChild(empty);
+        } else {
+            filtered.forEach(entry => list.appendChild(wbBuildAddNoteListItem(entry)));
+        }
     }
     wbUpdateAddNoteSubmitState();
+}
+
+/**
+ * Open the create-new-task form, either as the persistent "+ New phase"
+ * toggle's voluntary action (`forced: false` -- the toggle itself hides,
+ * an unlabelled form appears) or as the dead-end case's forced state
+ * (`forced: true` -- the toggle hides since it'd be redundant, and an
+ * intro line explains why the form is here instead of a picker list).
+ * Idempotent: safe to call again while already open.
+ */
+function wbShowCreateSummaryTaskForm(options) {
+    const forced = !!(options && options.forced);
+    const toggle = document.getElementById('wbAddNoteCreateToggle');
+    const intro = document.getElementById('wbAddNoteCreateIntro');
+    const form = document.getElementById('wbAddNoteCreateForm');
+    if (!form || !wbAddPickerState) return;
+
+    form.hidden = false;
+    wbAddPickerState.creatingOpen = true;
+    if (toggle) {
+        toggle.hidden = forced;
+        toggle.setAttribute('aria-expanded', 'true');
+    }
+    if (intro) {
+        intro.hidden = !forced;
+        intro.textContent = forced
+            ? 'Every summary task is already on the board — create a new one to add:'
+            : '';
+    }
+}
+
+/** The persistent "+ New phase" toggle's click handler: open the create
+ * form if it's closed, or close it (and clear any error) if it's already
+ * open. Never called for the forced-open dead-end case -- the toggle
+ * itself is hidden then (see wbShowCreateSummaryTaskForm()) -- so this is
+ * always a voluntary open/close. */
+function wbToggleCreateSummaryTaskForm() {
+    const toggle = document.getElementById('wbAddNoteCreateToggle');
+    const form = document.getElementById('wbAddNoteCreateForm');
+    if (!form || !wbAddPickerState) return;
+
+    if (form.hidden) {
+        wbShowCreateSummaryTaskForm({ forced: false });
+        const input = document.getElementById('wbAddNoteCreateInput');
+        if (input) input.focus();
+        return;
+    }
+
+    form.hidden = true;
+    wbAddPickerState.creatingOpen = false;
+    const errorEl = document.getElementById('wbAddNoteCreateError');
+    if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+    }
+}
+
+/**
+ * The create-new-task form's submit action (the "Create and add" button,
+ * or Enter in its name field): validate the typed name, then hand off to
+ * wbCreateAndAddSummaryTask() for the actual outline-insert-plus-board-add
+ * commit. A blank name or one that collides (case-insensitively) with an
+ * existing task name in the plan shows an inline error instead of
+ * submitting -- matching this form's own "plain text name only, stay in
+ * the picker" brief rather than falling back to a browser `alert()`.
+ * Closes the whole picker on success, exactly like
+ * wbSubmitAddNotePicker()'s existing multi-select "Add note" path.
+ */
+function wbSubmitCreateSummaryTask() {
+    const input = document.getElementById('wbAddNoteCreateInput');
+    const errorEl = document.getElementById('wbAddNoteCreateError');
+    if (!input || !wbAddPickerState) return;
+
+    const name = input.value.trim();
+    if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+
+    if (!name) {
+        if (errorEl) {
+            errorEl.textContent = 'Enter a name for the new phase.';
+            errorEl.hidden = false;
+        }
+        input.focus();
+        return;
+    }
+
+    const key = name.toLowerCase();
+    const duplicate = (wbLastTasks || []).some(t => t && t.name && t.name.toLowerCase() === key);
+    if (duplicate) {
+        if (errorEl) {
+            errorEl.textContent = `"${name}" already exists in the plan.`;
+            errorEl.hidden = false;
+        }
+        input.focus();
+        input.select();
+        return;
+    }
+
+    const created = wbCreateAndAddSummaryTask(name);
+    if (!created) {
+        if (errorEl) {
+            errorEl.textContent = 'Could not create the new phase — try again.';
+            errorEl.hidden = false;
+        }
+        return;
+    }
+    wbCloseAddNotePicker();
 }
 
 /** One picker row: a checkbox + name + (if any) "Phase › Sub-phase" path. */
@@ -2426,9 +2749,17 @@ function wbAddNotePickerKeydown(e) {
         return;
     }
 
+    const active = document.activeElement;
+
+    // Inside the create-new-task form (the name input, its submit button,
+    // or the "+ New phase" toggle): leave Arrow/Home/End alone so they
+    // behave as ordinary text-field/button navigation instead of jumping
+    // focus into the summary-task list below (Enter is handled by the
+    // input's own keydown listener; see wbBuildCreateSection()).
+    if (active && active.closest && active.closest('#wbAddNoteCreate')) return;
+
     const items = wbAddNoteListItems();
     const search = document.getElementById('wbAddNoteSearch');
-    const active = document.activeElement;
     const onSearch = !!(search && active === search);
     const index = items.indexOf(active);
 
