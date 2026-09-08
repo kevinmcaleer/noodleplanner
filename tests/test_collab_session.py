@@ -850,20 +850,22 @@ class TestMultiJoinerRouting:
     def test_addressed_frame_reaches_only_its_target(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
-            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
-            bob_ws, _bob_id = self._join(client, info, host_ws, "Bob")
+            alice_ws, _alice_id = self._join(client, info, host_ws, "Alice")
+            bob_ws, bob_id = self._join(client, info, host_ws, "Bob")
 
             host_ws.send_text(json.dumps({
-                "type": "to_joiner", "joiner_id": alice_id, "frame": "for-alice-only",
+                "type": "to_joiner", "joiner_id": bob_id, "frame": "for-bob-only",
             }))
-            assert alice_ws.receive_text() == "for-alice-only"
+            assert bob_ws.receive_text() == "for-bob-only"
 
-            # Bob must not see it. A plain broadcast afterwards is what
-            # proves his socket was live and simply skipped: without it, an
-            # addressed frame going nowhere at all would pass just as well.
+            # Alice must not have received it. Sending a broadcast next and
+            # asserting it is the *first* thing Alice reads proves her socket
+            # was live and simply skipped -- if the addressed frame had leaked
+            # to her, this read would return it instead. Without this second
+            # send, an addressed frame going nowhere at all would pass too.
             host_ws.send_text("broadcast-to-everyone")
-            assert bob_ws.receive_text() == "broadcast-to-everyone"
             assert alice_ws.receive_text() == "broadcast-to-everyone"
+            assert bob_ws.receive_text() == "broadcast-to-everyone"
 
             self._leave(bob_ws, host_ws)
             self._leave(alice_ws, host_ws)
