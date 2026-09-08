@@ -354,17 +354,24 @@ class TestKeyboard:
         # Tab from the last zoom-toolbar button onto the canvas wrapper --
         # a real, browser-native focus change (not a scripted .focus()
         # call), so :focus-visible engages the way it would for an actual
-        # keyboard user. One extra Tab stop sits in between as of issue
-        # #847: the "Add note" toolbar button, which DOM-order sits right
-        # after the zoom controls and right before the canvas wrapper.
+        # keyboard user.
+        #
+        # Three Tab stops sit in between, in DOM order after the zoom
+        # controls and before the canvas wrapper: "New post-it" and
+        # "Add existing" (the board can now create tasks, not only display
+        # them, so creating one leads), then the "Structure" toggle for the
+        # floating outline panel. Asserted by id rather than just tabbed
+        # past blindly, so this still fails loudly if the toolbar's tab
+        # order is disturbed.
         reset_btn = browser.find_element(
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        ActionChains(browser).send_keys(Keys.TAB).perform()
-        time.sleep(0.1)
-        add_note_id = browser.execute_script("return document.activeElement.id;")
-        assert add_note_id == "whiteboardAddNoteBtn", f"expected the Add note button focused, got {add_note_id!r}"
+        for expected in ("whiteboardNewNoteBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn"):
+            ActionChains(browser).send_keys(Keys.TAB).perform()
+            time.sleep(0.1)
+            active = browser.execute_script("return document.activeElement.id;")
+            assert active == expected, f"expected {expected} focused, got {active!r}"
         ActionChains(browser).send_keys(Keys.TAB).perform()
         time.sleep(0.2)
         active_id = browser.execute_script("return document.activeElement.id;")

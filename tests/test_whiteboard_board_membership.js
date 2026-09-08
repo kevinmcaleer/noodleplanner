@@ -1,6 +1,6 @@
 /**
  * Tests for the whiteboard's board-membership pure logic (issue #847):
- * "which summary tasks aren't on the board yet", "Phase › Sub-phase" path
+ * "which tasks aren't on the board yet", "Phase › Sub-phase" path
  * building for the Add-note picker, search/filter matching, rectangle
  * overlap, and first-free-space placement (including the "re-adding a
  * removed task gets a fresh position, never a stale one" acceptance
@@ -94,7 +94,8 @@ const tasks = [
     // (every other view's task lookups share it too), out of scope here.
     { name: 'Discovery', is_summary: true, parent: 'Phase 2' },
 
-    // Not a summary task -- must never appear as a picker entry.
+    // A leaf. Offered by the picker like any other task (see below) but
+    // flagged isSummary: false so the picker can label it.
     { name: 'Leaf Task', is_summary: false, parent: 'Phase 2' },
 ];
 
@@ -118,8 +119,16 @@ const tasks = [
 {
     const entries = wbSummaryTaskEntries(tasks);
     const names = entries.map(e => e.name);
-    assert(!names.includes('Research') && !names.includes('Regression') && !names.includes('Leaf Task'),
-        'leaf tasks never appear as picker entries, only is_summary ones');
+    // Leaves are offered too, now that the board can create tasks: every
+    // new post-it starts as a leaf, so a picker that hid them could not
+    // re-add a note the user had just removed from the board.
+    assert(names.includes('Research') && names.includes('Regression') && names.includes('Leaf Task'),
+        'leaf tasks are offered as picker entries');
+    assert(entries.find(e => e.name === 'Leaf Task').isSummary === false,
+        'a leaf entry is flagged isSummary: false');
+    assert(entries.find(e => e.name === 'Build').isSummary === true,
+        'a summary entry is flagged isSummary: true');
+    assert(entries.length === tasks.length, 'every task is offerable');
     assert(names.filter(n => n === 'Discovery').length === 2,
         'both same-named summary tasks appear as separate entries');
 
@@ -146,7 +155,8 @@ const tasks = [
     assert(!names.includes('Discovery'), 'both same-named tasks already on the board (case-insensitive) are excluded');
     assert(names.includes('Phase 1') && names.includes('Phase 2') && names.includes('Build') && names.includes('Testing'),
         'every other summary task is still offered');
-    assert(remaining.length === tasks.filter(t => t.is_summary).length - 2,
+    assert(names.includes('Leaf Task'), 'leaf tasks are still offered');
+    assert(remaining.length === tasks.length - 2,
         'both same-named "Discovery" entries are removed for the one matching row');
 }
 
@@ -158,8 +168,14 @@ const tasks = [
     assert(wbFilterPickerEntries(entries, '   ').length === entries.length, 'a whitespace-only query matches everything');
 
     const byName = wbFilterPickerEntries(entries, 'disc');
-    assert(byName.length === 2 && byName.every(e => e.name === 'Discovery'),
+    assert(byName.filter(e => e.name === 'Discovery').length === 2,
         'search matches by name (case-insensitive, substring), including both same-named entries');
+    // "Research" sits under "Discovery", so it matches on path -- the same
+    // rule the byPath assertion below covers, just reached from a name.
+    assert(byName.some(e => e.name === 'Research'),
+        "a task whose parent path contains the query matches too");
+    assert(!byName.some(e => e.name === 'Leaf Task'),
+        'an entry matching on neither name nor path is excluded');
 
     const byPath = wbFilterPickerEntries(entries, 'phase 1');
     assert(byPath.some(e => e.name === 'Testing' && e.path === 'Phase 1 › Build'),
