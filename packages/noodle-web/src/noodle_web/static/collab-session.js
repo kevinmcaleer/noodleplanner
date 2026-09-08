@@ -1,16 +1,18 @@
 /**
  * collab-session.js -- host-side trigger for the #963 WebSocket relay,
- * now wired up to the #964 end-to-end encryption layer (part of the #766
+ * wired up to the #964 end-to-end encryption layer and #965's lifecycle
+ * controls, now with a #966 presence panel (part of the #766
  * collab-sessions epic).
  *
  * Deliberately thin: this issue is about proving the backend relay (session
  * create, host/joiner handshake, opaque message relay, zero storage) and
- * now the encryption layer work correctly, not about a polished session UI
- * -- that's #966 (presence) and #967 (the real editing protocol). This
- * just starts a session, shows the code + holding link the PM shares with
- * their team, establishes the encrypted channel with the first joiner, and
- * keeps a live WebSocket open so encrypted messages can be relayed and
- * eyeballed (as ciphertext) via devtools during manual verification.
+ * the encryption layer work correctly, not about a polished session UI --
+ * that's still #967 (the real editing protocol) for anything beyond
+ * presence. This starts a session, shows the code + holding link the PM
+ * shares with their team, establishes the encrypted channel with the first
+ * joiner, keeps a live WebSocket open so encrypted messages can be relayed
+ * and eyeballed (as ciphertext) via devtools during manual verification,
+ * and now renders who has joined/is active and lets the host remove one.
  *
  * See static/collab-crypto.js's module docstring for the full crypto
  * design (KDF, key exchange, AEAD, wire format, and -- important -- the
@@ -19,7 +21,10 @@
  * conflated). Scope note from that file applies here too: the #963 relay
  * has no sender-id on joiner->host messages, so this file tracks a single
  * active joiner session key at a time -- multi-joiner fan-out is future
- * work (#966/#967).
+ * work (#967). #966's presence panel below doesn't share that limitation:
+ * it's driven by the server's own per-joiner bookkeeping (see
+ * collab_session.py's `Joiner`), not by anything in the encrypted channel,
+ * so it already reflects every joiner correctly today.
  *
  * This file is a classic (non-module) script -- see index.html's
  * `onclick="startCollabSession()"` / `closeCollabSessionModal()` handlers,
@@ -62,6 +67,62 @@ function closeCollabSessionModal() {
 function endCollabSession() {
     if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
     collabSocket.send(JSON.stringify({ type: 'end_session' }));
+}
+
+/** Host-initiated removal of one participant (#966) -- see app.py's
+ * `_parse_kick_message` docstring for the `joiner_id` contract (the same
+ * id each presence snapshot already carries per joiner). */
+function kickCollabJoiner(joinerId) {
+    if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
+    collabSocket.send(JSON.stringify({ type: 'kick', joiner_id: joinerId }));
+}
+
+/** Render the #966 presence panel from the host's latest `{"type":
+ * "presence", "joiners": [...]}` snapshot -- see
+ * collab_session.py's `SessionState.presence_snapshot()` for the payload
+ * shape (`id`, `display_name`, `active`). Hidden entirely while no one has
+ * joined yet. */
+function renderCollabPresence(joiners) {
+    const panel = document.getElementById('collabPresencePanel');
+    const list = document.getElementById('collabPresenceList');
+    if (!panel || !list) return;
+
+    if (!Array.isArray(joiners) || joiners.length === 0) {
+        panel.style.display = 'none';
+        list.innerHTML = '';
+        return;
+    }
+
+    panel.style.display = 'block';
+    list.innerHTML = '';
+    for (const joiner of joiners) {
+        const row = document.createElement('div');
+        row.className = 'collab-presence-row';
+
+        const dot = document.createElement('span');
+        dot.className = `collab-presence-dot ${joiner.active ? 'active' : 'inactive'}`;
+        dot.title = joiner.active ? 'Active' : 'Inactive';
+        row.appendChild(dot);
+
+        const name = document.createElement('span');
+        name.className = 'collab-presence-name';
+        name.textContent = joiner.display_name;
+        row.appendChild(name);
+
+        const statusLabel = document.createElement('span');
+        statusLabel.className = 'collab-presence-status';
+        statusLabel.textContent = joiner.active ? 'Active' : 'Inactive';
+        row.appendChild(statusLabel);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-outline-danger btn-sm';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', () => kickCollabJoiner(joiner.id));
+        row.appendChild(removeBtn);
+
+        list.appendChild(row);
+    }
 }
 
 /** Send a plaintext string to the joiner, encrypted under the established session key. */
@@ -109,6 +170,20 @@ async function handleCollabMessage(raw) {
         return;
     }
 
+    if (frameType === 'presence') {
+        // #966: sent by the server itself, not a joiner -- plaintext by
+        // design (see collab-crypto.js's KNOWN_FRAME_TYPES comment), so no
+        // decryption step here, just parse and render.
+        let parsed;
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            return;
+        }
+        renderCollabPresence(parsed.joiners);
+        return;
+    }
+
     // Anything else -- including `classifyFrameType`'s 'unrecognized', and
     // even a well-formed-but-wrong-role 'host_pubkey' (the host should
     // never receive its own frame type back). Security review finding:
@@ -133,6 +208,7 @@ async function startCollabSession() {
         collabSocket = null;
     }
     collabSessionKey = null;
+    renderCollabPresence([]);
 
     overlay.classList.add('active');
     status.textContent = 'Starting session...';
@@ -201,5 +277,6 @@ async function startCollabSession() {
         status.textContent = event.reason || 'Session ended.';
         collabSocket = null;
         collabSessionKey = null;
+        renderCollabPresence([]);
     });
 }

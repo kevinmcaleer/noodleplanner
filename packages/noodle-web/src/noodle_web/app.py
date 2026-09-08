@@ -53,8 +53,10 @@ import json
 from .collab_session import (
     CLOSE_HOST_DISCONNECTED,
     CLOSE_HOST_ENDED,
+    CLOSE_KICKED,
     CLOSE_REASON_HOST_DISCONNECTED,
     CLOSE_REASON_HOST_ENDED,
+    CLOSE_REASON_KICKED,
     SessionState,
     collab_sessions,
     run_idle_sweep_forever,
@@ -1970,6 +1972,10 @@ async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional
     # architecture constraint is bent by caching/replaying it here.
     if state.host_public_key_msg is not None:
         await websocket.send_text(state.host_public_key_msg)
+    # #966: the host's presence panel needs to know about this joiner right
+    # away, not just the next time something else happens to trigger a
+    # broadcast.
+    await _broadcast_presence(state)
     return state, display_name
 
 
@@ -2010,6 +2016,65 @@ def _is_end_session_message(message: str) -> bool:
     return isinstance(parsed, dict) and parsed.get("type") == "end_session"
 
 
+def _parse_kick_message(message: str) -> Optional[int]:
+    """Return the `joiner_id` from the host's `{"type": "kick", "joiner_id":
+    ...}` control message (#966), or None if `message` isn't one.
+    `joiner_id` is the same opaque `id(websocket)` key `SessionState.joiners`
+    is keyed by, which is exactly what `SessionState.presence_snapshot()`
+    hands the host in each presence update -- so the host never has to
+    invent or track its own identifier for a joiner.
+
+    Same type-discriminator-only peek as `_is_end_session_message` above:
+    never interprets anything else about message content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict) or parsed.get("type") != "kick":
+        return None
+    joiner_id = parsed.get("joiner_id")
+    return joiner_id if isinstance(joiner_id, int) else None
+
+
+def _is_presence_ping_message(message: str) -> bool:
+    """True if `message` is a joiner's lightweight `{"type":
+    "presence_ping"}` heartbeat (#966), sent periodically by
+    collab_join.html purely so the host's presence panel can show this
+    joiner as active even when they haven't sent any real content --
+    see collab_session.py's `PRESENCE_ACTIVE_WINDOW_SECONDS`. Intercepted
+    here, same as `_is_end_session_message` above, so it is never relayed
+    to the host as if it were opaque content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("type") == "presence_ping"
+
+
+async def _broadcast_presence(state: SessionState) -> None:
+    """Push a full presence snapshot to the host (#966).
+
+    Called whenever the joiner list or an active/inactive status might have
+    changed: a joiner is admitted, disconnects, or is kicked, or a joiner's
+    heartbeat ping arrives (see `_is_presence_ping_message`) -- that last
+    one is this feature's substitute for a wall-clock periodic refresh,
+    piggybacking on traffic that already exists instead of adding another
+    background task, so a quiet single-joiner session's status doesn't go
+    stale. A no-op if no host is currently attached (e.g. between a page
+    refresh and reconnect).
+    """
+    if state.host is None:
+        return
+    message = json.dumps({"type": "presence", "joiners": state.presence_snapshot()})
+    async with state.host_send_lock:
+        try:
+            await state.host.send_text(message)
+        except Exception:
+            pass
+
+
 async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: str) -> None:
     ended_explicitly = False
     try:
@@ -2030,6 +2095,17 @@ async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: 
                 )
                 await websocket.close(code=CLOSE_HOST_ENDED, reason=CLOSE_REASON_HOST_ENDED)
                 return
+
+            kick_joiner_id = _parse_kick_message(message)
+            if kick_joiner_id is not None:
+                # #966: host removed one participant from the presence
+                # panel. Only that joiner's socket is closed -- the session
+                # and every other joiner are unaffected -- then the host
+                # gets an updated presence snapshot reflecting the removal,
+                # same as any other presence-changing event.
+                await collab_sessions.kick_joiner(session_id, kick_joiner_id, code=CLOSE_KICKED, reason=CLOSE_REASON_KICKED)
+                await _broadcast_presence(state)
+                continue
 
             _maybe_cache_host_pubkey(state, message)
             for joiner in list(state.joiners.values()):
@@ -2060,6 +2136,21 @@ async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id
         while True:
             message = await websocket.receive_text()
             state.touch()
+            joiner = state.joiners.get(id(websocket))
+            if joiner is not None:
+                # #966: per-joiner activity, distinct from `state.touch()`
+                # above -- drives this one joiner's active/inactive status
+                # in the host's presence panel, not session-level idle
+                # expiry.
+                joiner.touch()
+
+            if _is_presence_ping_message(message):
+                # #966: a heartbeat, not content -- never relay it to the
+                # host, just let it refresh this joiner's activity (above)
+                # and push the host an updated presence snapshot.
+                await _broadcast_presence(state)
+                continue
+
             host = state.host
             if host is not None:
                 async with state.host_send_lock:
@@ -2071,6 +2162,9 @@ async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id
         pass
     finally:
         collab_sessions.remove_joiner(session_id, websocket)
+        # #966: the presence panel must reflect this departure right away,
+        # not just the next time some other event happens to broadcast it.
+        await _broadcast_presence(state)
 
 
 @app.websocket("/ws/session/{session_id}")

@@ -139,6 +139,14 @@ class TestRelayOnlySeesCiphertext:
                 assert host_pubkey_b64 is not None, "joiner should verify the host's real announcement"
                 joiner_session_key = joiner.derive_session_key(host_pubkey_b64, session_id)
 
+                # #966: admitting this joiner also pushed the host a
+                # presence update -- not part of the encrypted content
+                # scheme this test is about, so drain it (uncaptured; it's
+                # plaintext by design, see collab-crypto.js's
+                # KNOWN_FRAME_TYPES comment) before the real joiner_pubkey
+                # announcement below.
+                host_ws.receive_text()
+
                 send_and_capture(joiner_ws, joiner.build_announcement("joiner_pubkey"))
                 joiner_pubkey_msg = recv_and_capture(host_ws)
                 joiner_pubkey_b64 = host.parse_announcement("joiner_pubkey", joiner_pubkey_msg)

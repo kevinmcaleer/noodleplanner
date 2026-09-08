@@ -208,10 +208,14 @@ test('decryption fails (throws) under a tampered ciphertext', async () => {
     await assert.rejects(() => decryptMessage(sessionKeyA, tampered, sessionId));
 });
 
-test('Finding 2 regression: classifyFrameType only ever recognizes the three real envelope types', () => {
+test('Finding 2 regression: classifyFrameType only ever recognizes the real envelope/control types', () => {
     assert.equal(classifyFrameType('{"type":"host_pubkey","key":"x","mac":"y"}'), 'host_pubkey');
     assert.equal(classifyFrameType('{"type":"joiner_pubkey","key":"x","mac":"y"}'), 'joiner_pubkey');
     assert.equal(classifyFrameType('{"type":"enc","iv":"x","ct":"y"}'), 'enc');
+    // #966: the host's presence panel is fed by a fourth, unencrypted
+    // control type the server sends directly -- see this file's module
+    // docstring point 5 and app.py's `_broadcast_presence`.
+    assert.equal(classifyFrameType('{"type":"presence","joiners":[]}'), 'presence');
 });
 
 test('Finding 2 regression: an injected/spoofed frame never classifies as a real content type', () => {
