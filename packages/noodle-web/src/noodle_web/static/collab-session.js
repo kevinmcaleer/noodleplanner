@@ -71,6 +71,10 @@ let collabLocalEditTimer = null;
 // True only while the host is writing a joiner's applied op back into the
 // editor -- see applyCollabPlanOp.
 let collabApplyingRemoteOp = false;
+// #967: tracks who last edited each task, so only edits that actually
+// raced another participant produce a conflict notice. Created lazily
+// with collab-ops.js, which is loaded on demand.
+let collabConflicts = null;
 
 /** The host's authoritative plan document. This is the same textarea the
  * PM edits by hand -- there is deliberately no second copy of the plan for
@@ -241,7 +245,8 @@ async function broadcastCollabPlan(notice) {
  * single event loop, ops are applied in arrival order and last write wins
  * -- see collab-ops.js's module docstring for the full rule. */
 async function applyCollabPlanOp(joinerId, op) {
-    const { applyPlanOp, describeConflict } = await loadCollabOps();
+    const { applyPlanOp, describeConflict, createConflictTracker } = await loadCollabOps();
+    if (!collabConflicts) collabConflicts = createConflictTracker();
     const editor = collabEditor();
     if (!editor) return;
 
@@ -278,7 +283,13 @@ async function applyCollabPlanOp(joinerId, op) {
     }
 
     collabPlanRev++;
-    await broadcastCollabPlan(describeConflict(op, result.previous, collabJoinerNames.get(joinerId)));
+    // Only announce an edit that actually raced someone else's recent edit
+    // to the same task. Reporting every value change would mean a person
+    // working through the plan alone got a stream of "also edited this"
+    // notices, and a notice that always fires is one nobody reads.
+    const editor_name = collabJoinerNames.get(joinerId);
+    const raced = collabConflicts.record(op.expect || String(op.id), editor_name);
+    await broadcastCollabPlan(raced ? describeConflict(op, result.previous, editor_name) : null);
 }
 
 /** Push the host's own typing out to joiners (#967).
@@ -436,6 +447,7 @@ async function startCollabSession() {
     collabSessionKeys.clear();
     collabJoinerNames.clear();
     collabPlanRev = 0;
+    if (collabConflicts) collabConflicts.reset();
     attachCollabLocalEditListener();
     renderCollabPresence([]);
 

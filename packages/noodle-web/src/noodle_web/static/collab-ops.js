@@ -228,13 +228,49 @@ function addTask(model, op, name) {
     return { ok: true, text: lines.join(eol) + (hadTrailingBlank ? eol : ''), previous: null };
 }
 
+/** How recently someone else must have touched a task for the next edit to
+ * count as having raced them. Long enough to cover "we were both looking at
+ * this task just now", short enough that editing a task someone finished
+ * with minutes ago is not called a conflict. */
+export const CONFLICT_WINDOW_MS = 10000;
+
+/**
+ * Decides which edits actually raced another participant.
+ *
+ * Without this, *every* edit that changes a value would produce an "X also
+ * edited this" notice -- including a single person quietly working through
+ * a plan on their own -- and a notice that fires constantly is one people
+ * stop reading. `record` reports the other participant only when someone
+ * *else* edited the same task within the window.
+ */
+export function createConflictTracker(windowMs = CONFLICT_WINDOW_MS) {
+    const lastEdit = new Map();
+    return {
+        /** Note that `by` just edited `taskName`; returns the display name
+         * of the different participant they raced, or null. */
+        record(taskName, by, now = Date.now()) {
+            const key = String(taskName);
+            const prior = lastEdit.get(key);
+            lastEdit.set(key, { by, at: now });
+            if (!prior || prior.by === by) return null;
+            return now - prior.at <= windowMs ? prior.by : null;
+        },
+        /** Forget everything -- a new session starts with no history. */
+        reset() {
+            lastEdit.clear();
+        },
+    };
+}
+
 /**
  * The visible half of the conflict rule. Given the value an op displaced
  * and who sent it, produce the notice every client shows -- or null when
  * nothing was actually overwritten.
  *
  * `previous` is compared against the incoming value so that re-applying the
- * same value (two people agreeing) is not reported as a conflict.
+ * same value (two people agreeing) is not reported as a conflict. Callers
+ * should also gate on `createConflictTracker` so that an ordinary solo edit
+ * is not announced as one.
  */
 export function describeConflict(op, previous, byDisplayName) {
     if (previous == null || previous === '') return null;

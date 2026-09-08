@@ -46,6 +46,8 @@ const {
     applyPlanOp,
     buildPlanSnapshot,
     describeConflict,
+    createConflictTracker,
+    CONFLICT_WINDOW_MS,
     isPlanOp,
     readPercent,
     writePercent,
@@ -247,6 +249,46 @@ test('malformed ops are rejected rather than throwing', () => {
         const result = applyPlanOp(PLAN, bad);
         assert.equal(result.ok, false, `expected rejection for ${JSON.stringify(bad)}`);
     }
+});
+
+// -- the conflict notice must fire only on a genuine race -----------------
+
+test('a solo run of edits raises no conflict notices', () => {
+    // The failure this guards: reporting every value change means someone
+    // working through a plan alone gets a stream of "also edited this"
+    // notices, and a notice that always fires is one nobody reads.
+    const tracker = createConflictTracker();
+    assert.equal(tracker.record('Design API', 'Alice', 1000), null);
+    assert.equal(tracker.record('Design API', 'Alice', 2000), null);
+    assert.equal(tracker.record('Build API', 'Alice', 3000), null);
+});
+
+test('two participants editing the same task in quick succession is a race', () => {
+    const tracker = createConflictTracker();
+    assert.equal(tracker.record('Design API', 'Alice', 1000), null);
+    assert.equal(
+        tracker.record('Design API', 'Bob', 4000), 'Alice',
+        'Bob raced Alice, and the notice must name Alice'
+    );
+});
+
+test('editing a task someone finished with long ago is not a race', () => {
+    const tracker = createConflictTracker(CONFLICT_WINDOW_MS);
+    tracker.record('Design API', 'Alice', 1000);
+    assert.equal(tracker.record('Design API', 'Bob', 1000 + CONFLICT_WINDOW_MS + 1), null);
+});
+
+test('a race on one task does not implicate another', () => {
+    const tracker = createConflictTracker();
+    tracker.record('Design API', 'Alice', 1000);
+    assert.equal(tracker.record('Build API', 'Bob', 1100), null);
+});
+
+test('reset clears history, so a new session starts clean', () => {
+    const tracker = createConflictTracker();
+    tracker.record('Design API', 'Alice', 1000);
+    tracker.reset();
+    assert.equal(tracker.record('Design API', 'Bob', 1100), null);
 });
 
 test('isPlanOp accepts only the four real op kinds', () => {
