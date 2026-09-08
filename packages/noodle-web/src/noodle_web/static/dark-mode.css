@@ -2702,3 +2702,53 @@ body {
 [data-theme="dark"] .ribbon-more-popover .ribbon-group {
     border-bottom-color: #233a45;
 }
+
+/* -- Simple density (#955) -- */
+[data-theme="dark"] .ribbon-simple-group {
+    border-right-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-simple-btn {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-simple-btn:hover:not(:disabled) {
+    background: rgba(16, 139, 185, 0.22);
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-body-simple .ribbon-more {
+    border-left-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-body-simple .ribbon-more-btn {
+    color: #d3e2e8;
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-body-simple .ribbon-more-btn:hover {
+    background: rgba(16, 139, 185, 0.22);
+}
+
+/* -- "Ribbon Display Options" dropdown (#955) -- */
+[data-theme="dark"] .ribbon-display-toggle-btn {
+    color: #8fa8b3;
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-display-toggle-btn:hover {
+    background: rgba(16, 139, 185, 0.22);
+}
+
+[data-theme="dark"] .ribbon-display-menu {
+    background: #1b2f39;
+    border-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-display-menu-item {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-display-menu-item:hover {
+    background: rgba(16, 139, 185, 0.22);
+}
