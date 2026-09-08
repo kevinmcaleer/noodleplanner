@@ -280,15 +280,129 @@
 
         moveAsChild(task, target, afterChildren) {
             if (!task || !target || task === target || this._contains(task, target)) return false;
+            const sequentialTargets = this._captureSequentialTargets();
+            const hadFinalEol = this._hasFinalLineEnding();
             const oldList = task.parent ? task.parent.children : this.roots;
-            oldList.splice(oldList.indexOf(task), 1);
+            const oldIndex = oldList.indexOf(task);
+            if (oldIndex < 0) return false;
+            oldList.splice(oldIndex, 1);
             task.parent = target;
             if (afterChildren) target.children.push(task);
             else target.children.unshift(task);
             this._setIndent(task, target.indent + 2);
             this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
             return true;
+        }
+
+        moveBefore(task, target) { return this._moveBeside(task, target, false); }
+
+        moveAfter(task, target) { return this._moveBeside(task, target, true); }
+
+        moveAsRoot(task) {
+            if (!task) return false;
+            const sequentialTargets = this._captureSequentialTargets();
+            const hadFinalEol = this._hasFinalLineEnding();
+            const oldList = task.parent ? task.parent.children : this.roots;
+            const oldIndex = oldList.indexOf(task);
+            if (oldIndex < 0) return false;
+            if (!task.parent && oldIndex === this.roots.length - 1) return false;
+            oldList.splice(oldIndex, 1);
+            task.parent = null;
+            this.roots.push(task);
+            this._setIndent(task, 0);
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._expandBrokenSequentialLinks(sequentialTargets);
+            this._resolveDependencies();
+            return true;
+        }
+
+        _moveBeside(task, target, after) {
+            if (!task || !target || task === target || this._contains(task, target)) return false;
+            const sequentialTargets = this._captureSequentialTargets();
+            const hadFinalEol = this._hasFinalLineEnding();
+            const oldList = task.parent ? task.parent.children : this.roots;
+            const oldIndex = oldList.indexOf(task);
+            if (oldIndex < 0) return false;
+            oldList.splice(oldIndex, 1);
+
+            const targetList = target.parent ? target.parent.children : this.roots;
+            const targetIndex = targetList.indexOf(target);
+            if (targetIndex < 0) {
+                oldList.splice(oldIndex, 0, task);
+                return false;
+            }
+            task.parent = target.parent;
+            targetList.splice(targetIndex + (after ? 1 : 0), 0, task);
+            this._setIndent(task, target.indent);
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._expandBrokenSequentialLinks(sequentialTargets);
+            this._resolveDependencies();
+            return true;
+        }
+
+        _captureSequentialTargets() {
+            const targets = new Map();
+            for (const task of this.tasks) {
+                const edge = task.dependencies.find(dependency => dependency.shorthand);
+                if (edge && edge.target) targets.set(task, edge.target);
+            }
+            return targets;
+        }
+
+        _expandBrokenSequentialLinks(targets) {
+            for (const [task, predecessor] of targets) {
+                const index = this.tasks.indexOf(task);
+                if (index > 0 && this.tasks[index - 1] === predecessor) continue;
+
+                const star = /^(\*)\s*([+-]\d+[dwmy])?\s*/i.exec(task.content);
+                if (!star) continue;
+                const dependency = predecessor.name + (star[2] ? ' ' + star[2] : '');
+                let content = task.content.slice(star[0].length);
+                const block = DEPENDS.exec(content);
+                if (block) {
+                    const separator = block[1].trim() ? ', ' : '';
+                    const replacement = block[0].replace(
+                        block[1],
+                        block[1] + separator + dependency
+                    );
+                    content = content.slice(0, block.index) + replacement +
+                        content.slice(block.index + block[0].length);
+                } else {
+                    content = content.trimEnd() + ' [depends: ' + dependency + ']';
+                }
+                task.content = content;
+                task.sequential = false;
+                task.metadata = { ...taskMetadata(content) };
+            }
+        }
+
+        _hasFinalLineEnding() {
+            return /(?:\r\n|\n|\r)$/.test(this.serialize());
+        }
+
+        _normalisePhysicalLineEndings(hadFinalEol) {
+            const physical = [];
+            this.leading.forEach(line => physical.push(line));
+            const collect = task => {
+                physical.push(task);
+                task.trailing.forEach(line => physical.push(line));
+                task.children.forEach(collect);
+            };
+            this.roots.forEach(collect);
+            this.suffix.forEach(line => physical.push(line));
+            if (!physical.length) return;
+
+            const preferred = physical.find(line => line.eol)?.eol || '\n';
+            for (let index = 0; index < physical.length - 1; index++) {
+                if (!physical[index].eol) physical[index].eol = preferred;
+            }
+            const last = physical[physical.length - 1];
+            last.eol = hadFinalEol ? (last.eol || preferred) : '';
         }
 
         indentTasks(tasks) {

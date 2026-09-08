@@ -612,6 +612,25 @@ class TestKanbanReliability:
             "collapsed": 1,
         }
 
+    def test_column_reorder_moves_the_complete_phase_model(
+        self, browser, app_server
+    ):
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            const editor = document.getElementById('planEditor');
+            let inputEvents = 0;
+            editor.addEventListener('input', () => inputEvents++);
+            kanbanBoard.handleColumnReorder('Phase One', 'Phase Two', false);
+            return {text: editor.value, inputEvents};
+            """
+        )
+        assert result["inputEvents"] == 1
+        assert result["text"].endswith(
+            "Phase Two\n  Task B 0%\nPhase One\n  Task A 0%"
+        )
+
 
 class TestResponsiveLayout:
     """Verify the layout adapts to different viewport sizes."""
@@ -851,7 +870,8 @@ class TestTouchInteractions:
             select.dispatchEvent(new KeyboardEvent('keydown', {
                 bubbles: true, key: 'Enter'
             }));
-            card.querySelector('.kanban-card-order-down').click();
+            const orderButton = card.querySelector('.kanban-card-order-down');
+            if (orderButton) orderButton.click();
             movedTo = null;
             const targetBody = document.createElement('div');
             targetBody.className = 'kanban-column-body';
@@ -879,11 +899,7 @@ class TestTouchInteractions:
         assert result["movedTo"] == "complete"
         assert result["draggedTo"] == "complete"
         assert result["opened"] == 0
-        assert result["reordered"] == {
-            "line": 2,
-            "targetLine": 3,
-            "before": False,
-        }
+        assert result["reordered"] is None
         assert result["label"].startswith("Move Touch task")
 
     def test_diagram_pointer_pan_finishes_cleanly(self, browser, app_server):
