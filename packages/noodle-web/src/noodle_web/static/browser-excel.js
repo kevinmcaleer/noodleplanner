@@ -1098,12 +1098,20 @@ export async function createRaidWorkbook(items, options = {}) {
     return workbook;
 }
 
+/**
+ * `options.download` (default true) triggers the usual anchor-click
+ * download. Pass `download: false` when the caller is about to write the
+ * buffer straight to a linked FileSystemFileHandle instead (issue #761's
+ * sync-file-linking follow-up) — the buffer is always returned either way.
+ */
 export async function exportRaidExcelInBrowser(items, options = {}) {
     const workbook = await createRaidWorkbook(items, options);
     const filename = options.filename || `${options.projectName || 'Project'}-raid.xlsx`;
     const buffer = await workbook.xlsx.writeBuffer();
-    downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
-    return { filename, workbook };
+    if (options.download !== false) {
+        downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+    }
+    return { filename, workbook, buffer };
 }
 
 export async function createBudgetWorkbook(items, options = {}) {

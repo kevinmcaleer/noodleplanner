@@ -114,18 +114,27 @@ class TestWorkHappensOnce:
 
 
 def _reference_rollup_and_order(all_tasks):
-    """The pre-#789 algorithm: rescan per summary, recurse without memo."""
+    """The pre-#789 algorithm: rescan per summary, recurse without memo.
+
+    Grouped by ``_uid``/``_parent_uid`` (an identity every task carries,
+    assigned independently of its display name) rather than by ``name``.
+    Two tasks can legitimately share a name -- as duplicate siblings or
+    otherwise -- and grouping by name would silently merge or drop one of
+    them, which was the data-loss bug fixed in #838. Since #838, the fast
+    indexed roll-up this file guards groups by identity too, so the naive
+    reference here must match it to stay a meaningful regression check.
+    """
     tasks = [dict(t) for t in all_tasks]
 
-    def calc(task_name):
-        children = [t for t in tasks if t.get("parent") == task_name]
+    def calc(uid):
+        children = [t for t in tasks if t.get("_parent_uid") == uid]
         if not children:
             return
         for child in children:
             if child.get("summary"):
-                calc(child["name"])
+                calc(child["_uid"])
         summary_task = next(
-            (t for t in tasks if t.get("name") == task_name and t.get("summary")), None
+            (t for t in tasks if t.get("_uid") == uid and t.get("summary")), None
         )
         if not summary_task:
             return
@@ -143,20 +152,21 @@ def _reference_rollup_and_order(all_tasks):
 
     for t in tasks:
         if t.get("summary"):
-            calc(t["name"])
+            calc(t["_uid"])
 
     ordered, processed = [], set()
 
     def add(task):
-        if "name" not in task or task["name"] in processed:
+        uid = task.get("_uid")
+        if uid is None or uid in processed:
             return
-        processed.add(task["name"])
+        processed.add(uid)
         ordered.append(task)
         if task.get("summary"):
-            for child in [t for t in tasks if t.get("parent") == task["name"]]:
+            for child in [t for t in tasks if t.get("_parent_uid") == uid]:
                 add(child)
 
-    for task in [t for t in tasks if not t.get("parent")]:
+    for task in [t for t in tasks if t.get("_parent_uid") is None]:
         add(task)
     return [(t["name"], t.get("start"), t.get("finish"), t.get("percent")) for t in ordered]
 

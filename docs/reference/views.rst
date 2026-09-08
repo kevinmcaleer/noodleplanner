@@ -1,7 +1,13 @@
 Views Reference
 ================
 
-NoodlePlanner provides multiple views of your project plan. All views are accessible from the sub-navigation bar below the main navigation.
+NoodlePlanner provides multiple views of your project plan. All views are accessible from the sub-navigation bar below the main navigation, most of them grouped under the **Views** dropdown.
+
+.. figure:: /_static/img/reference/vw-02-views-menu.png
+   :alt: The Views dropdown expanded, listing Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map and Whiteboard
+   :width: 100%
+
+   The Views dropdown, showing every view including Whiteboard.
 
 Project Views
 --------------
@@ -54,6 +60,11 @@ Mind Map
 ~~~~~~~~~
 
 A radial diagram showing the project hierarchy (phases and tasks as nodes). Supports keyboard navigation, branch colour customisation, and copy-as-image export. See :doc:`../how-to/use-the-mind-map`.
+
+Whiteboard
+~~~~~~~~~~~
+
+An infinite, free-form canvas holding post-it notes for a curated subset of your summary tasks — one todo list per note, with its own checkboxes, colour, position and size. Drag empty space to pan, scroll or pinch to zoom (25%-400%, anchored on the pointer), and use the toolbar's Fit and 100% buttons to reset the view. Fully keyboard-operable: arrow keys pan, ``+``/``-`` zoom, ``0`` resets to 100%, ``f`` fits. A note's layout (position, size, colour) is plan data, saved in the ``---whiteboard---`` back matter; pan and zoom are view state only, remembered per project in the browser and never written to the plan. See :doc:`../how-to/use-the-whiteboard` and :doc:`../explanation/whiteboard-layout-vs-viewport`.
 
 Stakeholders
 ~~~~~~~~~~~~~

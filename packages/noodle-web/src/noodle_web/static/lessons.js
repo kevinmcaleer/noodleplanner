@@ -157,8 +157,10 @@ function extractLessonsFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + LESSONS_START.length;
     let endIdx = planText.length;
-    const blIdx = planText.indexOf(BASELINE_START, afterStart);
-    if (blIdx !== -1 && blIdx < endIdx) endIdx = blIdx;
+    for (const marker of [BASELINE_START, WHITEBOARD_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
     return planText.substring(afterStart, endIdx).trim();
 }
 
@@ -213,23 +215,22 @@ function updatePlanLessonsText(planText, items) {
     }
 
     const highlightsText = extractSection(planText, HIGHLIGHTS_START_M,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const benefitsText = extractSection(planText, BENEFITS_START,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const raidText = extractSection(planText, RAID_LOG_START,
-        [COMMS_START, LESSONS_START, BASELINE_START]);
+        [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const commsText = extractSection(planText, COMMS_START,
-        [LESSONS_START, BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     let base = planText;
     const sectionMarkers = [HIGHLIGHTS_START_M, BUDGET_START, BENEFITS_START,
-                            RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+                            RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -273,6 +274,10 @@ function updatePlanLessonsText(planText, items) {
 
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;

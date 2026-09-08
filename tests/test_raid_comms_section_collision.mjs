@@ -53,6 +53,7 @@ const sandbox = {
   BASELINE_START: '---baseline---',
   BENEFITS_START: '---benefits---',
   LESSONS_START: '---lessons learned---',
+  WHITEBOARD_START: '---whiteboard---',
 };
 
 liftFunctions(sandbox, 'script.js', [

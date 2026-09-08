@@ -116,7 +116,25 @@ class TestPage:
         assert "registration.update()" in html
         assert "document.addEventListener('visibilitychange'" in html
         assert "window.addEventListener('online', checkForUpdate)" in html
-        assert "60 * 60 * 1000" in html
+        assert "15 * 60 * 1000" in html
+
+    def test_checks_for_a_worker_update_immediately_on_registration(self, client):
+        """A tab open across a deploy (or a burst of several close together)
+        must not have to wait for a visibility change, an online event, or
+        the periodic interval before it even notices -- register() success
+        must trigger a check right away too."""
+        html = client.get("/").text
+        register_start = html.index("navigator.serviceWorker.register('/sw.js'")
+        then_start = html.index(".then(function (registration)", register_start)
+        first_listener = min(
+            html.index("document.addEventListener('visibilitychange'", then_start),
+            html.index("window.addEventListener('online', checkForUpdate)", then_start),
+        )
+        immediate_call_pos = html.index("checkForUpdate();", then_start)
+        assert then_start < immediate_call_pos < first_listener, (
+            "checkForUpdate() must be called once immediately after registration, "
+            "before the event listeners that only fire on some future event"
+        )
 
     def test_page_displays_the_app_and_build_version(self, client):
         html = client.get("/").text

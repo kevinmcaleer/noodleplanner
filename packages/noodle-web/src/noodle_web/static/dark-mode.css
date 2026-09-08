@@ -89,25 +89,6 @@ body {
     background: var(--np-bg);
 }
 
-/* Top nav bar */
-.tabs {
-    background: var(--np-bg);
-    border-bottom-color: var(--np-border);
-}
-
-.tab {
-    color: var(--np-text-secondary);
-}
-
-.tab:hover {
-    color: var(--np-accent);
-}
-
-.tab.active {
-    color: var(--np-accent);
-    border-bottom-color: var(--np-accent);
-}
-
 /* Sub-navigation bars */
 .plan-subnav {
     background: var(--np-subnav-bg);
@@ -480,11 +461,6 @@ body {
     background: var(--np-editor-tip-bg);
 }
 
-/* Breadcrumbs */
-.project-breadcrumb {
-    color: var(--np-text-muted);
-}
-
 /* Badges and tags */
 [data-theme="dark"] .badge,
 [data-theme="dark"] .label-badge {
@@ -625,97 +601,6 @@ body {
 [data-theme="dark"] .dropdown-item:hover {
     background: var(--np-bg-hover);
     color: var(--np-text);
-}
-
-/* ---- Theme toggle button ---- */
-.theme-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--np-text-secondary);
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.15s, color 0.15s;
-    flex-shrink: 0;
-}
-
-.theme-toggle-btn:hover {
-    background: var(--np-bg-hover);
-    color: var(--np-text);
-}
-
-.theme-toggle-btn:focus-visible {
-    outline: 2px solid #108BB9;
-    outline-offset: 2px;
-}
-
-.theme-toggle-btn .bi {
-    font-size: 1.2em;
-}
-
-/* Theme menu */
-.theme-menu {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: 100%;
-    margin-top: 5px;
-    background: var(--np-surface);
-    border: 1px solid var(--np-border);
-    border-radius: 5px;
-    box-shadow: 0 4px 12px var(--np-shadow-strong);
-    min-width: 160px;
-    z-index: 1020;
-}
-
-.theme-menu.show {
-    display: block;
-}
-
-.theme-menu-item {
-    padding: 10px 15px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--np-text);
-    white-space: nowrap;
-    min-height: 44px;
-    border-bottom: 1px solid var(--np-border-light);
-}
-
-.theme-menu-item:last-child {
-    border-bottom: none;
-}
-
-.theme-menu-item:hover {
-    background: var(--np-bg-hover);
-}
-
-.theme-menu-item:focus-visible {
-    outline: 2px solid #108BB9;
-    outline-offset: -2px;
-}
-
-.theme-menu-item.active {
-    font-weight: 600;
-    color: var(--np-accent);
-}
-
-.theme-menu-item .bi {
-    font-size: 1.1em;
-    width: 20px;
-    text-align: center;
-}
-
-.theme-menu-item .theme-check {
-    margin-left: auto;
-    color: var(--np-accent);
 }
 
 /* ========================================
@@ -2666,4 +2551,218 @@ body {
 
 [data-theme="dark"] .pbm-node--change text {
     fill: #e0e0e0;
+}
+
+/* ── Whiteboard (dark) — issue #845 ──────────────────────────────────── */
+
+[data-theme="dark"] .wb-toolbar {
+    background: #1e1e1e;
+    border-bottom-color: #333;
+}
+
+[data-theme="dark"] .wb-toolbar-btn {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #ccc;
+}
+
+[data-theme="dark"] .wb-toolbar-btn:hover:not(:disabled) {
+    background: #3a3a3a;
+    border-color: #108BB9;
+    color: #fff;
+}
+
+[data-theme="dark"] .wb-zoom-label {
+    color: #999;
+}
+
+[data-theme="dark"] .wb-toolbar-hint {
+    color: #777;
+}
+
+[data-theme="dark"] .wb-canvas-wrapper {
+    background: #1a1a1a;
+}
+
+[data-theme="dark"] .wb-grid-dot {
+    fill: #3a3a3a;
+}
+
+/* ── Whiteboard notes (dark) — issue #846 ────────────────────────────────
+   Note body/header/footer already read var(--np-*) tokens, which already
+   flip for dark mode via the overrides above -- no separate colour rules
+   needed for those. Only the hardcoded (non-token) rgba() hover tint in
+   views/whiteboard.css needs a dark-safe equivalent. */
+
+[data-theme="dark"] .wb-note-menu-btn:hover,
+[data-theme="dark"] .wb-note-menu-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Note colour menu (dark) — issue #849 ────────────────────────────────
+   Already reads var(--np-*) tokens for everything except the "selected"
+   swatch border, which needs an explicit light colour in dark mode (the
+   light-mode rule's var(--np-text, #333333) is too close to most swatch
+   colours to read as a highlight against a dark page). */
+
+[data-theme="dark"] .wb-note-menu-swatch.selected {
+    border-color: #ffffff;
+}
+
+/* ── Board membership (dark) — issue #847 ────────────────────────────────
+   The "Add note" toolbar button reuses .wb-toolbar-btn (already themed
+   above); the note menu's "Remove from board" item, the empty state, and
+   the Add-note picker dialog all read var(--np-*) tokens exclusively
+   (including var(--np-overlay) for the picker's backdrop, same token
+   .modal-overlay already uses) -- no colour is hardcoded for light mode,
+   so nothing here needs a dark-specific override. */
+
+/* ── Ribbon (design handoff "Ribbon Toolbar option 2a", #833 follow-up) ──
+   The design specifies its own dark palette rather than reusing --np-*
+   tokens throughout (its light mode is also mostly literal hex, not
+   tokens, for the same reason: this is a high-fidelity port of a fixed
+   design, not a token-driven component). */
+[data-theme="dark"] .ribbon-titlebar {
+    background: #0d1b22;
+}
+
+[data-theme="dark"] .ribbon-tabstrip {
+    background: #14252e;
+    border-bottom-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-tab-btn {
+    color: #8fa8b3;
+}
+
+[data-theme="dark"] .ribbon-tab-btn:hover {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-tab-btn.active {
+    color: #d3e2e8;
+    border-bottom-color: #37b0dc;
+}
+
+[data-theme="dark"] .ribbon-tab-btn.contextual {
+    color: #8fa8b3;
+}
+
+[data-theme="dark"] .ribbon-tab-btn.contextual.active {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-file-btn {
+    background: #8f1717;
+}
+
+[data-theme="dark"] .ribbon-file-btn:hover {
+    background: #a81919;
+}
+
+[data-theme="dark"] .ribbon-file-menu {
+    background: #0d1b22;
+}
+
+[data-theme="dark"] .ribbon-collapse-btn {
+    color: #8fa8b3;
+}
+
+[data-theme="dark"] .ribbon-body {
+    background: #1b2f39;
+    border-bottom-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-group {
+    border-right-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-lg-btn,
+[data-theme="dark"] .ribbon-sm-btn,
+[data-theme="dark"] .ribbon-more-btn {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-lg-btn:hover:not(:disabled),
+[data-theme="dark"] .ribbon-sm-btn:hover:not(:disabled),
+[data-theme="dark"] .ribbon-more-btn:hover {
+    background: rgba(16, 139, 185, 0.22);
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-more-btn {
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-caret,
+[data-theme="dark"] .ribbon-group-caption,
+[data-theme="dark"] .ribbon-more-caption {
+    color: #8fa8b3;
+}
+
+[data-theme="dark"] .ribbon-launcher {
+    color: #6b8895;
+}
+
+[data-theme="dark"] .ribbon-more {
+    border-left-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-more-popover {
+    background: #1b2f39;
+    border-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-more-popover .ribbon-group {
+    border-bottom-color: #233a45;
+}
+
+/* -- Simple density (#955) -- */
+[data-theme="dark"] .ribbon-simple-group {
+    border-right-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-simple-btn {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-simple-btn:hover:not(:disabled) {
+    background: rgba(16, 139, 185, 0.22);
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-body-simple .ribbon-more {
+    border-left-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-body-simple .ribbon-more-btn {
+    color: #d3e2e8;
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-body-simple .ribbon-more-btn:hover {
+    background: rgba(16, 139, 185, 0.22);
+}
+
+/* -- "Ribbon Display Options" dropdown (#955) -- */
+[data-theme="dark"] .ribbon-display-toggle-btn {
+    color: #8fa8b3;
+    border-color: #2f5f74;
+}
+
+[data-theme="dark"] .ribbon-display-toggle-btn:hover {
+    background: rgba(16, 139, 185, 0.22);
+}
+
+[data-theme="dark"] .ribbon-display-menu {
+    background: #1b2f39;
+    border-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-display-menu-item {
+    color: #d3e2e8;
+}
+
+[data-theme="dark"] .ribbon-display-menu-item:hover {
+    background: rgba(16, 139, 185, 0.22);
 }

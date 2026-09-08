@@ -89,7 +89,8 @@ function mergeDuplicateSections(text) {
     const HIGHLIGHTS_START = '---highlights---';
     const HIGHLIGHTS_END = '---end-highlights---';
     const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
-                      '---raid log---', '---comms---', '---lessons learned---', '---baseline---'];
+                      '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
+                      '---whiteboard---'];
 
     for (const marker of sections) {
         const firstIdx = text.indexOf(marker);
@@ -116,7 +117,8 @@ function mergeDuplicateSections(text) {
                     const endMarker = remaining.indexOf(HIGHLIGHTS_END, afterStart);
                     const nextSection = remaining.indexOf('---budget---', afterStart);
                     const nextRaid = remaining.indexOf('---raid log---', afterStart);
-                    for (const ei of [endMarker, nextSection, nextRaid]) {
+                    const nextWhiteboard = remaining.indexOf('---whiteboard---', afterStart);
+                    for (const ei of [endMarker, nextSection, nextRaid, nextWhiteboard]) {
                         if (ei !== -1 && ei < endIdx) endIdx = ei;
                     }
                     const sectionText = HIGHLIGHTS_START + remaining.substring(afterStart, endIdx);
@@ -682,6 +684,7 @@ const OUTPUT_VIEWS = {
     'timeline': 'planTab',
     'milestones': 'planTab',
     'mindmap': 'planTab',
+    'whiteboard': 'planTab',
     'stakeholders': 'planTab',
     'benefits': 'planTab',
     'highlights': 'planTab',
@@ -1664,6 +1667,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'resourceSheet',           fn: () => updateResourceSheetView(result) },
             { name: 'calendar',                fn: () => updateCalendarView(result) },
             { name: 'mindmap',                 fn: () => updateMindmapView(result) },
+            { name: 'whiteboard',              fn: () => { if (typeof updateWhiteboardView === 'function') updateWhiteboardView(result, planText); } },
             { name: 'pbs',                     fn: () => updatePbsView(result) },
             { name: 'deliverables',            fn: () => updateDeliverablesView(result) },
             { name: 'productFlow',             fn: () => updateProductFlowView(result) },
@@ -1678,6 +1682,7 @@ async function updateAllViews(planText, projectName) {
             { name: 'baseline',                fn: () => updateBaselineView(result, planText) },
             { name: 'editorLabels',            fn: () => updateEditorLabels(result, planText, generation) },
             { name: 'statusBar',               fn: () => { if (typeof updateStatusBarRAG === 'function') updateStatusBarRAG(result.front_matter, result.tasks); } },
+            { name: 'localFileStatus',         fn: () => { if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator(); } },
             { name: 'statusBarDeps',           fn: () => { if (typeof updateStatusBarDependencies === 'function') updateStatusBarDependencies(result.dependencies); } },
             { name: 'mppAssignmentWarning',    fn: () => { if (typeof updateMppAssignmentWarnings === 'function') updateMppAssignmentWarnings(result); } },
             // Last, so a circular-dependency warning is not overwritten by the
@@ -1734,7 +1739,18 @@ function showMessage(prefix, type, text) {
     }
 }
 
-function downloadMarkdown() {
+/**
+ * Save the active plan (Ctrl+S and the toolbar 💾 button).
+ *
+ * issue #767: when the current project was opened from disk via the File
+ * System Access API (openLocalPlanFile below), this writes straight back to
+ * that same file with no dialog and no re-prompt — LocalFileAccess retains
+ * the file handle. Otherwise (Firefox/Safari, or a project never linked to a
+ * file) this falls back to the original download-a-copy flow, unchanged,
+ * and says so explicitly so the user knows they need to replace the file
+ * themselves.
+ */
+async function downloadMarkdown() {
     const editor = getActiveEditor();
     const content = editor.value;
     const messageTarget = isBoardViewActive() ? 'kanban' : 'editor';
@@ -1744,27 +1760,41 @@ function downloadMarkdown() {
         return;
     }
 
-    // Create a blob with the markdown content
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = window.URL.createObjectURL(blob);
-
-    // Create download link
-    const a = document.createElement('a');
-    a.href = url;
-
-    // Increment version in front matter before saving
+    // Increment version in front matter before saving — same for both the
+    // disk-linked path and the download fallback.
     const versionedContent = incrementPlanVersion(editor);
-    // Re-create the blob with updated content
-    const versionedBlob = new Blob([versionedContent], { type: 'text/markdown' });
-    const versionedUrl = window.URL.createObjectURL(versionedBlob);
-    a.href = versionedUrl;
-    window.URL.revokeObjectURL(url);
 
     // Persist the version bump to project storage and sync editors
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) kanbanEditor.value = versionedContent;
     if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
     editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const currentProjectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && currentProjectId && LocalFileAccess.isLinked(currentProjectId)) {
+        const result = await LocalFileAccess.saveToLinkedFile(currentProjectId, versionedContent);
+        if (result && result.ok) {
+            if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+            showMessage(messageTarget, 'success', 'Saved to ' + result.filename + ' on disk');
+            return;
+        }
+        if (result && !result.ok) {
+            // The link was dropped by saveToLinkedFile; fall through to the
+            // download fallback below so the edit is not lost, but tell the
+            // user their file on disk was NOT updated.
+            if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+            console.error('Could not write to linked file:', result.error);
+            if (typeof showToast === 'function') {
+                showToast('Could not save to ' + result.filename + ' — downloading a copy instead', 'error');
+            }
+        }
+    }
+
+    // Fallback: download a copy (Firefox/Safari, or no file linked)
+    const blob = new Blob([versionedContent], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
 
     // Use project name + version for filename, falling back to timestamp
     const currentProject = typeof getCurrentProject === 'function' ? getCurrentProject() : null;
@@ -1786,7 +1816,110 @@ function downloadMarkdown() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
-    showMessage(messageTarget, 'success', 'Markdown file downloaded!');
+    const fallbackNote = (typeof LocalFileAccess !== 'undefined' && !LocalFileAccess.isSupported())
+        ? ' — replace the file on disk yourself' : '';
+    showMessage(messageTarget, 'success', 'Markdown file downloaded!' + fallbackNote);
+}
+
+/**
+ * Open a plan from the user's real filesystem (issue #767).
+ *
+ * On Chromium/Edge this uses the File System Access API and retains the
+ * file handle, so later saves of this project write straight back to the
+ * same file with no re-prompt (see downloadMarkdown() above). Everywhere
+ * else there is no handle to keep, so this falls back to the existing
+ * upload flow — opening still works, but saving stays a download-a-copy
+ * operation, and the status bar makes that explicit
+ * (updateLocalFileStatusIndicator).
+ *
+ * A file opened this way still gets a normal project entry via
+ * createProject/saveProject, so every other view — which reads from
+ * in-memory project state, not the file — keeps working exactly as it does
+ * for any other project. The linked file on disk becomes the save target in
+ * addition to that localStorage/IndexedDB entry, not instead of it.
+ */
+async function openLocalPlanFile() {
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Save to a file on disk — use Upload, then Save to download a copy to replace it.', 'info');
+        }
+        uploadPlanFile();
+        return;
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndReadFile();
+    } catch (error) {
+        console.error('Error opening local file:', error);
+        showMessage(isBoardViewActive() ? 'kanban' : 'editor', 'error', 'Failed to open file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    clearPlanTrackingData();
+
+    // Save whatever project is currently open before switching away from it.
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+
+    const boardView = isBoardViewActive();
+    const projectName = picked.name.replace(/\.(md|markdown)$/i, '');
+    const project = createProject(projectName);
+    saveProject(project.id, { planText: picked.text });
+    setCurrentProjectId(project.id);
+    LocalFileAccess.link(project.id, picked.handle, picked.name);
+    if (typeof updateProjectBreadcrumb === 'function') updateProjectBreadcrumb(project.name);
+
+    const editor = document.getElementById('planEditor');
+    if (editor) editor.value = picked.text;
+    const kanbanEditor = document.getElementById('kanbanPlanEditor');
+    if (kanbanEditor) kanbanEditor.value = picked.text;
+
+    if (!boardView) {
+        // Switch to the editor tab (mirrors renderFile())
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        const editorTab = document.querySelector('[onclick*="editor"]');
+        if (editorTab) editorTab.classList.add('active');
+        const editorTabContent = document.getElementById('editor-tab');
+        if (editorTabContent) editorTabContent.classList.add('active');
+    }
+
+    const activeEditor = boardView ? (kanbanEditor || editor) : editor;
+    if (activeEditor) activeEditor.dispatchEvent(new Event('input'));
+
+    if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
+    if (typeof updateLocalFileStatusIndicator === 'function') updateLocalFileStatusIndicator();
+
+    const messageTarget = boardView ? 'kanban' : 'editor';
+    showMessage(messageTarget, 'success', 'Opened ' + picked.name + ' — linked for saving');
+
+    if (boardView) {
+        // Stay on the board, same as handleBoardFileUpload()
+        await render(picked.text, null, false, false, false, false, 'kanban');
+    } else {
+        await renderText();
+    }
+}
+
+/**
+ * Reflect whether the current project is linked to a file on disk in the
+ * status bar (issue #767) — which Save behaviour is in effect should always
+ * be visible, not something the user discovers by watching for a dialog
+ * that never appears (or unexpectedly does).
+ */
+function updateLocalFileStatusIndicator() {
+    const el = document.getElementById('localFileLinkStatus');
+    if (!el) return;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (typeof LocalFileAccess !== 'undefined' && projectId && LocalFileAccess.isLinked(projectId)) {
+        const name = LocalFileAccess.getLinkedFileName(projectId);
+        el.textContent = '🔗 ' + name;
+        el.title = 'Saves write straight back to ' + name + ' on disk — no download, no re-prompt';
+    } else {
+        el.textContent = '';
+        el.title = '';
+    }
 }
 
 // Task Form Modal Functions
@@ -4170,7 +4303,17 @@ function saveTask() {
         updateDependencyReferences(lines, oldTaskName, name);
     }
 
-    editor.value = lines.join('\n');
+    let newPlanText = lines.join('\n');
+
+    // Auto-update the task's whiteboard row(s), if any (issue #844). A
+    // no-op unless the plan has a whiteboard row for this task name --
+    // whiteboard rows only ever reference summary tasks, but renaming a
+    // non-summary task here costs nothing extra to check.
+    if (oldTaskName && name && oldTaskName !== name && typeof renamePlanWhiteboardTask === 'function') {
+        newPlanText = renamePlanWhiteboardTask(newPlanText, oldTaskName, name);
+    }
+
+    editor.value = newPlanText;
 
     // Trigger input event to update line numbers and render
     // (the editor's own input handler debounces renderText at 1s)
@@ -4897,6 +5040,7 @@ function getAllTaskNames() {
     let inRaidLog = false;
     let inBaseline = false;
     let inBudgetSec = false;
+    let inWhiteboard = false;
 
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
@@ -4909,9 +5053,10 @@ function getAllTaskNames() {
         if (inBudgetSec && trimmed === '---raid log---') { inBudgetSec = false; }
         if (trimmed === '---raid log---') { inRaidLog = true; continue; }
         if (trimmed === '---baseline---') { inBaseline = true; continue; }
+        if (trimmed === '---whiteboard---') { inWhiteboard = true; continue; }
 
         // Skip non-task content
-        if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudgetSec) continue;
+        if (inFrontMatter || inHighlights || inRaidLog || inBaseline || inBudgetSec || inWhiteboard) continue;
         if (!trimmed || trimmed.startsWith('#') || trimmed.includes('===')) continue;
 
         const task = parseTaskLine(lines[i], i + 1);
@@ -7947,12 +8092,13 @@ function extractRaidLogFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Stop at the next section marker (budget, comms, lessons learned, or
-    // baseline) if present. This must match every other section marker
-    // (comms in particular) so that a comms plan following the RAID log
-    // is never swept into the extracted RAID log text -- see #978.
+    // Stop at the next section marker (budget, comms, lessons learned,
+    // baseline, or whiteboard) if present. This must match every other
+    // section marker (comms in particular) so that a comms plan following
+    // the RAID log is never swept into the extracted RAID log text -- see
+    // #978.
     let endIdx = planText.length;
-    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+    for (const sectionMarker of [BUDGET_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
         const mIdx = planText.indexOf(sectionMarker, afterMarker);
         if (mIdx !== -1 && mIdx < endIdx) {
             endIdx = mIdx;
@@ -8091,17 +8237,114 @@ async function exportRaidExcel() {
     }
 }
 
-// RAID Excel is a registered sync target (issue #761): rather than blindly
-// overwriting raidItems with whatever the workbook contains, read it,
-// diff it against the current plan and the last-synced snapshot, and let
-// the user review additions/updates/removals/conflicts before anything
-// is applied.
+// RAID Excel is a registered sync target (issue #761, extended by its
+// sync-file-linking follow-up). This target's key into LocalFileAccess's
+// per-target handle map (local-file-access.js) -- distinct from the main
+// plan file's default 'plan' target, and from MSP_SYNC_TARGET_KEY below.
+const RAID_SYNC_TARGET_KEY = 'raid-excel';
+const RAID_XLSX_PICKER_OPTIONS = {
+    id: 'noodleplanner-raid-excel',
+    types: [{
+        description: 'RAID Excel workbook',
+        accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+    }],
+    excludeAcceptAllOption: false,
+    multiple: false,
+};
+
+// Rather than blindly overwriting raidItems with whatever the workbook
+// contains, read it, diff it against the current plan and the last-synced
+// snapshot, and let the user review additions/updates/removals/conflicts
+// before anything is applied. This is the plain upload-input path (the
+// hidden #raidXlUpload input, and the Firefox/Safari fallback from
+// syncRaidExcelTarget below); processRaidExcelSyncInput does the actual
+// import work shared with the linked-handle path.
 async function uploadRaidExcel(event) {
     const file = event.target.files[0];
     event.target.value = '';
     if (!file) return;
+    await processRaidExcelSyncInput(file, file.name);
+}
 
-    if (!file.name.endsWith('.xlsx')) {
+/**
+ * Entry point for the Settings > Sync tab's "Sync Now" button on the RAID
+ * Excel target -- the fix for issue #761's follow-up report that sync never
+ * remembered which file to sync to, so every sync opened a fresh OS picker.
+ *
+ * MUST run as a direct click handler with no prior await: re-granting a
+ * revoked permission (LocalFileAccess.requestWritePermission) needs
+ * transient user activation, which doesn't survive unrelated awaits before
+ * it. The path taken depends purely on LocalFileAccess's current state for
+ * this project/target -- there's no separate "is this the first sync?" flag
+ * to keep in sync with it:
+ *
+ *   - unsupported (Firefox/Safari, no File System Access API): falls back
+ *     to the plain upload input, same as before -- there's no one-click
+ *     story possible there, and this says so.
+ *   - needs-relink (a handle survived reload but permission wasn't
+ *     restored, or a previous write failed): asks for permission again on
+ *     the SAME handle first; only opens a fresh picker if that's refused.
+ *   - unlinked: opens the native picker and links the chosen file for next
+ *     time.
+ *   - linked: reads straight from the handle -- genuinely one click, no
+ *     dialog of any kind.
+ */
+async function syncRaidExcelTarget() {
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Sync to a file on disk — choose the Excel file each time instead.', 'info');
+        }
+        document.getElementById('raidXlUpload')?.click();
+        return;
+    }
+
+    await LocalFileAccess.ensureRestored(projectId);
+    let status = LocalFileAccess.getLinkStatus(projectId, RAID_SYNC_TARGET_KEY);
+
+    if (status === 'needs-relink') {
+        const granted = await LocalFileAccess.requestWritePermission(projectId, RAID_SYNC_TARGET_KEY);
+        status = granted ? 'linked' : 'unlinked';
+    }
+
+    if (status === 'linked') {
+        let read = null;
+        try {
+            read = await LocalFileAccess.readLinkedFile(projectId, RAID_SYNC_TARGET_KEY, 'arraybuffer');
+        } catch (error) {
+            console.error('Could not read linked RAID Excel file:', error);
+            // readLinkedFile() already dropped the link on a hard failure
+            // (or flagged needs-relink on a permission failure); either way
+            // fall through to a fresh picker below instead of leaving the
+            // user stuck on an error.
+        }
+        if (read) {
+            await processRaidExcelSyncInput(read.content, read.name);
+            return;
+        }
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndLinkFile(projectId, RAID_SYNC_TARGET_KEY, RAID_XLSX_PICKER_OPTIONS, 'arraybuffer');
+    } catch (error) {
+        showMessage('editor', 'error', 'Failed to open RAID Excel file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    await processRaidExcelSyncInput(picked.content, picked.name);
+}
+
+/**
+ * Shared by uploadRaidExcel (a File, from the plain upload input) and
+ * syncRaidExcelTarget (raw bytes, from a linked handle) --
+ * browser-excel.js's loadWorkbookInput() accepts either a File or an
+ * ArrayBuffer.
+ */
+async function processRaidExcelSyncInput(input, filename) {
+    if (filename && !filename.toLowerCase().endsWith('.xlsx')) {
         alert('Please select an Excel (.xlsx) file.');
         return;
     }
@@ -8111,7 +8354,7 @@ async function uploadRaidExcel(event) {
     if (browserExcelExportsEnabled()) {
         try {
             const module = await import('/static/browser-excel.js');
-            const data = await module.importRaidExcelInBrowser(file);
+            const data = await module.importRaidExcelInBrowser(input);
             externalItems = data.items;
         } catch (error) {
             console.error('Browser RAID import failed, falling back to backend:', error);
@@ -8121,6 +8364,9 @@ async function uploadRaidExcel(event) {
     if (externalItems === null) {
         try {
             const formData = new FormData();
+            const file = input instanceof File ? input : new File([input], filename || 'raid.xlsx', {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
             formData.append('file', file);
 
             const response = await fetch('/api/raid/import-excel', {
@@ -8146,12 +8392,12 @@ async function uploadRaidExcel(event) {
         return;
     }
 
-    await openRaidSyncReview(externalItems, file.name);
+    await openRaidSyncReview(externalItems, filename);
 }
 
 async function openRaidSyncReview(externalItems, filename) {
     const module = await import('/static/raid-sync.js');
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     const syncState = module.getRaidSyncState(projectId);
     const baseItems = (syncState && syncState.items) || [];
 
@@ -8262,7 +8508,7 @@ async function applyRaidSyncReview() {
     renderRaidTable();
     syncRaidLogToPlanText();
 
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     const syncedAt = new Date();
     const syncedAtIso = syncedAt.toISOString();
     module.setRaidSyncState(projectId, {
@@ -8287,17 +8533,43 @@ async function applyRaidSyncReview() {
 
     showMessage('editor', 'success', 'RAID synced with Excel.');
 
-    // Write-back (issue #761 step 4): hand the merged state back out as a
-    // fresh download so the user's file matches the plan again. This
-    // version doesn't retain a File System Access API handle, so the user
-    // re-saves over their original file — see the issue for silent-handle
-    // support as a follow-up.
+    // Write-back (issue #761 step 4, extended by the sync-file-linking
+    // follow-up): hand the merged state back out to the Excel file. When
+    // this project's RAID target is linked to a real file on disk
+    // (LocalFileAccess), write straight back through that handle — no
+    // dialog, no download, matching the "press Sync and it updates both
+    // files" report. Otherwise (Firefox/Safari, or no link yet) this falls
+    // back to the original download-a-copy behaviour, unchanged.
     try {
         const excelModule = await import('/static/browser-excel.js');
-        await excelModule.exportRaidExcelInBrowser(merged, {
+        const filename = raidSyncPendingFilename || 'raid.xlsx';
+        const linked = typeof LocalFileAccess !== 'undefined' &&
+            LocalFileAccess.getLinkStatus(projectId, RAID_SYNC_TARGET_KEY) === 'linked';
+
+        const result = await excelModule.exportRaidExcelInBrowser(merged, {
             projectName: 'RAID',
-            filename: raidSyncPendingFilename || 'raid.xlsx'
+            filename: filename,
+            download: !linked
         });
+
+        if (linked) {
+            const writeResult = await LocalFileAccess.writeLinkedFile(projectId, RAID_SYNC_TARGET_KEY, result.buffer);
+            if (writeResult && writeResult.ok) {
+                if (typeof showToast === 'function') {
+                    showToast('Wrote changes back to ' + writeResult.filename + ' — no download needed.', 'success');
+                }
+            } else {
+                // Don't strand the user's changes only in the plan: fall
+                // back to a download so the workbook still gets updated
+                // somehow, and explain why the one-click write didn't land.
+                await excelModule.exportRaidExcelInBrowser(merged, { projectName: 'RAID', filename: filename });
+                const reason = writeResult && writeResult.needsRelink
+                    ? ' Re-link it in Settings > Sync to restore one-click sync.' : '';
+                if (typeof showToast === 'function') {
+                    showToast('Could not write back to the linked file — downloaded a copy instead.' + reason, 'error');
+                }
+            }
+        }
     } catch (error) {
         console.error('RAID sync write-back export failed:', error);
     }
@@ -8937,9 +9209,10 @@ function checkResourceCapitalization(planText, resourceMap) {
             return;
         }
 
-        // Track excluded sections (highlights, RAID log, budget, baseline)
+        // Track excluded sections (highlights, RAID log, budget, baseline, whiteboard)
         if (trimmed === '---highlights---' || trimmed === '---raid log---' ||
-            trimmed === '---budget---' || trimmed === '---baseline---') {
+            trimmed === '---budget---' || trimmed === '---baseline---' ||
+            trimmed === '---whiteboard---') {
             inExcludedSection = true;
             return;
         }
@@ -9370,6 +9643,118 @@ function triggerMSProjectUpload() {
     input.click();
 }
 
+// This target's key into LocalFileAccess's per-target handle map
+// (local-file-access.js) -- distinct from the main plan file's default
+// 'plan' target, and from RAID_SYNC_TARGET_KEY above.
+const MSP_SYNC_TARGET_KEY = 'msproject';
+const MSP_FILE_PICKER_OPTIONS = {
+    id: 'noodleplanner-msproject',
+    types: [{
+        description: 'MS Project file',
+        accept: {
+            'application/vnd.ms-project': ['.mpp'],
+            'application/xml': ['.xml'],
+            'text/xml': ['.xml'],
+        },
+    }],
+    excludeAcceptAllOption: false,
+    multiple: false,
+};
+
+/**
+ * Entry point for the Settings > Sync tab's "Sync Now" button on the MS
+ * Project target -- mirrors syncRaidExcelTarget() above; see its comment
+ * for the full reasoning on why the path taken depends purely on
+ * LocalFileAccess's current link status, and why this must run with no
+ * await before the first LocalFileAccess call.
+ */
+async function syncMSProjectTarget() {
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+
+    if (typeof LocalFileAccess === 'undefined' || !LocalFileAccess.isSupported()) {
+        if (typeof showToast === 'function') {
+            showToast('This browser can’t link Sync to a file on disk — choose the MS Project file each time instead.', 'info');
+        }
+        triggerMSProjectUpload();
+        return;
+    }
+
+    await LocalFileAccess.ensureRestored(projectId);
+    let status = LocalFileAccess.getLinkStatus(projectId, MSP_SYNC_TARGET_KEY);
+
+    if (status === 'needs-relink') {
+        const granted = await LocalFileAccess.requestWritePermission(projectId, MSP_SYNC_TARGET_KEY);
+        status = granted ? 'linked' : 'unlinked';
+    }
+
+    if (status === 'linked') {
+        let read = null;
+        try {
+            read = await LocalFileAccess.readLinkedFile(projectId, MSP_SYNC_TARGET_KEY, 'arraybuffer');
+        } catch (error) {
+            console.error('Could not read linked MS Project file:', error);
+        }
+        if (read) {
+            await processMSProjectSyncInput(read.content, read.name);
+            return;
+        }
+    }
+
+    let picked;
+    try {
+        picked = await LocalFileAccess.pickAndLinkFile(projectId, MSP_SYNC_TARGET_KEY, MSP_FILE_PICKER_OPTIONS, 'arraybuffer');
+    } catch (error) {
+        showMessage('editor', 'error', 'Failed to open MS Project file: ' + error.message);
+        return;
+    }
+    if (!picked) return; // user cancelled the picker
+
+    await processMSProjectSyncInput(picked.content, picked.name);
+}
+
+/**
+ * Shared by uploadMSProjectFile (a File, from the plain upload input) and
+ * syncMSProjectTarget (raw bytes, from a linked handle). Native .mpp files
+ * are parsed entirely in the browser (issue #770); MSPDI .xml still goes to
+ * the server, same as before.
+ */
+async function processMSProjectSyncInput(bytesOrFile, filename) {
+    if (/\.mpp$/i.test(filename || '')) {
+        try {
+            const { importMppBytes } = await import('/static/mpp-export.js');
+            const bytes = bytesOrFile instanceof ArrayBuffer
+                ? new Uint8Array(bytesOrFile)
+                : new Uint8Array(await bytesOrFile.arrayBuffer());
+            const markdown = importMppBytes(bytes);
+            await applyImportedMspMarkdown(markdown, filename);
+        } catch (error) {
+            showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+        }
+        return;
+    }
+
+    const formData = new FormData();
+    const file = bytesOrFile instanceof File ? bytesOrFile : new File([bytesOrFile], filename || 'schedule.xml', { type: 'application/xml' });
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/msproject/import', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to import MS Project file');
+        }
+
+        const result = await response.json();
+        await applyImportedMspMarkdown(result.markdown, filename);
+    } catch (error) {
+        showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
+    }
+}
+
 // Applies a freshly-imported MS Project task tree to the editor. The import
 // only ever contains a bare title + Resources front matter and a task
 // tree -- it knows nothing about version, project manager, RAG,
@@ -9410,6 +9795,46 @@ async function finishMspImport(finalTextOrMarkdown, filename) {
     if (editor._updateLineNumbers) editor._updateLineNumbers();
     showMessage('editor', 'success', 'MS Project file imported successfully!');
     await renderText();
+
+    // Write-back (issue #761's sync-file-linking follow-up): before this,
+    // the MS Project sync flow only ever pulled the schedule INTO the plan
+    // -- nothing produced updated .mpp bytes as part of a sync. When this
+    // project's MS Project target is linked to a real .mpp file on disk,
+    // build fresh bytes from the just-merged plan (mpp-export.js, the same
+    // browser-side builder the Tools > Export > MS Project (.mpp) menu item
+    // uses) and write them straight back through the handle -- no dialog,
+    // no download. MSPDI .xml has no writer in this codebase (only a
+    // reader, for the legacy server-side import path), so sync stays
+    // import-only for that format; Settings > Sync says so explicitly.
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
+    const mppLinked = typeof LocalFileAccess !== 'undefined' &&
+        /\.mpp$/i.test(filename || '') &&
+        LocalFileAccess.getLinkStatus(projectId, MSP_SYNC_TARGET_KEY) === 'linked';
+
+    if (mppLinked) {
+        try {
+            const parse = await currentParseResult(finalText);
+            const { exportMppInBrowser } = await import('/static/mpp-export.js');
+            const { bytes } = await exportMppInBrowser(parse, parse.project_name || null, { download: function () {} });
+            const writeResult = await LocalFileAccess.writeLinkedFile(projectId, MSP_SYNC_TARGET_KEY, bytes);
+            if (writeResult && writeResult.ok) {
+                if (typeof showToast === 'function') {
+                    showToast('Wrote the schedule back to ' + writeResult.filename + ' — no download needed.', 'success');
+                }
+            } else {
+                const reason = writeResult && writeResult.needsRelink
+                    ? ' Re-link it in Settings > Sync to restore one-click sync.' : '';
+                if (typeof showToast === 'function') {
+                    showToast('Could not write the schedule back to the linked .mpp file.' + reason, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('MS Project sync write-back failed:', error);
+            if (typeof showToast === 'function') {
+                showToast('Could not rebuild the .mpp file for write-back: ' + error.message, 'error');
+            }
+        }
+    }
 }
 
 async function openMspSyncReview(currentText, importedMarkdown, filename) {
@@ -9426,7 +9851,7 @@ async function openMspSyncReview(currentText, importedMarkdown, filename) {
     // one-sided change, and stop a deliberately-removed task being
     // resurrected. No snapshot (first-ever sync) falls back to a plain
     // two-way diff, same as before.
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     const syncState = syncModule.getMspSyncState(projectId);
     const baseTaskBody = syncState ? syncState.taskBody : undefined;
 
@@ -9554,7 +9979,7 @@ async function applyMspSyncReview() {
     const sections = syncModule.extractBackMatterSections(current.rest);
     const finalText = syncModule.assemblePlanText(mergedFrontMatterLines, newTaskBody, sections);
 
-    const projectId = (typeof getCurrentProjectId === 'function') ? getCurrentProjectId() : 'default';
+    const projectId = (typeof getCurrentProjectId === 'function' && getCurrentProjectId()) || 'default';
     syncModule.setMspSyncState(projectId, { taskBody: newTaskBody, syncedAt: new Date().toISOString() });
 
     const filename = mspSyncPendingFilename;
@@ -9572,39 +9997,12 @@ function closeMspSyncReviewSilently() {
     mspSyncPendingChoices = {};
 }
 
+// Native .mpp files are read in the browser with mppwriter; nothing is
+// uploaded (issue #770). Only MSPDI .xml still goes to the server. Delegates
+// to processMSProjectSyncInput, shared with the linked-handle sync path
+// (syncMSProjectTarget above).
 async function uploadMSProjectFile(file) {
-    // Native .mpp files are read in the browser with mppwriter; nothing is
-    // uploaded (issue #770). Only MSPDI .xml still goes to the server.
-    if (/\.mpp$/i.test(file.name || '')) {
-        try {
-            const { importMppFile } = await import('/static/mpp-export.js');
-            const markdown = await importMppFile(file);
-            await applyImportedMspMarkdown(markdown, file.name);
-        } catch (error) {
-            showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
-        }
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const response = await fetch('/api/msproject/import', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Failed to import MS Project file');
-        }
-
-        const result = await response.json();
-        await applyImportedMspMarkdown(result.markdown, file.name);
-    } catch (error) {
-        showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
-    }
+    await processMSProjectSyncInput(file, file.name);
 }
 
 // ===== Excel Import Wizard =====
@@ -11317,8 +11715,10 @@ function extractCommsFromPlanText(planText) {
     const afterStart = startIdx + COMMS_START.length;
 
     let endIdx = planText.length;
-    const blIdx = planText.indexOf(BASELINE_START, afterStart);
-    if (blIdx !== -1 && blIdx < endIdx) endIdx = blIdx;
+    for (const marker of [LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
 
     return planText.substring(afterStart, endIdx).trim();
 }
@@ -11476,21 +11876,20 @@ function updatePlanCommsText(planText, items) {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const benefitsText = extractSection(planText, BENEFITS_START_M,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -11507,7 +11906,7 @@ function updatePlanCommsText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline, whiteboard
     let result = base;
 
     if (highlightsText) {
@@ -11537,6 +11936,10 @@ function updatePlanCommsText(planText, items) {
 
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -12015,17 +12418,14 @@ function extractBudgetFromPlanText(planText) {
     if (idx === -1) return '';
     const afterMarker = idx + marker.length;
 
-    // Budget section ends at the RAID log marker or EOF
-    const raidIdx = planText.indexOf('---raid log---', afterMarker);
-    if (raidIdx !== -1) {
-        return planText.substring(afterMarker, raidIdx).trim();
+    // Budget section ends at whichever other section marker occurs next
+    // in the actual text, or EOF.
+    let endIdx = planText.length;
+    for (const other of ['---raid log---', COMMS_START, '---benefits---', LESSONS_START, BASELINE_START, WHITEBOARD_START]) {
+        const oIdx = planText.indexOf(other, afterMarker);
+        if (oIdx !== -1 && oIdx < endIdx) endIdx = oIdx;
     }
-    // Also stop at baseline
-    const blIdx = planText.indexOf('---baseline---', afterMarker);
-    if (blIdx !== -1) {
-        return planText.substring(afterMarker, blIdx).trim();
-    }
-    return planText.substring(afterMarker).trim();
+    return planText.substring(afterMarker, endIdx).trim();
 }
 
 function extractBudgetItemsFromPlanText(planText) {
@@ -12092,22 +12492,21 @@ function updatePlanBudgetText(planText, items) {
 
     // Extract every trailing section so we can re-append them in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const benefitsText = extractSection(planText, BENEFITS_START,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const raidText = extractSection(planText, RAID_LOG_START,
-        [COMMS_START, LESSONS_START, BASELINE_START]);
+        [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const commsText = extractSection(planText, COMMS_START,
-        [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections from base to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -12126,7 +12525,7 @@ function updatePlanBudgetText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline, whiteboard
     let result = base;
 
     // Re-append highlights
@@ -12158,6 +12557,9 @@ function updatePlanBudgetText(planText, items) {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -12633,21 +13035,20 @@ function updatePlanRaidLogText(planText, items) {
 
     // Extract every section so we can re-append in canonical order
     const highlightsText = extractSection(planText, HIGHLIGHTS_START,
-        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [HIGHLIGHTS_END, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const hasEndHighlights = planText.includes(HIGHLIGHTS_END);
     const budgetText = extractSection(planText, BUDGET_START,
-        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
+        [BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
     const benefitsText = extractSection(planText, BENEFITS_START_M,
-        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+        [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections to get just tasks + front matter
     let base = planText;
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START_M, RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -12665,7 +13066,7 @@ function updatePlanRaidLogText(planText, items) {
     }
     base = lines.join('\n').replace(/\n+$/, '');
 
-    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline
+    // Rebuild in canonical order: tasks, highlights, budget, benefits, raid, comms, lessons, baseline, whiteboard
     let result = base;
 
     if (highlightsText) {
@@ -12694,6 +13095,9 @@ function updatePlanRaidLogText(planText, items) {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -12840,7 +13244,17 @@ function extractBaselineFromPlanText(planText) {
     const idx = planText.indexOf(marker);
     if (idx === -1) return [];
 
-    const section = planText.substring(idx + marker.length).trim();
+    const afterStart = idx + marker.length;
+    // Baseline is not always the last section any more (a whiteboard
+    // section, or anything else, may follow it): stop at whichever other
+    // section marker occurs next, not just at EOF.
+    let endIdx = planText.length;
+    for (const other of [WHITEBOARD_START]) {
+        const oi = planText.indexOf(other, afterStart);
+        if (oi !== -1 && oi < endIdx) endIdx = oi;
+    }
+
+    const section = planText.substring(afterStart, endIdx).trim();
     return parseBaselineMarkdown(section);
 }
 
@@ -12944,18 +13358,318 @@ function syncBaselineToPlanText() {
  * Update plan text with baseline section.
  */
 function updatePlanBaselineText(planText, items) {
-    // Strip existing baseline section
+    // Preserve the whiteboard section, which is canonically last (after
+    // baseline) but must survive being edited via the baseline view.
+    let whiteboardText = '';
+    const wbIdx = planText.indexOf(WHITEBOARD_START);
+    if (wbIdx !== -1) {
+        whiteboardText = planText.substring(wbIdx + WHITEBOARD_START.length).replace(/^\n+/, '').replace(/\n+$/, '');
+    }
+
+    // Strip existing baseline section, stopping at whichever marker
+    // (whiteboard, or EOF) actually follows it in the text.
     let base = planText;
     const startIdx = base.indexOf(BASELINE_START);
     if (startIdx !== -1) {
-        base = base.substring(0, startIdx).replace(/\n+$/, '');
+        let endIdx = base.length;
+        if (wbIdx !== -1 && wbIdx > startIdx) endIdx = wbIdx;
+        base = (base.substring(0, startIdx) + base.substring(endIdx)).replace(/\n+$/, '');
+    } else if (wbIdx !== -1) {
+        base = base.substring(0, wbIdx).replace(/\n+$/, '');
     }
     base = base.replace(/\n+$/, '');
 
     const table = generateBaselineTable();
-    if (!table) return base;
+    let result = base;
+    if (table) {
+        result = result + '\n\n' + BASELINE_START + '\n' + table;
+    }
 
-    return base + '\n\n' + BASELINE_START + '\n' + table;
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
+    }
+
+    return result;
+}
+
+// =====================================================================
+// Whiteboard back matter (issue #844)
+//
+// Storage-format only: no canvas, no notes, no rendering here. A future
+// whiteboard view (#845 and siblings) will read/write through these
+// helpers. The section is round-tripped using the marker
+// ---whiteboard--- followed by a table with columns:
+//
+//   Task | X | Y | Colour | Width | Height | Collapsed
+//
+// matched by name, not position -- see docs/reference/plan-format.rst.
+// This mirrors the JS-side convention already used by
+// parseThemeColours()/saveThemeColours() (kanban.js) for a read/write
+// helper pair, and the Python-side parse_whiteboard_markdown /
+// generate_whiteboard_text pair in format_converter.py.
+// =====================================================================
+
+/**
+ * Extract the raw ---whiteboard--- section text from plan text, or ''
+ * if there isn't one.
+ */
+function extractWhiteboardFromPlanText(planText) {
+    if (!planText) return '';
+    const startIdx = planText.indexOf(WHITEBOARD_START);
+    if (startIdx === -1) return '';
+    const afterStart = startIdx + WHITEBOARD_START.length;
+
+    // Whiteboard is canonically the last back-matter section, but stay
+    // defensive in case some other marker follows it in hand-edited text.
+    let endIdx = planText.length;
+    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
+
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+/**
+ * Parse a whiteboard markdown table into an array of note objects.
+ *
+ * Columns are matched by name, not position: Task | X | Y | Colour |
+ * Width | Height | Collapsed in any order, extra columns tolerated and
+ * ignored. Nothing is ever dropped: an orphan row (Task matches no
+ * summary task) or a duplicate Task is still returned as-is -- use
+ * validateWhiteboardRows() for warnings about those. width/height are
+ * null when the column is empty or absent ("use the default note size").
+ */
+function parseWhiteboardMarkdown(text) {
+    if (!text) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+    function parseRow(line) {
+        let parts = line.split(/(?<!\\)\|/);
+        if (parts.length && !parts[0].trim()) parts = parts.slice(1);
+        if (parts.length && !parts[parts.length - 1].trim()) parts = parts.slice(0, -1);
+        return parts.map(c => c.trim());
+    }
+
+    let headerIndex = -1;
+    let headers = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].includes('|')) continue;
+        const cells = parseRow(lines[i]).map(c => c.toLowerCase());
+        if (cells.includes('task')) {
+            headerIndex = i;
+            headers = cells;
+            break;
+        }
+    }
+    if (headerIndex === -1) return [];
+
+    const aliases = {
+        task: 'task', x: 'x', y: 'y', colour: 'colour', color: 'colour',
+        width: 'width', height: 'height', collapsed: 'collapsed',
+    };
+    const colMap = {};
+    headers.forEach((h, idx) => {
+        if (aliases[h] && !(aliases[h] in colMap)) colMap[aliases[h]] = idx;
+    });
+
+    function safeInt(val, fallback) {
+        const n = parseInt(val, 10);
+        return Number.isNaN(n) ? fallback : n;
+    }
+
+    const items = [];
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (line.replace(/[|\- ]/g, '') === '') continue; // separator row
+        if (line.startsWith('//')) continue;
+
+        const cells = parseRow(line);
+        if (!cells.length) continue;
+
+        function getCell(field, fallback) {
+            const idx = colMap[field];
+            if (idx !== undefined && idx < cells.length) return cells[idx].replace(/\\\|/g, '|');
+            return fallback !== undefined ? fallback : '';
+        }
+
+        const taskName = getCell('task', '');
+        if (!taskName) continue;
+
+        const widthStr = getCell('width', '').trim();
+        const heightStr = getCell('height', '').trim();
+        const collapsedStr = getCell('collapsed', '').trim().toLowerCase();
+
+        items.push({
+            task: taskName,
+            x: safeInt(getCell('x', '0'), 0),
+            y: safeInt(getCell('y', '0'), 0),
+            colour: getCell('colour', ''),
+            width: widthStr ? safeInt(widthStr, null) : null,
+            height: heightStr ? safeInt(heightStr, null) : null,
+            collapsed: ['yes', 'true', '1'].includes(collapsedStr),
+        });
+    }
+    return items;
+}
+
+/**
+ * Generate a formatted markdown table from whiteboard note items,
+ * columns padded to their widest entry (matching the other back-matter
+ * generators). Returns '' if there are no items.
+ */
+function generateWhiteboardText(items) {
+    if (!items || items.length === 0) return '';
+    const headers = ['Task', 'X', 'Y', 'Colour', 'Width', 'Height', 'Collapsed'];
+
+    const escapePipe = (value) => String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const cellOrBlank = (value) => (value === null || value === undefined || value === '') ? '' : String(value);
+
+    const rows = items.map(item => [
+        escapePipe(item.task || ''),
+        escapePipe(String(item.x != null ? item.x : 0)),
+        escapePipe(String(item.y != null ? item.y : 0)),
+        escapePipe(item.colour || ''),
+        escapePipe(cellOrBlank(item.width)),
+        escapePipe(cellOrBlank(item.height)),
+        escapePipe(item.collapsed ? 'yes' : 'no'),
+    ]);
+
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
+
+    const pad = (s, w) => s + ' '.repeat(Math.max(0, w - s.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Return warnings for orphan and duplicate whiteboard rows. Mirrors
+ * Python's validate_whiteboard_rows(): neither rule removes anything
+ * from `items`, this only reports (see docs/reference/plan-format.rst).
+ *
+ * @param {Array} items - parseWhiteboardMarkdown() output.
+ * @param {Iterable} [summaryTaskNames] - valid summary task names to
+ *   check rows against; orphan checking is skipped if omitted.
+ */
+function validateWhiteboardRows(items, summaryTaskNames) {
+    // Task is matched case-insensitively, the same as dependency name
+    // resolution (see "Resolution rules" in plan-format.rst).
+    const warnings = [];
+    const nameCounts = {};
+    items.forEach(item => {
+        const key = item.task.toLowerCase();
+        nameCounts[key] = (nameCounts[key] || 0) + 1;
+    });
+
+    const seenDuplicates = new Set();
+    items.forEach(item => {
+        const name = item.task;
+        const key = name.toLowerCase();
+        if (nameCounts[key] > 1 && !seenDuplicates.has(key)) {
+            seenDuplicates.add(key);
+            warnings.push({
+                type: 'duplicate',
+                task: name,
+                message: `Multiple whiteboard rows reference task '${name}'; the later row wins.`,
+            });
+        }
+    });
+
+    if (summaryTaskNames) {
+        const validNames = new Set(Array.from(summaryTaskNames, (n) => n.toLowerCase()));
+        const seenOrphans = new Set();
+        items.forEach(item => {
+            const name = item.task;
+            const key = name.toLowerCase();
+            if (name && !validNames.has(key) && !seenOrphans.has(key)) {
+                seenOrphans.add(key);
+                warnings.push({
+                    type: 'orphan',
+                    task: name,
+                    message: `Whiteboard row references unknown task '${name}'; kept in the file but not rendered.`,
+                });
+            }
+        });
+    }
+
+    return warnings;
+}
+
+/**
+ * Update plan text with the given whiteboard items, rewriting only the
+ * ---whiteboard--- section (canonical layout) and leaving every other
+ * back-matter section, front matter, and the task outline untouched.
+ * If `items` is empty, any existing whiteboard section is removed.
+ *
+ * Not wired to any per-keystroke/per-frame UI event in this issue (no
+ * canvas yet -- #845/#846), so it is not wrapped in a DebounceTimer; a
+ * future save-triggering caller should follow the DebounceTimer
+ * convention used elsewhere in this file (e.g. resourceDebounceTimer).
+ */
+function updatePlanWhiteboardText(planText, items) {
+    const startIdx = planText.indexOf(WHITEBOARD_START);
+    let before = planText;
+    let after = '';
+    if (startIdx !== -1) {
+        const afterStart = startIdx + WHITEBOARD_START.length;
+        let endIdx = planText.length;
+        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+            const mIdx = planText.indexOf(marker, afterStart);
+            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+        }
+        before = planText.substring(0, startIdx);
+        after = planText.substring(endIdx);
+    }
+    before = before.replace(/\n+$/, '');
+
+    const table = generateWhiteboardText(items);
+    let result = before;
+    if (table) {
+        result = result + '\n\n' + WHITEBOARD_START + '\n' + table;
+    }
+    if (after) {
+        result = result.replace(/\n+$/, '') + '\n\n' + after.replace(/^\n+/, '');
+    }
+    return result;
+}
+
+/**
+ * Rename rule: rename sync for whiteboard rows.
+ *
+ * Exact precedent: kanban.js's renamePhase() migrates the themeColours
+ * key on phase rename (see the "Update theme colour key if phase had a
+ * colour" block there). This is the equivalent migration for whiteboard
+ * rows, which live in the plan body rather than front matter, so it
+ * operates on the plan text directly. Every row whose Task matches
+ * oldName is updated to newName; a no-op if there is no whiteboard
+ * section or no matching row.
+ */
+function renamePlanWhiteboardTask(planText, oldName, newName) {
+    if (!planText || !oldName || !newName || oldName === newName) return planText;
+    const section = extractWhiteboardFromPlanText(planText);
+    if (!section) return planText;
+
+    const items = parseWhiteboardMarkdown(section);
+    if (!items.length) return planText;
+
+    let changed = false;
+    items.forEach(item => {
+        if (item.task === oldName) {
+            item.task = newName;
+            changed = true;
+        }
+    });
+    if (!changed) return planText;
+
+    return updatePlanWhiteboardText(planText, items);
 }
 
 /**
@@ -13588,9 +14302,10 @@ function extractHighlightsFromText(text) {
 
     const afterStart = startIdx + HIGHLIGHTS_START.length;
 
-    // Find the end: explicit end marker, budget section, raid log section, or EOF
+    // Find the end: explicit end marker, budget section, raid log section,
+    // whiteboard section, or EOF
     let endIdx = text.length;
-    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER]) {
+    for (const marker of [HIGHLIGHTS_END, BUDGET_START_MARKER, RAID_LOG_START_MARKER, WHITEBOARD_START]) {
         const idx = text.indexOf(marker, afterStart);
         if (idx !== -1 && idx < endIdx) {
             endIdx = idx;
@@ -13935,7 +14650,7 @@ function updatePlanHighlightsText(planText, highlights) {
     const HIGHLIGHTS_END = '---end-highlights---';
     const BASELINE_START = '---baseline---';
     // All section markers that can terminate highlights
-    const END_MARKERS = [HIGHLIGHTS_END, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, BASELINE_START];
+    const END_MARKERS = [HIGHLIGHTS_END, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, BASELINE_START, WHITEBOARD_START];
 
     // Extract each trailing section so we can re-append them in canonical order
     function extractSection(text, startMarker, endMarkers) {
@@ -13950,19 +14665,18 @@ function updatePlanHighlightsText(planText, highlights) {
         return text.substring(afterStart, endIdx).replace(/^\n+/, '').replace(/\n+$/, '');
     }
 
-    const budgetText = extractSection(planText, BUDGET_START, ['---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const benefitsText = extractSection(planText, '---benefits---', [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]);
-    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START]);
-    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START]);
-    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START]);
-    const baselineText = planText.indexOf(BASELINE_START) !== -1
-        ? planText.substring(planText.indexOf(BASELINE_START) + BASELINE_START.length).replace(/^\n+/, '')
-        : '';
+    const budgetText = extractSection(planText, BUDGET_START, ['---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const benefitsText = extractSection(planText, '---benefits---', [RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const raidText = extractSection(planText, RAID_LOG_START, [COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const commsText = extractSection(planText, COMMS_START, [LESSONS_START, BASELINE_START, WHITEBOARD_START]);
+    const lessonsText = extractSection(planText, LESSONS_START, [BASELINE_START, WHITEBOARD_START]);
+    const baselineText = extractSection(planText, BASELINE_START, [WHITEBOARD_START]);
+    const whiteboardText = extractSection(planText, WHITEBOARD_START, []);
 
     // Strip all special sections from base to get just tasks + front matter
     let base = planText;
     // Strip from earliest section marker onwards
-    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START];
+    const sectionMarkers = [HIGHLIGHTS_START, BUDGET_START, '---benefits---', RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
     let earliestIdx = base.length;
     for (const marker of sectionMarkers) {
         const idx = base.indexOf(marker);
@@ -13995,7 +14709,7 @@ function updatePlanHighlightsText(planText, highlights) {
         result = base + '\n\n---\n\n' + section;
     }
 
-    // Re-append sections in canonical order: budget, benefits, raid, comms, baseline
+    // Re-append sections in canonical order: budget, benefits, raid, comms, lessons, baseline, whiteboard
     if (budgetText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BUDGET_START + '\n' + budgetText;
     }
@@ -14013,6 +14727,9 @@ function updatePlanHighlightsText(planText, highlights) {
     }
     if (baselineText) {
         result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
+    }
+    if (whiteboardText) {
+        result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
     }
 
     return result;
@@ -14992,6 +15709,15 @@ document.addEventListener('keydown', function(e) {
         const overlay = document.getElementById('shortcutsOverlay');
         if (overlay && overlay.classList.contains('active')) {
             closeShortcutsModal();
+            return;
+        }
+    }
+
+    // Escape closes the status message log
+    if (e.key === 'Escape') {
+        const statusLogOverlay = document.getElementById('statusLogOverlay');
+        if (statusLogOverlay && statusLogOverlay.classList.contains('active')) {
+            closeStatusLogFullscreen();
             return;
         }
     }

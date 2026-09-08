@@ -101,6 +101,15 @@ Keys the app reads
    * - ``theme``
      - ``light`` | ``dark`` | ``system``
      - UI theme when this plan is open.
+   * - ``Theme``
+     - list of ``- Task Name: #RRGGBB``
+     - Per-summary-task colour overrides, keyed by task name. Shared by the
+       Kanban board (column headers), the mind map (branch colours) and the
+       whiteboard/todo-list view's `...` note menu -- a colour set from any
+       one of the three shows up in the other two. Renaming a summary task
+       migrates its key here automatically. Not the same key as ``theme``
+       above (RST/YAML-style keys are matched case-sensitively by these
+       parsers); the two happen to share a name for unrelated reasons.
    * - ``start date``
      - ``YYYY-MM-DD``
      - Project start, shown on reports and read by the AI assistant. It does
@@ -286,6 +295,11 @@ position, so extra or reordered columns are tolerated), except highlights.
    * - ``---baseline---``
      - Table: ``Task Name | Start | Finish | Duration``, one row per task at
        the time the baseline was taken.
+   * - ``---whiteboard---``
+     - Table: ``Task | X | Y | Colour | Width | Height | Collapsed``, the
+       whiteboard/todo-list view's note layout (one row per note). See
+       `Whiteboard rows`_ below for the columns and the orphan/duplicate
+       rules.
 
 A ``# Heading`` line directly after a marker (``# RAID Log``) is allowed
 and kept.
@@ -294,6 +308,75 @@ Editing a section through its view (adding a RAID item, say) rewrites
 **that section only**, in the app's canonical table layout. The rest of the
 file is not touched. Hand-written tables are read as they are and left as
 they are until the view edits them.
+
+Whiteboard rows
+~~~~~~~~~~~~~~~~
+
+- ``Task`` names a summary task by name.
+- ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
+  top-left of the board's own coordinate space (not the viewport).
+- ``Colour`` is ``#RRGGBB`` or empty; see `Note colour precedence`_ below.
+- ``Width`` / ``Height`` are optional integers; empty means the default
+  note size.
+- ``Collapsed`` is ``yes`` or ``no``.
+- A row whose ``Task`` matches no summary task in the outline (for example
+  because the task was renamed by hand, which looks identical to a
+  delete-plus-add) is kept in the file, not rendered, and reported as a
+  warning -- the same "never remove a line you do not understand" rule
+  this page states elsewhere.
+- ``Task`` is matched case-insensitively against summary task names, the
+  same as dependency name resolution above. If two whiteboard rows name
+  the same task, the later one wins; avoid duplicate names.
+- Row order doubles as stacking order: the note whose row comes *last* in
+  the table renders in front of the others. Dragging or clicking a note
+  moves its row to the end of the table, which is how "bring to front"
+  persists across a reload -- z-order is never stored as a separate field.
+
+Adding and removing notes
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The board is a curated subset of the plan's summary tasks, not every
+phase automatically. **Add note** (toolbar, or the empty-state shortcut)
+opens a picker listing every summary task not already on the board, each
+labelled with its own ``Phase › Sub-phase`` parent path so two same-named
+summary tasks in different phases are tellable apart; a search box
+filters by name or path. Adding one or several at once writes one row per
+task, each placed in the first free space of the current view that does
+not overlap an existing note, all in a single edit to this section.
+
+**Remove from board**, on a note's ``...`` menu, deletes only that note's
+row from this table -- the summary task and every one of its children are
+left completely untouched in the outline above. There is no confirmation
+prompt; like every other whiteboard edit, it is a single, ordinary undo
+step. Re-adding a task that was previously removed gets a freshly
+computed position (per the placement rule above), never the row's old,
+possibly stale ``X``/``Y`` from before it was removed -- nothing here
+remembers a removed row's coordinates.
+
+Note colour precedence
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Each note's colour (set from its `...` menu, top right of the note) is
+resolved in this order, highest priority first:
+
+1. The row's own ``Colour`` column above -- a per-board override. Still
+   read for backward compatibility with hand-edited plans, but as of the
+   `...` menu (issue #849) nothing in the app writes it any more: setting a
+   colour from the menu clears this column (if a hand-edit had set it) and
+   writes the ``Theme`` front-matter entry instead, so a note's colour is
+   never split across two places that could disagree.
+2. The plan's ``Theme`` front-matter entry (see the front matter table
+   above) for that summary task's name -- what the `...` menu actually
+   writes. This is the same block the Kanban board and mind map read and
+   write, so a colour set on any one of the three views shows up on the
+   other two, and renaming the summary task carries the colour with it
+   (the rename migrates the ``Theme`` key alongside the phase/task name).
+3. Otherwise, a colour derived from the task's position in the outline (the
+   same swatch palette the mind map's branch colours use). Every note
+   always has a colour by this rule -- there is no "uncoloured" state.
+   Choosing "Default colour" in the `...` menu removes both the ``Theme``
+   entry and any stray ``Colour`` column value, returning the note to this
+   derived colour.
 
 Where plan data lives
 ----------------------
@@ -308,8 +391,12 @@ other records the app keeps are:
 * programme dependencies — the links declared in the front matter's
   ``dependencies`` key, kept as one metadata record so the portfolio can
   propagate RAG across projects, derived;
-* theme, panel widths, mind-map colours, AI settings — UI preferences in
-  ``localStorage``, not plan data.
+* theme, panel widths, mind-map colours, whiteboard pan/zoom, AI settings —
+  UI preferences in ``localStorage``, not plan data. A note's own layout
+  (``X``/``Y``/``Width``/``Height``/``Colour``) is different: it is plan
+  data, stored in the ``---whiteboard---`` section above like everything
+  else in this table. See :doc:`/explanation/whiteboard-layout-vs-viewport`
+  for why the split falls where it does.
 
 Browsers without IndexedDB fall back to the previous single
 ``localStorage`` key; the plan text is stored verbatim either way.

@@ -51,8 +51,23 @@
                             });
                         }
 
+                        // Check right away too, not just on future events -- a
+                        // tab left open across a deploy (or a burst of several
+                        // deploys close together) previously had to wait for a
+                        // visibility change, an online event, or up to an hour
+                        // before it would even notice, which is why a browser
+                        // could sit on a stale, partially-updated page for a
+                        // while after a deploy. Cheap: /sw.js is one small file.
+                        checkForUpdate();
+
                         // Installed PWAs can stay open for days. Check again
-                        // when reopened and hourly while actively in use.
+                        // when reopened, when back online, and periodically
+                        // while actively in use (every 15 minutes rather than
+                        // hourly, so a burst of deploys close together -- like
+                        // several in one session -- gets caught reasonably
+                        // promptly instead of leaving a tab stale for up to an
+                        // hour; static assets are exempt from the app's rate
+                        // limiter, so the extra checks cost nothing there).
                         document.addEventListener('visibilitychange', function () {
                             if (document.visibilityState === 'visible') {
                                 checkForUpdate();
@@ -63,7 +78,7 @@
                             if (document.visibilityState === 'visible') {
                                 checkForUpdate();
                             }
-                        }, 60 * 60 * 1000);
+                        }, 15 * 60 * 1000);
                     }).catch(function (err) {
                         console.warn('Service worker registration failed:', err);
                     });
@@ -82,6 +97,8 @@
     <link rel="stylesheet" href="/static/components.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/gantt.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/kanban.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/portfolio.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
@@ -214,6 +231,16 @@
           <line x1="14.5" y1="12" x2="18.5" y2="12"/>
           <line x1="14.5" y1="13.5" x2="18.5" y2="17.5"/>
         </symbol>
+        <!-- whiteboard (dot-grid canvas) -->
+        <symbol id="icon-whiteboard" viewBox="0 0 24 24">
+          <rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none"/>
+          <circle cx="8" cy="9.5" r="1"/>
+          <circle cx="12" cy="9.5" r="1"/>
+          <circle cx="16" cy="9.5" r="1"/>
+          <circle cx="8" cy="14.5" r="1"/>
+          <circle cx="12" cy="14.5" r="1"/>
+          <circle cx="16" cy="14.5" r="1"/>
+        </symbol>
         <!-- pbs (product breakdown structure) -->
         <symbol id="icon-pbs" viewBox="0 0 24 24">
           <rect x="8" y="2" width="8" height="5" rx="1"/>
@@ -255,88 +282,71 @@
           <line x1="8" y1="6" x2="16" y2="11"/>
           <line x1="8" y1="16" x2="16" y2="11"/>
         </symbol>
+
+        <!-- Ribbon icon set (#833 follow-up: Office-style ribbon redesign) -->
+        <symbol id="icon-add" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+        <symbol id="icon-delete" viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></symbol>
+        <symbol id="icon-indent" viewBox="0 0 24 24"><path d="M4 6h16M10 12h10M10 18h10"/><polyline points="4,10 7,12 4,14"/></symbol>
+        <symbol id="icon-outdent" viewBox="0 0 24 24"><path d="M4 6h16M10 12h10M10 18h10"/><polyline points="7,10 4,12 7,14"/></symbol>
+        <symbol id="icon-link" viewBox="0 0 24 24"><path d="M9 15l6-6M8 12l-2 2a3 3 0 004 4l2-2M16 12l2-2a3 3 0 00-4-4l-2 2"/></symbol>
+        <symbol id="icon-unlink" viewBox="0 0 24 24"><path d="M8 12l-2 2a3 3 0 004 4l2-2M16 12l2-2a3 3 0 00-4-4l-2 2M5 5l14 14"/></symbol>
+        <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+        <symbol id="icon-sort" viewBox="0 0 24 24"><path d="M6 4v16M3 17l3 3 3-3M13 6h8M13 12h6M13 18h4"/></symbol>
+        <symbol id="icon-print" viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H5v-6h14v6h-2M7 14h10v7H7z"/></symbol>
+        <symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM8 3v6h7V3M8 14h8v7H8z"/></symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></symbol>
+        <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 4v12M8 12l4 4 4-4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 6l2.1 2.1M17.7 15.9l2.1 2.1M2 12h3M19 12h3M4.2 18l2.1-2.1M17.7 8.1l2.1-2.1"/></symbol>
+        <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-3-6.2M20 4v5h-5"/></symbol>
+        <symbol id="icon-flag" viewBox="0 0 24 24"><path d="M6 3v18M6 4h11l-2 4 2 4H6"/></symbol>
+        <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/></symbol>
+        <symbol id="icon-people" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9" r="2.5"/><path d="M2 19c0-3.3 2.7-5 6-5s6 1.7 6 5M14.5 19c0-2.5 1.7-4 4-4s3.5 1.5 3.5 4"/></symbol>
+        <symbol id="icon-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></symbol>
+        <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M3 20h18M6 16V9M11 16V5M16 16v-7M20 16v-4"/></symbol>
+        <symbol id="icon-warn" viewBox="0 0 24 24"><path d="M12 3l9 17H3zM12 9v5M12 17h.5"/></symbol>
+        <symbol id="icon-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-3 11v3h6v-3a6 6 0 00-3-11z"/></symbol>
+        <symbol id="icon-grid" viewBox="0 0 24 24"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+        <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></symbol>
+        <symbol id="icon-money" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v12M14.5 9.5c0-1.4-1.1-2-2.5-2s-2.5.6-2.5 2S10 12 12 12s2.5.6 2.5 2-1.1 2-2.5 2-2.5-.6-2.5-2"/></symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></symbol>
+        <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+        <!-- Added for ribbon parity with the removed old top nav (AI Settings/AI Chat, System theme, Docs link) -->
+        <symbol id="icon-robot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="14" r="1.5"/><circle cx="15" cy="14" r="1.5"/><path d="M12 8V4M9 4h6"/></symbol>
+        <symbol id="icon-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></symbol>
+        <symbol id="icon-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M6 6H4v14h14v-8"/></symbol>
       </defs>
     </svg>
 
     <a href="#main-content" class="skip-to-content">Skip to content</a>
     <div class="container-fluid m-0 p-0">
         <div class="content" id="main-content" role="main">
-            <div class="tabs" role="tablist" aria-label="Main navigation">
-                <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
-                <span id="projectBreadcrumb" class="project-breadcrumb" style="display:none;">
-                    <span class="breadcrumb-separator">/</span>
-                    <span id="projectBreadcrumbName" class="breadcrumb-project-name"></span>
-                </span>
-                <button class="tab" id="portfolioTab" onclick="switchTab('portfolio')" role="tab" aria-selected="false" aria-controls="portfolio-tab">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
-                </button>
-                <button class="tab active" id="planTab" onclick="switchToProjectNav()" role="tab" aria-selected="true" aria-controls="editor-tab">
-                    Project
-                </button>
-                <a href="https://docs.noodleplanner.com" target="_blank" rel="noopener noreferrer"
-                   class="tab text-decoration-none" aria-label="Open documentation (opens in new tab)"
-                   title="Documentation">
-                    <i class="bi bi-book" aria-hidden="true"></i> Docs
-                </a>
-                <!-- Search box (routes to the Search results view) -->
-                <div class="np-nav-search" style="margin-left: auto;">
-                    <i class="bi bi-search np-nav-search-icon" aria-hidden="true"></i>
-                    <input type="search"
-                           id="navSearchInput"
-                           class="np-nav-search-input"
-                           placeholder="Search this project…"
-                           aria-label="Search project"
-                           autocomplete="off">
-                </div>
-                <!-- AI button -->
-                <div class="ai-btn-wrapper" style="position: relative;">
-                    <button class="ai-toggle-btn" id="aiToggleBtn"
-                            onclick="onAIButtonClick()"
-                            aria-label="AI Assistant"
-                            title="AI Assistant">
-                        <i class="bi bi-robot" aria-hidden="true"></i>
-                        <span class="ai-configured-dot" id="aiConfiguredDot" style="display:none;" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <!-- Theme toggle -->
-                <div class="theme-toggle-wrapper" style="position: relative;">
-                    <button class="theme-toggle-btn" id="themeToggleBtn"
-                            onclick="toggleThemeMenu(event)"
-                            aria-haspopup="true" aria-expanded="false"
-                            aria-controls="themeMenu"
-                            aria-label="Change colour theme"
-                            title="Change colour theme">
-                        <i class="bi bi-sun-fill" id="themeIcon"></i>
-                    </button>
-                    <div class="theme-menu" id="themeMenu" role="menu" aria-label="Theme options">
-                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
-                             data-theme-choice="light" onclick="setThemeChoice('light')">
-                            <i class="bi bi-sun-fill"></i> Light
-                            <span class="theme-check" aria-hidden="true"></span>
-                        </div>
-                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
-                             data-theme-choice="dark" onclick="setThemeChoice('dark')">
-                            <i class="bi bi-moon-fill"></i> Dark
-                            <span class="theme-check" aria-hidden="true"></span>
-                        </div>
-                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
-                             data-theme-choice="system" onclick="setThemeChoice('system')">
-                            <i class="bi bi-display"></i> System
-                            <span class="theme-check" aria-hidden="true"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- The old top nav bar (logo, Portfolio/Project tabs, Docs link, search
+                 box, AI toggle, theme menu) was removed once the ribbon (#833/#909)
+                 gained equivalents for all of it -- see PR for the fix/ribbon-parity
+                 branch for the full mapping. #projectBreadcrumb/#projectBreadcrumbName
+                 are kept, permanently hidden (see layout.css), purely as the data
+                 source ribbon.js's title bar (updateDocTitleAndAvatar) and
+                 views-search.js's getCurrentProjectName() read the current project
+                 name from -- do not delete these two elements without updating both. -->
+            <span id="projectBreadcrumb" class="project-breadcrumb" style="display:none;">
+                <span class="breadcrumb-separator">/</span>
+                <span id="projectBreadcrumbName" class="breadcrumb-project-name"></span>
+            </span>
 
             <!-- Project Sub-Navigation Bar (shared across all project views) -->
-            <div class="plan-subnav" id="planSubnav" role="navigation" aria-label="Project views">
+            <!-- Superseded by the ribbon (#833 follow-up, design handoff "Ribbon Toolbar
+                 option 2a"): Home/Plan/Track/Resources/Report/View replace this dropdown
+                 nav. Hidden, not deleted -- updatePlanSubnav() and friends in nav.js still
+                 read/write these elements' classes. -->
+            <div class="plan-subnav" id="planSubnav" role="navigation" aria-label="Project views" style="display: none;">
                 <button class="plan-subnav-btn active" data-view="project-report" onclick="switchPlanSubnavToDashboard()">
                     <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-project-report"/></svg> Dashboard
                 </button>
                 <!-- Views dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="viewsDropdownBtn"
-                            data-dropdown-views="tasks,gantt,kanban,calendar,milestones,timeline,mindmap"
+                            data-dropdown-views="tasks,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
                             onclick="toggleDropdownMenu('viewsDropdownMenu', 'viewsDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="viewsDropdownMenu">
                         Views &#9662;
@@ -362,6 +372,9 @@
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="mindmap" onclick="switchToView('mindmap'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-mind-map"/></svg> Mind Map
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="whiteboard" onclick="switchToView('whiteboard'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-whiteboard"/></svg> Whiteboard
                         </div>
                     </div>
                 </div>
@@ -483,27 +496,27 @@
                         </div>
                         <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerExcelUpload(); event.stopPropagation();">
-                            Import from Excel
+                            <i class="bi bi-filetype-xlsx" aria-hidden="true"></i> Import from Excel
                         </div>
                         <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('excel', 'editor'); event.stopPropagation();">
-                            Export to Excel
+                            <i class="bi bi-filetype-xlsx" aria-hidden="true"></i> Export to Excel
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('csv', 'editor'); event.stopPropagation();">
-                            Export to CSV
+                            <i class="bi bi-filetype-csv" aria-hidden="true"></i> Export to CSV
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('pdf', 'editor'); event.stopPropagation();">
-                            Export to PDF
+                            <i class="bi bi-filetype-pdf" aria-hidden="true"></i> Export to PDF
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportReportPptx(); event.stopPropagation();">
-                            Export Report to PowerPoint
+                            <i class="bi bi-filetype-ppt" aria-hidden="true"></i> Export Report to PowerPoint
                         </div>
                         <div class="nav-menu-divider"></div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="triggerMSProjectUpload(); event.stopPropagation();">
-                            Import from MS Project
+                            <i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Import from MS Project
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" onclick="exportFile('mpp', 'editor'); event.stopPropagation();">
-                            Export to MS Project
+                            <i class="bi bi-bar-chart-steps" aria-hidden="true"></i> Export to MS Project
                         </div>
                         <div class="nav-menu-divider raid-export-item" style="display:none;"></div>
                         <div class="nav-menu-item raid-export-item" role="menuitem" tabindex="-1" style="display:none;" onclick="downloadRaidMarkdown(); event.stopPropagation();">
@@ -522,13 +535,16 @@
                 </div>
             </div>
 
+            <!-- Ribbon (#833 follow-up, design handoff "Ribbon Toolbar option 2a"): renders from ribbon-ia.js -->
+            <div id="ribbonShell" class="ribbon-shell"></div>
+
             <!-- Loading indicator for Portfolio/Project context switches (#581 / UX-3) -->
             <div id="contextLoadingIndicator" class="np-context-loading" aria-live="polite">
                 <div class="np-context-loading-spinner"></div>
                 <div class="np-context-loading-text">Loading...</div>
             </div>
 
-            <div id="editor-tab" class="tab-content active" role="tabpanel" aria-labelledby="planTab">
+            <div id="editor-tab" class="tab-content active" role="tabpanel">
                 <div class="editor-layout">
                     <div class="editor-panel">
                         {% include '_editor_toolbar.html' %}
@@ -1341,6 +1357,41 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
+                        <!-- Whiteboard View -->
+                        <div id="whiteboard-view" class="output-tab-content">
+                            <div class="wb-content">
+                                <div class="wb-toolbar" role="toolbar" aria-label="Whiteboard view controls">
+                                    <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn" id="whiteboardZoomInBtn" onclick="whiteboardZoomIn()" title="Zoom in" aria-label="Zoom in">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <span class="wb-zoom-label" id="whiteboardZoomLabel">100%</span>
+                                        <button class="wb-toolbar-btn" id="whiteboardZoomOutBtn" onclick="whiteboardZoomOut()" title="Zoom out" aria-label="Zoom out">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                                        </button>
+                                        <button class="wb-toolbar-btn" onclick="whiteboardZoomFit()" title="Fit to content" aria-label="Fit to content">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+                                        </button>
+                                        <button class="wb-toolbar-btn" onclick="whiteboardZoomReset()" title="Reset to 100%" aria-label="Reset zoom to 100%">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><circle cx="12" cy="12" r="1.5"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add note" aria-label="Add note to whiteboard">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                            <span>Add note</span>
+                                        </button>
+                                    </div>
+                                    <div class="wb-toolbar-hint">
+                                        Drag empty space or scroll to pan &middot; drag a note's header to move it, its corner to resize &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; Arrow keys pan &middot; +/&minus; zoom &middot; 0 resets &middot; f fits
+                                    </div>
+                                </div>
+                                <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas, an empty pannable and zoomable surface">
+                                    <!-- SVG whiteboard rendered by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Product Breakdown Structure View -->
                         <div id="pbs-view" class="output-tab-content">
                             <div class="pbs-placeholder placeholder-view">
@@ -1670,7 +1721,7 @@ Press Enter to render..."></textarea>
                 </div>
             </div>
 
-            <div id="kanban-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="kanban-tab" class="tab-content" role="tabpanel">
                 <div class="message" id="kanbanMessage"></div>
                 <div class="kanban-layout">
                     <!-- Collapsible Editor Panel -->
@@ -1696,7 +1747,11 @@ Changes here are synced automatically."></textarea>
                     <!-- Kanban Board Panel -->
                     <div class="kanban-panel">
                         <div class="kanban-container">
-                            <div class="kanban-header" role="toolbar" aria-label="Kanban view controls">
+                            <!-- Kept as the value/checked source of truth (kanban.js's
+                                 syncPreferenceControls() reads/writes these ids); hidden
+                                 because the command ribbon's Board group (#894, #898) now
+                                 gives every one of these same controls a Metro-styled home. -->
+                            <div class="kanban-header" role="toolbar" aria-label="Kanban view controls" style="display: none;">
                                 <div class="kanban-view-switcher">
                                     <label for="kanbanViewMode">View by:</label>
                                     <select id="kanbanViewMode" class="form-select" onchange="switchKanbanView(this.value)" aria-label="Select Kanban view mode">
@@ -1736,7 +1791,7 @@ Changes here are synced automatically."></textarea>
                 </div>
             </div>
 
-            <div id="guide-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="guide-tab" class="tab-content" role="tabpanel">
                 <div class="syntax-guide">
                     <h3>Plan Format Guide</h3>
 
@@ -1799,7 +1854,7 @@ Build
             </div>
 
             <!-- RAID Log Tab -->
-            <div id="raid-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="raid-tab" class="tab-content" role="tabpanel">
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
@@ -1867,10 +1922,10 @@ Build
                             <span class="raid-editor-title">RAID Markdown</span>
                             <div class="raid-editor-actions" id="raidEditorActions" style="display:none;">
                                 <button class="toolbar-btn" onclick="event.stopPropagation(); uploadRaidMarkdownFromEditor()" title="Upload Markdown">
-                                    📁
+                                    <i class="bi bi-upload"></i>
                                 </button>
                                 <button class="toolbar-btn" onclick="event.stopPropagation(); downloadRaidMarkdown()" title="Download as Markdown">
-                                    💾
+                                    <i class="bi bi-download"></i>
                                 </button>
                             </div>
                         </div>
@@ -1882,7 +1937,7 @@ Build
             </div>
 
             <!-- Comms Plan Tab -->
-            <div id="comms-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="comms-tab" class="tab-content" role="tabpanel">
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
@@ -1933,7 +1988,7 @@ Build
             </div>
 
             <!-- Lessons Learned Tab (issue #598) -->
-            <div id="lessons-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="lessons-tab" class="tab-content" role="tabpanel">
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
@@ -2008,7 +2063,7 @@ Build
             </div>
 
             <!-- Budget Tracker Tab -->
-            <div id="budget-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="budget-tab" class="tab-content" role="tabpanel">
                 <div class="budget-container">
                     <!-- Toolbar -->
                     <div class="budget-toolbar">
@@ -2116,7 +2171,7 @@ Build
             </div>
 
             <!-- Actions Tracker Tab -->
-            <div id="actions-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="actions-tab" class="tab-content" role="tabpanel">
                 <div class="actions-container">
                     <!-- Tasks View -->
                     <div id="actionsTasksView" class="actions-view active">
@@ -2181,7 +2236,7 @@ Build
             </div>
 
             <!-- Search Results Tab -->
-            <div id="search-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="search-tab" class="tab-content" role="tabpanel">
                 <div class="search-view-container">
                     <div class="search-view-header">
                         <h2 class="search-view-title">
@@ -2215,7 +2270,7 @@ Build
             </div>
 
             <!-- Portfolio Tab -->
-            <div id="portfolio-tab" class="tab-content" role="tabpanel" aria-labelledby="portfolioTab">
+            <div id="portfolio-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
                     <!-- Consolidated header: plan selector, tab buttons, and actions menu -->
                     <div class="portfolio-header">
@@ -3917,6 +3972,24 @@ Build
         </div>
     </div>
 
+    <div id="statusLogOverlay" class="modal-overlay" onclick="if(event.target===this) closeStatusLogFullscreen()" role="dialog" aria-modal="true" aria-label="Status Message Log">
+        <div class="task-form-modal status-log-modal" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Status Message Log</h2>
+                <div class="status-log-modal-header-actions">
+                    <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
+                        <i class="bi bi-download"></i>
+                        <span>Save to file</span>
+                    </button>
+                    <button class="close-btn" onclick="closeStatusLogFullscreen()" aria-label="Close">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body status-log-modal-body">
+                <div class="status-log-list status-log-list-full" id="statusLogFullList"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Templates Modal -->
     <div id="templatesModalOverlay" class="modal-overlay templates-overlay" role="dialog" aria-modal="true" aria-label="Project Templates">
         <div class="templates-modal">
@@ -4011,6 +4084,7 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
@@ -4029,6 +4103,9 @@ Build
     <script src="/static/portfolio-lessons.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
+    <script src="/static/whiteboard.js?v={{ v }}"></script>
+    <script src="/static/task-peek.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-notes.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/lessons.js?v={{ v }}"></script>
     <script src="/static/trend-report.js?v={{ v }}"></script>
@@ -4036,6 +4113,7 @@ Build
     <script src="/static/views-search.js?v={{ v }}"></script>
     <script src="/static/ai-config.js?v={{ v }}"></script>
     <script src="/static/ai-chat.js?v={{ v }}"></script>
+    <script src="/static/ribbon.js?v={{ v }}"></script>
 
     <!-- AI Settings Modal -->
     <div id="aiSettingsOverlay" class="modal-overlay" onclick="if(event.target===this) closeAISettingsModal()" role="dialog" aria-modal="true" aria-label="AI Provider Settings">
@@ -4320,9 +4398,30 @@ Build
             <select class="project-selector-dropdown" onchange="onProjectSelectorChange(this.value)" title="Switch project" aria-label="Select project"></select>
             <span class="status-bar-rag" id="statusBarRAG" title="Project RAG status" aria-label="Project RAG status"></span>
             <span id="statusBarRAGMsg" class="status-bar-rag-msg"></span>
+            <span id="localFileLinkStatus" class="status-bar-local-file" aria-live="polite"></span>
             <span class="status-bar-separator"></span>
         </div>
         <div class="status-bar-centre" id="statusBarMessage" aria-live="polite"></div>
+        <div class="status-bar-history-wrap">
+            <button class="status-bar-btn status-bar-history-btn" id="statusBarHistoryBtn" onclick="toggleStatusHistoryPopup()" title="Status message history" aria-label="Status message history" aria-haspopup="true" aria-expanded="false">
+                <i class="bi bi-bell"></i>
+            </button>
+            <div class="status-bar-history-popup" id="statusBarHistoryPopup" role="dialog" aria-label="Recent status messages">
+                <div class="status-log-popup-header">
+                    <span>Recent messages</span>
+                    <div class="status-log-popup-header-actions">
+                        <button type="button" class="status-log-icon-btn" onclick="openStatusLogFullscreen()" title="Open full log">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button type="button" class="status-log-icon-btn" onclick="saveStatusLogToFile()" title="Save log to text file">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="status-log-list" id="statusBarHistoryList"></div>
+                <div class="status-log-popup-more" id="statusBarHistoryMore"></div>
+            </div>
+        </div>
         <div class="status-bar-right">
             <span class="status-bar-app-version" id="statusBarAppVersion"
                   title="NoodlePlanner application version and deployed build"

@@ -405,6 +405,122 @@ class TestScheduleTasks:
         assert summary['finish'] == max(task1['finish'], task2['finish'])
 
 
+class TestDuplicateSiblingNames:
+    """Test suite for GitHub issue #838: duplicate sibling task/phase names
+    used to collapse in ``natural_language_to_yaml``'s nested-dict tree,
+    silently dropping one of them (a whole subtree, for a duplicated phase).
+    """
+
+    @staticmethod
+    def _schedule(plan_text, project_name="Project"):
+        from noodle_core.scheduling_engine import natural_language_to_yaml
+
+        data = natural_language_to_yaml(plan_text, project_name)
+        phases_raw = data[project_name]
+        phases = phases_raw if isinstance(phases_raw, list) else [phases_raw]
+        return schedule_tasks(phases)
+
+    def test_duplicate_leaf_siblings_both_survive_and_schedule(self):
+        """Two plain leaf tasks with the same name, as direct siblings,
+        must both appear and both get a start/finish."""
+        plan = "Task A 2d\nTask A 3d\n"
+        tasks = self._schedule(plan)
+        leaves = [t for t in tasks if not t['summary']]
+        assert [t['name'] for t in leaves] == ['Task A', 'Task A']
+        assert all('start' in t and 'finish' in t for t in leaves)
+        # Durations came from each leaf's own text, not a merged/overwritten one.
+        assert leaves[0]['duration'] == timedelta(days=2)
+        assert leaves[1]['duration'] == timedelta(days=3)
+
+    def test_duplicated_phase_keeps_both_full_subtrees(self):
+        """A duplicated summary (phase) name must not drop either
+        occurrence's subtree -- both phases and both sets of children
+        must be present."""
+        plan = (
+            "Definition\n"
+            "  Task A 3d\n"
+            "Task B 2d\n"
+            "Definition\n"
+            "  Task C 2d\n"
+        )
+        tasks = self._schedule(plan)
+        names = [t['name'] for t in tasks]
+        assert names == ['Definition', 'Task A', 'Task B', 'Definition', 'Task C']
+        summaries = [t for t in tasks if t['summary']]
+        assert len(summaries) == 2
+        # Each phase's own child, not a merge of both children under one phase.
+        task_a = next(t for t in tasks if t['name'] == 'Task A')
+        task_c = next(t for t in tasks if t['name'] == 'Task C')
+        assert task_a['phase'] == 'Definition'
+        assert task_c['phase'] == 'Definition'
+        first_definition, second_definition = summaries
+        # Each summary's rolled-up dates come from its own child only.
+        assert first_definition['start'] == task_a['start']
+        assert first_definition['finish'] == task_a['finish']
+        assert second_definition['start'] == task_c['start']
+        assert second_definition['finish'] == task_c['finish']
+
+    def test_duplicates_at_different_nesting_depths(self):
+        """Duplicate names appearing at different depths in the same plan
+        (a top-level duplicate leaf and a duplicated nested phase) must
+        all survive independently."""
+        plan = (
+            "Phase One\n"
+            "  Setup 1d\n"
+            "  Design\n"
+            "    Wireframe 2d\n"
+            "  Design\n"
+            "    Wireframe 1d\n"
+            "Setup 1d\n"
+        )
+        tasks = self._schedule(plan)
+        names = [t['name'] for t in tasks]
+        assert names == [
+            'Phase One', 'Setup', 'Design', 'Wireframe', 'Design', 'Wireframe', 'Setup',
+        ]
+        wireframes = [t for t in tasks if t['name'] == 'Wireframe']
+        assert len(wireframes) == 2
+        assert wireframes[0]['duration'] == timedelta(days=2)
+        assert wireframes[1]['duration'] == timedelta(days=1)
+        designs = [t for t in tasks if t['name'] == 'Design']
+        assert len(designs) == 2
+        assert designs[0]['start'] == wireframes[0]['start']
+        assert designs[1]['start'] == wireframes[1]['start']
+
+    def test_mixed_duplicate_and_unique_siblings_keep_outline_order(self):
+        """With some siblings duplicated and some not, every task must
+        appear exactly once each, in the same order as the source text --
+        not reordered to group duplicates together, and not merged."""
+        plan = (
+            "Alpha 1d\n"
+            "Beta 1d\n"
+            "Alpha 1d\n"
+            "Gamma 1d\n"
+            "Beta 1d\n"
+        )
+        tasks = self._schedule(plan)
+        names = [t['name'] for t in tasks]
+        assert names == ['Alpha', 'Beta', 'Alpha', 'Gamma', 'Beta']
+
+    def test_resource_inheritance_does_not_cross_duplicate_phases(self):
+        """A resource on one duplicated phase must not leak into the other
+        same-named phase's children (inherit_summary_resources must also
+        key off identity, not name -- see #838)."""
+        plan = (
+            "Definition @kev\n"
+            "  Task A 3d\n"
+            "Definition\n"
+            "  Task C 2d\n"
+        )
+        tasks = self._schedule(plan)
+        task_a = next(t for t in tasks if t['name'] == 'Task A')
+        task_c = next(t for t in tasks if t['name'] == 'Task C')
+        assert task_a['resources'] == 'kev'
+        assert task_a['inherited_resource'] is True
+        assert not task_c.get('resources')
+        assert not task_c.get('inherited_resource')
+
+
 class TestSummaryTaskExcludedFromDependencies:
     """Test suite for GitHub issue #187: summary tasks should not be dependencies."""
 

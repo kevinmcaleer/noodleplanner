@@ -1927,6 +1927,144 @@ tr:hover .task-context-btn,
     font-size: 0.9em;
 }
 
+/* ========================================
+   Settings Panel (#853, #883)
+   Same visual language as the form-group/form-row task form above:
+   #108BB9 accent, 2px borders, generous spacing.
+   ======================================== */
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 24px;
+    overflow-x: auto;
+}
+
+.settings-tab-btn {
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    border-radius: 6px 6px 0 0;
+    transition: color var(--np-anim-duration) var(--np-anim-easing),
+                border-color var(--np-anim-duration) var(--np-anim-easing),
+                background-color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.settings-tab-btn:hover {
+    color: #108BB9;
+    background-color: #f8f9fa;
+}
+
+.settings-tab-btn.active {
+    color: #108BB9;
+    border-bottom-color: #108BB9;
+}
+
+.settings-tab-content {
+    display: none;
+}
+
+.settings-tab-content.active {
+    display: block;
+}
+
+.settings-tab-content h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin: 0 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.settings-option {
+    padding: 14px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.settings-option:last-child {
+    border-bottom: none;
+}
+
+.settings-option label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.settings-option label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #108BB9;
+}
+
+.settings-option small {
+    display: block;
+    margin-top: 4px;
+    margin-left: 28px;
+    color: #666;
+    font-size: 0.85em;
+}
+
+.settings-theme-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.settings-theme-radio {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color var(--np-anim-duration) var(--np-anim-easing),
+                border-color var(--np-anim-duration) var(--np-anim-easing);
+}
+
+.settings-theme-radio:hover {
+    background-color: #f8f9fa;
+    border-color: #108BB9;
+}
+
+.settings-theme-radio input[type="radio"] {
+    accent-color: #108BB9;
+    width: 18px;
+    height: 18px;
+}
+
+.settings-theme-radio span {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-ai-description {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
 /* Dependencies table in task form */
 .dependencies-table {
     border: 2px solid #e0e0e0;
@@ -5692,7 +5830,6 @@ tr:hover .task-context-btn,
    Accessibility: focus-visible outlines
    ======================================== */
 .nav-menu-item:focus-visible,
-.tab:focus-visible,
 .plan-subnav-btn:focus-visible {
     outline: 2px solid var(--np-blue);
     outline-offset: -2px;
@@ -6980,6 +7117,19 @@ tr:hover .task-context-btn,
     color: var(--text-secondary, #666);
 }
 
+/* Honest status colouring (issue #761's sync-file-linking follow-up): a
+   revoked/expired permission or an unsupported browser must read as
+   different from a healthy one-click link at a glance, not just in text. */
+.sync-target-status-needs-relink {
+    color: #e67700 !important;
+    font-weight: 600;
+}
+
+.sync-target-status-unsupported {
+    color: var(--text-secondary, #666);
+    font-style: italic;
+}
+
 .sync-target-actions {
     display: flex;
     align-items: center;
@@ -7085,4 +7235,766 @@ tr:hover .task-context-btn,
     font-size: 0.85em;
     white-space: nowrap;
     cursor: pointer;
+}
+
+/* ========================================
+   Ribbon (design handoff "Ribbon Toolbar option 2a", #833 follow-up)
+   Three stacked bars: title (38px), tab strip (34px), ribbon body (98px).
+   Renders from ribbon-ia.js; see that file for the command catalogue and
+   the design's README for the pixel spec this is ported from.
+   ======================================== */
+.ribbon-shell {
+    position: relative;
+}
+
+/* -- 1. Title bar -- */
+.ribbon-titlebar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 38px;
+    padding: 0 10px;
+    background: var(--np-dark-blue);
+    color: #fff;
+    z-index: 5;
+}
+
+.ribbon-mark {
+    height: 22px;
+    width: 22px;
+    display: block;
+    border-radius: 50%;
+}
+
+.ribbon-scope-track {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.ribbon-scope-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    background: transparent;
+    color: #a9c7d4;
+}
+
+.ribbon-scope-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-scope-btn.active {
+    background: var(--np-blue);
+    color: #fff;
+}
+
+.ribbon-titlebar-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.22);
+    flex-shrink: 0;
+}
+
+.ribbon-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.ribbon-quick-btn {
+    display: flex;
+    padding: 5px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #cfe0e7;
+}
+
+.ribbon-quick-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-quick-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.ribbon-doc-title {
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    color: #a9c7d4;
+    margin-left: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ribbon-titlebar-spacer {
+    flex: 1;
+    min-width: 8px;
+}
+
+/* #909 ribbon-parity follow-up: was a decorative <button>, now a real
+ * <input> (see ribbon.js's renderSearchBox()) wired to the project search
+ * that used to live in the old top nav's #navSearchInput. */
+.ribbon-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 23px;
+    padding: 0 11px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #cfe0e7;
+    font-size: 11px;
+    white-space: nowrap;
+    max-width: 240px;
+    flex: 0 1 240px;
+    min-width: 0;
+}
+
+.ribbon-search-wrap svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    flex-shrink: 0;
+}
+
+.ribbon-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    font-family: inherit;
+}
+
+.ribbon-search-input::placeholder {
+    color: #cfe0e7;
+}
+
+.ribbon-search-input:focus {
+    outline: none;
+}
+
+.ribbon-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.ribbon-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 23px;
+    height: 23px;
+    border-radius: 50%;
+    background: var(--np-blue);
+    color: #fff;
+    font-weight: 600;
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* -- 2. Tab strip -- */
+.ribbon-tabstrip {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: 34px;
+    padding: 0 8px;
+    background: #f4f7f8;
+    border-bottom: 1px solid #d8e1e5;
+    z-index: 4;
+}
+
+.ribbon-file-btn {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    margin-right: 10px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    background: var(--np-red);
+    color: #fff;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.ribbon-file-btn:hover {
+    background: #a81919;
+}
+
+.ribbon-tab-btn {
+    height: 34px;
+    padding: 0 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 400;
+    font-size: 12.5px;
+    line-height: 1;
+    font-family: inherit;
+    color: #4a626d;
+}
+
+.ribbon-tab-btn:hover {
+    color: var(--np-dark-blue);
+}
+
+.ribbon-tab-btn.active {
+    border-bottom-color: var(--np-blue);
+    color: var(--np-dark-blue);
+}
+
+.ribbon-tab-btn.contextual {
+    margin-left: 14px;
+    color: #2c4a56;
+    animation: ribbonCtxIn 0.22s ease both;
+}
+
+.ribbon-tab-btn.contextual.active {
+    color: var(--np-dark-blue);
+}
+
+@keyframes ribbonCtxIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.ribbon-tabstrip-spacer {
+    flex: 1;
+}
+
+.ribbon-collapse-btn {
+    padding: 0 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6b7b83;
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 1;
+    font-family: inherit;
+    align-self: center;
+}
+
+.ribbon-file-menu {
+    position: absolute;
+    top: 34px;
+    left: 8px;
+    width: 290px;
+    padding: 6px;
+    background: var(--np-dark-blue);
+    border-radius: 0 6px 6px 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.35);
+    animation: ribbonCtxIn 0.16s ease both;
+    z-index: 6;
+}
+
+.ribbon-file-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #e4eef2;
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 1;
+    font-family: inherit;
+    text-align: left;
+}
+
+.ribbon-file-menu-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.ribbon-file-menu-item svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.ribbon-file-menu-item-label {
+    flex: 1;
+}
+
+.ribbon-file-menu-item-kbd {
+    font: 400 10.5px/1 ui-monospace, Menlo, monospace;
+    color: #7fa5b5;
+}
+
+/* -- 3. Ribbon body -- */
+.ribbon-body {
+    display: flex;
+    align-items: stretch;
+    height: 98px;
+    padding: 0 6px;
+    background: #fbfdfd;
+    border-bottom: 1px solid #d8e1e5;
+    overflow: hidden;
+}
+
+.ribbon-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0 2px;
+    border-right: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+/* Main-tab-switch entrance (#937): the same fade used for a contextual
+ * tab/popover appearing (ribbonCtxIn), but a left-to-right slide since this
+ * is a horizontal tab switch rather than a dropdown opening. Applied by
+ * ribbon.js only on an actual tab or scope-pill change (see
+ * ribbonState.animateTabSwitch), not on every re-render. Each group's
+ * entrance is staggered slightly left-to-right across the ribbon body. */
+.ribbon-group-tab-in {
+    animation: ribbonTabIn 0.18s ease both;
+}
+
+.ribbon-group-tab-in:nth-child(2) { animation-delay: 0.02s; }
+.ribbon-group-tab-in:nth-child(3) { animation-delay: 0.04s; }
+.ribbon-group-tab-in:nth-child(4) { animation-delay: 0.06s; }
+.ribbon-group-tab-in:nth-child(5) { animation-delay: 0.08s; }
+
+@keyframes ribbonTabIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: none; }
+}
+
+.ribbon-group-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 6px 8px 0;
+}
+
+.ribbon-lg-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 70px;
+    padding: 5px 3px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 1.2;
+    font-family: inherit;
+    text-align: center;
+    text-wrap: balance;
+}
+
+.ribbon-lg-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-sm-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding-top: 1px;
+}
+
+.ribbon-sm-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 23px;
+    padding: 0 7px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #20404d;
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.ribbon-sm-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.ribbon-lg-btn:hover:not(:disabled),
+.ribbon-sm-btn:hover:not(:disabled) {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+.ribbon-lg-btn:disabled,
+.ribbon-sm-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.ribbon-caret {
+    font-size: 8px;
+    color: #6b7b83;
+}
+
+.ribbon-group-caption {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 3px 10px 5px;
+    font-weight: 400;
+    font-size: 10px;
+    line-height: 1;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+    color: #6b7b83;
+}
+
+.ribbon-launcher {
+    font-size: 9px;
+    color: #93a5ad;
+    cursor: pointer;
+}
+
+.ribbon-more {
+    order: 9;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 74px;
+    padding: 6px 4px 5px;
+    margin-left: auto;
+    border-left: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+.ribbon-more-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 66px;
+    padding: 5px 3px;
+    background: transparent;
+    border: 1px solid #cfdde3;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 1.2;
+    font-family: inherit;
+}
+
+.ribbon-more-btn:hover {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+.ribbon-more-chevron {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.ribbon-more-caption {
+    font-weight: 400;
+    font-size: 10px;
+    line-height: 1;
+    font-family: inherit;
+    color: #6b7b83;
+    text-align: center;
+}
+
+.ribbon-more-popover {
+    position: absolute;
+    top: 137px;
+    right: 6px;
+    width: 220px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #d8e1e5;
+    border-radius: 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    z-index: 7;
+    animation: ribbonCtxIn 0.16s ease both;
+}
+
+.ribbon-more-popover .ribbon-group {
+    border-right: none;
+    border-bottom: 1px solid rgba(2, 56, 77, 0.13);
+    padding: 6px 0;
+}
+
+.ribbon-more-popover .ribbon-group:last-child {
+    border-bottom: none;
+}
+
+.ribbon-more-popover .ribbon-group-row {
+    flex-wrap: wrap;
+}
+
+/* -- 3c. Ribbon body: simple density (#955) --
+   A single dense row, closer to Office's "Simplified Ribbon" than the full
+   multi-row groups above: one row of compact icon(+label) buttons per tab,
+   with a plain vertical rule between what are separate .ribbon-group boxes
+   in full density (border-right on .ribbon-simple-group -- same convention
+   .ribbon-group already uses for its own divider, just without the caption
+   row underneath, since there's no room for one). See ribbon.js's
+   renderSimpleGroup()/renderSimpleButton() for the markup this styles. */
+.ribbon-body.ribbon-body-simple {
+    height: 40px;
+    padding: 0 6px;
+}
+
+.ribbon-simple-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    border-right: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+.ribbon-simple-group:last-child {
+    border-right: none;
+}
+
+.ribbon-simple-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ribbon-simple-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.ribbon-simple-btn:hover:not(:disabled) {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+.ribbon-simple-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Toggled by ribbon.js's applySimpleBody() (fitLabels(), ribbon-layout.js)
+   once the row runs out of room for every button's label -- "icons, and
+   text if it fits". Fixed width so the JS's SIMPLE_ICON_ONLY_WIDTH constant
+   matches what actually gets measured back. */
+.ribbon-simple-btn.icon-only {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+}
+
+.ribbon-simple-btn.icon-only .ribbon-simple-btn-label {
+    display: none;
+}
+
+/* Simple density's own compact "More" tile (applySimpleBody()'s fallback,
+   only reached once even icon-only buttons don't all fit) -- same role as
+   the full ribbon's `.ribbon-more` above, just sized to match this row's
+   28px-tall buttons instead of the full ribbon's 98px-tall groups. */
+.ribbon-body-simple .ribbon-more {
+    width: 34px;
+    padding: 0;
+    margin-left: auto;
+    justify-content: center;
+    border-left: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+.ribbon-body-simple .ribbon-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid #cfdde3;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+}
+
+.ribbon-body-simple .ribbon-more-btn:hover {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+/* -- 3d. "Ribbon Display Options" dropdown (#955) --
+   Pinned to the bottom-right corner of the ribbon body in both densities --
+   `order` + `margin-left:auto` place it at the row's right edge,
+   `align-self:flex-end` pins it to the row's bottom edge (see
+   ribbon.js's renderDisplayToggle() for the full placement rationale). */
+.ribbon-display-toggle {
+    position: relative;
+    order: 20;
+    margin-left: auto;
+    align-self: flex-end;
+    flex-shrink: 0;
+}
+
+.ribbon-display-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 20px;
+    padding: 0 6px;
+    margin: 0 2px 4px 0;
+    background: transparent;
+    border: 1px solid #cfdde3;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #6b7b83;
+}
+
+.ribbon-body-simple .ribbon-display-toggle-btn {
+    margin-bottom: 0;
+}
+
+.ribbon-display-toggle-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-display-toggle-btn:hover {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+/* Positioned via inline style (right/bottom) set by ribbon.js's
+   renderDisplayMenu() -- appended straight to .ribbon-shell rather than
+   nested inside the toggle button, so it isn't clipped by .ribbon-body's
+   `overflow: hidden` in either density (see renderDisplayMenu()'s comment). */
+.ribbon-display-menu {
+    position: absolute;
+    width: 160px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #d8e1e5;
+    border-radius: 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    z-index: 7;
+    animation: ribbonCtxIn 0.16s ease both;
+}
+
+.ribbon-display-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.ribbon-display-menu-item:hover {
+    background: #e2f0f7;
+}
+
+.ribbon-display-menu-item.selected {
+    font-weight: 600;
+}
+
+.ribbon-display-menu-item-check {
+    display: inline-block;
+    width: 12px;
+    flex-shrink: 0;
+    font-size: 11px;
+    text-align: center;
 }

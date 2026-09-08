@@ -144,11 +144,30 @@ const BUDGET_DBML = `Table budget_items {
   category enum('Consultancy','Resource','Travel','Infrastructure','Hardware','Software')
 }`;
 
+// HIGHLIGHTS_START/HIGHLIGHTS_END have no top-level (truly global)
+// declaration elsewhere in the static bundle: every script.js caller
+// re-declares HIGHLIGHTS_START locally inside its own function (see
+// mergeDuplicateSections() and friends), and the only existing
+// HIGHLIGHTS_END lives inside msproject-sync.js's *module* scope (it has
+// `export`s, so it is loaded via dynamic import(), never as a classic
+// <script>, and never shares global scope with script.js). That worked
+// for those call sites, but left extractWhiteboardFromPlanText() /
+// updatePlanWhiteboardText() (script.js, issue #844) throwing a
+// ReferenceError the first time anything actually called them in a real
+// browser (masked in tests/test_whiteboard_backmatter.mjs, which seeds
+// both constants directly into its vm sandbox). Declared here, top-level,
+// alongside their sibling section markers, so they resolve the same way
+// WHITEBOARD_START and friends already do (fixed while wiring up #846's
+// whiteboard notes, which are the first real callers from outside
+// script.js itself).
+const HIGHLIGHTS_START = '---highlights---';
+const HIGHLIGHTS_END = '---end-highlights---';
 const RAID_LOG_START = '---raid log---';
 const COMMS_START = '---comms---';
 const BASELINE_START = '---baseline---';
 const BENEFITS_START = '---benefits---';
 const LESSONS_START = '---lessons learned---';
+const WHITEBOARD_START = '---whiteboard---';
 
 // Benefits state
 let benefitItems = [];
@@ -200,7 +219,7 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm', 'comms'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet', 'stakeholders'];
 const TOOLS_VIEWS = ['guide'];
