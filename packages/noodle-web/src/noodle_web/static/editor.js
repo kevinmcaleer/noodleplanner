@@ -575,6 +575,13 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             editor.selectionStart = editor.selectionEnd = pos;
         }
 
+        // Build the authoritative task graph once for this text revision.
+        // View/table operations reuse this cached model until the user edits
+        // the markdown again.
+        if (shouldRender && typeof NoodlePlanModel !== 'undefined') {
+            NoodlePlanModel.modelForEditor(editor);
+        }
+
         updateLineNumbers();
 
         // Only trigger auto-render for the main editor
@@ -727,6 +734,20 @@ function indentSelectedLines() {
     const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
     if (!editor) return;
 
+    if (editor === mainEditor && typeof NoodlePlanModel !== 'undefined') {
+        const startLine = editor.value.slice(0, editor.selectionStart).split('\n').length;
+        const endLine = editor.value.slice(0, editor.selectionEnd).split('\n').length;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const selected = model.tasks.filter(task => {
+            const line = model.lineNumber(task);
+            return line >= startLine && line <= endLine;
+        });
+        if (model.indentTasks(selected)) {
+            NoodlePlanModel.commitToEditor(editor, model);
+            return;
+        }
+    }
+
     // Capture undo snapshot before the change
     if (editor === mainEditor && typeof EditorUndoManager !== 'undefined') {
         EditorUndoManager.captureImmediate(editor.value);
@@ -777,6 +798,20 @@ function outdentSelectedLines() {
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     const editor = (kanbanEditor && document.activeElement === kanbanEditor) ? kanbanEditor : mainEditor;
     if (!editor) return;
+
+    if (editor === mainEditor && typeof NoodlePlanModel !== 'undefined') {
+        const startLine = editor.value.slice(0, editor.selectionStart).split('\n').length;
+        const endLine = editor.value.slice(0, editor.selectionEnd).split('\n').length;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const selected = model.tasks.filter(task => {
+            const line = model.lineNumber(task);
+            return line >= startLine && line <= endLine;
+        });
+        if (model.outdentTasks(selected)) {
+            NoodlePlanModel.commitToEditor(editor, model);
+            return;
+        }
+    }
 
     // Capture undo snapshot before the change
     if (editor === mainEditor && typeof EditorUndoManager !== 'undefined') {

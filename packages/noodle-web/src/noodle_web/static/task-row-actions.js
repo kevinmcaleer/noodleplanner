@@ -200,71 +200,17 @@ function moveTaskInEditor(fromIndex, toIndex, insertBelow, tableId) {
     const targetTask = ganttTasks[toIndex];
     if (!sourceTask || !targetTask) return;
 
-    const srcLine = findTaskLineNumber(sourceTask);
-    let dstLine = findTaskLineNumber(targetTask);
-    if (srcLine < 1 || dstLine < 1) return;
-
-    const lines = editor.value.split('\n');
-    const srcIdx = srcLine - 1;
-
-    // Find the range of lines to move (task + all its children based on indent).
-    // Only include child lines that are more deeply indented than the source task.
-    const srcIndent = lines[srcIdx].search(/\S/);
-    let srcEndIdx = srcIdx;
-    for (let i = srcIdx + 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue; // skip blank lines when deciding extent
-        const indent = line.search(/\S/);
-        if (indent <= srcIndent) break;
-        srcEndIdx = i;
+    // Structural edits use stable task identities.  This avoids the old
+    // remove/re-find-by-name sequence, which selected the wrong duplicate
+    // task and broke dependency references after a rename.
+    if (typeof NoodlePlanModel === 'undefined') return;
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const sourceNode = sourceTask._uid != null ? model.findById(sourceTask._uid) : model.taskAt(fromIndex);
+    const targetNode = targetTask._uid != null ? model.findById(targetTask._uid) : model.taskAt(toIndex);
+    if (model.moveAsChild(sourceNode, targetNode, insertBelow)) {
+        NoodlePlanModel.commitToEditor(editor, model);
+        setTimeout(() => renderText(), 10);
     }
-
-    // Extract the lines to move
-    const movedLines = lines.splice(srcIdx, srcEndIdx - srcIdx + 1);
-
-    // Re-find the target line (indices may have shifted after splice)
-    dstLine = findTaskLineNumber(targetTask);
-    if (dstLine < 1) {
-        // Restore if we can't find target
-        lines.splice(srcIdx, 0, ...movedLines);
-        return;
-    }
-    let dstIdx = dstLine - 1;
-
-    // If inserting below, find the end of the target task's children
-    if (insertBelow) {
-        const dstIndent = lines[dstIdx].search(/\S/);
-        for (let i = dstIdx + 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue; // skip blank lines
-            const indent = line.search(/\S/);
-            if (indent <= dstIndent) break;
-            dstIdx = i;
-        }
-        dstIdx += 1; // Insert after the last child
-    }
-
-    // Re-indent moved lines to match the target's child indent level
-    const dstIndentLevel = lines[dstLine - 1] ? lines[dstLine - 1].search(/\S/) : 0;
-    const srcIndentLevel = movedLines[0].search(/\S/);
-    const targetChildIndent = dstIndentLevel + 2; // children are indented 2 spaces deeper
-    const indentDiff = targetChildIndent - srcIndentLevel;
-    if (indentDiff !== 0) {
-        for (let i = 0; i < movedLines.length; i++) {
-            if (!movedLines[i].trim()) continue;
-            const currentIndent = movedLines[i].search(/\S/);
-            const newIndent = Math.max(0, currentIndent + indentDiff);
-            movedLines[i] = ' '.repeat(newIndent) + movedLines[i].trimStart();
-        }
-    }
-
-    lines.splice(dstIdx, 0, ...movedLines);
-
-    editor.value = lines.join('\n');
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-
-    // Re-render views
-    setTimeout(() => renderText(), 10);
 }
 
 // ── Attach to rows ───────────────────────────────────────────────────

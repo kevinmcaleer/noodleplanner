@@ -650,6 +650,8 @@ function taskToData(task, idx, resourceMap, currentDay) {
     critical: Boolean(task.critical),
     loop_warning: task.loop_warning || "",
     circular_dependencies: task.circular_dependencies || [],
+    _uid: task._uid,
+    _parent_uid: task._parentUid,
   };
 }
 

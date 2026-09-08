@@ -1,0 +1,96 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import planModel from '../packages/noodle-web/src/noodle_web/static/plan-model.js';
+
+const { PlanModel } = planModel;
+const repo = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+
+test('all real plans round-trip byte for byte through the model', () => {
+    const paths = [
+        ...readdirSync(join(repo, 'templates'), { withFileTypes: true })
+            .filter(entry => entry.isDirectory())
+            .map(entry => join(repo, 'templates', entry.name, 'plan.md')),
+        ...readdirSync(join(repo, 'tests', 'fixtures', 'roundtrip'))
+            .filter(name => name.endsWith('.md'))
+            .map(name => join(repo, 'tests', 'fixtures', 'roundtrip', name)),
+    ];
+    for (const path of paths) {
+        let text;
+        try { text = readFileSync(path, 'utf8'); } catch { continue; }
+        assert.equal(PlanModel.parse(text).serialize(), text, path);
+    }
+});
+
+test('front matter, comments, CRLF and back matter remain opaque', () => {
+    const text = '---\r\ntitle: Odd\r\n---\r\n// note\r\nPhase\r\n  A 1d\r\n\r\n---whiteboard---\r\n{"task":"A"}';
+    const model = PlanModel.parse(text);
+    assert.deepEqual(model.tasks.map(task => task.name), ['Phase', 'A']);
+    assert.equal(model.serialize(), text);
+});
+
+test('unchanged tabs and mixed indentation round-trip exactly', () => {
+    const text = 'Phase\n\tTabbed 1d\n   Three spaces 1d\n';
+    assert.equal(PlanModel.parse(text).serialize(), text);
+});
+
+test('a bare divider before back matter is not parsed as a task', () => {
+    const text = 'Task 1d\n---\n---whiteboard---\n| Task |\n';
+    const model = PlanModel.parse(text);
+    assert.deepEqual(model.tasks.map(task => task.name), ['Task']);
+    assert.equal(model.serialize(), text);
+});
+
+test('dependencies are object edges and successors are graph queries', () => {
+    const model = PlanModel.parse('Build $artifact 1d\nTest 1d [depends Build:SS +2d]\nShip 1d [depends $artifact]\n');
+    const [build, verify, ship] = model.tasks;
+    assert.equal(verify.dependencies[0].target, build);
+    assert.equal(verify.dependencies[0].type, 'SS');
+    assert.equal(verify.dependencies[0].lag, '+2d');
+    assert.equal(ship.dependencies[0].target, build);
+    assert.deepEqual(model.successorsOf(build), [verify, ship]);
+});
+
+test('star shorthand points to the preceding task object', () => {
+    const model = PlanModel.parse('First 1d\n*Second 1d\n');
+    assert.equal(model.tasks[1].dependencies[0].target, model.tasks[0]);
+    assert.equal(model.tasks[1].dependencies[0].shorthand, true);
+});
+
+test('rename cascades through explicit dependency edges', () => {
+    const model = PlanModel.parse('A 1d\nB 1d [depends A:SS +2d]\n');
+    model.rename(model.tasks[0], 'Foundation');
+    assert.equal(model.serialize(), 'Foundation 1d\nB 1d [depends Foundation:SS +2d]\n');
+});
+
+test('rename migrates Theme colours and whiteboard task rows', () => {
+    const text = '---\nTheme:\n- Phase: #AABBCC\n---\nPhase\n  Work 1d\n---whiteboard---\n| Task | X |\n| --- | --- |\n| Phase | 10 |\n';
+    const model = PlanModel.parse(text);
+    model.rename(model.tasks[0], 'Delivery');
+    const output = model.serialize();
+    assert.match(output, /- Delivery: #AABBCC/);
+    assert.match(output, /\| Delivery \| 10 \|/);
+});
+
+test('duplicate names keep distinct identities and last definition wins for lookup', () => {
+    const model = PlanModel.parse('Same 1d\nSame 2d\nAfter 1d [depends Same]\n');
+    assert.notEqual(model.tasks[0].id, model.tasks[1].id);
+    assert.equal(model.tasks[2].dependencies[0].target, model.tasks[1]);
+});
+
+test('tree move carries descendants and never leaves splice blank lines', () => {
+    const model = PlanModel.parse('One\n  Child 1d\n\nTwo 1d\n');
+    const one = model.tasks[0];
+    const two = model.tasks[2];
+    assert.equal(model.moveAsChild(one, two, true), true);
+    assert.equal(model.serialize(), 'Two 1d\n  One\n    Child 1d\n\n');
+    assert.equal(one.parent, two);
+    assert.equal(model.taskAt(0), two);
+});
+
+test('a node cannot be moved into its own descendant', () => {
+    const model = PlanModel.parse('Parent\n  Child 1d\n');
+    assert.equal(model.moveAsChild(model.tasks[0], model.tasks[1], true), false);
+    assert.equal(model.serialize(), 'Parent\n  Child 1d\n');
+});
