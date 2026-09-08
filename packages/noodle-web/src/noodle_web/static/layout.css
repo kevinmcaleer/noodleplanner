@@ -33,23 +33,6 @@ h1 {
     position: relative;
 }
 
-.tabs {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 15px 0 15px;
-    border-bottom: 2px solid #e0e0e0;
-    flex-shrink: 0;
-    background: white;
-    position: relative;
-    z-index: 1010;
-}
-
-.nav-logo {
-    height: 32px;
-    margin-right: 10px;
-}
-
 /* Custom SVG icon sprite */
 svg.icon {
     display: inline-block;
@@ -61,26 +44,6 @@ svg.icon {
     stroke-linejoin: round;
     margin-right: 4px;
     flex-shrink: 0;
-}
-
-.tab {
-    padding: 10px 20px;
-    cursor: pointer;
-    background: none;
-    border: none;
-    font-size: 1em;
-    color: #666;
-    border-bottom: 3px solid transparent;
-    transition: all 0.3s;
-}
-
-.tab:hover {
-    color: #667eea;
-}
-
-.tab.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
 }
 
 .nav-export-dropdown {
@@ -147,6 +110,17 @@ svg.icon {
 
 #editor-tab.active {
     flex-direction: row;
+}
+
+/* #projectBreadcrumb used to render visibly in the old top nav bar (removed
+ * in the #909 ribbon-parity follow-up). The element itself is kept -- it's
+ * the data source ribbon.js's title bar and views-search.js read the
+ * current project name from -- but it must never be visible again, even
+ * though updateProjectBreadcrumb() (nav.js) still toggles its inline
+ * `display` style. This !important rule wins over that non-important
+ * inline style either way. */
+#projectBreadcrumb {
+    display: none !important;
 }
 
 #kanban-tab {

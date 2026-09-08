@@ -68,7 +68,22 @@ test("every button tuple has a non-empty icon and label", () => {
   for (const { tab, group, tuple } of [...buttonsIn(ALL_SCOPE_TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
     assert.ok(tuple[0], `${tab}/${group}: empty icon`);
     assert.ok(tuple[1], `${tab}/${group}: empty label for icon "${tuple[0]}"`);
-    if (tuple[2] !== undefined) assert.equal(tuple[2], "caret", `${tab}/${group}: unexpected 3rd element "${tuple[2]}"`);
+    // A button tuple's 3rd element is either "caret" (a split/gallery
+    // button) or "link:<url>" (#909 ribbon-parity follow-up -- a plain
+    // external link, e.g. "Docs"; see ribbon-ia.js's top-of-file comment).
+    if (tuple[2] !== undefined) {
+      const isCaret = tuple[2] === "caret";
+      const isLink = typeof tuple[2] === "string" && tuple[2].startsWith("link:");
+      assert.ok(isCaret || isLink, `${tab}/${group}: unexpected 3rd element "${tuple[2]}"`);
+    }
+  }
+});
+
+test("a link: button always has a real https URL, and never doubles as a caret", () => {
+  for (const { tab, group, tuple } of [...buttonsIn(ALL_SCOPE_TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+    if (typeof tuple[2] !== "string" || !tuple[2].startsWith("link:")) continue;
+    const url = tuple[2].slice("link:".length);
+    assert.match(url, /^https:\/\/.+/, `${tab}/${group}: "${tuple[1]}" has a non-https link URL "${url}"`);
   }
 });
 

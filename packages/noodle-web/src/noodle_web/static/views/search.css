@@ -1,59 +1,10 @@
 /* ========================================
-   Search results view + nav search input
+   Search results view
    ======================================== */
 
-/* ---- Nav header search input -------------------------------------------- */
-
-.np-nav-search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-    max-width: 280px;
-    flex: 0 1 280px;
-}
-
-.np-nav-search-icon {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--np-text-muted, #888);
-    font-size: 0.95em;
-    pointer-events: none;
-}
-
-.np-nav-search-input {
-    width: 100%;
-    padding: 6px 10px 6px 30px;
-    border: 1px solid var(--np-input-border, #ccc);
-    border-radius: 4px;
-    background: var(--np-input-bg, #ffffff);
-    color: var(--np-text, #333);
-    font-size: 0.9em;
-    transition: border-color var(--np-anim-duration, 0.2s) var(--np-anim-easing, ease),
-                box-shadow var(--np-anim-duration, 0.2s) var(--np-anim-easing, ease);
-}
-
-.np-nav-search-input::placeholder {
-    color: var(--np-text-muted, #888);
-}
-
-.np-nav-search-input:focus {
-    outline: none;
-    border-color: var(--np-accent, #667eea);
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
-}
-
-[data-theme="dark"] .np-nav-search-input:focus {
-    box-shadow: 0 0 0 2px rgba(123, 143, 240, 0.25);
-}
-
-/* Hide the native clear button on WebKit so we can rely on our own UI */
-.np-nav-search-input::-webkit-search-cancel-button {
-    -webkit-appearance: none;
-    appearance: none;
-}
+/* The old top nav's #navSearchInput (.np-nav-search*) was removed in the
+   #909 ribbon-parity follow-up -- see ribbon.js's .ribbon-search-input
+   (components.css) for its replacement in the ribbon's title bar. */
 
 /* ---- Search view (full-page) -------------------------------------------- */
 
@@ -305,7 +256,6 @@
 }
 
 @media (max-width: 600px) {
-    .np-nav-search { max-width: 160px; }
     .search-view-container { padding: 16px; }
     .search-view-result-badge { min-width: 56px; font-size: 0.65em; }
 }

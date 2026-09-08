@@ -42,43 +42,36 @@ class TestDarkModeAssets:
         assert "data-theme" in html
 
 
-class TestThemeToggleButton:
-    """Verify the theme toggle button in the nav bar."""
+class TestRibbonThemeControls:
+    """Verify the theme controls in the ribbon (ribbon-ia.js/ribbon.js).
 
-    def test_toggle_button_present(self, html):
-        assert 'id="themeToggleBtn"' in html
+    The old nav bar's #themeToggleBtn / #themeMenu dropdown (Light/Dark/
+    System) was removed in the #909 ribbon-parity follow-up: the ribbon
+    (View > Window group) has a "Dark Mode" toggle plus a one-way "System
+    Theme" button instead of a 3-way dropdown menu, and both are rendered
+    client-side by ribbon.js rather than present in the server-rendered
+    HTML -- so these check the served ribbon source, not `html`.
+    """
 
-    def test_toggle_button_aria_label(self, html):
-        assert 'aria-label="Change colour theme"' in html
+    def test_ribbon_has_dark_mode_toggle(self, client):
+        response = client.get("/static/ribbon-ia.js")
+        assert response.status_code == 200
+        assert "'Dark Mode'" in response.text
 
-    def test_toggle_button_aria_haspopup(self, html):
-        assert 'aria-haspopup="true"' in html
+    def test_ribbon_has_system_theme_button(self, client):
+        response = client.get("/static/ribbon-ia.js")
+        assert response.status_code == 200
+        assert "'System Theme'" in response.text
 
-    def test_toggle_button_aria_controls(self, html):
-        assert 'aria-controls="themeMenu"' in html
+    def test_ribbon_wires_dark_mode_to_setThemeChoice(self, client):
+        response = client.get("/static/ribbon.js")
+        assert response.status_code == 200
+        assert "'Dark Mode': () => setThemeChoice(" in response.text
 
-
-class TestThemeMenu:
-    """Verify the theme dropdown menu options."""
-
-    def test_theme_menu_present(self, html):
-        assert 'id="themeMenu"' in html
-
-    def test_light_option(self, html):
-        assert 'data-theme-choice="light"' in html
-
-    def test_dark_option(self, html):
-        assert 'data-theme-choice="dark"' in html
-
-    def test_system_option(self, html):
-        assert 'data-theme-choice="system"' in html
-
-    def test_menu_role(self, html):
-        assert 'role="menu"' in html
-        assert 'role="menuitem"' in html
-
-    def test_menu_keyboard_accessible(self, html):
-        assert 'tabindex="-1"' in html
+    def test_ribbon_wires_system_theme_to_setThemeChoice_system(self, client):
+        response = client.get("/static/ribbon.js")
+        assert response.status_code == 200
+        assert "setThemeChoice('system')" in response.text
 
 
 class TestFrontMatterThemeParsing:
@@ -162,19 +155,20 @@ class TestDarkModeCSSTokens:
         css = response.text
         assert '[data-theme="dark"]' in css
 
-    def test_dark_mode_css_has_toggle_styles(self, client):
+    def test_dark_mode_css_has_ribbon_titlebar_override(self, client):
+        """The old nav bar's standalone .theme-toggle-btn/.theme-menu (with
+        their own dark-mode overrides here, and a 44x44px touch target) were
+        removed in the #909 ribbon-parity follow-up -- the theme controls
+        (Dark Mode / System Theme) now live as ordinary, denser ribbon
+        buttons (View > Window group), same as every other ribbon control,
+        rather than as an isolated thumb-friendly toggle. What still needs a
+        dark-mode override is the title bar they (and the search box) render
+        inside of.
+        """
         response = client.get("/static/dark-mode.css")
         assert response.status_code == 200
         css = response.text
-        assert ".theme-toggle-btn" in css
-        assert ".theme-menu" in css
-
-    def test_toggle_button_min_touch_target(self, client):
-        response = client.get("/static/dark-mode.css")
-        assert response.status_code == 200
-        css = response.text
-        assert "width: 44px" in css
-        assert "height: 44px" in css
+        assert '[data-theme="dark"] .ribbon-titlebar' in css
 
     def test_focus_visible_outline(self, client):
         response = client.get("/static/dark-mode.css")
