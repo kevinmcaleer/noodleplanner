@@ -10,6 +10,30 @@ opaque relay #963 already ships -- and captures every raw frame the relay
 actually sends/receives (not the client-side plaintext) to assert the
 original plan text's substring never appears in any of it.
 
+Post-security-review update: two HIGH-severity findings came back against
+the first cut of this PR --
+
+1. (sev 9) the ECDH handshake was authenticated with `join_code`, which the
+   relay legitimately learns (to do #963's admission check), so the relay
+   itself could recompute the same MAC and transparently MITM the
+   "encrypted" channel. Fixed by introducing `handshake_secret`, a second,
+   separate, high-entropy secret generated in `collab_session.py` and
+   delivered ONLY via the `holding_url`'s URL fragment (never sent to any
+   server on any request) -- see that module's and collab-crypto.js's
+   module docstrings. `join_code` is now purely a server-side admission
+   gate with zero cryptographic role.
+   `TestRelayCannotForgeHandshake` below is the regression test for this
+   finding specifically.
+2. (sev 8) unrecognized/spoofed frames were displayed as if they were
+   genuine peer content. Fixed client-side (collab-crypto.js's
+   `classifyFrameType`, exercised in tests/test_collab_crypto.mjs) -- not
+   re-tested here since it's pure client-side display logic with no
+   server-observable behaviour.
+
+Every `Party.create(...)` call below now uses a `handshake_secret`-shaped
+value (never `join_code`), matching what the real host/joiner clients
+actually do post-fix.
+
 Both simulated "clients" in this file are driven by
 tests/helpers/collab_crypto_stub.py, a Python port (via the `cryptography`
 library) of the real browser implementation in
@@ -61,6 +85,7 @@ class TestRelayOnlySeesCiphertext:
         actually handled."""
         info = _start_session(client)
         session_id, join_code = info["session_id"], info["join_code"]
+        handshake_secret = info["handshake_secret"]
 
         secret_from_host = (
             "Sprint 14: migrate billing to Stripe. Owner: Dana Okafor. "
@@ -87,11 +112,13 @@ class TestRelayOnlySeesCiphertext:
         with client.websocket_connect(
             f"/ws/session/{session_id}?token={info['host_token']}"
         ) as host_ws:
-            host = Party.create(join_code, session_id)
+            # #964 post-security-review: authenticated with handshake_secret,
+            # NOT join_code -- see this file's module docstring.
+            host = Party.create(handshake_secret, session_id)
             send_and_capture(host_ws, host.build_announcement("host_pubkey"))
 
             with client.websocket_connect(f"/ws/session/{session_id}") as joiner_ws:
-                joiner = Party.create(join_code, session_id)
+                joiner = Party.create(handshake_secret, session_id)
 
                 send_and_capture(
                     joiner_ws,
@@ -132,6 +159,11 @@ class TestRelayOnlySeesCiphertext:
         full_capture = "\n".join(relayed_frames)
         assert secret_from_host not in full_capture
         assert secret_from_joiner not in full_capture
+        # #964 post-security-review: handshake_secret must never cross the
+        # relay on any frame either -- it only ever travels via the
+        # holding_url's URL fragment / the /api/collab/start HTTP response,
+        # never over this WebSocket.
+        assert handshake_secret not in full_capture
         # Spot-check a few distinctive substrings too, in case the whole
         # message happened to get chunked oddly.
         for fragment in ("Dana Okafor", "$42,000", "PROJ-118", "DPA addendum"):
@@ -151,30 +183,31 @@ class TestRelayOnlySeesCiphertext:
             assert isinstance(parsed["ct"], str) and parsed["ct"]
 
 
-class TestWrongCodeCannotEstablishSession:
-    def test_wrong_code_fails_to_verify_handshake(self, client):
-        """An attacker (or a client with a mistyped code) cannot produce a
-        MAC the honest side will accept, so no session key is ever derived
-        with them -- the critical negative test the issue calls out."""
+class TestWrongSecretCannotEstablishSession:
+    def test_wrong_handshake_secret_fails_to_verify_handshake(self, client):
+        """An attacker (or a client with a corrupted/incomplete link)
+        cannot produce a MAC the honest side will accept, so no session key
+        is ever derived with them -- the critical negative test the issue
+        calls out."""
         info = _start_session(client)
-        session_id, real_code = info["session_id"], info["join_code"]
+        session_id, real_secret = info["session_id"], info["handshake_secret"]
 
-        host = Party.create(real_code, session_id)
+        host = Party.create(real_secret, session_id)
         announcement = host.build_announcement("host_pubkey")
 
-        wrong_code = "000000" if real_code != "000000" else "111111"
-        attacker = Party.create(wrong_code, session_id)
+        wrong_secret = "totally-different-guess-0000000000"
+        attacker = Party.create(wrong_secret, session_id)
 
         assert attacker.parse_announcement("host_pubkey", announcement) is None
 
-    def test_wrong_code_produces_undecryptable_traffic(self, client):
+    def test_wrong_secret_produces_undecryptable_traffic(self, client):
         """Even if an attacker somehow obtained a valid-looking session key
         for the wrong parameters, AES-GCM's auth tag rejects it."""
         info = _start_session(client)
-        session_id, real_code = info["session_id"], info["join_code"]
+        session_id, real_secret = info["session_id"], info["handshake_secret"]
 
-        host = Party.create(real_code, session_id)
-        joiner = Party.create(real_code, session_id)
+        host = Party.create(real_secret, session_id)
+        joiner = Party.create(real_secret, session_id)
         real_key = host.derive_session_key(joiner.public_key_raw_b64(), session_id)
 
         wrong_key = bytes((b ^ 0xFF) for b in real_key)  # definitely not the real key
@@ -182,6 +215,89 @@ class TestWrongCodeCannotEstablishSession:
 
         with pytest.raises(Exception):
             decrypt_message(wrong_key, envelope, session_id)
+
+
+class TestRelayCannotForgeHandshake:
+    """Regression tests for security-review Finding 1 (severity 9): the
+    relay legitimately learns `join_code` and already knows `session_id`
+    (it generated it) -- i.e. it has exactly what a party admitted via
+    #963's join flow has. If the ECDH handshake were authenticated with
+    `join_code` (the original, vulnerable design), the relay could
+    recompute the same connect key itself, forge valid-looking MAC'd
+    `host_pubkey`/`joiner_pubkey` announcements to both sides, and
+    transparently MITM the entire "encrypted" session -- establishing
+    separate session keys with the host and the joiner and silently
+    decrypting/re-forwarding everything. These tests drive that exact
+    attack shape and assert it fails now that `handshake_secret` (never
+    sent to any server on any request) is what actually authenticates the
+    handshake instead."""
+
+    def test_relay_who_knows_join_code_and_session_id_cannot_forge_handshake(self, client):
+        info = _start_session(client)
+        session_id = info["session_id"]
+        join_code = info["join_code"]  # what the relay legitimately has
+        handshake_secret = info["handshake_secret"]  # what the relay never sees
+
+        # The legitimate host authenticates its announcement with the real
+        # handshake secret, exactly as static/collab-session.js now does.
+        host = Party.create(handshake_secret, session_id)
+        host_announcement = host.build_announcement("host_pubkey")
+
+        # "The relay" (or anyone else who only has what the relay has)
+        # tries to forge a matching handshake using join_code instead.
+        relay_attacker = Party.create(join_code, session_id)
+
+        # It cannot verify the real host's genuine announcement...
+        assert relay_attacker.parse_announcement("host_pubkey", host_announcement) is None
+
+        # ...and a real joiner (correctly using handshake_secret) must
+        # reject an announcement the relay forged from join_code alone.
+        forged_announcement = relay_attacker.build_announcement("host_pubkey")
+        real_joiner = Party.create(handshake_secret, session_id)
+        assert real_joiner.parse_announcement("host_pubkey", forged_announcement) is None
+
+    def test_relay_cannot_mitm_a_full_session_end_to_end(self, client):
+        """The full MITM shape from Finding 1: the relay tries to establish
+        SEPARATE session keys with the host and the joiner (as a real MITM
+        would need to, to decrypt and re-forward traffic in both
+        directions) using only join_code + session_id. Neither leg of that
+        MITM attempt can complete."""
+        info = _start_session(client)
+        session_id = info["session_id"]
+        join_code = info["join_code"]
+        handshake_secret = info["handshake_secret"]
+
+        host = Party.create(handshake_secret, session_id)
+        joiner = Party.create(handshake_secret, session_id)
+        relay = Party.create(join_code, session_id)  # the attacker
+
+        host_announcement = host.build_announcement("host_pubkey")
+        joiner_announcement = joiner.build_announcement("joiner_pubkey")
+
+        # The relay's MITM leg toward the joiner (impersonating the host):
+        # it can't verify the real host's announcement to know what to
+        # relay, and if it just forges its own "host_pubkey" instead, the
+        # real joiner won't accept it either.
+        assert relay.parse_announcement("host_pubkey", host_announcement) is None
+        relay_forged_host_announcement = relay.build_announcement("host_pubkey")
+        assert joiner.parse_announcement("host_pubkey", relay_forged_host_announcement) is None
+
+        # The relay's MITM leg toward the host (impersonating the joiner):
+        # symmetric failure.
+        assert relay.parse_announcement("joiner_pubkey", joiner_announcement) is None
+        relay_forged_joiner_announcement = relay.build_announcement("joiner_pubkey")
+        assert host.parse_announcement("joiner_pubkey", relay_forged_joiner_announcement) is None
+
+        # Meanwhile the real host and joiner, talking directly, succeed --
+        # proving the failures above are specifically about the relay's
+        # forgery attempt, not a broken handshake in general.
+        real_host_pubkey = joiner.parse_announcement("host_pubkey", host_announcement)
+        real_joiner_pubkey = host.parse_announcement("joiner_pubkey", joiner_announcement)
+        assert real_host_pubkey is not None
+        assert real_joiner_pubkey is not None
+        assert host.derive_session_key(real_joiner_pubkey, session_id) == joiner.derive_session_key(
+            real_host_pubkey, session_id
+        )
 
 
 class TestHostPubkeyCaching:
@@ -192,11 +308,12 @@ class TestHostPubkeyCaching:
         by app.py's _maybe_cache_host_pubkey and replayed on admission."""
         info = _start_session(client)
         session_id, join_code = info["session_id"], info["join_code"]
+        handshake_secret = info["handshake_secret"]
 
         with client.websocket_connect(
             f"/ws/session/{session_id}?token={info['host_token']}"
         ) as host_ws:
-            host = Party.create(join_code, session_id)
+            host = Party.create(handshake_secret, session_id)
             announcement = host.build_announcement("host_pubkey")
             host_ws.send_text(announcement)
 

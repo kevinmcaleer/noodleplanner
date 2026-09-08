@@ -13,10 +13,13 @@
  * eyeballed (as ciphertext) via devtools during manual verification.
  *
  * See static/collab-crypto.js's module docstring for the full crypto
- * design (KDF, key exchange, AEAD, wire format). Scope note from that file
- * applies here too: the #963 relay has no sender-id on joiner->host
- * messages, so this file tracks a single active joiner session key at a
- * time -- multi-joiner fan-out is future work (#966/#967).
+ * design (KDF, key exchange, AEAD, wire format, and -- important -- the
+ * two-secret design: `join_code` is admission-only, `handshake_secret` is
+ * what actually authenticates the ECDH exchange, and the two must never be
+ * conflated). Scope note from that file applies here too: the #963 relay
+ * has no sender-id on joiner->host messages, so this file tracks a single
+ * active joiner session key at a time -- multi-joiner fan-out is future
+ * work (#966/#967).
  *
  * This file is a classic (non-module) script -- see index.html's
  * `onclick="startCollabSession()"` / `closeCollabSessionModal()` handlers,
@@ -64,21 +67,17 @@ async function sendCollabMessage(plaintext) {
 }
 
 async function handleCollabMessage(raw) {
-    let parsed;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
-        parsed = null;
-    }
+    const { classifyFrameType, parsePubkeyAnnouncement, deriveSessionKey, decryptMessage } = await loadCollabCrypto();
+    const frameType = classifyFrameType(raw);
 
-    const { parsePubkeyAnnouncement, deriveSessionKey, decryptMessage } = await loadCollabCrypto();
-
-    if (parsed && parsed.type === 'joiner_pubkey') {
+    if (frameType === 'joiner_pubkey') {
         const peerKey = await parsePubkeyAnnouncement('joiner_pubkey', collabConnectKey, raw);
         if (!peerKey) {
-            // MAC didn't verify -- the joiner used the wrong code. Never
-            // derive a session key with an unauthenticated peer.
-            collabLog('A joiner failed to authenticate (wrong code?) -- ignoring.');
+            // MAC didn't verify -- the joiner used the wrong handshake
+            // secret (or this is a forged announcement, e.g. from the
+            // relay itself -- see collab-crypto.js's module docstring).
+            // Never derive a session key with an unauthenticated peer.
+            collabLog('A joiner failed to authenticate -- ignoring.');
             return;
         }
         collabSessionKey = await deriveSessionKey(collabKeyPair.privateKey, peerKey, collabSessionId);
@@ -86,7 +85,7 @@ async function handleCollabMessage(raw) {
         return;
     }
 
-    if (parsed && parsed.type === 'enc') {
+    if (frameType === 'enc') {
         if (!collabSessionKey) {
             collabLog('(received an encrypted message before the secure channel was ready)');
             return;
@@ -100,9 +99,17 @@ async function handleCollabMessage(raw) {
         return;
     }
 
-    // Anything else (e.g. a future non-encrypted control message) is just
-    // logged as-is; this thin UI has no other message types to handle yet.
-    collabLog(`joiner: ${raw}`);
+    // Anything else -- including `classifyFrameType`'s 'unrecognized', and
+    // even a well-formed-but-wrong-role 'host_pubkey' (the host should
+    // never receive its own frame type back). Security review finding:
+    // this used to fall through to displaying the raw payload with the
+    // same log format as genuine decrypted content -- meaning anyone who
+    // could write a frame into this socket (trivially, the relay itself)
+    // could inject a message that looked exactly like real peer content,
+    // no decryption or authentication required. Never display unrecognized
+    // frames as if they were peer content; just note one arrived and drop
+    // it.
+    collabLog('(received an unrecognized message -- ignored)');
 }
 
 async function startCollabSession() {
@@ -135,6 +142,10 @@ async function startCollabSession() {
     const codeInput = document.getElementById('collabSessionCode');
     const urlInput = document.getElementById('collabSessionUrl');
     if (codeInput) codeInput.value = info.join_code;
+    // info.holding_url already carries the `#k=<handshake_secret>` URL
+    // fragment (see collab_session.py) -- sharing this exact link is how
+    // the joiner's browser gets the handshake secret without it ever
+    // passing through the server.
     if (urlInput) urlInput.value = `${window.location.origin}${info.holding_url}`;
 
     status.textContent = 'Session live. Share the code and link below with your team.';
@@ -143,7 +154,12 @@ async function startCollabSession() {
     const { deriveConnectKey, generateEphemeralKeyPair, buildPubkeyAnnouncement } = await loadCollabCrypto();
 
     collabSessionId = info.session_id;
-    collabConnectKey = await deriveConnectKey(info.join_code, info.session_id);
+    // #964 security review: `join_code` (six digits, admission-only -- the
+    // relay legitimately sees it) must NEVER be used here. The ECDH
+    // handshake is authenticated with `handshake_secret` instead, which
+    // only ever travels via the URL fragment / this JSON response, never
+    // through the relay -- see collab-crypto.js's module docstring.
+    collabConnectKey = await deriveConnectKey(info.handshake_secret, info.session_id);
     collabKeyPair = await generateEphemeralKeyPair();
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

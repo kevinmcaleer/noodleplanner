@@ -1879,12 +1879,21 @@ async def ai_agent_detail(agent_id: str):
 # public-key announcement, so a joiner who connects after the host already
 # broadcast it still receives it on admission. See collab_session.py's
 # docstring and collab-crypto.js's module docstring for the full design.
+#
+# Post-security-review update: `join_code` (the six-digit code) is
+# ADMISSION-ONLY -- it has no cryptographic role. The ECDH handshake in
+# collab-crypto.js is authenticated by a separate `handshake_secret`, which
+# this route hands back below but which never travels through any other
+# server request (see collab_session.py's docstring for why: this relay
+# legitimately learns `join_code`, so it can never be what proves the
+# handshake wasn't MITM'd by the relay itself).
 # ==============================================================================
 
 
 @app.post("/api/collab/start")
 async def start_collab_session():
-    """Start a new collab session and return its id, host token and join code.
+    """Start a new collab session and return its id, host token, join code,
+    and handshake secret.
 
     Deliberately takes no request body -- there is nothing project- or
     plan-related for the relay to know about, by design (see #766's
@@ -1895,6 +1904,7 @@ async def start_collab_session():
         "session_id": info.session_id,
         "host_token": info.host_token,
         "join_code": info.join_code,
+        "handshake_secret": info.handshake_secret,
         "holding_url": info.holding_url,
     }
 
