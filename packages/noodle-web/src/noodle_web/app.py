@@ -2019,7 +2019,7 @@ def _is_end_session_message(message: str) -> bool:
 def _parse_kick_message(message: str) -> Optional[int]:
     """Return the `joiner_id` from the host's `{"type": "kick", "joiner_id":
     ...}` control message (#966), or None if `message` isn't one.
-    `joiner_id` is the same opaque `id(websocket)` key `SessionState.joiners`
+    `joiner_id` is the same opaque `Joiner.joiner_id` key `SessionState.joiners`
     is keyed by, which is exactly what `SessionState.presence_snapshot()`
     hands the host in each presence update -- so the host never has to
     invent or track its own identifier for a joiner.
@@ -2035,6 +2035,49 @@ def _parse_kick_message(message: str) -> Optional[int]:
         return None
     joiner_id = parsed.get("joiner_id")
     return joiner_id if isinstance(joiner_id, int) else None
+
+
+def _parse_to_joiner_envelope(message: str) -> Optional[tuple[int, str]]:
+    """Return `(joiner_id, inner_frame)` from the host's ``{"type":
+    "to_joiner", "joiner_id": N, "frame": "..."}`` envelope (#967), or None
+    if `message` isn't one.
+
+    #963 gave the host a single broadcast channel, which was enough while
+    every joiner shared one session key. #967 gives each joiner its own
+    ECDH session key with the host, so the same logical update has to be
+    encrypted separately per joiner -- meaning the host needs to address a
+    frame at one joiner rather than broadcast it.
+
+    Only the envelope is read. `frame` is passed through untouched, still
+    the opaque AES-GCM ciphertext collab-crypto.js produced: this relay
+    learns who a frame is for, which is ordinary routing metadata it
+    already holds (it assigned the id and reports it in every presence
+    snapshot), and never what the frame says.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict) or parsed.get("type") != "to_joiner":
+        return None
+    joiner_id = parsed.get("joiner_id")
+    frame = parsed.get("frame")
+    if not isinstance(joiner_id, int) or not isinstance(frame, str):
+        return None
+    return joiner_id, frame
+
+
+def _wrap_from_joiner(joiner_id: int, frame: str) -> str:
+    """Tag a joiner's frame with its sender id before relaying it to the
+    host (#967).
+
+    Without this the host cannot tell two joiners apart on the inbound
+    side, so it could only ever hold one joiner's session key at a time
+    (see collab-session.js's `collabSessionKeys`). `frame` is embedded
+    verbatim -- this adds an addressing header around ciphertext, it does
+    not inspect or alter it.
+    """
+    return json.dumps({"type": "from_joiner", "joiner_id": joiner_id, "frame": frame})
 
 
 def _is_presence_ping_message(message: str) -> bool:
@@ -2107,6 +2150,23 @@ async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: 
                 await _broadcast_presence(state)
                 continue
 
+            addressed = _parse_to_joiner_envelope(message)
+            if addressed is not None:
+                # #967: a frame encrypted for one specific joiner. Deliver
+                # the inner frame to just that socket -- unwrapped, so the
+                # joiner's own handling is unchanged from #963/#964 and it
+                # never has to know this addressing layer exists. Silently
+                # dropped if that joiner has since left, exactly as a
+                # broadcast to a departed joiner would be.
+                target_id, inner_frame = addressed
+                target = state.joiners.get(target_id)
+                if target is not None:
+                    try:
+                        await target.websocket.send_text(inner_frame)
+                    except Exception:
+                        pass
+                continue
+
             _maybe_cache_host_pubkey(state, message)
             for joiner in list(state.joiners.values()):
                 try:
@@ -2136,7 +2196,11 @@ async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id
         while True:
             message = await websocket.receive_text()
             state.touch()
-            joiner = state.joiners.get(id(websocket))
+            # Re-resolved per message rather than captured once: a joiner
+            # kicked mid-loop is removed from `joiners`, and this must then
+            # stop attributing traffic (or a sender id) to them.
+            joiner_id = state.joiner_id_for(websocket)
+            joiner = state.joiners.get(joiner_id) if joiner_id is not None else None
             if joiner is not None:
                 # #966: per-joiner activity, distinct from `state.touch()`
                 # above -- drives this one joiner's active/inactive status
@@ -2152,10 +2216,14 @@ async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id
                 continue
 
             host = state.host
-            if host is not None:
+            if host is not None and joiner_id is not None:
+                # #967: tag the frame with this joiner's id so the host can
+                # tell concurrent joiners apart and keep a separate session
+                # key per joiner. The ciphertext itself is untouched.
+                tagged = _wrap_from_joiner(joiner_id, message)
                 async with state.host_send_lock:
                     try:
-                        await host.send_text(message)
+                        await host.send_text(tagged)
                     except Exception:
                         pass
     except WebSocketDisconnect:

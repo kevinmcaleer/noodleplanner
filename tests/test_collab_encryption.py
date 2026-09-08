@@ -148,24 +148,35 @@ class TestRelayOnlySeesCiphertext:
                 host_ws.receive_text()
 
                 send_and_capture(joiner_ws, joiner.build_announcement("joiner_pubkey"))
-                joiner_pubkey_msg = recv_and_capture(host_ws)
-                joiner_pubkey_b64 = host.parse_announcement("joiner_pubkey", joiner_pubkey_msg)
+                # #967: joiner->host frames arrive wrapped with the sender's
+                # id so the host knows which key slot this handshake fills.
+                # The wrapper is addressing only -- `frame` is the untouched
+                # announcement, and it still has to verify on its own MAC.
+                wrapper = json.loads(recv_and_capture(host_ws))
+                assert wrapper["type"] == "from_joiner"
+                joiner_id = wrapper["joiner_id"]
+                joiner_pubkey_b64 = host.parse_announcement("joiner_pubkey", wrapper["frame"])
                 assert joiner_pubkey_b64 is not None
                 host_session_key = host.derive_session_key(joiner_pubkey_b64, session_id)
 
                 assert host_session_key == joiner_session_key, "both sides must agree on the session key"
 
-                # Host -> joiner: realistic plan content, encrypted.
+                # Host -> joiner: realistic plan content, encrypted and
+                # addressed at this specific joiner (#967), since each
+                # joiner now has its own session key.
                 envelope = encrypt_message(host_session_key, secret_from_host, session_id)
-                send_and_capture(host_ws, envelope)
+                send_and_capture(
+                    host_ws,
+                    json.dumps({"type": "to_joiner", "joiner_id": joiner_id, "frame": envelope}),
+                )
                 received = recv_and_capture(joiner_ws)
-                assert received == envelope
+                assert received == envelope, "the relay must deliver the inner frame unaltered"
                 assert decrypt_message(joiner_session_key, received, session_id) == secret_from_host
 
                 # Joiner -> host: realistic plan content, encrypted.
                 envelope2 = encrypt_message(joiner_session_key, secret_from_joiner, session_id)
                 send_and_capture(joiner_ws, envelope2)
-                received2 = recv_and_capture(host_ws)
+                received2 = json.loads(recv_and_capture(host_ws))["frame"]
                 assert received2 == envelope2
                 assert decrypt_message(host_session_key, received2, session_id) == secret_from_joiner
 
@@ -188,7 +199,21 @@ class TestRelayOnlySeesCiphertext:
         # not a coincidental absence of the plaintext due to some other bug.
         # Each of the 2 content messages was captured twice (once on send,
         # once on receipt) by send_and_capture/recv_and_capture above.
-        enc_frames = [f for f in relayed_frames if '"type": "enc"' in f or '"type":"enc"' in f]
+        #
+        # #967: two of those four are now carried inside a to_joiner /
+        # from_joiner addressing envelope, so unwrap before classifying --
+        # the payload underneath must still be ciphertext and nothing else.
+        def _inner(frame: str) -> str:
+            try:
+                parsed = json.loads(frame)
+            except ValueError:
+                return frame
+            if isinstance(parsed, dict) and parsed.get("type") in {"to_joiner", "from_joiner"}:
+                return parsed["frame"]
+            return frame
+
+        unwrapped = [_inner(f) for f in relayed_frames]
+        enc_frames = [f for f in unwrapped if '"type": "enc"' in f or '"type":"enc"' in f]
         assert len(enc_frames) == 4
         for frame in enc_frames:
             parsed = json.loads(frame)
@@ -207,10 +232,15 @@ class TestPlanOpTrafficNeverLeaks:
     plaintext never appears in it" shape, just with a realistic plan_op /
     plan_snapshot payload instead of an arbitrary string, since that's what
     real #967 traffic actually looks like. The relay itself needed zero
-    code changes for #967 (it was never taught to parse `enc` payloads
-    before this and still isn't) -- this test is here to prove that stays
-    true for the new payload shape, not because the relay's own logic
-    changed."""
+    code changes for the plan_op/plan_snapshot payload shape (it was never
+    taught to parse `enc` payloads before this and still isn't) -- this
+    test is here to prove that stays true for the new payload shape. It
+    does unwrap the `from_joiner`/`to_joiner` addressing envelope
+    `TestRelayOnlySeesCiphertext` above also unwraps, added by the
+    separate per-joiner-session-keys work also tracked under #967 -- that
+    envelope is addressing metadata only (see app.py's `_wrap_from_joiner`/
+    `_parse_to_joiner_envelope`), not something this test's own payload
+    design changed."""
 
     def test_plan_op_and_plan_snapshot_payloads_never_appear_in_relayed_frames(self, client):
         info = _start_session(client)
@@ -265,20 +295,31 @@ class TestPlanOpTrafficNeverLeaks:
 
                 host_ws.receive_text()  # #966 presence push, not this test's concern
                 send_and_capture(joiner_ws, joiner.build_announcement("joiner_pubkey"))
-                joiner_pubkey_msg = recv_and_capture(host_ws)
-                joiner_pubkey_b64 = host.parse_announcement("joiner_pubkey", joiner_pubkey_msg)
+                # #967 (per-joiner session keys): joiner->host frames arrive
+                # wrapped with the sender's id -- see
+                # TestRelayOnlySeesCiphertext above for the same unwrap.
+                wrapper = json.loads(recv_and_capture(host_ws))
+                assert wrapper["type"] == "from_joiner"
+                joiner_id = wrapper["joiner_id"]
+                joiner_pubkey_b64 = host.parse_announcement("joiner_pubkey", wrapper["frame"])
                 host_session_key = host.derive_session_key(joiner_pubkey_b64, session_id)
 
                 # Joiner -> host: a plan_op edit intent.
                 op_envelope = encrypt_message(joiner_session_key, plan_op, session_id)
                 send_and_capture(joiner_ws, op_envelope)
-                received_op = recv_and_capture(host_ws)
+                received_op = json.loads(recv_and_capture(host_ws))["frame"]
                 assert decrypt_message(host_session_key, received_op, session_id) == plan_op
 
-                # Host -> joiner: the resulting plan_snapshot broadcast.
+                # Host -> joiner: the resulting plan_snapshot broadcast,
+                # addressed at this specific joiner (#967's per-joiner keys
+                # mean the host can no longer broadcast under one shared key).
                 snapshot_envelope = encrypt_message(host_session_key, plan_snapshot, session_id)
-                send_and_capture(host_ws, snapshot_envelope)
+                send_and_capture(
+                    host_ws,
+                    json.dumps({"type": "to_joiner", "joiner_id": joiner_id, "frame": snapshot_envelope}),
+                )
                 received_snapshot = recv_and_capture(joiner_ws)
+                assert received_snapshot == snapshot_envelope
                 assert decrypt_message(joiner_session_key, received_snapshot, session_id) == plan_snapshot
 
         full_capture = "\n".join(relayed_frames)

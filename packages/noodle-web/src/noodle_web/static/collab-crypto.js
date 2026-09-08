@@ -280,7 +280,14 @@ export async function buildPubkeyAnnouncement(type, connectKey, keyPair) {
 // handleCollabMessage uses to decide a frame's type at all, so an
 // unlisted 'presence' would be silently dropped as 'unrecognized' before
 // ever reaching the presence-panel handling below.
-const KNOWN_FRAME_TYPES = new Set(['host_pubkey', 'joiner_pubkey', 'enc', 'presence']);
+//
+// 'from_joiner' (#967) is likewise a server-added frame rather than one
+// this scheme produces: the relay wraps each joiner->host frame with its
+// sender id so the host can keep a separate session key per joiner (see
+// app.py's `_wrap_from_joiner`). Only the host ever sees it, and its
+// `frame` payload is the untouched inner frame, which the host classifies
+// again via `unwrapFromJoiner` below.
+const KNOWN_FRAME_TYPES = new Set(['host_pubkey', 'joiner_pubkey', 'enc', 'presence', 'from_joiner']);
 
 /**
  * Classify a raw WebSocket frame's `type` discriminator. Returns one of
@@ -305,6 +312,42 @@ export function classifyFrameType(rawText) {
     }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return 'unrecognized';
     return KNOWN_FRAME_TYPES.has(parsed.type) ? parsed.type : 'unrecognized';
+}
+
+/**
+ * Unwrap the relay's `{"type": "from_joiner", "joiner_id": N, "frame":
+ * "..."}` envelope (#967), returning `{ joinerId, frame }`, or null if
+ * `rawText` isn't a well-formed one.
+ *
+ * `joiner_id` is routing metadata the relay assigns and already publishes
+ * to the host in every presence snapshot -- it is not an authenticated
+ * claim about who holds a key. The inner `frame` still has to be verified
+ * or decrypted on its own merits exactly as before: a joiner's pubkey
+ * announcement is only trusted once its MAC verifies, and content only
+ * once it decrypts under that joiner's session key. A relay that lied
+ * about `joiner_id` could misroute a frame, but could not make one
+ * decrypt.
+ */
+export function unwrapFromJoiner(rawText) {
+    let parsed;
+    try {
+        parsed = JSON.parse(rawText);
+    } catch {
+        return null;
+    }
+    if (!parsed || typeof parsed !== 'object' || parsed.type !== 'from_joiner') return null;
+    if (typeof parsed.joiner_id !== 'number' || typeof parsed.frame !== 'string') return null;
+    return { joinerId: parsed.joiner_id, frame: parsed.frame };
+}
+
+/**
+ * Build the host's `{"type": "to_joiner", ...}` envelope (#967) addressing
+ * one already-encrypted frame at a single joiner. See app.py's
+ * `_parse_to_joiner_envelope`: the relay reads only the envelope and
+ * delivers `frame` onward untouched.
+ */
+export function buildToJoinerEnvelope(joinerId, frame) {
+    return JSON.stringify({ type: 'to_joiner', joiner_id: joinerId, frame });
 }
 
 /**

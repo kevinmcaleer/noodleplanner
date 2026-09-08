@@ -18,13 +18,16 @@
  * design (KDF, key exchange, AEAD, wire format, and -- important -- the
  * two-secret design: `join_code` is admission-only, `handshake_secret` is
  * what actually authenticates the ECDH exchange, and the two must never be
- * conflated). Scope note from that file applies here too: the #963 relay
- * has no sender-id on joiner->host messages, so this file tracks a single
- * active joiner session key at a time -- multi-joiner fan-out is future
- * work beyond #967. #966's presence panel below doesn't share that
- * limitation: it's driven by the server's own per-joiner bookkeeping (see
- * collab_session.py's `Joiner`), not by anything in the encrypted channel,
- * so it already reflects every joiner correctly today.
+ * conflated).
+ *
+ * #967 lifted the single-joiner limit this file used to carry. The relay
+ * now tags every joiner->host frame with its sender id (app.py's
+ * `_wrap_from_joiner`) and routes host->joiner frames addressed at one
+ * joiner (`_parse_to_joiner_envelope`), so `collabSessionKeys` below holds
+ * a separate ECDH session key per joiner and `sendCollabMessage` encrypts
+ * each outgoing message once per recipient. Those ids are the same ones
+ * #966's presence snapshots already carry, so presence and crypto agree on
+ * who is in the session without a second identity scheme.
  *
  * #967 (host-authoritative live plan editing): the encrypted content this
  * file's `enc` frames carry is no longer just a demo string -- see
@@ -34,8 +37,9 @@
  * own live `#planEditor` (the exact same editor/model/render pipeline
  * local editing already uses -- see `applyIncomingPlanOp` below), then a
  * fresh `plan_snapshot` of the whole outline is broadcast to every joiner,
- * including the one who sent the op (the #963 relay already fans a host
- * message out to every joiner, so no relay change was needed for that).
+ * including the one who sent the op (via `sendCollabMessage`, which now
+ * addresses every joiner in `collabSessionKeys` individually rather than
+ * relying on a single relay broadcast -- see that function below).
  * The host's own *local* edits to `#planEditor` are broadcast the same
  * way, debounced, via the `input` listener at the bottom of this file --
  * both paths funnel through `collabBroadcastPlanState`, which is also
@@ -61,7 +65,13 @@ let collabSocket = null;
 let collabConnectKey = null;
 let collabKeyPair = null;
 let collabSessionId = null;
-let collabSessionKey = null; // established once a joiner's pubkey is verified
+// #967: one AES-GCM session key per joiner, keyed by the relay-assigned
+// `joiner_id` that arrives on every inbound frame (see collab-crypto.js's
+// `unwrapFromJoiner`) and in every presence snapshot. #963/#964 held a
+// single key here, which meant a second joiner's handshake silently
+// replaced the first joiner's key and the host could only ever talk to
+// whoever joined last.
+const collabSessionKeys = new Map();
 
 // #967: JSON of the last plan_snapshot actually broadcast, so a
 // `#planEditor` `input` event that didn't change any task (e.g. cursor
@@ -166,7 +176,7 @@ function renderCollabPresence(joiners) {
  * shape, or `null` if there's no plan editor on this page or no session key
  * yet (nothing to send to in either case). */
 function collabCurrentPlanSnapshot() {
-    if (!collabSessionKey || typeof CollabPlanOps === 'undefined') return null;
+    if (collabSessionKeys.size === 0 || typeof CollabPlanOps === 'undefined') return null;
     const editor = document.getElementById('planEditor');
     if (!editor) return null;
     return CollabPlanOps.buildPlanSnapshot(editor.value);
@@ -277,24 +287,76 @@ async function applyIncomingPlanOp(op) {
     collabBroadcastPlanState(actor);
 }
 
-/** Send a plaintext string to the joiner, encrypted under the established session key. */
-async function sendCollabMessage(plaintext) {
-    if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
-    if (!collabSessionKey) {
-        collabLog('(cannot send yet -- secure channel not established)');
-        return;
+/** Drop session keys for joiners who are no longer in the session (#967).
+ *
+ * Presence snapshots are the host's authoritative view of who is
+ * connected, so a joiner missing from one has left or been removed. Their
+ * key is useless from that moment -- keeping it would mean encrypting
+ * later broadcasts for a socket that no longer exists, and holding key
+ * material for a departed participant for the rest of the session. */
+function pruneCollabSessionKeys(joiners) {
+    const live = new Set((Array.isArray(joiners) ? joiners : []).map((joiner) => joiner.id));
+    for (const joinerId of [...collabSessionKeys.keys()]) {
+        if (!live.has(joinerId)) collabSessionKeys.delete(joinerId);
     }
-    const { encryptMessage } = await loadCollabCrypto();
-    const envelope = await encryptMessage(collabSessionKey, plaintext, collabSessionId);
-    collabSocket.send(envelope);
+}
+
+/** Send a plaintext string to every joiner with an established secure
+ * channel (#967).
+ *
+ * Each joiner has its own session key, so the same message is encrypted
+ * separately per joiner and addressed individually -- there is no shared
+ * key a single broadcast could use. Returns the number of joiners it
+ * reached, which is what makes "did this actually go anywhere?" testable
+ * without inspecting the socket. */
+async function sendCollabMessage(plaintext) {
+    if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return 0;
+    if (collabSessionKeys.size === 0) {
+        collabLog('(cannot send yet -- no secure channel established)');
+        return 0;
+    }
+    const { encryptMessage, buildToJoinerEnvelope } = await loadCollabCrypto();
+    let sent = 0;
+    for (const [joinerId, key] of collabSessionKeys) {
+        const ciphertext = await encryptMessage(key, plaintext, collabSessionId);
+        collabSocket.send(buildToJoinerEnvelope(joinerId, ciphertext));
+        sent++;
+    }
+    return sent;
 }
 
 async function handleCollabMessage(raw) {
-    const { classifyFrameType, parsePubkeyAnnouncement, deriveSessionKey, decryptMessage } = await loadCollabCrypto();
-    const frameType = classifyFrameType(raw);
+    const {
+        classifyFrameType, parsePubkeyAnnouncement, deriveSessionKey, decryptMessage, unwrapFromJoiner,
+    } = await loadCollabCrypto();
+    let frameType = classifyFrameType(raw);
+
+    // #967: everything a joiner sends now reaches the host wrapped with
+    // that joiner's id. Unwrap first, then classify the inner frame
+    // exactly as before -- the checks below are unchanged, they just now
+    // know which joiner the frame came from.
+    let joinerId = null;
+    let frame = raw;
+    if (frameType === 'from_joiner') {
+        const unwrapped = unwrapFromJoiner(raw);
+        if (!unwrapped) {
+            collabLog('(received a malformed relay envelope -- ignored)');
+            return;
+        }
+        joinerId = unwrapped.joinerId;
+        frame = unwrapped.frame;
+        frameType = classifyFrameType(frame);
+    }
 
     if (frameType === 'joiner_pubkey') {
-        const peerKey = await parsePubkeyAnnouncement('joiner_pubkey', collabConnectKey, raw);
+        if (joinerId === null) {
+            // A joiner_pubkey that didn't arrive inside a from_joiner
+            // envelope has no identifiable sender, so there is no key slot
+            // to put it in. Only the relay could produce that.
+            collabLog('(received an unaddressed joiner handshake -- ignored)');
+            return;
+        }
+        const peerKey = await parsePubkeyAnnouncement('joiner_pubkey', collabConnectKey, frame);
         if (!peerKey) {
             // MAC didn't verify -- the joiner used the wrong handshake
             // secret (or this is a forged announcement, e.g. from the
@@ -303,7 +365,7 @@ async function handleCollabMessage(raw) {
             collabLog('A joiner failed to authenticate -- ignoring.');
             return;
         }
-        collabSessionKey = await deriveSessionKey(collabKeyPair.privateKey, peerKey, collabSessionId);
+        collabSessionKeys.set(joinerId, await deriveSessionKey(collabKeyPair.privateKey, peerKey, collabSessionId));
         collabLog('Secure channel established with joiner.');
         // #967: this joiner (new, or rejoining after a drop) has no plan
         // state yet -- give them a full snapshot right away rather than
@@ -315,12 +377,13 @@ async function handleCollabMessage(raw) {
     }
 
     if (frameType === 'enc') {
-        if (!collabSessionKey) {
+        const key = joinerId === null ? null : collabSessionKeys.get(joinerId);
+        if (!key) {
             collabLog('(received an encrypted message before the secure channel was ready)');
             return;
         }
         try {
-            const plaintext = await decryptMessage(collabSessionKey, raw, collabSessionId);
+            const plaintext = await decryptMessage(key, frame, collabSessionId);
             let parsed = null;
             try { parsed = JSON.parse(plaintext); } catch { parsed = null; }
 
@@ -352,6 +415,7 @@ async function handleCollabMessage(raw) {
             return;
         }
         renderCollabPresence(parsed.joiners);
+        pruneCollabSessionKeys(parsed.joiners);
         return;
     }
 
@@ -378,7 +442,7 @@ async function startCollabSession() {
         collabSocket.close();
         collabSocket = null;
     }
-    collabSessionKey = null;
+    collabSessionKeys.clear();
     renderCollabPresence([]);
     // #967: fresh per session -- see this file's module docstring and
     // collab-plan-ops.js's `ConflictTracker` for why neither is meaningful
@@ -456,7 +520,7 @@ async function startCollabSession() {
         // the generic message stays accurate for that case.
         status.textContent = event.reason || 'Session ended.';
         collabSocket = null;
-        collabSessionKey = null;
+        collabSessionKeys.clear();
         renderCollabPresence([]);
         if (collabLocalEditTimer) {
             clearTimeout(collabLocalEditTimer);
@@ -471,13 +535,13 @@ async function startCollabSession() {
 // broadcast, and a no-op while no session/joiner key is established (the
 // vast majority of the time #planEditor is used, collab sessions aren't
 // even running). Registered once at load, like editor.js's own listener on
-// the same element, rather than per-session, since `collabSessionKey`
+// the same element, rather than per-session, since `collabSessionKeys`
 // itself already gates whether there's anything to do.
 document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('planEditor');
     if (!editor) return;
     editor.addEventListener('input', () => {
-        if (!collabSessionKey) return;
+        if (collabSessionKeys.size === 0) return;
         if (collabLocalEditTimer) clearTimeout(collabLocalEditTimer);
         collabLocalEditTimer = setTimeout(() => {
             collabLocalEditTimer = null;
