@@ -210,3 +210,24 @@
     color: var(--np-text-muted, #888888);
     font-size: 0.9em;
 }
+
+/* Dependency RAG board (#737) -- the table itself is .dep-table
+   (views/portfolio.css), shared with the portfolio-wide dependencies
+   view; only the toolbar and the internal/external scope badge are new. */
+.programme-deps-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+.programme-dep-scope {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.programme-dep-scope--internal { background: #d4edda; color: #155724; }
+.programme-dep-scope--external { background: #fff3bf; color: #b07b00; }

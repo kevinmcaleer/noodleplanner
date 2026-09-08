@@ -13,6 +13,9 @@
  *   - aggregateEscalatedRaidItems(): rolls escalated risks & issues up
  *     across a programme's member projects (#736).
  *   - ragById(): maps a RAG list to a lookup table by project id.
+ *   - filterDependenciesForProgramme(): scopes the portfolio-wide
+ *     dependency store down to the links relevant to one programme,
+ *     tagging each 'internal' or 'external' (#737).
  *
  * Run with: node tests/test_programme_dashboard.js
  */
@@ -28,6 +31,7 @@ const {
     aggregateBenefitsOnTrack,
     aggregateEscalatedRaidItems,
     ragById,
+    filterDependenciesForProgramme,
 } = mod;
 
 let failures = 0;
@@ -270,6 +274,57 @@ assertEqual(
 );
 assertEqual(ragById([]), {}, 'empty list maps to an empty lookup');
 assertEqual(ragById(undefined), {}, 'undefined list maps to an empty lookup');
+
+// --- filterDependenciesForProgramme -------------------------------------------
+
+(() => {
+    const deps = [
+        { id: 'd1', from_project_id: 'p1', to_project_id: 'p2' },
+        { id: 'd2', from_project_id: 'p1', to_project_id: 'p9' },
+        { id: 'd3', from_project_id: 'p9', to_project_id: 'p2' },
+        { id: 'd4', from_project_id: 'p8', to_project_id: 'p9' },
+    ];
+    const scoped = filterDependenciesForProgramme(deps, ['p1', 'p2']);
+
+    assertEqual(
+        scoped.map((d) => d.id),
+        ['d1', 'd2', 'd3'],
+        'a dependency with neither end in the programme is excluded'
+    );
+    assertEqual(
+        scoped.find((d) => d.id === 'd1').scope,
+        'internal',
+        'both ends in the programme is internal (intra-project within the programme)'
+    );
+    assertEqual(
+        scoped.find((d) => d.id === 'd2').scope,
+        'external',
+        'the dependent project outside the programme makes it external (inter-project)'
+    );
+    assertEqual(
+        scoped.find((d) => d.id === 'd3').scope,
+        'external',
+        'the source project outside the programme also makes it external'
+    );
+    assertEqual(
+        deps[0].scope,
+        undefined,
+        'the original dependency objects are not mutated'
+    );
+})();
+
+assertEqual(filterDependenciesForProgramme([], ['p1']), [], 'no dependencies means nothing scoped in');
+assertEqual(filterDependenciesForProgramme(undefined, ['p1']), [], 'undefined dependency list means nothing scoped in');
+assertEqual(
+    filterDependenciesForProgramme([{ id: 'd1', from_project_id: 'p1', to_project_id: 'p2' }], undefined),
+    [],
+    'undefined member list scopes nothing in'
+);
+assertEqual(
+    filterDependenciesForProgramme([{ id: 'd1', from_project_id: 'p1', to_project_id: 'p2' }], []),
+    [],
+    'empty member list scopes nothing in'
+);
 
 console.log(failures === 0
     ? `\nAll tests passed.`

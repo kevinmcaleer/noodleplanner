@@ -2461,8 +2461,9 @@ Build
             <!-- Programme Tab (issue #953's landing view, extended by #734
                  into the real programme overview dashboard -- SRO/vision
                  stub, key metrics, key milestones, member projects with
-                 rolled-up RAG -- and by #736 with a real escalated risks
-                 & issues rollup -- all populated by programme.js.) -->
+                 rolled-up RAG -- by #736 with a real escalated risks
+                 & issues rollup, and by #737 with a programme-scoped
+                 dependency RAG board -- all populated by programme.js.) -->
             <div id="programme-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
                     <div class="programme-landing-header">
@@ -2478,6 +2479,10 @@ Build
                     <div class="programme-section">
                         <h3>Escalated Risks &amp; Issues</h3>
                         <div id="programmeEscalatedRisks"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Dependencies</h3>
+                        <div id="programmeDependencies"></div>
                     </div>
                     <div class="programme-section">
                         <h3>Member Projects</h3>
