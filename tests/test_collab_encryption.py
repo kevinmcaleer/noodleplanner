@@ -197,6 +197,104 @@ class TestRelayOnlySeesCiphertext:
             assert isinstance(parsed["ct"], str) and parsed["ct"]
 
 
+class TestPlanOpTrafficNeverLeaks:
+    """#967 added a `plan_op`/`plan_snapshot` JSON shape *inside* the
+    plaintext this scheme encrypts (see
+    static/collab-plan-ops.js's module docstring for the wire format) --
+    no new WebSocket frame type, no relay change. This is the thin,
+    #967-specific extension of `TestRelayOnlySeesCiphertext` above: same
+    "capture every raw frame the relay actually handled and assert the
+    plaintext never appears in it" shape, just with a realistic plan_op /
+    plan_snapshot payload instead of an arbitrary string, since that's what
+    real #967 traffic actually looks like. The relay itself needed zero
+    code changes for #967 (it was never taught to parse `enc` payloads
+    before this and still isn't) -- this test is here to prove that stays
+    true for the new payload shape, not because the relay's own logic
+    changed."""
+
+    def test_plan_op_and_plan_snapshot_payloads_never_appear_in_relayed_frames(self, client):
+        info = _start_session(client)
+        session_id, join_code = info["session_id"], info["join_code"]
+        handshake_secret = info["handshake_secret"]
+
+        plan_op = json.dumps({
+            "kind": "plan_op",
+            "op_id": "abc123",
+            "op": "set_progress",
+            "actor": "Priya Sharma",
+            "task": {"name": "Negotiate the Chennai vendor contract", "level": 2},
+            "value": 65,
+        })
+        plan_snapshot = json.dumps({
+            "kind": "plan_snapshot",
+            "tasks": [
+                {"name": "Negotiate the Chennai vendor contract", "level": 2, "indent": 2, "percent": 65, "is_summary": False},
+            ],
+            "conflict": {
+                "task": {"name": "Negotiate the Chennai vendor contract", "level": 2},
+                "previous_actor": "Dev Patel",
+                "actor": "Priya Sharma",
+                "message": "Priya Sharma also edited this -- showing the latest version.",
+            },
+        })
+
+        relayed_frames: list[str] = []
+
+        def send_and_capture(ws, text):
+            relayed_frames.append(text)
+            ws.send_text(text)
+
+        def recv_and_capture(ws):
+            text = ws.receive_text()
+            relayed_frames.append(text)
+            return text
+
+        with client.websocket_connect(f"/ws/session/{session_id}?token={info['host_token']}") as host_ws:
+            host = Party.create(handshake_secret, session_id)
+            send_and_capture(host_ws, host.build_announcement("host_pubkey"))
+
+            with client.websocket_connect(f"/ws/session/{session_id}") as joiner_ws:
+                joiner = Party.create(handshake_secret, session_id)
+                send_and_capture(
+                    joiner_ws, json.dumps({"type": "join", "code": join_code, "display_name": "Priya"})
+                )
+                recv_and_capture(joiner_ws)  # joined ack
+                host_pubkey_msg = recv_and_capture(joiner_ws)
+                host_pubkey_b64 = joiner.parse_announcement("host_pubkey", host_pubkey_msg)
+                joiner_session_key = joiner.derive_session_key(host_pubkey_b64, session_id)
+
+                host_ws.receive_text()  # #966 presence push, not this test's concern
+                send_and_capture(joiner_ws, joiner.build_announcement("joiner_pubkey"))
+                joiner_pubkey_msg = recv_and_capture(host_ws)
+                joiner_pubkey_b64 = host.parse_announcement("joiner_pubkey", joiner_pubkey_msg)
+                host_session_key = host.derive_session_key(joiner_pubkey_b64, session_id)
+
+                # Joiner -> host: a plan_op edit intent.
+                op_envelope = encrypt_message(joiner_session_key, plan_op, session_id)
+                send_and_capture(joiner_ws, op_envelope)
+                received_op = recv_and_capture(host_ws)
+                assert decrypt_message(host_session_key, received_op, session_id) == plan_op
+
+                # Host -> joiner: the resulting plan_snapshot broadcast.
+                snapshot_envelope = encrypt_message(host_session_key, plan_snapshot, session_id)
+                send_and_capture(host_ws, snapshot_envelope)
+                received_snapshot = recv_and_capture(joiner_ws)
+                assert decrypt_message(joiner_session_key, received_snapshot, session_id) == plan_snapshot
+
+        full_capture = "\n".join(relayed_frames)
+        for fragment in (
+            "Negotiate the Chennai vendor contract",
+            "Priya Sharma",
+            "Dev Patel",
+            "also edited this",
+            "set_progress",
+            "plan_op",
+            "plan_snapshot",
+        ):
+            assert fragment not in full_capture
+        assert handshake_secret not in full_capture
+
+
 class TestWrongSecretCannotEstablishSession:
     def test_wrong_handshake_secret_fails_to_verify_handshake(self, client):
         """An attacker (or a client with a corrupted/incomplete link)

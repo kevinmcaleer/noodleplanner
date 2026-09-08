@@ -94,3 +94,53 @@ test('a node cannot be moved into its own descendant', () => {
     assert.equal(model.moveAsChild(model.tasks[0], model.tasks[1], true), false);
     assert.equal(model.serialize(), 'Parent\n  Child 1d\n');
 });
+
+// #967: addTask/reorderSibling were added for the collab-session live
+// editing protocol (collab-plan-ops.js) to apply "add task"/"reorder task"
+// intents without hand-rolling markdown text -- see that module's tests
+// (test_collab_plan_ops.mjs) for the op-protocol level coverage; these
+// cover the PlanModel API itself directly.
+
+test('addTask appends a new root task, or a new child at top/bottom of a parent', () => {
+    const model = PlanModel.parse('Phase\n  Existing 1d\n');
+    const phase = model.tasks[0];
+
+    const child = model.addTask('New Child', phase, 'top');
+    assert.equal(child.parent, phase);
+    assert.equal(phase.children.map(c => c.name).join(','), 'New Child,Existing');
+    assert.equal(model.serialize(), 'Phase\n  New Child\n  Existing 1d\n');
+
+    const root = model.addTask('New Root', null);
+    assert.equal(root.parent, null);
+    assert.equal(model.roots[model.roots.length - 1], root);
+    assert.equal(model.serialize(), 'Phase\n  New Child\n  Existing 1d\nNew Root\n');
+});
+
+test('addTask defaults an empty/blank name to "New Task" and returns null for an unknown parent', () => {
+    const model = PlanModel.parse('Phase\n  Existing 1d\n');
+    const blank = model.addTask('   ', null);
+    assert.equal(blank.name, 'New Task');
+
+    const foreignParent = PlanModel.parse('Other\n').tasks[0];
+    assert.equal(model.addTask('X', foreignParent), null);
+});
+
+test('reorderSibling swaps a task with its immediate up/down sibling only', () => {
+    const model = PlanModel.parse('A 1d\nB 1d\nC 1d\n');
+    const [a, b] = model.tasks;
+
+    assert.equal(model.reorderSibling(b, 'up'), true);
+    assert.equal(model.tasks.map(t => t.name).join(','), 'B,A,C');
+    assert.equal(model.serialize(), 'B 1d\nA 1d\nC 1d\n');
+
+    // Already first -- moving up further is a no-op, not an error.
+    assert.equal(model.reorderSibling(b, 'up'), false);
+    assert.equal(model.serialize(), 'B 1d\nA 1d\nC 1d\n');
+});
+
+test('reorderSibling never crosses out of its own parent’s children', () => {
+    const model = PlanModel.parse('Phase\n  Only 1d\nOther 1d\n');
+    const only = model.tasks[1];
+    assert.equal(model.reorderSibling(only, 'down'), false);
+    assert.equal(model.serialize(), 'Phase\n  Only 1d\nOther 1d\n');
+});

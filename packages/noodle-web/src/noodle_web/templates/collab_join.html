@@ -37,7 +37,7 @@
         }
         .card {
             width: 100%;
-            max-width: 420px;
+            max-width: 520px;
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 12px;
@@ -83,6 +83,52 @@
         .row { display: flex; gap: 8px; margin-top: 8px; }
         .row input { margin-bottom: 0; }
         .row button { width: auto; padding: 8px 14px; }
+
+        /* #967: the minimal live-editing task list -- deliberately plain,
+           see this page's own module docstring below and #970 (blocked on
+           #783(A)) for the eventual polished replacement. */
+        #planSection { margin-top: 20px; display: none; }
+        #planSection h2 { font-size: 1rem; margin: 0 0 8px; }
+        #planConflictBanner {
+            display: none;
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: #fef3cd;
+            color: #664d03;
+            font-size: 0.8rem;
+        }
+        @media (prefers-color-scheme: dark) {
+            #planConflictBanner { background: #4a3c10; color: #ffe69c; }
+        }
+        #planTaskList { display: flex; flex-direction: column; gap: 6px; }
+        .plan-task-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .plan-task-row button {
+            width: auto;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+        .plan-task-name {
+            background: none;
+            border: none;
+            color: var(--text);
+            padding: 0;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-align: left;
+            flex: 1 0 auto;
+            cursor: pointer;
+        }
+        .plan-task-name:hover { text-decoration: underline; }
+        .plan-task-percent { font-size: 0.75rem; color: var(--muted); min-width: 34px; }
     </style>
 </head>
 <body>
@@ -108,6 +154,17 @@
                 <button type="button" id="relaySend">Send</button>
             </div>
         </div>
+
+        <!-- #967: minimal live plan editing -- see this file's inline
+             script docstring below for the wire format this talks. -->
+        <div id="planSection">
+            <h2>Plan</h2>
+            <div id="planConflictBanner"></div>
+            <div id="planTaskList"></div>
+            <div class="row">
+                <button type="button" id="planAddRootTask">+ Add task</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -122,11 +179,155 @@
         // has zero cryptographic role. The ECDH handshake is instead
         // authenticated by `handshakeSecret`, read below from this page's
         // own URL fragment, which browsers never send to any server).
+        //
+        // #967 (host-authoritative live plan editing): this is the
+        // "deliberately unpolished" minimal joiner UI the issue calls for
+        // (#970's full post-it whiteboard replacement is blocked on
+        // #783(A), tracked separately) -- a flat task list built from the
+        // host's `plan_snapshot` broadcasts, with buttons that send
+        // `plan_op` edit intents back. See
+        // static/collab-plan-ops.js's module docstring for the full wire
+        // format (both message shapes) and the conflict-resolution
+        // contract; this page never applies an edit locally, it only
+        // renders whatever `plan_snapshot` the host most recently sent --
+        // exactly the "authoritative result, not an optimistic local
+        // guess" behaviour the issue asks for.
         let cryptoModulePromise = null;
         function loadCollabCrypto() {
             if (!cryptoModulePromise) cryptoModulePromise = import('/static/collab-crypto.js');
             return cryptoModulePromise;
         }
+
+        let myDisplayName = '';
+        let planTasks = [];
+        let planConflictTimer = null;
+
+        function taskRefOf(task) {
+            return { name: task.name, level: task.level };
+        }
+
+        /** Build a `plan_op` envelope (see collab-plan-ops.js's module
+         * docstring for the shape) crediting this joiner as `actor`. */
+        function buildPlanOp(op, fields) {
+            return Object.assign(
+                { kind: 'plan_op', op_id: Math.random().toString(36).slice(2), op, actor: myDisplayName },
+                fields
+            );
+        }
+
+        /** Encrypt and send a `plan_op` to the host. A no-op if the secure
+         * channel isn't up yet -- same guard `sendCollabMessage`-style
+         * helpers use elsewhere in this epic (see collab-session.js's
+         * `sendCollabMessage`). */
+        async function sendPlanOp(op) {
+            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(sessionKey, JSON.stringify(op), sessionId);
+            socket.send(envelope);
+        }
+
+        function showPlanConflict(conflict) {
+            const banner = document.getElementById('planConflictBanner');
+            if (!banner || !conflict) return;
+            banner.textContent = conflict.message ||
+                `${conflict.actor} also edited this — showing the latest version.`;
+            banner.style.display = 'block';
+            if (planConflictTimer) clearTimeout(planConflictTimer);
+            planConflictTimer = setTimeout(() => { banner.style.display = 'none'; }, 6000);
+        }
+
+        function buildPlanTaskRow(task) {
+            const row = document.createElement('div');
+            row.className = 'plan-task-row';
+            row.style.marginLeft = `${(task.level - 1) * 16}px`;
+
+            const nameBtn = document.createElement('button');
+            nameBtn.type = 'button';
+            nameBtn.className = 'plan-task-name';
+            nameBtn.textContent = task.name + (task.is_summary ? ' ▸' : '');
+            nameBtn.title = 'Click to rename';
+            nameBtn.addEventListener('click', () => {
+                const next = window.prompt('Rename task', task.name);
+                if (next && next.trim() && next.trim() !== task.name) {
+                    sendPlanOp(buildPlanOp('set_name', { task: taskRefOf(task), name: next.trim() }));
+                }
+            });
+            row.appendChild(nameBtn);
+
+            const percent = document.createElement('span');
+            percent.className = 'plan-task-percent';
+            percent.textContent = `${task.percent || 0}%`;
+            row.appendChild(percent);
+
+            const dec = document.createElement('button');
+            dec.type = 'button';
+            dec.textContent = '−10%';
+            dec.title = 'Decrease progress';
+            dec.addEventListener('click', () => sendPlanOp(buildPlanOp('set_progress', {
+                task: taskRefOf(task), value: Math.max(0, (task.percent || 0) - 10),
+            })));
+            row.appendChild(dec);
+
+            const inc = document.createElement('button');
+            inc.type = 'button';
+            inc.textContent = '+10%';
+            inc.title = 'Increase progress';
+            inc.addEventListener('click', () => sendPlanOp(buildPlanOp('set_progress', {
+                task: taskRefOf(task), value: Math.min(100, (task.percent || 0) + 10),
+            })));
+            row.appendChild(inc);
+
+            const complete = document.createElement('button');
+            complete.type = 'button';
+            complete.textContent = task.percent >= 100 ? '✓ Done' : 'Mark complete';
+            complete.disabled = task.percent >= 100;
+            complete.addEventListener('click', () => sendPlanOp(buildPlanOp('mark_complete', { task: taskRefOf(task) })));
+            row.appendChild(complete);
+
+            const up = document.createElement('button');
+            up.type = 'button';
+            up.textContent = '▲';
+            up.title = 'Move up';
+            up.addEventListener('click', () => sendPlanOp(buildPlanOp('reorder_task', { task: taskRefOf(task), direction: 'up' })));
+            row.appendChild(up);
+
+            const down = document.createElement('button');
+            down.type = 'button';
+            down.textContent = '▼';
+            down.title = 'Move down';
+            down.addEventListener('click', () => sendPlanOp(buildPlanOp('reorder_task', { task: taskRefOf(task), direction: 'down' })));
+            row.appendChild(down);
+
+            const addChild = document.createElement('button');
+            addChild.type = 'button';
+            addChild.textContent = '+ subtask';
+            addChild.addEventListener('click', () => {
+                const name = window.prompt('New subtask name', 'New Task');
+                if (name && name.trim()) sendPlanOp(buildPlanOp('add_task', { parent: taskRefOf(task), name: name.trim() }));
+            });
+            row.appendChild(addChild);
+
+            return row;
+        }
+
+        /** Render the flat task list from the host's most recent
+         * `plan_snapshot` -- this page never mutates `planTasks` itself,
+         * it only ever replaces the whole array with what the host most
+         * recently broadcast (see this script's module docstring). */
+        function renderPlanTasks(tasks) {
+            planTasks = Array.isArray(tasks) ? tasks : [];
+            const section = document.getElementById('planSection');
+            const list = document.getElementById('planTaskList');
+            if (!section || !list) return;
+            section.style.display = 'block';
+            list.innerHTML = '';
+            planTasks.forEach((task) => list.appendChild(buildPlanTaskRow(task)));
+        }
+
+        document.getElementById('planAddRootTask').addEventListener('click', () => {
+            const name = window.prompt('New task name', 'New Task');
+            if (name && name.trim()) sendPlanOp(buildPlanOp('add_task', { parent: null, name: name.trim() }));
+        });
 
         // The holding link the host shares is `/join/{session_id}#k=<secret>`
         // (see collab_session.py) -- `window.location.hash` is populated by
@@ -192,6 +393,9 @@
 
             const code = document.getElementById('joinCode').value.trim();
             const displayName = document.getElementById('displayName').value.trim();
+            // #967: needed outside this handler's scope to credit this
+            // joiner's own plan_op sends (see buildPlanOp above).
+            myDisplayName = displayName;
 
             const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
             connectKey = await deriveConnectKey(handshakeSecret, sessionId);
@@ -261,6 +465,20 @@
                     }
                     try {
                         const plaintext = await decryptMessage(sessionKey, event.data, sessionId);
+                        let content = null;
+                        try { content = JSON.parse(plaintext); } catch { content = null; }
+
+                        // #967: the host's authoritative plan state -- see
+                        // collab-plan-ops.js's module docstring for the
+                        // wire format. Anything else (including plain old
+                        // demo text) falls through to the original
+                        // behaviour below, unchanged.
+                        if (content && typeof content === 'object' && content.kind === 'plan_snapshot') {
+                            renderPlanTasks(content.tasks);
+                            if (content.conflict) showPlanConflict(content.conflict);
+                            return;
+                        }
+
                         log(`host: ${plaintext}`);
                     } catch (error) {
                         log('(failed to decrypt a message -- dropped)');
@@ -297,6 +515,23 @@
                 relay.style.display = 'none';
                 relayLog.innerHTML = '';
                 joinBtn.disabled = false;
+
+                // #967: this joiner's plan view is only ever as fresh as
+                // the last snapshot the host sent -- once disconnected,
+                // stop showing it as if it were still live. A rejoin gets
+                // a fresh catch-up snapshot from the host (see
+                // collab-session.js's collabSendCatchUpSnapshot).
+                planTasks = [];
+                const planSection = document.getElementById('planSection');
+                if (planSection) planSection.style.display = 'none';
+                const planTaskList = document.getElementById('planTaskList');
+                if (planTaskList) planTaskList.innerHTML = '';
+                const planConflictBanner = document.getElementById('planConflictBanner');
+                if (planConflictBanner) planConflictBanner.style.display = 'none';
+                if (planConflictTimer) {
+                    clearTimeout(planConflictTimer);
+                    planConflictTimer = null;
+                }
 
                 if (!wasJoined) {
                     status.textContent = 'Could not join -- check the code and try again.';

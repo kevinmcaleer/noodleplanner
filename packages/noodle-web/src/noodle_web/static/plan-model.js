@@ -291,6 +291,60 @@
             return true;
         }
 
+        /**
+         * Insert a brand new leaf task named `name` as a child of `parent`
+         * (or a new root-level task when `parent` is null), at the top or
+         * bottom of that list. Used by #967's host-authoritative op
+         * protocol (collab-plan-ops.js) to apply a joiner's "add task"
+         * intent without hand-rolling markdown text -- everything else in
+         * that protocol goes through `updateLine`/`rename`/`reorderSibling`
+         * below, this is the one case none of those cover (there was
+         * previously no way to grow the tree, only rearrange/edit it).
+         * Returns the new TaskNode, or null if `parent` isn't a task in
+         * this model.
+         */
+        addTask(name, parent, position) {
+            if (parent && !this.tasks.includes(parent)) return null;
+            const taskName = String(name == null ? '' : name).trim() || 'New Task';
+            const indentText = parent ? ' '.repeat(parent.indent + 2) : '';
+            const node = new TaskNode(
+                this.tasks.length,
+                { text: indentText + taskName, eol: '\n' },
+                indentText,
+                taskName,
+                { name: taskName }
+            );
+            node.parent = parent || null;
+            const list = parent ? parent.children : this.roots;
+            if (position === 'top') list.unshift(node);
+            else list.push(node);
+            this.tasks.push(node);
+            this._refreshTaskOrder();
+            this._resolveDependencies();
+            return node;
+        }
+
+        /**
+         * Move `task` up or down by one position among its current
+         * siblings (same parent, or the root list). Returns false if
+         * `task` is already at that end of the list -- a no-op, not an
+         * error, since #967's reorder op treats "can't move further" the
+         * same as any other harmless no-op.
+         */
+        reorderSibling(task, direction) {
+            if (!task || (direction !== 'up' && direction !== 'down')) return false;
+            const siblings = task.parent ? task.parent.children : this.roots;
+            const index = siblings.indexOf(task);
+            if (index < 0) return false;
+            const swapWith = direction === 'up' ? index - 1 : index + 1;
+            if (swapWith < 0 || swapWith >= siblings.length) return false;
+            siblings[index] = siblings[swapWith];
+            siblings[swapWith] = task;
+            this._refreshTaskOrder();
+            this._resolveDependencies();
+            return true;
+        }
+
         indentTasks(tasks) {
             const selected = new Set(tasks);
             const roots = tasks.filter(task => {
