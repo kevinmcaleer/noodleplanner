@@ -56,6 +56,11 @@ export const QUICK_ACTIONS = [
     // how prominently the old top nav placed its AI toggle button (#909
     // ribbon-parity follow-up).
     { icon: 'robot', label: 'AI Chat' },
+    // #963: the foundational trigger for a live planning session (#766).
+    // Title-bar quick action rather than a tab button -- it isn't scoped to
+    // any one view, and starting a session is meant to be reachable no
+    // matter what the PM is currently looking at.
+    { icon: 'people', label: 'Start planning session' },
 ];
 
 export const TABS = [

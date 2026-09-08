@@ -1,17 +1,19 @@
 import os
 import io
 import re
+import asyncio
 import hashlib
 import logging
 import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 import yaml
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +50,7 @@ from noodle_core import (
     import_from_msproject_xml,
 )
 import json
+from .collab_session import SessionState, collab_sessions, run_idle_sweep_forever
 from .plan_service import PlanService, export_to_file
 from .ai_service import (
     AIChatRequest,
@@ -102,10 +105,31 @@ def _resolve_templates_dir() -> Path:
 
 TEMPLATES_DIR = _resolve_templates_dir()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run the collab-session idle sweep for the lifetime of the app.
+
+    See collab_session.run_idle_sweep_forever(): a background safety net on
+    top of the lazy per-request expiry check, so a session nobody ever
+    touches again still gets torn down instead of leaking forever.
+    """
+    sweep_task = asyncio.create_task(run_idle_sweep_forever())
+    try:
+        yield
+    finally:
+        sweep_task.cancel()
+        try:
+            await sweep_task
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
     title="Noodle Planner API",
     description="Project planning and scheduling tool",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Mount static files and setup templates
@@ -1834,6 +1858,140 @@ async def ai_agent_detail(agent_id: str):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
+
+
+# ==============================================================================
+# COLLAB SESSION ROUTES (#963) -- WebSocket relay foundation for #766.
+#
+# See collab_session.py's module docstring for the full wire protocol. In
+# short: POST /api/collab/start creates a session; the host's browser then
+# opens /ws/session/{session_id}?token=... and joiners open the same
+# endpoint with no token, sending a {"type": "join", ...} handshake as their
+# first message. Everything after that is an opaque relay -- no plan
+# content is parsed, stored, or logged here.
+# ==============================================================================
+
+
+@app.post("/api/collab/start")
+async def start_collab_session():
+    """Start a new collab session and return its id, host token and join code.
+
+    Deliberately takes no request body -- there is nothing project- or
+    plan-related for the relay to know about, by design (see #766's
+    architecture constraint).
+    """
+    info = collab_sessions.create_session()
+    return {
+        "session_id": info.session_id,
+        "host_token": info.host_token,
+        "join_code": info.join_code,
+        "holding_url": info.holding_url,
+    }
+
+
+@app.get("/join/{session_id}", response_class=HTMLResponse)
+async def collab_join_page(request: Request, session_id: str):
+    """Serve the minimal joiner page: enter the code and a display name."""
+    return templates.TemplateResponse(request, "collab_join.html", {
+        "v": STATIC_VERSION,
+        "session_id": session_id,
+    })
+
+
+async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional[SessionState], str]:
+    """Read the joiner's handshake message and admit or reject them.
+
+    On rejection the socket is closed here and (None, "") is returned.
+    """
+    try:
+        raw = await websocket.receive_text()
+    except WebSocketDisconnect:
+        return None, ""
+
+    try:
+        handshake = json.loads(raw)
+    except (TypeError, ValueError):
+        handshake = None
+
+    code = handshake.get("code") if isinstance(handshake, dict) else None
+    display_name = handshake.get("display_name") if isinstance(handshake, dict) else None
+
+    if (
+        not isinstance(handshake, dict)
+        or handshake.get("type") != "join"
+        or not isinstance(code, str)
+        or not isinstance(display_name, str)
+        or not display_name.strip()
+    ):
+        await websocket.close(code=4400)
+        return None, ""
+
+    display_name = display_name.strip()[:100]
+    state = collab_sessions.join_session(session_id, code, display_name, websocket)
+    if state is None:
+        await websocket.close(code=4401)
+        return None, ""
+
+    await websocket.send_text(json.dumps({"type": "joined", "display_name": display_name}))
+    return state, display_name
+
+
+async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: str) -> None:
+    try:
+        while True:
+            message = await websocket.receive_text()
+            state.touch()
+            for joiner in list(state.joiners.values()):
+                try:
+                    await joiner.websocket.send_text(message)
+                except Exception:
+                    pass
+    except WebSocketDisconnect:
+        pass
+    finally:
+        # Only tear down if this socket is still the attached host -- a
+        # stale connection from a page refresh mustn't kill the live one.
+        if state.host is websocket:
+            await collab_sessions.teardown(session_id)
+
+
+async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id: str) -> None:
+    try:
+        while True:
+            message = await websocket.receive_text()
+            state.touch()
+            host = state.host
+            if host is not None:
+                async with state.host_send_lock:
+                    try:
+                        await host.send_text(message)
+                    except Exception:
+                        pass
+    except WebSocketDisconnect:
+        pass
+    finally:
+        collab_sessions.remove_joiner(session_id, websocket)
+
+
+@app.websocket("/ws/session/{session_id}")
+async def collab_session_ws(websocket: WebSocket, session_id: str):
+    """Host and joiner relay endpoint. See this module's header comment
+    and collab_session.py for the full handshake protocol."""
+    await websocket.accept()
+    token = websocket.query_params.get("token")
+
+    if token:
+        state = collab_sessions.attach_host(session_id, token, websocket)
+        if state is None:
+            await websocket.close(code=4401)
+            return
+        await _relay_as_host(state, websocket, session_id)
+        return
+
+    state, _display_name = await _admit_joiner(websocket, session_id)
+    if state is None:
+        return
+    await _relay_as_joiner(state, websocket, session_id)
 
 
 if __name__ == "__main__":

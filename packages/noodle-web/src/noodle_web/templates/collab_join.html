@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join planning session - Noodle Planner</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #1a1a1a;
+            --muted: #6b7280;
+            --border: #d8dce1;
+            --accent: #667eea;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #14161a;
+                --card-bg: #1e2126;
+                --text: #eef0f3;
+                --muted: #9aa1ab;
+                --border: #33373f;
+            }
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+        }
+        h1 { font-size: 1.4rem; margin: 0 0 4px; }
+        p.sub { color: var(--muted); margin: 0 0 24px; font-size: 0.9rem; }
+        label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--muted); }
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text);
+            font-size: 1rem;
+        }
+        input#joinCode { letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
+        button {
+            width: 100%;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        button:disabled { opacity: 0.6; cursor: default; }
+        #status { margin-top: 16px; font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
+        #relay { margin-top: 20px; display: none; }
+        #relayLog {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            height: 140px;
+            overflow-y: auto;
+            padding: 8px;
+            font-size: 0.8rem;
+            font-family: ui-monospace, monospace;
+        }
+        .row { display: flex; gap: 8px; margin-top: 8px; }
+        .row input { margin-bottom: 0; }
+        .row button { width: auto; padding: 8px 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Join planning session</h1>
+        <p class="sub">Enter the six-digit code your PM shared with you.</p>
+
+        <form id="joinForm">
+            <label for="joinCode">Session code</label>
+            <input id="joinCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required>
+
+            <label for="displayName">Your name</label>
+            <input id="displayName" name="display_name" maxlength="100" placeholder="Alex" required>
+
+            <button type="submit" id="joinBtn">Join session</button>
+        </form>
+        <div id="status"></div>
+
+        <div id="relay">
+            <div id="relayLog"></div>
+            <div class="row">
+                <input id="relayInput" placeholder="Send a message to the host">
+                <button type="button" id="relaySend">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = {{ session_id | tojson }};
+        const form = document.getElementById('joinForm');
+        const status = document.getElementById('status');
+        const joinBtn = document.getElementById('joinBtn');
+        const relay = document.getElementById('relay');
+        const relayLog = document.getElementById('relayLog');
+
+        function log(line) {
+            const div = document.createElement('div');
+            div.textContent = line;
+            relayLog.appendChild(div);
+            relayLog.scrollTop = relayLog.scrollHeight;
+        }
+
+        let socket = null;
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            joinBtn.disabled = true;
+            status.textContent = 'Connecting...';
+
+            const code = document.getElementById('joinCode').value.trim();
+            const displayName = document.getElementById('displayName').value.trim();
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws/session/${sessionId}`);
+
+            socket.addEventListener('open', () => {
+                socket.send(JSON.stringify({ type: 'join', code, display_name: displayName }));
+            });
+
+            socket.addEventListener('message', (event) => {
+                let parsed = null;
+                try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
+
+                if (parsed && parsed.type === 'joined') {
+                    status.textContent = `Joined as ${parsed.display_name}. Waiting for the host...`;
+                    relay.style.display = 'block';
+                    return;
+                }
+                log(`host: ${event.data}`);
+            });
+
+            socket.addEventListener('close', (event) => {
+                if (relay.style.display !== 'block') {
+                    status.textContent = 'Could not join -- check the code and try again.';
+                    joinBtn.disabled = false;
+                } else {
+                    status.textContent = 'The session ended.';
+                }
+            });
+        });
+
+        document.getElementById('relaySend').addEventListener('click', () => {
+            const input = document.getElementById('relayInput');
+            if (!socket || socket.readyState !== WebSocket.OPEN || !input.value) return;
+            socket.send(input.value);
+            log(`you: ${input.value}`);
+            input.value = '';
+        });
+    </script>
+</body>
+</html>
