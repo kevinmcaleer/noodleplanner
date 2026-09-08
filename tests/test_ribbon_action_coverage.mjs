@@ -28,21 +28,35 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { TABS, CONTEXTUAL_TABS } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
+import {
+  TABS, CONTEXTUAL_TABS, PORTFOLIO_TABS, PROGRAMME_TABS,
+} from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const ribbonSrc = readFileSync(`${repo}/packages/noodle-web/src/noodle_web/static/ribbon.js`, "utf8");
 
-/** Every (scopeId, label) pair the design actually renders a button for. */
+/** Every (scopeId, label) pair the design actually renders a button for --
+ * every scope's tab set: Project (TABS), Portfolio (PORTFOLIO_TABS),
+ * Programme (PROGRAMME_TABS), plus the contextual tabs shared across all
+ * three scopes. */
 function allButtons() {
   const out = [];
-  for (const scope of [...TABS, ...CONTEXTUAL_TABS]) {
+  for (const scope of [...TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS, ...CONTEXTUAL_TABS]) {
     for (const g of scope.groups) {
-      for (const b of g.lg || []) out.push({ scopeId: scope.id, label: b[1] });
-      for (const col of g.cols || []) for (const b of col) out.push({ scopeId: scope.id, label: b[1] });
+      for (const b of g.lg || []) out.push({ scopeId: scope.id, label: b[1], flag: b[2] });
+      for (const col of g.cols || []) for (const b of col) out.push({ scopeId: scope.id, label: b[1], flag: b[2] });
     }
   }
   return out;
+}
+
+/** A 'link:<url>' 3rd tuple element (#909 ribbon-parity follow-up) marks a
+ * button as a plain external <a>, rendered and clicked without ever going
+ * through resolveAction()/the tables below by design -- see ribbon.js's
+ * renderButton()/linkHrefFor(). Not a stub: it already does the real thing
+ * (opens the URL), it just isn't -- and shouldn't be -- in these tables. */
+function isLinkButton(flag) {
+  return typeof flag === "string" && flag.startsWith("link:");
 }
 
 /** Labels ribbon.js's resolver can currently handle, extracted from its
@@ -85,8 +99,11 @@ const DELIBERATE_STUBS = new Set([
   "Add Card", "Edit", "Assign", "Add Column", "Rename", "WIP Limit", "Close", "Escalate",
   // Whiteboard canvas tools (need a selected object/tool state).
   "Align", "Distribute", "Lock", "Colour", "Connector", "Note", "Shape", "Text", "To PBS", "To Tasks",
-  // Features that don't exist in the app yet.
-  "Add Programme", "Add Project", "Weighting", "Rebaseline", "Snapshot", "Capacity",
+  // Features that don't exist in the app yet. ("Add Project" and "Capacity"
+  // used to be here too -- #938 audit found both actually have real
+  // functions (showCreateProjectDialog, the Team Allocation view) and wired
+  // them instead of leaving them as stale stubs.)
+  "Add Programme", "Weighting", "Rebaseline", "Snapshot",
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
   "Slack", "Sync", "Split View", "Preview", "Zoom", "Filter", "Sort", "Group", "Sheet",
   // No dedicated function exists (checked: grepped the codebase, found none).
@@ -95,13 +112,19 @@ const DELIBERATE_STUBS = new Set([
   "Influence", "Interest", "Owner", "Grid",
   "Categorise", "Tag", "Link to Risk", "Review", "Publish",
   "Escalations", "Profiles", "Realisation", "Forecast",
+  // Programme scope (#936/#909): Programmes aren't built yet (#731/#910).
+  // PROGRAMME_TABS is a deliberately small, honestly-labelled placeholder --
+  // every button in it is intentionally a stub rather than the ribbon
+  // pretending programme features exist. See ribbon-ia.js's PROGRAMME_TABS
+  // comment for the full reasoning.
+  "Programme View", "Cross-Project Links", "Shared Capacity",
 ]);
 
-test("every button label is either resolvable or an explicit, reviewed stub", () => {
+test("every button label is either resolvable, a link button, or an explicit, reviewed stub", () => {
   const known = extractKnownLabels();
   const unaccounted = [];
-  for (const { scopeId, label } of allButtons()) {
-    if (known.has(label) || DELIBERATE_STUBS.has(label)) continue;
+  for (const { scopeId, label, flag } of allButtons()) {
+    if (isLinkButton(flag) || known.has(label) || DELIBERATE_STUBS.has(label)) continue;
     unaccounted.push(`${scopeId}: "${label}"`);
   }
   assert.deepEqual(unaccounted, [], `unaccounted-for labels (neither wired nor a reviewed stub):\n${unaccounted.join("\n")}`);
@@ -111,6 +134,15 @@ test("DELIBERATE_STUBS has no dead entries -- every stub label is still used som
   const used = new Set(allButtons().map((b) => b.label));
   const dead = [...DELIBERATE_STUBS].filter((label) => !used.has(label));
   assert.deepEqual(dead, [], `stub labels no longer used by any button (remove from the allowlist): ${dead.join(", ")}`);
+});
+
+test("no link: button label is also in DELIBERATE_STUBS or the resolvable tables", () => {
+  const known = extractKnownLabels();
+  for (const { label, flag } of allButtons()) {
+    if (!isLinkButton(flag)) continue;
+    assert.ok(!DELIBERATE_STUBS.has(label), `"${label}" is a link button but also listed as a stub`);
+    assert.ok(!known.has(label), `"${label}" is a link button but also resolvable -- remove the redundant table entry`);
+  }
 });
 
 test("no label is both wired and marked as a deliberate stub", () => {

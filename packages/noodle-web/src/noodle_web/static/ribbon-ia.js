@@ -10,6 +10,21 @@
  *
  * Pure data: no DOM, no behaviour. ribbon.js resolves each label to a real
  * action and renders this against live state.
+ *
+ * A button tuple's third element can also be `'link:<url>'` (#909
+ * ribbon-parity follow-up) -- this marks the button as a plain external
+ * link rather than a command: ribbon.js renders it as an `<a target="_blank"
+ * rel="noopener">` instead of a `<button>`, with no action resolution, no
+ * active/stub state, and no re-render on click. Used for the "Docs" button.
+ *
+ * `TABS` is the Project-scope tab set (the original, unchanged). Portfolio
+ * scope (#936) gets its own tab set, `PORTFOLIO_TABS`, surfacing the
+ * already-shipped `portfolio*.js` views in the same shape. Programme scope
+ * has no real functionality yet (programmes aren't built -- see #731/#910),
+ * so `PROGRAMME_TABS` is a small, honestly-labelled placeholder whose
+ * buttons are deliberate "not available yet" stubs rather than a ribbon
+ * that pretends programme features exist. `tabsForScope()` is the single
+ * place that picks which set renders for a given scope id.
  */
 
 export const SCOPES = [
@@ -34,16 +49,20 @@ export const QUICK_ACTIONS = [
     { icon: 'refresh', label: 'Undo' },
     { icon: 'add', label: 'New task' },
     { icon: 'print', label: 'Print' },
+    // Kept in the always-visible title bar (not tucked into a tab), matching
+    // how prominently the old top nav placed its AI toggle button (#909
+    // ribbon-parity follow-up).
+    { icon: 'robot', label: 'AI Chat' },
 ];
 
 export const TABS = [
     {
         id: 'home', label: 'Home',
         groups: [
-            { name: 'Plan', launcher: true, lg: [['task-list', 'New Task'], ['milestones', 'Milestone']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
+            { name: 'Plan', launcher: true, lg: [['project-report', 'Dashboard'], ['task-list', 'New Task'], ['milestones', 'Milestone']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
             { name: 'Views', lg: [['gantt-chart', 'Gantt'], ['board', 'Board']], cols: [[['timeline', 'Timeline'], ['calendar', 'Calendar']], [['task-list', 'Tasks'], ['grid', 'Sheet']]] },
             { name: 'Track', launcher: true, lg: [['raid-log', 'RAID']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['search', 'Lookahead'], ['warn', 'Escalations']]] },
-            { name: 'Report', launcher: true, lg: [['project-report', 'Report']], cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
+            { name: 'Report', launcher: true, cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
         ],
     },
     {
@@ -85,10 +104,84 @@ export const TABS = [
         groups: [
             { name: 'Layout', lg: [['grid', 'Split View']], cols: [[['task-list', 'Editor'], ['doc', 'Preview']]] },
             { name: 'Show', launcher: true, lg: [['filter', 'Filter']], cols: [[['sort', 'Sort'], ['pin', 'Group']], [['milestones', 'Milestones'], ['link', 'Deps']]] },
-            { name: 'Window', lg: [['settings', 'Settings']], cols: [[['refresh', 'Dark Mode'], ['search', 'Zoom', 'caret']]] },
+            // "System Theme" (#909 ribbon-parity follow-up) replicates the old
+            // top nav's 3-way Light/Dark/System theme menu's third option --
+            // see setThemeChoice('system') in theme.js. "AI Settings" opens the
+            // same modal the old nav's AI button opened when unconfigured;
+            // grouped here with the app's other configuration/meta controls
+            // (Settings, theme, zoom) rather than with any one project view.
+            { name: 'Window', lg: [['settings', 'Settings']], cols: [[['refresh', 'Dark Mode'], ['monitor', 'System Theme']], [['search', 'Zoom', 'caret'], ['robot', 'AI Settings']]] },
+            // "Help" (#909 ribbon-parity follow-up): the old top nav's Tools >
+            // Syntax Guide item and its standalone Docs link, which had no
+            // ribbon equivalent before this. Docs is a plain external link, not
+            // a command -- see the 'link:' button-flag convention below.
+            { name: 'Help', cols: [[['doc', 'Syntax Guide'], ['external', 'Docs', 'link:https://docs.noodleplanner.com']]] },
         ],
     },
 ];
+
+/**
+ * Portfolio scope (#936). Surfaces the already-built portfolio-level
+ * views (portfolio.js's `switchPortfolioView()` sub-nav: Projects, Status,
+ * Team Allocation, Timeline, Actions, Risks, Look-Ahead, Dependencies,
+ * Benefits, Lessons) plus the two portfolio-wide dialogs (New Project,
+ * Import Project) and the portfolio report export, all of which already
+ * exist in portfolio*.js -- nothing here is new functionality, only new
+ * ribbon entry points onto it.
+ */
+export const PORTFOLIO_TABS = [
+    {
+        id: 'pf-home', label: 'Home',
+        groups: [
+            { name: 'Projects', launcher: true, lg: [['portfolio', 'Projects'], ['add', 'New Project']], cols: [[['upload', 'Import Project'], ['project-report', 'Status']]] },
+            { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
+        ],
+    },
+    {
+        id: 'pf-plan', label: 'Plan',
+        groups: [
+            { name: 'Schedule', launcher: true, lg: [['timeline', 'Timeline']], cols: [[['search', 'Look-Ahead'], ['link', 'Dependencies']]] },
+            { name: 'Capacity', lg: [['resources', 'Team Allocation']], cols: [[['refresh', 'Level Team']]] },
+        ],
+    },
+    {
+        id: 'pf-track', label: 'Track',
+        groups: [
+            { name: 'RAID & Benefits', launcher: true, lg: [['flag', 'Risks']], cols: [[['target', 'Benefits'], ['bulb', 'Lessons']]] },
+        ],
+    },
+];
+
+/**
+ * Programme scope (#936). Programmes -- a set of projects with a master
+ * Gantt, cross-project dependencies, escalations and shared capacity --
+ * are a detailed but not-yet-built epic (#731) with a competing,
+ * also-not-built proposal (#910). Building this scope out today would mean
+ * either faking functionality that doesn't exist, or silently reusing
+ * Project scope's tabs under a "Programme" label that promises something
+ * different (the scope pill's own blurb: "A set of projects: master Gantt,
+ * cross-project dependencies, escalations, shared capacity") -- both are
+ * more misleading than admitting the gap. So this is a deliberately small,
+ * honestly-labelled placeholder: every button here is a reviewed stub (see
+ * DELIBERATE_STUBS in tests/test_ribbon_action_coverage.mjs) that shows a
+ * "not available yet" toast, same as any other not-yet-built button
+ * elsewhere in the ribbon -- nothing here pretends to work.
+ */
+export const PROGRAMME_TABS = [
+    {
+        id: 'programme-home', label: 'Home',
+        groups: [
+            { name: 'Programme', lg: [['board', 'Programme View']], cols: [[['link', 'Cross-Project Links'], ['warn', 'Escalations']], [['resources', 'Shared Capacity']]] },
+        ],
+    },
+];
+
+/** Which tab set renders for a given scope id (the ribbon-scope-btn value). */
+export function tabsForScope(scopeId) {
+    if (scopeId === 'portfolio') return PORTFOLIO_TABS;
+    if (scopeId === 'programme') return PROGRAMME_TABS;
+    return TABS;
+}
 
 export const CONTEXTUAL_TABS = [
     {

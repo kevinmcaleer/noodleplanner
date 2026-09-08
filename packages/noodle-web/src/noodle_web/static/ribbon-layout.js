@@ -48,3 +48,38 @@ export function fitGroups(groupWidths, containerWidth, moreWidth) {
 
     return { visible, overflow };
 }
+
+/**
+ * The simple ribbon's (#955) text-fits-or-icon-only decision: "just shows
+ * the icons (and text if that fits)". Unlike fitGroups() -- which drops
+ * whole groups into a "More" popover -- a button here is never hidden; it
+ * only ever loses its label and falls back to its narrower icon-only width.
+ *
+ * Greedy left-to-right, same ordering guarantee as fitGroups(): once one
+ * button's label doesn't fit the remaining budget, every button after it
+ * also goes icon-only, so a later, shorter label can never "jump ahead" of
+ * an earlier one that lost its text -- that would read as an arbitrary
+ * decision rather than a simple left-to-right degradation as the row runs
+ * out of room.
+ *
+ * @param {{iconWidth: number, fullWidth: number}[]} buttons - each button's
+ *   icon-only width and its full (icon+label) width, in display order.
+ * @param {number} containerWidth - available width for the whole row.
+ * @returns {boolean[]} per button, true = show the label, false = icon-only.
+ */
+export function fitLabels(buttons, containerWidth) {
+    const showLabel = [];
+    let used = 0;
+    let stillFitting = true;
+    for (const { iconWidth, fullWidth } of buttons) {
+        if (stillFitting && used + fullWidth <= containerWidth) {
+            used += fullWidth;
+            showLabel.push(true);
+        } else {
+            stillFitting = false;
+            used += iconWidth;
+            showLabel.push(false);
+        }
+    }
+    return showLabel;
+}

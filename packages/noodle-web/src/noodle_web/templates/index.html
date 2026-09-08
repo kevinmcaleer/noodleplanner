@@ -51,8 +51,23 @@
                             });
                         }
 
+                        // Check right away too, not just on future events -- a
+                        // tab left open across a deploy (or a burst of several
+                        // deploys close together) previously had to wait for a
+                        // visibility change, an online event, or up to an hour
+                        // before it would even notice, which is why a browser
+                        // could sit on a stale, partially-updated page for a
+                        // while after a deploy. Cheap: /sw.js is one small file.
+                        checkForUpdate();
+
                         // Installed PWAs can stay open for days. Check again
-                        // when reopened and hourly while actively in use.
+                        // when reopened, when back online, and periodically
+                        // while actively in use (every 15 minutes rather than
+                        // hourly, so a burst of deploys close together -- like
+                        // several in one session -- gets caught reasonably
+                        // promptly instead of leaving a tab stale for up to an
+                        // hour; static assets are exempt from the app's rate
+                        // limiter, so the extra checks cost nothing there).
                         document.addEventListener('visibilitychange', function () {
                             if (document.visibilityState === 'visible') {
                                 checkForUpdate();
@@ -63,7 +78,7 @@
                             if (document.visibilityState === 'visible') {
                                 checkForUpdate();
                             }
-                        }, 60 * 60 * 1000);
+                        }, 15 * 60 * 1000);
                     }).catch(function (err) {
                         console.warn('Service worker registration failed:', err);
                     });
@@ -296,78 +311,28 @@
         <symbol id="icon-money" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v12M14.5 9.5c0-1.4-1.1-2-2.5-2s-2.5.6-2.5 2S10 12 12 12s2.5.6 2.5 2-1.1 2-2.5 2-2.5-.6-2.5-2"/></symbol>
         <symbol id="icon-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></symbol>
         <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+        <!-- Added for ribbon parity with the removed old top nav (AI Settings/AI Chat, System theme, Docs link) -->
+        <symbol id="icon-robot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="14" r="1.5"/><circle cx="15" cy="14" r="1.5"/><path d="M12 8V4M9 4h6"/></symbol>
+        <symbol id="icon-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></symbol>
+        <symbol id="icon-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M6 6H4v14h14v-8"/></symbol>
       </defs>
     </svg>
 
     <a href="#main-content" class="skip-to-content">Skip to content</a>
     <div class="container-fluid m-0 p-0">
         <div class="content" id="main-content" role="main">
-            <div class="tabs" role="tablist" aria-label="Main navigation">
-                <a href="https://www.noodleplanner.com" class="text-decoration-none"><img src="/logo.png" alt="Noodle Planner" class="nav-logo"></a>
-                <span id="projectBreadcrumb" class="project-breadcrumb" style="display:none;">
-                    <span class="breadcrumb-separator">/</span>
-                    <span id="projectBreadcrumbName" class="breadcrumb-project-name"></span>
-                </span>
-                <button class="tab" id="portfolioTab" onclick="switchTab('portfolio')" role="tab" aria-selected="false" aria-controls="portfolio-tab">
-                    <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-portfolio"/></svg> Portfolio
-                </button>
-                <button class="tab active" id="planTab" onclick="switchToProjectNav()" role="tab" aria-selected="true" aria-controls="editor-tab">
-                    Project
-                </button>
-                <a href="https://docs.noodleplanner.com" target="_blank" rel="noopener noreferrer"
-                   class="tab text-decoration-none" aria-label="Open documentation (opens in new tab)"
-                   title="Documentation">
-                    <i class="bi bi-book" aria-hidden="true"></i> Docs
-                </a>
-                <!-- Search box (routes to the Search results view) -->
-                <div class="np-nav-search" style="margin-left: auto;">
-                    <i class="bi bi-search np-nav-search-icon" aria-hidden="true"></i>
-                    <input type="search"
-                           id="navSearchInput"
-                           class="np-nav-search-input"
-                           placeholder="Search this project…"
-                           aria-label="Search project"
-                           autocomplete="off">
-                </div>
-                <!-- AI button -->
-                <div class="ai-btn-wrapper" style="position: relative;">
-                    <button class="ai-toggle-btn" id="aiToggleBtn"
-                            onclick="onAIButtonClick()"
-                            aria-label="AI Assistant"
-                            title="AI Assistant">
-                        <i class="bi bi-robot" aria-hidden="true"></i>
-                        <span class="ai-configured-dot" id="aiConfiguredDot" style="display:none;" aria-hidden="true"></span>
-                    </button>
-                </div>
-                <!-- Theme toggle -->
-                <div class="theme-toggle-wrapper" style="position: relative;">
-                    <button class="theme-toggle-btn" id="themeToggleBtn"
-                            onclick="toggleThemeMenu(event)"
-                            aria-haspopup="true" aria-expanded="false"
-                            aria-controls="themeMenu"
-                            aria-label="Change colour theme"
-                            title="Change colour theme">
-                        <i class="bi bi-sun-fill" id="themeIcon"></i>
-                    </button>
-                    <div class="theme-menu" id="themeMenu" role="menu" aria-label="Theme options">
-                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
-                             data-theme-choice="light" onclick="setThemeChoice('light')">
-                            <i class="bi bi-sun-fill"></i> Light
-                            <span class="theme-check" aria-hidden="true"></span>
-                        </div>
-                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
-                             data-theme-choice="dark" onclick="setThemeChoice('dark')">
-                            <i class="bi bi-moon-fill"></i> Dark
-                            <span class="theme-check" aria-hidden="true"></span>
-                        </div>
-                        <div class="theme-menu-item" role="menuitem" tabindex="-1"
-                             data-theme-choice="system" onclick="setThemeChoice('system')">
-                            <i class="bi bi-display"></i> System
-                            <span class="theme-check" aria-hidden="true"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- The old top nav bar (logo, Portfolio/Project tabs, Docs link, search
+                 box, AI toggle, theme menu) was removed once the ribbon (#833/#909)
+                 gained equivalents for all of it -- see PR for the fix/ribbon-parity
+                 branch for the full mapping. #projectBreadcrumb/#projectBreadcrumbName
+                 are kept, permanently hidden (see layout.css), purely as the data
+                 source ribbon.js's title bar (updateDocTitleAndAvatar) and
+                 views-search.js's getCurrentProjectName() read the current project
+                 name from -- do not delete these two elements without updating both. -->
+            <span id="projectBreadcrumb" class="project-breadcrumb" style="display:none;">
+                <span class="breadcrumb-separator">/</span>
+                <span id="projectBreadcrumbName" class="breadcrumb-project-name"></span>
+            </span>
 
             <!-- Project Sub-Navigation Bar (shared across all project views) -->
             <!-- Superseded by the ribbon (#833 follow-up, design handoff "Ribbon Toolbar
@@ -579,7 +544,7 @@
                 <div class="np-context-loading-text">Loading...</div>
             </div>
 
-            <div id="editor-tab" class="tab-content active" role="tabpanel" aria-labelledby="planTab">
+            <div id="editor-tab" class="tab-content active" role="tabpanel">
                 <div class="editor-layout">
                     <div class="editor-panel">
                         {% include '_editor_toolbar.html' %}
@@ -1756,7 +1721,7 @@ Press Enter to render..."></textarea>
                 </div>
             </div>
 
-            <div id="kanban-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="kanban-tab" class="tab-content" role="tabpanel">
                 <div class="message" id="kanbanMessage"></div>
                 <div class="kanban-layout">
                     <!-- Collapsible Editor Panel -->
@@ -1826,7 +1791,7 @@ Changes here are synced automatically."></textarea>
                 </div>
             </div>
 
-            <div id="guide-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="guide-tab" class="tab-content" role="tabpanel">
                 <div class="syntax-guide">
                     <h3>Plan Format Guide</h3>
 
@@ -1889,7 +1854,7 @@ Build
             </div>
 
             <!-- RAID Log Tab -->
-            <div id="raid-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="raid-tab" class="tab-content" role="tabpanel">
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
@@ -1972,7 +1937,7 @@ Build
             </div>
 
             <!-- Comms Plan Tab -->
-            <div id="comms-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="comms-tab" class="tab-content" role="tabpanel">
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
@@ -2023,7 +1988,7 @@ Build
             </div>
 
             <!-- Lessons Learned Tab (issue #598) -->
-            <div id="lessons-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="lessons-tab" class="tab-content" role="tabpanel">
                 <div class="raid-container">
                     <!-- Toolbar -->
                     <div class="raid-toolbar">
@@ -2098,7 +2063,7 @@ Build
             </div>
 
             <!-- Budget Tracker Tab -->
-            <div id="budget-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="budget-tab" class="tab-content" role="tabpanel">
                 <div class="budget-container">
                     <!-- Toolbar -->
                     <div class="budget-toolbar">
@@ -2206,7 +2171,7 @@ Build
             </div>
 
             <!-- Actions Tracker Tab -->
-            <div id="actions-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="actions-tab" class="tab-content" role="tabpanel">
                 <div class="actions-container">
                     <!-- Tasks View -->
                     <div id="actionsTasksView" class="actions-view active">
@@ -2271,7 +2236,7 @@ Build
             </div>
 
             <!-- Search Results Tab -->
-            <div id="search-tab" class="tab-content" role="tabpanel" aria-labelledby="planTab">
+            <div id="search-tab" class="tab-content" role="tabpanel">
                 <div class="search-view-container">
                     <div class="search-view-header">
                         <h2 class="search-view-title">
@@ -2305,7 +2270,7 @@ Build
             </div>
 
             <!-- Portfolio Tab -->
-            <div id="portfolio-tab" class="tab-content" role="tabpanel" aria-labelledby="portfolioTab">
+            <div id="portfolio-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
                     <!-- Consolidated header: plan selector, tab buttons, and actions menu -->
                     <div class="portfolio-header">

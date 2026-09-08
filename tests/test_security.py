@@ -192,6 +192,33 @@ class TestRateLimiting:
             assert limited
             assert retry > 0
 
+    def test_static_assets_are_exempt_from_rate_limiting(self):
+        """A single page load pulls 50+ files under /static/ (whiteboard,
+        ribbon, task-peek, ...); counting each against the same budget as
+        API calls meant two page loads within the window could exhaust it
+        and 429 the rest of the page load outright -- including ribbon.js
+        itself, which made the ribbon (and everything else) appear to
+        silently break. Static assets must never be rate-limited."""
+        from noodle_web.security import reset_rate_limit_store
+
+        reset_rate_limit_store()
+
+        with patch("noodle_web.security.RATE_LIMIT_REQUESTS", 1):
+            from noodle_web import app
+
+            test_client = TestClient(app)
+            # Exhaust the (artificially tiny) budget on a non-static path.
+            resp = test_client.get("/health")
+            assert resp.status_code == 200
+            resp = test_client.get("/health")
+            assert resp.status_code == 429
+
+            # Static assets must still succeed even though the budget is spent.
+            resp = test_client.get("/static/ribbon.js")
+            assert resp.status_code == 200
+            resp = test_client.get("/static/ribbon.js")
+            assert resp.status_code == 200
+
     def test_different_ips_have_separate_limits(self):
         """Each IP should have its own counter."""
         from noodle_web.security import _is_rate_limited, reset_rate_limit_store

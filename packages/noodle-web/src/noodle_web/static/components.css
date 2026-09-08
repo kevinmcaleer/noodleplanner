@@ -5780,7 +5780,6 @@ tr:hover .task-context-btn,
    Accessibility: focus-visible outlines
    ======================================== */
 .nav-menu-item:focus-visible,
-.tab:focus-visible,
 .plan-subnav-btn:focus-visible {
     outline: 2px solid var(--np-blue);
     outline-offset: -2px;
@@ -7310,7 +7309,10 @@ tr:hover .task-context-btn,
     min-width: 8px;
 }
 
-.ribbon-search {
+/* #909 ribbon-parity follow-up: was a decorative <button>, now a real
+ * <input> (see ribbon.js's renderSearchBox()) wired to the project search
+ * that used to live in the old top nav's #navSearchInput. */
+.ribbon-search-wrap {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -7321,16 +7323,41 @@ tr:hover .task-context-btn,
     color: #cfe0e7;
     font-size: 11px;
     white-space: nowrap;
-    border: none;
-    font-family: inherit;
-    cursor: pointer;
+    max-width: 240px;
+    flex: 0 1 240px;
+    min-width: 0;
 }
 
-.ribbon-search svg {
+.ribbon-search-wrap svg {
     fill: none;
     stroke: currentColor;
     stroke-width: 1.6;
     stroke-linecap: round;
+    flex-shrink: 0;
+}
+
+.ribbon-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    font-family: inherit;
+}
+
+.ribbon-search-input::placeholder {
+    color: #cfe0e7;
+}
+
+.ribbon-search-input:focus {
+    outline: none;
+}
+
+.ribbon-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .ribbon-avatar {
@@ -7509,6 +7536,26 @@ tr:hover .task-context-btn,
     padding: 0 2px;
     border-right: 1px solid rgba(2, 56, 77, 0.13);
     flex-shrink: 0;
+}
+
+/* Main-tab-switch entrance (#937): the same fade used for a contextual
+ * tab/popover appearing (ribbonCtxIn), but a left-to-right slide since this
+ * is a horizontal tab switch rather than a dropdown opening. Applied by
+ * ribbon.js only on an actual tab or scope-pill change (see
+ * ribbonState.animateTabSwitch), not on every re-render. Each group's
+ * entrance is staggered slightly left-to-right across the ribbon body. */
+.ribbon-group-tab-in {
+    animation: ribbonTabIn 0.18s ease both;
+}
+
+.ribbon-group-tab-in:nth-child(2) { animation-delay: 0.02s; }
+.ribbon-group-tab-in:nth-child(3) { animation-delay: 0.04s; }
+.ribbon-group-tab-in:nth-child(4) { animation-delay: 0.06s; }
+.ribbon-group-tab-in:nth-child(5) { animation-delay: 0.08s; }
+
+@keyframes ribbonTabIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: none; }
 }
 
 .ribbon-group-row {
@@ -7695,4 +7742,209 @@ tr:hover .task-context-btn,
 
 .ribbon-more-popover .ribbon-group-row {
     flex-wrap: wrap;
+}
+
+/* -- 3c. Ribbon body: simple density (#955) --
+   A single dense row, closer to Office's "Simplified Ribbon" than the full
+   multi-row groups above: one row of compact icon(+label) buttons per tab,
+   with a plain vertical rule between what are separate .ribbon-group boxes
+   in full density (border-right on .ribbon-simple-group -- same convention
+   .ribbon-group already uses for its own divider, just without the caption
+   row underneath, since there's no room for one). See ribbon.js's
+   renderSimpleGroup()/renderSimpleButton() for the markup this styles. */
+.ribbon-body.ribbon-body-simple {
+    height: 40px;
+    padding: 0 6px;
+}
+
+.ribbon-simple-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    border-right: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+.ribbon-simple-group:last-child {
+    border-right: none;
+}
+
+.ribbon-simple-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ribbon-simple-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.ribbon-simple-btn:hover:not(:disabled) {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+.ribbon-simple-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Toggled by ribbon.js's applySimpleBody() (fitLabels(), ribbon-layout.js)
+   once the row runs out of room for every button's label -- "icons, and
+   text if it fits". Fixed width so the JS's SIMPLE_ICON_ONLY_WIDTH constant
+   matches what actually gets measured back. */
+.ribbon-simple-btn.icon-only {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+}
+
+.ribbon-simple-btn.icon-only .ribbon-simple-btn-label {
+    display: none;
+}
+
+/* Simple density's own compact "More" tile (applySimpleBody()'s fallback,
+   only reached once even icon-only buttons don't all fit) -- same role as
+   the full ribbon's `.ribbon-more` above, just sized to match this row's
+   28px-tall buttons instead of the full ribbon's 98px-tall groups. */
+.ribbon-body-simple .ribbon-more {
+    width: 34px;
+    padding: 0;
+    margin-left: auto;
+    justify-content: center;
+    border-left: 1px solid rgba(2, 56, 77, 0.13);
+    flex-shrink: 0;
+}
+
+.ribbon-body-simple .ribbon-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid #cfdde3;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+}
+
+.ribbon-body-simple .ribbon-more-btn:hover {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+/* -- 3d. "Ribbon Display Options" dropdown (#955) --
+   Pinned to the bottom-right corner of the ribbon body in both densities --
+   `order` + `margin-left:auto` place it at the row's right edge,
+   `align-self:flex-end` pins it to the row's bottom edge (see
+   ribbon.js's renderDisplayToggle() for the full placement rationale). */
+.ribbon-display-toggle {
+    position: relative;
+    order: 20;
+    margin-left: auto;
+    align-self: flex-end;
+    flex-shrink: 0;
+}
+
+.ribbon-display-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 20px;
+    padding: 0 6px;
+    margin: 0 2px 4px 0;
+    background: transparent;
+    border: 1px solid #cfdde3;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #6b7b83;
+}
+
+.ribbon-body-simple .ribbon-display-toggle-btn {
+    margin-bottom: 0;
+}
+
+.ribbon-display-toggle-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ribbon-display-toggle-btn:hover {
+    background: #e2f0f7;
+    border-color: #b6dced;
+}
+
+/* Positioned via inline style (right/bottom) set by ribbon.js's
+   renderDisplayMenu() -- appended straight to .ribbon-shell rather than
+   nested inside the toggle button, so it isn't clipped by .ribbon-body's
+   `overflow: hidden` in either density (see renderDisplayMenu()'s comment). */
+.ribbon-display-menu {
+    position: absolute;
+    width: 160px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #d8e1e5;
+    border-radius: 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    z-index: 7;
+    animation: ribbonCtxIn 0.16s ease both;
+}
+
+.ribbon-display-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--np-dark-blue);
+    font-weight: 400;
+    font-size: 11.5px;
+    line-height: 1;
+    font-family: inherit;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.ribbon-display-menu-item:hover {
+    background: #e2f0f7;
+}
+
+.ribbon-display-menu-item.selected {
+    font-weight: 600;
+}
+
+.ribbon-display-menu-item-check {
+    display: inline-block;
+    width: 12px;
+    flex-shrink: 0;
+    font-size: 11px;
+    text-align: center;
 }
