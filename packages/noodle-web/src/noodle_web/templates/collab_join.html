@@ -157,6 +157,13 @@
         let connectKey = null;
         let keyPair = null;
         let sessionKey = null; // established once the host's pubkey is verified
+        let heartbeatInterval = null;
+
+        // #966: how often this joiner tells the relay (and, via it, the
+        // host's presence panel) it's still here. See collab_session.py's
+        // JOINER_ACTIVE_WINDOW_SECONDS docstring for the matching
+        // three-missed-beats tolerance on the reading side.
+        const HEARTBEAT_INTERVAL_MS = 15000;
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -193,6 +200,16 @@
                 try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
 
                 if (parsed && parsed.type === 'joined') {
+                    // #966: start telling the host's presence panel we're
+                    // still here. Cleared on close (below), never left
+                    // running against a dead socket.
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = setInterval(() => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({ type: 'heartbeat' }));
+                        }
+                    }, HEARTBEAT_INTERVAL_MS);
+
                     // The #963 admission ack -- not part of #964's
                     // encryption envelope scheme (it's not one of
                     // classifyFrameType's known types), so it's handled
@@ -269,6 +286,8 @@
                 sessionKey = null;
                 keyPair = null;
                 connectKey = null;
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
                 relay.style.display = 'none';
                 relayLog.innerHTML = '';
                 joinBtn.disabled = false;

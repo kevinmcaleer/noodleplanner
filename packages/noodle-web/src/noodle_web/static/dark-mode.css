@@ -2817,3 +2817,33 @@ body {
     background: #e8e8e8;
     color: #1a1a1a;
 }
+
+/* ── Collab session presence panel (dark) — #966 ─────────────────────── */
+[data-theme="dark"] .collab-presence-list {
+    border-color: var(--np-border);
+}
+
+[data-theme="dark"] .collab-presence-empty {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .collab-presence-row:hover {
+    background: var(--np-surface-alt);
+}
+
+[data-theme="dark"] .collab-presence-dot.inactive {
+    background: var(--np-border);
+}
+
+[data-theme="dark"] .collab-presence-name {
+    color: var(--np-text);
+}
+
+[data-theme="dark"] .collab-presence-kick {
+    color: var(--np-text-muted);
+}
+
+[data-theme="dark"] .collab-presence-kick:hover {
+    color: #e05252;
+    background: rgba(224, 82, 82, 0.15);
+}

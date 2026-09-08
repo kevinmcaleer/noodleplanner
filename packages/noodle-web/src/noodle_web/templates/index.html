@@ -4240,6 +4240,11 @@ Build
                         <label for="collabSessionUrl">Holding link (share with your team)</label>
                         <input type="text" id="collabSessionUrl" readonly onclick="this.select()">
                     </div>
+                    <!-- #966: host presence panel -- rendered by collab-session.js's renderPresencePanel() -->
+                    <div class="ai-settings-field">
+                        <label>Who's here</label>
+                        <div id="collabPresenceList" class="collab-presence-list"></div>
+                    </div>
                     <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem;"></div>
                     <!-- #965: host-initiated explicit end -- see collab-session.js's endCollabSession() -->
                     <button type="button" class="btn btn-outline-danger btn-sm" style="margin-top:12px;" onclick="endCollabSession()">

@@ -133,6 +133,12 @@ class TestRelayOnlySeesCiphertext:
                 ack = recv_and_capture(joiner_ws)
                 assert json.loads(ack) == {"type": "joined", "display_name": "Alice"}
 
+                # #966 presence_join notification, fired to the host on
+                # admission -- not plan content, so it's fine that it's
+                # captured too (see the leak assertions below, which only
+                # check for the actual secrets/content fragments).
+                recv_and_capture(host_ws)
+
                 # The cached host_pubkey announcement, forwarded on admission.
                 host_pubkey_msg = recv_and_capture(joiner_ws)
                 host_pubkey_b64 = joiner.parse_announcement("host_pubkey", host_pubkey_msg)

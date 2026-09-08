@@ -87,6 +87,30 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   ``CLOSE_*``/``CLOSE_REASON_*`` pair (below) instead of a bare close, so a
   joiner's browser can tell *why* the session ended and show a specific
   explanation rather than a generic one.
+- #966 (host presence panel): three new control messages, all peeked-at by
+  ``type`` only (never interpreted further), following the exact pattern
+  ``_maybe_cache_host_pubkey``/``_is_end_session_message`` already
+  established. None of these ever reach a *joiner* -- presence is
+  host-only, per the issue's own scope.
+
+  - Relay -> host, synthesized on admission / disconnect (never sent by a
+    browser): ``{"type": "presence_join", "joiner_id", "display_name"}``
+    and ``{"type": "presence_leave", "joiner_id"}``.
+  - Joiner -> relay -> host: ``{"type": "heartbeat"}`` sent periodically by
+    collab_join.html once joined. The relay never forwards the heartbeat
+    itself as content -- it updates ``Joiner.last_active`` and forwards a
+    ``{"type": "presence_heartbeat", "joiner_id"}`` notification instead,
+    so the host's own JS can track "last seen" per participant and decide
+    active/inactive locally (a live countdown needs no further chatter from
+    the server between heartbeats).
+  - Host -> relay: ``{"type": "kick", "joiner_id"}``. The relay intercepts
+    this rather than relaying it as content: it looks the joiner up by
+    ``joiner_id`` (see ``SessionManager.remove_joiner_by_id`` -- never
+    ``id(websocket)``, which is a CPython implementation detail with no
+    business crossing the wire), removes them, and closes their socket with
+    ``CLOSE_KICKED``/``CLOSE_REASON_KICKED`` so their page shows a specific
+    "removed by the host" explanation via the exact same ``event.reason``
+    mechanism #965 already built for the other teardown reasons.
 """
 
 from __future__ import annotations
@@ -133,6 +157,21 @@ CLOSE_HOST_DISCONNECTED = 4411
 CLOSE_REASON_HOST_DISCONNECTED = "Host disconnected."
 CLOSE_IDLE_TIMEOUT = 4412
 CLOSE_REASON_IDLE_TIMEOUT = "Session expired after being idle too long."
+CLOSE_KICKED = 4413
+CLOSE_REASON_KICKED = "Removed by the host."
+
+# #966: a joiner is shown as active if the relay has heard *anything* from
+# them (a heartbeat, or -- once #967 lands -- a real edit) within this many
+# seconds. Three missed heartbeats' worth of tolerance (see
+# HEARTBEAT_INTERVAL_MS in collab_join.html) before flipping to inactive,
+# so one delayed beat on a slow connection doesn't flicker the host's panel.
+JOINER_ACTIVE_WINDOW_SECONDS = 45
+
+# #966: joiner ids are handed to the host so it can address a specific
+# participant (rendering their row, sending a kick) without ever exposing
+# `id(websocket)` -- a CPython object identity, not a stable or meaningful
+# value to hand to a client -- across the wire.
+_JOINER_ID_BYTES = 8
 
 # #964: the secret that authenticates the ECDH handshake in
 # collab-crypto.js -- deliberately NOT the six-digit join_code (see this
@@ -149,6 +188,20 @@ class Joiner:
 
     websocket: WebSocket
     display_name: str
+    # #966: a short, random, non-secret handle the host addresses this
+    # joiner by (presence rows, kick) -- see _JOINER_ID_BYTES above for why
+    # this exists instead of just using id(websocket).
+    joiner_id: str = field(default_factory=lambda: secrets.token_urlsafe(_JOINER_ID_BYTES))
+    # #966: updated on every heartbeat and every relayed message from this
+    # joiner (see app.py's `_relay_as_joiner`). Never used for anything
+    # security-relevant -- purely the host panel's active/inactive dot.
+    last_active: float = field(default_factory=time.monotonic)
+
+    def touch(self) -> None:
+        self.last_active = time.monotonic()
+
+    def is_active(self) -> bool:
+        return (time.monotonic() - self.last_active) <= JOINER_ACTIVE_WINDOW_SECONDS
 
 
 @dataclass
@@ -334,12 +387,44 @@ class SessionManager:
             except Exception:  # pragma: no cover - already-closed socket, etc.
                 pass
 
-    def remove_joiner(self, session_id: str, websocket: WebSocket) -> None:
-        """Drop a single joiner (their socket disconnected) without ending the session."""
+    def remove_joiner(self, session_id: str, websocket: WebSocket) -> bool:
+        """Drop a single joiner (their socket disconnected) without ending
+        the session. Returns True iff a joiner was actually removed --
+        #966's `_relay_as_joiner` uses this to decide whether *it* owns
+        sending the presence_leave notification, versus a host-initiated
+        kick (`remove_joiner_by_id`) having already removed (and notified
+        about) this joiner first. Relying on this return value rather than
+        both code paths unconditionally notifying avoids depending on
+        whether closing a socket from one coroutine reliably wakes a
+        `receive_text()` pending in another -- it does not need to, here.
+        """
         state = self._sessions.get(session_id)
         if state is None:
-            return
-        state.joiners.pop(id(websocket), None)
+            return False
+        return state.joiners.pop(id(websocket), None) is not None
+
+    def find_joiner(self, session_id: str, websocket: WebSocket) -> Joiner | None:
+        """Look up a connected joiner's own record by their socket."""
+        state = self._sessions.get(session_id)
+        if state is None:
+            return None
+        return state.joiners.get(id(websocket))
+
+    def remove_joiner_by_id(self, session_id: str, joiner_id: str) -> WebSocket | None:
+        """Drop a joiner by their #966 `joiner_id` (a host-initiated kick).
+
+        Returns the removed joiner's websocket so the caller can close it --
+        removal happens here, synchronously, before any `await`, so the
+        joiner cannot still be found (and e.g. relayed to) the instant after
+        this returns.
+        """
+        state = self._sessions.get(session_id)
+        if state is None:
+            return None
+        match = next((key for key, j in state.joiners.items() if j.joiner_id == joiner_id), None)
+        if match is None:
+            return None
+        return state.joiners.pop(match).websocket
 
     async def sweep_idle(self) -> None:
         """Tear down every session that has gone idle. Safe to call repeatedly."""

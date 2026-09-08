@@ -1,25 +1,27 @@
 /**
- * collab-session.js -- host-side trigger for the #963 WebSocket relay,
- * now wired up to the #964 end-to-end encryption layer (part of the #766
- * collab-sessions epic).
+ * collab-session.js -- host-side trigger for the #963 WebSocket relay, the
+ * #964 end-to-end encryption layer, and the #966 presence panel (part of
+ * the #766 collab-sessions epic).
  *
- * Deliberately thin: this issue is about proving the backend relay (session
- * create, host/joiner handshake, opaque message relay, zero storage) and
- * now the encryption layer work correctly, not about a polished session UI
- * -- that's #966 (presence) and #967 (the real editing protocol). This
- * just starts a session, shows the code + holding link the PM shares with
- * their team, establishes the encrypted channel with the first joiner, and
- * keeps a live WebSocket open so encrypted messages can be relayed and
- * eyeballed (as ciphertext) via devtools during manual verification.
+ * Deliberately thin on the *editing* side: this file proves the backend
+ * relay, encryption, and now presence work correctly, not a polished
+ * editing UI -- that's #967. It starts a session, shows the code + holding
+ * link the PM shares with their team, tracks who's joined/left/active,
+ * establishes the encrypted channel with the first joiner, and keeps a
+ * live WebSocket open so encrypted messages can be relayed and eyeballed
+ * (as ciphertext) via devtools during manual verification.
  *
  * See static/collab-crypto.js's module docstring for the full crypto
  * design (KDF, key exchange, AEAD, wire format, and -- important -- the
  * two-secret design: `join_code` is admission-only, `handshake_secret` is
  * what actually authenticates the ECDH exchange, and the two must never be
- * conflated). Scope note from that file applies here too: the #963 relay
- * has no sender-id on joiner->host messages, so this file tracks a single
- * active joiner session key at a time -- multi-joiner fan-out is future
- * work (#966/#967).
+ * conflated). One scope note from that file still applies: the relay has
+ * no sender-id on the *encrypted content* channel, so this file still
+ * tracks a single active joiner session key at a time for that
+ * channel -- multi-joiner encrypted content fan-out is #967's problem.
+ * Presence (this file's new #966 piece) is a separate, *plaintext*
+ * control-message channel the relay itself understands (see
+ * collab_session.py's docstring) and was never limited to one joiner.
  *
  * This file is a classic (non-module) script -- see index.html's
  * `onclick="startCollabSession()"` / `closeCollabSessionModal()` handlers,
@@ -39,6 +41,98 @@ let collabConnectKey = null;
 let collabKeyPair = null;
 let collabSessionId = null;
 let collabSessionKey = null; // established once a joiner's pubkey is verified
+
+// #966: host presence panel. Keyed by the server-assigned joiner_id (an
+// opaque handle -- see collab_session.py's _JOINER_ID_BYTES -- never
+// id(websocket), which stays a server-side implementation detail).
+// `lastSeen` is *this browser's* clock, set whenever a presence_join or
+// presence_heartbeat notification arrives -- active/inactive is computed
+// from it locally (see collabPresenceSweep) rather than the server pushing
+// a state transition, so the dot can go stale between heartbeats without
+// needing any further chatter from the relay.
+let collabJoiners = new Map(); // joiner_id -> { displayName, lastSeen }
+let collabPresenceSweepTimer = null;
+
+// #966: matches collab_session.py's JOINER_ACTIVE_WINDOW_SECONDS -- three
+// missed heartbeats' (collab_join.html's HEARTBEAT_INTERVAL_MS) worth of
+// tolerance before a participant's dot flips to inactive.
+const COLLAB_ACTIVE_WINDOW_MS = 45000;
+const COLLAB_PRESENCE_SWEEP_MS = 5000;
+
+function renderPresencePanel() {
+    const list = document.getElementById('collabPresenceList');
+    if (!list) return;
+
+    if (collabJoiners.size === 0) {
+        list.innerHTML = '<div class="collab-presence-empty">No one has joined yet.</div>';
+        return;
+    }
+
+    const now = Date.now();
+    const rows = Array.from(collabJoiners.entries()).map(([joinerId, joiner]) => {
+        const active = (now - joiner.lastSeen) <= COLLAB_ACTIVE_WINDOW_MS;
+        const name = escapeHtmlForCollabPresence(joiner.displayName);
+        return `<div class="collab-presence-row">
+            <span class="collab-presence-dot${active ? ' active' : ' inactive'}" title="${active ? 'Active' : 'Inactive'}"></span>
+            <span class="collab-presence-name">${name}</span>
+            <button type="button" class="collab-presence-kick" data-joiner-id="${joinerId}" title="Remove ${name}" aria-label="Remove ${name}">
+                <i class="bi bi-x-circle" aria-hidden="true"></i>
+            </button>
+        </div>`;
+    });
+    list.innerHTML = rows.join('');
+
+    list.querySelectorAll('.collab-presence-kick').forEach((btn) => {
+        btn.addEventListener('click', () => kickCollabJoiner(btn.dataset.joinerId));
+    });
+}
+
+/** Minimal, dependency-free escaping -- this is participant-supplied
+ * display_name text going into innerHTML, so it must not be trusted as
+ * markup (see #964's own "never trust relay content" stance, applied here
+ * to a plaintext field instead of a crypto frame). */
+function escapeHtmlForCollabPresence(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function kickCollabJoiner(joinerId) {
+    if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN || !joinerId) return;
+    collabSocket.send(JSON.stringify({ type: 'kick', joiner_id: joinerId }));
+}
+
+function resetCollabPresence() {
+    collabJoiners = new Map();
+    clearInterval(collabPresenceSweepTimer);
+    collabPresenceSweepTimer = setInterval(renderPresencePanel, COLLAB_PRESENCE_SWEEP_MS);
+    renderPresencePanel();
+}
+
+/** True for one of #966's presence control messages -- handled here,
+ * before classifyFrameType() ever sees them, the same way collab_join.html
+ * special-cases the "joined" ack before its own crypto-frame dispatch. */
+function handleCollabPresenceMessage(parsed) {
+    if (parsed.type === 'presence_join') {
+        collabJoiners.set(parsed.joiner_id, { displayName: parsed.display_name, lastSeen: Date.now() });
+        renderPresencePanel();
+        return true;
+    }
+    if (parsed.type === 'presence_leave') {
+        collabJoiners.delete(parsed.joiner_id);
+        renderPresencePanel();
+        return true;
+    }
+    if (parsed.type === 'presence_heartbeat') {
+        const joiner = collabJoiners.get(parsed.joiner_id);
+        if (joiner) {
+            joiner.lastSeen = Date.now();
+            renderPresencePanel();
+        }
+        return true;
+    }
+    return false;
+}
 
 function collabLog(line) {
     const log = document.getElementById('collabSessionLog');
@@ -77,6 +171,16 @@ async function sendCollabMessage(plaintext) {
 }
 
 async function handleCollabMessage(raw) {
+    // #966: presence control messages are plain JSON with a `type` the
+    // crypto layer doesn't know about -- peek for them first, exactly how
+    // collab_join.html special-cases its own "joined" ack before handing
+    // off to classifyFrameType().
+    let maybePresence = null;
+    try { maybePresence = JSON.parse(raw); } catch { maybePresence = null; }
+    if (maybePresence && typeof maybePresence === 'object' && handleCollabPresenceMessage(maybePresence)) {
+        return;
+    }
+
     const { classifyFrameType, parsePubkeyAnnouncement, deriveSessionKey, decryptMessage } = await loadCollabCrypto();
     const frameType = classifyFrameType(raw);
 
@@ -133,6 +237,7 @@ async function startCollabSession() {
         collabSocket = null;
     }
     collabSessionKey = null;
+    resetCollabPresence();
 
     overlay.classList.add('active');
     status.textContent = 'Starting session...';
@@ -201,5 +306,9 @@ async function startCollabSession() {
         status.textContent = event.reason || 'Session ended.';
         collabSocket = null;
         collabSessionKey = null;
+        clearInterval(collabPresenceSweepTimer);
+        collabPresenceSweepTimer = null;
+        collabJoiners = new Map();
+        renderPresencePanel();
     });
 }

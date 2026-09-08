@@ -53,8 +53,10 @@ import json
 from .collab_session import (
     CLOSE_HOST_DISCONNECTED,
     CLOSE_HOST_ENDED,
+    CLOSE_KICKED,
     CLOSE_REASON_HOST_DISCONNECTED,
     CLOSE_REASON_HOST_ENDED,
+    CLOSE_REASON_KICKED,
     SessionState,
     collab_sessions,
     run_idle_sweep_forever,
@@ -1928,6 +1930,26 @@ async def collab_join_page(request: Request, session_id: str):
     })
 
 
+async def _notify_host(state: SessionState, payload: dict) -> None:
+    """Send a #966 presence control message to the host, if one is attached.
+
+    Uses `host_send_lock`, the same lock `_relay_as_joiner` already holds
+    around every write to the host's socket -- a presence notification is
+    just another write to that same socket, and must not interleave with a
+    concurrent joiner's relayed message. Silently does nothing if there is
+    no host yet (e.g. a joiner connects in the narrow window before the
+    host's own socket has attached) or the send fails (host mid-disconnect):
+    presence is best-effort UI, not part of the relay's correctness.
+    """
+    if state.host is None:
+        return
+    async with state.host_send_lock:
+        try:
+            await state.host.send_text(json.dumps(payload))
+        except Exception:
+            pass
+
+
 async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional[SessionState], str]:
     """Read the joiner's handshake message and admit or reject them.
 
@@ -1970,6 +1992,15 @@ async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional
     # architecture constraint is bent by caching/replaying it here.
     if state.host_public_key_msg is not None:
         await websocket.send_text(state.host_public_key_msg)
+
+    # #966: tell the host's presence panel someone joined. The joiner
+    # object (and its assigned joiner_id) already exists in state.joiners
+    # by this point -- join_session() put it there.
+    joiner = collab_sessions.find_joiner(session_id, websocket)
+    if joiner is not None:
+        await _notify_host(state, {
+            "type": "presence_join", "joiner_id": joiner.joiner_id, "display_name": display_name,
+        })
     return state, display_name
 
 
@@ -2010,6 +2041,41 @@ def _is_end_session_message(message: str) -> bool:
     return isinstance(parsed, dict) and parsed.get("type") == "end_session"
 
 
+def _extract_kick_joiner_id(message: str) -> str | None:
+    """The `joiner_id` from a host's #966 ``{"type": "kick", "joiner_id":
+    ...}`` control message, or None if `message` isn't one.
+
+    Same peek-only-at-`type` pattern as `_is_end_session_message` above --
+    `joiner_id` is not secret, just an opaque handle (see collab_session.py's
+    `_JOINER_ID_BYTES`), so reading it here doesn't touch anything the
+    architecture constraint cares about.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict) or parsed.get("type") != "kick":
+        return None
+    joiner_id = parsed.get("joiner_id")
+    return joiner_id if isinstance(joiner_id, str) else None
+
+
+def _is_heartbeat_message(message: str) -> bool:
+    """True for a joiner's #966 ``{"type": "heartbeat"}`` liveness ping.
+
+    Same peek-only pattern as the others in this file. The relay never
+    forwards a heartbeat to the host as-is (see `_relay_as_joiner`) --
+    it updates `Joiner.last_active` and sends a `presence_heartbeat`
+    notification instead, so a heartbeat is squarely a control message,
+    not relayed content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("type") == "heartbeat"
+
+
 async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: str) -> None:
     ended_explicitly = False
     try:
@@ -2030,6 +2096,30 @@ async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: 
                 )
                 await websocket.close(code=CLOSE_HOST_ENDED, reason=CLOSE_REASON_HOST_ENDED)
                 return
+
+            kick_joiner_id = _extract_kick_joiner_id(message)
+            if kick_joiner_id is not None:
+                # #966: intercepted, not relayed -- a kick is a control
+                # message between the host and the relay, never content a
+                # joiner should see. remove_joiner_by_id() already removed
+                # them from state.joiners by the time this returns, so the
+                # normal broadcast loop below can never race a message to a
+                # joiner who's already gone.
+                kicked_socket = collab_sessions.remove_joiner_by_id(session_id, kick_joiner_id)
+                if kicked_socket is not None:
+                    try:
+                        await kicked_socket.close(code=CLOSE_KICKED, reason=CLOSE_REASON_KICKED)
+                    except Exception:
+                        pass
+                    # Sent directly here, not left to _relay_as_joiner's own
+                    # `finally` -- this coroutine (the host's) is already
+                    # the one that removed the joiner, and closing a socket
+                    # from a different task isn't guaranteed to promptly
+                    # wake a `receive_text()` pending on it elsewhere.
+                    # remove_joiner()'s bool return is what stops that other
+                    # path from notifying a second time once it does wake.
+                    await _notify_host(state, {"type": "presence_leave", "joiner_id": kick_joiner_id})
+                continue
 
             _maybe_cache_host_pubkey(state, message)
             for joiner in list(state.joiners.values()):
@@ -2056,10 +2146,28 @@ async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: 
 
 
 async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id: str) -> None:
+    # #966: captured once, up front -- remove_joiner_by_id() (a host kick)
+    # may already have popped this joiner out of state.joiners by the time
+    # the `finally` below runs, so the id can't be looked up there.
+    joiner = collab_sessions.find_joiner(session_id, websocket)
+    joiner_id = joiner.joiner_id if joiner is not None else None
     try:
         while True:
             message = await websocket.receive_text()
             state.touch()
+
+            if _is_heartbeat_message(message):
+                # #966: a liveness ping, not content -- update this
+                # joiner's own last-active mark and tell the host, but
+                # never relay the heartbeat itself as if it were a message.
+                if joiner is not None:
+                    joiner.touch()
+                if joiner_id is not None:
+                    await _notify_host(state, {"type": "presence_heartbeat", "joiner_id": joiner_id})
+                continue
+
+            if joiner is not None:
+                joiner.touch()
             host = state.host
             if host is not None:
                 async with state.host_send_lock:
@@ -2070,7 +2178,16 @@ async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id
     except WebSocketDisconnect:
         pass
     finally:
-        collab_sessions.remove_joiner(session_id, websocket)
+        # #966: this path handles an organic disconnect or the session
+        # ending under this joiner. A host kick (remove_joiner_by_id) may
+        # already have removed them and sent presence_leave itself --
+        # remove_joiner()'s bool return (was something actually there to
+        # remove?) is what stops this from notifying a second time in that
+        # case, rather than assuming this coroutine promptly wakes up the
+        # instant a kick closes the socket from elsewhere.
+        actually_removed = collab_sessions.remove_joiner(session_id, websocket)
+        if actually_removed and joiner_id is not None:
+            await _notify_host(state, {"type": "presence_leave", "joiner_id": joiner_id})
 
 
 @app.websocket("/ws/session/{session_id}")
@@ -2085,6 +2202,15 @@ async def collab_session_ws(websocket: WebSocket, session_id: str):
         if state is None:
             await websocket.close(code=4401)
             return
+        # #966: a fresh host socket (first connect, or a page reload
+        # mid-session) has missed every presence_join fired to whatever
+        # socket was attached before -- replay one now for each joiner
+        # already present, exactly like `host_public_key_msg` is replayed
+        # for a joiner who connects after the host's own announcement.
+        for joiner in list(state.joiners.values()):
+            await _notify_host(state, {
+                "type": "presence_join", "joiner_id": joiner.joiner_id, "display_name": joiner.display_name,
+            })
         await _relay_as_host(state, websocket, session_id)
         return
 

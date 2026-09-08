@@ -195,6 +195,7 @@ class TestRelay:
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
                 joiner_ws.receive_text()  # ack
+                host_ws.receive_text()  # #966 presence_join notification
 
                 joiner_ws.send_text("hello from joiner")
                 assert host_ws.receive_text() == "hello from joiner"
@@ -305,6 +306,7 @@ class TestLifecycle:
                     "type": "join", "code": info["join_code"], "display_name": "Alice",
                 }))
                 joiner_ws.receive_text()  # ack
+                host_ws.receive_text()  # #966 presence_join notification
 
                 monkeypatch.setattr(collab_session, "IDLE_TIMEOUT_SECONDS", -1)
                 asyncio.run(collab_sessions.sweep_idle())
@@ -329,6 +331,7 @@ class TestLifecycle:
                 for j, name in ((j1, "Alice"), (j2, "Bob")):
                     j.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": name}))
                     j.receive_text()  # ack
+                    host_ws.receive_text()  # #966 presence_join notification
 
                 host_ws.send_text(json.dumps({"type": "end_session"}))
 
@@ -519,6 +522,8 @@ class TestNoContentLeaks:
                         "type": "join", "code": info["join_code"], "display_name": display_name,
                     }))
                     joiner_ws.receive_text()  # ack
+                    presence_join_msg = host_ws.receive_text()  # #966 presence_join notification
+                    assert display_name in presence_join_msg  # the display name IS meant to reach the host
 
                     host_ws.send_text(secret_host_message)
                     assert joiner_ws.receive_text() == secret_host_message
@@ -554,3 +559,239 @@ class TestNoContentLeaks:
                     joiner_ws.receive_text()
 
         assert secret_display_name not in caplog.text
+
+    def test_no_presence_content_in_logs(self, client, caplog):
+        """#966's join/leave/heartbeat/kick control messages are new
+        surface area added to the relay -- the same log-leak discipline
+        the rest of this class holds the original relay to applies here."""
+        info = _start_session(client)
+        secret_display_name = "Confidential Stakeholder Name"
+
+        with caplog.at_level(logging.DEBUG):
+            with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                    joiner_ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": secret_display_name,
+                    }))
+                    joiner_ws.receive_text()  # ack
+                    joined = json.loads(host_ws.receive_text())
+
+                    joiner_ws.send_text(json.dumps({"type": "heartbeat"}))
+                    host_ws.receive_text()  # presence_heartbeat
+
+                    host_ws.send_text(json.dumps({"type": "kick", "joiner_id": joined["joiner_id"]}))
+                    with pytest.raises(WebSocketDisconnect):
+                        joiner_ws.receive_text()
+                    host_ws.receive_text()  # presence_leave
+
+        assert secret_display_name not in caplog.text
+        assert joined["joiner_id"] not in caplog.text
+
+
+class TestPresence:
+    """#966: the host presence panel -- join/leave notifications, the
+    heartbeat/active-inactive plumbing, and host-initiated kick."""
+
+    def test_host_is_notified_when_a_joiner_joins(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+
+                notification = json.loads(host_ws.receive_text())
+                assert notification["type"] == "presence_join"
+                assert notification["display_name"] == "Alice"
+                assert isinstance(notification["joiner_id"], str) and notification["joiner_id"]
+
+    def test_each_joiner_gets_a_distinct_joiner_id(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
+                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+                for j, name in ((j1, "Alice"), (j2, "Bob")):
+                    j.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": name}))
+                    j.receive_text()  # ack
+
+                first = json.loads(host_ws.receive_text())
+                second = json.loads(host_ws.receive_text())
+                assert first["joiner_id"] != second["joiner_id"]
+
+    def test_host_is_notified_when_a_joiner_disconnects(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                joined = json.loads(host_ws.receive_text())
+
+            left = json.loads(host_ws.receive_text())
+            assert left == {"type": "presence_leave", "joiner_id": joined["joiner_id"]}
+
+    def test_a_reattaching_host_gets_a_presence_snapshot_of_existing_joiners(self, client):
+        """A page reload mid-session attaches a brand-new host socket that
+        missed every presence_join fired to the old one -- it must be
+        caught up, the same way a late joiner is caught up on host_pubkey."""
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                host_ws.receive_text()  # presence_join on the original host socket
+
+                # Reattach as host (e.g. a page reload) while the joiner is
+                # still connected.
+                with client.websocket_connect(
+                    f"/ws/session/{info['session_id']}?token={info['host_token']}"
+                ) as new_host_ws:
+                    snapshot = json.loads(new_host_ws.receive_text())
+                    assert snapshot == {"type": "presence_join", "joiner_id": snapshot["joiner_id"], "display_name": "Alice"}
+
+    def test_heartbeat_is_not_relayed_as_content_but_notifies_host(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                joined = json.loads(host_ws.receive_text())
+
+                joiner_ws.send_text(json.dumps({"type": "heartbeat"}))
+
+                notification = json.loads(host_ws.receive_text())
+                assert notification == {"type": "presence_heartbeat", "joiner_id": joined["joiner_id"]}
+
+    def test_heartbeat_updates_joiner_active_state(self, client, monkeypatch):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+
+                state = collab_sessions.get_session(info["session_id"])
+                joiner = next(iter(state.joiners.values()))
+                assert joiner.is_active()
+
+                # Simulate the active window elapsing with no traffic.
+                monkeypatch.setattr(collab_session, "JOINER_ACTIVE_WINDOW_SECONDS", -1)
+                assert not joiner.is_active()
+
+                monkeypatch.undo()
+                joiner_ws.send_text(json.dumps({"type": "heartbeat"}))
+                assert joiner.is_active()
+
+    def test_host_can_kick_a_joiner(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                joined = json.loads(host_ws.receive_text())
+
+                host_ws.send_text(json.dumps({"type": "kick", "joiner_id": joined["joiner_id"]}))
+
+                with pytest.raises(WebSocketDisconnect) as exc_info:
+                    joiner_ws.receive_text()
+                assert exc_info.value.code == collab_session.CLOSE_KICKED
+                assert exc_info.value.reason == collab_session.CLOSE_REASON_KICKED
+
+                # The finally block's own remove_joiner() call must not
+                # crash on an already-removed joiner, and the leave
+                # notification still fires so the panel updates.
+                left = json.loads(host_ws.receive_text())
+                assert left == {"type": "presence_leave", "joiner_id": joined["joiner_id"]}
+
+    def test_kicked_joiner_is_actually_removed_from_the_session(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                joined = json.loads(host_ws.receive_text())
+
+                host_ws.send_text(json.dumps({"type": "kick", "joiner_id": joined["joiner_id"]}))
+                with pytest.raises(WebSocketDisconnect):
+                    joiner_ws.receive_text()
+                host_ws.receive_text()  # presence_leave
+
+                state = collab_sessions.get_session(info["session_id"])
+                assert state.joiners == {}
+
+    def test_kick_with_unknown_joiner_id_is_a_harmless_no_op(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                host_ws.receive_text()  # presence_join
+
+                host_ws.send_text(json.dumps({"type": "kick", "joiner_id": "not-a-real-id"}))
+
+                # The real joiner is unaffected -- still connected, and the
+                # kick control message must never reach them as content.
+                host_ws.send_text("still alive")
+                assert joiner_ws.receive_text() == "still alive"
+
+    def test_kicking_one_joiner_does_not_affect_another(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
+                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+                j1.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": "Alice"}))
+                j1.receive_text()  # ack
+                alice = json.loads(host_ws.receive_text())
+
+                j2.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": "Bob"}))
+                j2.receive_text()  # ack
+                host_ws.receive_text()  # Bob's presence_join
+
+                host_ws.send_text(json.dumps({"type": "kick", "joiner_id": alice["joiner_id"]}))
+                with pytest.raises(WebSocketDisconnect):
+                    j1.receive_text()
+                host_ws.receive_text()  # Alice's presence_leave
+
+                host_ws.send_text("hello Bob")
+                assert j2.receive_text() == "hello Bob"
+
+    def test_presence_and_heartbeat_messages_never_reach_a_joiner(self, client):
+        """These are host-only control messages -- a joiner (in particular,
+        one other than the one being talked about) must never see any of
+        them arrive over their own socket."""
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as j1, \
+                 client.websocket_connect(f"/ws/session/{info['session_id']}") as j2:
+                j1.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": "Alice"}))
+                j1.receive_text()  # ack
+                alice = json.loads(host_ws.receive_text())
+
+                j2.send_text(json.dumps({"type": "join", "code": info["join_code"], "display_name": "Bob"}))
+                j2.receive_text()  # ack
+                host_ws.receive_text()  # Bob's presence_join
+
+                j1.send_text(json.dumps({"type": "heartbeat"}))
+                host_ws.receive_text()  # presence_heartbeat, consumed by the host only
+
+                host_ws.send_text(json.dumps({"type": "kick", "joiner_id": alice["joiner_id"]}))
+                with pytest.raises(WebSocketDisconnect):
+                    j1.receive_text()
+                host_ws.receive_text()  # presence_leave
+
+                # Bob must have received nothing at all from any of this.
+                host_ws.send_text("only for bob")
+                assert j2.receive_text() == "only for bob"
