@@ -723,12 +723,18 @@ class KanbanBoard {
      * Group tasks based on current view mode
      */
     groupTasksByViewMode() {
+        // Cache this cycle's full task list before filtering by hierarchy level
+        // -- filterTasksByHierarchyLevel() (and getAllTasks()) read allTasksCache,
+        // so caching it afterwards left them reading the previous parse's tasks
+        // for the whole call, e.g. showing a just-dropped card under its old
+        // label/column until the next unrelated re-render caught the cache up (#973).
+        const allTasks = this.tasks;
+        this.allTasksCache = allTasks; // Cache for getAllTasks()
+
         // Filter tasks by hierarchy level first
         const filteredTasks = this.filterTasksByHierarchyLevel();
 
         // Temporarily replace this.tasks with filtered tasks for grouping
-        const allTasks = this.tasks;
-        this.allTasksCache = allTasks; // Cache for getAllTasks()
         this.tasks = filteredTasks;
 
         switch (this.viewMode) {
