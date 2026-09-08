@@ -850,16 +850,69 @@ async function refreshRibbon() {
 
 function updateDocTitleAndAvatar() {
     const titleEl = document.getElementById('ribbonDocTitle');
-    if (titleEl) {
-        const projectTitleEl = document.getElementById('projectBreadcrumbName');
-        titleEl.textContent = (projectTitleEl && projectTitleEl.textContent.trim()) || 'Untitled plan';
-    }
+    if (titleEl) titleEl.innerHTML = renderBreadcrumb();
     const avatarEl = document.getElementById('ribbonAvatar');
     if (avatarEl) avatarEl.textContent = '';
 }
 
+/**
+ * Render the ribbon title bar's breadcrumb -- Portfolio › <Programme> ›
+ * <Project> (issue #953), replacing the plain project-name label this used
+ * to show. Rungs are computed by nav.js's computeBreadcrumbRungs() (pure
+ * data, unit-tested separately); this just turns them into the clickable
+ * buttons every other piece of ribbon chrome uses. See wireEvents() for the
+ * click handling (.ribbon-breadcrumb-rung).
+ */
+function renderBreadcrumb() {
+    const view = (typeof NavigationController !== 'undefined') ? NavigationController.getCurrentView() : null;
+    const params = { view: view };
+    if (view === 'programme') {
+        params.programme = (typeof getCurrentPortfolioProgramme === 'function') ? getCurrentPortfolioProgramme() : null;
+    } else {
+        params.project = (typeof getActiveProjectForBreadcrumb === 'function') ? getActiveProjectForBreadcrumb() : null;
+    }
+
+    const rungs = (typeof computeBreadcrumbRungs === 'function') ? computeBreadcrumbRungs(params) : [];
+    if (rungs.length === 0) return 'Untitled plan';
+
+    return rungs.map((rung, i) => {
+        const sep = i > 0 ? '<span class="ribbon-breadcrumb-sep">&rsaquo;</span>' : '';
+        const label = escapeHtml(rung.label);
+        if (rung.active) {
+            return `${sep}<span class="ribbon-breadcrumb-rung active">${label}</span>`;
+        }
+        return `${sep}<button type="button" class="ribbon-breadcrumb-rung" data-rung-kind="${rung.kind}" data-rung-slug="${escapeHtml(rung.slug || '')}">${label}</button>`;
+    }).join('');
+}
+
+/**
+ * Set the ribbon's scope pill/tab-set without necessarily navigating
+ * anywhere (issue #953) -- used by navigation helpers elsewhere (e.g.
+ * programme.js's openProgramme()) that already know which altitude
+ * they're landing on.
+ */
+function setRibbonScope(scopeId) {
+    if (scopeId === ribbonState.scope) return;
+    ribbonState.scope = scopeId;
+    ribbonState.animateTabSwitch = true;
+    savePersistedState();
+}
+
 function wireEvents(shell) {
     shell.addEventListener('click', (e) => {
+        const rungBtn = e.target.closest('.ribbon-breadcrumb-rung[data-rung-kind]');
+        if (rungBtn) {
+            const kind = rungBtn.dataset.rungKind;
+            if (kind === 'portfolio') {
+                setRibbonScope('portfolio');
+                switchToView('portfolio');
+            } else if (kind === 'programme' && typeof openProgramme === 'function') {
+                openProgramme(rungBtn.dataset.rungSlug);
+            }
+            refreshRibbon();
+            return;
+        }
+
         const scopeBtn = e.target.closest('.ribbon-scope-btn');
         if (scopeBtn) {
             const scopeId = scopeBtn.dataset.scope;
@@ -870,6 +923,7 @@ function wireEvents(shell) {
             }
             if (scopeId === 'portfolio') switchToView('portfolio');
             else if (scopeId === 'project') switchToView('editor');
+            else if (typeof getCurrentPortfolioProgramme === 'function' && getCurrentPortfolioProgramme()) switchToView('programme');
             else notAvailable('Programme');
             refreshRibbon();
             return;

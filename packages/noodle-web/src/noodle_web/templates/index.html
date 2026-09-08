@@ -105,6 +105,7 @@
     <link rel="stylesheet" href="/static/views/products.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/search.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/backstage.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/programme.css?v={{ v }}">
     <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
 
@@ -2449,6 +2450,19 @@ Build
                 </div>
             </div>
 
+            <!-- Programme Tab (issue #953: minimal programme-altitude landing
+                 view -- name + member projects, populated by programme.js.
+                 #734 replaces this with the real programme dashboard.) -->
+            <div id="programme-tab" class="tab-content" role="tabpanel">
+                <div class="portfolio-container">
+                    <div class="programme-landing-header">
+                        <h2 id="programmeViewTitle"></h2>
+                        <p class="programme-landing-meta" id="programmeViewMeta"></p>
+                    </div>
+                    <div class="portfolio-content" id="programmeViewProjects"></div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -4126,6 +4140,7 @@ Build
     <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/settings.js?v={{ v }}"></script>
+    <script src="/static/breadcrumb.js?v={{ v }}"></script>
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
@@ -4149,6 +4164,7 @@ Build
     <script src="/static/portfolio-leveling.js?v={{ v }}"></script>
     <script src="/static/portfolio-timeline.js?v={{ v }}"></script>
     <script src="/static/portfolio-projects-table.js?v={{ v }}"></script>
+    <script src="/static/programme.js?v={{ v }}"></script>
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>

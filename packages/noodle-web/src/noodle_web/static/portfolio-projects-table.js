@@ -472,7 +472,9 @@ function renderProjectsTable() {
         }
 
         const programmeBadge = project.programme
-            ? ` <span class="programme-badge" title="Programme: ${escapeHtml(project.programme.name)}">${escapeHtml(project.programme.name)}</span>`
+            ? ` <span class="programme-badge" title="View programme: ${escapeHtml(project.programme.name)}" ` +
+              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeHtml(project.programme.slug).replace(/'/g, "\\'")}');">` +
+              `${escapeHtml(project.programme.name)}</span>`
             : '';
 
         html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" onclick="handleProjectRowClick(event, '${project.id}')">`;
@@ -616,7 +618,9 @@ function renderSortedTable(tableData) {
         }
 
         const programmeBadge = project.programme
-            ? ` <span class="programme-badge" title="Programme: ${escapeHtml(project.programme.name)}">${escapeHtml(project.programme.name)}</span>`
+            ? ` <span class="programme-badge" title="View programme: ${escapeHtml(project.programme.name)}" ` +
+              `onclick="event.stopPropagation(); if (typeof openProgramme === 'function') openProgramme('${escapeHtml(project.programme.slug).replace(/'/g, "\\'")}');">` +
+              `${escapeHtml(project.programme.name)}</span>`
             : '';
 
         html += `<tr class="project-table-row ${rowClass}" data-project-id="${project.id}" onclick="handleProjectRowClick(event, '${project.id}')">`;

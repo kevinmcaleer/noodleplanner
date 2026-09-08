@@ -1,0 +1,23 @@
+/* ========================================
+   Programme altitude landing view (#953) — a minimal placeholder: the
+   programme's name and its member projects, reusing the portfolio grid
+   card markup/CSS (.portfolio-project-card and friends) for the project
+   list itself. #734 replaces this with the real programme dashboard.
+   ======================================== */
+
+.programme-landing-header {
+    margin-bottom: 16px;
+}
+
+.programme-landing-header h2 {
+    margin: 0 0 4px;
+    font-size: 1.3em;
+    font-weight: 600;
+    color: var(--np-text, #333333);
+}
+
+.programme-landing-meta {
+    margin: 0;
+    color: var(--np-text-secondary, #666666);
+    font-size: 0.9em;
+}

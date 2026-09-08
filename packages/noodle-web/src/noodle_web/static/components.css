@@ -7293,6 +7293,10 @@ tr:hover .task-context-btn,
 }
 
 .ribbon-doc-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
     font-weight: 400;
     font-size: 11.5px;
     line-height: 1;
@@ -7301,7 +7305,37 @@ tr:hover .task-context-btn,
     margin-left: 4px;
     white-space: nowrap;
     overflow: hidden;
+}
+
+/* Breadcrumb rungs (#953): Portfolio › <Programme> › <Project>, rendered
+ * into .ribbon-doc-title by ribbon.js's renderBreadcrumb(). */
+.ribbon-breadcrumb-sep {
+    color: #6f8894;
+    flex-shrink: 0;
+}
+
+.ribbon-breadcrumb-rung {
+    font: inherit;
+    color: #a9c7d4;
+    background: transparent;
+    border: none;
+    padding: 0;
+    max-width: 220px;
+    overflow: hidden;
     text-overflow: ellipsis;
+}
+
+button.ribbon-breadcrumb-rung {
+    cursor: pointer;
+}
+
+button.ribbon-breadcrumb-rung:hover {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+.ribbon-breadcrumb-rung.active {
+    color: #ffffff;
 }
 
 .ribbon-titlebar-spacer {
