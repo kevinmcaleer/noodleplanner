@@ -144,3 +144,55 @@ test('reorderSibling never crosses out of its own parent’s children', () => {
     assert.equal(model.reorderSibling(only, 'down'), false);
     assert.equal(model.serialize(), 'Phase\n  Only 1d\nOther 1d\n');
 });
+
+test('sibling reorder moves the whole subtree through the model', () => {
+    const model = PlanModel.parse('Phase\n  A\n    A child 1d\n  B 1d\n  C 1d\n');
+    const a = model.findByName('A');
+    const c = model.findByName('C');
+    assert.equal(model.moveAfter(a, c), true);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  B 1d\n  C 1d\n  A\n    A child 1d\n'
+    );
+    assert.equal(a.parent.name, 'Phase');
+});
+
+test('reorder expands star shorthand when adjacency breaks', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  *B 1d\n  C 1d\n');
+    const b = model.findByName('B');
+    const c = model.findByName('C');
+    assert.equal(model.moveBefore(c, b), true);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  A 1d\n  C 1d\n  B 1d [depends: A]\n'
+    );
+    assert.equal(b.dependencies[0].target.name, 'A');
+    assert.equal(b.dependencies[0].shorthand, false);
+});
+
+test('an expanded sequential dependency stays explicit when adjacency returns', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  *B 1d\n  C 1d\n');
+    const b = model.findByName('B');
+    const c = model.findByName('C');
+    assert.equal(model.moveBefore(c, b), true);
+    assert.equal(model.moveBefore(b, c), true);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  A 1d\n  B 1d [depends: A]\n  C 1d\n'
+    );
+    assert.equal(b.dependencies[0].shorthand, false);
+});
+
+test('moving between parents preserves descendants and adjusts indentation', () => {
+    const model = PlanModel.parse('One\n  Work\n    Child 1d\nTwo\n');
+    const work = model.findByName('Work');
+    const two = model.findByName('Two');
+    assert.equal(model.moveAsChild(work, two, true), true);
+    assert.equal(model.serialize(), 'One\nTwo\n  Work\n    Child 1d\n');
+});
+
+test('reorder preserves CRLF and the absence of a final newline', () => {
+    const model = PlanModel.parse('Phase\r\n  A 1d\r\n  B 1d');
+    assert.equal(model.moveAfter(model.findByName('A'), model.findByName('B')), true);
+    assert.equal(model.serialize(), 'Phase\r\n  B 1d\r\n  A 1d');
+});

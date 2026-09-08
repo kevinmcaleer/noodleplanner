@@ -12491,51 +12491,6 @@ body.no-animations .np-fade-in {
     outline-offset: 1px;
 }
 
-/* #966: host presence panel (Planning session modal) -- see
-   collab-session.js's renderCollabPresence()/kickCollabJoiner(). */
-.collab-presence-heading {
-    font-weight: 600;
-    font-size: 0.9em;
-    margin-bottom: 6px;
-}
-
-.collab-presence-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
-    font-size: 0.9em;
-}
-
-.collab-presence-row:last-child {
-    border-bottom: none;
-}
-
-.collab-presence-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--np-text-muted, #888888);
-}
-
-.collab-presence-dot.active {
-    background: #388e3c;
-}
-
-.collab-presence-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.collab-presence-status {
-    color: var(--np-text-muted, #888888);
-    font-size: 0.85em;
-}
-
 .ai-key-input-wrapper {
     position: relative;
     display: flex;
