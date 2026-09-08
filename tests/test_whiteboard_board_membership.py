@@ -91,6 +91,23 @@ Phase 1
     Ship Widget $Widget @sam 3d 100%
 """
 
+# Every summary task the outline has is already a whiteboard row -- the
+# picker's true dead-end case (issue #980): opening it should offer the
+# "create a new summary task" affordance instead of a non-actionable
+# "Every summary task is already on the board" message.
+ALL_ON_BOARD_PLAN = """---
+title: Whiteboard All On Board Test Plan
+---
+
+Phase 1
+  Research @sam 2d 100%
+
+---whiteboard---
+| Task    | X   | Y  | Colour | Width | Height | Collapsed |
+|---------|-----|----|--------|-------|--------|-----------|
+| Phase 1 | 120 | 80 |        | 280   | 240    | no        |
+"""
+
 
 def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -320,6 +337,37 @@ def select_picker_item(driver, task_name):
     return item
 
 
+# ── "Create a new summary task" affordance helpers (issue #980) ──────────
+
+
+def create_form_is_open(driver):
+    form = driver.find_element(By.ID, "wbAddNoteCreateForm")
+    return form.is_displayed()
+
+
+def open_create_form(driver):
+    """Click the persistent "+ New phase" toggle to reveal the create
+    form (the dead-end case shows it already open, without a toggle to
+    click -- callers there should skip this)."""
+    toggle = WebDriverWait(driver, 3).until(
+        EC.element_to_be_clickable((By.ID, "wbAddNoteCreateToggle"))
+    )
+    toggle.click()
+    WebDriverWait(driver, 3).until(lambda d: create_form_is_open(d))
+
+
+def create_new_summary_task(driver, name):
+    """Type `name` into the create form's input and submit it via the
+    "Create and add" button -- the form must already be open (either the
+    dead-end's forced-open state, or after open_create_form())."""
+    field = WebDriverWait(driver, 3).until(
+        EC.visibility_of_element_located((By.ID, "wbAddNoteCreateInput"))
+    )
+    field.clear()
+    field.send_keys(name)
+    driver.find_element(By.ID, "wbAddNoteCreateBtn").click()
+
+
 def note_menu_btn_for(driver, task_name):
     return driver.execute_script(
         """
@@ -433,6 +481,140 @@ class TestAddNotePickerOpenClose:
         search.send_keys(Keys.ARROW_DOWN)
         active_role = browser.execute_script("return document.activeElement.getAttribute('role');")
         assert active_role == "option", "ArrowDown from the search box moves focus into the list"
+
+
+class TestAddNotePickerCreateNew:
+    """The "create a new summary task" affordance (issue #980): the picker's
+    dead-end case (every summary task already on the board) offers an
+    actionable create-and-add form instead of a plain, non-actionable
+    message, and the same form is available -- collapsed behind a
+    persistent "+ New phase" toggle -- even when there's still something
+    to pick."""
+
+    def test_dead_end_shows_create_form_not_a_plain_message(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, ALL_ON_BOARD_PLAN)
+        switch_to_whiteboard(browser)
+
+        open_picker(browser)
+
+        # The old dead-end <li> is gone entirely (list.hidden), so its
+        # exact, non-actionable message can no longer appear as a bare,
+        # un-actionable list row -- it may still appear (with a
+        # "-- create a new one to add:" continuation) as the create
+        # form's own explanatory intro line, which is fine: that's an
+        # actionable form, not a dead end.
+        assert not browser.find_elements(By.CSS_SELECTOR, "#wbAddNoteList .wb-add-note-empty"), \
+            "the old non-actionable dead-end list row must be gone"
+
+        assert create_form_is_open(browser), "the create form is forced open in the dead-end case"
+        assert not browser.find_element(By.ID, "wbAddNoteList").is_displayed(), \
+            "the (now pointless) empty list is hidden in the dead-end case"
+        assert not browser.find_element(By.ID, "wbAddNoteSearch").is_displayed(), \
+            "the (now pointless) search box is hidden in the dead-end case"
+        assert not browser.find_element(By.ID, "wbAddNoteCreateToggle").is_displayed(), \
+            "the toggle that would open the form is redundant/hidden once it's already open"
+
+        focused_id = browser.execute_script("return document.activeElement.id;")
+        assert focused_id == "wbAddNoteCreateInput", "opening focus lands in the create field, not a hidden search box"
+
+    def test_creating_a_new_summary_task_adds_it_to_outline_and_board(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, ALL_ON_BOARD_PLAN)
+        switch_to_whiteboard(browser)
+
+        open_picker(browser)
+        create_new_summary_task(browser, "Launch")
+
+        WebDriverWait(browser, 3).until_not(lambda d: d.find_elements(By.ID, "wbAddNoteOverlay"))
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        outline = outline_only(after_text)
+        assert "Launch" in outline, "the new summary task exists in the plan's task outline"
+
+        # wbLastTasks (whiteboard-notes.js) is a top-level `let`, so it's
+        # not reachable as window.wbLastTasks from here; re-parse the
+        # committed plan text through the same /api/parse endpoint the app
+        # itself uses instead, to check what the outline now actually
+        # contains.
+        launch_task = browser.execute_async_script(
+            """
+            const planText = arguments[0];
+            const done = arguments[arguments.length - 1];
+            fetch('/api/parse', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({plan_text: planText, project_name: null}),
+            }).then(r => r.json()).then(data => {
+                done((data.tasks || []).find(t => t && t.name === 'Launch') || null);
+            }).catch(() => done(null));
+            """,
+            after_text,
+        )
+        assert launch_task is not None, "the new task is present in the parsed outline"
+        assert launch_task.get("is_summary"), \
+            "the new task is classified as a summary task (it has a child line in the outline)"
+
+        assert "Launch" in rendered_note_task_names(browser), "a corresponding note is rendered on the board"
+        assert after_text.count("| Launch ") == 1, "exactly one whiteboard row was written for the new task"
+
+    def test_persistent_new_phase_toggle_available_when_entries_exist(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        open_picker(browser)
+        assert not create_form_is_open(browser), "the create form starts collapsed when there's still something to pick"
+        assert browser.find_element(By.ID, "wbAddNoteList").is_displayed(), "the normal list is still shown"
+
+        open_create_form(browser)
+        focused_id = browser.execute_script("return document.activeElement.id;")
+        assert focused_id == "wbAddNoteCreateInput", "opening the toggle focuses the create field"
+
+    def test_creating_from_the_persistent_toggle_still_works_alongside_the_list(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        open_picker(browser)
+        open_create_form(browser)
+        create_new_summary_task(browser, "Rollout")
+
+        WebDriverWait(browser, 3).until_not(lambda d: d.find_elements(By.ID, "wbAddNoteOverlay"))
+        after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        assert "Rollout" in outline_only(after_text), "the new summary task exists in the plan's task outline"
+        assert "Rollout" in rendered_note_task_names(browser), "a corresponding note is rendered on the board"
+
+    def test_blank_name_shows_an_inline_error_and_keeps_the_picker_open(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, ALL_ON_BOARD_PLAN)
+        switch_to_whiteboard(browser)
+
+        open_picker(browser)
+        browser.find_element(By.ID, "wbAddNoteCreateBtn").click()
+
+        error = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.ID, "wbAddNoteCreateError"))
+        )
+        assert error.text.strip(), "a blank name shows an inline error"
+        assert browser.find_elements(By.ID, "wbAddNoteOverlay"), "the picker stays open on invalid input"
+
+    def test_duplicate_name_shows_an_inline_error_and_does_not_write_anything(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, ALL_ON_BOARD_PLAN)
+        switch_to_whiteboard(browser)
+
+        before_text = get_plan_text(browser)
+        open_picker(browser)
+        create_new_summary_task(browser, "Phase 1")
+
+        error = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.ID, "wbAddNoteCreateError"))
+        )
+        assert error.text.strip(), "a name that already exists in the outline shows an inline error"
+        assert browser.find_elements(By.ID, "wbAddNoteOverlay"), "the picker stays open on invalid input"
+        assert get_plan_text(browser) == before_text, "nothing is written to the plan for a rejected duplicate name"
 
 
 class TestAddingNotes:
