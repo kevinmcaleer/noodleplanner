@@ -36,6 +36,18 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   removed and every joiner socket is closed. Sessions idle for longer than
   ``IDLE_TIMEOUT_SECONDS`` (checked lazily on access, and swept periodically
   by a background task started from app.py) are torn down the same way.
+- #964 (end-to-end encryption): every payload described above is, by
+  construction, ciphertext produced client-side by static/collab-crypto.js
+  before it ever reaches this relay -- this module still never parses
+  message content. The one exception is bootstrapping the key exchange
+  itself: the host's ephemeral ECDH public-key announcement (``{"type":
+  "host_pubkey", ...}``, not secret -- see collab-crypto.js's module
+  docstring) is cached on ``SessionState.host_public_key_msg`` by app.py
+  (peeking only at the ``type`` discriminator, never at plan content) so a
+  joiner who connects *after* the host already broadcast it still receives
+  it immediately on admission. See app.py's ``_maybe_cache_host_pubkey`` /
+  ``_admit_joiner`` for why the WebSocket-first-message approach was chosen
+  over piggybacking the key onto the HTTP start/join responses.
 """
 
 from __future__ import annotations
@@ -86,6 +98,12 @@ class SessionState:
     join_code: str
     host: WebSocket | None = None
     joiners: dict[int, Joiner] = field(default_factory=dict)
+    # #964: the host's most recent ECDH public-key handshake announcement
+    # (opaque JSON text -- a public key + MAC tag, never plan content or
+    # key material). Cached so a joiner admitted after the host already
+    # broadcast it still gets it. See this module's docstring and app.py's
+    # `_maybe_cache_host_pubkey` / `_admit_joiner`.
+    host_public_key_msg: str | None = None
     created_at: float = field(default_factory=time.monotonic)
     last_activity: float = field(default_factory=time.monotonic)
     # Serializes writes to `host` -- multiple joiners can relay to the host

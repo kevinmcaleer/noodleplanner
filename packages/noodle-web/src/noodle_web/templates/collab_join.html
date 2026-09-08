@@ -111,6 +111,18 @@
     </div>
 
     <script>
+        // #964: end-to-end encryption. This inline script stays a classic
+        // (non-module) script, so static/collab-crypto.js (an ES module)
+        // is loaded via dynamic import() -- same pattern collab-session.js
+        // and ribbon.js use for their own ES-module dependencies. See
+        // collab-crypto.js's module docstring for the full crypto design
+        // (KDF, key exchange, AEAD, wire format).
+        let cryptoModulePromise = null;
+        function loadCollabCrypto() {
+            if (!cryptoModulePromise) cryptoModulePromise = import('/static/collab-crypto.js');
+            return cryptoModulePromise;
+        }
+
         const sessionId = {{ session_id | tojson }};
         const form = document.getElementById('joinForm');
         const status = document.getElementById('status');
@@ -126,14 +138,21 @@
         }
 
         let socket = null;
+        let connectKey = null;
+        let keyPair = null;
+        let sessionKey = null; // established once the host's pubkey is verified
 
-        form.addEventListener('submit', (event) => {
+        form.addEventListener('submit', async (event) => {
             event.preventDefault();
             joinBtn.disabled = true;
             status.textContent = 'Connecting...';
 
             const code = document.getElementById('joinCode').value.trim();
             const displayName = document.getElementById('displayName').value.trim();
+
+            const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
+            connectKey = await deriveConnectKey(code, sessionId);
+            keyPair = await generateEphemeralKeyPair();
 
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             socket = new WebSocket(`${protocol}//${window.location.host}/ws/session/${sessionId}`);
@@ -142,7 +161,7 @@
                 socket.send(JSON.stringify({ type: 'join', code, display_name: displayName }));
             });
 
-            socket.addEventListener('message', (event) => {
+            socket.addEventListener('message', async (event) => {
                 let parsed = null;
                 try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
 
@@ -151,6 +170,44 @@
                     relay.style.display = 'block';
                     return;
                 }
+
+                const { parsePubkeyAnnouncement, buildPubkeyAnnouncement, deriveSessionKey, decryptMessage } =
+                    await loadCollabCrypto();
+
+                if (parsed && parsed.type === 'host_pubkey') {
+                    const peerKey = await parsePubkeyAnnouncement('host_pubkey', connectKey, event.data);
+                    if (!peerKey) {
+                        // MAC didn't verify -- the code we typed is wrong.
+                        // Never derive a session key with an
+                        // unauthenticated peer.
+                        status.textContent = 'Could not establish a secure channel -- check the code and try again.';
+                        socket.close();
+                        joinBtn.disabled = false;
+                        return;
+                    }
+                    sessionKey = await deriveSessionKey(keyPair.privateKey, peerKey, sessionId);
+                    log('(secure channel established)');
+                    // Announce our own ephemeral public key back to the
+                    // host so it can derive the same session key.
+                    const announcement = await buildPubkeyAnnouncement('joiner_pubkey', connectKey, keyPair);
+                    socket.send(announcement);
+                    return;
+                }
+
+                if (parsed && parsed.type === 'enc') {
+                    if (!sessionKey) {
+                        log('(received an encrypted message before the secure channel was ready)');
+                        return;
+                    }
+                    try {
+                        const plaintext = await decryptMessage(sessionKey, event.data, sessionId);
+                        log(`host: ${plaintext}`);
+                    } catch (error) {
+                        log('(failed to decrypt a message -- dropped)');
+                    }
+                    return;
+                }
+
                 log(`host: ${event.data}`);
             });
 
@@ -164,10 +221,16 @@
             });
         });
 
-        document.getElementById('relaySend').addEventListener('click', () => {
+        document.getElementById('relaySend').addEventListener('click', async () => {
             const input = document.getElementById('relayInput');
             if (!socket || socket.readyState !== WebSocket.OPEN || !input.value) return;
-            socket.send(input.value);
+            if (!sessionKey) {
+                log('(cannot send yet -- secure channel not established)');
+                return;
+            }
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(sessionKey, input.value, sessionId);
+            socket.send(envelope);
             log(`you: ${input.value}`);
             input.value = '';
         });
