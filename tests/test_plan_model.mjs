@@ -73,6 +73,17 @@ test('rename migrates Theme colours and whiteboard task rows', () => {
     assert.match(output, /\| Delivery \| 10 \|/);
 });
 
+test('rename collapses an embedded newline instead of splitting the task onto extra lines', () => {
+    // #1006: a name is spliced into one physical line by _serialiseContent
+    // /serialize(); an embedded newline would turn that into several lines,
+    // and one of them could be mistaken for structure (e.g. a back-matter
+    // marker) on the document's next parse.
+    const model = PlanModel.parse('A 1d\nB 1d\n');
+    model.rename(model.tasks[0], 'Foo\n---whiteboard---\nBar');
+    assert.equal(model.tasks[0].name, 'Foo ---whiteboard--- Bar');
+    assert.equal(model.serialize(), 'Foo ---whiteboard--- Bar 1d\nB 1d\n');
+});
+
 test('duplicate names keep distinct identities and last definition wins for lookup', () => {
     const model = PlanModel.parse('Same 1d\nSame 2d\nAfter 1d [depends Same]\n');
     assert.notEqual(model.tasks[0].id, model.tasks[1].id);

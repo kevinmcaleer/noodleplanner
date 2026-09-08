@@ -140,6 +140,61 @@ test('add_task with no parent appends at the end of the plan', () => {
     assert.equal(snapshot.tasks[snapshot.tasks.length - 1].indent, 0);
 });
 
+// -- newline injection (#1006) ---------------------------------------------
+//
+// A joiner-supplied name is untrusted free text spliced into a single
+// physical Markdown line. An embedded newline could forge a line that looks
+// like structure -- e.g. a "---back-matter---" delimiter -- and corrupt
+// everything after it on the document's next parse. Both `rename` and
+// `add_task` must collapse embedded newlines rather than pass them through.
+
+test('rename collapses an embedded newline instead of injecting markdown structure', () => {
+    const plan = [
+        'Phase A',
+        '  Task One 2d 20%',
+        '  Task Two 3d',
+        'Phase B',
+        '  Task Three 1d',
+        '',
+    ].join('\n');
+    const result = applyPlanOp(plan, op({
+        op: 'rename', id: 1, expect: 'Task One',
+        value: 'Task One\n---raid log---\nInjected Fake Entry',
+    }));
+    assert.equal(result.ok, true);
+    // The crafted back-matter marker never becomes its own physical line --
+    // it survives only as inert inline text within the renamed task's line.
+    assert.equal(result.text.split('\n').some((line) => line.trim() === '---raid log---'), false);
+    // Every task the joiner never touched survives, in the outline, intact.
+    const snapshot = buildPlanSnapshot(result.text, 1);
+    assert.deepEqual(
+        snapshot.tasks.map((t) => t.name),
+        ['Phase A', 'Task One ---raid log--- Injected Fake Entry', 'Task Two', 'Phase B', 'Task Three']
+    );
+});
+
+test('add_task collapses an embedded newline instead of injecting markdown structure', () => {
+    const plan = [
+        'Phase A',
+        '  Task One 2d 20%',
+        '  Task Two 3d',
+        'Phase B',
+        '  Task Three 1d',
+        '',
+    ].join('\n');
+    const result = applyPlanOp(plan, op({
+        op: 'add_task', parent_id: null,
+        name: 'New Task\n---raid log---\nInjected Fake Entry',
+    }));
+    assert.equal(result.ok, true);
+    assert.equal(result.text.split('\n').some((line) => line.trim() === '---raid log---'), false);
+    const snapshot = buildPlanSnapshot(result.text, 1);
+    assert.deepEqual(
+        snapshot.tasks.map((t) => t.name),
+        ['Phase A', 'Task One', 'Task Two', 'Phase B', 'Task Three', 'New Task ---raid log--- Injected Fake Entry']
+    );
+});
+
 test('move reorders a task and carries its subtree with it', () => {
     const result = applyPlanOp(PLAN, op({ op: 'move', id: 3, expect: 'Phase 2', target_id: 0, position: 'before' }));
     assert.equal(result.ok, true);
