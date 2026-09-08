@@ -387,7 +387,8 @@
 }
 
 .wb-note-menu-default,
-.wb-note-menu-open-task {
+.wb-note-menu-open-task,
+.wb-note-menu-action {
     display: block;
     width: 100%;
     text-align: left;
@@ -403,7 +404,9 @@
 .wb-note-menu-default:hover,
 .wb-note-menu-default:focus-visible,
 .wb-note-menu-open-task:hover,
-.wb-note-menu-open-task:focus-visible {
+.wb-note-menu-open-task:focus-visible,
+.wb-note-menu-action:hover,
+.wb-note-menu-action:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
     outline: 2px solid var(--np-accent, #667eea);
     outline-offset: 1px;
@@ -808,4 +811,586 @@ body.wb-note-drag-active * {
         width: auto;
         padding: 0 14px;
     }
+}
+
+/* ========================================
+   Authoring the plan from the board: noodles, the floating outline
+   panel, inline rename, and the new-post-it affordances.
+
+   Light-mode base rules only, per this file's header -- the dark-mode
+   overrides for these same classes live in dark-mode.css.
+   ======================================== */
+
+/* ── Note: the noodle handle ─────────────────────────────────────────
+   Sits in the header between the title and the `...` menu. Dimmed until
+   the note is hovered or it has keyboard focus, so a board at rest shows
+   post-its rather than a grid of controls -- but always present in the
+   accessibility tree, never display:none. */
+.wb-note-link-handle {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: crosshair;
+    opacity: 0;
+    transition: opacity 0.12s ease, background 0.12s ease;
+    touch-action: none;
+}
+
+.wb-note-card:hover .wb-note-link-handle,
+.wb-note-link-handle:focus-visible {
+    opacity: 0.75;
+}
+
+.wb-note-link-handle:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+/* Touch has no hover, so the handle can never be revealed by one --
+   show it permanently on coarse pointers. */
+@media (pointer: coarse) {
+    .wb-note-link-handle {
+        opacity: 0.75;
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* ── Note: "under X" caption and the linked-children summary ───────── */
+.wb-note-parent {
+    flex-shrink: 0;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--np-text-muted, #888888);
+    background: var(--np-bg-alt, #f8f9fa);
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wb-note-linked-summary {
+    margin-top: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--np-text-muted, #888888);
+    border-top: 1px dashed var(--np-border, #e0e0e0);
+}
+
+.wb-note-title-only .wb-note-parent {
+    display: none;
+}
+
+/* ── Note: inline rename ─────────────────────────────────────────────
+   The title becomes editable in place rather than being swapped for an
+   <input>, so nothing shifts as editing starts. */
+.wb-note-title.editing {
+    white-space: nowrap;
+    overflow-x: auto;
+    text-overflow: clip;
+    cursor: text;
+    outline: 2px solid var(--np-blue, #108BB9);
+    outline-offset: 2px;
+    border-radius: 3px;
+    background: var(--np-surface, #ffffff);
+    color: var(--np-text, #333333);
+    padding: 0 2px;
+}
+
+/* ── Note: link-drop targets and the outline's "found it" flash ────── */
+.wb-note-card.wb-link-target {
+    outline: 3px solid var(--np-green, #1c9e41);
+    outline-offset: 2px;
+}
+
+.wb-note-card.wb-link-target-invalid {
+    outline: 3px solid var(--np-red, #d64545);
+    outline-offset: 2px;
+    cursor: not-allowed;
+}
+
+@keyframes wbNoteFlash {
+    0%, 100% { box-shadow: 0 2px 6px var(--np-shadow, rgba(0, 0, 0, 0.1)); }
+    30%      { box-shadow: 0 0 0 5px rgba(16, 139, 185, 0.55), 0 6px 18px var(--np-shadow, rgba(0, 0, 0, 0.25)); }
+}
+
+.wb-note-card.wb-note-flash {
+    animation: wbNoteFlash 1.3s ease;
+}
+
+/* Respect a reduced-motion preference: still highlight, just don't pulse. */
+@media (prefers-reduced-motion: reduce) {
+    .wb-note-card.wb-note-flash {
+        animation: none;
+        box-shadow: 0 0 0 5px rgba(16, 139, 185, 0.55);
+    }
+}
+
+/* While a noodle is being dragged, the whole document shows the link
+   cursor -- a fast pointer regularly leaves the source note's own DOM
+   between move events. */
+body.wb-linking,
+body.wb-linking * {
+    cursor: crosshair !important;
+}
+
+/* ── Noodles ─────────────────────────────────────────────────────────
+   Drawn in an SVG layer *under* the notes. Non-scaling stroke keeps a
+   noodle the same visual weight at every zoom level, so a zoomed-out
+   board still reads as connected rather than dissolving into hairlines. */
+.wb-noodle-path {
+    stroke: var(--np-blue, #108BB9);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.75;
+    transition: opacity 0.12s ease, stroke-width 0.12s ease;
+}
+
+.wb-noodle-arrow {
+    fill: var(--np-blue, #108BB9);
+    opacity: 0.75;
+}
+
+.wb-noodle-hit {
+    cursor: pointer;
+}
+
+.wb-noodle:hover .wb-noodle-path {
+    opacity: 1;
+    stroke-width: 3.5;
+}
+
+.wb-noodle:hover .wb-noodle-arrow {
+    opacity: 1;
+}
+
+.wb-noodle.selected .wb-noodle-path {
+    opacity: 1;
+    stroke-width: 4;
+    stroke: var(--np-orange, #ff7b01);
+}
+
+.wb-noodle.selected .wb-noodle-arrow {
+    opacity: 1;
+    fill: var(--np-orange, #ff7b01);
+}
+
+/* The cut button appears only on the selected noodle -- an unselected
+   board stays clean. */
+.wb-noodle-cut {
+    display: none;
+    cursor: pointer;
+}
+
+.wb-noodle.selected .wb-noodle-cut {
+    display: block;
+}
+
+.wb-noodle-cut-bg {
+    fill: var(--np-surface, #ffffff);
+    stroke: var(--np-orange, #ff7b01);
+    stroke-width: 2;
+}
+
+.wb-noodle-cut-mark {
+    stroke: var(--np-orange, #ff7b01);
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+}
+
+.wb-noodle-cut:hover .wb-noodle-cut-bg {
+    fill: var(--np-orange, #ff7b01);
+}
+
+.wb-noodle-cut:hover .wb-noodle-cut-mark {
+    stroke: #ffffff;
+}
+
+/* The rubber band that follows the pointer mid-drag. */
+.wb-noodle-ghost {
+    stroke: var(--np-green, #1c9e41);
+    stroke-width: 2.5;
+    stroke-dasharray: 7 5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+/* ── Transient canvas message ────────────────────────────────────────
+   Used for refused links and confirmed cuts: a nudge, not an error the
+   user has to dismiss. */
+.wb-noodle-message {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%) translateY(6px);
+    max-width: min(420px, calc(100% - 32px));
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: var(--np-text, #333333);
+    color: var(--np-surface, #ffffff);
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-align: center;
+    box-shadow: 0 4px 14px var(--np-shadow, rgba(0, 0, 0, 0.24));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 6;
+}
+
+.wb-noodle-message.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── Floating outline panel ──────────────────────────────────────────
+   Floats above the canvas on the left. Deliberately translucent-backed
+   and shadowed rather than docked, so the board still reads as one
+   continuous surface underneath it. */
+.wb-outline-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: 260px;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    background: var(--np-surface, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 6px 22px var(--np-shadow, rgba(0, 0, 0, 0.16));
+    overflow: hidden;
+    z-index: 5;
+}
+
+.wb-outline-panel.hidden {
+    display: none;
+}
+
+.wb-outline-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 8px 9px 12px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-bg-alt, #f8f9fa);
+    flex-shrink: 0;
+}
+
+.wb-outline-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--np-text, #333333);
+    white-space: nowrap;
+}
+
+.wb-outline-count {
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--np-text-muted, #888888);
+    white-space: nowrap;
+    flex: 1;
+}
+
+.wb-outline-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.wb-outline-btn {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--np-text-secondary, #666666);
+    cursor: pointer;
+    opacity: 0.75;
+}
+
+.wb-outline-btn:hover,
+.wb-outline-btn:focus-visible {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.07);
+    color: var(--np-text, #333333);
+}
+
+.wb-outline-search {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.wb-outline-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--np-text, #333333);
+    background: var(--np-bg, #ffffff);
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 5px;
+}
+
+.wb-outline-search-input:focus {
+    outline: none;
+    border-color: var(--np-blue, #108BB9);
+    box-shadow: 0 0 0 2px rgba(16, 139, 185, 0.18);
+}
+
+.wb-outline-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 4px 8px;
+}
+
+.wb-outline-empty {
+    margin: 12px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--np-text-muted, #888888);
+    font-style: italic;
+}
+
+/* One outline row. Depth is applied as left padding on the row itself so
+   the hover/selection background still spans the panel's full width. */
+.wb-outline-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 24px;
+    padding-left: calc(var(--wb-outline-depth, 0) * 12px);
+    border-radius: 4px;
+}
+
+.wb-outline-row:hover {
+    background: var(--np-bg-alt, #f4f6f8);
+}
+
+.wb-outline-row.matched {
+    background: rgba(16, 139, 185, 0.1);
+}
+
+.wb-outline-chevron,
+.wb-outline-chevron-spacer {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+}
+
+.wb-outline-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--np-text-secondary, #666666);
+    cursor: pointer;
+    border-radius: 3px;
+    transform: rotate(90deg);
+    transition: transform 0.12s ease;
+}
+
+.wb-outline-chevron.collapsed {
+    transform: rotate(0deg);
+}
+
+.wb-outline-chevron:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--np-text, #333333);
+}
+
+.wb-outline-label {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 2px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--np-text, #333333);
+    text-align: left;
+    cursor: pointer;
+}
+
+.wb-outline-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The dot marks a task that has a post-it on the board -- hollow for one
+   that doesn't, so the difference survives a greyscale print or a
+   colour-vision difference rather than relying on hue alone. */
+.wb-outline-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid var(--np-text-muted, #b0b0b0);
+    background: transparent;
+}
+
+.wb-outline-row.on-board .wb-outline-dot {
+    border-color: var(--np-blue, #108BB9);
+    background: var(--np-blue, #108BB9);
+}
+
+.wb-outline-row:not(.on-board) .wb-outline-name {
+    color: var(--np-text-secondary, #666666);
+}
+
+.wb-outline-percent {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--np-text-muted, #888888);
+    padding-right: 2px;
+}
+
+.wb-outline-add {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--np-text-secondary, #666666);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.wb-outline-row:hover .wb-outline-add,
+.wb-outline-add:focus-visible {
+    opacity: 1;
+}
+
+.wb-outline-add:hover {
+    border-color: var(--np-blue, #108BB9);
+    color: var(--np-blue, #108BB9);
+}
+
+@media (pointer: coarse) {
+    .wb-outline-add {
+        opacity: 1;
+    }
+}
+
+/* ── The collapsed rail ──────────────────────────────────────────────
+   Hiding the panel must never be a one-way door, so a thin tab stays
+   pinned to the same edge to bring it back. */
+.wb-outline-rail {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-surface, #ffffff);
+    color: var(--np-text-secondary, #666666);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 3px 12px var(--np-shadow, rgba(0, 0, 0, 0.14));
+    z-index: 5;
+}
+
+.wb-outline-rail.visible {
+    display: inline-flex;
+}
+
+.wb-outline-rail:hover {
+    color: var(--np-text, #333333);
+    border-color: var(--np-blue, #108BB9);
+}
+
+/* On a narrow viewport the panel would eat the canvas, so it becomes a
+   compact overlay instead of a permanent column. */
+@media (max-width: 640px) {
+    .wb-outline-panel {
+        width: calc(100% - 24px);
+        bottom: auto;
+        max-height: 45%;
+    }
+}
+
+/* ── Toolbar additions ───────────────────────────────────────────────*/
+.wb-toolbar-btn-new {
+    font-weight: 600;
+}
+
+#whiteboardOutlineBtn.active {
+    background: var(--np-blue, #108BB9);
+    border-color: var(--np-blue, #108BB9);
+    color: #ffffff;
+}
+
+#whiteboardOutlineBtn.active:hover:not(:disabled) {
+    color: #ffffff;
+}
+
+.wb-toolbar-hint kbd,
+.wb-empty-state-body kbd {
+    display: inline-block;
+    padding: 0 4px;
+    border: 1px solid var(--np-border, #c8c8c8);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    background: var(--np-bg-alt, #f8f9fa);
+    font-family: inherit;
+    font-size: 0.92em;
+    line-height: 1.4;
+    color: inherit;
+}
+
+/* "Delete task" sits next to "Remove from board" on the note menu -- the
+   one pair on that menu it would genuinely hurt to confuse, so it is
+   coloured as the destructive action it is. */
+.wb-note-menu-delete {
+    color: var(--np-red, #d64545);
+}
+
+.wb-note-menu-delete:hover,
+.wb-note-menu-delete:focus-visible {
+    background: rgba(214, 69, 69, 0.1);
+    color: var(--np-red, #d64545);
 }

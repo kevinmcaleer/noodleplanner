@@ -312,19 +312,21 @@ they are until the view edits them.
 Whiteboard rows
 ~~~~~~~~~~~~~~~~
 
-- ``Task`` names a summary task by name.
+- ``Task`` names a task by name. Any task can have a row: the board
+  started out showing summary tasks only, but a post-it now creates its
+  own task, and a new one starts life as a leaf.
 - ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
   top-left of the board's own coordinate space (not the viewport).
 - ``Colour`` is ``#RRGGBB`` or empty; see `Note colour precedence`_ below.
 - ``Width`` / ``Height`` are optional integers; empty means the default
   note size.
 - ``Collapsed`` is ``yes`` or ``no``.
-- A row whose ``Task`` matches no summary task in the outline (for example
+- A row whose ``Task`` matches no task in the outline (for example
   because the task was renamed by hand, which looks identical to a
   delete-plus-add) is kept in the file, not rendered, and reported as a
   warning -- the same "never remove a line you do not understand" rule
   this page states elsewhere.
-- ``Task`` is matched case-insensitively against summary task names, the
+- ``Task`` is matched case-insensitively against task names, the
   same as dependency name resolution above. If two whiteboard rows name
   the same task, the later one wins; avoid duplicate names.
 - Row order doubles as stacking order: the note whose row comes *last* in
@@ -332,14 +334,53 @@ Whiteboard rows
   moves its row to the end of the table, which is how "bring to front"
   persists across a reload -- z-order is never stored as a separate field.
 
+Noodles are not stored
+~~~~~~~~~~~~~~~~~~~~~~~
+
+A **noodle** -- the curved line drawn between two post-its -- has no
+column, no table and no field of its own anywhere in the file. A noodle
+from note A to note B *is* the statement "B is indented under A in the
+outline", so the noodles the board draws are derived from the task
+hierarchy every time it renders.
+
+That means the two directions agree by construction:
+
+- Drag a noodle from A to B on the board and B's whole subtree is
+  re-indented under A in the outline above, keeping every token on each
+  moved line (``@resources``, durations, ``[depends ...]``, dates,
+  ``{buckets}``, ``#labels``) exactly as it was.
+- Indent a task under another by hand in the plan text and, if both have
+  a row here, a noodle appears between them.
+
+Cutting a noodle (select it, then ``Delete``, or use its ``✕`` button)
+moves the child back out to the end of the outline as a top-level task.
+It never deletes anything: the task and its own children come with it.
+
+A child task that has a row of its own is drawn as a noodle rather than
+as a checklist item inside its parent's note, so one relationship is
+never shown twice in two different shapes.
+
+Storing noodles as their own table was deliberately rejected: it would
+be a second source of truth for a relationship the outline already
+records, free to disagree with it, and it would stop a plan reading
+correctly as a plain indented list in a text editor.
+
 Adding and removing notes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The board is a curated subset of the plan's summary tasks, not every
-phase automatically. **Add note** (toolbar, or the empty-state shortcut)
-opens a picker listing every summary task not already on the board, each
+A post-it can be created from nothing: **New post-it** (toolbar), a
+double-click on empty canvas, or the ``n`` key writes a brand-new
+top-level task line into the outline *and* a row here, in one edit. The
+task is named ``New idea`` (then ``New idea 2``, and so on) until you
+type over it; double-pressing a note's header renames the task in place,
+updating this table and any ``[depends ...]`` that referenced the old
+name in the same edit.
+
+The board is otherwise a curated subset of the plan, not every phase
+automatically. **Add existing** (toolbar, or the empty-state shortcut)
+opens a picker listing every task not already on the board, each
 labelled with its own ``Phase › Sub-phase`` parent path so two same-named
-summary tasks in different phases are tellable apart; a search box
+tasks in different phases are tellable apart; a search box
 filters by name or path. Adding one or several at once writes one row per
 task, each placed in the first free space of the current view that does
 not overlap an existing note, all in a single edit to this section.

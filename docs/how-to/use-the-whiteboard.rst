@@ -1,7 +1,9 @@
 How to Use the Whiteboard
 ===========================
 
-The Whiteboard is a free-form canvas of post-it notes, one per summary task you choose to put there. Each note shows that task's own direct children as a todo list, with checkboxes, an assignee chip, and a way to drill further down when a child has children of its own.
+The Whiteboard is a free-form canvas of post-it notes. You can write a plan on it from nothing: each post-it is a task, and linking two together with a **noodle** makes one a subtask of the other. The structure you build appears as a collapsible outline floating on the left, which is also how you find a note again once the board gets busy.
+
+It works the other way round too — a task that already exists in your plan can be pulled onto the board — so you can start loose and formalise later, or start from an existing plan and rearrange it visually.
 
 Open the Whiteboard
 ---------------------
@@ -9,26 +11,93 @@ Open the Whiteboard
 Click **Views ▾** in the project sub-navigation bar, then choose **Whiteboard**.
 
 .. figure:: /_static/img/how-to/wb-01-whiteboard-notes.png
-   :alt: Two post-it notes on the whiteboard, "Discovery & Planning" and "Design", each listing its own subtasks with checkboxes
+   :alt: Post-it notes on the whiteboard, linked by curved noodles, with the plan structure panel floating on the left
    :width: 100%
 
-   Two summary tasks on the board, each rendered as a note.
+   A board mid-session: post-its, the noodles linking them, and the plan structure panel.
 
-Put a Summary Task on the Board
----------------------------------
+Add a Post-it
+---------------
 
-The whiteboard only ever shows the summary tasks you have explicitly added — it is a curated view, not every phase automatically.
+Any of these creates a new task in your plan and puts a note for it on the board:
 
-1. Click **+ Add note** in the whiteboard toolbar (or, on an empty board, the **Add note** button in the empty-state message).
-2. In the **Add notes to whiteboard** dialog, tick one or more summary tasks. Two same-named tasks in different phases are told apart by their ``Phase › Sub-phase`` path shown under the name. Type in the search box to filter by name or phase.
+- **Double-click** an empty part of the canvas — the note lands where you clicked.
+- Press ``n``.
+- Click **New post-it** in the toolbar.
+
+The note appears with its title already selected, so just type the name and press ``Enter``. Until you name it, it is called ``New idea``.
+
+.. note::
+
+   A post-it is a real task, straight away. It starts at the top level of your plan and shows up everywhere else — the Tasks table, the Gantt chart, the outline — immediately. Nothing needs to be "promoted" later.
+
+Rename a Note
+---------------
+
+Double-click a note's **header** (or double-tap it on a touchscreen) and type. ``Enter`` saves, ``Escape`` abandons the change. There is also a **Rename** item on the note's ``...`` menu.
+
+Renaming from here renames the task itself, and updates anything that pointed at the old name — dependencies included — in one step.
+
+Link Notes with Noodles
+-------------------------
+
+Each note's header has a small noodle handle next to the ``...`` button. **Drag it onto another note** to make that note a subtask.
+
+While you drag, a dashed line follows your pointer and the note you are hovering is outlined: green if the link is allowed, red if it isn't. Drop it, and the target note drops in under the first one.
+
+A noodle is not decoration — it *is* your plan's structure:
+
+- The target note (and everything already under it) moves under the source in the outline.
+- The target note grows an "under …" caption naming its new parent.
+- The plan structure panel on the left re-nests to match.
+
+Some links are refused, with a short message explaining why: a note cannot be linked to itself, cannot be linked to something already under it (that would make a loop), and a link that already exists does nothing.
+
+Unlink Notes
+--------------
+
+**Click a noodle** to select it. It turns orange and a ``✕`` appears at its midpoint. Then either click the ``✕`` or press ``Delete``.
+
+You can also use **Unlink from "…"** on the note's ``...`` menu, which is easier to hit on a crowded board.
+
+.. note::
+
+   Unlinking never deletes anything. The task moves back to the top level of your plan, keeping its own subtasks. To actually remove a task, use **Delete task** on the ``...`` menu — that one asks for confirmation, because unlike everything else on the board it destroys plan content.
+
+The Plan Structure Panel
+--------------------------
+
+The panel floating on the left of the canvas shows your whole plan as a collapsible outline, whether or not each task has a note on the board.
+
+- **Collapse or expand** a branch with its chevron; the header's two buttons collapse or expand everything at once.
+- **A filled dot** marks a task that has a note on the board. A hollow one marks a task that doesn't.
+- **Click a row** to fly the board to that note, which flashes so you can spot it. This is the quickest way to find a note on a large board.
+- **Type in the search box** to filter to matching tasks and their parents. Search ignores collapsed branches, so a result is never hidden from you.
+- **Click the ``+``** on a row without a note to put that task on the board.
+
+.. figure:: /_static/img/how-to/wb-04-plan-structure.png
+   :alt: The plan structure panel, listing phases and their subtasks with collapse chevrons and dots marking which tasks are on the board
+   :width: 60%
+
+   The plan structure panel. Filled dots mark the tasks that have a note on the board.
+
+Hide the panel with the ``‹`` button in its header, or the **Structure** button in the toolbar; a small **Structure** tab stays pinned to the canvas edge to bring it back. Whether the panel is open, and which branches you collapsed, is remembered per project on this device — it is never written into your plan file.
+
+Put an Existing Task on the Board
+-----------------------------------
+
+The whiteboard only shows the tasks you have explicitly added — it is a curated view, not your whole plan automatically.
+
+1. Click **Add existing** in the whiteboard toolbar (or the matching button on an empty board).
+2. Tick one or more tasks. Two same-named tasks in different phases are told apart by the ``Phase › Sub-phase`` path shown under the name. Type in the search box to filter by name or phase.
 3. Click **Add note** (it reads **Add N notes** once more than one is ticked).
 
-Each note lands in the first free space of your current view that does not overlap an existing note. To add every summary task at once, use **Add all summary tasks** on the empty-state message instead of the picker.
+Each note lands in the first free space of your current view that does not overlap an existing note. To lay out every phase at once, use **Add all summary tasks** on the empty-state message.
 
 Move and Resize a Note
 ------------------------
 
-- **Move** — drag a note by its coloured header.
+- **Move** — drag a note by its coloured header. Any noodles attached to it follow.
 - **Resize** — drag the small grip in its bottom-right corner.
 - **Bring to front** — click or drag a note; it always comes to the front of the others, and stays there after a reload.
 
@@ -37,7 +106,9 @@ Both moving and resizing save once you release, as a single undo step — nothin
 Tick Off a Todo
 -----------------
 
-Click the checkbox next to any item in a note's list to mark it complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
+A note lists its subtasks as a checklist. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
+
+A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once. If a note has both kinds, a quiet ``+ N linked notes`` line at the bottom of the list says so.
 
 Drill Into a Subtask
 ----------------------
@@ -63,7 +134,7 @@ Click the ``...`` menu in a note's top-right corner. The menu opens a swatch gri
 
    The note colour menu, opened from a note's ``...`` button.
 
-A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that summary task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic palette colour NoodlePlanner assigns every task, based on its place in the outline.
+A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic palette colour NoodlePlanner assigns every task, based on its place in the outline.
 
 Remove a Note from the Board
 -------------------------------
@@ -72,15 +143,47 @@ Open the note's ``...`` menu and choose **Remove from board**.
 
 .. note::
 
-   Removing a note only takes it off the whiteboard. The summary task and every one of its subtasks are left completely untouched in your plan's outline — nothing is deleted. There is no confirmation prompt; like every other change on the whiteboard, it is one ordinary undo step, so ``Ctrl+Z``/``Cmd+Z`` brings the note straight back if you remove the wrong one.
+   Removing a note only takes it off the whiteboard. The task and every one of its subtasks are left completely untouched in your plan's outline — nothing is deleted. There is no confirmation prompt; like every other change on the whiteboard, it is one ordinary undo step, so ``Ctrl+Z``/``Cmd+Z`` brings the note straight back if you remove the wrong one.
+
+   To delete the task itself, use **Delete task** on the same menu instead.
 
 Adding the same task back later gives it a fresh position on the board — it does not remember where the old note used to sit.
+
+Keyboard and Pointer Reference
+--------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Gesture
+     - Does
+   * - Double-click empty canvas, or ``n``
+     - New post-it (and a new task)
+   * - Double-click a note's header
+     - Rename the task in place
+   * - Drag the noodle handle onto another note
+     - Make that note a subtask
+   * - Click a noodle, then ``Delete``
+     - Unlink; the task returns to the top level
+   * - Drag empty space, or scroll
+     - Pan the board
+   * - ``Ctrl``/``Cmd`` + scroll, or pinch
+     - Zoom
+   * - Arrow keys
+     - Pan
+   * - ``+`` / ``−`` / ``0``
+     - Zoom in, out, reset to 100%
+   * - ``f``
+     - Fit the board to its contents
+   * - ``Escape``
+     - Deselect a noodle, or abandon a rename
 
 Related
 --------
 
 - :doc:`../reference/views` — overview of all views, including the Whiteboard
-- :doc:`../reference/plan-format` — the ``---whiteboard---`` back-matter format, column by column
+- :doc:`../reference/plan-format` — the ``---whiteboard---`` back-matter format, column by column, and why noodles are not stored in it
 - :doc:`../explanation/whiteboard-layout-vs-viewport` — why a note's position is saved in your plan but pan/zoom isn't
 - :doc:`use-the-kanban-board` — another view that shares the same task colours
 - :doc:`use-the-mind-map` — another view that shares the same task colours

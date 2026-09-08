@@ -414,8 +414,15 @@ class TestAddNotePickerOpenClose:
         open_picker(browser)
         search = browser.find_element(By.ID, "wbAddNoteSearch")
 
+        # "Testing" matches by name; "Regression" is its child, so it
+        # matches by path (`Phase 1 › Build › Testing`). Leaves like
+        # Regression are offerable now that a post-it creates its own task
+        # -- every new note starts as a leaf, so a picker that hid them
+        # could not re-add a note the user had just removed from the board.
         search.send_keys("testing")
-        WebDriverWait(browser, 3).until(lambda d: picker_item_names(d) == ["Testing"])
+        WebDriverWait(browser, 3).until(
+            lambda d: picker_item_names(d) == ["Testing", "Regression"]
+        )
 
         search.clear()
         search.send_keys("phase 1")
