@@ -10,8 +10,10 @@ import asyncio
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +24,8 @@ from noodle_web import app
 from noodle_web import collab_session
 from noodle_web import security
 from noodle_web.collab_session import SessionManager, collab_sessions
+
+STATIC_DIR = Path(__file__).resolve().parents[1] / "packages/noodle-web/src/noodle_web/static"
 
 
 @pytest.fixture
@@ -745,3 +749,33 @@ class TestNoContentLeaks:
 
         assert secret_display_name not in caplog.text
         assert info["session_id"] not in caplog.text
+
+
+class TestPresenceStylesAreReachable:
+    """#966's presence panel is styled by classes that collab-session.js sets
+    at runtime. `static/style.css` is dead -- no template links it -- so rules
+    parked there never reach the browser and the panel renders unstyled."""
+
+    @staticmethod
+    def _linked_stylesheets() -> set[str]:
+        index = (STATIC_DIR.parent / "templates" / "index.html").read_text()
+        return set(re.findall(r'href="/static/([^"?]+\.css)', index))
+
+    def test_index_does_not_link_style_css(self):
+        assert "style.css" not in self._linked_stylesheets()
+
+    def test_presence_classes_are_defined_in_a_linked_stylesheet(self):
+        js = (STATIC_DIR / "collab-session.js").read_text()
+        used = set(re.findall(r"collab-presence-[a-z-]+", js))
+        assert used, "expected collab-session.js to set presence classes"
+
+        defined = set()
+        for sheet in self._linked_stylesheets():
+            path = STATIC_DIR / sheet
+            if path.exists():
+                defined |= set(re.findall(r"collab-presence-[a-z-]+", path.read_text()))
+
+        assert not (used - defined), (
+            f"presence classes used by collab-session.js but not defined in any "
+            f"stylesheet index.html links: {sorted(used - defined)}"
+        )
