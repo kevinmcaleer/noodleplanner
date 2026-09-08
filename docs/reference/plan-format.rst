@@ -275,9 +275,14 @@ position, so extra or reordered columns are tolerated), except highlights.
        marker is optional but written by the app.
    * - ``---raid log---``
      - Table: ``ID | Type | Title | Description | Raised By | Owner |
-       Mitigation Actions | Impact | Likelihood | Score | Status``. A short
-       form ``Type | Description | Status | Score | Owner | Date`` is read
-       too. Type is ``risk`` | ``assumption`` | ``issue`` | ``dependency``.
+       Mitigation Actions | Impact | Likelihood | Score | Status | Priority
+       | Target Date``. A short form ``Type | Description | Status | Score
+       | Owner | Date`` is read too. Type is ``risk`` | ``assumption`` |
+       ``issue`` | ``dependency``. An item escalated beyond its own project
+       (project RAID view's "escalate" action) adds two more columns,
+       ``Escalated | Escalation Level`` (``project`` | ``programme`` |
+       ``board``) -- omitted entirely when nothing in the log is escalated,
+       so a plan with no escalations round-trips unchanged.
    * - ``---comms---``
      - Table: ``ID | Activity | Audience | Content | Frequency | Channel |
        Owner | Status``.

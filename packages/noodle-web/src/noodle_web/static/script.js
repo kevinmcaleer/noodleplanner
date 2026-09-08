@@ -7565,6 +7565,7 @@ function openRaidForm(itemId) {
         document.getElementById('raidItemMitigation').value = item.mitigation_actions;
         document.getElementById('raidItemImpact').value = item.impact;
         document.getElementById('raidItemLikelihood').value = item.likelihood;
+        document.getElementById('raidItemEscalation').value = item.escalation_level || 'project';
         if (deleteRow) deleteRow.style.display = 'block';
     } else {
         title.textContent = 'New RAID Item';
@@ -7578,6 +7579,7 @@ function openRaidForm(itemId) {
         document.getElementById('raidItemMitigation').value = '';
         document.getElementById('raidItemImpact').value = '3';
         document.getElementById('raidItemLikelihood').value = '3';
+        document.getElementById('raidItemEscalation').value = 'project';
         if (deleteRow) deleteRow.style.display = 'none';
     }
 
@@ -7618,6 +7620,7 @@ function saveRaidItemFromForm() {
 
     const impact = parseInt(document.getElementById('raidItemImpact').value);
     const likelihood = parseInt(document.getElementById('raidItemLikelihood').value);
+    const escalationLevel = document.getElementById('raidItemEscalation').value;
 
     const itemData = {
         type: document.getElementById('raidItemType').value,
@@ -7629,7 +7632,9 @@ function saveRaidItemFromForm() {
         impact: impact,
         likelihood: likelihood,
         score: impact * likelihood,
-        status: document.getElementById('raidItemStatus').value
+        status: document.getElementById('raidItemStatus').value,
+        escalated: escalationLevel !== 'project',
+        escalation_level: escalationLevel
     };
 
     if (idField) {
@@ -7756,7 +7761,10 @@ function renderRaidTable() {
             <td>${item.impact || ''}</td>
             <td>${item.likelihood || ''}</td>
             <td><span class="raid-score ${scoreClass}">${item.score || ''}</span></td>
-            <td><span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span></td>
+            <td>
+                <span class="raid-status-badge raid-status-${item.status || 'open'}">${item.status || 'open'}</span>
+                ${item.escalated ? `<span class="raid-escalation-badge raid-escalation-${item.escalation_level}" title="Escalated to ${escapeHtml(item.escalation_level)}">&#9650; ${escapeHtml(item.escalation_level)}</span>` : ''}
+            </td>
             <td>
                 <button class="raid-action-btn" onclick="openRaidForm(${item.id})" title="Edit">✏️</button>
                 <button class="raid-action-btn delete" onclick="deleteRaidItem(${item.id})" title="Delete">🗑️</button>
@@ -7811,23 +7819,33 @@ function updateRaidSortIndicators() {
 function generateRaidMarkdown() {
     if (raidItems.length === 0) return '# RAID Log\n\n*No items.*\n';
 
-    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
+    let headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
 
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-    const rows = raidItems.map(item => [
-        String(item.id),
-        item.type.charAt(0).toUpperCase() + item.type.slice(1),
-        escPipe(item.title),
-        escPipe(item.description),
-        escPipe(item.raised_by),
-        escPipe(item.owner),
-        escPipe(item.mitigation_actions),
-        String(item.impact),
-        String(item.likelihood),
-        String(item.score),
-        item.status.charAt(0).toUpperCase() + item.status.slice(1)
-    ]);
+    const includeEscalation = raidItems.some(item => item.escalated || (item.escalation_level && item.escalation_level !== 'project'));
+    if (includeEscalation) headers = headers.concat(['Escalated', 'Escalation Level']);
+
+    const rows = raidItems.map(item => {
+        const row = [
+            String(item.id),
+            item.type.charAt(0).toUpperCase() + item.type.slice(1),
+            escPipe(item.title),
+            escPipe(item.description),
+            escPipe(item.raised_by),
+            escPipe(item.owner),
+            escPipe(item.mitigation_actions),
+            String(item.impact),
+            String(item.likelihood),
+            String(item.score),
+            item.status.charAt(0).toUpperCase() + item.status.slice(1)
+        ];
+        if (includeEscalation) {
+            row.push(item.escalated ? 'yes' : 'no');
+            row.push(item.escalation_level || 'project');
+        }
+        return row;
+    });
 
     const widths = headers.map(h => h.length);
     rows.forEach(row => {
@@ -7886,7 +7904,8 @@ function parseRaidMarkdown(text) {
             'owner': 'owner', 'mitigation actions': 'mitigation_actions',
             'impact': 'impact', 'likelihood': 'likelihood',
             'score': 'score', 'status': 'status',
-            'date': 'date'
+            'date': 'date',
+            'escalated': 'escalated', 'escalation level': 'escalation_level'
         };
 
         headers.forEach((h, idx) => {
@@ -7971,6 +7990,10 @@ function parseRaidMarkdown(text) {
                 }
                 maxIdSeen = Math.max(maxIdSeen, itemId);
 
+                const escalated = (getCell('escalated', '') || '').toLowerCase();
+                let escalationLevel = (getCell('escalation_level', '') || '').toLowerCase();
+                if (!['project', 'programme', 'board'].includes(escalationLevel)) escalationLevel = 'project';
+
                 items.push({
                     id: itemId,
                     type: validTypes.includes(itemType) ? itemType : 'risk',
@@ -7982,7 +8005,9 @@ function parseRaidMarkdown(text) {
                     impact: impact,
                     likelihood: likelihood,
                     score: score,
-                    status: validStatuses.includes(itemStatus) ? itemStatus : 'open'
+                    status: validStatuses.includes(itemStatus) ? itemStatus : 'open',
+                    escalated: ['yes', 'true', '1'].includes(escalated),
+                    escalation_level: escalationLevel
                 });
             } catch (rowError) {
                 console.warn('Skipping malformed RAID row:', line, rowError);
@@ -12869,22 +12894,32 @@ function syncSheetToBudgetItems() {
 function generateRaidLogTable() {
     if (raidItems.length === 0) return '';
 
-    const headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
+    let headers = ['ID', 'Type', 'Title', 'Description', 'Raised By', 'Owner', 'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status'];
     const escPipe = (text) => String(text || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-    const rows = raidItems.map(item => [
-        String(item.id),
-        escPipe(item.type),
-        escPipe(item.title),
-        escPipe(item.description),
-        escPipe(item.raised_by),
-        escPipe(item.owner),
-        escPipe(item.mitigation_actions),
-        String(item.impact),
-        String(item.likelihood),
-        String(item.score),
-        escPipe(item.status)
-    ]);
+    const includeEscalation = raidItems.some(item => item.escalated || (item.escalation_level && item.escalation_level !== 'project'));
+    if (includeEscalation) headers = headers.concat(['Escalated', 'Escalation Level']);
+
+    const rows = raidItems.map(item => {
+        const row = [
+            String(item.id),
+            escPipe(item.type),
+            escPipe(item.title),
+            escPipe(item.description),
+            escPipe(item.raised_by),
+            escPipe(item.owner),
+            escPipe(item.mitigation_actions),
+            String(item.impact),
+            String(item.likelihood),
+            String(item.score),
+            escPipe(item.status)
+        ];
+        if (includeEscalation) {
+            row.push(item.escalated ? 'yes' : 'no');
+            row.push(item.escalation_level || 'project');
+        }
+        return row;
+    });
 
     // Calculate column widths
     const widths = headers.map(h => h.length);

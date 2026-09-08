@@ -1,5 +1,5 @@
 /**
- * Tests for the programme overview dashboard (issue #734).
+ * Tests for the programme overview dashboard (issue #734, extended by #736).
  *
  * Covers the pure/testable roll-up helpers in programme.js:
  *   - computeRagRollup(): rolls a list of per-project RAG values up into
@@ -10,6 +10,8 @@
  *     the full cross-project milestone list.
  *   - aggregateBenefitsOnTrack(): rolls benefit items up into an on-track
  *     count, honestly reporting when there's nothing tracked to roll up.
+ *   - aggregateEscalatedRaidItems(): rolls escalated risks & issues up
+ *     across a programme's member projects (#736).
  *   - ragById(): maps a RAG list to a lookup table by project id.
  *
  * Run with: node tests/test_programme_dashboard.js
@@ -24,6 +26,7 @@ const {
     extractProjectMilestones,
     pickKeyMilestones,
     aggregateBenefitsOnTrack,
+    aggregateEscalatedRaidItems,
     ragById,
 } = mod;
 
@@ -178,6 +181,84 @@ assertEqual(
     aggregateBenefitsOnTrack([{ status: 'In Progress' }]),
     { hasData: true, total: 1, onTrack: 1 },
     'items with no type default to benefit'
+);
+
+// --- aggregateEscalatedRaidItems ---------------------------------------------
+
+(() => {
+    const byProject = [
+        {
+            projectId: 'p1', projectName: 'Alpha',
+            items: [
+                { id: 1, type: 'risk', title: 'Server may fail', owner: 'Bob',
+                  impact: 4, likelihood: 3, score: 12, status: 'open',
+                  escalated: true, escalation_level: 'programme' },
+                { id: 2, type: 'issue', title: 'Not escalated', status: 'open',
+                  escalated: false, escalation_level: 'project' },
+            ],
+        },
+        {
+            projectId: 'p2', projectName: 'Beta',
+            items: [
+                { id: 3, type: 'issue', title: 'Vendor outage', owner: 'Alice',
+                  impact: 5, likelihood: 4, score: 20, status: 'open',
+                  escalated: true, escalation_level: 'board' },
+                { id: 4, type: 'risk', title: 'Escalated but not to programme',
+                  status: 'open', escalated: true, escalation_level: 'project' },
+            ],
+        },
+    ];
+
+    assertEqual(
+        aggregateEscalatedRaidItems(byProject).map((i) => i.title),
+        ['Vendor outage', 'Server may fail'],
+        'escalated items from multiple member projects are collected, sorted by score (highest first)'
+    );
+
+    assertEqual(
+        aggregateEscalatedRaidItems(byProject).map((i) => i.type),
+        ['issue', 'risk'],
+        'both risks and issues are included'
+    );
+
+    assertEqual(
+        aggregateEscalatedRaidItems(byProject).some((i) => i.title === 'Not escalated'),
+        false,
+        'items that are not escalated at all are excluded'
+    );
+
+    assertEqual(
+        aggregateEscalatedRaidItems(byProject).some((i) => i.title === 'Escalated but not to programme'),
+        false,
+        "items with escalation_level 'project' are excluded even when escalated is true"
+    );
+
+    assertEqual(
+        aggregateEscalatedRaidItems(byProject).find((i) => i.title === 'Vendor outage').escalationLevel,
+        'board',
+        'board-escalated items are included at programme altitude -- a superset of programme escalation'
+    );
+})();
+
+assertEqual(
+    aggregateEscalatedRaidItems([
+        { projectId: 'p1', projectName: 'Alpha', items: [
+            { id: 1, type: 'action', title: 'Not a risk or issue', status: 'open',
+              escalated: true, escalation_level: 'programme' },
+            { id: 2, type: 'decision', title: 'Also not a risk or issue', status: 'open',
+              escalated: true, escalation_level: 'board' },
+        ] },
+    ]),
+    [],
+    'only risk and issue types are aggregated, even when escalated'
+);
+
+assertEqual(aggregateEscalatedRaidItems([]), [], 'no member projects means no escalated items');
+assertEqual(aggregateEscalatedRaidItems(undefined), [], 'undefined project list means no escalated items');
+assertEqual(
+    aggregateEscalatedRaidItems([{ projectId: 'p1', projectName: 'Alpha', items: [] }]),
+    [],
+    'a project with no raid items contributes nothing'
 );
 
 // --- ragById -----------------------------------------------------------------
