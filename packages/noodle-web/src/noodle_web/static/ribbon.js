@@ -937,6 +937,7 @@ function wireEvents(shell) {
             else if (label === 'New task') addNewTaskViaShortcut();
             else if (label === 'Print') window.print();
             else if (label === 'AI Chat') { if (typeof onAIButtonClick === 'function') onAIButtonClick(); }
+            else if (label === 'Start planning session') { if (typeof startCollabSession === 'function') startCollabSession(); }
             refreshRibbon();
             return;
         }

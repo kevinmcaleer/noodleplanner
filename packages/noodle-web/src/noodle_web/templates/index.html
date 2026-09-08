@@ -4184,7 +4184,32 @@ Build
     <script src="/static/backstage.js?v={{ v }}"></script>
     <script src="/static/ai-config.js?v={{ v }}"></script>
     <script src="/static/ai-chat.js?v={{ v }}"></script>
+    <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
+
+    <!-- Collab Session Modal (#963) -->
+    <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">
+        <div class="task-form-modal">
+            <div class="modal-header">
+                <h2><i class="bi bi-people" aria-hidden="true"></i> Planning session</h2>
+                <button class="close-btn" onclick="closeCollabSessionModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="collabSessionStatus">Starting session...</div>
+                <div id="collabSessionDetails" style="display:none;">
+                    <div class="ai-settings-field">
+                        <label for="collabSessionCode">Six-digit code</label>
+                        <input type="text" id="collabSessionCode" readonly>
+                    </div>
+                    <div class="ai-settings-field">
+                        <label for="collabSessionUrl">Holding link (share with your team)</label>
+                        <input type="text" id="collabSessionUrl" readonly onclick="this.select()">
+                    </div>
+                    <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- AI Settings Modal -->
     <div id="aiSettingsOverlay" class="modal-overlay" onclick="if(event.target===this) closeAISettingsModal()" role="dialog" aria-modal="true" aria-label="AI Provider Settings">
