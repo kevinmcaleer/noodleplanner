@@ -12,13 +12,14 @@
  *     `const FILE_ACTIONS` is readable here as a shared lexical binding once
  *     it has run, the same cross-script pattern ribbon.js itself uses for
  *     NavigationController/currentThemeChoice (see ribbon.js's comments).
- *   - The "Templates" entry is a deliberately muted placeholder: #944 (the
- *     template picker), #945 (portrait cards) and #946 (seed templates)
- *     plug into #backstageTemplatesBtn later. It is not the same feature as
- *     the ribbon's own "Templates" File-menu item (nav.js's
- *     openTemplatesModal(), which inserts a starter plan into the current
- *     project) -- reusing that here would misrepresent the not-yet-built
- *     #944 gallery as already existing.
+ *   - #backstageTemplatesBtn (#944, this file) swaps the main area into a
+ *     template-picker sub-view (#backstageTemplatesView) instead of the
+ *     Recent grid. It is not the same feature as the ribbon's own
+ *     "Templates" File-menu item (nav.js's openTemplatesModal(), which
+ *     inserts a starter plan into the current project). Card rendering is
+ *     a plain placeholder here -- #945 gives it the real portrait renderer,
+ *     see renderTemplateCard() below -- and TEMPLATE_PICKER_TEMPLATES is a
+ *     stub set for #946 to replace with the real seed templates.
  *
  * Depends on:
  *   - NavigationController (script.js) — view registry & navigateTo()
@@ -108,6 +109,60 @@
         }).join('');
     }
 
+    // ── Template picker ─────────────────────────────────────────────────
+
+    // Stub set -- #946 replaces this with the real seed template list.
+    const TEMPLATE_PICKER_TEMPLATES = [
+        { id: 'software-project', name: 'Software project' },
+        { id: 'marketing-campaign', name: 'Marketing campaign' },
+    ];
+
+    function renderTemplateCard(template) {
+        // #945 replaces this body with the real portrait-rendered card.
+        return `
+            <button type="button" class="backstage-template-card" data-template-id="${escapeHtml(template.id)}">
+                <span class="backstage-template-card-icon">
+                    <svg class="icon" width="28" height="28" aria-hidden="true"><use href="#icon-doc"/></svg>
+                </span>
+                <span class="backstage-template-card-name">${escapeHtml(template.name)}</span>
+            </button>
+        `;
+    }
+
+    function renderBlankPlanCard() {
+        return `
+            <button type="button" class="backstage-template-card backstage-template-card-blank" data-template-id="blank">
+                <span class="backstage-template-card-icon">
+                    <svg class="icon" width="28" height="28" aria-hidden="true"><use href="#icon-add"/></svg>
+                </span>
+                <span class="backstage-template-card-name">Blank plan</span>
+            </button>
+        `;
+    }
+
+    function renderTemplatePicker() {
+        const grid = document.getElementById('backstageTemplateGrid');
+        if (!grid) return;
+        grid.innerHTML = renderBlankPlanCard() + TEMPLATE_PICKER_TEMPLATES.map(renderTemplateCard).join('');
+    }
+
+    function showTemplatesView() {
+        const recentView = document.getElementById('backstageRecentView');
+        const templatesView = document.getElementById('backstageTemplatesView');
+        if (!recentView || !templatesView) return;
+        renderTemplatePicker();
+        recentView.style.display = 'none';
+        templatesView.style.display = '';
+    }
+
+    function showRecentView() {
+        const recentView = document.getElementById('backstageRecentView');
+        const templatesView = document.getElementById('backstageTemplatesView');
+        if (!recentView || !templatesView) return;
+        templatesView.style.display = 'none';
+        recentView.style.display = '';
+    }
+
     // ── Wiring ───────────────────────────────────────────────────────────
 
     function init() {
@@ -120,11 +175,7 @@
                     return;
                 }
                 if (e.target.closest('#backstageTemplatesBtn')) {
-                    if (typeof notAvailable === 'function') {
-                        notAvailable('Templates');
-                    } else if (typeof showToast === 'function') {
-                        showToast('Templates isn’t available yet', 'info');
-                    }
+                    showTemplatesView();
                 }
             });
         }
@@ -136,6 +187,27 @@
                 if (!item) return;
                 if (typeof switchToProject === 'function') {
                     switchToProject(item.dataset.projectId);
+                }
+            });
+        }
+
+        const backBtn = document.getElementById('backstageTemplatesBackBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', showRecentView);
+        }
+
+        const grid = document.getElementById('backstageTemplateGrid');
+        if (grid) {
+            grid.addEventListener('click', (e) => {
+                const card = e.target.closest('.backstage-template-card[data-template-id]');
+                if (!card) return;
+                if (card.dataset.templateId === 'blank') {
+                    runFileAction('New plan');
+                    return;
+                }
+                const template = TEMPLATE_PICKER_TEMPLATES.find((t) => t.id === card.dataset.templateId);
+                if (typeof notAvailable === 'function') {
+                    notAvailable(template ? template.name : 'This template');
                 }
             });
         }
@@ -158,6 +230,7 @@
                     // Hide the project subnav while in backstage view (it isn't project-scoped)
                     const planSubnav = document.getElementById('planSubnav');
                     if (planSubnav) planSubnav.classList.remove('visible');
+                    showRecentView();
                     renderRecent();
                 },
                 deactivate() {},

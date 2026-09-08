@@ -2273,9 +2273,10 @@ Build
             </div>
 
             <!-- Backstage Tab (#943): Office-Backstage-style shell behind Home --
-                 file actions on the left, recent plans in the main area. Epic
-                 #903's template picker (#944), portrait cards (#945) and seed
-                 templates (#946) plug into #backstageTemplatesBtn below. -->
+                 file actions on the left, recent plans / template picker in the
+                 main area. Epic #903's template picker shell is #944 (this);
+                 portrait cards (#945) and seed templates (#946) plug into
+                 renderTemplateCard()/TEMPLATE_PICKER_TEMPLATES in backstage.js. -->
             <div id="backstage-tab" class="tab-content" role="tabpanel">
                 <div class="backstage-container">
                     <nav class="backstage-rail" aria-label="File actions">
@@ -2295,12 +2296,9 @@ Build
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-download"/></svg>
                             Export…
                         </button>
-                        <!-- Hook for #944's template picker -- not built yet, so this is a
-                             visibly-muted placeholder rather than pretending the gallery exists. -->
-                        <button type="button" class="backstage-rail-btn backstage-rail-btn-placeholder" id="backstageTemplatesBtn" title="Template gallery is coming soon">
+                        <button type="button" class="backstage-rail-btn" id="backstageTemplatesBtn">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-grid"/></svg>
                             Templates
-                            <span class="backstage-rail-badge">Coming soon</span>
                         </button>
                         <button type="button" class="backstage-rail-btn" data-backstage-action="Print">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-print"/></svg>
@@ -2312,12 +2310,23 @@ Build
                         </button>
                     </nav>
                     <div class="backstage-main">
-                        <h2 class="backstage-main-title">Recent</h2>
-                        <div class="backstage-recent-empty" id="backstageRecentEmpty" style="display:none;">
-                            <p>No recent plans yet.</p>
-                            <p class="backstage-recent-empty-hint">Create a new plan or open one to get started.</p>
+                        <div class="backstage-main-view" id="backstageRecentView">
+                            <h2 class="backstage-main-title">Recent</h2>
+                            <div class="backstage-recent-empty" id="backstageRecentEmpty" style="display:none;">
+                                <p>No recent plans yet.</p>
+                                <p class="backstage-recent-empty-hint">Create a new plan or open one to get started.</p>
+                            </div>
+                            <div class="backstage-recent-list" id="backstageRecentList"></div>
                         </div>
-                        <div class="backstage-recent-list" id="backstageRecentList"></div>
+                        <div class="backstage-main-view" id="backstageTemplatesView" style="display:none;">
+                            <div class="backstage-main-header">
+                                <button type="button" class="backstage-back-btn" id="backstageTemplatesBackBtn">
+                                    <span aria-hidden="true">&larr;</span> Recent
+                                </button>
+                                <h2 class="backstage-main-title">Templates</h2>
+                            </div>
+                            <div class="backstage-template-grid" id="backstageTemplateGrid"></div>
+                        </div>
                     </div>
                 </div>
             </div>
