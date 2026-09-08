@@ -51,8 +51,23 @@
                             });
                         }
 
+                        // Check right away too, not just on future events -- a
+                        // tab left open across a deploy (or a burst of several
+                        // deploys close together) previously had to wait for a
+                        // visibility change, an online event, or up to an hour
+                        // before it would even notice, which is why a browser
+                        // could sit on a stale, partially-updated page for a
+                        // while after a deploy. Cheap: /sw.js is one small file.
+                        checkForUpdate();
+
                         // Installed PWAs can stay open for days. Check again
-                        // when reopened and hourly while actively in use.
+                        // when reopened, when back online, and periodically
+                        // while actively in use (every 15 minutes rather than
+                        // hourly, so a burst of deploys close together -- like
+                        // several in one session -- gets caught reasonably
+                        // promptly instead of leaving a tab stale for up to an
+                        // hour; static assets are exempt from the app's rate
+                        // limiter, so the extra checks cost nothing there).
                         document.addEventListener('visibilitychange', function () {
                             if (document.visibilityState === 'visible') {
                                 checkForUpdate();
@@ -63,7 +78,7 @@
                             if (document.visibilityState === 'visible') {
                                 checkForUpdate();
                             }
-                        }, 60 * 60 * 1000);
+                        }, 15 * 60 * 1000);
                     }).catch(function (err) {
                         console.warn('Service worker registration failed:', err);
                     });
