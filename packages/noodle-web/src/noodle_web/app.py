@@ -1869,12 +1869,31 @@ async def ai_agent_detail(agent_id: str):
 # endpoint with no token, sending a {"type": "join", ...} handshake as their
 # first message. Everything after that is an opaque relay -- no plan
 # content is parsed, stored, or logged here.
+#
+# #964 (end-to-end encryption): every payload relayed here is, by
+# construction, AES-GCM ciphertext produced client-side by
+# static/collab-crypto.js -- this relay still never decrypts or interprets
+# it. The one bit of bootstrapping plumbing added for #964 is
+# `_maybe_cache_host_pubkey`: it peeks only at a message's `type`
+# discriminator (never plan content) to cache the host's ephemeral ECDH
+# public-key announcement, so a joiner who connects after the host already
+# broadcast it still receives it on admission. See collab_session.py's
+# docstring and collab-crypto.js's module docstring for the full design.
+#
+# Post-security-review update: `join_code` (the six-digit code) is
+# ADMISSION-ONLY -- it has no cryptographic role. The ECDH handshake in
+# collab-crypto.js is authenticated by a separate `handshake_secret`, which
+# this route hands back below but which never travels through any other
+# server request (see collab_session.py's docstring for why: this relay
+# legitimately learns `join_code`, so it can never be what proves the
+# handshake wasn't MITM'd by the relay itself).
 # ==============================================================================
 
 
 @app.post("/api/collab/start")
 async def start_collab_session():
-    """Start a new collab session and return its id, host token and join code.
+    """Start a new collab session and return its id, host token, join code,
+    and handshake secret.
 
     Deliberately takes no request body -- there is nothing project- or
     plan-related for the relay to know about, by design (see #766's
@@ -1885,6 +1904,7 @@ async def start_collab_session():
         "session_id": info.session_id,
         "host_token": info.host_token,
         "join_code": info.join_code,
+        "handshake_secret": info.handshake_secret,
         "holding_url": info.holding_url,
     }
 
@@ -1933,7 +1953,32 @@ async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional
         return None, ""
 
     await websocket.send_text(json.dumps({"type": "joined", "display_name": display_name}))
+    # #964: if the host already broadcast its ECDH public-key handshake
+    # announcement before this joiner connected, that broadcast is long
+    # gone -- hand the joiner the cached copy now so it can still complete
+    # the key exchange. Not secret content (see collab-crypto.js), so no
+    # architecture constraint is bent by caching/replaying it here.
+    if state.host_public_key_msg is not None:
+        await websocket.send_text(state.host_public_key_msg)
     return state, display_name
+
+
+def _maybe_cache_host_pubkey(state: SessionState, message: str) -> None:
+    """Cache the host's ECDH public-key handshake announcement (#964).
+
+    Peeks only at the message's ``type`` discriminator -- never at plan
+    content -- so a joiner admitted after the host already broadcast this
+    still gets it (see ``_admit_joiner``). Anything that isn't a
+    recognizable ``host_pubkey`` announcement (in particular, every
+    encrypted plan-content envelope) is a silent no-op: this relay still
+    has no opinion about ordinary traffic.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return
+    if isinstance(parsed, dict) and parsed.get("type") == "host_pubkey":
+        state.host_public_key_msg = message
 
 
 async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: str) -> None:
@@ -1941,6 +1986,7 @@ async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: 
         while True:
             message = await websocket.receive_text()
             state.touch()
+            _maybe_cache_host_pubkey(state, message)
             for joiner in list(state.joiners.values()):
                 try:
                     await joiner.websocket.send_text(message)

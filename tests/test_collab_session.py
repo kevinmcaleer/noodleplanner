@@ -48,7 +48,26 @@ class TestSessionCreation:
         assert info["join_code"]
         assert len(info["join_code"]) == 6
         assert info["join_code"].isdigit()
-        assert info["holding_url"] == f"/join/{info['session_id']}"
+        # #964 (post-security-review): holding_url carries the
+        # handshake_secret as a URL *fragment* -- never sent to any server
+        # in any request, which is precisely what makes it safe to embed
+        # here. See collab_session.py's module docstring.
+        assert info["handshake_secret"]
+        assert info["holding_url"] == f"/join/{info['session_id']}#k={info['handshake_secret']}"
+
+    def test_handshake_secret_is_high_entropy_and_not_the_join_code(self, client):
+        """#964 security-review regression guard: the two secrets must
+        never be conflated again -- this asserts they're structurally
+        distinct (a 6-digit code vs. a long random token), not just
+        different by chance."""
+        info = _start_session(client)
+        assert info["handshake_secret"] != info["join_code"]
+        assert len(info["handshake_secret"]) >= 32
+        assert not info["handshake_secret"].isdigit()
+
+    def test_handshake_secrets_are_unique_across_sessions(self, client):
+        secrets_seen = {_start_session(client)["handshake_secret"] for _ in range(10)}
+        assert len(secrets_seen) == 10
 
     def test_session_ids_are_unguessable(self, client):
         """Not a proof of unguessability, but a floor: long, random, and

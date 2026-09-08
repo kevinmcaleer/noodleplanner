@@ -16,8 +16,11 @@ Wire protocol (documented here so later sub-issues have a stable contract to
 build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
 
 - ``POST /api/collab/start`` calls ``SessionManager.create_session()`` and
-  returns ``{session_id, host_token, join_code, holding_url}`` to the host's
-  browser. ``host_token`` is a secret -- it must never be shown to joiners.
+  returns ``{session_id, host_token, join_code, handshake_secret,
+  holding_url}`` to the host's browser. ``host_token`` and
+  ``handshake_secret`` are both secrets -- neither must ever be shown to
+  joiners directly (``handshake_secret`` does reach joiners, but only via
+  the URL fragment described below, never through the server).
 - The host's browser opens a WebSocket to
   ``/ws/session/{session_id}?token={host_token}``. The endpoint calls
   ``attach_host()``; a missing or wrong token closes the socket immediately
@@ -27,6 +30,11 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   a JSON handshake: ``{"type": "join", "code": "123456", "display_name":
   "Alice"}``. The endpoint calls ``join_session()``; a correct, unexpired
   code for that session admits the joiner, anything else closes the socket.
+  **``join_code`` is a server-side admission gate only** -- it has zero
+  cryptographic role (see the ``handshake_secret`` note below and
+  collab-crypto.js's module docstring; a security review of #964 found the
+  relay could otherwise trivially MITM the encrypted channel precisely
+  because the relay legitimately learns this code to do admission).
 - After a connection is admitted (host or joiner), every further message is
   relayed opaquely -- host messages go to all joiners, joiner messages go to
   the host. Payloads are never parsed or interpreted at this layer: that is
@@ -36,6 +44,33 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   removed and every joiner socket is closed. Sessions idle for longer than
   ``IDLE_TIMEOUT_SECONDS`` (checked lazily on access, and swept periodically
   by a background task started from app.py) are torn down the same way.
+- #964 (end-to-end encryption): every payload described above is, by
+  construction, ciphertext produced client-side by static/collab-crypto.js
+  before it ever reaches this relay -- this module still never parses
+  message content. The one exception is bootstrapping the key exchange
+  itself: the host's ephemeral ECDH public-key announcement (``{"type":
+  "host_pubkey", ...}``, not secret -- see collab-crypto.js's module
+  docstring) is cached on ``SessionState.host_public_key_msg`` by app.py
+  (peeking only at the ``type`` discriminator, never at plan content) so a
+  joiner who connects *after* the host already broadcast it still receives
+  it immediately on admission. See app.py's ``_maybe_cache_host_pubkey`` /
+  ``_admit_joiner`` for why the WebSocket-first-message approach was chosen
+  over piggybacking the key onto the HTTP start/join responses.
+- ``handshake_secret`` (added after a security review of the first #964
+  cut): a second, separate, high-entropy secret -- ``join_code`` cannot
+  authenticate the ECDH handshake in collab-crypto.js because the relay
+  legitimately learns ``join_code`` (it has to, to admit joiners), so a
+  malicious/compromised relay could otherwise recompute the same MAC and
+  transparently MITM the "encrypted" channel. ``handshake_secret`` is
+  generated once in ``create_session()`` and is **never sent to the server
+  on any subsequent request** -- it is embedded only in the URL *fragment*
+  of ``holding_url`` (``/join/{session_id}#k=<secret>``), which browsers
+  never include in HTTP requests. The host's browser gets it directly from
+  the ``/api/collab/start`` JSON response; the joiner's browser reads it
+  client-side from ``window.location.hash`` after navigating to that exact
+  link. This module generates it and hands it off once -- it is not stored
+  on ``SessionState`` and the server never checks or reconstructs it, by
+  design: there is nothing for the relay to learn here.
 """
 
 from __future__ import annotations
@@ -67,6 +102,13 @@ SWEEP_INTERVAL_SECONDS = 60
 # `uuid4()`'s randomness guarantee is incidental to its spec.
 _SESSION_ID_BYTES = 32
 _HOST_TOKEN_BYTES = 32
+# #964: the secret that authenticates the ECDH handshake in
+# collab-crypto.js -- deliberately NOT the six-digit join_code (see this
+# module's docstring for why: the relay legitimately learns join_code, so
+# it can't be what proves the handshake wasn't MITM'd by the relay itself).
+# 256 bits, matching this file's existing convention for the other two
+# security-relevant tokens above -- well over the "128+ bits" floor.
+_HANDSHAKE_SECRET_BYTES = 32
 
 
 @dataclass
@@ -86,6 +128,12 @@ class SessionState:
     join_code: str
     host: WebSocket | None = None
     joiners: dict[int, Joiner] = field(default_factory=dict)
+    # #964: the host's most recent ECDH public-key handshake announcement
+    # (opaque JSON text -- a public key + MAC tag, never plan content or
+    # key material). Cached so a joiner admitted after the host already
+    # broadcast it still gets it. See this module's docstring and app.py's
+    # `_maybe_cache_host_pubkey` / `_admit_joiner`.
+    host_public_key_msg: str | None = None
     created_at: float = field(default_factory=time.monotonic)
     last_activity: float = field(default_factory=time.monotonic)
     # Serializes writes to `host` -- multiple joiners can relay to the host
@@ -101,11 +149,19 @@ class SessionState:
 
 @dataclass
 class SessionInfo:
-    """What create_session() hands back to the host's browser."""
+    """What create_session() hands back to the host's browser.
+
+    ``handshake_secret`` is also embedded in ``holding_url``'s URL fragment
+    (never sent to the server again by either browser) and is returned here
+    too purely so the host's own crypto code can use it directly, without
+    round-tripping it through URL-fragment parsing on the same page that
+    just received it. See this module's docstring for the full rationale.
+    """
 
     session_id: str
     host_token: str
     join_code: str
+    handshake_secret: str
     holding_url: str
 
 
@@ -128,6 +184,11 @@ class SessionManager:
         session_id = secrets.token_urlsafe(_SESSION_ID_BYTES)
         host_token = secrets.token_urlsafe(_HOST_TOKEN_BYTES)
         join_code = self._generate_unique_code()
+        # #964: generated once, handed off in the response below, and never
+        # stored on SessionState or anywhere else -- the server has no
+        # further use for it (it never verifies it; only the two browsers'
+        # crypto code does), so there is nothing to retain.
+        handshake_secret = secrets.token_urlsafe(_HANDSHAKE_SECRET_BYTES)
 
         state = SessionState(
             session_id=session_id,
@@ -143,7 +204,11 @@ class SessionManager:
             session_id=session_id,
             host_token=host_token,
             join_code=join_code,
-            holding_url=f"/join/{session_id}",
+            handshake_secret=handshake_secret,
+            # The fragment (after '#') is never sent to any server in any
+            # HTTP request -- that's what makes it safe to embed here. See
+            # this module's docstring for the full "why a fragment" story.
+            holding_url=f"/join/{session_id}#k={handshake_secret}",
         )
 
     def _generate_unique_code(self) -> str:
@@ -183,6 +248,12 @@ class SessionManager:
         from the holding URL / the WebSocket path it connected to); the code
         is the actual proof the joiner was invited to *this* session, so
         both are checked -- neither one alone is treated as sufficient.
+
+        `code` is purely a server-side admission gate: it plays no role in
+        #964's encryption (see this module's docstring and
+        collab-crypto.js's) -- the server legitimately sees it right here,
+        which is exactly why it must never double as a cryptographic
+        secret.
         """
         state = self.get_session(session_id)
         if state is None:

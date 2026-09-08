@@ -111,6 +111,34 @@
     </div>
 
     <script>
+        // #964: end-to-end encryption. This inline script stays a classic
+        // (non-module) script, so static/collab-crypto.js (an ES module)
+        // is loaded via dynamic import() -- same pattern collab-session.js
+        // and ribbon.js use for their own ES-module dependencies. See
+        // collab-crypto.js's module docstring for the full crypto design
+        // (KDF, key exchange, AEAD, wire format, and the two-secret design:
+        // the six-digit `code` below is admission-only -- it is what the
+        // server checks to let this socket's `join` handshake through, and
+        // has zero cryptographic role. The ECDH handshake is instead
+        // authenticated by `handshakeSecret`, read below from this page's
+        // own URL fragment, which browsers never send to any server).
+        let cryptoModulePromise = null;
+        function loadCollabCrypto() {
+            if (!cryptoModulePromise) cryptoModulePromise = import('/static/collab-crypto.js');
+            return cryptoModulePromise;
+        }
+
+        // The holding link the host shares is `/join/{session_id}#k=<secret>`
+        // (see collab_session.py) -- `window.location.hash` is populated by
+        // the browser from that fragment and is never part of any request
+        // this page (or any page) sends to a server.
+        function parseHandshakeSecretFromHash() {
+            const hash = window.location.hash || '';
+            const params = new URLSearchParams(hash.replace(/^#/, ''));
+            return params.get('k');
+        }
+        const handshakeSecret = parseHandshakeSecretFromHash();
+
         const sessionId = {{ session_id | tojson }};
         const form = document.getElementById('joinForm');
         const status = document.getElementById('status');
@@ -126,14 +154,32 @@
         }
 
         let socket = null;
+        let connectKey = null;
+        let keyPair = null;
+        let sessionKey = null; // established once the host's pubkey is verified
 
-        form.addEventListener('submit', (event) => {
+        form.addEventListener('submit', async (event) => {
             event.preventDefault();
+
+            // Fail closed: without the fragment secret this page cannot
+            // authenticate the ECDH handshake at all (see the module
+            // docstring note above and collab-crypto.js's for why using
+            // `code` here instead would be a serious security bug). Don't
+            // even attempt to connect.
+            if (!handshakeSecret) {
+                status.textContent = 'This join link is missing a required security token -- ask the host to resend it.';
+                return;
+            }
+
             joinBtn.disabled = true;
             status.textContent = 'Connecting...';
 
             const code = document.getElementById('joinCode').value.trim();
             const displayName = document.getElementById('displayName').value.trim();
+
+            const { deriveConnectKey, generateEphemeralKeyPair } = await loadCollabCrypto();
+            connectKey = await deriveConnectKey(handshakeSecret, sessionId);
+            keyPair = await generateEphemeralKeyPair();
 
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             socket = new WebSocket(`${protocol}//${window.location.host}/ws/session/${sessionId}`);
@@ -142,16 +188,72 @@
                 socket.send(JSON.stringify({ type: 'join', code, display_name: displayName }));
             });
 
-            socket.addEventListener('message', (event) => {
+            socket.addEventListener('message', async (event) => {
                 let parsed = null;
                 try { parsed = JSON.parse(event.data); } catch (error) { parsed = null; }
 
                 if (parsed && parsed.type === 'joined') {
+                    // The #963 admission ack -- not part of #964's
+                    // encryption envelope scheme (it's not one of
+                    // classifyFrameType's known types), so it's handled
+                    // here, separately, before that check.
                     status.textContent = `Joined as ${parsed.display_name}. Waiting for the host...`;
                     relay.style.display = 'block';
                     return;
                 }
-                log(`host: ${event.data}`);
+
+                const { classifyFrameType, parsePubkeyAnnouncement, buildPubkeyAnnouncement, deriveSessionKey, decryptMessage } =
+                    await loadCollabCrypto();
+                const frameType = classifyFrameType(event.data);
+
+                if (frameType === 'host_pubkey') {
+                    const peerKey = await parsePubkeyAnnouncement('host_pubkey', connectKey, event.data);
+                    if (!peerKey) {
+                        // MAC didn't verify -- our handshakeSecret doesn't
+                        // match the host's (e.g. an incomplete/corrupted
+                        // link), or this announcement was forged by
+                        // something that doesn't have handshakeSecret
+                        // (e.g. the relay itself -- see collab-crypto.js's
+                        // module docstring). Never derive a session key
+                        // with an unauthenticated peer.
+                        status.textContent = 'Could not establish a secure channel -- ask the host to resend the join link.';
+                        socket.close();
+                        joinBtn.disabled = false;
+                        return;
+                    }
+                    sessionKey = await deriveSessionKey(keyPair.privateKey, peerKey, sessionId);
+                    log('(secure channel established)');
+                    // Announce our own ephemeral public key back to the
+                    // host so it can derive the same session key.
+                    const announcement = await buildPubkeyAnnouncement('joiner_pubkey', connectKey, keyPair);
+                    socket.send(announcement);
+                    return;
+                }
+
+                if (frameType === 'enc') {
+                    if (!sessionKey) {
+                        log('(received an encrypted message before the secure channel was ready)');
+                        return;
+                    }
+                    try {
+                        const plaintext = await decryptMessage(sessionKey, event.data, sessionId);
+                        log(`host: ${plaintext}`);
+                    } catch (error) {
+                        log('(failed to decrypt a message -- dropped)');
+                    }
+                    return;
+                }
+
+                // Anything else is an unrecognized frame. Security review
+                // finding: this used to fall through to displaying the raw
+                // payload with the same log format as genuine decrypted
+                // content -- meaning anyone who could write a frame into
+                // this socket (trivially, the relay itself) could inject a
+                // message that looked exactly like a real one from the
+                // host, no decryption or authentication required. Never
+                // display unrecognized frames as if they were peer
+                // content; just note one arrived and drop it.
+                log('(received an unrecognized message -- ignored)');
             });
 
             socket.addEventListener('close', (event) => {
@@ -164,10 +266,16 @@
             });
         });
 
-        document.getElementById('relaySend').addEventListener('click', () => {
+        document.getElementById('relaySend').addEventListener('click', async () => {
             const input = document.getElementById('relayInput');
             if (!socket || socket.readyState !== WebSocket.OPEN || !input.value) return;
-            socket.send(input.value);
+            if (!sessionKey) {
+                log('(cannot send yet -- secure channel not established)');
+                return;
+            }
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(sessionKey, input.value, sessionId);
+            socket.send(envelope);
             log(`you: ${input.value}`);
             input.value = '';
         });
