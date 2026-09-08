@@ -38,6 +38,8 @@ import {
     encryptMessage,
     decryptMessage,
     classifyFrameType,
+    unwrapFromJoiner,
+    buildToJoinerEnvelope,
 } from '../packages/noodle-web/src/noodle_web/static/collab-crypto.js';
 
 test('KDF_ITERATIONS matches the documented OWASP-anchored parameter', () => {
@@ -233,4 +235,42 @@ test('Finding 2 regression: an injected/spoofed frame never classifies as a real
     assert.equal(classifyFrameType('"just a plain string"'), 'unrecognized');
     assert.equal(classifyFrameType('[]'), 'unrecognized');
     assert.equal(classifyFrameType('{"type":"joined","display_name":"Alice"}'), 'unrecognized');
+});
+
+test('#967: classifyFrameType recognizes the relay\'s from_joiner envelope', () => {
+    assert.equal(classifyFrameType('{"type":"from_joiner","joiner_id":1,"frame":"x"}'), 'from_joiner');
+});
+
+test('#967: unwrapFromJoiner returns the sender id and the untouched inner frame', () => {
+    const inner = '{"type":"enc","iv":"aXY=","ct":"Y3Q="}';
+    const unwrapped = unwrapFromJoiner(JSON.stringify({ type: 'from_joiner', joiner_id: 77, frame: inner }));
+    assert.deepEqual(unwrapped, { joinerId: 77, frame: inner });
+    // The inner frame must survive the round trip byte-for-byte, or the
+    // AEAD tag over it would not verify.
+    assert.equal(classifyFrameType(unwrapped.frame), 'enc');
+});
+
+test('#967: unwrapFromJoiner rejects malformed envelopes rather than inventing a sender', () => {
+    // A wrong or missing joiner_id would otherwise silently file a
+    // joiner's handshake under the wrong key slot.
+    assert.equal(unwrapFromJoiner('not json'), null);
+    assert.equal(unwrapFromJoiner('{"type":"enc","iv":"x","ct":"y"}'), null);
+    assert.equal(unwrapFromJoiner('{"type":"from_joiner","frame":"x"}'), null);
+    assert.equal(unwrapFromJoiner('{"type":"from_joiner","joiner_id":"1","frame":"x"}'), null);
+    assert.equal(unwrapFromJoiner('{"type":"from_joiner","joiner_id":1}'), null);
+    assert.equal(unwrapFromJoiner('null'), null);
+});
+
+test('#967: buildToJoinerEnvelope addresses one joiner and carries the frame verbatim', () => {
+    const inner = '{"type":"enc","iv":"aXY=","ct":"Y3Q="}';
+    const parsed = JSON.parse(buildToJoinerEnvelope(9, inner));
+    assert.equal(parsed.type, 'to_joiner');
+    assert.equal(parsed.joiner_id, 9);
+    assert.equal(parsed.frame, inner);
+});
+
+test('#967: a to_joiner envelope is not itself treated as content', () => {
+    // Only the relay consumes this type; a client that mistook it for
+    // content would be reading an unauthenticated wrapper.
+    assert.equal(classifyFrameType(buildToJoinerEnvelope(1, '{"type":"enc","iv":"x","ct":"y"}')), 'unrecognized');
 });

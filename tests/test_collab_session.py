@@ -202,7 +202,10 @@ class TestRelay:
                 host_ws.receive_text()  # presence update (#966)
 
                 joiner_ws.send_text("hello from joiner")
-                assert host_ws.receive_text() == "hello from joiner"
+                # #967: joiner->host frames arrive tagged with the sender's
+                # id so the host can hold one session key per joiner. The
+                # frame itself is passed through untouched.
+                assert json.loads(host_ws.receive_text())["frame"] == "hello from joiner"
 
     def test_message_is_relayed_to_multiple_joiners(self, client):
         info = _start_session(client)
@@ -689,7 +692,7 @@ class TestNoContentLeaks:
                     assert joiner_ws.receive_text() == secret_host_message
 
                     joiner_ws.send_text(secret_joiner_message)
-                    assert host_ws.receive_text() == secret_joiner_message
+                    assert json.loads(host_ws.receive_text())["frame"] == secret_joiner_message
 
                 host_ws.close()
 
@@ -779,3 +782,154 @@ class TestPresenceStylesAreReachable:
             f"presence classes used by collab-session.js but not defined in any "
             f"stylesheet index.html links: {sorted(used - defined)}"
         )
+
+
+class TestMultiJoinerRouting:
+    """#967: the relay tags joiner->host frames with a sender id and routes
+    host->joiner frames at one joiner, so the host can hold a separate
+    session key per joiner. It still never reads the frames themselves."""
+
+    def test_joiner_frame_reaches_host_tagged_with_sender_id(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                joiner_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                joiner_ws.receive_text()  # ack
+                presence = json.loads(host_ws.receive_text())
+                joiner_id = presence["joiners"][0]["id"]
+
+                joiner_ws.send_text("opaque-ciphertext")
+                wrapper = json.loads(host_ws.receive_text())
+
+        assert wrapper["type"] == "from_joiner"
+        assert wrapper["joiner_id"] == joiner_id
+        assert wrapper["frame"] == "opaque-ciphertext"
+
+    def test_two_joiners_are_distinguishable_to_the_host(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
+                alice_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                alice_ws.receive_text()
+                host_ws.receive_text()  # presence
+
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
+                    bob_ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": "Bob",
+                    }))
+                    bob_ws.receive_text()
+                    host_ws.receive_text()  # presence
+
+                    alice_ws.send_text("from-alice")
+                    first = json.loads(host_ws.receive_text())
+                    bob_ws.send_text("from-bob")
+                    second = json.loads(host_ws.receive_text())
+
+        assert first["frame"] == "from-alice"
+        assert second["frame"] == "from-bob"
+        assert first["joiner_id"] != second["joiner_id"], "each joiner needs its own key slot"
+
+    def test_addressed_frame_reaches_only_its_target(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
+                alice_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                alice_ws.receive_text()
+                alice_id = json.loads(host_ws.receive_text())["joiners"][0]["id"]
+
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
+                    bob_ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": "Bob",
+                    }))
+                    bob_ws.receive_text()
+                    host_ws.receive_text()  # presence
+
+                    host_ws.send_text(json.dumps({
+                        "type": "to_joiner", "joiner_id": alice_id, "frame": "for-alice-only",
+                    }))
+                    assert alice_ws.receive_text() == "for-alice-only"
+
+                    # Bob must not see it. A plain broadcast afterwards is
+                    # what proves his socket was live and simply skipped:
+                    # without this, an addressed frame silently going
+                    # nowhere would pass just as well.
+                    host_ws.send_text("broadcast-to-everyone")
+                    assert bob_ws.receive_text() == "broadcast-to-everyone"
+
+    def test_addressed_frame_to_a_departed_joiner_is_dropped(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
+                alice_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                alice_ws.receive_text()
+                alice_id = json.loads(host_ws.receive_text())["joiners"][0]["id"]
+
+            host_ws.receive_text()  # presence after Alice leaves
+
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
+                bob_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Bob",
+                }))
+                bob_ws.receive_text()
+                host_ws.receive_text()  # presence
+
+                host_ws.send_text(json.dumps({
+                    "type": "to_joiner", "joiner_id": alice_id, "frame": "for-a-ghost",
+                }))
+                # Must not be misdelivered to whoever is still connected.
+                host_ws.send_text("broadcast-to-everyone")
+                assert bob_ws.receive_text() == "broadcast-to-everyone"
+
+    def test_host_broadcast_still_reaches_every_joiner(self, client):
+        """The pubkey announcement relies on the untagged broadcast path,
+        so adding addressed delivery must not have replaced it."""
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            with client.websocket_connect(f"/ws/session/{info['session_id']}") as alice_ws:
+                alice_ws.send_text(json.dumps({
+                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                }))
+                alice_ws.receive_text()
+                host_ws.receive_text()
+
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as bob_ws:
+                    bob_ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": "Bob",
+                    }))
+                    bob_ws.receive_text()
+                    host_ws.receive_text()
+
+                    host_ws.send_text("everyone-gets-this")
+                    assert alice_ws.receive_text() == "everyone-gets-this"
+                    assert bob_ws.receive_text() == "everyone-gets-this"
+
+    def test_routing_does_not_log_frame_contents(self, client, caplog):
+        secret = "Routed Confidential Payload"
+        with caplog.at_level(logging.DEBUG):
+            info = _start_session(client)
+            with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
+                    joiner_ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": "Alice",
+                    }))
+                    joiner_ws.receive_text()
+                    joiner_id = json.loads(host_ws.receive_text())["joiners"][0]["id"]
+
+                    joiner_ws.send_text(secret)
+                    host_ws.receive_text()
+
+                    host_ws.send_text(json.dumps({
+                        "type": "to_joiner", "joiner_id": joiner_id, "frame": secret,
+                    }))
+                    joiner_ws.receive_text()
+
+        assert secret not in caplog.text
+        assert info["session_id"] not in caplog.text

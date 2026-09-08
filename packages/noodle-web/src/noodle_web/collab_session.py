@@ -38,8 +38,29 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
 - After a connection is admitted (host or joiner), every further message is
   relayed opaquely -- host messages go to all joiners, joiner messages go to
   the host. Payloads are never parsed or interpreted at this layer: that is
-  deliberate, so #964 can drop in encryption and #967 the real plan-editing
-  protocol without this module changing shape.
+  deliberate, so #964 could drop in encryption and #967 the real
+  plan-editing protocol without this module changing shape.
+- #967 (multi-joiner addressing) adds the one piece of routing metadata the
+  relay needs to support more than one joiner at a time. Each joiner now has
+  its own ECDH session key with the host, so:
+
+  * joiner -> host frames are wrapped by app.py's ``_wrap_from_joiner`` as
+    ``{"type": "from_joiner", "joiner_id": N, "frame": "<original>"}``, so
+    the host can tell concurrent joiners apart and file each handshake under
+    the right key. Without this the host could only ever hold one joiner's
+    key, and a second joiner silently displaced the first.
+  * host -> joiner frames may be addressed as ``{"type": "to_joiner",
+    "joiner_id": N, "frame": "<ciphertext>"}``; app.py delivers ``frame``
+    unwrapped to that one socket. Unaddressed host frames still broadcast to
+    everyone, which is what the cached ``host_pubkey`` announcement relies
+    on.
+
+  ``joiner_id`` is the same opaque id ``presence_snapshot()`` already
+  publishes, so presence and crypto agree on identity without a second
+  scheme. This is addressing only: ``frame`` is passed through byte for
+  byte and is still ciphertext this module never reads. A relay that lied
+  about ``joiner_id`` could misroute a frame but could not make one
+  decrypt, because the inner frame is still authenticated on its own.
 - Host disconnect tears the session down immediately: the registry entry is
   removed and every joiner socket is closed. Sessions idle for longer than
   ``IDLE_TIMEOUT_SECONDS`` (checked lazily on access, and swept periodically
