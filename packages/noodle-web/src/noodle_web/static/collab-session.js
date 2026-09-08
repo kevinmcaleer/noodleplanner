@@ -54,6 +54,16 @@ function closeCollabSessionModal() {
     if (overlay) overlay.classList.remove('active');
 }
 
+/** Host-initiated explicit end (#965) -- see app.py's
+ * _is_end_session_message() docstring for why this is a WS message rather
+ * than a new HTTP endpoint: the host already has a live relay connection
+ * open, and ending the session is a live action on it, same as any other
+ * relay message. */
+function endCollabSession() {
+    if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
+    collabSocket.send(JSON.stringify({ type: 'end_session' }));
+}
+
 /** Send a plaintext string to the joiner, encrypted under the established session key. */
 async function sendCollabMessage(plaintext) {
     if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
@@ -181,8 +191,14 @@ async function startCollabSession() {
         handleCollabMessage(event.data);
     });
 
-    collabSocket.addEventListener('close', () => {
-        status.textContent = 'Session ended.';
+    collabSocket.addEventListener('close', (event) => {
+        // #965: a close `reason` is set whenever the server tore the
+        // session down itself (idle timeout, or this host's own explicit
+        // end_session action echoed back) -- see collab_session.py's
+        // CLOSE_* constants. A reason-less close means the host's own
+        // browser closed the socket (e.g. tab/page navigating away), so
+        // the generic message stays accurate for that case.
+        status.textContent = event.reason || 'Session ended.';
         collabSocket = null;
         collabSessionKey = null;
     });

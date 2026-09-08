@@ -4216,6 +4216,10 @@ Build
                         <input type="text" id="collabSessionUrl" readonly onclick="this.select()">
                     </div>
                     <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem;"></div>
+                    <!-- #965: host-initiated explicit end -- see collab-session.js's endCollabSession() -->
+                    <button type="button" class="btn btn-outline-danger btn-sm" style="margin-top:12px;" onclick="endCollabSession()">
+                        <i class="bi bi-stop-circle" aria-hidden="true"></i> End session
+                    </button>
                 </div>
             </div>
         </div>

@@ -54,6 +54,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noodle_web import app
+from noodle_web import security
 from noodle_web.collab_session import collab_sessions
 from tests.helpers.collab_crypto_stub import Party, decrypt_message, encrypt_message
 
@@ -65,11 +66,16 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _reset_collab_sessions():
+    """See test_collab_session.py's identical fixture docstring for why the
+    #965 join-attempt rate limit store is reset here too -- TestClient gives
+    every WebSocket connection the same client IP."""
     collab_sessions._sessions.clear()
     collab_sessions._codes.clear()
+    security.reset_join_rate_limit_store()
     yield
     collab_sessions._sessions.clear()
     collab_sessions._codes.clear()
+    security.reset_join_rate_limit_store()
 
 
 def _start_session(client) -> dict:

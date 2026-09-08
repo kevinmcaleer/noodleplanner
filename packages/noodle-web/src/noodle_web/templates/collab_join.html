@@ -257,12 +257,38 @@
             });
 
             socket.addEventListener('close', (event) => {
-                if (relay.style.display !== 'block') {
+                const wasJoined = relay.style.display === 'block';
+
+                // #965: tear down every bit of client-side session state on
+                // any close, whatever the cause -- host ended it, host
+                // disconnected, idle timeout, or a plain network drop --
+                // so nothing (socket, keys, decrypted log) lingers after
+                // the fact, and so the join form is always ready to be
+                // resubmitted to rejoin.
+                socket = null;
+                sessionKey = null;
+                keyPair = null;
+                connectKey = null;
+                relay.style.display = 'none';
+                relayLog.innerHTML = '';
+                joinBtn.disabled = false;
+
+                if (!wasJoined) {
                     status.textContent = 'Could not join -- check the code and try again.';
-                    joinBtn.disabled = false;
-                } else {
-                    status.textContent = 'The session ended.';
+                    return;
                 }
+
+                // `event.reason` is set whenever the server tore the
+                // session down itself (see collab_session.py's CLOSE_*
+                // constants) -- e.g. "Host ended the session.",
+                // "Host disconnected.", "Session expired after being idle
+                // too long." -- letting this page show a specific
+                // explanation instead of one generic message. A reason-less
+                // close (e.g. this browser's own network dropping) falls
+                // back to a generic explanation that still invites a rejoin.
+                status.textContent = event.reason
+                    ? `${event.reason} Enter the code again to rejoin.`
+                    : 'Lost connection to the session. Enter the code again to rejoin.';
             });
         });
 
