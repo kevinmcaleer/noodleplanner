@@ -29,6 +29,14 @@
  *     endpoint reused as-is (propagateProgrammeDependencies()). See
  *     portfolio-dependencies.js's header comment for why the dependency
  *     store, not front matter, stays the single editable source.
+ *   - Resourcing (demand vs capacity): real (#739) -- reuses
+ *     aggregateResourceDemandVsCapacity() (portfolio-resources.js, itself
+ *     built on aggregateResourceDataFromParsed(), the same demand
+ *     computation the portfolio-wide Team Allocation view uses) scoped to
+ *     this programme's member projects via aggregateProgrammeResourceDemand()
+ *     below, rather than reimplementing resource math. Capacity uses the
+ *     same day-for-day assumption portfolio-leveling.js's
+ *     LEVELLING_DAILY_CAPACITY names for its own overload detection.
  *   - SRO and vision/outcomes summary: stubbed -- #910's architecture has
  *     no programme-level file/storage (a programme is just a shared
  *     `programme:` slug on its member projects), and no per-project field
@@ -46,9 +54,10 @@
  * (listProjects), portfolio-dependencies.js (getAllProgrammeDependencies,
  * propagateProgrammeDependencies, ragCircleHtml, ragToColour,
  * showAddDependencyDialog, showEditDependencyDialog,
- * confirmDeleteProgrammeDependency) -- all loaded before this file resolves
- * any of these at call time (classic scripts, same pattern as nav.js's own
- * dependency on state.js).
+ * confirmDeleteProgrammeDependency), portfolio-resources.js
+ * (aggregateResourceDemandVsCapacity) -- all loaded before this file
+ * resolves any of these at call time (classic scripts, same pattern as
+ * nav.js's own dependency on state.js).
  */
 
 let currentProgrammeSlug = null;
@@ -278,6 +287,36 @@ function filterDependenciesForProgramme(deps, memberProjectIds) {
 }
 
 /**
+ * Aggregate resource demand vs capacity across a programme's member
+ * projects (#739 -- "Programme: resourcing"). Reuses
+ * aggregateResourceDemandVsCapacity() (portfolio-resources.js) -- itself
+ * built on aggregateResourceDataFromParsed(), the same per-resource demand
+ * computation behind the portfolio-wide Team Allocation view -- scoped to
+ * just this programme's parsed projects instead of the whole portfolio,
+ * the same scoping pattern aggregateEscalatedRaidItems() (#736) and
+ * filterDependenciesForProgramme() (#737) use for their own portfolio-wide
+ * sources. Sorted overloaded-first (ties broken by demand days, highest
+ * first) -- the same convention the portfolio-wide table sorts by.
+ *
+ * @param {Array<{project, parsedResult}>} parsedProjects already filtered
+ *   to the programme's member projects (see loadProgrammeDashboardData's
+ *   `relevant`).
+ * @returns {Array} aggregateResourceDemandVsCapacity()'s per-resource
+ *   shape (name, projects, projectCount, totalTasks, totalDays,
+ *   workloadLevel, dateRange, capacityDays, utilisationPercent,
+ *   overCapacity), sorted overloaded-first.
+ */
+function aggregateProgrammeResourceDemand(parsedProjects) {
+    const resources = (typeof aggregateResourceDemandVsCapacity === 'function')
+        ? aggregateResourceDemandVsCapacity(parsedProjects || [])
+        : [];
+    const workloadOrder = { overloaded: 0, high: 1, medium: 2, low: 3 };
+    return resources.slice().sort((a, b) =>
+        (workloadOrder[a.workloadLevel] - workloadOrder[b.workloadLevel]) || (b.totalDays - a.totalDays)
+    );
+}
+
+/**
  * Render the member-project grid, reusing the portfolio grid card markup
  * (.portfolio-project-card) so it looks and dark-mode-behaves consistently
  * without new component CSS. `ragMap` is {[projectId]: 'red'|'amber'|
@@ -463,6 +502,72 @@ function renderProgrammeDependencyBoard(deps, propagationResult) {
     el.innerHTML = html;
 }
 
+/**
+ * Render the Resourcing section (#739): demand vs capacity for the
+ * programme's aggregate resource pool, one row per resource, sorted
+ * overloaded-first by aggregateProgrammeResourceDemand(). Same table
+ * convention as the portfolio-wide Team Allocation view
+ * (portfolio-resources.js) -- resource, projects, tasks, demand,
+ * capacity, workload -- reusing its .workload-badge classes for the
+ * workload chip.
+ */
+function renderProgrammeResourcing(resources) {
+    const el = document.getElementById('programmeResourcing');
+    if (!el) return;
+
+    if (!resources || resources.length === 0) {
+        el.innerHTML = '<p class="programme-empty-hint">No resource assignments found across this programme\'s member projects.</p>';
+        return;
+    }
+
+    const totalDemandDays = resources.reduce((sum, r) => sum + r.totalDays, 0);
+    const overCapacityCount = resources.filter((r) => r.overCapacity).length;
+
+    let html = '<div class="programme-resourcing-summary">' +
+        '<div class="programme-resourcing-summary-item">' +
+        '<span class="programme-stat-label">Resources</span>' +
+        `<span class="programme-resourcing-summary-value">${resources.length}</span>` +
+        '</div>' +
+        '<div class="programme-resourcing-summary-item">' +
+        '<span class="programme-stat-label">Total Demand</span>' +
+        `<span class="programme-resourcing-summary-value">${Math.round(totalDemandDays)}d</span>` +
+        '</div>' +
+        '<div class="programme-resourcing-summary-item">' +
+        '<span class="programme-stat-label">Over Capacity</span>' +
+        `<span class="programme-resourcing-summary-value${overCapacityCount > 0 ? ' programme-resourcing-summary-value--warn' : ''}">${overCapacityCount}</span>` +
+        '</div>' +
+        '</div>';
+
+    html += '<div class="programme-resourcing-table-wrapper">' +
+        '<table class="programme-resourcing-table">' +
+        '<thead><tr>' +
+        '<th scope="col">Resource</th>' +
+        '<th scope="col">Projects</th>' +
+        '<th scope="col">Tasks</th>' +
+        '<th scope="col">Demand</th>' +
+        '<th scope="col">Capacity</th>' +
+        '<th scope="col">Utilisation</th>' +
+        '<th scope="col">Workload</th>' +
+        '</tr></thead><tbody>';
+
+    resources.forEach((r) => {
+        const workloadClass = (typeof getWorkloadBadgeClass === 'function') ? getWorkloadBadgeClass(r.workloadLevel) : '';
+        const utilisation = r.utilisationPercent != null ? r.utilisationPercent + '%' : '—';
+        html += '<tr' + (r.overCapacity ? ' class="programme-resourcing-row--over"' : '') + '>' +
+            '<td class="programme-resourcing-name">' + escapeHtml(r.name) + '</td>' +
+            '<td>' + escapeHtml(r.projects.join(', ')) + '</td>' +
+            '<td>' + r.totalTasks + '</td>' +
+            '<td>' + r.totalDays + 'd</td>' +
+            '<td>' + (r.capacityDays > 0 ? r.capacityDays + 'd' : '—') + '</td>' +
+            '<td>' + utilisation + '</td>' +
+            '<td><span class="workload-badge ' + workloadClass + '">' + r.workloadLevel.toUpperCase() + '</span></td>' +
+            '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+}
+
 /** Open the source project's RAID form for an escalated item, drilling down from the programme dashboard. */
 function openProgrammeEscalatedItem(projectId, raidItemId) {
     if (typeof setRibbonScope === 'function') setRibbonScope('project');
@@ -526,11 +631,14 @@ async function loadProgrammeDashboardData(programme) {
 
     if (currentProgrammeSlug !== slugAtStart) return;
 
+    const resourceDemand = aggregateProgrammeResourceDemand(relevant);
+
     renderProgrammeMemberGrid(programme, ragById(projectRags));
     renderProgrammeStatTiles(computeRagRollup(projectRags), aggregateBenefitsOnTrack(allBenefitItems), escalatedItems.length);
     renderProgrammeMilestones(pickKeyMilestones(allMilestones, 5));
     renderProgrammeEscalatedRisks(escalatedItems);
     renderProgrammeDependencyBoard(scopedDeps, dependencyPropagation);
+    renderProgrammeResourcing(resourceDemand);
 }
 
 /**
@@ -549,6 +657,7 @@ function renderProgrammeView() {
     const milestonesEl = document.getElementById('programmeMilestones');
     const escalatedEl = document.getElementById('programmeEscalatedRisks');
     const depsEl = document.getElementById('programmeDependencies');
+    const resourcingEl = document.getElementById('programmeResourcing');
     if (!titleEl || !gridEl) return;
 
     const programme = getCurrentPortfolioProgramme();
@@ -563,6 +672,7 @@ function renderProgrammeView() {
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';
         if (depsEl) depsEl.innerHTML = '';
+        if (resourcingEl) resourcingEl.innerHTML = '';
         return;
     }
 
@@ -578,6 +688,7 @@ function renderProgrammeView() {
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';
         if (depsEl) depsEl.innerHTML = '';
+        if (resourcingEl) resourcingEl.innerHTML = '';
         return;
     }
 
@@ -585,6 +696,7 @@ function renderProgrammeView() {
     if (milestonesEl) milestonesEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (escalatedEl) escalatedEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (depsEl) depsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
+    if (resourcingEl) resourcingEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
 
     renderProgrammeMemberGrid(programme, {});
     loadProgrammeDashboardData(programme);
@@ -654,5 +766,6 @@ if (typeof module !== 'undefined' && module.exports) {
         aggregateEscalatedRaidItems,
         ragById,
         filterDependenciesForProgramme,
+        aggregateProgrammeResourceDemand,
     };
 }
