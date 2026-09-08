@@ -1373,6 +1373,13 @@
     background: var(--np-badge-bg, #e0e0e0);
     color: var(--np-text-secondary, #495057);
     vertical-align: middle;
+    cursor: pointer;
+}
+
+/* Clickable since issue #953: drills into the programme-altitude view. */
+.programme-badge:hover {
+    background: var(--np-accent, #667eea);
+    color: #ffffff;
 }
 
 .portfolio-selection-toolbar {
