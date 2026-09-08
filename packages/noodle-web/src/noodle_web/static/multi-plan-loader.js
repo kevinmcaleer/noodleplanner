@@ -101,16 +101,30 @@ async function loadProjectIntoEditor(projectId) {
     const planEditor = document.getElementById('planEditor');
     if (planEditor) {
         planEditor.value = planText;
+        // Refresh this editor's own line-number gutter and syntax-highlight
+        // overlay immediately. Both are populated by a per-editor closure
+        // (editor.js's setupEditor) exposed as editor._updateLineNumbers --
+        // there is no global updateLineNumbers -- so setting .value alone
+        // leaves the gutter/highlighting showing the previous project until
+        // something else happens to dispatch an 'input' event.
+        if (planEditor._updateLineNumbers) {
+            planEditor._updateLineNumbers();
+        }
     }
 
     const kanbanEditor = document.getElementById('kanbanPlanEditor');
     if (kanbanEditor) {
         kanbanEditor.value = planText;
-    }
-
-    // Update line numbers if available
-    if (typeof updateLineNumbers === 'function') {
-        updateLineNumbers();
+        // Same as above for the Kanban view's own plan editor pane. Without
+        // this it only ever gets refreshed by accident, when the main
+        // editor's 'input' dispatch below happens to leave planEditor.value
+        // different from kanbanEditor.value (e.g. the server normalized the
+        // plan text) and the main->kanban sync listener re-fires 'input' on
+        // it -- otherwise its gutter/highlighting stay frozen at whatever
+        // they showed before this switch (#974).
+        if (kanbanEditor._updateLineNumbers) {
+            kanbanEditor._updateLineNumbers();
+        }
     }
 
     // Trigger the full render pipeline for the new project.
