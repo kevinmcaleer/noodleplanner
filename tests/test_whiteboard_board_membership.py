@@ -91,10 +91,15 @@ Phase 1
     Ship Widget $Widget @sam 3d 100%
 """
 
-# Every summary task the outline has is already a whiteboard row -- the
-# picker's true dead-end case (issue #980): opening it should offer the
-# "create a new summary task" affordance instead of a non-actionable
-# "Every summary task is already on the board" message.
+# Every task the outline has -- leaf and summary alike, since the picker
+# offers both (see wbSummaryTaskEntries()'s own doc comment) -- is already
+# a whiteboard row -- the picker's true dead-end case (issue #980):
+# opening it should offer the "create a new summary task" affordance
+# instead of a non-actionable "Every summary task is already on the
+# board" message. "Research" has to be on the board too, not just
+# "Phase 1": it's a leaf, but leaves are offerable exactly like Regression
+# is in SAMPLE_PLAN, so leaving it off would still leave one pickable
+# entry and this wouldn't be a true dead end.
 ALL_ON_BOARD_PLAN = """---
 title: Whiteboard All On Board Test Plan
 ---
@@ -103,9 +108,10 @@ Phase 1
   Research @sam 2d 100%
 
 ---whiteboard---
-| Task    | X   | Y  | Colour | Width | Height | Collapsed |
-|---------|-----|----|--------|-------|--------|-----------|
-| Phase 1 | 120 | 80 |        | 280   | 240    | no        |
+| Task     | X   | Y  | Colour | Width | Height | Collapsed |
+|----------|-----|----|--------|-------|--------|-----------|
+| Phase 1  | 120 | 80 |        | 280   | 240    | no        |
+| Research | 480 | 80 |        | 280   | 240    | no        |
 """
 
 
