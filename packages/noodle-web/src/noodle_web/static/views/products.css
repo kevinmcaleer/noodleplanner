@@ -111,6 +111,62 @@
     stroke-width: 3;
 }
 
+.pf-arrow-associative {
+    /* Issue #985: line style carries type (solid = dependency, dashed =
+       associative); colour stays whatever the caller picked, expressive
+       rather than semantic -- this only softens it a touch so a dashed
+       [relates: ...] link doesn't compete visually with real dependencies. */
+    opacity: 0.75;
+}
+
+/* Issue #984: a task missing an estimate, an owner, or any connection
+   wobbles gently until completed -- motion that means something (see
+   noodle-layout.js's header), stops as soon as the task settles, and is
+   skipped entirely under prefers-reduced-motion (handled in JS by never
+   adding this class there). --pf-restless-amplitude is set per node from
+   the layout engine's reported amplitude. */
+.pf-restless {
+    animation: pf-restless-wobble 2.6s ease-in-out infinite;
+}
+
+@keyframes pf-restless-wobble {
+    0%, 100% { transform: translateY(calc(var(--pf-restless-amplitude, 2px) * -1)); }
+    50% { transform: translateY(var(--pf-restless-amplitude, 2px)); }
+}
+
+/* Issue #986: semantic zoom -- a collapsed node's "N links" badge
+   (inherited dependency summarisation) and its buried-detail marker. */
+.pf-badge {
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.pf-buried-detail-marker {
+    fill: #ffd641;
+    stroke: #02384d;
+    stroke-width: 1;
+    animation: pf-orphan-pulse 2s ease-in-out infinite;
+}
+
+/* Expand/collapse animation (#986 scope) -- a short scale+fade on whatever
+   just toggled, so the eye can track the change instead of the diagram
+   silently jumping to a new shape. Applied by pfToggleGroup() to the node
+   group that was clicked, before the next render replaces it. */
+.pf-node.pf-zoom-transition {
+    animation: pf-zoom-toggle 0.22s ease-out;
+    transform-origin: center;
+}
+
+@keyframes pf-zoom-toggle {
+    0% { opacity: 0.35; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pf-node.pf-zoom-transition {
+        animation: none;
+    }
+}
+
 .pbs-add-btn:hover {
     opacity: 1;
 }

@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 
 import {
   SCOPES, FILE_MENU, QUICK_ACTIONS, TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CONTEXTUAL_TABS,
-  CONTEXT_FOR_VIEW, contextualTabFor, tabsForScope,
+  CONTEXT_FOR_VIEW, contextualTabFor, tabsForScope, scopeForView,
 } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
 
 /** Every scope's own tab set, plus the contextual tabs shared by all scopes. */
@@ -107,6 +107,27 @@ test("tabsForScope returns the right tab set per scope, defaulting to Project fo
   assert.equal(tabsForScope("portfolio"), PORTFOLIO_TABS);
   assert.equal(tabsForScope("programme"), PROGRAMME_TABS);
   assert.equal(tabsForScope("nonsense"), TABS);
+});
+
+test("portfolio Home leads with the roll-up (Status), mirroring project Home's Dashboard-first fix (issue #933)", () => {
+  const pfHome = PORTFOLIO_TABS.find((t) => t.id === "pf-home");
+  const firstLargeButton = pfHome.groups[0].lg[0];
+  assert.equal(firstLargeButton[1], "Status", "the first, large icon on portfolio Home should be the roll-up, not the projects list");
+});
+
+test("scopeForView derives the altitude straight from the current view (issue #908/#932)", () => {
+  assert.equal(scopeForView("portfolio"), "portfolio");
+  assert.equal(scopeForView("backstage"), "portfolio", "backstage is a portfolio-altitude launcher/shell view");
+  assert.equal(scopeForView("programme"), "programme");
+  assert.equal(scopeForView("tasks"), "project");
+  assert.equal(scopeForView("raid"), "project");
+  assert.equal(scopeForView(null), "project", "no current view defaults to project scope, same as tabsForScope's unknown-scope fallback");
+});
+
+test("every scopeForView output resolves to a real tab set via tabsForScope, not the Project fallback by accident", () => {
+  assert.equal(tabsForScope(scopeForView("portfolio")), PORTFOLIO_TABS);
+  assert.equal(tabsForScope(scopeForView("programme")), PROGRAMME_TABS);
+  assert.equal(tabsForScope(scopeForView("gantt")), TABS);
 });
 
 test("contextual tab ids are unique and every one has an accent, tint and onAccent colour", () => {

@@ -141,7 +141,12 @@ export const PORTFOLIO_TABS = [
     {
         id: 'pf-home', label: 'Home',
         groups: [
-            { name: 'Projects', launcher: true, lg: [['portfolio', 'Projects'], ['add', 'New Project']], cols: [[['upload', 'Import Project'], ['project-report', 'Status']]] },
+            // Status (the portfolio roll-up -- every project's RAG/completion
+            // in one table) leads as the first, large icon on Home, the same
+            // "Dashboard first" placement fix #909 made for project scope
+            // (issue #933: "Home should lead with the portfolio roll-up as
+            // its front door").
+            { name: 'Portfolio', launcher: true, lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']]] },
             { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
         ],
     },
@@ -189,6 +194,25 @@ export function tabsForScope(scopeId) {
     if (scopeId === 'portfolio') return PORTFOLIO_TABS;
     if (scopeId === 'programme') return PROGRAMME_TABS;
     return TABS;
+}
+
+/**
+ * The ribbon scope a given NavigationController view id belongs at --
+ * issue #908/#932's "the ribbon below is level-aware: its tabs are
+ * contextual to wherever you've landed". This is the single source of
+ * truth ribbon.js's refreshRibbon() derives ribbonState.scope from on
+ * every render, rather than relying only on call sites remembering to
+ * call setRibbonScope() -- a path that opened a project without going
+ * through one of those call sites (e.g. straight from the portfolio
+ * projects table) used to leave the ribbon showing the wrong altitude's
+ * tabs until something else happened to change scope. Mirrors
+ * NavigationController's own contextOf() in script.js, which the same
+ * issue's transition-fade logic keys off of.
+ */
+export function scopeForView(view) {
+    if (view === 'portfolio' || view === 'backstage') return 'portfolio';
+    if (view === 'programme') return 'programme';
+    return 'project';
 }
 
 export const CONTEXTUAL_TABS = [
