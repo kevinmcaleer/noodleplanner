@@ -83,6 +83,24 @@
         .row { display: flex; gap: 8px; margin-top: 8px; }
         .row input { margin-bottom: 0; }
         .row button { width: auto; padding: 8px 14px; }
+
+        /* #967 live plan */
+        #planTasks { border: 1px solid var(--border); border-radius: 8px; max-height: 260px; overflow-y: auto; }
+        .plan-task {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 0.9rem;
+        }
+        .plan-task:last-child { border-bottom: none; }
+        .plan-task-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+        .plan-task-name[contenteditable="true"]:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .plan-task-percent { width: 62px; margin-bottom: 0; padding: 4px 6px; font-size: 0.85rem; }
+        .plan-task-done { color: var(--muted); text-decoration: line-through; }
+        .plan-empty { padding: 10px 8px; color: var(--muted); font-size: 0.85rem; }
+        #planNotice {
+            margin-top: 12px; padding: 8px 10px; border-radius: 8px;
+            background: rgba(217, 119, 6, 0.12); color: #b45309; font-size: 0.85rem;
+        }
+        @media (prefers-color-scheme: dark) { #planNotice { color: #fbbf24; } }
     </style>
 </head>
 <body>
@@ -102,6 +120,16 @@
         <div id="status"></div>
 
         <div id="relay">
+            <!-- #967: the live plan. Every control here sends an edit
+                 intent to the host and waits for the snapshot that comes
+                 back -- this page never edits a plan of its own. -->
+            <div id="planNotice" hidden></div>
+            <div id="planTasks"></div>
+            <div class="row">
+                <input id="newTaskName" placeholder="Add a task">
+                <button type="button" id="addTaskBtn">Add</button>
+            </div>
+
             <div id="relayLog"></div>
             <div class="row">
                 <input id="relayInput" placeholder="Send a message to the host">
@@ -153,11 +181,108 @@
             relayLog.scrollTop = relayLog.scrollHeight;
         }
 
+        // ---- #967: live plan editing -------------------------------------
+
+        /** Show a transient message -- the "X also edited this" notice from
+         * the host's conflict rule, or an explanation for a bounced op. */
+        function showPlanNotice(text) {
+            const notice = document.getElementById('planNotice');
+            if (!notice || !text) return;
+            notice.textContent = text;
+            notice.hidden = false;
+            clearTimeout(planNoticeTimer);
+            planNoticeTimer = setTimeout(() => { notice.hidden = true; }, 6000);
+        }
+
+        /** Send an edit intent to the host, encrypted like any other
+         * content. The host decides whether it applies -- nothing is
+         * changed locally first, so this page can never show an edit that
+         * the plan does not actually have (no optimistic-update drift). */
+        async function sendPlanOp(op) {
+            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(
+                sessionKey, JSON.stringify({ type: 'plan_op', rev: planRev, ...op }), sessionId
+            );
+            socket.send(envelope);
+        }
+
+        /** Render the host's snapshot. Rebuilt wholesale each time: the
+         * host is the only writer, so there is no local state worth
+         * preserving across a snapshot, and rebuilding keeps this page
+         * incapable of drifting from the host's plan. */
+        function renderPlanSnapshot(snapshot) {
+            planTasks = Array.isArray(snapshot.tasks) ? snapshot.tasks : [];
+            planRev = snapshot.rev;
+            if (snapshot.notice) showPlanNotice(snapshot.notice);
+
+            const container = document.getElementById('planTasks');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (planTasks.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'plan-empty';
+                empty.textContent = 'The host has not written any tasks yet.';
+                container.appendChild(empty);
+                return;
+            }
+
+            for (const task of planTasks) {
+                const row = document.createElement('div');
+                row.className = 'plan-task';
+                row.style.paddingLeft = `${8 + task.indent * 8}px`;
+
+                const name = document.createElement('span');
+                name.className = 'plan-task-name' + (task.done ? ' plan-task-done' : '');
+                name.textContent = task.name;
+                name.contentEditable = 'true';
+                name.spellcheck = false;
+                // Commit on blur or Enter, never per keystroke: an op per
+                // character would put the host into a rename storm and make
+                // every concurrent edit look like a conflict.
+                name.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') { event.preventDefault(); name.blur(); }
+                    if (event.key === 'Escape') { name.textContent = task.name; name.blur(); }
+                });
+                name.addEventListener('blur', () => {
+                    const value = name.textContent.trim();
+                    if (!value || value === task.name) { name.textContent = task.name; return; }
+                    sendPlanOp({ op: 'rename', id: task.id, expect: task.name, value });
+                });
+                row.appendChild(name);
+
+                const percent = document.createElement('input');
+                percent.type = 'number';
+                percent.min = '0';
+                percent.max = '100';
+                percent.className = 'plan-task-percent';
+                percent.value = task.percent == null ? '' : String(task.percent);
+                percent.placeholder = '–';
+                percent.addEventListener('change', () => {
+                    const value = Number(percent.value);
+                    if (!Number.isFinite(value)) return;
+                    sendPlanOp({ op: 'set_percent', id: task.id, expect: task.name, value });
+                });
+                row.appendChild(percent);
+
+                container.appendChild(row);
+            }
+        }
+
         let socket = null;
         let connectKey = null;
         let keyPair = null;
         let sessionKey = null; // established once the host's pubkey is verified
         let presencePingTimer = null;
+
+        // #967: the last plan the host sent. This page holds no plan of its
+        // own -- it renders what the host says and asks the host to change
+        // it. `planRev` is echoed back on every op purely so the host can
+        // tell how current the sender's view was.
+        let planTasks = [];
+        let planRev = 0;
+        let planNoticeTimer = null;
 
         // #966: how often this joiner tells the host it's still here, via
         // the lightweight `{"type": "presence_ping"}` heartbeat -- kept
@@ -213,8 +338,13 @@
                     // encryption envelope scheme (it's not one of
                     // classifyFrameType's known types), so it's handled
                     // here, separately, before that check.
-                    status.textContent = `Joined as ${parsed.display_name}. Waiting for the host...`;
+                    status.textContent = `Joined as ${parsed.display_name}.`;
                     relay.style.display = 'block';
+                    // #967: the plan is the point of the page once you're
+                    // in -- the join form has done its job and would just
+                    // push the tasks below the fold.
+                    form.hidden = true;
+                    document.querySelector('p.sub').hidden = true;
                     // #966: start the presence heartbeat now that we're
                     // admitted -- see PRESENCE_PING_INTERVAL_MS above.
                     stopPresencePing();
@@ -261,6 +391,25 @@
                     }
                     try {
                         const plaintext = await decryptMessage(sessionKey, event.data, sessionId);
+                        // #967: the host's authoritative plan, or its reply
+                        // to an op we sent. Anything else is ordinary
+                        // chatter and still just gets logged.
+                        let parsed = null;
+                        try { parsed = JSON.parse(plaintext); } catch (e) { parsed = null; }
+                        if (parsed && parsed.type === 'plan_snapshot') {
+                            renderPlanSnapshot(parsed);
+                            return;
+                        }
+                        if (parsed && parsed.type === 'plan_op_rejected') {
+                            // A stale op means someone else's edit landed
+                            // first and our snapshot was out of date; the
+                            // newer snapshot is already on its way, so this
+                            // explains the bounce rather than being an error.
+                            showPlanNotice(parsed.reason === 'stale'
+                                ? 'That task changed while you were editing — try again.'
+                                : 'The host could not apply that change.');
+                            return;
+                        }
                         log(`host: ${plaintext}`);
                     } catch (error) {
                         log('(failed to decrypt a message -- dropped)');
@@ -297,6 +446,20 @@
                 relay.style.display = 'none';
                 relayLog.innerHTML = '';
                 joinBtn.disabled = false;
+                // Put the join form back -- #965's promise is that any
+                // close leaves this page ready to rejoin.
+                form.hidden = false;
+                document.querySelector('p.sub').hidden = false;
+                // #967: the plan came from the host and is theirs, not
+                // ours -- drop it with the rest of the session state rather
+                // than leaving a stale copy on screen after disconnect.
+                planTasks = [];
+                planRev = 0;
+                clearTimeout(planNoticeTimer);
+                const planContainer = document.getElementById('planTasks');
+                if (planContainer) planContainer.innerHTML = '';
+                const planNoticeEl = document.getElementById('planNotice');
+                if (planNoticeEl) planNoticeEl.hidden = true;
 
                 if (!wasJoined) {
                     status.textContent = 'Could not join -- check the code and try again.';
@@ -315,6 +478,22 @@
                     ? `${event.reason} Enter the code again to rejoin.`
                     : 'Lost connection to the session. Enter the code again to rejoin.';
             });
+        });
+
+        // #967: add a task. Sent with no parent, so it lands at the end of
+        // the plan -- picking a parent is a structural choice the host's own
+        // outline is better at, and #970's whiteboard interface is where
+        // joiner-side structure editing belongs.
+        function submitNewTask() {
+            const input = document.getElementById('newTaskName');
+            const name = input.value.trim();
+            if (!name) return;
+            sendPlanOp({ op: 'add_task', parent_id: null, name });
+            input.value = '';
+        }
+        document.getElementById('addTaskBtn').addEventListener('click', submitNewTask);
+        document.getElementById('newTaskName').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') { event.preventDefault(); submitNewTask(); }
         });
 
         document.getElementById('relaySend').addEventListener('click', async () => {
