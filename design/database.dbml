@@ -1,7 +1,520 @@
-// Noodle Planner Database Schema
-// DBML Documentation: https://dbml.dbdiagram.io/docs
+// NoodlePlanner logical data model
+// DBML documentation: https://dbml.dbdiagram.io/docs
+//
+// Important: the running application does not persist this relational schema.
+// A project's Markdown document (projects.plan_text) is the canonical source of
+// truth and is stored verbatim in browser IndexedDB. The remaining domain
+// tables describe the relational projection produced by parsing that Markdown.
 
 Project NoodlePlanner {
-  database_type: 'N/A'
-  Note: 'NoodlePlanner is a stateless application. All data lives in the browser as markdown. No database is used.'
+  database_type: 'PostgreSQL'
+  Note: '''Logical relational model of NoodlePlanner's canonical Markdown plan format.
+projects and project_versions correspond to records held in browser IndexedDB;
+all other tables are parsed or derived views unless a future server database is introduced.'''
 }
+
+Enum rag_status {
+  grey
+  blue
+  green
+  amber
+  red
+}
+
+Enum task_priority {
+  low
+  medium
+  important
+  urgent
+}
+
+Enum product_type {
+  internal
+  group
+  external
+}
+
+Enum dependency_type {
+  FS
+  SS
+  FF
+  SF
+}
+
+Enum assignment_role {
+  assigned
+  produce
+  review
+  approve
+}
+
+Enum raid_type {
+  risk
+  action
+  assumption
+  issue
+  decision
+  dependency
+}
+
+Enum escalation_level {
+  project
+  programme
+  board
+}
+
+Enum benefit_type {
+  enabler
+  business_change
+  benefit
+  disbenefit
+  objective
+}
+
+Table programmes {
+  id bigint [pk, increment]
+  slug varchar(120) [not null, unique]
+  name varchar(255) [not null]
+
+  Note: 'A portfolio grouping inferred from programme and programme_name front-matter keys.'
+}
+
+Table projects {
+  id varchar(80) [pk, note: 'Browser-generated project identifier.']
+  programme_id bigint
+  name varchar(255) [not null, note: 'Project selector name; front-matter title may override it for display.']
+  title varchar(255)
+  project_manager varchar(255)
+  sponsor varchar(255)
+  budget_text varchar(120)
+  declared_status rag_status
+  computed_rag rag_status
+  theme varchar(20)
+  start_date date
+  version varchar(20)
+  last_saved timestamp
+  plan_text text [not null, note: 'Canonical, lossless Markdown document.']
+  extra_front_matter jsonb [note: 'Unknown front-matter keys retained for lossless round trips.']
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  Indexes {
+    programme_id
+    updated_at
+  }
+}
+
+Table project_versions {
+  key varchar(160) [pk, note: 'IndexedDB versions object-store key.']
+  project_id varchar(80) [not null]
+  version varchar(20)
+  captured_at timestamp [not null]
+  plan_text text [not null]
+  rag rag_status
+  display_order int [not null, note: 'Newest first; represented by the IndexedDB history record.']
+
+  Indexes {
+    (project_id, display_order) [unique]
+  }
+}
+
+Table tasks {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  parent_task_id bigint
+  outline_order int [not null]
+  indent_level int [not null]
+  name varchar(500) [not null]
+  source_line text [not null, note: 'Original task line retained for lossless editing.']
+  is_summary boolean [not null, default: false]
+  is_milestone boolean [not null, default: false]
+  is_sequential boolean [not null, default: false, note: 'True for the * prefix.']
+  duration_days decimal(10,2)
+  effort_total_hours decimal(12,2)
+  effort_complete_hours decimal(12,2)
+  percent_complete smallint
+  explicit_start_date date
+  scheduled_start date [note: 'Derived by the scheduling engine.']
+  scheduled_finish date [note: 'Derived by the scheduling engine.']
+  priority task_priority [not null, default: 'low']
+  bucket varchar(120)
+  comment text
+  recurrence jsonb
+  levelled_resource varchar(120)
+  levelled_start_date date
+
+  Indexes {
+    (project_id, outline_order) [unique]
+    parent_task_id
+    (project_id, name)
+  }
+}
+
+Table deliverables {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  task_id bigint [not null]
+  name varchar(255) [not null]
+  type product_type [not null, default: 'internal']
+
+  Indexes {
+    task_id [unique]
+    (project_id, name)
+  }
+}
+
+Table task_dependencies {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  successor_task_id bigint [not null]
+  predecessor_task_id bigint
+  predecessor_deliverable_id bigint
+  unresolved_reference varchar(500) [note: 'Original name when a task or deliverable cannot be resolved.']
+  type dependency_type [not null, default: 'FS']
+  lag_days decimal(10,2) [not null, default: 0]
+  is_sequential_link boolean [not null, default: false]
+
+  Note: 'Exactly one predecessor reference should be populated; unresolved links are preserved by name.'
+
+  Indexes {
+    successor_task_id
+    predecessor_task_id
+    predecessor_deliverable_id
+  }
+}
+
+Table resources {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  short_name varchar(120) [not null, note: 'The @short token used on task lines.']
+  full_name varchar(255)
+  role varchar(255)
+  contact_details text [note: 'Additional comma-separated fields retained from front matter.']
+
+  Indexes {
+    (project_id, short_name) [unique]
+  }
+}
+
+Table task_resource_assignments {
+  task_id bigint [not null]
+  resource_id bigint [not null]
+  role assignment_role [not null, default: 'assigned']
+
+  Indexes {
+    (task_id, resource_id, role) [pk]
+  }
+}
+
+Table non_working_periods {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  resource_id bigint
+  name varchar(255)
+  starts_on date [not null]
+  ends_on date [not null]
+
+  Note: 'resource_id is null for project-wide holidays and populated for resource-specific time off.'
+}
+
+Table labels {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  name varchar(120) [not null]
+
+  Indexes {
+    (project_id, name) [unique]
+  }
+}
+
+Table task_labels {
+  task_id bigint [not null]
+  label_id bigint [not null]
+
+  Indexes {
+    (task_id, label_id) [pk]
+  }
+}
+
+Table stakeholders {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  short_name varchar(120)
+  name varchar(255) [not null]
+  role varchar(255)
+  interest varchar(40)
+  influence varchar(40)
+  extra_fields jsonb
+}
+
+Table programme_dependencies {
+  id varchar(100) [pk]
+  from_project_id varchar(80) [not null]
+  from_task_id bigint
+  from_task_name varchar(500) [not null]
+  to_project_id varchar(80) [not null]
+  to_task_id bigint
+  to_task_name varchar(500) [not null]
+  type dependency_type [not null, default: 'FS']
+  lag_days int [not null, default: 0]
+  notes text
+  created_at timestamp [not null]
+  updated_at timestamp
+
+  Note: 'Derived metadata cache mirrors dependencies written into the dependent plan front matter.'
+}
+
+Table highlights {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  highlight_date date [not null]
+  author varchar(255)
+  body_markdown text [not null]
+  display_order int [not null]
+}
+
+Table raid_items {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  plan_item_id int [not null, note: 'ID shown in the Markdown table; unique only within a project.']
+  type raid_type [not null]
+  title varchar(500)
+  description text
+  raised_by varchar(255)
+  owner varchar(255)
+  mitigation_actions text
+  impact smallint
+  likelihood smallint
+  score smallint
+  status varchar(40)
+  priority varchar(40)
+  target_date date
+  escalated boolean [not null, default: false]
+  escalation escalation_level [not null, default: 'project']
+
+  Indexes {
+    (project_id, plan_item_id) [unique]
+    (project_id, type, status)
+  }
+}
+
+Table communication_items {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  plan_item_id int [not null]
+  activity varchar(500) [not null]
+  audience varchar(500)
+  content text
+  frequency varchar(40)
+  channel varchar(120)
+  owner varchar(255)
+  status varchar(40)
+
+  Indexes {
+    (project_id, plan_item_id) [unique]
+  }
+}
+
+Table budget_items {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  plan_item_id int [not null]
+  description text [not null]
+  estimate decimal(14,2)
+  forecast decimal(14,2)
+  type varchar(40)
+  invoice varchar(120)
+  purchase_order varchar(120)
+  supplier varchar(255)
+  total decimal(14,2)
+  date_ordered date
+  date_received date
+  category varchar(80)
+
+  Indexes {
+    (project_id, plan_item_id) [unique]
+  }
+}
+
+Table benefit_items {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  plan_item_id int [not null]
+  type benefit_type [not null]
+  title varchar(500) [not null]
+  description text
+  objective_type varchar(120)
+  target_value varchar(255)
+  current_value varchar(255)
+  target_date date
+  measurement_method text
+  contribution_percent smallint
+  status varchar(40)
+  last_updated date
+
+  Indexes {
+    (project_id, plan_item_id) [unique]
+  }
+}
+
+Table benefit_links {
+  from_benefit_item_id bigint [not null]
+  to_benefit_item_id bigint [not null]
+
+  Indexes {
+    (from_benefit_item_id, to_benefit_item_id) [pk]
+  }
+
+  Note: 'Relational form of the comma-separated Linked To IDs in the benefits table.'
+}
+
+Table lessons_learned {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  plan_item_id int [not null]
+  project_manager varchar(255)
+  project_type varchar(120)
+  technology varchar(255)
+  project_phase varchar(255)
+  area varchar(255)
+  impact_type varchar(40)
+  observation text [not null]
+  impact text
+  recommendations text
+  lesson_date date
+
+  Indexes {
+    (project_id, plan_item_id) [unique]
+  }
+}
+
+Table baselines {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  captured_at timestamp
+
+  Note: 'The current Markdown format carries one baseline section; this parent allows future named snapshots.'
+}
+
+Table baseline_tasks {
+  id bigint [pk, increment]
+  baseline_id bigint [not null]
+  task_id bigint
+  task_name varchar(500) [not null]
+  starts_on date
+  finishes_on date
+  duration_text varchar(40)
+
+  Indexes {
+    (baseline_id, task_name)
+  }
+}
+
+Table whiteboard_notes {
+  id bigint [pk, increment]
+  project_id varchar(80) [not null]
+  task_id bigint
+  task_name varchar(500) [not null, note: 'Retained even when it no longer resolves to a task.']
+  x int [not null, default: 0]
+  y int [not null, default: 0]
+  colour varchar(7)
+  width int
+  height int
+  collapsed boolean [not null, default: false]
+  stacking_order int [not null, note: 'Markdown row order; later rows render in front.']
+
+  Indexes {
+    (project_id, stacking_order) [unique]
+    task_id
+  }
+}
+
+Table task_theme_colours {
+  project_id varchar(80) [not null]
+  task_name varchar(500) [not null]
+  colour varchar(7) [not null]
+
+  Indexes {
+    (project_id, task_name) [pk]
+  }
+
+  Note: 'Parsed from the case-sensitive Theme front-matter list and shared by Kanban, mind map, and whiteboard.'
+}
+
+TableGroup canonical_storage {
+  projects
+  project_versions
+}
+
+TableGroup plan_structure {
+  programmes
+  tasks
+  deliverables
+  task_dependencies
+  programme_dependencies
+}
+
+TableGroup people_and_calendar {
+  resources
+  task_resource_assignments
+  non_working_periods
+  stakeholders
+  labels
+  task_labels
+}
+
+TableGroup governance_and_views {
+  highlights
+  raid_items
+  communication_items
+  budget_items
+  benefit_items
+  benefit_links
+  lessons_learned
+  baselines
+  baseline_tasks
+  whiteboard_notes
+  task_theme_colours
+}
+
+Ref: projects.programme_id > programmes.id
+Ref: project_versions.project_id > projects.id [delete: cascade]
+
+Ref: tasks.project_id > projects.id [delete: cascade]
+Ref: tasks.parent_task_id > tasks.id
+Ref: deliverables.project_id > projects.id [delete: cascade]
+Ref: deliverables.task_id > tasks.id [delete: cascade]
+Ref: task_dependencies.project_id > projects.id [delete: cascade]
+Ref: task_dependencies.successor_task_id > tasks.id [delete: cascade]
+Ref: task_dependencies.predecessor_task_id > tasks.id
+Ref: task_dependencies.predecessor_deliverable_id > deliverables.id
+
+Ref: resources.project_id > projects.id [delete: cascade]
+Ref: task_resource_assignments.task_id > tasks.id [delete: cascade]
+Ref: task_resource_assignments.resource_id > resources.id [delete: cascade]
+Ref: non_working_periods.project_id > projects.id [delete: cascade]
+Ref: non_working_periods.resource_id > resources.id [delete: cascade]
+Ref: labels.project_id > projects.id [delete: cascade]
+Ref: task_labels.task_id > tasks.id [delete: cascade]
+Ref: task_labels.label_id > labels.id [delete: cascade]
+Ref: stakeholders.project_id > projects.id [delete: cascade]
+
+Ref: programme_dependencies.from_project_id > projects.id [delete: cascade]
+Ref: programme_dependencies.from_task_id > tasks.id
+Ref: programme_dependencies.to_project_id > projects.id [delete: cascade]
+Ref: programme_dependencies.to_task_id > tasks.id
+
+Ref: highlights.project_id > projects.id [delete: cascade]
+Ref: raid_items.project_id > projects.id [delete: cascade]
+Ref: communication_items.project_id > projects.id [delete: cascade]
+Ref: budget_items.project_id > projects.id [delete: cascade]
+Ref: benefit_items.project_id > projects.id [delete: cascade]
+Ref: benefit_links.from_benefit_item_id > benefit_items.id [delete: cascade]
+Ref: benefit_links.to_benefit_item_id > benefit_items.id [delete: cascade]
+Ref: lessons_learned.project_id > projects.id [delete: cascade]
+Ref: baselines.project_id > projects.id [delete: cascade]
+Ref: baseline_tasks.baseline_id > baselines.id [delete: cascade]
+Ref: baseline_tasks.task_id > tasks.id
+Ref: whiteboard_notes.project_id > projects.id [delete: cascade]
+Ref: whiteboard_notes.task_id > tasks.id
+Ref: task_theme_colours.project_id > projects.id [delete: cascade]
