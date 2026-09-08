@@ -2,12 +2,17 @@
  * views-search.js — Project-scoped search results view.
  *
  * Provides:
- *   - A small search input in the nav header (#navSearchInput) that routes to
- *     the dedicated search results view on input/submit.
- *   - A full-page Search view (#search-tab) with its own input, a debounced
- *     fetch against /api/search, and grouped result cards.
+ *   - A full-page Search view (#search-tab) with its own input
+ *     (#searchViewInput), a debounced fetch against /api/search, and
+ *     grouped result cards.
  *   - Clicking a result invokes the relevant openXxxForm() global with the
  *     ref payload returned by the backend.
+ *   - #navSearchInput was a small search input in the old top nav bar
+ *     (removed in the #909 ribbon-parity follow-up); the wiring below is
+ *     kept but becomes a no-op now that element doesn't exist. The
+ *     ribbon's own search box (ribbon.js) hands off to #searchViewInput
+ *     directly and calls scheduleSearch() via the window.scheduleProjectSearch
+ *     export below instead.
  *
  * Depends on:
  *   - NavigationController (script.js) — view registry & navigateTo()
@@ -327,6 +332,11 @@
         }
     }
     window.navigateToSearchView = navigateToSearchView;
+
+    // Exposed so the ribbon's search box (ribbon.js, #909 ribbon-parity
+    // follow-up) can run the exact same debounced /api/search call this
+    // file's own inputs use, rather than duplicating it.
+    window.scheduleProjectSearch = scheduleSearch;
 
     // ── Wiring ───────────────────────────────────────────────────────────
 

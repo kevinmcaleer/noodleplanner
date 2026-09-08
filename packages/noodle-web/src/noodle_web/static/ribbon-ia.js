@@ -11,6 +11,12 @@
  * Pure data: no DOM, no behaviour. ribbon.js resolves each label to a real
  * action and renders this against live state.
  *
+ * A button tuple's third element can also be `'link:<url>'` (#909
+ * ribbon-parity follow-up) -- this marks the button as a plain external
+ * link rather than a command: ribbon.js renders it as an `<a target="_blank"
+ * rel="noopener">` instead of a `<button>`, with no action resolution, no
+ * active/stub state, and no re-render on click. Used for the "Docs" button.
+ *
  * `TABS` is the Project-scope tab set (the original, unchanged). Portfolio
  * scope (#936) gets its own tab set, `PORTFOLIO_TABS`, surfacing the
  * already-shipped `portfolio*.js` views in the same shape. Programme scope
@@ -43,6 +49,10 @@ export const QUICK_ACTIONS = [
     { icon: 'refresh', label: 'Undo' },
     { icon: 'add', label: 'New task' },
     { icon: 'print', label: 'Print' },
+    // Kept in the always-visible title bar (not tucked into a tab), matching
+    // how prominently the old top nav placed its AI toggle button (#909
+    // ribbon-parity follow-up).
+    { icon: 'robot', label: 'AI Chat' },
 ];
 
 export const TABS = [
@@ -94,7 +104,18 @@ export const TABS = [
         groups: [
             { name: 'Layout', lg: [['grid', 'Split View']], cols: [[['task-list', 'Editor'], ['doc', 'Preview']]] },
             { name: 'Show', launcher: true, lg: [['filter', 'Filter']], cols: [[['sort', 'Sort'], ['pin', 'Group']], [['milestones', 'Milestones'], ['link', 'Deps']]] },
-            { name: 'Window', lg: [['settings', 'Settings']], cols: [[['refresh', 'Dark Mode'], ['search', 'Zoom', 'caret']]] },
+            // "System Theme" (#909 ribbon-parity follow-up) replicates the old
+            // top nav's 3-way Light/Dark/System theme menu's third option --
+            // see setThemeChoice('system') in theme.js. "AI Settings" opens the
+            // same modal the old nav's AI button opened when unconfigured;
+            // grouped here with the app's other configuration/meta controls
+            // (Settings, theme, zoom) rather than with any one project view.
+            { name: 'Window', lg: [['settings', 'Settings']], cols: [[['refresh', 'Dark Mode'], ['monitor', 'System Theme']], [['search', 'Zoom', 'caret'], ['robot', 'AI Settings']]] },
+            // "Help" (#909 ribbon-parity follow-up): the old top nav's Tools >
+            // Syntax Guide item and its standalone Docs link, which had no
+            // ribbon equivalent before this. Docs is a plain external link, not
+            // a command -- see the 'link:' button-flag convention below.
+            { name: 'Help', cols: [[['doc', 'Syntax Guide'], ['external', 'Docs', 'link:https://docs.noodleplanner.com']]] },
         ],
     },
 ];

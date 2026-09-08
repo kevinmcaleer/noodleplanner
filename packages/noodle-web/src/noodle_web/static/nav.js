@@ -952,14 +952,14 @@ const tourSteps = [
     },
     {
         title: "Portfolio",
-        message: "The Portfolio view lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
-        target: "#portfolioTab",
+        message: "The Portfolio scope pill lets you manage all your projects in one place. Switch between Projects, Status, Resources, Timeline, Actions, Risks, and Look-Ahead views to get a cross-project overview.",
+        target: ".ribbon-scope-btn[data-scope=\"portfolio\"]",
         position: "bottom"
     },
     {
         title: "Project",
-        message: "Click Project to jump to the Dashboard with a sub-navigation bar for all views. Direct buttons for Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map, and Stakeholders. Use the Tracking, Resources, and Tools dropdowns for more views including RAID Log, Budget, Templates, Import/Export, and more.",
-        target: "#planTab",
+        message: "The Project scope pill and the ribbon's Home/Plan/Track/Resources/Report/View tabs give you direct access to every view: Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map, RAID Log, Budget, Stakeholders, and more.",
+        target: ".ribbon-scope-btn[data-scope=\"project\"]",
         position: "bottom"
     },
     {

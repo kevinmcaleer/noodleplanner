@@ -61,33 +61,6 @@
         height: auto;
     }
 
-    /* Tab bar: horizontal scroll instead of wrap to save vertical space */
-    .tabs {
-        overflow-x: auto;
-        overflow-y: hidden;
-        flex-wrap: nowrap;
-        gap: 0;
-        padding: 8px 10px 0 10px;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-    }
-
-    .tabs::-webkit-scrollbar {
-        display: none;
-    }
-
-    .tab {
-        padding: 8px 12px;
-        font-size: 0.85em;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .nav-logo {
-        height: 24px;
-        margin-right: 6px;
-    }
-
     /* Export dropdown */
     .nav-export-dropdown {
         flex-shrink: 0;
@@ -367,11 +340,6 @@
         padding: 8px 12px;
     }
 
-    .tab {
-        min-height: 44px;
-        padding: 10px 14px;
-    }
-
     /* Tour popup: constrain width */
     .tour-popup {
         max-width: calc(100vw - 40px);
@@ -424,12 +392,6 @@
 
     .content {
         padding: 0;
-    }
-
-    .tab {
-        padding: 8px 10px;
-        font-size: 0.8em;
-        min-height: 44px;
     }
 
     /* Smaller editor font on very small screens */
