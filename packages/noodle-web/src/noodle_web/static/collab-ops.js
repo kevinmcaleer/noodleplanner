@@ -153,7 +153,11 @@ export function applyPlanOp(planText, op) {
     const model = new PlanModel(String(planText == null ? '' : planText));
 
     if (op.op === 'add_task') {
-        const name = String(op.name == null ? '' : op.name).trim();
+        // op.name is untrusted joiner input spliced straight into a single
+        // document line by addTask(); an embedded newline could forge a
+        // back-matter marker (e.g. "---whiteboard---") and corrupt the rest
+        // of the host's document on the next parse, so collapse it here.
+        const name = String(op.name == null ? '' : op.name).replace(/[\r\n]+/g, ' ').trim();
         if (!name) return reject('invalid');
         return addTask(model, op, name);
     }
@@ -174,7 +178,8 @@ export function applyPlanOp(planText, op) {
     }
 
     if (op.op === 'rename') {
-        const value = String(op.value == null ? '' : op.value).trim();
+        // Same untrusted-input risk as add_task's name, above.
+        const value = String(op.value == null ? '' : op.value).replace(/[\r\n]+/g, ' ').trim();
         if (!value) return reject('invalid');
         const previous = task.name;
         if (!model.rename(task, value)) return reject('invalid');

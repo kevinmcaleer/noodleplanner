@@ -211,7 +211,11 @@
         rename(task, newName) {
             if (!task || !String(newName).trim()) return false;
             const oldName = task.name;
-            task.name = String(newName).trim();
+            // A name becomes one physical line via _serialiseContent/serialize;
+            // an embedded newline would split it into extra lines that could be
+            // mistaken for structure (e.g. a back-matter marker) on the next
+            // parse, so collapse rather than pass it through.
+            task.name = String(newName).replace(/[\r\n]+/g, ' ').trim();
             task.metadata.name = task.name;
             task._nameDirty = task.name !== task.originalName;
             this._renameThemeEntry(oldName, task.name);
