@@ -2766,3 +2766,54 @@ body {
 [data-theme="dark"] .backstage-recent-item-badge {
     filter: brightness(1.1);
 }
+
+/* ── Whiteboard authoring: noodles + outline panel (dark) ────────────────
+   Almost everything added for board-authored plan structure reads
+   var(--np-*) tokens and flips for free. Only the rules that hardcode an
+   rgba() tint (built for a light background) or a literal #ffffff need a
+   dark-safe equivalent here -- same split the note-menu overrides above
+   follow. */
+
+[data-theme="dark"] .wb-note-link-handle:hover,
+[data-theme="dark"] .wb-outline-btn:hover,
+[data-theme="dark"] .wb-outline-btn:focus-visible,
+[data-theme="dark"] .wb-outline-chevron:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* The row-matched and search-focus tints are mixed for a white panel; at
+   dark-mode luminance they read as almost nothing, so lift them. */
+[data-theme="dark"] .wb-outline-row.matched {
+    background: rgba(16, 139, 185, 0.26);
+}
+
+[data-theme="dark"] .wb-outline-search-input:focus {
+    box-shadow: 0 0 0 2px rgba(16, 139, 185, 0.4);
+}
+
+[data-theme="dark"] .wb-note-menu-delete:hover,
+[data-theme="dark"] .wb-note-menu-delete:focus-visible {
+    background: rgba(214, 69, 69, 0.22);
+}
+
+/* The "found it" flash ring, and the cut button's hover mark, both assume
+   a light surface behind them. */
+[data-theme="dark"] .wb-note-card.wb-note-flash {
+    animation-name: wbNoteFlashDark;
+}
+
+@keyframes wbNoteFlashDark {
+    0%, 100% { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+    30%      { box-shadow: 0 0 0 5px rgba(77, 182, 226, 0.6), 0 6px 18px rgba(0, 0, 0, 0.6); }
+}
+
+[data-theme="dark"] .wb-noodle-cut:hover .wb-noodle-cut-mark {
+    stroke: #1a1a1a;
+}
+
+/* The transient message inverts (dark text on light) in light mode; in
+   dark mode that inversion would make it the brightest thing on screen. */
+[data-theme="dark"] .wb-noodle-message {
+    background: #e8e8e8;
+    color: #1a1a1a;
+}
