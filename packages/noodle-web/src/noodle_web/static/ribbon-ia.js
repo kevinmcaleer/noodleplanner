@@ -34,6 +34,9 @@ export const SCOPES = [
 ];
 
 export const FILE_MENU = [
+    // Office-style entry point onto the Backstage shell (#943) -- the
+    // individual items below stay in place as quick-access shortcuts.
+    { icon: 'home', label: 'Home', kbd: '' },
     { icon: 'add', label: 'New plan', kbd: 'Cmd+N' },
     { icon: 'doc', label: 'Open…', kbd: 'Cmd+O' },
     { icon: 'save', label: 'Save', kbd: 'Cmd+S' },

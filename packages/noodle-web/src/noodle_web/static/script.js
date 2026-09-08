@@ -459,9 +459,11 @@ const NavigationController = (() => {
 
     /**
      * Determine the context for a view: 'portfolio' or 'project'.
+     * 'backstage' (#943) is a launcher/shell view, not a project editing
+     * view, so it groups with 'portfolio' for transition purposes.
      */
     function contextOf(viewName) {
-        return viewName === 'portfolio' ? 'portfolio' : 'project';
+        return (viewName === 'portfolio' || viewName === 'backstage') ? 'portfolio' : 'project';
     }
 
     /**
