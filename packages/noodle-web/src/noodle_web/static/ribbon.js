@@ -94,6 +94,7 @@ const VIEW_FOR_LABEL = {
     Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Benefits: 'benefits', Analysis: 'analysis',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
     'Resource Sheet': 'resource-sheet', 'Comms Plan': 'comms', Report: 'project-report', 'Project Report': 'project-report',
+    Dashboard: 'project-report',
     Milestones: 'milestones', 'Mind Map': 'mindmap', Whiteboard: 'whiteboard', PBS: 'pbs', Products: 'pbs',
     'Product Flow': 'product-flow', Deliverables: 'deliverables', Editor: 'editor',
 };
@@ -139,9 +140,57 @@ const KANBAN_GROUP_MODES = ['phase', 'resource', 'progress', 'label', 'bucket'].
     run: () => switchKanbanView(mode),
 }));
 
+/** Navigate to the portfolio view's `name` sub-view (portfolio.js's own
+ * switchPortfolioView() -- Projects/Status/Team Allocation/Timeline/
+ * Actions/Risks/Look-Ahead/Dependencies/Benefits/Lessons), switching into
+ * the Portfolio view first if it isn't already current. */
+function switchPortfolioSubview(name) {
+    return () => {
+        switchToView('portfolio');
+        if (typeof switchPortfolioView === 'function') switchPortfolioView(name);
+    };
+}
+
 /** Tab/context-scoped overrides, checked before the generic label map. */
 function scopedAction(scopeId, label) {
     const table = {
+        // Portfolio scope (#936) -- portfolio.js's own sub-nav, wired directly
+        // rather than through VIEW_FOR_LABEL since these are sub-views within
+        // the single "portfolio" NavigationController view, not separate views.
+        'pf-home:Projects': switchPortfolioSubview('projects'),
+        'pf-home:New Project': () => showCreateProjectDialog(),
+        'pf-home:Import Project': () => showImportProjectDialog(),
+        'pf-home:Status': switchPortfolioSubview('status'),
+        'pf-home:Export Report': () => exportPortfolioReport(),
+        'pf-home:Actions': switchPortfolioSubview('actions'),
+        'pf-plan:Timeline': switchPortfolioSubview('timeline'),
+        'pf-plan:Look-Ahead': switchPortfolioSubview('lookahead'),
+        'pf-plan:Dependencies': switchPortfolioSubview('dependencies'),
+        'pf-plan:Team Allocation': switchPortfolioSubview('resources'),
+        'pf-plan:Level Team': () => {
+            switchPortfolioSubview('resources')();
+            if (typeof showLevellingSuggestions === 'function') showLevellingSuggestions();
+        },
+        'pf-track:Risks': switchPortfolioSubview('risks'),
+        'pf-track:Benefits': switchPortfolioSubview('benefits'),
+        'pf-track:Lessons': switchPortfolioSubview('lessons'),
+
+        // Fixes for the pre-existing "portfolio" contextual tab (shown when
+        // the Portfolio view is open, regardless of scope pill), found
+        // during the #938 dead-button audit -- these labels were "known"
+        // to the coverage test (they matched a generic table entry) but
+        // resolved to the *wrong* thing, "Dependencies"/"Benefits" falling
+        // through to project-scope handlers (a no-op gantt-checkbox toggle,
+        // and a navigate-away-from-portfolio project view), and "Add
+        // Project" was marked a stub even though showCreateProjectDialog()
+        // already exists and is exactly what the button says. "Capacity"
+        // now points at the Team Allocation view, the one place capacity
+        // and workload are actually shown.
+        'portfolio:Add Project': () => showCreateProjectDialog(),
+        'portfolio:Dependencies': switchPortfolioSubview('dependencies'),
+        'portfolio:Benefits': switchPortfolioSubview('benefits'),
+        'portfolio:Capacity': switchPortfolioSubview('resources'),
+
         'raid:Import': () => openFormatMenu(RAID_IMPORT_FORMATS, 'Import'),
         'raid:Export': () => openFormatMenu(RAID_EXPORT_FORMATS, 'Export'),
         'raid:New Risk': () => addRaidItem(),
@@ -330,7 +379,7 @@ const FILE_ACTIONS = {
 };
 
 function renderTabStrip(ia, ctxTab) {
-    const tabs = ia.TABS.map((t) => {
+    const tabs = ia.tabsForScope(ribbonState.scope).map((t) => {
         const active = ribbonState.activeTab === t.id;
         return `<button type="button" class="ribbon-tab-btn${active ? ' active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${active}">${t.label}</button>`;
     }).join('');
@@ -380,25 +429,32 @@ function isButtonActive(scopeId, label, live) {
     return false;
 }
 
-function renderGroup(scopeId, group) {
+function renderGroup(scopeId, group, animate) {
     const lg = (group.lg || []).map((b) => renderButton(scopeId, b, 'lg')).join('');
     const cols = (group.cols || []).map((col) =>
         `<div class="ribbon-sm-col">${col.map((b) => renderButton(scopeId, b, 'sm')).join('')}</div>`
     ).join('');
-    return `<div class="ribbon-group" data-group="${group.name}">
+    return `<div class="ribbon-group${animate ? ' ribbon-group-tab-in' : ''}" data-group="${group.name}">
         <div class="ribbon-group-row">${lg}${cols}</div>
         <div class="ribbon-group-caption">${group.name}${group.launcher ? '<span class="ribbon-launcher" title="More options">⌟</span>' : ''}</div>
     </div>`;
 }
 
-function activeTabData(ia, ctxTab) {
-    if (ribbonState.activeTab === '__ctx' && ctxTab) return { id: ctxTab.id, groups: ctxTab.groups };
-    return ia.TABS.find((t) => t.id === ribbonState.activeTab) || ia.TABS[0];
+/** The tab set for the active scope pill (Project/Portfolio/Programme --
+ * see ribbon-ia.js's tabsForScope()). */
+function activeScopeTabs(ia) {
+    return ia.tabsForScope(ribbonState.scope);
 }
 
-function renderRibbonBody(ia, ctxTab) {
+function activeTabData(ia, ctxTab) {
+    const scopeTabs = activeScopeTabs(ia);
+    if (ribbonState.activeTab === '__ctx' && ctxTab) return { id: ctxTab.id, groups: ctxTab.groups };
+    return scopeTabs.find((t) => t.id === ribbonState.activeTab) || scopeTabs[0];
+}
+
+function renderRibbonBody(ia, ctxTab, animate) {
     const tab = activeTabData(ia, ctxTab);
-    return tab.groups.map((g) => renderGroup(tab.id, g)).join('');
+    return tab.groups.map((g) => renderGroup(tab.id, g, animate)).join('');
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +507,7 @@ function renderMorePopover(ia, ctxTab) {
     });
     const popover = document.createElement('div');
     popover.className = 'ribbon-more-popover';
-    popover.innerHTML = hiddenGroups.map((g) => renderGroup(tab.id, g)).join('');
+    popover.innerHTML = hiddenGroups.map((g) => renderGroup(tab.id, g, false)).join('');
     document.querySelector('.ribbon-shell')?.appendChild(popover);
 }
 
@@ -466,14 +522,26 @@ async function refreshRibbon() {
     await loadLayout();
     const live = getLiveState();
     const ctxTab = ia.contextualTabFor(live.view);
+    const scopeTabs = activeScopeTabs(ia);
 
     if (ctxTab && ribbonState.activeTab !== '__ctx' && ribbonState.lastView !== live.view) {
         ribbonState.activeTab = '__ctx';
     } else if (!ctxTab && ribbonState.activeTab === '__ctx') {
-        ribbonState.activeTab = ribbonState.previousTab || 'home';
+        ribbonState.activeTab = ribbonState.previousTab || scopeTabs[0].id;
+    }
+    // The active tab id may not exist in the current scope's tab set --
+    // e.g. it just changed (Project's "plan" isn't a Portfolio tab id), or
+    // persisted state from a previous session named a tab that scope no
+    // longer has. Fall back to that scope's first tab rather than rendering
+    // an empty/mismatched tab strip.
+    if (ribbonState.activeTab !== '__ctx' && !scopeTabs.some((t) => t.id === ribbonState.activeTab)) {
+        ribbonState.activeTab = scopeTabs[0].id;
     }
     if (ctxTab) ribbonState.previousTab = ribbonState.activeTab === '__ctx' ? ribbonState.previousTab : ribbonState.activeTab;
     ribbonState.lastView = live.view;
+
+    const animate = ribbonState.animateTabSwitch;
+    ribbonState.animateTabSwitch = false;
 
     const titleEl = shell.querySelector('.ribbon-titlebar');
     const tabstripEl = shell.querySelector('.ribbon-tabstrip');
@@ -483,7 +551,7 @@ async function refreshRibbon() {
     if (tabstripEl) tabstripEl.innerHTML = renderTabStrip(ia, ctxTab);
     if (bodyEl) {
         bodyEl.style.background = (ribbonState.activeTab === '__ctx' && ctxTab) ? ctxTab.tint : '';
-        bodyEl.innerHTML = renderRibbonBody(ia, ctxTab);
+        bodyEl.innerHTML = renderRibbonBody(ia, ctxTab, animate);
     }
 
     shell.classList.toggle('collapsed', ribbonState.collapsed);
@@ -508,8 +576,11 @@ function wireEvents(shell) {
         const scopeBtn = e.target.closest('.ribbon-scope-btn');
         if (scopeBtn) {
             const scopeId = scopeBtn.dataset.scope;
-            ribbonState.scope = scopeId;
-            savePersistedState();
+            if (scopeId !== ribbonState.scope) {
+                ribbonState.scope = scopeId;
+                ribbonState.animateTabSwitch = true;
+                savePersistedState();
+            }
             if (scopeId === 'portfolio') switchToView('portfolio');
             else if (scopeId === 'project') switchToView('editor');
             else notAvailable('Programme');
@@ -531,6 +602,7 @@ function wireEvents(shell) {
         const tabBtn = e.target.closest('.ribbon-tab-btn');
         if (tabBtn) {
             closePopovers();
+            if (tabBtn.dataset.tab !== ribbonState.activeTab) ribbonState.animateTabSwitch = true;
             ribbonState.activeTab = tabBtn.dataset.tab;
             refreshRibbon();
             return;
