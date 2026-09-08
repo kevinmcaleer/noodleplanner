@@ -88,7 +88,6 @@ class KanbanBoard {
         this.themeColours = {}; // Column background colours from front matter Theme section
         this.currentParentTask = null; // Track current hierarchy level for drill-down
         this.hierarchyBreadcrumb = []; // Breadcrumb trail for navigation
-        this.collapsedColumns = new Set();
         this.activeDrag = null;
         this.restorePreferences();
         this.handleDragEscape = event => {
@@ -112,16 +111,12 @@ class KanbanBoard {
         this.viewMode = this.defaultViewMode;
         this.sortByPriority = false;
         this.hideCompleted = false;
-        this.collapsedColumns = new Set();
         try {
             const saved = JSON.parse(localStorage.getItem(key) || '{}');
             const modes = ['phase', 'resource', 'progress', 'label', 'bucket'];
             if (modes.includes(saved.viewMode)) this.viewMode = saved.viewMode;
             this.sortByPriority = saved.sortByPriority === true;
             this.hideCompleted = saved.hideCompleted === true;
-            this.collapsedColumns = new Set(
-                Array.isArray(saved.collapsedColumns) ? saved.collapsedColumns : []
-            );
         } catch (error) {
             console.warn('Could not restore Kanban preferences:', error);
         }
@@ -135,8 +130,7 @@ class KanbanBoard {
             localStorage.setItem(key, JSON.stringify({
                 viewMode: this.viewMode,
                 sortByPriority: this.sortByPriority,
-                hideCompleted: this.hideCompleted,
-                collapsedColumns: Array.from(this.collapsedColumns)
+                hideCompleted: this.hideCompleted
             }));
             this.loadedPreferenceKey = key;
         } catch (error) {
@@ -1450,9 +1444,6 @@ class KanbanBoard {
         columnEl.setAttribute('data-column-index', this.columns.indexOf(column));
         columnEl.setAttribute('role', 'region');
         columnEl.setAttribute('aria-label', `${column.name} column with ${column.tasks.length} task${column.tasks.length !== 1 ? 's' : ''}`);
-        const columnKey = `${this.viewMode}:${column.id}`;
-        const isCollapsed = this.collapsedColumns.has(columnKey);
-        columnEl.classList.toggle('collapsed', isCollapsed);
 
         // Filter out completed tasks if hideCompleted is enabled
         const visibleTasks = this.hideCompleted
@@ -1467,7 +1458,9 @@ class KanbanBoard {
         const titleEl = document.createElement('h3');
         titleEl.className = 'kanban-column-title';
         // Strip product markers (/$name, ^$name, $name) and clean up for display
-        titleEl.textContent = column.title.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '').replace(/_/g, ' ').trim();
+        const displayTitle = column.title.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '').replace(/_/g, ' ').trim();
+        titleEl.textContent = displayTitle;
+        titleEl.title = displayTitle;
 
         // Make title editable in phase view
         if (this.viewMode === 'phase') {
@@ -1505,25 +1498,6 @@ class KanbanBoard {
         countEl.className = 'kanban-column-count';
         countEl.textContent = `${visibleCount} ${visibleCount === 1 ? 'task' : 'tasks'}`;
         headerEl.appendChild(countEl);
-
-        const collapseBtn = document.createElement('button');
-        collapseBtn.type = 'button';
-        collapseBtn.className = 'kanban-column-collapse';
-        collapseBtn.textContent = isCollapsed ? '\u25b6' : '\u25bc';
-        collapseBtn.title = `${isCollapsed ? 'Expand' : 'Collapse'} ${column.title}`;
-        collapseBtn.setAttribute('aria-label', collapseBtn.title);
-        collapseBtn.setAttribute('aria-expanded', String(!isCollapsed));
-        collapseBtn.addEventListener('click', event => {
-            event.stopPropagation();
-            if (this.collapsedColumns.has(columnKey)) {
-                this.collapsedColumns.delete(columnKey);
-            } else {
-                this.collapsedColumns.add(columnKey);
-            }
-            this.savePreferences();
-            this.render();
-        });
-        headerEl.appendChild(collapseBtn);
 
         // Add delete button for label view (except Unlabeled)
         if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
@@ -1883,9 +1857,11 @@ class KanbanBoard {
             this.handleCardReorder(draggedLineNumber, task.lineNumber, insertBefore);
         });
 
-        // Title row: checkbox on the left + header
-        const titleRowEl = document.createElement('div');
-        titleRowEl.className = 'kanban-card-title-row';
+        // Controls row: quick-complete checkbox, move dropdown, up/down buttons.
+        // Kept separate from the title row so the move dropdown never overlaps
+        // the card title (#956).
+        const controlsRowEl = document.createElement('div');
+        controlsRowEl.className = 'kanban-card-controls-row';
 
         // Quick-complete checkbox (round, on the left)
         const checkboxEl = document.createElement('input');
@@ -1902,40 +1878,7 @@ class KanbanBoard {
             }
             this.quickSetPercent(task, newPercent, cardEl);
         });
-        titleRowEl.appendChild(checkboxEl);
-
-        // Card header with title and resources
-        const headerEl = document.createElement('div');
-        headerEl.className = 'kanban-card-header';
-
-        const titleEl = document.createElement('h4');
-        titleEl.className = 'kanban-card-title';
-        titleEl.textContent = task.name;
-        headerEl.appendChild(titleEl);
-
-        // Resources avatars
-        if (task.resourcesArray.length > 0) {
-            const resourcesEl = document.createElement('div');
-            resourcesEl.className = 'kanban-card-resources';
-
-            // Show up to 10 resources
-            const resourcesToShow = task.resourcesArray.slice(0, 10);
-            resourcesToShow.forEach(resource => {
-                const avatarEl = document.createElement('div');
-                avatarEl.className = 'resource-avatar';
-                avatarEl.title = resource;
-
-                // Get initials (first letter of first and last name, or first 2 letters)
-                const initials = this.getInitials(resource);
-                avatarEl.textContent = initials;
-
-                resourcesEl.appendChild(avatarEl);
-            });
-
-            headerEl.appendChild(resourcesEl);
-        }
-
-        titleRowEl.appendChild(headerEl);
+        controlsRowEl.appendChild(checkboxEl);
 
         const moveSelect = document.createElement('select');
         moveSelect.className = 'kanban-card-move-select';
@@ -1957,7 +1900,7 @@ class KanbanBoard {
             const targetColumn = this.columns[parseInt(moveSelect.value, 10)];
             if (targetColumn) this.handleCardDrop(task.lineNumber, targetColumn);
         });
-        titleRowEl.appendChild(moveSelect);
+        controlsRowEl.appendChild(moveSelect);
 
         if (this.viewMode === 'phase') {
             const orderActions = document.createElement('div');
@@ -1986,9 +1929,72 @@ class KanbanBoard {
                 });
                 orderActions.appendChild(button);
             });
-            titleRowEl.appendChild(orderActions);
+            controlsRowEl.appendChild(orderActions);
         }
-        cardEl.appendChild(titleRowEl);
+        cardEl.appendChild(controlsRowEl);
+
+        // Title row: task title + resource avatars, on its own line below the
+        // controls so a long title never crowds the move dropdown (#956).
+        const headerEl = document.createElement('div');
+        headerEl.className = 'kanban-card-header';
+
+        const titleEl = document.createElement('h4');
+        titleEl.className = 'kanban-card-title';
+        titleEl.textContent = task.name;
+        titleEl.title = task.name;
+
+        let titleClickTimer = null;
+        const clearTitleClickTimer = () => {
+            if (titleClickTimer) {
+                clearTimeout(titleClickTimer);
+                titleClickTimer = null;
+            }
+        };
+        titleEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (cardEl.dataset.suppressNextClick === 'true') {
+                delete cardEl.dataset.suppressNextClick;
+                return;
+            }
+            // Wait a beat to see if this is the first click of a double-click
+            // (which opens inline rename instead) before opening the modal.
+            clearTitleClickTimer();
+            titleClickTimer = setTimeout(() => {
+                titleClickTimer = null;
+                this.openTaskModal(task);
+            }, 250);
+        });
+        titleEl.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearTitleClickTimer();
+            this.startInlineCardTitleRename(titleEl, task);
+        });
+        headerEl.appendChild(titleEl);
+
+        // Resources avatars
+        if (task.resourcesArray.length > 0) {
+            const resourcesEl = document.createElement('div');
+            resourcesEl.className = 'kanban-card-resources';
+
+            // Show up to 10 resources
+            const resourcesToShow = task.resourcesArray.slice(0, 10);
+            resourcesToShow.forEach(resource => {
+                const avatarEl = document.createElement('div');
+                avatarEl.className = 'resource-avatar';
+                avatarEl.title = resource;
+
+                // Get initials (first letter of first and last name, or first 2 letters)
+                const initials = this.getInitials(resource);
+                avatarEl.textContent = initials;
+
+                resourcesEl.appendChild(avatarEl);
+            });
+
+            headerEl.appendChild(resourcesEl);
+        }
+
+        cardEl.appendChild(headerEl);
 
         // Card body with metadata
         const bodyEl = document.createElement('div');
@@ -2005,22 +2011,8 @@ class KanbanBoard {
             metaEl.appendChild(durationEl);
         }
 
-        if (task.percent) {
-            const progressEl = document.createElement('span');
-            progressEl.className = 'kanban-meta-progress';
-            progressEl.textContent = `${task.percent}%`;
-
-            // Add color based on progress
-            if (task.progressStatus === 'complete') {
-                progressEl.classList.add('progress-complete');
-            } else if (task.progressStatus === 'in_progress') {
-                progressEl.classList.add('progress-in-progress');
-            } else {
-                progressEl.classList.add('progress-not-started');
-            }
-
-            metaEl.appendChild(progressEl);
-        }
+        // No percentage badge here — the round completion checkbox already
+        // conveys progress, and a duplicate "100%" label was pure noise (#956).
 
         bodyEl.appendChild(metaEl);
 
@@ -2521,39 +2513,6 @@ class KanbanBoard {
     }
 
     /**
-     * Immediately update a card's visual state after checkbox change
-     */
-    updateCardVisual(cardEl, task, newPercent) {
-        const isComplete = newPercent >= 100;
-
-        // Update progress badge text and class
-        const progressEl = cardEl.querySelector('.kanban-meta-progress');
-        if (progressEl) {
-            progressEl.textContent = `${newPercent}%`;
-            progressEl.classList.remove('progress-complete', 'progress-in-progress', 'progress-not-started');
-            if (isComplete) {
-                progressEl.classList.add('progress-complete');
-            } else if (newPercent > 0) {
-                progressEl.classList.add('progress-in-progress');
-            } else {
-                progressEl.classList.add('progress-not-started');
-            }
-        }
-
-        // Update progress bar if present
-        const progressBar = cardEl.querySelector('.kanban-card-progress-bar');
-        if (progressBar) {
-            progressBar.style.width = `${newPercent}%`;
-        }
-
-        // Update checkbox tooltip
-        const checkbox = cardEl.querySelector('.round-checkbox');
-        if (checkbox) {
-            checkbox.title = isComplete ? 'Mark as incomplete' : 'Mark as complete';
-        }
-    }
-
-    /**
      * Update percent in task line
      */
     updatePercentInTaskLine(line, newPercent) {
@@ -2571,6 +2530,84 @@ class KanbanBoard {
         }
 
         return indent + updated;
+    }
+
+    /**
+     * Replace a card's title text-in-place with an input, committing the
+     * rename on blur/Enter (Escape cancels). Used for double-click-to-rename
+     * on the card title (#956), mirroring startInlineBucketRename.
+     */
+    startInlineCardTitleRename(titleEl, task) {
+        const oldName = task.name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldName;
+        input.className = 'kanban-card-title-input';
+        input.setAttribute('aria-label', `Rename task "${oldName}"`);
+
+        const commitRename = () => {
+            const newName = input.value.trim();
+            if (input.parentNode) input.parentNode.removeChild(input);
+            titleEl.textContent = oldName;
+            titleEl.style.display = '';
+            if (newName && newName !== oldName) {
+                this.renameTask(task, newName);
+            }
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            } else if (e.key === 'Escape') {
+                input.value = oldName;
+                input.blur();
+            }
+        });
+        input.addEventListener('click', e => e.stopPropagation());
+        input.addEventListener('dblclick', e => e.stopPropagation());
+        input.addEventListener('blur', () => commitRename(), { once: true });
+
+        titleEl.textContent = '';
+        titleEl.style.display = 'none';
+        titleEl.parentNode.insertBefore(input, titleEl);
+        input.focus();
+        input.select();
+    }
+
+    /**
+     * Rename a task in place on the Markdown line, preserving every other
+     * token on the line (dates, resources, effort, dependencies, etc.).
+     */
+    renameTask(task, newName) {
+        const editor = document.getElementById('planEditor');
+        if (!editor) return;
+
+        const lines = editor.value.split('\n');
+        const line = lines[task.lineNumber - 1];
+        if (line === undefined) return;
+
+        lines[task.lineNumber - 1] = this.updateNameInTaskLine(line, newName);
+        this.commitMarkdown(lines.join('\n'));
+    }
+
+    /**
+     * Replace the free-text name portion of a task line. TaskLineTokenizer
+     * treats whatever text is left over after removing recognised tokens as
+     * the name, so this re-emits every other token unchanged and places the
+     * new name right after any star/star-lag dependency prefix.
+     */
+    updateNameInTaskLine(line, newName) {
+        const indent = (line.match(/^\s*/) || [''])[0];
+        const tokens = TaskLineTokenizer.tokenize(line);
+        const starTokens = tokens.filter(t => t.type === 'star' || t.type === 'star-lag');
+        const otherTokens = tokens.filter(t => t.type !== 'star' && t.type !== 'star-lag');
+        const starPrefix = starTokens.map(t => t.text).join(' ');
+        const rest = otherTokens.map(t => t.text).join(' ');
+        const trimmedName = newName.trim();
+
+        const parts = [starPrefix, trimmedName, rest].filter(Boolean);
+        return indent + parts.join(' ');
     }
 
     /**
@@ -3384,7 +3421,13 @@ class KanbanBoard {
             }
         }
 
-        // Remove label from all tasks
+        // Remove label from all tasks. Reset inFrontMatter -- the loop above
+        // leaves it `true` (it breaks on the closing `---` without resetting),
+        // which used to make this loop misread that closing `---` as an
+        // opener and treat every task line after it as front matter, so the
+        // label was stripped from the front-matter list but never from the
+        // tasks themselves.
+        inFrontMatter = false;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
 
