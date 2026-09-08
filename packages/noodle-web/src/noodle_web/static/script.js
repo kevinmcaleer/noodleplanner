@@ -458,12 +458,21 @@ const NavigationController = (() => {
     }
 
     /**
-     * Determine the context for a view: 'portfolio' or 'project'.
-     * 'backstage' (#943) is a launcher/shell view, not a project editing
-     * view, so it groups with 'portfolio' for transition purposes.
+     * Determine the context for a view: 'portfolio', 'programme', or
+     * 'project' -- the three altitudes issue #908's workspace model
+     * describes (Portfolio > optional Programme > Project), not a binary
+     * portfolio/project split. Getting this three-way right matters beyond
+     * just the transition fade below: it's also what the ribbon's own
+     * scope derivation (see ribbon-ia.js's scopeForView()) keys off of, so
+     * a view that's actually at programme altitude never gets silently
+     * lumped in with 'project' here. 'backstage' (#943) is a launcher/shell
+     * view, not a project editing view, so it groups with 'portfolio' for
+     * transition purposes.
      */
     function contextOf(viewName) {
-        return (viewName === 'portfolio' || viewName === 'backstage') ? 'portfolio' : 'project';
+        if (viewName === 'portfolio' || viewName === 'backstage') return 'portfolio';
+        if (viewName === 'programme') return 'programme';
+        return 'project';
     }
 
     /**

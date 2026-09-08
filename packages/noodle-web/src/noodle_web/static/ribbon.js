@@ -807,6 +807,21 @@ async function refreshRibbon() {
     const ia = await loadIA();
     await loadLayout();
     const live = getLiveState();
+
+    // Issue #908/#932: the ribbon's scope always follows wherever the user
+    // has actually landed, derived from the live view rather than trusted
+    // to whichever call site last remembered to call setRibbonScope() --
+    // see ribbon-ia.js's scopeForView() for why that mattered in practice
+    // (opening a project straight from the portfolio table used to leave
+    // stale portfolio-scope tabs showing). A scope that changes this way
+    // gets the same tab-switch animation an explicit setRibbonScope() call
+    // triggers, so landing at a new altitude reads as a real transition.
+    const derivedScope = ia.scopeForView(live.view);
+    if (derivedScope !== ribbonState.scope) {
+        ribbonState.scope = derivedScope;
+        ribbonState.animateTabSwitch = true;
+    }
+
     const ctxTab = ia.contextualTabFor(live.view);
     const scopeTabs = activeScopeTabs(ia);
 
