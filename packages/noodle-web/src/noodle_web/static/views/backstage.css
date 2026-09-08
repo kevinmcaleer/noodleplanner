@@ -1,0 +1,193 @@
+/* ========================================
+   Backstage view (#943) — Office-Backstage-style shell behind Home
+   ======================================== */
+
+#backstage-tab.tab-content {
+    overflow: auto;
+}
+
+.backstage-container {
+    display: flex;
+    min-height: 100%;
+    background: var(--np-surface, #ffffff);
+}
+
+.backstage-rail {
+    flex: 0 0 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 24px 12px;
+    background: var(--np-bg-alt, #f8f9fa);
+    border-right: 1px solid var(--np-border, #e0e0e0);
+}
+
+.backstage-rail-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--np-text, #333);
+    font-size: 0.95em;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-rail-btn svg.icon {
+    flex: 0 0 auto;
+    color: var(--np-accent, #667eea);
+    margin-right: 0;
+}
+
+.backstage-rail-btn:hover,
+.backstage-rail-btn:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: none;
+}
+
+.backstage-rail-btn-placeholder {
+    color: var(--np-text-muted, #888);
+    cursor: default;
+}
+
+.backstage-rail-btn-placeholder svg.icon {
+    color: var(--np-text-muted, #888);
+}
+
+.backstage-rail-badge {
+    margin-left: auto;
+    flex: 0 0 auto;
+    font-size: 0.7em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--np-badge-bg, #e0e0e0);
+    color: var(--np-text-secondary, #666);
+}
+
+.backstage-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 28px 32px 60px;
+    overflow: auto;
+}
+
+.backstage-main-title {
+    margin: 0 0 18px;
+    font-size: 1.3em;
+    font-weight: 600;
+    color: var(--np-text, #333);
+}
+
+.backstage-recent-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--np-text-secondary, #666);
+    border: 1px dashed var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-bg-alt, #f8f9fa);
+    max-width: 480px;
+}
+
+.backstage-recent-empty p {
+    margin: 0 0 6px;
+}
+
+.backstage-recent-empty-hint {
+    font-size: 0.9em;
+    color: var(--np-text-muted, #888);
+}
+
+.backstage-recent-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    max-width: 900px;
+}
+
+.backstage-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-surface, #ffffff);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
+                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-recent-item:hover,
+.backstage-recent-item:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    border-color: var(--np-accent, #667eea);
+    outline: none;
+}
+
+.backstage-recent-item.active {
+    border-color: var(--np-accent, #667eea);
+}
+
+.backstage-recent-item-icon {
+    flex: 0 0 auto;
+    display: flex;
+    color: var(--np-accent, #667eea);
+}
+
+.backstage-recent-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.backstage-recent-item-name {
+    font-weight: 600;
+    color: var(--np-text, #333);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.backstage-recent-item-meta {
+    font-size: 0.85em;
+    color: var(--np-text-secondary, #666);
+}
+
+.backstage-recent-item-badge {
+    flex: 0 0 auto;
+    font-size: 0.7em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--np-accent, #667eea);
+    color: #ffffff;
+}
+
+@media (max-width: 700px) {
+    .backstage-container { flex-direction: column; }
+    .backstage-rail {
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-right: none;
+        border-bottom: 1px solid var(--np-border, #e0e0e0);
+    }
+    .backstage-rail-btn { width: auto; }
+    .backstage-main { padding: 20px; }
+}

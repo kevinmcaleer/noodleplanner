@@ -413,7 +413,12 @@ function renderFileMenuItems(ia) {
 }
 
 const FILE_ACTIONS = {
-    'New plan': () => notAvailable('New plan'),
+    // Opens the Backstage shell (#943) -- see backstage.js.
+    Home: () => switchToView('backstage'),
+    // #938-style fix: a real function (portfolio.js's showCreateProjectDialog,
+    // already used by the "+ New Project" button) existed for this the whole
+    // time; it just wasn't wired here.
+    'New plan': () => showCreateProjectDialog(),
     'Open…': () => openLocalPlanFile(),
     Save: () => downloadMarkdown(),
     'Import from Excel / MS Project': () => openFormatMenu(IMPORT_FORMATS, 'Import'),

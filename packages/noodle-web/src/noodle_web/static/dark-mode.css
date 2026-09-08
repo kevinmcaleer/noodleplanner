@@ -2752,3 +2752,16 @@ body {
 [data-theme="dark"] .ribbon-display-menu-item:hover {
     background: rgba(16, 139, 185, 0.22);
 }
+
+/* Backstage view (#943) -- mostly var(--np-*)-driven (see views/backstage.css)
+   so it inherits the dark tokens above already; these are the few spots that
+   need a dark-specific nudge for contrast. */
+[data-theme="dark"] .backstage-recent-item:hover,
+[data-theme="dark"] .backstage-recent-item:focus-visible {
+    box-shadow: 0 2px 6px var(--np-shadow);
+}
+
+[data-theme="dark"] .backstage-rail-badge,
+[data-theme="dark"] .backstage-recent-item-badge {
+    filter: brightness(1.1);
+}
