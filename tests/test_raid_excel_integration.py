@@ -998,6 +998,161 @@ class TestGenerateRaidLogPriorityTargetDate:
         assert '2026-05-01' in result
 
 
+class TestParseRaidMarkdownEscalation:
+    """Test suite for escalated/escalation_level fields in parse_raid_markdown (#736)."""
+
+    def test_parse_escalated_and_escalation_level(self):
+        """Test parsing a table with Escalated and Escalation Level columns."""
+        markdown = """
+| ID | Type | Title  | Description | Raised By | Owner | Mitigation Actions | Impact | Likelihood | Score | Status | Priority | Target Date | Escalated | Escalation Level |
+| -- | ---- | ------ | ----------- | --------- | ----- | ------------------ | ------ | ---------- | ----- | ------ | -------- | ----------- | --------- | ----------------- |
+| 1  | risk | Outage | Details     | Bob       | Alice | Add redundancy     | 4      | 3          | 12    | open   | high     | 2026-03-15  | yes       | programme         |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['escalated'] is True
+        assert items[0]['escalation_level'] == 'programme'
+
+    def test_parse_missing_escalation_defaults(self):
+        """Backward compat: a plan with no Escalated/Escalation Level columns
+        (i.e. every plan saved before this feature existed) still parses,
+        defaulting to not escalated."""
+        markdown = """
+| Type | Title    | Status |
+| ---- | -------- | ------ |
+| risk | Old risk | open   |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['escalated'] is False
+        assert items[0]['escalation_level'] == 'project'
+
+    def test_parse_escalated_no_without_level_defaults_project(self):
+        """Test that Escalated=no with no Escalation Level column defaults to project."""
+        markdown = """
+| Type  | Title | Status | Escalated |
+| ----- | ----- | ------ | --------- |
+| issue | Bug   | open   | no        |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['escalated'] is False
+        assert items[0]['escalation_level'] == 'project'
+
+    def test_parse_invalid_escalation_level_defaults_project(self):
+        """Test that an unrecognised Escalation Level value defaults to project."""
+        markdown = """
+| Type | Title | Status | Escalated | Escalation Level |
+| ---- | ----- | ------ | --------- | ----------------- |
+| risk | Bad   | open   | yes       | nonsense          |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['escalation_level'] == 'project'
+
+    def test_parse_escalated_to_board(self):
+        """Test parsing an item escalated all the way to board level."""
+        markdown = """
+| Type  | Title | Status | Escalated | Escalation Level |
+| ----- | ----- | ------ | --------- | ----------------- |
+| issue | Sev1  | open   | true      | board             |
+"""
+        items = parse_raid_markdown(markdown)
+        assert len(items) == 1
+        assert items[0]['escalated'] is True
+        assert items[0]['escalation_level'] == 'board'
+
+
+class TestGenerateRaidLogEscalation:
+    """Test suite for escalated/escalation_level in generate_raid_log_text (#736)."""
+
+    def test_generate_omits_escalation_columns_when_nothing_escalated(self):
+        """A plan with no escalated items shouldn't gain new columns."""
+        items = [
+            {'type': 'risk', 'title': 'A risk', 'status': 'open', 'score': 9},
+        ]
+        result = generate_raid_log_text(items)
+        assert 'Escalated' not in result
+        assert 'Escalation Level' not in result
+
+    def test_generate_omits_escalation_columns_when_explicitly_not_escalated(self):
+        """Explicit escalated=False/escalation_level='project' is still the
+        default state, so it shouldn't add columns either."""
+        items = [
+            {'type': 'risk', 'title': 'A risk', 'status': 'open', 'score': 9,
+             'escalated': False, 'escalation_level': 'project'},
+        ]
+        result = generate_raid_log_text(items)
+        assert 'Escalated' not in result
+
+    def test_generate_includes_escalation_columns_when_escalated(self):
+        """Test that generated table includes Escalated and Escalation Level
+        columns once something is actually escalated."""
+        items = [
+            {'type': 'issue', 'title': 'Sev1', 'status': 'open', 'score': 16,
+             'escalated': True, 'escalation_level': 'board'},
+        ]
+        result = generate_raid_log_text(items)
+        assert '| Escalated' in result
+        assert '| Escalation Level' in result
+        assert 'yes' in result
+        assert 'board' in result
+
+    def test_generate_includes_escalation_columns_for_all_rows_when_any_escalated(self):
+        """When one item is escalated, the table stays rectangular -- every
+        row gets the escalation columns, even rows that aren't escalated."""
+        items = [
+            {'type': 'risk', 'title': 'Escalated risk', 'status': 'open', 'score': 12,
+             'escalated': True, 'escalation_level': 'programme'},
+            {'type': 'issue', 'title': 'Not escalated', 'status': 'open', 'score': 4},
+        ]
+        result = generate_raid_log_text(items)
+        lines = result.split('\n')
+        assert len(set(len(line) for line in lines)) == 1
+        assert 'no' in result
+        assert 'project' in result
+
+    def test_roundtrip_preserves_escalation(self):
+        """Test that escalated and escalation_level survive a generate/parse cycle."""
+        original = [
+            {'id': 1, 'type': 'risk', 'title': 'Server may fail',
+             'description': 'Hardware risk', 'raised_by': 'Bob', 'owner': 'Alice',
+             'mitigation_actions': '', 'impact': 4, 'likelihood': 3, 'score': 12,
+             'status': 'open', 'priority': '', 'target_date': '',
+             'escalated': True, 'escalation_level': 'programme'},
+            {'id': 2, 'type': 'issue', 'title': 'Not escalated',
+             'description': '', 'raised_by': '', 'owner': '', 'mitigation_actions': '',
+             'impact': 2, 'likelihood': 2, 'score': 4, 'status': 'open',
+             'priority': '', 'target_date': '', 'escalated': False,
+             'escalation_level': 'project'},
+        ]
+        markdown = generate_raid_log_text(original)
+        parsed = parse_raid_markdown(markdown)
+
+        assert len(parsed) == 2
+        assert parsed[0]['escalated'] is True
+        assert parsed[0]['escalation_level'] == 'programme'
+        assert parsed[1]['escalated'] is False
+        assert parsed[1]['escalation_level'] == 'project'
+
+    def test_roundtrip_byte_identical_when_nothing_escalated(self):
+        """The round-trip guarantee: a plan with no escalated items
+        serialises byte-identical whether or not escalated/escalation_level
+        keys are present (at their default values) on the item dicts."""
+        items = [
+            {'id': 1, 'type': 'risk', 'title': 'Server may fail',
+             'description': '', 'raised_by': '', 'owner': 'Alice',
+             'mitigation_actions': '', 'impact': 4, 'likelihood': 3, 'score': 12,
+             'status': 'open', 'priority': '', 'target_date': ''},
+        ]
+        without_escalation_keys = generate_raid_log_text(items)
+
+        items_with_defaults = [dict(items[0], escalated=False, escalation_level='project')]
+        with_default_escalation_keys = generate_raid_log_text(items_with_defaults)
+
+        assert without_escalation_keys == with_default_escalation_keys
+
+
 class TestRaidExcelExportPriorityTargetDate:
     """Test suite for Priority and Target Date columns in RAID Log Excel export."""
 

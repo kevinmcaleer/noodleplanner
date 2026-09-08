@@ -14,8 +14,11 @@
  *   - Benefits on track: real when member projects have benefit items with
  *     a status recorded (BEN_STATUS_OPTIONS, benefits.js); an honest stub
  *     ("Not yet tracked") when none do.
- *   - Escalated risks: stubbed -- depends on risk/issue escalation (#736),
- *     which doesn't exist yet.
+ *   - Escalated risks & issues: real (#736) -- rolled up from each member
+ *     project's RAID log (raid_items via /api/parse), filtered to items
+ *     with escalation_level 'programme' or 'board' (a board-escalated item
+ *     is still escalated at least as far as programme altitude, so it's
+ *     included too).
  *   - SRO and vision/outcomes summary: stubbed -- #910's architecture has
  *     no programme-level file/storage (a programme is just a shared
  *     `programme:` slug on its member projects), and no per-project field
@@ -135,6 +138,65 @@ function aggregateBenefitsOnTrack(benefitItems) {
 }
 
 /**
+ * Roll escalated risks and issues up across a programme's member projects
+ * (#736 -- "the case that motivated the altitude model": the same
+ * risk/issue register widget as the project RAID view and the portfolio
+ * risks view, just scoped to this programme's projects and filtered to
+ * what's been escalated to it).
+ *
+ * An item counts here when its type is risk or issue *and* it's escalated
+ * to this altitude or higher: escalation_level 'programme' or 'board'.
+ * 'project' (the default -- not escalated) is excluded. A board-escalated
+ * item is still relevant at programme altitude -- it's escalated even
+ * further, not somewhere else -- so 'board' is included too, even though
+ * this issue doesn't build a board-level view to drill into.
+ *
+ * @param {Array<{projectId, projectName, items: Array}>} raidItemsByProject
+ *   Each project's raw raid_items list from /api/parse, tagged with the
+ *   project it came from.
+ * @returns {Array} flat list of escalated risk/issue objects, sorted by
+ *   score (highest first) -- same convention as collectOpenRisksAndIssues
+ *   in portfolio-risks.js.
+ */
+function aggregateEscalatedRaidItems(raidItemsByProject) {
+    const results = [];
+
+    (raidItemsByProject || []).forEach((entry) => {
+        if (!entry) return;
+        const projectId = entry.projectId;
+        const projectName = entry.projectName;
+
+        (entry.items || []).forEach((item) => {
+            if (!item || !item.type) return;
+            const type = item.type.toLowerCase();
+            if (type !== 'risk' && type !== 'issue') return;
+            if (!item.escalated) return;
+
+            const level = item.escalation_level || 'project';
+            if (level !== 'programme' && level !== 'board') return;
+
+            results.push({
+                projectId,
+                projectName,
+                raidItemId: item.id,
+                type,
+                title: item.title || item.description || '-',
+                description: item.description || '',
+                owner: item.owner || '',
+                impact: item.impact != null ? item.impact : 0,
+                likelihood: item.likelihood != null ? item.likelihood : 0,
+                score: item.score != null ? item.score : 0,
+                status: item.status || 'open',
+                escalationLevel: level,
+            });
+        });
+    });
+
+    results.sort((a, b) => b.score - a.score);
+    return results;
+}
+
+/**
  * Extract this project's benefit items (with status) straight from its
  * plan text, bypassing /api/parse's benefits_items -- the backend's
  * parse_benefits_markdown() (format_converter.py) doesn't carry the
@@ -216,8 +278,8 @@ function renderProgrammeMemberGrid(programme, ragMap) {
     }).join('') + '</div>';
 }
 
-/** Render the "key metrics" stat tiles: programme RAG roll-up, benefits on track (real or stubbed), escalated risks (always stubbed, #736). */
-function renderProgrammeStatTiles(ragRollup, benefitsRollup) {
+/** Render the "key metrics" stat tiles: programme RAG roll-up, benefits on track (real or stubbed), escalated risks & issues (real, #736). */
+function renderProgrammeStatTiles(ragRollup, benefitsRollup, escalatedCount) {
     const tilesEl = document.getElementById('programmeStatTiles');
     if (!tilesEl) return;
 
@@ -236,10 +298,10 @@ function renderProgrammeStatTiles(ragRollup, benefitsRollup) {
             `<span class="programme-stat-value">${escapeHtml(benefitsValue)}</span>` +
             (benefitsRollup.hasData ? '' : '<span class="programme-stat-sub">No benefit status recorded yet across member projects</span>') +
         '</div>' +
-        '<div class="programme-stat-tile programme-stat-tile--stub">' +
-            '<span class="programme-stat-label">Escalated Risks</span>' +
-            '<span class="programme-stat-value">—</span>' +
-            '<span class="programme-stat-sub">Not yet tracked — depends on risk escalation (#736)</span>' +
+        '<div class="programme-stat-tile">' +
+            '<span class="programme-stat-label">Escalated Risks &amp; Issues</span>' +
+            `<span class="programme-stat-value">${escalatedCount}</span>` +
+            '<span class="programme-stat-sub">Escalated to programme level or higher</span>' +
         '</div>';
 }
 
@@ -263,6 +325,45 @@ function renderProgrammeMilestones(milestones) {
             (m.percent >= 100 ? '<span class="programme-milestone-done">Done</span>' : (overdue ? '<span class="programme-milestone-overdue-flag">Overdue</span>' : '')) +
             '</li>';
     }).join('') + '</ul>';
+}
+
+/**
+ * Render the escalated risks & issues list, or an empty-state hint when
+ * nothing in the programme's member projects is escalated to programme
+ * level or higher (#736). Each row opens the source project's RAID form
+ * for that item, the same drill-down pattern portfolio-risks.js uses
+ * (openProjectRisk).
+ */
+function renderProgrammeEscalatedRisks(items) {
+    const el = document.getElementById('programmeEscalatedRisks');
+    if (!el) return;
+
+    if (!items || items.length === 0) {
+        el.innerHTML = '<p class="programme-empty-hint">No risks or issues escalated to programme level across this programme\'s member projects.</p>';
+        return;
+    }
+
+    el.innerHTML = '<ul class="programme-escalated-list">' + items.map((item) => {
+        const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+        const levelLabel = item.escalationLevel.charAt(0).toUpperCase() + item.escalationLevel.slice(1);
+        return '<li class="programme-escalated-item" ' +
+            `data-project-id="${escapeHtml(item.projectId)}" data-raid-item-id="${item.raidItemId}">` +
+            `<span class="raid-type-badge raid-type-${item.type}">${escapeHtml(typeLabel)}</span>` +
+            `<span class="programme-escalated-title">${escapeHtml(item.title)}</span>` +
+            `<span class="programme-escalated-project">${escapeHtml(item.projectName)}</span>` +
+            `<span class="raid-escalation-badge raid-escalation-${item.escalationLevel}">${escapeHtml(levelLabel)}</span>` +
+            '</li>';
+    }).join('') + '</ul>';
+}
+
+/** Open the source project's RAID form for an escalated item, drilling down from the programme dashboard. */
+function openProgrammeEscalatedItem(projectId, raidItemId) {
+    if (typeof setRibbonScope === 'function') setRibbonScope('project');
+    if (typeof openProjectRisk === 'function') {
+        openProjectRisk(projectId, raidItemId);
+    } else {
+        openProjectFromProgramme(projectId);
+    }
 }
 
 /**
@@ -292,23 +393,29 @@ async function loadProgrammeDashboardData(programme) {
     const projectRags = [];
     const allMilestones = [];
     const allBenefitItems = [];
+    const raidItemsByProject = [];
 
     relevant.forEach(({ project, parsedResult }) => {
         const tasks = (parsedResult && parsedResult.success) ? (parsedResult.tasks || []) : [];
         const frontMatter = (parsedResult && parsedResult.success) ? (parsedResult.front_matter || {}) : {};
         const completion = (typeof calculateProjectCompletionFromTasks === 'function') ? calculateProjectCompletionFromTasks(tasks) : 0;
         const rag = (typeof extractRAGStatus === 'function') ? extractRAGStatus(frontMatter, tasks, completion) : 'green';
+        const raidItems = (parsedResult && parsedResult.success) ? (parsedResult.raid_items || []) : [];
 
         projectRags.push({ id: project.id, name: project.name, rag });
         allMilestones.push(...extractProjectMilestones(tasks, project.id, project.name));
         allBenefitItems.push(...extractProgrammeBenefitItems(project.planText || ''));
+        raidItemsByProject.push({ projectId: project.id, projectName: project.name, items: raidItems });
     });
 
     if (currentProgrammeSlug !== slugAtStart) return;
 
+    const escalatedItems = aggregateEscalatedRaidItems(raidItemsByProject);
+
     renderProgrammeMemberGrid(programme, ragById(projectRags));
-    renderProgrammeStatTiles(computeRagRollup(projectRags), aggregateBenefitsOnTrack(allBenefitItems));
+    renderProgrammeStatTiles(computeRagRollup(projectRags), aggregateBenefitsOnTrack(allBenefitItems), escalatedItems.length);
     renderProgrammeMilestones(pickKeyMilestones(allMilestones, 5));
+    renderProgrammeEscalatedRisks(escalatedItems);
 }
 
 /**
@@ -325,6 +432,7 @@ function renderProgrammeView() {
     const noteEl = document.getElementById('programmeDashboardNote');
     const tilesEl = document.getElementById('programmeStatTiles');
     const milestonesEl = document.getElementById('programmeMilestones');
+    const escalatedEl = document.getElementById('programmeEscalatedRisks');
     if (!titleEl || !gridEl) return;
 
     const programme = getCurrentPortfolioProgramme();
@@ -337,6 +445,7 @@ function renderProgrammeView() {
         if (noteEl) noteEl.innerHTML = '';
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
+        if (escalatedEl) escalatedEl.innerHTML = '';
         return;
     }
 
@@ -350,11 +459,13 @@ function renderProgrammeView() {
             '<p>Group a project into this programme from the Portfolio view.</p></div>';
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
+        if (escalatedEl) escalatedEl.innerHTML = '';
         return;
     }
 
     if (tilesEl) tilesEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (milestonesEl) milestonesEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
+    if (escalatedEl) escalatedEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
 
     renderProgrammeMemberGrid(programme, {});
     loadProgrammeDashboardData(programme);
@@ -377,6 +488,11 @@ if (typeof document !== 'undefined') {
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-open-programme-project]');
         if (btn) openProjectFromProgramme(btn.dataset.openProgrammeProject);
+
+        const escalatedRow = e.target.closest('[data-raid-item-id]');
+        if (escalatedRow) {
+            openProgrammeEscalatedItem(escalatedRow.dataset.projectId, parseInt(escalatedRow.dataset.raidItemId, 10));
+        }
     });
 }
 
@@ -416,6 +532,7 @@ if (typeof module !== 'undefined' && module.exports) {
         extractProjectMilestones,
         pickKeyMilestones,
         aggregateBenefitsOnTrack,
+        aggregateEscalatedRaidItems,
         ragById,
     };
 }

@@ -620,7 +620,7 @@ def parse_raid_markdown(text: str) -> list:
     Returns:
         List of dicts with keys: id, type, title, description, raised_by,
         owner, mitigation_actions, impact, likelihood, score, status,
-        priority, target_date
+        priority, target_date, escalated, escalation_level
 
     Examples:
         Simple format table:
@@ -677,6 +677,8 @@ def parse_raid_markdown(text: str) -> list:
         'priority': 'priority',
         'target date': 'target_date',
         'date': 'target_date',
+        'escalated': 'escalated',
+        'escalation level': 'escalation_level',
     }
 
     for idx, header in enumerate(headers):
@@ -781,6 +783,11 @@ def parse_raid_markdown(text: str) -> list:
 
         max_id_seen = max(max_id_seen, item_id)
 
+        escalated = get_cell('escalated', '').strip().lower() in ('yes', 'true', '1')
+        escalation_level = get_cell('escalation_level', '').strip().lower()
+        if escalation_level not in ('project', 'programme', 'board'):
+            escalation_level = 'project'
+
         item = {
             'id': item_id,
             'type': item_type if item_type in valid_types else 'risk',
@@ -795,6 +802,8 @@ def parse_raid_markdown(text: str) -> list:
             'status': item_status if item_status in valid_statuses else 'open',
             'priority': get_cell('priority', ''),
             'target_date': get_cell('target_date', ''),
+            'escalated': escalated,
+            'escalation_level': escalation_level,
         }
         items.append(item)
 
@@ -833,12 +842,23 @@ def generate_raid_log_text(raid_items: list) -> str:
                'Mitigation Actions', 'Impact', 'Likelihood', 'Score', 'Status',
                'Priority', 'Target Date']
 
+    # Escalated/Escalation Level are only added to the table when at least
+    # one item actually escalates something -- a plan where nothing is
+    # escalated (the common case, and every plan before this feature
+    # existed) keeps its old column set and serialises byte-identical.
+    include_escalation = any(
+        item.get('escalated') or item.get('escalation_level') not in (None, '', 'project')
+        for item in raid_items
+    )
+    if include_escalation:
+        headers = headers + ['Escalated', 'Escalation Level']
+
     def escape_pipe(value):
         return str(value).replace('|', '\\|').replace('\n', ' ')
 
     rows = []
     for item in raid_items:
-        rows.append([
+        row = [
             escape_pipe(str(item.get('id', ''))),
             escape_pipe(item.get('type', '')),
             escape_pipe(item.get('title', '')),
@@ -852,7 +872,11 @@ def generate_raid_log_text(raid_items: list) -> str:
             escape_pipe(item.get('status', '')),
             escape_pipe(item.get('priority', '')),
             escape_pipe(item.get('target_date', item.get('date', ''))),
-        ])
+        ]
+        if include_escalation:
+            row.append(escape_pipe('yes' if item.get('escalated') else 'no'))
+            row.append(escape_pipe(item.get('escalation_level') or 'project'))
+        rows.append(row)
 
     # Calculate column widths (minimum of header width)
     widths = [len(h) for h in headers]

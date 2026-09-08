@@ -3127,6 +3127,21 @@ tr:hover .task-context-btn,
 .raid-status-closed { background: #e9ecef; color: #495057; }
 .raid-status-transferred { background: #cce5ff; color: #004085; }
 
+/* Escalation badges (issue #736) */
+.raid-escalation-badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+
+.raid-escalation-programme { background: #fff3bf; color: #e67700; }
+.raid-escalation-board { background: #ffe0e0; color: #c62828; }
+
 /* Lessons learned impact badges (issue #598) */
 .lesson-impact-positive { background: #d4edda; color: #155724; }
 .lesson-impact-change { background: #fff3bf; color: #b07b00; }

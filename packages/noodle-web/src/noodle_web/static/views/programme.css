@@ -171,3 +171,42 @@
     font-weight: 600;
     text-transform: uppercase;
 }
+
+/* Escalated risks & issues list (#736) -- same layout as the key
+   milestones list above; badges reuse .raid-type-badge (components.css)
+   and .raid-escalation-badge (issue #736). */
+.programme-escalated-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.programme-escalated-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-surface, #ffffff);
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.programme-escalated-item:hover {
+    background: var(--np-surface-alt, #f0f0f0);
+}
+
+.programme-escalated-title {
+    flex: 1;
+    font-weight: 600;
+    color: var(--np-text, #333333);
+}
+
+.programme-escalated-project {
+    color: var(--np-text-muted, #888888);
+    font-size: 0.9em;
+}

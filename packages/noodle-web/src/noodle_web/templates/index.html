@@ -2453,7 +2453,8 @@ Build
             <!-- Programme Tab (issue #953's landing view, extended by #734
                  into the real programme overview dashboard -- SRO/vision
                  stub, key metrics, key milestones, member projects with
-                 rolled-up RAG -- all populated by programme.js.) -->
+                 rolled-up RAG -- and by #736 with a real escalated risks
+                 & issues rollup -- all populated by programme.js.) -->
             <div id="programme-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
                     <div class="programme-landing-header">
@@ -2465,6 +2466,10 @@ Build
                     <div class="programme-section">
                         <h3>Key Milestones</h3>
                         <div id="programmeMilestones"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Escalated Risks &amp; Issues</h3>
+                        <div id="programmeEscalatedRisks"></div>
                     </div>
                     <div class="programme-section">
                         <h3>Member Projects</h3>
@@ -2901,6 +2906,15 @@ Build
                             <label for="raidItemTargetDate">Target Date</label>
                             <input type="date" id="raidItemTargetDate" class="form-control">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemEscalation">Escalate To</label>
+                        <select id="raidItemEscalation" class="form-control">
+                            <option value="project">Project (not escalated)</option>
+                            <option value="programme">Programme</option>
+                            <option value="board">Board</option>
+                        </select>
                     </div>
 
                     <div class="form-grid-3col">
