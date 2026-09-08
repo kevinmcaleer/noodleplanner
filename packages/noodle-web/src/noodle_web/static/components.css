@@ -7997,3 +7997,71 @@ button.ribbon-breadcrumb-rung:hover {
     font-size: 11px;
     text-align: center;
 }
+
+/* #966: host presence panel (Planning session modal) -- see
+   collab-session.js's renderCollabPresence()/kickCollabJoiner().
+   The --np-* tokens are redefined per theme in dark-mode.css, so these
+   rules need no dark-mode counterpart. */
+.collab-presence-heading {
+    font-weight: 600;
+    font-size: 0.9em;
+    margin-bottom: 6px;
+}
+
+.collab-presence-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
+    font-size: 0.9em;
+}
+
+.collab-presence-row:last-child {
+    border-bottom: none;
+}
+
+.collab-presence-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--np-text-muted, #888888);
+}
+
+.collab-presence-dot.active {
+    background: #388e3c;
+}
+
+.collab-presence-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.collab-presence-status {
+    color: var(--np-text-muted, #888888);
+    font-size: 0.85em;
+}
+
+/* views/gantt.css defines a global `.btn` at width:100% with a gradient,
+   which would otherwise stretch the Remove button across the row and
+   squeeze the name to zero width. */
+.collab-presence-row button {
+    flex: 0 0 auto;
+    width: auto;
+    margin-top: 0;
+    padding: 2px 10px;
+    font-size: 0.85em;
+    background: transparent;
+    color: #b02a37;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+}
+
+.collab-presence-row button:hover {
+    background: #b02a37;
+    color: #fff;
+    transform: none;
+}
