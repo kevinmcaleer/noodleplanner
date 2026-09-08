@@ -135,9 +135,13 @@
  *    it), so this module derives one host<->joiner session key per pair
  *    but callers (collab-session.js / collab_join.html) only track a
  *    single active peer key at a time. Multi-joiner fan-out with distinct
- *    per-joiner keys is real future work for #966/#967, not this issue --
+ *    per-joiner keys is real future work for #967, not this issue --
  *    see this issue's own scope note about keeping "what does a
- *    plan-editing message look like" out of scope.
+ *    plan-editing message look like" out of scope. #966's presence panel
+ *    doesn't need this: the server tracks per-joiner identity itself (see
+ *    collab_session.py's `Joiner`/`SessionState.presence_snapshot()`) and
+ *    tells the host directly via `{"type": "presence", ...}` -- it never
+ *    has to be inferred from this module's encrypted channel.
  *
  * 6. Callers must never display an unrecognized frame as peer content
  *    (post-security-review requirement). This module's own functions
@@ -263,11 +267,20 @@ export async function buildPubkeyAnnouncement(type, connectKey, keyPair) {
     return JSON.stringify({ type, key, mac });
 }
 
-// The only frame `type`s this scheme ever produces. Anything else --
-// including a well-formed-but-wrong-role frame, e.g. a "host_pubkey"
-// arriving at the host itself -- is not one of these and must never be
-// treated as content. See `classifyFrameType` below.
-const KNOWN_FRAME_TYPES = new Set(['host_pubkey', 'joiner_pubkey', 'enc']);
+// The only frame `type`s this scheme (plus #966's presence panel) ever
+// produces. Anything else -- including a well-formed-but-wrong-role frame,
+// e.g. a "host_pubkey" arriving at the host itself -- is not one of these
+// and must never be treated as content. See `classifyFrameType` below.
+//
+// 'presence' (#966) is the one entry here that isn't part of #964's
+// encrypted-content scheme -- it's a plaintext control message the server
+// itself sends directly to the host (see app.py's `_broadcast_presence`),
+// never encrypted and never sent to joiners. It still has to be listed
+// here: classifyFrameType is the single gate collab-session.js's
+// handleCollabMessage uses to decide a frame's type at all, so an
+// unlisted 'presence' would be silently dropped as 'unrecognized' before
+// ever reaching the presence-panel handling below.
+const KNOWN_FRAME_TYPES = new Set(['host_pubkey', 'joiner_pubkey', 'enc', 'presence']);
 
 /**
  * Classify a raw WebSocket frame's `type` discriminator. Returns one of

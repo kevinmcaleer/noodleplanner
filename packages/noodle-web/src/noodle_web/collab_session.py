@@ -44,6 +44,27 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   removed and every joiner socket is closed. Sessions idle for longer than
   ``IDLE_TIMEOUT_SECONDS`` (checked lazily on access, and swept periodically
   by a background task started from app.py) are torn down the same way.
+- #966 (host presence panel): each ``Joiner`` tracks ``joined_at`` and
+  ``last_activity`` (distinct from ``SessionState``'s own ``last_activity``
+  above, which drives *session* idle expiry -- this is per-*joiner* and
+  drives a UX active/inactive heuristic, not a security boundary). app.py's
+  ``_relay_as_joiner`` calls ``Joiner.touch()`` for every message received
+  from that joiner, including the lightweight ``{"type": "presence_ping"}``
+  heartbeat collab_join.html sends periodically so a joiner who is present
+  but not actively sending real content still shows as active. Whenever the
+  joiner list or an active/inactive status might have changed (a joiner is
+  admitted, disconnects, or is kicked, or a ping arrives), app.py pushes a
+  ``{"type": "presence", "joiners": [...]}`` snapshot (see
+  ``SessionState.presence_snapshot()``) to the host -- there is no separate
+  wall-clock timer for this; piggybacking on the heartbeat is what keeps a
+  quiet single-joiner session's status from going stale without adding
+  another background task. The host can also remove ("kick") a joiner with
+  a ``{"type": "kick", "joiner_id": ...}`` message (``joiner_id`` is the
+  same ``id(websocket)`` key ``SessionState.joiners`` and the presence
+  snapshot already use); ``SessionManager.kick_joiner()`` closes just that
+  joiner's socket with the ``CLOSE_KICKED``/``CLOSE_REASON_KICKED`` pair
+  below, following #965's close-code convention, without touching the
+  session or any other joiner.
 - #964 (end-to-end encryption): every payload described above is, by
   construction, ciphertext produced client-side by static/collab-crypto.js
   before it ever reaches this relay -- this module still never parses
@@ -133,6 +154,9 @@ CLOSE_HOST_DISCONNECTED = 4411
 CLOSE_REASON_HOST_DISCONNECTED = "Host disconnected."
 CLOSE_IDLE_TIMEOUT = 4412
 CLOSE_REASON_IDLE_TIMEOUT = "Session expired after being idle too long."
+# #966: the host removed this specific joiner from their presence panel.
+CLOSE_KICKED = 4413
+CLOSE_REASON_KICKED = "Removed by host."
 
 # #964: the secret that authenticates the ECDH handshake in
 # collab-crypto.js -- deliberately NOT the six-digit join_code (see this
@@ -142,6 +166,15 @@ CLOSE_REASON_IDLE_TIMEOUT = "Session expired after being idle too long."
 # security-relevant tokens above -- well over the "128+ bits" floor.
 _HANDSHAKE_SECRET_BYTES = 32
 
+# #966: how recently a joiner must have sent *any* message -- including the
+# lightweight presence_ping heartbeat -- for the host's presence panel to
+# show them as "active" rather than "inactive". A UX heuristic, not a
+# security boundary (unlike IDLE_TIMEOUT_SECONDS above), so it doesn't need
+# to match that value: picked to comfortably outlast collab-session.js's
+# presence-ping interval with margin for a missed beat or two before
+# flipping to "inactive".
+PRESENCE_ACTIVE_WINDOW_SECONDS = int(os.getenv("COLLAB_PRESENCE_ACTIVE_WINDOW_SECONDS", "45"))
+
 
 @dataclass
 class Joiner:
@@ -149,6 +182,14 @@ class Joiner:
 
     websocket: WebSocket
     display_name: str
+    joined_at: float = field(default_factory=time.monotonic)
+    last_activity: float = field(default_factory=time.monotonic)
+
+    def touch(self) -> None:
+        self.last_activity = time.monotonic()
+
+    def is_active(self) -> bool:
+        return (time.monotonic() - self.last_activity) <= PRESENCE_ACTIVE_WINDOW_SECONDS
 
 
 @dataclass
@@ -177,6 +218,22 @@ class SessionState:
 
     def is_idle(self) -> bool:
         return (time.monotonic() - self.last_activity) > IDLE_TIMEOUT_SECONDS
+
+    def presence_snapshot(self) -> list[dict]:
+        """Non-sensitive presence metadata for the host's presence panel
+        (#966): each joiner's correlation id (the same ``id(websocket)``
+        key ``joiners`` is keyed by, used only so a host can name a joiner
+        in a ``kick`` message), display name (already sent in the clear at
+        join time, per #963), and the ``is_active()`` UX heuristic.
+        Deliberately excludes timestamps -- ``joined_at``/``last_activity``
+        are ``time.monotonic()`` values with no meaning outside this
+        process, and the host doesn't need them, just the derived
+        active/inactive label.
+        """
+        return [
+            {"id": joiner_id, "display_name": joiner.display_name, "active": joiner.is_active()}
+            for joiner_id, joiner in self.joiners.items()
+        ]
 
 
 @dataclass
@@ -340,6 +397,28 @@ class SessionManager:
         if state is None:
             return
         state.joiners.pop(id(websocket), None)
+
+    async def kick_joiner(self, session_id: str, joiner_id: int, *, code: int, reason: str) -> bool:
+        """Host-initiated removal of a single joiner (#966): pops them from
+        `joiners` (before the `await`, same "remove first" ordering as
+        `teardown()`, so a concurrent relay can't observe a half-removed
+        joiner) and closes just their socket with `code`/`reason` -- the
+        session and every other joiner are untouched. Returns False if
+        `joiner_id` doesn't name a currently connected joiner (already
+        disconnected, wrong session, stale panel, etc.) so the caller can
+        treat that as a harmless no-op rather than an error.
+        """
+        state = self._sessions.get(session_id)
+        if state is None:
+            return False
+        joiner = state.joiners.pop(joiner_id, None)
+        if joiner is None:
+            return False
+        try:
+            await joiner.websocket.close(code=code, reason=reason)
+        except Exception:  # pragma: no cover - already-closed socket, etc.
+            pass
+        return True
 
     async def sweep_idle(self) -> None:
         """Tear down every session that has gone idle. Safe to call repeatedly."""

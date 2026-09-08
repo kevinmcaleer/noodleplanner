@@ -157,6 +157,22 @@
         let connectKey = null;
         let keyPair = null;
         let sessionKey = null; // established once the host's pubkey is verified
+        let presencePingTimer = null;
+
+        // #966: how often this joiner tells the host it's still here, via
+        // the lightweight `{"type": "presence_ping"}` heartbeat -- kept
+        // well under collab_session.py's PRESENCE_ACTIVE_WINDOW_SECONDS
+        // (45s by default) so a couple of missed beats (a backgrounded
+        // tab, a slow network) don't flip this joiner to "inactive" in the
+        // host's presence panel.
+        const PRESENCE_PING_INTERVAL_MS = 15000;
+
+        function stopPresencePing() {
+            if (presencePingTimer !== null) {
+                clearInterval(presencePingTimer);
+                presencePingTimer = null;
+            }
+        }
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -199,6 +215,14 @@
                     // here, separately, before that check.
                     status.textContent = `Joined as ${parsed.display_name}. Waiting for the host...`;
                     relay.style.display = 'block';
+                    // #966: start the presence heartbeat now that we're
+                    // admitted -- see PRESENCE_PING_INTERVAL_MS above.
+                    stopPresencePing();
+                    presencePingTimer = setInterval(() => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({ type: 'presence_ping' }));
+                        }
+                    }, PRESENCE_PING_INTERVAL_MS);
                     return;
                 }
 
@@ -261,10 +285,11 @@
 
                 // #965: tear down every bit of client-side session state on
                 // any close, whatever the cause -- host ended it, host
-                // disconnected, idle timeout, or a plain network drop --
-                // so nothing (socket, keys, decrypted log) lingers after
-                // the fact, and so the join form is always ready to be
-                // resubmitted to rejoin.
+                // disconnected, idle timeout, kicked (#966), or a plain
+                // network drop -- so nothing (socket, keys, decrypted log)
+                // lingers after the fact, and so the join form is always
+                // ready to be resubmitted to rejoin.
+                stopPresencePing();
                 socket = null;
                 sessionKey = null;
                 keyPair = null;
