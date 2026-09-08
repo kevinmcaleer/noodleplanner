@@ -42,6 +42,12 @@ function loadCollabCrypto() {
     return cryptoModule;
 }
 
+let opsModule = null;
+function loadCollabOps() {
+    if (!opsModule) opsModule = import('/static/collab-ops.js');
+    return opsModule;
+}
+
 let collabSocket = null;
 let collabConnectKey = null;
 let collabKeyPair = null;
@@ -53,6 +59,26 @@ let collabSessionId = null;
 // replaced the first joiner's key and the host could only ever talk to
 // whoever joined last.
 const collabSessionKeys = new Map();
+
+// #967: the host is the single writer, so it owns the revision counter.
+// Every applied op bumps it and every snapshot carries it, which is what
+// lets a joiner tell a fresh snapshot from one it has already rendered.
+let collabPlanRev = 0;
+// joiner_id -> display name, learned from #966's presence snapshots. Used
+// only to name whoever superseded an edit in the conflict notice.
+const collabJoinerNames = new Map();
+let collabLocalEditTimer = null;
+// True only while the host is writing a joiner's applied op back into the
+// editor -- see applyCollabPlanOp.
+let collabApplyingRemoteOp = false;
+
+/** The host's authoritative plan document. This is the same textarea the
+ * PM edits by hand -- there is deliberately no second copy of the plan for
+ * the session, so a joiner's edit and the host's own edit go through
+ * exactly the same text. */
+function collabEditor() {
+    return document.getElementById('planEditor');
+}
 
 function collabLog(line) {
     const log = document.getElementById('collabSessionLog');
@@ -146,6 +172,10 @@ function pruneCollabSessionKeys(joiners) {
     for (const joinerId of [...collabSessionKeys.keys()]) {
         if (!live.has(joinerId)) collabSessionKeys.delete(joinerId);
     }
+    collabJoinerNames.clear();
+    for (const joiner of Array.isArray(joiners) ? joiners : []) {
+        collabJoinerNames.set(joiner.id, joiner.display_name);
+    }
 }
 
 /** Send a plaintext string to every joiner with an established secure
@@ -170,6 +200,114 @@ async function sendCollabMessage(plaintext) {
         sent++;
     }
     return sent;
+}
+
+/** Send a plaintext string to one joiner only, encrypted under that
+ * joiner's own key (#967). Used for replies that concern a single sender --
+ * a rejected op, or the initial snapshot handed to someone who has just
+ * finished their handshake. */
+async function sendCollabMessageTo(joinerId, plaintext) {
+    if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return false;
+    const key = collabSessionKeys.get(joinerId);
+    if (!key) return false;
+    const { encryptMessage, buildToJoinerEnvelope } = await loadCollabCrypto();
+    const ciphertext = await encryptMessage(key, plaintext, collabSessionId);
+    collabSocket.send(buildToJoinerEnvelope(joinerId, ciphertext));
+    return true;
+}
+
+/** Broadcast the current plan to every joiner (#967).
+ *
+ * The host sends a full snapshot rather than a diff. A planning session is
+ * a handful of people editing a plan of a few hundred lines over a LAN, so
+ * a diff protocol would add reconciliation bugs (and a second way for
+ * clients to disagree about state) to buy back bandwidth nobody is short
+ * of. `notice`, when present, is the "X also edited this" message from the
+ * conflict rule -- see collab-ops.js's describeConflict. */
+async function broadcastCollabPlan(notice) {
+    if (collabSessionKeys.size === 0) return 0;
+    const { buildPlanSnapshot } = await loadCollabOps();
+    const editor = collabEditor();
+    if (!editor) return 0;
+    const snapshot = buildPlanSnapshot(editor.value, collabPlanRev);
+    if (notice) snapshot.notice = notice;
+    return sendCollabMessage(JSON.stringify(snapshot));
+}
+
+/** Apply one joiner's edit intent to the host's plan, then tell everyone.
+ *
+ * This is the whole of the host-authoritative model: joiners never touch
+ * the document, they ask the host to. Because this runs on the host's
+ * single event loop, ops are applied in arrival order and last write wins
+ * -- see collab-ops.js's module docstring for the full rule. */
+async function applyCollabPlanOp(joinerId, op) {
+    const { applyPlanOp, describeConflict } = await loadCollabOps();
+    const editor = collabEditor();
+    if (!editor) return;
+
+    const result = applyPlanOp(editor.value, op);
+    if (!result.ok) {
+        // Tell only the sender. A stale op means their snapshot has been
+        // overtaken; the fresh one they already have (or are about to get)
+        // is the fix, so this is informational rather than an error state.
+        await sendCollabMessageTo(joinerId, JSON.stringify({
+            type: 'plan_op_rejected', op: op.op, reason: result.reason,
+        }));
+        return;
+    }
+
+    editor.value = result.text;
+    // The same event a human typing would raise, so the kanban editor
+    // mirror, line numbers and autosave all stay in step -- a joiner's edit
+    // must be indistinguishable from the host's own. The guard stops that
+    // event being mistaken for the host typing, which would queue a second,
+    // notice-less broadcast that raced the one below and could hide the
+    // "X also edited this" message.
+    collabApplyingRemoteOp = true;
+    try {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+        collabApplyingRemoteOp = false;
+    }
+    if (typeof renderPlan === 'function') {
+        try {
+            await renderPlan();
+        } catch (error) {
+            collabLog('(applied an edit but could not re-render the plan)');
+        }
+    }
+
+    collabPlanRev++;
+    await broadcastCollabPlan(describeConflict(op, result.previous, collabJoinerNames.get(joinerId)));
+}
+
+/** Push the host's own typing out to joiners (#967).
+ *
+ * Debounced: the host is a person typing into a textarea, and a snapshot
+ * per keystroke would be both wasteful and visually noisy on the joiner
+ * side. The delay is short enough to stay well inside the issue's
+ * under-a-second requirement on a LAN. */
+/** Watch the host's own editor so their edits reach joiners too (#967) --
+ * "an edit by any participant" in the issue includes the host's. Attached
+ * once and left in place: `scheduleCollabPlanBroadcast` is a no-op while
+ * no joiner holds a key, so this costs nothing outside a live session. */
+let collabLocalEditListenerAttached = false;
+function attachCollabLocalEditListener() {
+    if (collabLocalEditListenerAttached) return;
+    const editor = collabEditor();
+    if (!editor) return;
+    editor.addEventListener('input', scheduleCollabPlanBroadcast);
+    collabLocalEditListenerAttached = true;
+}
+
+function scheduleCollabPlanBroadcast() {
+    if (collabApplyingRemoteOp) return;
+    if (collabSessionKeys.size === 0) return;
+    clearTimeout(collabLocalEditTimer);
+    collabLocalEditTimer = setTimeout(() => {
+        collabPlanRev++;
+        broadcastCollabPlan(null);
+    }, 250);
 }
 
 async function handleCollabMessage(raw) {
@@ -214,6 +352,14 @@ async function handleCollabMessage(raw) {
         }
         collabSessionKeys.set(joinerId, await deriveSessionKey(collabKeyPair.privateKey, peerKey, collabSessionId));
         collabLog('Secure channel established with joiner.');
+        // #967: hand the new joiner the current plan straight away, so they
+        // have something to edit without waiting for someone else to make
+        // the next change.
+        const { buildPlanSnapshot } = await loadCollabOps();
+        const editor = collabEditor();
+        if (editor) {
+            await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(editor.value, collabPlanRev)));
+        }
         return;
     }
 
@@ -223,12 +369,29 @@ async function handleCollabMessage(raw) {
             collabLog('(received an encrypted message before the secure channel was ready)');
             return;
         }
+        let plaintext;
         try {
-            const plaintext = await decryptMessage(key, frame, collabSessionId);
-            collabLog(`joiner: ${plaintext}`);
+            plaintext = await decryptMessage(key, frame, collabSessionId);
         } catch {
             collabLog('(failed to decrypt a message -- dropped)');
+            return;
         }
+
+        // #967: an edit intent, or ordinary chatter. Only content that
+        // decrypted under this joiner's own key gets this far, so the
+        // sender is authenticated before any op is applied.
+        const { isPlanOp } = await loadCollabOps();
+        let parsed = null;
+        try {
+            parsed = JSON.parse(plaintext);
+        } catch {
+            parsed = null;
+        }
+        if (isPlanOp(parsed)) {
+            await applyCollabPlanOp(joinerId, parsed);
+            return;
+        }
+        collabLog(`joiner: ${plaintext}`);
         return;
     }
 
@@ -271,6 +434,9 @@ async function startCollabSession() {
         collabSocket = null;
     }
     collabSessionKeys.clear();
+    collabJoinerNames.clear();
+    collabPlanRev = 0;
+    attachCollabLocalEditListener();
     renderCollabPresence([]);
 
     overlay.classList.add('active');
@@ -340,6 +506,11 @@ async function startCollabSession() {
         status.textContent = event.reason || 'Session ended.';
         collabSocket = null;
         collabSessionKeys.clear();
+        collabJoinerNames.clear();
+        // Nothing left to broadcast to; a pending timer would only wake up
+        // and find no keys.
+        clearTimeout(collabLocalEditTimer);
+        collabLocalEditTimer = null;
         renderCollabPresence([]);
     });
 }
