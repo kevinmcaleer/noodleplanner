@@ -5780,7 +5780,6 @@ tr:hover .task-context-btn,
    Accessibility: focus-visible outlines
    ======================================== */
 .nav-menu-item:focus-visible,
-.tab:focus-visible,
 .plan-subnav-btn:focus-visible {
     outline: 2px solid var(--np-blue);
     outline-offset: -2px;
@@ -7310,7 +7309,10 @@ tr:hover .task-context-btn,
     min-width: 8px;
 }
 
-.ribbon-search {
+/* #909 ribbon-parity follow-up: was a decorative <button>, now a real
+ * <input> (see ribbon.js's renderSearchBox()) wired to the project search
+ * that used to live in the old top nav's #navSearchInput. */
+.ribbon-search-wrap {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -7321,16 +7323,41 @@ tr:hover .task-context-btn,
     color: #cfe0e7;
     font-size: 11px;
     white-space: nowrap;
-    border: none;
-    font-family: inherit;
-    cursor: pointer;
+    max-width: 240px;
+    flex: 0 1 240px;
+    min-width: 0;
 }
 
-.ribbon-search svg {
+.ribbon-search-wrap svg {
     fill: none;
     stroke: currentColor;
     stroke-width: 1.6;
     stroke-linecap: round;
+    flex-shrink: 0;
+}
+
+.ribbon-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    font-family: inherit;
+}
+
+.ribbon-search-input::placeholder {
+    color: #cfe0e7;
+}
+
+.ribbon-search-input:focus {
+    outline: none;
+}
+
+.ribbon-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .ribbon-avatar {

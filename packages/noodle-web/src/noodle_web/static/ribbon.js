@@ -70,6 +70,10 @@ function getLiveState() {
         ganttShowBaseline: !!document.getElementById('ganttShowBaseline')?.checked,
         ganttShowDependencies: !!document.getElementById('ganttShowDependencies')?.checked,
         isDark: document.documentElement.getAttribute('data-theme') === 'dark',
+        // theme.js's currentThemeChoice ('light'|'dark'|'system') -- a plain
+        // top-level `let` in a classic script, so it's readable here as a
+        // shared global, same as NavigationController/EditorUndoManager above.
+        themeChoice: (typeof currentThemeChoice !== 'undefined') ? currentThemeChoice : 'light',
     };
 }
 
@@ -97,6 +101,8 @@ const VIEW_FOR_LABEL = {
     Dashboard: 'project-report',
     Milestones: 'milestones', 'Mind Map': 'mindmap', Whiteboard: 'whiteboard', PBS: 'pbs', Products: 'pbs',
     'Product Flow': 'product-flow', Deliverables: 'deliverables', Editor: 'editor',
+    // #909 ribbon-parity follow-up: the old top nav's Tools > Syntax Guide item.
+    'Syntax Guide': 'guide',
 };
 
 function switchView(view) {
@@ -243,6 +249,12 @@ const LABEL_ACTIONS = {
     Issue: () => addRaidItem(),
 
     'Dark Mode': () => setThemeChoice(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'),
+    // #909 ribbon-parity follow-up -- old top nav's 3-way theme menu's third
+    // option (follow the OS preference); see theme.js's resolveTheme().
+    'System Theme': () => setThemeChoice('system'),
+    // #909 ribbon-parity follow-up -- old top nav's AI button, when
+    // unconfigured, opened this same modal (see ai-config.js's onAIButtonClick).
+    'AI Settings': () => openAISettingsModal(),
 
     // Export/import formats named as individual buttons (Report > Share / Data)
     PDF: () => exportFile('pdf', 'editor'),
@@ -352,8 +364,30 @@ function renderTitleBar(ia, live) {
         <div class="ribbon-quick-actions">${quickActions}</div>
         <span class="ribbon-doc-title" id="ribbonDocTitle"></span>
         <div class="ribbon-titlebar-spacer"></div>
-        <button type="button" class="ribbon-search" data-action="search">${icon('search', 13)}Tell me what you want to do</button>
+        ${renderSearchBox()}
         <span class="ribbon-avatar" id="ribbonAvatar" aria-hidden="true"></span>
+    `;
+}
+
+/**
+ * The ribbon's search box (#909 ribbon-parity follow-up -- wires the
+ * previously-decorative search button up to the project search that used to
+ * live in the old top nav, views-search.js). A real `<input>`, not a button:
+ * typing here jumps to the dedicated Search view (views-search.js's
+ * "search" NavigationController entry, #searchViewInput) and mirrors the
+ * query into it, reusing that view's existing debounced /api/search call
+ * and grouped, click-to-open results -- see handleRibbonSearchInput() in
+ * wireEvents() below. This box itself is destroyed and recreated by every
+ * refreshRibbon() (innerHTML swap), so it hands off to the Search view's
+ * own, DOM-stable input on the very first keystroke rather than trying to
+ * keep typing in a node that won't survive the next render. */
+function renderSearchBox() {
+    return `
+        <div class="ribbon-search-wrap">
+            ${icon('search', 13)}
+            <input type="search" class="ribbon-search-input" id="ribbonSearchInput"
+                placeholder="Tell me what you want to do" aria-label="Search this project" autocomplete="off">
+        </div>
     `;
 }
 
@@ -400,13 +434,27 @@ function renderTabStrip(ia, ctxTab) {
     `;
 }
 
+/** `'link:<url>'` marks a button as a plain external link rather than a
+ * command -- see the `link:` flag convention documented at the top of
+ * ribbon-ia.js (#909 ribbon-parity follow-up, e.g. the "Docs" button). */
+function linkHrefFor(flag) {
+    return (typeof flag === 'string' && flag.startsWith('link:')) ? flag.slice(5) : null;
+}
+
 function renderButton(scopeId, tuple, kind) {
     const [iconName, label, flag] = tuple;
+    const size = kind === 'lg' ? 26 : 15;
+    const cls = kind === 'lg' ? 'ribbon-lg-btn' : 'ribbon-sm-btn';
+    const href = linkHrefFor(flag);
+    if (href) {
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="${cls}"
+            title="${label}" aria-label="${label} (opens in a new tab)">
+            ${icon(iconName, size)}${label}
+        </a>`;
+    }
     const live = getLiveState();
     const action = resolveAction(scopeId, label);
     const isActive = isButtonActive(scopeId, label, live);
-    const size = kind === 'lg' ? 26 : 15;
-    const cls = kind === 'lg' ? 'ribbon-lg-btn' : 'ribbon-sm-btn';
     return `<button type="button" class="${cls}${isActive ? ' active' : ''}" data-scope-id="${scopeId}" data-label="${label}"
         title="${label}" aria-label="${label}" aria-pressed="${isActive}" ${action ? '' : 'data-stub="true"'}>
         ${icon(iconName, size)}${label}${flag === 'caret' ? '<span class="ribbon-caret">▼</span>' : ''}
@@ -419,6 +467,7 @@ function isButtonActive(scopeId, label, live) {
     if (label === 'Baseline') return live.ganttShowBaseline;
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
+    if (label === 'System Theme') return live.themeChoice === 'system';
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
@@ -595,6 +644,7 @@ function wireEvents(shell) {
             else if (label === 'Undo') EditorUndoManager.undo();
             else if (label === 'New task') addNewTaskViaShortcut();
             else if (label === 'Print') window.print();
+            else if (label === 'AI Chat') { if (typeof onAIButtonClick === 'function') onAIButtonClick(); }
             refreshRibbon();
             return;
         }
@@ -628,11 +678,6 @@ function wireEvents(shell) {
             return;
         }
 
-        if (e.target.closest('[data-action="search"]')) {
-            notAvailable('Search');
-            return;
-        }
-
         const fileItem = e.target.closest('.ribbon-file-menu-item[data-file-index]');
         if (fileItem) {
             loadIA().then((ia) => {
@@ -651,6 +696,11 @@ function wireEvents(shell) {
         }
     });
 
+    // Delegated (not bound to the specific node) because refreshRibbon()
+    // recreates the title bar -- and this input -- on essentially every
+    // ribbon interaction. See handleRibbonSearchInput() for why that's fine.
+    shell.addEventListener('input', handleRibbonSearchInput);
+
     // A popover-opening button can live anywhere in the ribbon (the File
     // button in the tab strip, a caret button in the body) -- only a click
     // truly outside the whole ribbon should auto-close one.
@@ -660,6 +710,46 @@ function wireEvents(shell) {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { closePopovers(); refreshRibbon(); }
     });
+}
+
+/**
+ * Hands the ribbon search box's first keystroke off to the real, DOM-stable
+ * Search view input (#searchViewInput, views-search.js) rather than trying
+ * to keep the user typing in a node refreshRibbon() is about to destroy:
+ *   1. Navigate to the Search view if we're not already on it (idempotent
+ *      once there -- see below).
+ *   2. Copy what's been typed so far into #searchViewInput and focus it.
+ *   3. Run the search via scheduleProjectSearch(), the exact debounced
+ *      /api/search function views-search.js's own inputs call -- exposed
+ *      on window for reuse rather than duplicated here (#909 ribbon-parity
+ *      follow-up).
+ * After step 2, the browser's focus is on #searchViewInput, so further
+ * keystrokes land there directly through views-search.js's own listener and
+ * never reach this handler again -- this only ever fires once per search.
+ */
+function handleRibbonSearchInput(e) {
+    const el = e.target.closest('.ribbon-search-input');
+    if (!el) return;
+    const query = el.value;
+
+    if (typeof NavigationController !== 'undefined' && NavigationController.getCurrentView() !== 'search') {
+        // nav.js's global switchToView(viewName) -- not this file's own
+        // switchView() helper (which returns a closure); calling that here
+        // by mistake would throw.
+        switchToView('search');
+    }
+
+    const viewInput = document.getElementById('searchViewInput');
+    if (viewInput) {
+        viewInput.value = query;
+        viewInput.focus();
+        // Move the caret to the end (setting .value already did this in most
+        // browsers, but this matches views-search.js's own navigateToSearchView()).
+        const v = viewInput.value;
+        viewInput.value = '';
+        viewInput.value = v;
+    }
+    if (typeof scheduleProjectSearch === 'function') scheduleProjectSearch(query);
 }
 
 /** Every navigation goes through NavigationController.navigateTo(); wrap

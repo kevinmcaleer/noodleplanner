@@ -43,11 +43,20 @@ function allButtons() {
   const out = [];
   for (const scope of [...TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS, ...CONTEXTUAL_TABS]) {
     for (const g of scope.groups) {
-      for (const b of g.lg || []) out.push({ scopeId: scope.id, label: b[1] });
-      for (const col of g.cols || []) for (const b of col) out.push({ scopeId: scope.id, label: b[1] });
+      for (const b of g.lg || []) out.push({ scopeId: scope.id, label: b[1], flag: b[2] });
+      for (const col of g.cols || []) for (const b of col) out.push({ scopeId: scope.id, label: b[1], flag: b[2] });
     }
   }
   return out;
+}
+
+/** A 'link:<url>' 3rd tuple element (#909 ribbon-parity follow-up) marks a
+ * button as a plain external <a>, rendered and clicked without ever going
+ * through resolveAction()/the tables below by design -- see ribbon.js's
+ * renderButton()/linkHrefFor(). Not a stub: it already does the real thing
+ * (opens the URL), it just isn't -- and shouldn't be -- in these tables. */
+function isLinkButton(flag) {
+  return typeof flag === "string" && flag.startsWith("link:");
 }
 
 /** Labels ribbon.js's resolver can currently handle, extracted from its
@@ -111,11 +120,11 @@ const DELIBERATE_STUBS = new Set([
   "Programme View", "Cross-Project Links", "Shared Capacity",
 ]);
 
-test("every button label is either resolvable or an explicit, reviewed stub", () => {
+test("every button label is either resolvable, a link button, or an explicit, reviewed stub", () => {
   const known = extractKnownLabels();
   const unaccounted = [];
-  for (const { scopeId, label } of allButtons()) {
-    if (known.has(label) || DELIBERATE_STUBS.has(label)) continue;
+  for (const { scopeId, label, flag } of allButtons()) {
+    if (isLinkButton(flag) || known.has(label) || DELIBERATE_STUBS.has(label)) continue;
     unaccounted.push(`${scopeId}: "${label}"`);
   }
   assert.deepEqual(unaccounted, [], `unaccounted-for labels (neither wired nor a reviewed stub):\n${unaccounted.join("\n")}`);
@@ -125,6 +134,15 @@ test("DELIBERATE_STUBS has no dead entries -- every stub label is still used som
   const used = new Set(allButtons().map((b) => b.label));
   const dead = [...DELIBERATE_STUBS].filter((label) => !used.has(label));
   assert.deepEqual(dead, [], `stub labels no longer used by any button (remove from the allowlist): ${dead.join(", ")}`);
+});
+
+test("no link: button label is also in DELIBERATE_STUBS or the resolvable tables", () => {
+  const known = extractKnownLabels();
+  for (const { label, flag } of allButtons()) {
+    if (!isLinkButton(flag)) continue;
+    assert.ok(!DELIBERATE_STUBS.has(label), `"${label}" is a link button but also listed as a stub`);
+    assert.ok(!known.has(label), `"${label}" is a link button but also resolvable -- remove the redundant table entry`);
+  }
 });
 
 test("no label is both wired and marked as a deliberate stub", () => {
