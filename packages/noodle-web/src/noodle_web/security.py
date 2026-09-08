@@ -157,9 +157,23 @@ def reset_rate_limit_store() -> None:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple in-memory per-IP rate limiting."""
+    """Simple in-memory per-IP rate limiting.
+
+    Static assets are exempt. A single page load now pulls 50+ files under
+    /static/ (the app has grown a lot -- whiteboard, ribbon, task-peek, ...),
+    so counting each one against the same budget as API calls meant two page
+    loads within RATE_LIMIT_WINDOW could exhaust it and 429 the rest of the
+    page load outright -- including ribbon.js itself, which is what made the
+    ribbon (and everything else) appear to silently break. Static files are
+    not a meaningful attack surface for this limiter to protect and serving
+    them isn't a resource cost worth rate-limiting the way API/render calls
+    are.
+    """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if request.url.path.startswith("/static/"):
+            return await call_next(request)
+
         ip = _get_client_ip(request)
         limited, retry_after = _is_rate_limited(ip)
 
