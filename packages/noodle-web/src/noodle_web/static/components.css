@@ -7511,6 +7511,26 @@ tr:hover .task-context-btn,
     flex-shrink: 0;
 }
 
+/* Main-tab-switch entrance (#937): the same fade used for a contextual
+ * tab/popover appearing (ribbonCtxIn), but a left-to-right slide since this
+ * is a horizontal tab switch rather than a dropdown opening. Applied by
+ * ribbon.js only on an actual tab or scope-pill change (see
+ * ribbonState.animateTabSwitch), not on every re-render. Each group's
+ * entrance is staggered slightly left-to-right across the ribbon body. */
+.ribbon-group-tab-in {
+    animation: ribbonTabIn 0.18s ease both;
+}
+
+.ribbon-group-tab-in:nth-child(2) { animation-delay: 0.02s; }
+.ribbon-group-tab-in:nth-child(3) { animation-delay: 0.04s; }
+.ribbon-group-tab-in:nth-child(4) { animation-delay: 0.06s; }
+.ribbon-group-tab-in:nth-child(5) { animation-delay: 0.08s; }
+
+@keyframes ribbonTabIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: none; }
+}
+
 .ribbon-group-row {
     display: flex;
     align-items: flex-start;

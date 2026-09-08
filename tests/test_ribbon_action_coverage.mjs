@@ -28,15 +28,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { TABS, CONTEXTUAL_TABS } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
+import {
+  TABS, CONTEXTUAL_TABS, PORTFOLIO_TABS, PROGRAMME_TABS,
+} from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const ribbonSrc = readFileSync(`${repo}/packages/noodle-web/src/noodle_web/static/ribbon.js`, "utf8");
 
-/** Every (scopeId, label) pair the design actually renders a button for. */
+/** Every (scopeId, label) pair the design actually renders a button for --
+ * every scope's tab set: Project (TABS), Portfolio (PORTFOLIO_TABS),
+ * Programme (PROGRAMME_TABS), plus the contextual tabs shared across all
+ * three scopes. */
 function allButtons() {
   const out = [];
-  for (const scope of [...TABS, ...CONTEXTUAL_TABS]) {
+  for (const scope of [...TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS, ...CONTEXTUAL_TABS]) {
     for (const g of scope.groups) {
       for (const b of g.lg || []) out.push({ scopeId: scope.id, label: b[1] });
       for (const col of g.cols || []) for (const b of col) out.push({ scopeId: scope.id, label: b[1] });
@@ -85,8 +90,11 @@ const DELIBERATE_STUBS = new Set([
   "Add Card", "Edit", "Assign", "Add Column", "Rename", "WIP Limit", "Close", "Escalate",
   // Whiteboard canvas tools (need a selected object/tool state).
   "Align", "Distribute", "Lock", "Colour", "Connector", "Note", "Shape", "Text", "To PBS", "To Tasks",
-  // Features that don't exist in the app yet.
-  "Add Programme", "Add Project", "Weighting", "Rebaseline", "Snapshot", "Capacity",
+  // Features that don't exist in the app yet. ("Add Project" and "Capacity"
+  // used to be here too -- #938 audit found both actually have real
+  // functions (showCreateProjectDialog, the Team Allocation view) and wired
+  // them instead of leaving them as stale stubs.)
+  "Add Programme", "Weighting", "Rebaseline", "Snapshot",
   "Heat Map", "Heat", "Probability", "Impact", "RAG",
   "Slack", "Sync", "Split View", "Preview", "Zoom", "Filter", "Sort", "Group", "Sheet",
   // No dedicated function exists (checked: grepped the codebase, found none).
@@ -95,6 +103,12 @@ const DELIBERATE_STUBS = new Set([
   "Influence", "Interest", "Owner", "Grid",
   "Categorise", "Tag", "Link to Risk", "Review", "Publish",
   "Escalations", "Profiles", "Realisation", "Forecast",
+  // Programme scope (#936/#909): Programmes aren't built yet (#731/#910).
+  // PROGRAMME_TABS is a deliberately small, honestly-labelled placeholder --
+  // every button in it is intentionally a stub rather than the ribbon
+  // pretending programme features exist. See ribbon-ia.js's PROGRAMME_TABS
+  // comment for the full reasoning.
+  "Programme View", "Cross-Project Links", "Shared Capacity",
 ]);
 
 test("every button label is either resolvable or an explicit, reviewed stub", () => {

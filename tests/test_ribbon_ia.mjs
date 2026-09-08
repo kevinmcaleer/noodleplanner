@@ -14,8 +14,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
-  SCOPES, FILE_MENU, QUICK_ACTIONS, TABS, CONTEXTUAL_TABS, CONTEXT_FOR_VIEW, contextualTabFor,
+  SCOPES, FILE_MENU, QUICK_ACTIONS, TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CONTEXTUAL_TABS,
+  CONTEXT_FOR_VIEW, contextualTabFor, tabsForScope,
 } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
+
+/** Every scope's own tab set, plus the contextual tabs shared by all scopes. */
+const ALL_SCOPE_TABS = [...TABS, ...PORTFOLIO_TABS, ...PROGRAMME_TABS];
 
 const repo = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
@@ -44,7 +48,7 @@ function buttonsIn(tabs) {
 test("every button icon exists in the app's SVG sprite", () => {
   const known = spriteIconIds();
   const missing = [];
-  for (const { tab, group, tuple } of [...buttonsIn(TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+  for (const { tab, group, tuple } of [...buttonsIn(ALL_SCOPE_TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
     if (!known.has(tuple[0])) missing.push(`${tab}/${group}: icon "${tuple[0]}" for "${tuple[1]}"`);
   }
   assert.deepEqual(missing, [], `unknown icon ids:\n${missing.join("\n")}`);
@@ -61,7 +65,7 @@ test("file menu, quick actions and contextual-tab icons also exist in the sprite
 });
 
 test("every button tuple has a non-empty icon and label", () => {
-  for (const { tab, group, tuple } of [...buttonsIn(TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+  for (const { tab, group, tuple } of [...buttonsIn(ALL_SCOPE_TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
     assert.ok(tuple[0], `${tab}/${group}: empty icon`);
     assert.ok(tuple[1], `${tab}/${group}: empty label for icon "${tuple[0]}"`);
     if (tuple[2] !== undefined) assert.equal(tuple[2], "caret", `${tab}/${group}: unexpected 3rd element "${tuple[2]}"`);
@@ -72,6 +76,22 @@ test("tab ids are unique, and match the design's Home/Plan/Track/Resources/Repor
   const ids = TABS.map((t) => t.id);
   assert.deepEqual(ids, [...new Set(ids)]);
   assert.deepEqual(ids, ["home", "plan", "track", "resources", "report", "view"]);
+});
+
+test("portfolio and programme scope tab ids are each unique, and don't collide with Project's or each other's", () => {
+  const portfolioIds = PORTFOLIO_TABS.map((t) => t.id);
+  const programmeIds = PROGRAMME_TABS.map((t) => t.id);
+  assert.deepEqual(portfolioIds, [...new Set(portfolioIds)]);
+  assert.deepEqual(programmeIds, [...new Set(programmeIds)]);
+  const allIds = [...TABS.map((t) => t.id), ...portfolioIds, ...programmeIds];
+  assert.deepEqual(allIds, [...new Set(allIds)], "a scope's tab id collides with another scope's");
+});
+
+test("tabsForScope returns the right tab set per scope, defaulting to Project for an unknown scope", () => {
+  assert.equal(tabsForScope("project"), TABS);
+  assert.equal(tabsForScope("portfolio"), PORTFOLIO_TABS);
+  assert.equal(tabsForScope("programme"), PROGRAMME_TABS);
+  assert.equal(tabsForScope("nonsense"), TABS);
 });
 
 test("contextual tab ids are unique and every one has an accent, tint and onAccent colour", () => {
@@ -86,7 +106,7 @@ test("contextual tab ids are unique and every one has an accent, tint and onAcce
 });
 
 test("every group has at least one button", () => {
-  for (const { tab, groups } of [...TABS, ...CONTEXTUAL_TABS]) {
+  for (const { tab, groups } of [...ALL_SCOPE_TABS, ...CONTEXTUAL_TABS]) {
     for (const g of groups) {
       const count = (g.lg || []).length + (g.cols || []).reduce((n, col) => n + col.length, 0);
       assert.ok(count > 0, `${tab || g.name}/${g.name} has no buttons`);
@@ -112,7 +132,7 @@ test("a caret button is always a small (cols) button, never a large one", () => 
   // The design's large buttons are single-purpose (README: lg = 0-2 per
   // group, first in the row) -- caret/gallery behaviour is only specified
   // for the two-row small-button columns.
-  for (const { tab, group, kind, tuple } of [...buttonsIn(TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
+  for (const { tab, group, kind, tuple } of [...buttonsIn(ALL_SCOPE_TABS), ...buttonsIn(CONTEXTUAL_TABS)]) {
     if (tuple[2] === "caret") assert.equal(kind, "sm", `${tab}/${group}: "${tuple[1]}" is a caret lg button`);
   }
 });
