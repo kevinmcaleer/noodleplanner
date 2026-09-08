@@ -150,6 +150,61 @@ function extractProjectStatus(planText) {
 }
 
 /**
+ * Derive a human-readable programme name from its slug.
+ *
+ * "digital-transformation" becomes "Digital Transformation".
+ */
+function programmeNameFromSlug(slug) {
+    return slug.replace(/[-_]+/g, ' ').trim().replace(/\w\S*/g, function (word) {
+        return word.charAt(0).toUpperCase() + word.substr(1).toLowerCase();
+    });
+}
+
+/**
+ * Extract programme membership from frontmatter.
+ *
+ * A project belongs to a programme by naming it in a `programme:` slug
+ * field -- there is no programme file to point at. Returns {slug, name}
+ * or null when the project has no `programme:` field (it is unassigned).
+ */
+function extractProjectProgramme(planText) {
+    const frontMatter = parseFrontmatter(planText);
+
+    const slug = frontMatter['programme'] ? frontMatter['programme'].split('\n')[0].trim() : '';
+    if (!slug) return null;
+
+    const rawName = frontMatter['programme_name'] ? frontMatter['programme_name'].split('\n')[0].trim() : '';
+    const name = rawName || programmeNameFromSlug(slug);
+
+    return { slug: slug, name: name };
+}
+
+/**
+ * Group a project list into programmes by their `programme:` slug.
+ *
+ * Projects with no `programme:` field are excluded -- they are
+ * unassigned and have no group. Returns an array of
+ * {slug, name, projects} ordered by first appearance.
+ */
+function deriveProgrammes(projects) {
+    const bySlug = {};
+    const order = [];
+
+    (projects || []).forEach(project => {
+        const programme = extractProjectProgramme(project.planText || '');
+        if (!programme) return;
+
+        if (!bySlug[programme.slug]) {
+            bySlug[programme.slug] = { slug: programme.slug, name: programme.name, projects: [] };
+            order.push(programme.slug);
+        }
+        bySlug[programme.slug].projects.push(project);
+    });
+
+    return order.map(slug => bySlug[slug]);
+}
+
+/**
  * Get latest highlight from plan text
  */
 function getLatestHighlight(planText) {
@@ -583,4 +638,15 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        parseFrontmatter,
+        extractProjectManager,
+        extractProjectStatus,
+        programmeNameFromSlug,
+        extractProjectProgramme,
+        deriveProgrammes,
+    };
 }
