@@ -22,6 +22,14 @@ from .scheduling_engine import parse_resource_mappings
 logger = logging.getLogger(__name__)
 
 
+def programme_name_from_slug(slug: str) -> str:
+    """Derive a human-readable programme name from its slug.
+
+    ``digital-transformation`` becomes ``Digital Transformation``.
+    """
+    return re.sub(r'[-_]+', ' ', slug).strip().title()
+
+
 class FrontMatterParser:
     """Parse all front matter data from a plan text in a single pass.
 
@@ -138,6 +146,27 @@ class FrontMatterParser:
 
         self._cached_key_values = front_matter
         return self._cached_key_values
+
+    def parse_programme(self) -> dict | None:
+        """Extract programme membership from front matter.
+
+        A project belongs to a programme by naming it in a ``programme:``
+        slug field; there is no programme file to point at. Returns a dict
+        with ``slug`` and ``name`` keys, or None when the project has no
+        ``programme:`` field (it is unassigned). ``name`` comes from
+        ``programme_name`` when present, otherwise it is derived from the
+        slug.
+        """
+        key_values = self.parse_key_values()
+        slug = key_values.get('programme', '').strip()
+        if not slug:
+            return None
+
+        name = key_values.get('programme_name', '').strip()
+        if not name:
+            name = programme_name_from_slug(slug)
+
+        return {'slug': slug, 'name': name}
 
     def parse_resource_mappings(self) -> dict:
         """Parse resource mappings from front matter.
