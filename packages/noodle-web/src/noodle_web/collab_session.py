@@ -38,8 +38,29 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
 - After a connection is admitted (host or joiner), every further message is
   relayed opaquely -- host messages go to all joiners, joiner messages go to
   the host. Payloads are never parsed or interpreted at this layer: that is
-  deliberate, so #964 can drop in encryption and #967 the real plan-editing
-  protocol without this module changing shape.
+  deliberate, so #964 could drop in encryption and #967 the real
+  plan-editing protocol without this module changing shape.
+- #967 (multi-joiner addressing) adds the one piece of routing metadata the
+  relay needs to support more than one joiner at a time. Each joiner now has
+  its own ECDH session key with the host, so:
+
+  * joiner -> host frames are wrapped by app.py's ``_wrap_from_joiner`` as
+    ``{"type": "from_joiner", "joiner_id": N, "frame": "<original>"}``, so
+    the host can tell concurrent joiners apart and file each handshake under
+    the right key. Without this the host could only ever hold one joiner's
+    key, and a second joiner silently displaced the first.
+  * host -> joiner frames may be addressed as ``{"type": "to_joiner",
+    "joiner_id": N, "frame": "<ciphertext>"}``; app.py delivers ``frame``
+    unwrapped to that one socket. Unaddressed host frames still broadcast to
+    everyone, which is what the cached ``host_pubkey`` announcement relies
+    on.
+
+  ``joiner_id`` is the same opaque id ``presence_snapshot()`` already
+  publishes, so presence and crypto agree on identity without a second
+  scheme. This is addressing only: ``frame`` is passed through byte for
+  byte and is still ciphertext this module never reads. A relay that lied
+  about ``joiner_id`` could misroute a frame but could not make one
+  decrypt, because the inner frame is still authenticated on its own.
 - Host disconnect tears the session down immediately: the registry entry is
   removed and every joiner socket is closed. Sessions idle for longer than
   ``IDLE_TIMEOUT_SECONDS`` (checked lazily on access, and swept periodically
@@ -60,7 +81,7 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   quiet single-joiner session's status from going stale without adding
   another background task. The host can also remove ("kick") a joiner with
   a ``{"type": "kick", "joiner_id": ...}`` message (``joiner_id`` is the
-  same ``id(websocket)`` key ``SessionState.joiners`` and the presence
+  same stable ``Joiner.joiner_id`` key ``SessionState.joiners`` and the presence
   snapshot already use); ``SessionManager.kick_joiner()`` closes just that
   joiner's socket with the ``CLOSE_KICKED``/``CLOSE_REASON_KICKED`` pair
   below, following #965's close-code convention, without touching the
@@ -113,6 +134,7 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import os
 import secrets
@@ -176,12 +198,23 @@ _HANDSHAKE_SECRET_BYTES = 32
 PRESENCE_ACTIVE_WINDOW_SECONDS = int(os.getenv("COLLAB_PRESENCE_ACTIVE_WINDOW_SECONDS", "45"))
 
 
+# Joiner correlation ids. Deliberately NOT `id(websocket)`: CPython reuses
+# an object's address once it is garbage collected, so a joiner who left
+# could hand their id straight to the next joiner to connect. That made two
+# host actions land on the wrong person -- a `kick` aimed at the departed
+# joiner (#966) and a `to_joiner` frame addressed to them (#967) would both
+# hit whoever inherited the id. A process-wide counter is never reused, so
+# a stale id stays stale.
+_joiner_id_counter = itertools.count(1)
+
+
 @dataclass
 class Joiner:
     """A single connected joiner."""
 
     websocket: WebSocket
     display_name: str
+    joiner_id: int = field(default_factory=lambda: next(_joiner_id_counter))
     joined_at: float = field(default_factory=time.monotonic)
     last_activity: float = field(default_factory=time.monotonic)
 
@@ -219,9 +252,19 @@ class SessionState:
     def is_idle(self) -> bool:
         return (time.monotonic() - self.last_activity) > IDLE_TIMEOUT_SECONDS
 
+    def joiner_id_for(self, websocket: WebSocket) -> int | None:
+        """This socket's stable joiner id, or None if it isn't a joiner in
+        this session. Joiner counts are small (a planning session, not a
+        broadcast), so a scan is cheaper than maintaining a second index
+        that could drift out of sync with `joiners`."""
+        for joiner_id, joiner in self.joiners.items():
+            if joiner.websocket is websocket:
+                return joiner_id
+        return None
+
     def presence_snapshot(self) -> list[dict]:
         """Non-sensitive presence metadata for the host's presence panel
-        (#966): each joiner's correlation id (the same ``id(websocket)``
+        (#966): each joiner's correlation id (the same ``Joiner.joiner_id``
         key ``joiners`` is keyed by, used only so a host can name a joiner
         in a ``kick`` message), display name (already sent in the clear at
         join time, per #963), and the ``is_active()`` UX heuristic.
@@ -349,7 +392,8 @@ class SessionManager:
             return None
         if not code or not secrets.compare_digest(code, state.join_code):
             return None
-        state.joiners[id(websocket)] = Joiner(websocket=websocket, display_name=display_name)
+        joiner = Joiner(websocket=websocket, display_name=display_name)
+        state.joiners[joiner.joiner_id] = joiner
         state.touch()
         return state
 
@@ -396,7 +440,9 @@ class SessionManager:
         state = self._sessions.get(session_id)
         if state is None:
             return
-        state.joiners.pop(id(websocket), None)
+        joiner_id = state.joiner_id_for(websocket)
+        if joiner_id is not None:
+            state.joiners.pop(joiner_id, None)
 
     async def kick_joiner(self, session_id: str, joiner_id: int, *, code: int, reason: str) -> bool:
         """Host-initiated removal of a single joiner (#966): pops them from
