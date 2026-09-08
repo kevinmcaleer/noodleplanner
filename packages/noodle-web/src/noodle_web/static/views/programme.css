@@ -1,8 +1,10 @@
 /* ========================================
-   Programme altitude landing view (#953) — a minimal placeholder: the
-   programme's name and its member projects, reusing the portfolio grid
-   card markup/CSS (.portfolio-project-card and friends) for the project
-   list itself. #734 replaces this with the real programme dashboard.
+   Programme altitude view (#953's landing page, extended by #734 into the
+   real overview dashboard). The member-project grid reuses the portfolio
+   grid card markup/CSS (.portfolio-project-card and friends); RAG badges
+   reuse .rag-badge (views/portfolio.css). Everything below is new for
+   #734: the SRO/vision stub banner, key-metric stat tiles, and key
+   milestones list.
    ======================================== */
 
 .programme-landing-header {
@@ -20,4 +22,152 @@
     margin: 0;
     color: var(--np-text-secondary, #666666);
     font-size: 0.9em;
+}
+
+.programme-stub-banner {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-left: 3px solid var(--np-yellow, #ffd641);
+    border-radius: 6px;
+    background: var(--np-surface-alt, #f0f0f0);
+}
+
+.programme-stub-banner p {
+    margin: 0;
+    font-size: 0.85em;
+    color: var(--np-text-secondary, #666666);
+    line-height: 1.5;
+}
+
+.programme-stub-banner p + p {
+    margin-top: 6px;
+}
+
+.programme-stub-banner a {
+    color: var(--np-blue, #108bb9);
+}
+
+.programme-stub-value {
+    font-style: italic;
+}
+
+.programme-section {
+    margin: 20px 0;
+}
+
+.programme-section h3 {
+    margin: 0 0 10px;
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--np-text, #333333);
+}
+
+.programme-stat-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.programme-stat-tile {
+    flex: 1 1 180px;
+    min-width: 180px;
+    padding: 14px 16px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-surface, #ffffff);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.programme-stat-tile--stub {
+    border-style: dashed;
+    opacity: 0.85;
+}
+
+.programme-stat-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--np-text-secondary, #666666);
+}
+
+.programme-stat-value {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--np-text, #333333);
+}
+
+.programme-stat-sub {
+    font-size: 0.78em;
+    color: var(--np-text-muted, #888888);
+}
+
+.programme-rag-loading {
+    background: var(--np-surface-alt, #f0f0f0);
+    color: var(--np-text-muted, #888888);
+}
+
+.programme-empty-hint {
+    margin: 0;
+    color: var(--np-text-secondary, #666666);
+    font-size: 0.9em;
+}
+
+.programme-milestone-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.programme-milestone {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-surface, #ffffff);
+    font-size: 0.9em;
+}
+
+.programme-milestone--overdue {
+    border-left: 3px solid var(--np-red, #c21d1d);
+}
+
+.programme-milestone-date {
+    font-variant-numeric: tabular-nums;
+    color: var(--np-text-secondary, #666666);
+    min-width: 90px;
+}
+
+.programme-milestone-name {
+    flex: 1;
+    font-weight: 600;
+    color: var(--np-text, #333333);
+}
+
+.programme-milestone-project {
+    color: var(--np-text-muted, #888888);
+    font-size: 0.9em;
+}
+
+.programme-milestone-done {
+    color: var(--np-green, #1c9e41);
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.programme-milestone-overdue-flag {
+    color: var(--np-red, #c21d1d);
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
 }

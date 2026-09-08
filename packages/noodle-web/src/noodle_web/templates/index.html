@@ -2450,16 +2450,26 @@ Build
                 </div>
             </div>
 
-            <!-- Programme Tab (issue #953: minimal programme-altitude landing
-                 view -- name + member projects, populated by programme.js.
-                 #734 replaces this with the real programme dashboard.) -->
+            <!-- Programme Tab (issue #953's landing view, extended by #734
+                 into the real programme overview dashboard -- SRO/vision
+                 stub, key metrics, key milestones, member projects with
+                 rolled-up RAG -- all populated by programme.js.) -->
             <div id="programme-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
                     <div class="programme-landing-header">
                         <h2 id="programmeViewTitle"></h2>
                         <p class="programme-landing-meta" id="programmeViewMeta"></p>
                     </div>
-                    <div class="portfolio-content" id="programmeViewProjects"></div>
+                    <div id="programmeDashboardNote"></div>
+                    <div class="programme-stat-tiles" id="programmeStatTiles"></div>
+                    <div class="programme-section">
+                        <h3>Key Milestones</h3>
+                        <div id="programmeMilestones"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Member Projects</h3>
+                        <div class="portfolio-content" id="programmeViewProjects"></div>
+                    </div>
                 </div>
             </div>
 
