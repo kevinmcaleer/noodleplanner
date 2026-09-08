@@ -25,6 +25,20 @@ Use the **View by** dropdown at the top of the board to change how tasks are gro
 - **Label** — columns based on task labels
 - **Bucket** — columns based on task bucket
 
+How Plan Depth Maps to the Board
+--------------------------------
+
+In **Phase** mode the column level follows your current drill-down position.
+At the root, top-level summary tasks are columns and their direct children are
+cards. Select **View Subtasks** on a summary card to move the board down one
+level: summary tasks at that level become columns and their direct children
+become cards. You can repeat this at any depth, and use the breadcrumb to move
+back up.
+
+A card's immediate children appear in the **Sub Tasks** checklist in Task
+Details. Select a child there to open the same full Task Details form for that
+child; this works recursively at every depth.
+
 Move Cards
 -----------
 
@@ -36,6 +50,15 @@ Cards can be dragged between columns. Moving a card:
 
 The Markdown plan is updated immediately and exactly once, so the change is
 reflected in every other view and survives a reload.
+
+Only **Phase** mode has meaningful positional ordering. Dragging a card above
+or below another card in that mode reorders the task and its complete subtree in
+the plan. If the move separates a ``*`` task from its predecessor, the Board
+expands the shorthand to an explicit ``[depends: ...]`` link so the dependency
+is not changed accidentally. Moving the tasks back together does not collapse
+that explicit link to ``*`` again. Resource, Progress, Label, and Bucket modes allow
+moving cards between columns to change the corresponding task field, but do not
+offer within-column reordering.
 
 To move a focused card without a mouse, press ``Alt+Left`` or ``Alt+Right``.
 The **Move…** control on each card provides the same operation for keyboard and
