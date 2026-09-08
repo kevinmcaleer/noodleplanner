@@ -25,12 +25,14 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limits():
-    """Reset the rate limit store before each test."""
-    from noodle_web.security import reset_rate_limit_store
+    """Reset the rate limit stores before each test."""
+    from noodle_web.security import reset_join_rate_limit_store, reset_rate_limit_store
 
     reset_rate_limit_store()
+    reset_join_rate_limit_store()
     yield
     reset_rate_limit_store()
+    reset_join_rate_limit_store()
 
 
 @pytest.fixture
@@ -235,6 +237,82 @@ class TestRateLimiting:
             assert limited
             limited, _ = _is_rate_limited("10.0.0.2")
             assert limited
+
+
+class TestJoinRateLimiting:
+    """Unit tests for #965's collab-session join-attempt rate limiter.
+
+    This is the same sliding-window algorithm as `_is_rate_limited()`
+    above, applied via a separate store/threshold to join attempts
+    specifically (see collab_session_ws() in app.py, which calls
+    `is_join_rate_limited()` directly since a WebSocket handshake never
+    passes through RateLimitMiddleware). End-to-end coverage over the real
+    WebSocket endpoint lives in tests/test_collab_session.py.
+    """
+
+    def test_attempts_within_limit_are_allowed(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 3):
+            for _ in range(3):
+                limited, _ = is_join_rate_limited("10.0.0.1")
+                assert not limited
+
+    def test_attempts_beyond_limit_are_rejected(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            is_join_rate_limited("10.0.0.1")
+            is_join_rate_limited("10.0.0.1")
+            limited, retry_after = is_join_rate_limited("10.0.0.1")
+            assert limited
+            assert retry_after > 0
+
+    def test_limit_resets_after_window_passes(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1), \
+             patch("noodle_web.security.JOIN_RATE_LIMIT_WINDOW", 60):
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert limited
+
+            # Simulate the window having passed by backdating the one
+            # recorded attempt, rather than sleeping in the test.
+            from noodle_web import security as security_module
+
+            security_module._join_rate_limit_store["10.0.0.1"] = [time.time() - 61]
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert not limited
+
+    def test_different_ips_have_separate_join_limits(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.2")
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert limited
+            limited, _ = is_join_rate_limited("10.0.0.2")
+            assert limited
+
+    def test_join_and_general_rate_limits_are_independent_stores(self):
+        """A join attempt must not consume the general per-IP HTTP request
+        budget, and vice versa -- they're different actions with different
+        sensitivity, tracked separately (see security.py's module comment
+        above `_join_rate_limit_store`)."""
+        from noodle_web.security import _is_rate_limited, is_join_rate_limited
+
+        with patch("noodle_web.security.RATE_LIMIT_REQUESTS", 1), \
+             patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
+            limited, _ = is_join_rate_limited("10.0.0.9")
+            assert not limited
+            # The general HTTP limiter for the same IP is untouched.
+            limited, _ = _is_rate_limited("10.0.0.9")
+            assert not limited
 
 
 # ---------------------------------------------------------------------------

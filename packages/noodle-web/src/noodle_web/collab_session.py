@@ -71,12 +71,29 @@ build on -- especially #964 encryption and #965 lifecycle/rate-limiting):
   link. This module generates it and hands it off once -- it is not stored
   on ``SessionState`` and the server never checks or reconstructs it, by
   design: there is nothing for the relay to learn here.
+- #965 (lifecycle, rate limiting, teardown): ``IDLE_TIMEOUT_SECONDS`` is now
+  read from ``COLLAB_IDLE_TIMEOUT_SECONDS`` (falling back to the original
+  45-minute default), matching security.py's existing os.getenv-with-default
+  convention for its own tunables. Join attempts are rate limited per
+  source IP by ``security.is_join_rate_limited()``, checked in app.py's
+  ``collab_session_ws()`` before a joiner's handshake is even read (a
+  WebSocket handshake never passes through ``RateLimitMiddleware``, which
+  only runs on the HTTP request/response cycle, so this had to be a
+  separate, explicit check). The host can now also end a session
+  explicitly (a ``{"type": "end_session"}`` WebSocket message -- see
+  app.py's ``_is_end_session_message()`` for why a WS message was chosen
+  over a new HTTP endpoint), and every teardown path (explicit end, host
+  disconnect, idle timeout) now closes sockets with a distinct
+  ``CLOSE_*``/``CLOSE_REASON_*`` pair (below) instead of a bare close, so a
+  joiner's browser can tell *why* the session ended and show a specific
+  explanation rather than a generic one.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -86,10 +103,11 @@ from fastapi import WebSocket
 logger = logging.getLogger(__name__)
 
 # Idle sessions are torn down after this many seconds of no host/joiner
-# activity. A fixed constant for this foundation issue -- #965 (lifecycle
-# and rate limiting) is expected to make this tunable (env var, per-session
-# override, etc.) without changing this module's shape.
-IDLE_TIMEOUT_SECONDS = 45 * 60
+# activity. #965: now tunable via env var, following the same
+# os.getenv-with-default convention security.py already uses for its own
+# tunables (RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW, etc.) -- 45 minutes
+# remains the default, unchanged from the #963 foundation issue.
+IDLE_TIMEOUT_SECONDS = int(os.getenv("COLLAB_IDLE_TIMEOUT_SECONDS", str(45 * 60)))
 
 # How often the background sweep (see start_idle_sweep() in app.py) checks
 # for idle sessions, independent of any lazy check triggered by a request.
@@ -102,6 +120,20 @@ SWEEP_INTERVAL_SECONDS = 60
 # `uuid4()`'s randomness guarantee is incidental to its spec.
 _SESSION_ID_BYTES = 32
 _HOST_TOKEN_BYTES = 32
+# #965: close codes/reasons used when a session's sockets are torn down,
+# so the joiner's browser (collab_join.html) can tell these three cases
+# apart via the WebSocket CloseEvent's `code`/`reason` and show an
+# appropriate explanation instead of one generic "session ended" message.
+# 4000-4999 is the reserved-for-application-use range (RFC 6455 7.4.2);
+# 4400/4401 below are already in use by app.py for handshake rejection, so
+# these start at 4410 to stay clearly out of that range.
+CLOSE_HOST_ENDED = 4410
+CLOSE_REASON_HOST_ENDED = "Host ended the session."
+CLOSE_HOST_DISCONNECTED = 4411
+CLOSE_REASON_HOST_DISCONNECTED = "Host disconnected."
+CLOSE_IDLE_TIMEOUT = 4412
+CLOSE_REASON_IDLE_TIMEOUT = "Session expired after being idle too long."
+
 # #964: the secret that authenticates the ECDH handshake in
 # collab-crypto.js -- deliberately NOT the six-digit join_code (see this
 # module's docstring for why: the relay legitimately learns join_code, so
@@ -266,11 +298,26 @@ class SessionManager:
 
     # -- teardown ----------------------------------------------------------
 
-    async def teardown(self, session_id: str) -> None:
+    async def teardown(
+        self,
+        session_id: str,
+        *,
+        code: int = 1000,
+        reason: str = "",
+        exclude: WebSocket | None = None,
+    ) -> None:
         """Remove a session and close every socket still attached to it.
 
         Removing from the registry first (before any `await`) means no new
         join/relay call can observe the session mid-teardown.
+
+        `code`/`reason` (#965) are passed straight through to each
+        WebSocket's close frame -- see the CLOSE_* constants above -- so a
+        joiner's browser can distinguish *why* the session ended instead of
+        seeing an unexplained close. `exclude` skips closing one socket
+        (the caller's own, e.g. the host that just sent `end_session`),
+        since that connection is about to close itself and closing it here
+        too would just be redundant, not incorrect.
         """
         state = self._sessions.pop(session_id, None)
         if state is None:
@@ -280,8 +327,10 @@ class SessionManager:
         sockets = [state.host] if state.host is not None else []
         sockets.extend(j.websocket for j in state.joiners.values())
         for ws in sockets:
+            if ws is exclude:
+                continue
             try:
-                await ws.close()
+                await ws.close(code=code, reason=reason)
             except Exception:  # pragma: no cover - already-closed socket, etc.
                 pass
 
@@ -296,7 +345,7 @@ class SessionManager:
         """Tear down every session that has gone idle. Safe to call repeatedly."""
         idle_ids = [sid for sid, state in self._sessions.items() if state.is_idle()]
         for sid in idle_ids:
-            await self.teardown(sid)
+            await self.teardown(sid, code=CLOSE_IDLE_TIMEOUT, reason=CLOSE_REASON_IDLE_TIMEOUT)
 
     def active_session_count(self) -> int:
         """Non-content diagnostic only -- a count, never session details."""

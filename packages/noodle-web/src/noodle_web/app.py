@@ -50,7 +50,15 @@ from noodle_core import (
     import_from_msproject_xml,
 )
 import json
-from .collab_session import SessionState, collab_sessions, run_idle_sweep_forever
+from .collab_session import (
+    CLOSE_HOST_DISCONNECTED,
+    CLOSE_HOST_ENDED,
+    CLOSE_REASON_HOST_DISCONNECTED,
+    CLOSE_REASON_HOST_ENDED,
+    SessionState,
+    collab_sessions,
+    run_idle_sweep_forever,
+)
 from .plan_service import PlanService, export_to_file
 from .ai_service import (
     AIChatRequest,
@@ -68,6 +76,8 @@ from .security import (
     BodySizeLimitMiddleware,
     ErrorSanitizationMiddleware,
     APIKeyAuthMiddleware,
+    get_websocket_client_ip,
+    is_join_rate_limited,
     is_production,
 )
 
@@ -1981,11 +1991,46 @@ def _maybe_cache_host_pubkey(state: SessionState, message: str) -> None:
         state.host_public_key_msg = message
 
 
+def _is_end_session_message(message: str) -> bool:
+    """True if `message` is the host's explicit "end session" control
+    message (#965): ``{"type": "end_session"}``, sent over the same
+    WebSocket that's already carrying the relay -- chosen over a separate
+    HTTP endpoint because ending a session is a live action on an
+    already-open connection (like every other relay message), not a fresh
+    resource request the way `POST /api/collab/start` is.
+
+    Peeks only at the `type` discriminator, same as
+    `_maybe_cache_host_pubkey` above: never interprets anything else about
+    message content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("type") == "end_session"
+
+
 async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: str) -> None:
+    ended_explicitly = False
     try:
         while True:
             message = await websocket.receive_text()
             state.touch()
+
+            if _is_end_session_message(message):
+                # #965: explicit host-initiated end. Tear down every joiner
+                # socket with a close reason the joiner's UI can display
+                # (see CLOSE_REASON_HOST_ENDED / collab_join.html), then
+                # close the host's own socket the same way. `exclude`
+                # avoids teardown() redundantly trying to close this same
+                # socket a second time.
+                ended_explicitly = True
+                await collab_sessions.teardown(
+                    session_id, code=CLOSE_HOST_ENDED, reason=CLOSE_REASON_HOST_ENDED, exclude=websocket
+                )
+                await websocket.close(code=CLOSE_HOST_ENDED, reason=CLOSE_REASON_HOST_ENDED)
+                return
+
             _maybe_cache_host_pubkey(state, message)
             for joiner in list(state.joiners.values()):
                 try:
@@ -1997,8 +2042,17 @@ async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: 
     finally:
         # Only tear down if this socket is still the attached host -- a
         # stale connection from a page refresh mustn't kill the live one.
-        if state.host is websocket:
-            await collab_sessions.teardown(session_id)
+        # Skipped when `ended_explicitly`: that branch above already tore
+        # the session down with a more specific close reason.
+        if not ended_explicitly and state.host is websocket:
+            # #965: host disconnected without an explicit end_session
+            # message -- closed laptop, crash, network drop are all
+            # indistinguishable from here, so all of them get the same
+            # "host disconnected" reason (as opposed to CLOSE_HOST_ENDED,
+            # which only the explicit action above uses).
+            await collab_sessions.teardown(
+                session_id, code=CLOSE_HOST_DISCONNECTED, reason=CLOSE_REASON_HOST_DISCONNECTED, exclude=websocket
+            )
 
 
 async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id: str) -> None:
@@ -2032,6 +2086,17 @@ async def collab_session_ws(websocket: WebSocket, session_id: str):
             await websocket.close(code=4401)
             return
         await _relay_as_host(state, websocket, session_id)
+        return
+
+    # #965: rate limit join attempts per source IP. Each WebSocket
+    # connection reaching this branch is one attempt -- checked before
+    # `_admit_joiner` reads the handshake message, since a flood of
+    # connection attempts is itself the thing being rate limited, whether
+    # or not each one gets as far as sending a (possibly wrong) code.
+    ip = get_websocket_client_ip(websocket)
+    limited, retry_after = is_join_rate_limited(ip)
+    if limited:
+        await websocket.close(code=4429, reason=f"Too many join attempts. Retry in {retry_after}s.")
         return
 
     state, _display_name = await _admit_joiner(websocket, session_id)
