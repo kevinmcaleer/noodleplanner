@@ -325,6 +325,81 @@ test('removeTask folds trailing comment lines onto the previous task', () => {
     assert.equal(model.serialize(), 'First\n// a note\nThird\n');
 });
 
+// ---- cardTextFor / insertCardAfter (#1050 reusable cards) ----
+
+test('cardTextFor serialises a leaf task as a single line', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n  Task B 2d\n');
+    const text = model.cardTextFor(model.findByName('Task A'));
+    assert.equal(text, 'Task A 1d');
+});
+
+test('cardTextFor serialises a subtree relative to its own root, dropping the source indent', () => {
+    const model = PlanModel.parse('Phase\n  Sub-phase\n    Task A 1d\n    Task B 2d\n  Other\n');
+    const text = model.cardTextFor(model.findByName('Sub-phase'));
+    assert.equal(text, 'Sub-phase\n  Task A 1d\n  Task B 2d');
+});
+
+test('cardTextFor on a task with no children is just that one line, even deeply nested', () => {
+    const model = PlanModel.parse('Phase\n  Sub-phase\n    Task A 1d\n');
+    const text = model.cardTextFor(model.findByName('Task A'));
+    assert.equal(text, 'Task A 1d');
+});
+
+test('cardTextFor returns an empty string for a null task', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    assert.equal(model.cardTextFor(null), '');
+});
+
+test('insertCardAfter inserts a flat card as new siblings at the anchor indent', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const inserted = model.insertCardAfter(anchor, anchor.indent, 'Task B 1d\nTask C 1d');
+    assert.equal(inserted.length, 2);
+    assert.equal(model.serialize(), 'Phase\n  Task A 1d\n  Task B 1d\n  Task C 1d\n');
+});
+
+test('insertCardAfter reconstructs the card\'s own nested hierarchy at the anchor point', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const cardText = 'Sub-phase\n  Nested A 1d\n  Nested B 1d\nOther root';
+    model.insertCardAfter(anchor, anchor.indent, cardText);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  Task A 1d\n  Sub-phase\n    Nested A 1d\n    Nested B 1d\n  Other root\n'
+    );
+    const subPhase = model.findByName('Sub-phase');
+    assert.deepEqual(subPhase.children.map(t => t.name), ['Nested A', 'Nested B']);
+});
+
+test('insertCardAfter round-trips with cardTextFor: saving a subtree and re-inserting it reproduces the same shape', () => {
+    const source = PlanModel.parse('Phase\n  Sub-phase\n    Task A 1d\n    Task B 2d\n');
+    const cardText = source.cardTextFor(source.findByName('Sub-phase'));
+
+    const target = PlanModel.parse('Other Phase\n  Existing 1d\n');
+    const anchor = target.findByName('Existing');
+    target.insertCardAfter(anchor, anchor.indent, cardText);
+
+    const reinserted = target.findByName('Sub-phase');
+    assert.ok(reinserted);
+    assert.equal(reinserted.indent, anchor.indent);
+    assert.deepEqual(reinserted.children.map(t => t.name), ['Task A', 'Task B']);
+});
+
+test('insertCardAfter ignores blank lines within the card text', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const inserted = model.insertCardAfter(anchor, anchor.indent, 'Task B 1d\n\n  \nTask C 1d');
+    assert.equal(inserted.length, 2);
+});
+
+test('insertCardAfter with empty card text inserts nothing', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const inserted = model.insertCardAfter(anchor, anchor.indent, '   \n\n');
+    assert.equal(inserted.length, 0);
+    assert.equal(model.serialize(), 'Phase\n  Task A 1d\n');
+});
+
 // #911: reordering spliced a blank line -- which had separated two other
 // tasks in the original text -- into the gap the move created, instead of
 // it just disappearing along with the boundary it used to mark.

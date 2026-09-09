@@ -2599,6 +2599,38 @@ function findTaskLineNumber(task) {
 /**
  * Show the task context menu near the clicked button.
  */
+/**
+ * Open the reusable-card library popup (#1050) for `task`: save its
+ * subtree as a new card, or insert a saved card after it. Shared by both
+ * task context menus so the editor/getText/setText/insertAtCursor wiring
+ * lives in one place.
+ */
+function openCardLibraryForTask(task) {
+    if (typeof CardLibrary === 'undefined') return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+    CardLibrary.openCardLibraryPopup({
+        getText: () => editor.value,
+        setText: (text) => {
+            editor.value = text;
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+        taskName: task.name,
+        insertAtCursor: (text) => {
+            const start = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
+            const end = editor.selectionEnd != null ? editor.selectionEnd : start;
+            const before = editor.value.slice(0, start);
+            const after = editor.value.slice(end);
+            const insertion = (before && !before.endsWith('\n') ? '\n' : '') + text;
+            editor.value = before + insertion + after;
+            const caret = before.length + insertion.length;
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            editor.focus();
+            editor.setSelectionRange(caret, caret);
+        },
+    });
+}
+
 function showTaskContextMenu(event, task, taskIndex) {
     event.stopPropagation();
     event.preventDefault();
@@ -2643,6 +2675,15 @@ function showTaskContextMenu(event, task, taskIndex) {
                 },
                 taskName: task.name,
             });
+        }));
+    }
+
+    // Cards (#1050) -- save this task's subtree as a reusable card, or
+    // insert a saved one after it. Available for summary tasks too (a
+    // phase or a governance block is a natural card), unlike Estimate.
+    if (typeof CardLibrary !== 'undefined') {
+        items.push(createContextMenuItem('Cards…', '📇', () => {
+            openCardLibraryForTask(task);
         }));
     }
 
@@ -2757,6 +2798,15 @@ function showTaskContextMenuAtPosition(event, task, taskIndex) {
                 },
                 taskName: task.name,
             });
+        }));
+    }
+
+    // Cards (#1050) -- save this task's subtree as a reusable card, or
+    // insert a saved one after it. Available for summary tasks too (a
+    // phase or a governance block is a natural card), unlike Estimate.
+    if (typeof CardLibrary !== 'undefined') {
+        items.push(createContextMenuItem('Cards…', '📇', () => {
+            openCardLibraryForTask(task);
         }));
     }
 
@@ -15563,6 +15613,14 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     html += '  </div>';
     html += '</div>';
 
+    // --- Cards (#1050) ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">📇</span> Cards</div>';
+    html += '  <div class="inspector-section-body">';
+    html += '    <button type="button" class="estimate-open-btn" id="inspectorCardsBtn">Save / insert card…</button>';
+    html += '  </div>';
+    html += '</div>';
+
     // --- Comment ---
     if (task.comment) {
         html += '<div class="inspector-section">';
@@ -15604,6 +15662,11 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
                 taskName: task.name,
             });
         });
+    }
+
+    const cardsBtn = document.getElementById('inspectorCardsBtn');
+    if (cardsBtn && typeof CardLibrary !== 'undefined') {
+        cardsBtn.addEventListener('click', () => openCardLibraryForTask(task));
     }
 }
 

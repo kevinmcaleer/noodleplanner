@@ -523,6 +523,62 @@
             return true;
         }
 
+        /**
+         * Serialise `task` and its whole subtree as a portable, self-
+         * contained fragment (#1050 "cards"): each line is `task.content`
+         * (no indentText from the source plan), indented purely relative to
+         * `task` itself -- `task` sits at column 0, its children at column
+         * 2, and so on -- so the fragment can be re-inserted at any depth
+         * in a different plan via insertCardAfter() without carrying the
+         * source plan's own absolute indentation along.
+         */
+        cardTextFor(task) {
+            if (!task) return '';
+            const lines = [];
+            const baseIndent = task.indent;
+            const walk = node => {
+                const relative = Math.max(0, node.indent - baseIndent);
+                lines.push(' '.repeat(relative) + node.content);
+                node.children.forEach(walk);
+            };
+            walk(task);
+            return lines.join('\n');
+        }
+
+        /**
+         * Insert a card fragment (as produced by cardTextFor(), or any
+         * outline text with the shallowest line at relative indent 0) as
+         * new sibling tasks starting immediately after `afterTask`, at
+         * `indent` (a `task.indent` value, matching insertTaskAfter()).
+         * Each line becomes its own TaskNode via insertTaskAfter(),
+         * chaining each newly inserted node as the anchor for the next --
+         * the same placement rule a user gets by typing the lines in one
+         * at a time -- so the fragment's own internal hierarchy (however
+         * deep) is reconstructed relative to `indent`, not just appended
+         * flat. Blank lines in the fragment are dropped. Returns the
+         * inserted nodes in document order (empty array if `cardText` had
+         * no non-blank lines).
+         */
+        insertCardAfter(afterTask, indent, cardText) {
+            const rawLines = String(cardText || '').split(/\r\n|\n|\r/).filter(line => line.trim() !== '');
+            if (!rawLines.length) return [];
+            const parsedLines = rawLines.map(line => {
+                const indentText = (line.match(/^\s*/) || [''])[0];
+                return { indent: indentText.length, content: line.slice(indentText.length) };
+            });
+            const minIndent = Math.min(...parsedLines.map(line => line.indent));
+            const baseIndent = Math.max(0, indent);
+            const inserted = [];
+            let anchor = afterTask;
+            for (const line of parsedLines) {
+                const relative = line.indent - minIndent;
+                const node = this.insertTaskAfter(anchor, baseIndent + relative, line.content);
+                inserted.push(node);
+                anchor = node;
+            }
+            return inserted;
+        }
+
         _preferredEol() {
             const physical = [];
             this.leading.forEach(line => physical.push(line));
