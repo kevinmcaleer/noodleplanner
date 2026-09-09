@@ -39,6 +39,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/import-from-ms-project
    how-to/product-planning
    how-to/communications-plan
+   how-to/run-a-planning-session
 
 .. toctree::
    :maxdepth: 2
