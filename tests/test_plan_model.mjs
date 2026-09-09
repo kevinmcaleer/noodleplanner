@@ -210,3 +210,94 @@ test('removeTask preserves CRLF and the absence of a final newline', () => {
     assert.equal(model.removeTask(model.findByName('B')), true);
     assert.equal(model.serialize(), 'Phase\r\n  A 1d');
 });
+
+// ---- addDependency / removeDependency / cycle detection (#1052) ----
+
+test('addDependency creates a new [depends: ...] block when none exists', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n');
+    const [a, b] = [model.findByName('A'), model.findByName('B')];
+    assert.equal(model.addDependency(b, a), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d [depends: A]\n');
+    assert.equal(b.dependencies.length, 1);
+    assert.equal(b.dependencies[0].target, a);
+});
+
+test('addDependency appends to an existing [depends: ...] block', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n  C 1d [depends: A]\n');
+    const c = model.findByName('C');
+    assert.equal(model.addDependency(c, model.findByName('B')), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n  C 1d [depends: A, B]\n');
+});
+
+test('addDependency refuses a self-dependency', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n');
+    const a = model.findByName('A');
+    const before = model.serialize();
+    assert.equal(model.addDependency(a, a), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency refuses a duplicate', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('B'), model.findByName('A')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency refuses a direct cycle (A depends on B, B depends on A)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('A'), model.findByName('B')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency refuses a transitive cycle (A -> B -> C, then C -> A)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d [depends: B]\n  B 1d [depends: C]\n  C 1d\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('C'), model.findByName('A')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('canAddDependency reports a reason without mutating anything', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = model.serialize();
+    const check = model.canAddDependency(model.findByName('A'), model.findByName('B'));
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /circular/);
+    assert.equal(model.serialize(), before, 'a check must never mutate the model');
+});
+
+test('removeDependency drops the whole block when it was the only entry', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    assert.equal(model.removeDependency(model.findByName('B'), model.findByName('A')), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n');
+});
+
+test('removeDependency keeps the remaining entries when there are several', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n  C 1d [depends: A, B]\n');
+    assert.equal(model.removeDependency(model.findByName('C'), model.findByName('A')), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n  C 1d [depends: B]\n');
+});
+
+test('removeDependency returns false for a dependency that does not exist', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n');
+    assert.equal(model.removeDependency(model.findByName('B'), model.findByName('A')), false);
+});
+
+test('removeDependency does not remove an implicit sequential (*) dependency', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  *B 1d\n');
+    const before = model.serialize();
+    assert.equal(model.removeDependency(model.findByName('B'), model.findByName('A')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency then removeDependency round-trips back to the original text', () => {
+    const original = 'Phase\n  A 1d\n  B 1d\n  C 1d\n';
+    const model = PlanModel.parse(original);
+    const [a, b, c] = [model.findByName('A'), model.findByName('B'), model.findByName('C')];
+    model.addDependency(c, a);
+    model.addDependency(c, b);
+    model.removeDependency(c, a);
+    model.removeDependency(c, b);
+    assert.equal(model.serialize(), original);
+});

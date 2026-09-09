@@ -1192,6 +1192,7 @@ function wbRenderNotes() {
     // noodle arriving at it, and its row in the outline can never disagree
     // about the hierarchy. Both are no-ops if their file isn't loaded.
     if (typeof wbRenderNoodles === 'function') wbRenderNoodles(rows, wbLastTasks);
+    if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles(rows);
     if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
 
     // Empty state (issue #847): purposeful "what is this board for" copy
@@ -1717,6 +1718,9 @@ function wbUpdateNoteDragFromClient(clientX, clientY) {
     // number of *other* notes on the board -- see whiteboard-noodles.js.
     if (typeof wbRefreshNoodleGeometry === 'function') {
         wbRefreshNoodleGeometry(fo.dataset.wbTask);
+    }
+    if (typeof wbRefreshDependencyNoodleGeometry === 'function') {
+        wbRefreshDependencyNoodleGeometry(fo.dataset.wbTask);
     }
 }
 

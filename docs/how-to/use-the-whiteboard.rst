@@ -75,6 +75,17 @@ You can also use **Unlink from "…"** on the note's ``...`` menu, which is easi
 
    Unlinking never deletes anything. The task moves back to the top level of your plan, keeping its own subtasks. To actually remove a task, use **Delete task** on the ``...`` menu — that one asks for confirmation, because unlike everything else on the board it destroys plan content.
 
+Draw Dependency Links
+-----------------------
+
+The **Hierarchy / Dependency** toggle in the toolbar switches what dragging a noodle handle means. **Hierarchy** (the default) is everything above: it makes a subtask. **Dependency** draws a real scheduling dependency instead — the target task must finish before the source task starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
+
+A dependency noodle is dashed and purple, so it never reads as a hierarchy link even on a board that has both. The drag itself previews which kind is coming: the ghost line changes colour to match the mode you're in.
+
+Creating a link that would make a circular dependency (A depends on B, which already depends on A) is refused with a short message, the same way a self-link or an already-linked pair are refused for hierarchy noodles.
+
+Unlinking a dependency noodle works exactly like unlinking a hierarchy one — click to select, then the ``✕`` or :kbd:`Delete` — and removes only the dependency, never the task or its subtasks.
+
 The Plan Structure Panel
 --------------------------
 

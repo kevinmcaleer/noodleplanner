@@ -430,6 +430,108 @@
             return true;
         }
 
+        /**
+         * Check whether `task` could be made to depend on `predecessor`
+         * (predecessor finishes before task starts, a plain FS link) --
+         * without mutating anything. Used for live drag-hover feedback
+         * (#1052), where re-checking on every pointer move must be cheap
+         * and side-effect-free.
+         */
+        canAddDependency(task, predecessor) {
+            if (!task || !predecessor) return { ok: false, reason: 'Pick two tasks to link.' };
+            if (task === predecessor) return { ok: false, reason: 'A task cannot depend on itself.' };
+            if (task.dependencies.some(edge => edge.target === predecessor)) {
+                return { ok: false, reason: `"${task.name}" already depends on "${predecessor.name}".` };
+            }
+            if (this._wouldCreateCycle(task, predecessor)) {
+                return { ok: false, reason: 'That would create a circular dependency.' };
+            }
+            return { ok: true, reason: '' };
+        }
+
+        /**
+         * Would adding the edge predecessor -> task (task depends on
+         * predecessor) close a cycle? True iff `predecessor` is already
+         * reachable from `task` by following existing dependency edges
+         * forward (task -> ... -> predecessor already exists, so the new
+         * edge would complete a loop). Reuses the successors graph
+         * _resolveDependencies() already builds -- no separate traversal
+         * structure to keep in sync.
+         */
+        _wouldCreateCycle(task, predecessor) {
+            const stack = [task];
+            const visited = new Set();
+            while (stack.length) {
+                const current = stack.pop();
+                if (current === predecessor) return true;
+                if (visited.has(current)) continue;
+                visited.add(current);
+                for (const successor of current.successors) stack.push(successor);
+            }
+            return false;
+        }
+
+        /**
+         * Make `task` depend on `predecessor` (a plain FS link), appending
+         * to task's existing [depends: ...] block or creating one. Refuses
+         * -- returns false, changes nothing -- for a self-dependency, a
+         * duplicate, or one that would create a cycle (see
+         * canAddDependency(), which this reuses for the check).
+         */
+        addDependency(task, predecessor) {
+            if (!this.canAddDependency(task, predecessor).ok) return false;
+
+            this.updateLine(task, (line) => {
+                const block = DEPENDS.exec(line);
+                if (block) {
+                    const inner = block[1].trim();
+                    const newInner = inner ? inner + ', ' + predecessor.name : predecessor.name;
+                    const replacement = block[0].replace(block[1], newInner);
+                    return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+                }
+                return line.replace(/\s+$/, '') + ' [depends: ' + predecessor.name + ']';
+            });
+            return true;
+        }
+
+        /**
+         * Remove task's dependency on predecessor. Only removes an
+         * explicit [depends: ...] entry -- an implicit sequential (`*`)
+         * dependency isn't stored as text to remove from, so it isn't
+         * handled here; the caller would need to drop the `*` prefix
+         * itself (a different edit, out of this method's scope).
+         */
+        removeDependency(task, predecessor) {
+            if (!task || !predecessor) return false;
+            const edge = task.dependencies.find(d => d.target === predecessor && !d.shorthand);
+            if (!edge) return false;
+
+            this.updateLine(task, (line) => {
+                const block = DEPENDS.exec(line);
+                if (!block) return line;
+                const specs = block[1].split(',').map(s => s.trim()).filter(Boolean);
+                const remaining = specs.filter(spec => {
+                    const parsed = parseDependencySpec(spec);
+                    const key = parsed.rawName.toLowerCase();
+                    if (key.startsWith('$')) {
+                        return !(predecessor.deliverable && key.slice(1) === predecessor.deliverable.toLowerCase());
+                    }
+                    return key !== predecessor.name.toLowerCase();
+                });
+                if (remaining.length) {
+                    const replacement = block[0].replace(block[1], remaining.join(', '));
+                    return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+                }
+                // No specs left: drop the whole [depends: ...] block and
+                // any single trailing/leading space it leaves behind.
+                const before = line.slice(0, block.index);
+                const after = line.slice(block.index + block[0].length);
+                if (before.endsWith(' ') && !after.startsWith(' ')) return (before.slice(0, -1) + after).replace(/\s+$/, '');
+                return (before + after).replace(/\s+$/, '');
+            });
+            return true;
+        }
+
         _preferredEol() {
             const physical = [];
             this.leading.forEach(line => physical.push(line));
