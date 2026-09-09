@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { fitGroups, fitLabels } from "../packages/noodle-web/src/noodle_web/static/ribbon-layout.js";
+import { fitGroups, fitLabels, fitSimpleGroups } from "../packages/noodle-web/src/noodle_web/static/ribbon-layout.js";
 
 test("everything fits: no overflow, More tile not needed", () => {
   const { visible, overflow } = fitGroups([100, 120, 90], 400, 74);
@@ -104,4 +104,51 @@ test("fitLabels: empty input fits trivially", () => {
 test("fitLabels: exact fit at the container edge counts as fitting", () => {
   const buttons = [{ iconWidth: 28, fullWidth: 100 }, { iconWidth: 28, fullWidth: 100 }];
   assert.deepEqual(fitLabels(buttons, 200), [true, true]);
+});
+
+// ── fitSimpleGroups() -- simple ribbon (#1026) per-group dropdown fallback ─
+
+test("fitSimpleGroups: everything fits -- no group collapses", () => {
+  const { visible, collapsed } = fitSimpleGroups([100, 120, 90], 400, 64);
+  assert.deepEqual(visible, [0, 1, 2]);
+  assert.deepEqual(collapsed, []);
+});
+
+test("fitSimpleGroups: exact fit at the container edge counts as fitting", () => {
+  const { visible, collapsed } = fitSimpleGroups([100, 100, 100], 300, 64);
+  assert.deepEqual(visible, [0, 1, 2]);
+  assert.deepEqual(collapsed, []);
+});
+
+test("fitSimpleGroups: trailing groups collapse into their own trigger chips, each chip counted in the budget", () => {
+  // container 300, trigger 64: group0 (100) fits alongside a reserve for the
+  // 3 groups after it (3*64=192) -> 100+192=292 <= 300, stays visible
+  // (used=100). group1 (100) would need used(100)+100+2*64(reserve for
+  // groups 2,3)=328 > 300 -- collapses, and every group after it collapses
+  // too rather than jumping ahead.
+  const { visible, collapsed } = fitSimpleGroups([100, 100, 100, 90], 300, 64);
+  assert.deepEqual(visible, [0]);
+  assert.deepEqual(collapsed, [1, 2, 3]);
+});
+
+test("fitSimpleGroups: order is preserved -- a later, narrower group never jumps ahead of an earlier collapsed one", () => {
+  const { visible, collapsed } = fitSimpleGroups([150, 150, 20], 220, 64);
+  assert.deepEqual(visible, [0]);
+  assert.deepEqual(collapsed, [1, 2]);
+});
+
+test("fitSimpleGroups: never collapse everything -- the first group always stays visible", () => {
+  const { visible, collapsed } = fitSimpleGroups([500, 100], 50, 64);
+  assert.deepEqual(visible, [0]);
+  assert.deepEqual(collapsed, [1]);
+});
+
+test("fitSimpleGroups: empty input fits trivially", () => {
+  assert.deepEqual(fitSimpleGroups([], 400, 64), { visible: [], collapsed: [] });
+});
+
+test("fitSimpleGroups: a single group always stays visible even far over budget", () => {
+  const { visible, collapsed } = fitSimpleGroups([500], 100, 64);
+  assert.deepEqual(visible, [0]);
+  assert.deepEqual(collapsed, []);
 });

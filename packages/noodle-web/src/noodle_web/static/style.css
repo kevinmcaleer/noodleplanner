@@ -214,7 +214,7 @@ svg.icon {
     display: inline-block;
     width: 8px;
     height: 8px;
-    background: #667eea;
+    background: var(--np-accent);
     border-radius: 50%;
     margin-right: 8px;
     flex-shrink: 0;
@@ -502,7 +502,7 @@ svg.icon {
 .resources-placeholder h3,
 .placeholder-view h3 {
     margin-bottom: 10px;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 /* Milestones Table Styling */
@@ -526,7 +526,7 @@ svg.icon {
 }
 
 .milestones-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -669,7 +669,7 @@ svg.icon {
 }
 
 .resources-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -706,7 +706,7 @@ svg.icon {
 
 .resources-table .totals-row {
     background: #e8eaf6;
-    border-top: 2px solid #667eea;
+    border-top: 2px solid var(--np-accent);
 }
 
 .resources-table .totals-row:hover {
@@ -752,7 +752,7 @@ svg.icon {
 }
 
 .resources-table .resource-shortname {
-    color: #667eea;
+    color: var(--np-accent);
     font-family: monospace;
     font-size: 0.9em;
     transition: color var(--np-anim-duration) var(--np-anim-easing), background var(--np-anim-duration) var(--np-anim-easing);
@@ -831,7 +831,7 @@ svg.icon {
 }
 
 .resource-sheet-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -853,7 +853,7 @@ svg.icon {
     position: sticky;
     left: 0;
     z-index: 3;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
 }
 
 .resource-sheet-dates-col {
@@ -894,7 +894,7 @@ svg.icon {
     color: #333;
     padding: 10px 8px;
     font-size: 0.95em;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--np-accent);
 }
 
 .resource-sheet-task-row td {
@@ -979,7 +979,7 @@ svg.icon {
 }
 
 .timesheet-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -1021,7 +1021,7 @@ svg.icon {
     min-width: 150px;
     position: sticky;
     left: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     z-index: 11;
 }
 
@@ -2054,12 +2054,12 @@ svg.icon {
 
 .gantt-scale-selector label {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .gantt-scale-selector select {
     padding: 6px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
     color: #2c3e50;
@@ -2074,7 +2074,7 @@ svg.icon {
 
 .gantt-scale-selector select:focus {
     outline: none;
-    border-color: #764ba2;
+    border-color: var(--np-accent-hover);
     box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.1);
 }
 
@@ -2166,11 +2166,11 @@ svg.icon {
 }
 
 .gantt-splitter:hover {
-    background: #667eea;
+    background: var(--np-accent);
 }
 
 .gantt-splitter:active {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .gantt-info-table {
@@ -2180,7 +2180,7 @@ svg.icon {
 }
 
 .gantt-info-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -2240,7 +2240,7 @@ svg.icon {
 .gantt-info-table td.editing input {
     width: 100%;
     padding: 8px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     outline: none;
     font-family: inherit;
     font-size: inherit;
@@ -2270,7 +2270,7 @@ svg.icon {
 }
 
 .gantt-disclosure-triangle:hover {
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .gantt-chart-side {
@@ -2294,7 +2294,7 @@ svg.icon {
     padding: 6px 2px;
     text-align: center;
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 0.7em;
     box-sizing: border-box;
     overflow: hidden;
@@ -2584,17 +2584,17 @@ svg.icon {
 }
 
 .resizer:hover {
-    background: #667eea;
+    background: var(--np-accent);
 }
 
 .resizer:active {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .panel-header {
     font-weight: 600;
     padding: 10px 15px;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
     background: white;
     flex-shrink: 0;
@@ -2680,7 +2680,7 @@ svg.icon {
 
 .editor-toolbar .project-selector-dropdown:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 /* Project selector dropdown — portfolio header (light theme) */
@@ -2698,7 +2698,7 @@ svg.icon {
 
 .portfolio-header .project-selector-dropdown:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-header .project-selector-label {
@@ -2716,7 +2716,7 @@ svg.icon {
 }
 
 .save-btn {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -2734,7 +2734,7 @@ svg.icon {
 }
 
 .upload-area {
-    border: 3px dashed #667eea;
+    border: 3px dashed var(--np-accent);
     border-radius: 10px;
     padding: 40px;
     text-align: center;
@@ -2746,7 +2746,7 @@ svg.icon {
 .upload-area:hover,
 .upload-area.dragover {
     background: #e8ebff;
-    border-color: #764ba2;
+    border-color: var(--np-accent-hover);
 }
 
 .upload-icon {
@@ -3222,7 +3222,7 @@ input[type="text"] {
 
 input[type="text"]:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 input[type="text"]:focus-visible {
@@ -3305,7 +3305,7 @@ input[type="checkbox"] {
 
 .syntax-guide h3 {
     margin: 20px 0 15px 0;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .syntax-guide code {
@@ -3336,7 +3336,7 @@ input[type="checkbox"] {
 .spinner {
     display: none;
     border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
+    border-top: 4px solid var(--np-accent);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -5259,7 +5259,7 @@ tr:hover .task-context-btn,
 .btn-link {
     background: none;
     border: none;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
     font-weight: 600;
     cursor: pointer;
@@ -5279,7 +5279,7 @@ tr:hover .task-context-btn,
 }
 
 .export-btn {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -5294,7 +5294,7 @@ tr:hover .task-context-btn,
 }
 
 .export-btn:hover {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .export-menu {
@@ -6224,7 +6224,7 @@ tr:hover .task-context-btn,
     background: #f8f9fa;
     border: 2px dashed #dee2e6;
     border-radius: 6px;
-    color: #667eea;
+    color: var(--np-accent);
     font-weight: 600;
     cursor: pointer;
     transition: all var(--np-anim-duration) var(--np-anim-easing);
@@ -6232,7 +6232,7 @@ tr:hover .task-context-btn,
 
 .kanban-add-task-btn:hover {
     background: #e9ecef;
-    border-color: #667eea;
+    border-color: var(--np-accent);
     transform: translateY(-1px);
 }
 
@@ -6664,7 +6664,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-primary {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -6676,13 +6676,13 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-primary:hover {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .raid-toolbar .btn-secondary {
     background: white;
-    color: #667eea;
-    border: 2px solid #667eea;
+    color: var(--np-accent);
+    border: 2px solid var(--np-accent);
     padding: 6px 14px;
     border-radius: 5px;
     cursor: pointer;
@@ -6692,7 +6692,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-secondary:hover {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
 }
 
@@ -6716,7 +6716,7 @@ tr:hover .task-context-btn,
 
 .raid-filter-group select {
     padding: 6px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
     font-size: 0.85em;
@@ -6725,7 +6725,7 @@ tr:hover .task-context-btn,
 
 .raid-filter-group select:focus {
     outline: none;
-    border-color: #764ba2;
+    border-color: var(--np-accent-hover);
 }
 
 .raid-table-wrapper {
@@ -6744,7 +6744,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -6859,7 +6859,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-empty-state h3 {
-    color: #667eea;
+    color: var(--np-accent);
     margin-bottom: 10px;
     font-size: 1.5em;
 }
@@ -7136,7 +7136,7 @@ tr:hover .task-context-btn,
 
 /* Subtle add buttons for RAID, Highlights, etc. */
 .subtle-add-btn {
-    color: #667eea;
+    color: var(--np-accent);
     cursor: pointer;
     font-size: 0.85em;
     font-weight: 500;
@@ -7146,7 +7146,7 @@ tr:hover .task-context-btn,
 }
 
 .subtle-add-btn:hover {
-    color: #764ba2;
+    color: var(--np-accent-hover);
     text-decoration: underline;
 }
 
@@ -7330,7 +7330,7 @@ tr:hover .task-context-btn,
 }
 
 .lookahead-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: #fff;
 }
 
@@ -7417,7 +7417,7 @@ tr:hover .task-context-btn,
 }
 
 .user-workload-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: #fff;
     padding: 15px 20px;
 }
@@ -7963,7 +7963,7 @@ tr:hover .task-context-btn,
 .template-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .template-popular-badge {
@@ -7986,7 +7986,7 @@ tr:hover .task-context-btn,
 }
 
 .template-card-hero-placeholder {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--np-accent-gradient);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -8041,7 +8041,7 @@ tr:hover .task-context-btn,
 
 .template-card-btn {
     width: 100%;
-    background: linear-gradient(45deg, #667eea, #764ba2);
+    background: var(--np-accent-gradient);
     border: none;
     color: white;
     padding: 12px;
@@ -8392,12 +8392,12 @@ tr:hover .task-context-btn,
 }
 
 .actions-view-tab:hover {
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .actions-view-tab.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
 }
 
 /* View Content */
@@ -8462,7 +8462,7 @@ tr:hover .task-context-btn,
 }
 
 .actions-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -8560,7 +8560,7 @@ tr:hover .task-context-btn,
 .actions-action-btn {
     padding: 6px 10px;
     margin: 0 3px;
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 4px;
@@ -8722,7 +8722,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-empty-state h3 {
-    color: #667eea;
+    color: var(--np-accent);
     margin-bottom: 15px;
     font-size: 1.5em;
 }
@@ -8753,7 +8753,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-project-card.active {
-    border-color: #667eea;
+    border-color: var(--np-accent);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
@@ -8773,7 +8773,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-active-badge {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     padding: 4px 12px;
     border-radius: 12px;
@@ -8804,7 +8804,7 @@ tr:hover .task-context-btn,
 
 /* Button styles (if not already defined) */
 .btn-primary {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 10px 20px;
@@ -8880,13 +8880,13 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-subnav-btn:hover {
-    color: #667eea;
+    color: var(--np-accent);
     background: rgba(102, 126, 234, 0.06);
 }
 
 .portfolio-subnav-btn.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
     font-weight: 600;
 }
 
@@ -8932,7 +8932,7 @@ tr:hover .task-context-btn,
 
 .portfolio-status-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-status-table-wrapper {
@@ -9051,7 +9051,7 @@ tr:hover .task-context-btn,
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: var(--np-accent-gradient);
     border-radius: 12px;
     transition: width var(--np-anim-duration-slow) var(--np-anim-easing);
 }
@@ -9163,7 +9163,7 @@ tr:hover .task-context-btn,
 .summary-value {
     font-size: 1.8em;
     font-weight: 700;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .portfolio-resources-table-wrapper {
@@ -9221,7 +9221,7 @@ tr:hover .task-context-btn,
 
 .project-count-badge {
     display: inline-block;
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     padding: 4px 8px;
     border-radius: 10px;
@@ -9272,7 +9272,7 @@ tr:hover .task-context-btn,
 
 /* Small Button */
 .btn-small {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -9348,13 +9348,13 @@ tr:hover .task-context-btn,
 
 #resourceDetailsBody h3 {
     margin: 25px 0 15px 0;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.4em;
 }
 
 #resourceDetailsBody h4 {
     margin: 15px 0 10px 0;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
 }
 
@@ -9382,7 +9382,7 @@ tr:hover .task-context-btn,
 .stat-value {
     font-size: 1.5em;
     font-weight: 700;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .project-assignments {
@@ -9402,7 +9402,7 @@ tr:hover .task-context-btn,
 }
 
 .assignments-table th {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     padding: 10px;
     text-align: left;
@@ -9484,7 +9484,7 @@ tr:hover .task-context-btn,
 
 .timeline-controls select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 #portfolioTimelineView.portfolio-timeline-active {
@@ -9780,7 +9780,7 @@ tr:hover .task-context-btn,
     font-weight: 600;
     color: #212529;
     background: #fff;
-    border: 1px solid #667eea;
+    border: 1px solid var(--np-accent);
     border-radius: 3px;
     padding: 2px 6px;
     outline: none;
@@ -9789,7 +9789,7 @@ tr:hover .task-context-btn,
 }
 
 .active-indicator {
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.2em;
     margin-right: 4px;
 }
@@ -9813,8 +9813,8 @@ tr:hover .task-context-btn,
 }
 
 .project-action-btn.project-action-save:hover {
-    color: #667eea;
-    border-color: #667eea;
+    color: var(--np-accent);
+    border-color: var(--np-accent);
 }
 
 .project-action-btn.project-action-delete:hover {
@@ -9874,7 +9874,7 @@ tr:hover .task-context-btn,
 }
 
 .highlight-author {
-    color: #667eea;
+    color: var(--np-accent);
     font-weight: 500;
 }
 
@@ -9982,7 +9982,7 @@ tr:hover .task-context-btn,
 
 .portfolio-actions-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-actions-table-wrapper {
@@ -10036,7 +10036,7 @@ tr:hover .task-context-btn,
 
 .actions-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .actions-task-name {
@@ -10128,7 +10128,7 @@ tr:hover .task-context-btn,
 
 .portfolio-risks-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-risks-new {
@@ -10150,12 +10150,12 @@ tr:hover .task-context-btn,
 
 .portfolio-risks-new select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .new-risk-btn {
     padding: 8px 18px;
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 6px;
@@ -10221,7 +10221,7 @@ tr:hover .task-context-btn,
 
 .risks-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .risks-title {
@@ -10496,7 +10496,7 @@ tr:hover .task-context-btn,
 
 .lookahead-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .lookahead-task-name {
@@ -10567,7 +10567,7 @@ tr:hover .task-context-btn,
     width: 40px;
     height: 40px;
     border: 4px solid #e0e0e0;
-    border-top-color: #667eea;
+    border-top-color: var(--np-accent);
     border-radius: 50%;
     animation: portfolio-spin 0.8s linear infinite;
     margin-bottom: 15px;
@@ -11796,7 +11796,7 @@ body.no-animations .np-fade-in {
     position: sticky;
     top: 0;
     z-index: 1;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -11905,22 +11905,22 @@ body.no-animations .np-fade-in {
     gap: 6px;
     padding: 6px 12px;
     min-height: 44px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: #fff;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 0.85em;
     cursor: pointer;
     transition: background var(--np-anim-duration) var(--np-anim-easing), color var(--np-anim-duration) var(--np-anim-easing);
 }
 
 .budget-view-toggle:hover {
-    background: #667eea;
+    background: var(--np-accent);
     color: #fff;
 }
 
 .budget-view-toggle.active {
-    background: #667eea;
+    background: var(--np-accent);
     color: #fff;
 }
 
@@ -11937,7 +11937,7 @@ body.no-animations .np-fade-in {
 
 .budget-filter-group select {
     padding: 6px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
     font-size: 0.85em;
@@ -11946,7 +11946,7 @@ body.no-animations .np-fade-in {
 
 .budget-filter-group select:focus {
     outline: 2px solid #108BB9;
-    border-color: #764ba2;
+    border-color: var(--np-accent-hover);
 }
 
 .budget-table-wrapper {
@@ -11965,7 +11965,7 @@ body.no-animations .np-fade-in {
 }
 
 .budget-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -12016,7 +12016,7 @@ body.no-animations .np-fade-in {
     padding: 10px 10px;
     font-weight: 700;
     background: #f1f3f5;
-    border-top: 2px solid #667eea;
+    border-top: 2px solid var(--np-accent);
 }
 
 .budget-action-btn {

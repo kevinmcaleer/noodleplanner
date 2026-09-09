@@ -32,7 +32,7 @@
 .resources-placeholder h3,
 .placeholder-view h3 {
     margin-bottom: 10px;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 /* Milestones Table Styling */
@@ -56,7 +56,7 @@
 }
 
 .milestones-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -199,7 +199,7 @@
 }
 
 .resources-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -226,7 +226,7 @@
 }
 
 .resources-table .resource-name:hover {
-    color: #108bb9;
+    color: var(--np-accent);
     text-decoration: underline;
 }
 
@@ -236,7 +236,7 @@
 
 .resources-table .totals-row {
     background: #e8eaf6;
-    border-top: 2px solid #667eea;
+    border-top: 2px solid var(--np-accent);
 }
 
 .resources-table .totals-row:hover {
@@ -276,14 +276,14 @@
 }
 
 .resources-table .resource-shortname {
-    color: #667eea;
+    color: var(--np-accent);
     font-family: monospace;
     font-size: 0.9em;
     transition: color 0.2s, background 0.2s;
 }
 
 .resources-table .resource-shortname:hover {
-    color: #108bb9;
+    color: var(--np-accent);
     text-decoration: underline;
 }
 
@@ -355,7 +355,7 @@
 }
 
 .resource-sheet-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -377,7 +377,7 @@
     position: sticky;
     left: 0;
     z-index: 3;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
 }
 
 .resource-sheet-dates-col {
@@ -418,7 +418,7 @@
     color: #333;
     padding: 10px 8px;
     font-size: 0.95em;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--np-accent);
 }
 
 .resource-sheet-task-row td {
@@ -503,7 +503,7 @@
 }
 
 .timesheet-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -545,7 +545,7 @@
     min-width: 150px;
     position: sticky;
     left: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     z-index: 11;
 }
 
@@ -579,7 +579,7 @@
 }
 
 .timesheet-table td.timesheet-resource-name:hover {
-    color: #108bb9;
+    color: var(--np-accent);
     text-decoration: underline;
 }
 
@@ -1121,8 +1121,8 @@
     bottom: 0;
     right: 0;
     padding: 0 8px 0 24px;
-    background: linear-gradient(to right, transparent, #fff 40%);
-    color: #999;
+    background: linear-gradient(to right, transparent, var(--np-surface, #fff) 40%);
+    color: var(--np-text-muted, #999);
     font-weight: 600;
 }
 
@@ -1146,7 +1146,7 @@
    Global Focus Indicator (Accessibility)
    ======================================== */
 *:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 2px;
 }
 
@@ -1207,7 +1207,7 @@
 }
 
 .detail-pane-header {
-    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+    background: var(--np-accent-gradient);
     color: white;
     padding: 20px 30px;
     display: flex;
@@ -1479,7 +1479,7 @@ body.detail-pane-open {
     display: inline-block;
     margin-top: 14px;
     padding: 8px 18px;
-    background: #108BB9;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1533,7 +1533,7 @@ tr:hover .task-context-btn,
 }
 
 .task-context-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
     opacity: 1;
 }
@@ -1567,15 +1567,15 @@ tr:hover .task-context-btn,
 }
 
 .task-form-inspect-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
 .task-context-menu {
     display: none;
     position: fixed;
-    background: white;
-    border: 1px solid #dee2e6;
+    background: var(--np-surface, white);
+    border: 1px solid var(--np-border, #dee2e6);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 200px;
@@ -1596,7 +1596,7 @@ tr:hover .task-context-btn,
     padding: 9px 14px;
     background: none;
     border: none;
-    color: #333;
+    color: var(--np-text, #333);
     font-size: 0.9em;
     cursor: pointer;
     transition: background 0.15s;
@@ -1605,13 +1605,13 @@ tr:hover .task-context-btn,
 }
 
 .task-context-menu-item:hover {
-    background: #f0f4ff;
+    background: var(--np-accent-soft, #f0f4ff);
 }
 
 .task-context-menu-item:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: -2px;
-    background: #f0f4ff;
+    background: var(--np-accent-soft, #f0f4ff);
 }
 
 @media (max-width: 768px) {
@@ -1625,12 +1625,12 @@ tr:hover .task-context-btn,
     width: 18px;
     text-align: center;
     flex-shrink: 0;
-    color: #6c757d;
+    color: var(--np-text-secondary, #6c757d);
 }
 
 .task-context-menu-separator {
     height: 1px;
-    background: #dee2e6;
+    background: var(--np-border, #dee2e6);
     margin: 4px 0;
 }
 
@@ -1643,8 +1643,8 @@ tr:hover .task-context-btn,
     position: absolute;
     left: 100%;
     top: 0;
-    background: white;
-    border: 1px solid #dee2e6;
+    background: var(--np-surface, white);
+    border: 1px solid var(--np-border, #dee2e6);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 120px;
@@ -1658,7 +1658,7 @@ tr:hover .task-context-btn,
 
 .task-context-menu-item .menu-arrow {
     margin-left: auto;
-    color: #adb5bd;
+    color: var(--np-text-muted, #adb5bd);
     font-size: 0.8em;
 }
 
@@ -1669,12 +1669,12 @@ tr:hover .task-context-btn,
 }
 
 .task-context-menu-item.completion-item:hover {
-    background: #e8f4ff;
+    background: var(--np-accent-soft, #e8f4ff);
 }
 
 .task-context-menu-item.completion-active {
-    background: #e8f4ff;
-    color: #0d6efd;
+    background: var(--np-accent-soft, #e8f4ff);
+    color: var(--np-accent, #0d6efd);
     font-weight: 600;
 }
 
@@ -1748,8 +1748,8 @@ tr:hover .task-context-btn,
 }
 
 .cf-colour-picker {
-    background: white;
-    border: 1px solid #dee2e6;
+    background: var(--np-surface, white);
+    border: 1px solid var(--np-border, #dee2e6);
     border-radius: 8px;
     padding: 12px;
     margin-top: 8px;
@@ -1778,16 +1778,16 @@ tr:hover .task-context-btn,
 
 .cf-colour-grid .cf-colour-option:hover {
     transform: scale(1.2);
-    border-color: #333;
+    border-color: var(--np-text, #333);
 }
 
 .cf-colour-grid .cf-colour-option.selected {
-    border-color: #333;
-    box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+    border-color: var(--np-text, #333);
+    box-shadow: 0 0 0 2px var(--np-surface, white), 0 0 0 4px var(--np-text, #333);
 }
 
 .modal-header {
-    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+    background: var(--np-accent-gradient);
     color: white;
     padding: 20px 30px;
     border-radius: 10px 10px 0 0;
@@ -1798,6 +1798,7 @@ tr:hover .task-context-btn,
 
 .modal-header h2 {
     margin: 0;
+    font-family: var(--np-font-heading, var(--np-font-ui));
     font-size: 1.5em;
     padding: 5px;
     border-radius: 4px;
@@ -1881,7 +1882,7 @@ tr:hover .task-context-btn,
     display: block;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #333;
+    color: var(--np-text, #333);
 }
 
 .form-group input[type="text"],
@@ -1892,12 +1893,12 @@ tr:hover .task-context-btn,
 .form-group select {
     width: 100%;
     padding: 10px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-input-border, #e0e0e0);
     border-radius: 5px;
     font-size: 14px;
     font-family: inherit;
-    background: white;
-    color: black;
+    background: var(--np-input-bg, white);
+    color: var(--np-text, black);
     transition: border-color 0.2s;
 }
 
@@ -1905,13 +1906,13 @@ tr:hover .task-context-btn,
 .form-group textarea:focus,
 .form-group select:focus {
     outline: none;
-    border-color: #108BB9;
+    border-color: var(--np-accent);
 }
 
 .form-group input:focus-visible,
 .form-group textarea:focus-visible,
 .form-group select:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -1923,14 +1924,14 @@ tr:hover .task-context-btn,
 .form-group small {
     display: block;
     margin-top: 5px;
-    color: #666;
+    color: var(--np-text-secondary, #666);
     font-size: 0.9em;
 }
 
 /* ========================================
    Settings Panel (#853, #883)
    Same visual language as the form-group/form-row task form above:
-   #108BB9 accent, 2px borders, generous spacing.
+   brand accent, 2px borders, generous spacing.
    ======================================== */
 .settings-tabs {
     display: flex;
@@ -1958,13 +1959,13 @@ tr:hover .task-context-btn,
 }
 
 .settings-tab-btn:hover {
-    color: #108BB9;
+    color: var(--np-accent);
     background-color: #f8f9fa;
 }
 
 .settings-tab-btn.active {
-    color: #108BB9;
-    border-bottom-color: #108BB9;
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
 }
 
 .settings-tab-content {
@@ -2009,7 +2010,7 @@ tr:hover .task-context-btn,
     width: 18px;
     height: 18px;
     cursor: pointer;
-    accent-color: #108BB9;
+    accent-color: var(--np-accent);
 }
 
 .settings-option small {
@@ -2041,11 +2042,11 @@ tr:hover .task-context-btn,
 
 .settings-theme-radio:hover {
     background-color: #f8f9fa;
-    border-color: #108BB9;
+    border-color: var(--np-accent);
 }
 
 .settings-theme-radio input[type="radio"] {
-    accent-color: #108BB9;
+    accent-color: var(--np-accent);
     width: 18px;
     height: 18px;
 }
@@ -2134,7 +2135,7 @@ tr:hover .task-context-btn,
 
 .btn-primary {
     flex: 1;
-    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
+    background: var(--np-accent-gradient);
     color: white;
     padding: 12px 24px;
     border: none;
@@ -2198,7 +2199,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-label:hover {
-    color: #108bb9;
+    color: var(--np-accent);
 }
 
 .subtask-percent {
@@ -2238,7 +2239,7 @@ tr:hover .task-context-btn,
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #108BB9 0%, #0d7096 100%);
+    background: var(--np-info-gradient);
     color: white;
     display: flex;
     align-items: center;
@@ -2261,7 +2262,7 @@ tr:hover .task-context-btn,
 }
 
 .subtask-resource-unassigned:hover {
-    border-color: #108bb9;
+    border-color: var(--np-accent);
 }
 
 /* Subtask resource picker dropdown */
@@ -2302,7 +2303,7 @@ tr:hover .task-context-btn,
 
 .subtask-resource-picker-row.available:hover {
     background: #f0f7fa;
-    color: #108bb9;
+    color: var(--np-accent);
 }
 
 .subtask-resource-picker-row.assigned {
@@ -2331,7 +2332,7 @@ tr:hover .task-context-btn,
 
 /* Add item link style */
 .add-item-link {
-    color: #108bb9;
+    color: var(--np-accent);
     text-decoration: none;
     font-size: 0.95em;
     display: inline-flex;
@@ -2354,12 +2355,12 @@ tr:hover .task-context-btn,
     height: 20px;
     font-size: 18px;
     font-weight: bold;
-    color: #108bb9;
+    color: var(--np-accent);
     transition: all 0.2s;
 }
 
 .add-item-link:hover .add-icon {
-    background: #108bb9;
+    background: var(--np-accent);
     color: white;
     border-radius: 50%;
     transform: scale(1.1);
@@ -2385,7 +2386,7 @@ tr:hover .task-context-btn,
 .btn-link {
     background: none;
     border: none;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
     font-weight: 600;
     cursor: pointer;
@@ -2394,7 +2395,7 @@ tr:hover .task-context-btn,
 }
 
 .btn-link:hover {
-    color: #5568d3;
+    color: var(--np-accent-hover);
     text-decoration: underline;
 }
 
@@ -2405,7 +2406,7 @@ tr:hover .task-context-btn,
 }
 
 .export-btn {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -2418,7 +2419,7 @@ tr:hover .task-context-btn,
 }
 
 .export-btn:hover {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 @media (pointer: coarse) {
@@ -2435,8 +2436,8 @@ tr:hover .task-context-btn,
     right: 0;
     top: 100%;
     margin-top: 5px;
-    background: white;
-    border: 1px solid #e0e0e0;
+    background: var(--np-surface, white);
+    border: 1px solid var(--np-border, #e0e0e0);
     border-radius: 5px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 200px;
@@ -2450,7 +2451,7 @@ tr:hover .task-context-btn,
 .export-menu-item {
     padding: 10px 15px;
     cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2461,7 +2462,7 @@ tr:hover .task-context-btn,
 }
 
 .export-menu-item:hover {
-    background: #f8f9ff;
+    background: var(--np-accent-soft, #f8f9ff);
 }
 
 .export-menu-item input[type="checkbox"] {
@@ -2478,8 +2479,8 @@ tr:hover .task-context-btn,
     top: 100%;
     left: 0;
     right: 0;
-    background: white;
-    border: 2px solid #108BB9;
+    background: var(--np-surface, white);
+    border: 2px solid var(--np-accent);
     border-top: none;
     border-radius: 0 0 5px 5px;
     max-height: 200px;
@@ -2492,7 +2493,7 @@ tr:hover .task-context-btn,
 .autocomplete-item {
     padding: 10px;
     cursor: pointer;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
 }
 
 .autocomplete-item:last-child {
@@ -2501,7 +2502,7 @@ tr:hover .task-context-btn,
 
 .autocomplete-item:hover,
 .autocomplete-item.selected {
-    background-color: #e8f4f8;
+    background-color: var(--np-accent-soft, #e8f4f8);
 }
 
 @media (max-width: 480px) {
@@ -2536,7 +2537,7 @@ tr:hover .task-context-btn,
 
 .tour-spotlight {
     position: absolute;
-    border: 3px solid #108BB9;
+    border: 3px solid var(--np-accent);
     border-radius: 8px;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7),
                 0 0 20px rgba(16, 139, 185, 0.8);
@@ -2562,7 +2563,7 @@ tr:hover .task-context-btn,
 
 .tour-popup h3 {
     margin: 0 0 12px 0;
-    color: #108BB9;
+    color: var(--np-accent);
     font-size: 20px;
 }
 
@@ -2606,7 +2607,7 @@ tr:hover .task-context-btn,
 }
 
 .tour-actions .btn-primary {
-    background: #108BB9;
+    background: var(--np-accent);
     color: white;
 }
 
@@ -2627,7 +2628,7 @@ tr:hover .task-context-btn,
 }
 
 .breadcrumb-item a {
-    color: #108BB9;
+    color: var(--np-accent);
     text-decoration: none;
     cursor: pointer;
 }
@@ -2647,7 +2648,7 @@ tr:hover .task-context-btn,
 
 /* Drill-down Button for Summary Tasks */
 .drill-down-btn {
-    background: #108BB9;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 4px;
@@ -2770,7 +2771,7 @@ tr:hover .task-context-btn,
 }
 
 .fix-it-btn {
-    background: #108bb9;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 4px;
@@ -2969,7 +2970,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-primary {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -2981,13 +2982,13 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-primary:hover {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .raid-toolbar .btn-secondary {
-    background: white;
-    color: #667eea;
-    border: 2px solid #667eea;
+    background: var(--np-surface, white);
+    color: var(--np-accent);
+    border: 2px solid var(--np-accent);
     padding: 6px 14px;
     border-radius: 5px;
     cursor: pointer;
@@ -2997,7 +2998,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-toolbar .btn-secondary:hover {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
 }
 
@@ -3021,7 +3022,7 @@ tr:hover .task-context-btn,
 
 .raid-filter-group select {
     padding: 6px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
     font-size: 0.85em;
@@ -3030,7 +3031,7 @@ tr:hover .task-context-btn,
 
 .raid-filter-group select:focus {
     outline: none;
-    border-color: #764ba2;
+    border-color: var(--np-accent-hover);
 }
 
 .raid-table-wrapper {
@@ -3049,7 +3050,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -3169,7 +3170,7 @@ tr:hover .task-context-btn,
 }
 
 .raid-empty-state h3 {
-    color: #667eea;
+    color: var(--np-accent);
     margin-bottom: 10px;
     font-size: 1.5em;
 }
@@ -3342,7 +3343,7 @@ tr:hover .task-context-btn,
 }
 
 .wizard-step.active {
-    color: #108BB9;
+    color: var(--np-accent);
     font-weight: 600;
 }
 
@@ -3364,7 +3365,7 @@ tr:hover .task-context-btn,
 }
 
 .wizard-step.active .wizard-step-number {
-    background: #108BB9;
+    background: var(--np-accent);
     color: white;
 }
 
@@ -3465,7 +3466,7 @@ tr:hover .task-context-btn,
 
 /* Subtle add buttons for RAID, Highlights, etc. */
 .subtle-add-btn {
-    color: #667eea;
+    color: var(--np-accent);
     cursor: pointer;
     font-size: 0.85em;
     font-weight: 500;
@@ -3475,7 +3476,7 @@ tr:hover .task-context-btn,
 }
 
 .subtle-add-btn:hover {
-    color: #764ba2;
+    color: var(--np-accent-hover);
     text-decoration: underline;
 }
 
@@ -3637,12 +3638,12 @@ tr:hover .task-context-btn,
 }
 
 .lookahead-section-title.overdue {
-    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    background: var(--np-danger-gradient, linear-gradient(135deg, #d32f2f 0%, #c62828 100%));
     color: #fff;
 }
 
 .lookahead-section-title.upcoming {
-    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    background: var(--np-info-gradient, linear-gradient(135deg, #1976d2 0%, #1565c0 100%));
     color: #fff;
 }
 
@@ -3659,7 +3660,7 @@ tr:hover .task-context-btn,
 }
 
 .lookahead-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: #fff;
 }
 
@@ -3746,7 +3747,7 @@ tr:hover .task-context-btn,
 }
 
 .user-workload-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: #fff;
     padding: 15px 20px;
 }
@@ -3938,7 +3939,7 @@ tr:hover .task-context-btn,
 }
 
 .templates-error {
-    color: #dc3545;
+    color: var(--np-danger);
 }
 
 /* Templates content */
@@ -3998,9 +3999,9 @@ tr:hover .task-context-btn,
 }
 
 .category-link.active {
-    background: #108bb9;
+    background: var(--np-accent);
     color: white;
-    border-left-color: #0ea5e9;
+    border-left-color: var(--np-accent-hover);
 }
 
 /* Main content area */
@@ -4046,13 +4047,13 @@ tr:hover .task-context-btn,
 .template-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-    border-color: #108bb9;
+    border-color: var(--np-accent);
 }
 
 .template-hero {
     height: 160px;
     overflow: hidden;
-    background: #e9ecef;
+    background: var(--np-bg-alt, #e9ecef);
 }
 
 .template-hero img {
@@ -4097,7 +4098,7 @@ tr:hover .task-context-btn,
 }
 
 .template-category {
-    background: #108bb9;
+    background: var(--np-accent);
     color: white;
     padding: 2px 8px;
     border-radius: 12px;
@@ -4114,7 +4115,7 @@ tr:hover .task-context-btn,
 .template-use-btn {
     width: 100%;
     min-height: 44px;
-    background: #108bb9;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 10px 16px;
@@ -4126,12 +4127,12 @@ tr:hover .task-context-btn,
 }
 
 .template-use-btn:hover {
-    background: #0ea5e9;
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
 }
 
 .template-use-btn:disabled {
-    background: #666;
+    background: var(--np-text-secondary, #666);
     cursor: not-allowed;
     transform: none;
 }
@@ -4223,8 +4224,8 @@ tr:hover .task-context-btn,
     }
 
     .category-link.active {
-        border: 1px solid #108bb9;
-        border-left: 1px solid #108bb9;
+        border: 1px solid var(--np-accent);
+        border-left: 1px solid var(--np-accent);
     }
 
     /* Main content */
@@ -4447,7 +4448,7 @@ tr:hover .task-context-btn,
 
 .calendar-day-cell.calendar-today {
     background: #1a3a4a;
-    border: 2px solid #108BB9;
+    border: 2px solid var(--np-accent);
 }
 
 .calendar-day-number {
@@ -4535,7 +4536,7 @@ tr:hover .task-context-btn,
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #108BB9;
+    background: var(--np-accent);
     color: #fff;
     border: none;
     font-size: 0.85em;
@@ -4622,12 +4623,12 @@ tr:hover .task-context-btn,
 }
 
 .actions-view-tab:hover {
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .actions-view-tab.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
 }
 
 /* View Content */
@@ -4692,7 +4693,7 @@ tr:hover .task-context-btn,
 }
 
 .actions-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -4790,7 +4791,7 @@ tr:hover .task-context-btn,
 .actions-action-btn {
     padding: 6px 10px;
     margin: 0 3px;
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 4px;
@@ -4800,16 +4801,16 @@ tr:hover .task-context-btn,
 }
 
 .actions-action-btn:hover {
-    background: #5568d3;
+    background: var(--np-accent-hover);
     transform: translateY(-1px);
 }
 
 .actions-action-btn.delete {
-    background: #ef5350;
+    background: var(--np-danger);
 }
 
 .actions-action-btn.delete:hover {
-    background: #d32f2f;
+    background: var(--np-danger-hover);
 }
 
 /* Report Section */
@@ -4984,7 +4985,7 @@ tr:hover .task-context-btn,
 
 .mindmap-toolbar-btn:hover {
     background: var(--mm-btn-hover-bg);
-    border-color: #108BB9;
+    border-color: var(--np-accent);
     color: var(--mm-btn-hover-text);
 }
 
@@ -5020,7 +5021,7 @@ tr:hover .task-context-btn,
 
 .mindmap-theme-toggle:hover {
     background: var(--mm-btn-hover-bg);
-    border-color: #108BB9;
+    border-color: var(--np-accent);
     color: var(--mm-btn-hover-text);
 }
 
@@ -5183,8 +5184,8 @@ tr:hover .task-context-btn,
 }
 
 #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn {
-    background: #108BB9;
-    border-color: #108BB9;
+    background: var(--np-accent);
+    border-color: var(--np-accent);
     color: #fff;
 }
 
@@ -5272,7 +5273,7 @@ tr:hover .task-context-btn,
 
 .mm-colour-swatch-option.selected {
     border-color: #fff;
-    box-shadow: 0 0 0 2px #108BB9;
+    box-shadow: 0 0 0 2px var(--np-accent);
 }
 
 .mm-colour-clear-btn {
@@ -5422,7 +5423,7 @@ tr:hover .task-context-btn,
 }
 
 .ben-node:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 2px;
 }
 
@@ -5528,7 +5529,7 @@ tr:hover .task-context-btn,
 }
 
 .ben-view-btn--active {
-    background: #108BB9 !important;
+    background: var(--np-accent) !important;
     color: #fff !important;
 }
 
@@ -5585,7 +5586,7 @@ tr:hover .task-context-btn,
 
 .ben-tracking-table td.ben-cell-editable:focus-within {
     background: #e8f4fd;
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: -2px;
 }
 
@@ -5611,8 +5612,8 @@ tr:hover .task-context-btn,
 }
 
 .ben-tracking-table .ben-cell-select:focus {
-    border-color: #108BB9;
-    outline: 2px solid #108BB9;
+    border-color: var(--np-accent);
+    outline: 2px solid var(--np-accent);
     outline-offset: -2px;
 }
 
@@ -5695,7 +5696,7 @@ tr:hover .task-context-btn,
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--np-overlay, rgba(0, 0, 0, 0.6));
     z-index: 2000;
     justify-content: center;
     align-items: center;
@@ -5707,7 +5708,7 @@ tr:hover .task-context-btn,
 }
 
 .shortcuts-modal {
-    background: white;
+    background: var(--np-modal-bg, white);
     border-radius: 10px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     max-width: 540px;
@@ -5729,6 +5730,7 @@ tr:hover .task-context-btn,
 
 .shortcuts-modal-header h2 {
     margin: 0;
+    font-family: var(--np-font-heading, var(--np-font-ui));
     font-size: 18px;
     font-weight: 600;
 }
@@ -5746,10 +5748,10 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #888;
+    color: var(--np-text-muted, #888);
     margin-bottom: 8px;
     padding-bottom: 4px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--np-border-light, #eee);
 }
 
 .shortcut-row {
@@ -5760,7 +5762,7 @@ tr:hover .task-context-btn,
 }
 
 .shortcut-row .shortcut-desc {
-    color: #444;
+    color: var(--np-text, #444);
     font-size: 14px;
 }
 
@@ -5776,17 +5778,17 @@ tr:hover .task-context-btn,
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
-    color: #444;
-    background: #f4f4f4;
-    border: 1px solid #ccc;
+    color: var(--np-text, #444);
+    background: var(--np-code-bg, #f4f4f4);
+    border: 1px solid var(--np-input-border, #ccc);
     border-radius: 4px;
-    box-shadow: 0 1px 0 #bbb;
+    box-shadow: 0 1px 0 var(--np-border, #bbb);
     min-width: 24px;
     text-align: center;
 }
 
 .shortcut-row .shortcut-plus {
-    color: #999;
+    color: var(--np-text-muted, #999);
     font-size: 12px;
 }
 
@@ -5796,7 +5798,7 @@ tr:hover .task-context-btn,
    ======================================== */
 .nav-menu-item:focus-visible,
 .plan-subnav-btn:focus-visible {
-    outline: 2px solid var(--np-blue);
+    outline: 2px solid var(--np-accent);
     outline-offset: -2px;
     border-radius: 3px;
 }
@@ -5872,7 +5874,7 @@ tr:hover .task-context-btn,
     position: sticky;
     top: 0;
     z-index: 1;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
 }
 
@@ -5987,27 +5989,27 @@ tr:hover .task-context-btn,
     gap: 6px;
     padding: 6px 12px;
     min-height: 44px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: #fff;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 0.85em;
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
 }
 
 .budget-view-toggle:hover {
-    background: #667eea;
+    background: var(--np-accent);
     color: #fff;
 }
 
 .budget-view-toggle.active {
-    background: #667eea;
+    background: var(--np-accent);
     color: #fff;
 }
 
 .budget-view-toggle:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 2px;
 }
 
@@ -6019,7 +6021,7 @@ tr:hover .task-context-btn,
 
 .budget-filter-group select {
     padding: 6px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
     font-size: 0.85em;
@@ -6027,8 +6029,8 @@ tr:hover .task-context-btn,
 }
 
 .budget-filter-group select:focus {
-    outline: 2px solid #108BB9;
-    border-color: #764ba2;
+    outline: 2px solid var(--np-accent);
+    border-color: var(--np-accent-hover);
 }
 
 .budget-table-wrapper {
@@ -6047,7 +6049,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--np-accent-gradient);
     color: white;
     position: sticky;
     top: 0;
@@ -6098,7 +6100,7 @@ tr:hover .task-context-btn,
     padding: 10px 10px;
     font-weight: 700;
     background: #f1f3f5;
-    border-top: 2px solid #667eea;
+    border-top: 2px solid var(--np-accent);
 }
 
 .budget-action-btn {
@@ -6118,7 +6120,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-action-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
 }
 
 .budget-action-btn.delete:hover {
@@ -6231,7 +6233,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-editor-actions .toolbar-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
 }
 
 .budget-editor-body {
@@ -6256,7 +6258,7 @@ tr:hover .task-context-btn,
 }
 
 .budget-markdown-textarea:focus {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
 }
 
 /* Budget Widget in Project Report */
@@ -6397,20 +6399,20 @@ tr:hover .task-context-btn,
 }
 
 .recurrence-day-label:hover {
-    background: #f0f8ff;
-    border-color: #108BB9;
+    background: var(--np-accent-soft);
+    border-color: var(--np-accent);
 }
 
 .recurrence-day-label input[type="checkbox"] {
     margin: 0;
-    accent-color: #108BB9;
+    accent-color: var(--np-accent);
 }
 
 /* Recurrence badge in lookahead / up-next tables */
 .recurrence-badge {
     display: inline-block;
-    background: #e8f4fd;
-    color: #108BB9;
+    background: var(--np-accent-soft);
+    color: var(--np-accent);
     border-radius: 3px;
     padding: 1px 5px;
     font-size: 0.78em;
@@ -6420,18 +6422,12 @@ tr:hover .task-context-btn,
 }
 
 [data-theme="dark"] .recurrence-day-label {
-    border-color: var(--border-color, #444);
-    color: var(--text-primary, #e0e0e0);
-}
-
-[data-theme="dark"] .recurrence-day-label:hover {
-    background: rgba(16, 139, 185, 0.15);
-    border-color: #108BB9;
+    border-color: var(--np-border);
+    color: var(--np-text);
 }
 
 [data-theme="dark"] .recurrence-badge {
-    background: rgba(16, 139, 185, 0.2);
-    color: #6fc3e8;
+    color: var(--np-accent-hover);
 }
 
 @media (max-width: 768px) {
@@ -6512,7 +6508,7 @@ tr:hover .task-context-btn,
 }
 
 .portfolio-benefits-filters select:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
 }
 
 .portfolio-benefits-table-wrapper {
@@ -6788,18 +6784,18 @@ tr:hover .task-context-btn,
 }
 
 .levelling-buttons .btn-primary {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
-.levelling-buttons .btn-primary:hover { background: #5568d3; }
+.levelling-buttons .btn-primary:hover { background: var(--np-accent-hover); }
 
 .levelling-buttons .btn-secondary {
-    background: #ffffff;
-    color: #495057;
-    border-color: #ced4da;
+    background: var(--np-surface);
+    color: var(--np-text-secondary);
+    border-color: var(--np-border);
 }
-.levelling-buttons .btn-secondary:hover { background: #e9ecef; }
+.levelling-buttons .btn-secondary:hover { background: var(--np-bg-hover); }
 
 .levelling-suggestions-panel {
     margin-top: 1rem;
@@ -6920,7 +6916,7 @@ tr:hover .task-context-btn,
 #windowDropOverlay .window-drop-panel {
     margin: 24px;
     padding: 32px 40px;
-    border: 3px dashed #108BB9;
+    border: 3px dashed var(--np-accent);
     border-radius: 12px;
     background: var(--np-bg, #ffffff);
     color: var(--np-text, #333333);
@@ -7501,19 +7497,6 @@ button.ribbon-breadcrumb-rung:hover {
     flex: 1;
 }
 
-.ribbon-collapse-btn {
-    padding: 0 8px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: #6b7b83;
-    font-weight: 400;
-    font-size: 11px;
-    line-height: 1;
-    font-family: inherit;
-    align-self: center;
-}
-
 .ribbon-file-menu {
     position: absolute;
     top: 34px;
@@ -7870,20 +7853,29 @@ button.ribbon-breadcrumb-rung:hover {
    only reached once even icon-only buttons don't all fit) -- same role as
    the full ribbon's `.ribbon-more` above, just sized to match this row's
    28px-tall buttons instead of the full ribbon's 98px-tall groups. */
-.ribbon-body-simple .ribbon-more {
-    width: 34px;
-    padding: 0;
-    margin-left: auto;
-    justify-content: center;
-    border-left: 1px solid rgba(2, 56, 77, 0.13);
-    flex-shrink: 0;
+/* #1026: a collapsed simple-ribbon group's own row of real buttons, kept
+   intact in the DOM (see ribbon.js's renderSimpleGroup() comment for why)
+   and just display:none-d rather than destroyed when its group collapses --
+   applySimpleBody() toggles this and .ribbon-simple-group-trigger below in
+   lockstep, never both visible at once. */
+.ribbon-simple-group-buttons {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
-.ribbon-body-simple .ribbon-more-btn {
+/* A collapsed group's own compact dropdown trigger (#1026) -- fixed width
+   so ribbon.js's SIMPLE_GROUP_TRIGGER_WIDTH constant matches what actually
+   gets measured back. Never a single shared "More" catch-all the way the
+   full ribbon's own .ribbon-more (above) is -- each collapsed group gets
+   its own identifiable trigger, labelled by its group name via title/
+   aria-label since there's no room on-screen for the text itself. */
+.ribbon-simple-group-trigger {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
+    gap: 1px;
+    width: 32px;
     height: 28px;
     padding: 0;
     background: transparent;
@@ -7891,45 +7883,15 @@ button.ribbon-breadcrumb-rung:hover {
     border-radius: 4px;
     cursor: pointer;
     color: var(--np-dark-blue);
+    flex-shrink: 0;
 }
 
-.ribbon-body-simple .ribbon-more-btn:hover {
+.ribbon-simple-group-trigger:hover {
     background: #e2f0f7;
     border-color: #b6dced;
 }
 
-/* -- 3d. "Ribbon Display Options" dropdown (#955) --
-   Pinned to the bottom-right corner of the ribbon body in both densities --
-   `order` + `margin-left:auto` place it at the row's right edge,
-   `align-self:flex-end` pins it to the row's bottom edge (see
-   ribbon.js's renderDisplayToggle() for the full placement rationale). */
-.ribbon-display-toggle {
-    position: relative;
-    order: 20;
-    margin-left: auto;
-    align-self: flex-end;
-    flex-shrink: 0;
-}
-
-.ribbon-display-toggle-btn {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    height: 20px;
-    padding: 0 6px;
-    margin: 0 2px 4px 0;
-    background: transparent;
-    border: 1px solid #cfdde3;
-    border-radius: 3px;
-    cursor: pointer;
-    color: #6b7b83;
-}
-
-.ribbon-body-simple .ribbon-display-toggle-btn {
-    margin-bottom: 0;
-}
-
-.ribbon-display-toggle-btn svg {
+.ribbon-simple-group-trigger svg {
     fill: none;
     stroke: currentColor;
     stroke-width: 1.6;
@@ -7937,15 +7899,61 @@ button.ribbon-breadcrumb-rung:hover {
     stroke-linejoin: round;
 }
 
-.ribbon-display-toggle-btn:hover {
-    background: #e2f0f7;
-    border-color: #b6dced;
+/* A collapsed group no longer needs the full group's horizontal padding --
+   its trigger is a small square chip, not a row of buttons. */
+.ribbon-simple-group.ribbon-simple-group-collapsed {
+    padding: 0 3px;
 }
 
-/* Positioned via inline style (right/bottom) set by ribbon.js's
+/* The collapsed group's own flyout (#1026) -- positioned via inline style
+   (right/top) set by ribbon.js's renderGroupPopover(), appended straight to
+   .ribbon-shell so it isn't clipped by .ribbon-body's `overflow: hidden`
+   (same reason .ribbon-display-menu and .ribbon-more-popover live there
+   too). Reuses .ribbon-group's own full-style rendering inside, same as
+   .ribbon-more-popover does. */
+.ribbon-simple-group-popover {
+    position: absolute;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #d8e1e5;
+    border-radius: 6px;
+    box-shadow: 0 14px 34px rgba(2, 20, 28, 0.2);
+    z-index: 7;
+    animation: ribbonCtxIn 0.16s ease both;
+}
+
+/* -- 3d. Ribbon display selector (#1027) --
+   The single combined control replacing the old separate "collapse the
+   ribbon" chevron and Full/Simple toggle (#955): a plain dropdown arrow,
+   deliberately with no icon and no visible button border/background of its
+   own ("remove the icon and any button border -- just show the dropdown
+   arrow"), living in the tab strip -- see ribbon.js's renderDisplaySelector()
+   comment for why the tab strip and not the ribbon body. */
+.ribbon-display-toggle {
+    align-self: center;
+    flex-shrink: 0;
+}
+
+.ribbon-display-toggle-btn {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6b7b83;
+}
+
+.ribbon-display-toggle-btn:hover,
+.ribbon-display-toggle-btn:focus-visible {
+    color: var(--np-dark-blue);
+}
+
+/* Positioned via inline style (right/top) set by ribbon.js's
    renderDisplayMenu() -- appended straight to .ribbon-shell rather than
    nested inside the toggle button, so it isn't clipped by .ribbon-body's
-   `overflow: hidden` in either density (see renderDisplayMenu()'s comment). */
+   `overflow: hidden` in either mode (see renderDisplayMenu()'s comment). */
 .ribbon-display-menu {
     position: absolute;
     width: 160px;

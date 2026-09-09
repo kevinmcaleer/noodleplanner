@@ -8,7 +8,8 @@
 .timeline-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    font-family: var(--np-font-heading, inherit);
+    color: var(--np-text, #333);
     margin-bottom: 80px;
     text-align: center;
 }
@@ -56,7 +57,10 @@
     top: 0;
     left: 0;
     height: 100%;
-    background: linear-gradient(to right, #28a745, #20c997); /* Green gradient for progress */
+    /* Progress fill: green means "on track", tied to the app's success token
+       so it still reads correctly in dark mode -- a data encoding, not
+       decoration, so the hue itself is left alone. */
+    background: var(--np-success-gradient, linear-gradient(to right, #28a745, #20c997));
     z-index: 1;
     border-radius: 2px 0 0 2px;
     transition: width 0.5s ease;
@@ -88,13 +92,13 @@
 
 .timeline-milestone:hover .milestone-name {
     font-weight: 600;
-    color: #108bb9;
+    color: var(--np-accent, #108bb9);
 }
 
 .timeline-connector {
     position: absolute;
     width: 1px;
-    background: #ccc;
+    background: var(--np-border, #ccc);
     left: 50%;
     transform: translateX(-50%);
     z-index: 0; /* Behind labels and dates */
@@ -165,7 +169,7 @@
     position: absolute;
     bottom: -75px; /* Moved further down to avoid overlap with scale markers */
     font-size: 0.9em;
-    color: #666;
+    color: var(--np-text-secondary, #666);
     font-weight: 500;
 }
 
@@ -194,14 +198,14 @@
 .timeline-scale-tick {
     width: 1px;
     height: 8px;
-    background: #999;
+    background: var(--np-text-muted, #999);
     margin: 0 auto;
 }
 
 .timeline-scale-label {
     text-align: center;
     font-size: 0.75em;
-    color: #666;
+    color: var(--np-text-secondary, #666);
     margin-top: 4px;
     white-space: nowrap;
     min-width: 60px; /* Ensure labels have consistent spacing */
@@ -210,7 +214,7 @@
 .milestone-name {
     font-weight: 600;
     font-size: 0.9em;
-    color: #333;
+    color: var(--np-text, #333);
     margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
@@ -219,7 +223,7 @@
 
 .milestone-date {
     font-size: 0.8em;
-    color: #666;
+    color: var(--np-text-secondary, #666);
 }
 
 /* Detailed Timeline Phase Blocks */
@@ -347,14 +351,14 @@
 
 .minimal-timeline-mode .timeline-line {
     height: 2px;
-    background: #ccc;
+    background: var(--np-border, #ccc);
 }
 
 .minimal-timeline-mode .timeline-line::before,
 .minimal-timeline-mode .timeline-line::after {
     width: 6px;
     height: 6px;
-    background: #ccc;
+    background: var(--np-border, #ccc);
     top: -2px;
 }
 
@@ -375,7 +379,7 @@
 .minimal-date-label {
     position: absolute;
     font-size: 0.65em;
-    color: #888;
+    color: var(--np-text-muted, #888);
     white-space: nowrap;
     top: 0;
     transform: translateX(-50%);

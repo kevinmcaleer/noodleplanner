@@ -129,15 +129,24 @@ def create_driver():
     options.add_argument("--window-size=1440,900")
     options.add_argument("--force-device-scale-factor=2")
 
-    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian)
-    chromium_paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
+    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian),
+    # then this sandbox's own pre-installed Playwright Chromium build (the
+    # Claude Code web sandbox sets PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+    # and has no /usr/bin/chromium at all).
+    import glob
+
+    chromium_paths = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        *sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")),
+    ]
     for path in chromium_paths:
         if os.path.exists(path):
             options.binary_location = path
             break
 
     # Try system chromedriver first
-    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver"]
+    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver", "/opt/node22/bin/chromedriver"]
     for drv_path in chromedriver_paths:
         if os.path.exists(drv_path):
             try:

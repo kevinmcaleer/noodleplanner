@@ -34,7 +34,7 @@
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
 }
 
 .estimate-popup-mode-tabs {
@@ -74,7 +74,7 @@
     flex-direction: column;
     gap: 4px;
     font-size: 13px;
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
 }
 
 .estimate-duration-fields input {
@@ -108,7 +108,7 @@
 .estimate-preview {
     margin-top: 12px;
     font-size: 13px;
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
 }
 
 .estimate-popup-footer {
