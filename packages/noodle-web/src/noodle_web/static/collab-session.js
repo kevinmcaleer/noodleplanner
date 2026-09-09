@@ -20,6 +20,13 @@
  * what actually authenticates the ECDH exchange, and the two must never be
  * conflated).
  *
+ * #969 extends #967's op model from the task outline to the RAID/risk log
+ * -- see collab-backmatter-ops.js's module docstring for the row-op
+ * protocol and why it's RAID only for now. It rides the exact same
+ * `enc` frame and relay as everything else here: `applyCollabBackmatterOp`
+ * and `broadcastCollabPlan`'s `raidNotice` parameter are the only new
+ * surface, added right alongside the task-op equivalents they mirror.
+ *
  * #967 lifted the single-joiner limit this file used to carry. The relay
  * now tags every joiner->host frame with its sender id (app.py's
  * `_wrap_from_joiner`) and routes host->joiner frames addressed at one
@@ -46,6 +53,16 @@ let opsModule = null;
 function loadCollabOps() {
     if (!opsModule) opsModule = import('/static/collab-ops.js');
     return opsModule;
+}
+
+// #969: the RAID/risk log's row-op counterpart to collab-ops.js's task
+// ops -- see collab-backmatter-ops.js's module docstring for why RAID
+// only (of the four back-matter sections #969 names) and how the
+// row-based op protocol is meant to extend to the others later.
+let backmatterOpsModule = null;
+function loadCollabBackmatterOps() {
+    if (!backmatterOpsModule) backmatterOpsModule = import('/static/collab-backmatter-ops.js');
+    return backmatterOpsModule;
 }
 
 let autosaveModule = null;
@@ -81,6 +98,11 @@ let collabApplyingRemoteOp = false;
 // raced another participant produce a conflict notice. Created lazily
 // with collab-ops.js, which is loaded on demand.
 let collabConflicts = null;
+// #969: the same tracking, kept as a *separate* instance keyed by RAID
+// row id rather than task name -- see collab-backmatter-ops.js's module
+// docstring for why sharing collabConflicts would risk a task id and a
+// row id that happen to collide cross-reporting each other's conflicts.
+let collabBackmatterConflicts = null;
 // #968: debounce handle for the host's local crash-recovery snapshot --
 // see collab-autosave.js's module docstring and scheduleCollabAutosave
 // below.
@@ -313,15 +335,30 @@ async function sendCollabMessageTo(joinerId, plaintext) {
  * a diff protocol would add reconciliation bugs (and a second way for
  * clients to disagree about state) to buy back bandwidth nobody is short
  * of. `notice`, when present, is the "X also edited this" message from the
- * conflict rule -- see collab-ops.js's describeConflict. */
-async function broadcastCollabPlan(notice) {
+ * conflict rule -- see collab-ops.js's describeConflict.
+ *
+ * #969: the plan text is one document, tasks and RAID log alike, so any
+ * change to it -- a task op, a RAID row op, or the host's own typing --
+ * is broadcast as both a `plan_snapshot` and a `raid_snapshot` together.
+ * That costs a little redundant chatter when only one half actually
+ * changed, which is the same trade-off this function's own task-snapshot
+ * broadcast already makes (see the comment above): correctness from a
+ * single full-snapshot source of truth, over a diff protocol that would
+ * have to reconcile two content types instead of one. `raidNotice` is the
+ * RAID counterpart of `notice` -- see describeBackmatterConflict. */
+async function broadcastCollabPlan(notice, raidNotice) {
     if (collabSessionKeys.size === 0) return 0;
     const { buildPlanSnapshot } = await loadCollabOps();
+    const { buildRaidSnapshot } = await loadCollabBackmatterOps();
     const editor = collabEditor();
     if (!editor) return 0;
     const snapshot = buildPlanSnapshot(editor.value, collabPlanRev);
     if (notice) snapshot.notice = notice;
-    return sendCollabMessage(JSON.stringify(snapshot));
+    const raidSnapshot = buildRaidSnapshot(editor.value, collabPlanRev);
+    if (raidNotice) raidSnapshot.notice = raidNotice;
+    let sent = await sendCollabMessage(JSON.stringify(snapshot));
+    sent += await sendCollabMessage(JSON.stringify(raidSnapshot));
+    return sent;
 }
 
 /** Apply one joiner's edit intent to the host's plan, then tell everyone.
@@ -379,7 +416,54 @@ async function applyCollabPlanOp(joinerId, op) {
     // notices, and a notice that always fires is one nobody reads.
     const editor_name = collabJoinerNames.get(joinerId);
     const raced = collabConflicts.record(op.expect || String(op.id), editor_name);
-    await broadcastCollabPlan(raced ? describeConflict(op, result.previous, editor_name) : null);
+    await broadcastCollabPlan(raced ? describeConflict(op, result.previous, editor_name) : null, null);
+}
+
+/** #969: apply one joiner's RAID row edit intent to the host's plan, then
+ * tell everyone -- the RAID counterpart of applyCollabPlanOp above. Same
+ * host-authoritative model (joiners never touch the document, they ask
+ * the host to) and the same arrival-order-is-the-conflict-rule guarantee;
+ * see collab-backmatter-ops.js's module docstring for how row identity
+ * and staleness differ from task ops. */
+async function applyCollabBackmatterOp(joinerId, op) {
+    const { applyBackmatterOp, describeBackmatterConflict } = await loadCollabBackmatterOps();
+    const { createConflictTracker } = await loadCollabOps();
+    if (!collabBackmatterConflicts) collabBackmatterConflicts = createConflictTracker();
+    const editor = collabEditor();
+    if (!editor) return;
+
+    const result = applyBackmatterOp(editor.value, op);
+    if (!result.ok) {
+        await sendCollabMessageTo(joinerId, JSON.stringify({
+            type: 'backmatter_op_rejected', section: op.section, op: op.op, reason: result.reason,
+        }));
+        return;
+    }
+
+    editor.value = result.text;
+    collabApplyingRemoteOp = true;
+    try {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+        collabApplyingRemoteOp = false;
+    }
+    if (typeof renderPlan === 'function') {
+        try {
+            await renderPlan();
+        } catch (error) {
+            collabLog('(applied an edit but could not re-render the plan)');
+        }
+    }
+
+    collabPlanRev++;
+    // #968: same crash-recovery discipline as applyCollabPlanOp -- a RAID
+    // row a joiner just added or edited is exactly the kind of incoming
+    // contribution the host would otherwise have no record of outside the
+    // next real save, and it deserves no less protection than a task edit.
+    scheduleCollabAutosave();
+    const editor_name = collabJoinerNames.get(joinerId);
+    const raced = collabBackmatterConflicts.record(String(op.row_id), editor_name);
+    await broadcastCollabPlan(null, raced ? describeBackmatterConflict(op, result.previous, editor_name) : null);
 }
 
 /** Push the host's own typing out to joiners (#967).
@@ -407,7 +491,7 @@ function scheduleCollabPlanBroadcast() {
     clearTimeout(collabLocalEditTimer);
     collabLocalEditTimer = setTimeout(() => {
         collabPlanRev++;
-        broadcastCollabPlan(null);
+        broadcastCollabPlan(null, null);
     }, 250);
 }
 
@@ -455,11 +539,13 @@ async function handleCollabMessage(raw) {
         collabLog('Secure channel established with joiner.');
         // #967: hand the new joiner the current plan straight away, so they
         // have something to edit without waiting for someone else to make
-        // the next change.
+        // the next change. #969: the RAID log rides along the same way.
         const { buildPlanSnapshot } = await loadCollabOps();
+        const { buildRaidSnapshot } = await loadCollabBackmatterOps();
         const editor = collabEditor();
         if (editor) {
             await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(editor.value, collabPlanRev)));
+            await sendCollabMessageTo(joinerId, JSON.stringify(buildRaidSnapshot(editor.value, collabPlanRev)));
         }
         return;
     }
@@ -478,10 +564,11 @@ async function handleCollabMessage(raw) {
             return;
         }
 
-        // #967: an edit intent, or ordinary chatter. Only content that
+        // #967/#969: an edit intent, or ordinary chatter. Only content that
         // decrypted under this joiner's own key gets this far, so the
         // sender is authenticated before any op is applied.
         const { isPlanOp } = await loadCollabOps();
+        const { isBackmatterOp } = await loadCollabBackmatterOps();
         let parsed = null;
         try {
             parsed = JSON.parse(plaintext);
@@ -490,6 +577,10 @@ async function handleCollabMessage(raw) {
         }
         if (isPlanOp(parsed)) {
             await applyCollabPlanOp(joinerId, parsed);
+            return;
+        }
+        if (isBackmatterOp(parsed)) {
+            await applyCollabBackmatterOp(joinerId, parsed);
             return;
         }
         collabLog(`joiner: ${plaintext}`);
@@ -538,6 +629,7 @@ async function startCollabSession() {
     collabJoinerNames.clear();
     collabPlanRev = 0;
     if (collabConflicts) collabConflicts.reset();
+    if (collabBackmatterConflicts) collabBackmatterConflicts.reset();
     attachCollabLocalEditListener();
     renderCollabPresence([]);
 
