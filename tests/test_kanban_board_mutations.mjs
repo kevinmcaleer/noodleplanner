@@ -192,6 +192,19 @@ test('handleColumnReorder() moves a phase column before another phase', () => {
 
 test('handleCardDrop() moves a task to a different phase (phase view)', () => {
   const { board, editor } = buildBoard('phase');
+  loadPlan(board, editor, 'Phase One\n  Task A 0%\n  Task A2 0%\n\nPhase Two\n  Task B 0%');
+
+  const task = board.tasks.find(t => t.name === 'Task A');
+  const phaseTwo = board.columns.find(c => c.title === 'Phase Two');
+  board.handleCardDrop(task.lineNumber, phaseTwo);
+  board.parse();
+
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase One').tasks), ['Task A2']);
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase Two').tasks), ['Task A', 'Task B']);
+});
+
+test('handleCardDrop() drops a phase header once its last task moves elsewhere (#1055)', () => {
+  const { board, editor } = buildBoard('phase');
   loadPlan(board, editor, 'Phase One\n  Task A 0%\n\nPhase Two\n  Task B 0%');
 
   const task = board.tasks.find(t => t.name === 'Task A');
@@ -199,7 +212,8 @@ test('handleCardDrop() moves a task to a different phase (phase view)', () => {
   board.handleCardDrop(task.lineNumber, phaseTwo);
   board.parse();
 
-  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase One').tasks), []);
+  assert.deepEqual(Array.from(board.phases), ['Phase Two']);
+  assert.equal(board.columns.find(c => c.title === 'Phase One'), undefined);
   assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase Two').tasks), ['Task A', 'Task B']);
 });
 
