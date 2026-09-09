@@ -16,9 +16,10 @@ The canonical guarantee
 
 1. **Complete.** The ``.md`` file alone holds the whole plan: front matter,
    the task outline, and every back-matter section (highlights, RAID log,
-   communications plan, budget, benefits, lessons learned, baseline). Nothing
-   about a plan lives only in the browser's storage or in a database. See
-   `Where plan data lives`_ for the audit.
+   communications plan, budget, benefits, lessons learned, baseline,
+   whiteboard, parking lot). Nothing about a plan lives only in the
+   browser's storage or in a database. See `Where plan data lives`_ for
+   the audit.
 2. **Lossless.** Opening a plan and saving it without editing it leaves
    every byte as it was, with one narrow exception: the four front-matter
    keys the app maintains (`Keys the app maintains`_). Each of those is a
@@ -305,6 +306,17 @@ position, so extra or reordered columns are tolerated), except highlights.
        whiteboard/todo-list view's note layout (one row per note). See
        `Whiteboard rows`_ below for the columns and the orphan/duplicate
        rules.
+   * - ``---parking lot---``
+     - Table: ``ID | Text | Date Parked``. The "good idea, not now"
+       holding pen (issue #1019, part of #885): a whiteboard note's ``...``
+       menu offers "Send to parking lot", which deletes the note's task
+       (and any subtasks) from the outline the same way "Delete task"
+       does, but keeps its text here instead of discarding it. ``Text``
+       is the note's title, plus its comment (the ``!"text"`` free-form
+       body, if any) appended after an em dash. ``Date Parked`` is
+       ``YYYY-MM-DD``, the day it was sent here, or empty for a
+       hand-typed row. Canonically the last back-matter section, after
+       ``---whiteboard---``.
 
 A ``# Heading`` line directly after a marker (``# RAID Log``) is allowed
 and kept.
@@ -320,6 +332,16 @@ Whiteboard rows
 - ``Task`` names a task by name. Any task can have a row: the board
   started out showing summary tasks only, but a post-it now creates its
   own task, and a new one starts life as a leaf.
+- Whether a note renders as a plain **free-form note** (just its title
+  and, if set, its ``comment`` -- see the table above) or as a
+  **checklist** (its direct children as todo rows, with a progress
+  footer) is *not* a column here: it is derived straight from whether the
+  task named by ``Task`` currently has any children in the outline above,
+  the same rule the app already applies to distinguish a summary task
+  from a leaf. A free-form note becomes a checklist automatically the
+  moment its task gains a first child, and reverts just as automatically
+  if that child is later removed -- there is no separate flag to keep in
+  sync.
 - ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
   top-left of the board's own coordinate space (not the viewport).
 - ``Colour`` is ``#RRGGBB`` or empty; see `Note colour precedence`_ below.
@@ -338,6 +360,45 @@ Whiteboard rows
   the table renders in front of the others. Dragging or clicking a note
   moves its row to the end of the table, which is how "bring to front"
   persists across a reload -- z-order is never stored as a separate field.
+
+Free-floating text objects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A **text object** (issue #1018) is bare text at a position -- a heading, a
+margin question, a section label -- with no card, no border, no
+background, and, unlike every post-it row above, no backing task at all.
+It shares this same table rather than a section of its own (every existing
+whiteboard edit rewrites the whole table from its in-memory rows, so a
+second section would be silently lost the next time an unrelated post-it
+was dragged), discriminated by three more columns that a post-it row
+leaves blank:
+
+- ``Kind`` is the literal string ``text``; blank (the default) means an
+  ordinary post-it row, exactly as before this issue.
+- ``Id`` is an opaque, app-generated identifier standing in for ``Task``'s
+  role as the row's unique key -- a text object has no task name to key
+  off. A ``Kind=text`` row with no ``Id`` is dropped, the same as a
+  post-it row with no ``Task``.
+- ``Text`` is the object's own content. Embedded pipes and newlines are
+  escaped (``\|``, ``\n``) so multi-line text survives the single-line
+  table-cell format; every other column here flattens a newline to a
+  space instead, since only this one is expected to hold real prose.
+
+A text object row leaves ``Task``, ``Colour``, ``Width``, ``Height`` and
+``Collapsed`` blank -- none of them apply to bare text (no size/collapse
+state, no task-derived title, no post-it colour). The ``Kind``/``Id``/
+``Text`` columns themselves are only written into the table at all once a
+plan has at least one text object; a plan with post-it rows only still
+round-trips through an edit as the same seven-column table it always has.
+
+Created via the toolbar's **New text** button, the ``t`` key, or double-
+clicking is reserved for a new post-it (``n``) -- a text object goes
+straight into inline edit so typing its content is part of the same
+gesture, the same handoff a new post-it's title gets. Dragging repositions
+it; there is no resize, since bare text has no fixed box to fit -- it
+grows and shrinks with its own content. Deleting one (its own small ``×``
+button) removes only its row: there is no task, and so nothing else in the
+plan to touch.
 
 Noodles are not stored
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -417,12 +478,23 @@ resolved in this order, highest priority first:
    write, so a colour set on any one of the three views shows up on the
    other two, and renaming the summary task carries the colour with it
    (the rename migrates the ``Theme`` key alongside the phase/task name).
-3. Otherwise, a colour derived from the task's position in the outline (the
-   same swatch palette the mind map's branch colours use). Every note
-   always has a colour by this rule -- there is no "uncoloured" state.
-   Choosing "Default colour" in the `...` menu removes both the ``Theme``
-   entry and any stray ``Colour`` column value, returning the note to this
-   derived colour.
+3. Otherwise, a colour derived from the task's position in the outline,
+   drawn from a fixed pastel "post-it" palette (soft yellows, pinks,
+   greens, blues and reds) dedicated to whiteboard notes -- not the mind
+   map's own branch palette, and not the Kanban board's rule-based
+   conditional formatting swatches. Every note always has a colour by
+   this rule -- there is no "uncoloured" state. Choosing "Default colour"
+   in the `...` menu removes both the ``Theme`` entry and any stray
+   ``Colour`` column value, returning the note to this derived colour.
+
+A note's colour is manual, per-note shorthand -- picking a swatch has no
+semantic or conditional-formatting meaning, and is unrelated to the Kanban
+board's own rule-based conditional formatting (a different, rule-driven
+colour system). A colour value already stored from before the pastel
+palette was introduced (e.g. one of the mind map's or the boards view's
+own swatches) keeps rendering exactly as stored even though it no longer
+matches any of the menu's current swatches -- it just won't show as
+"selected" until a new pick is made from the current palette.
 
 Where plan data lives
 ----------------------

@@ -286,15 +286,19 @@
             if (!task || !target || task === target || this._contains(task, target)) return false;
             const sequentialTargets = this._captureSequentialTargets();
             const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
             const oldList = task.parent ? task.parent.children : this.roots;
             const oldIndex = oldList.indexOf(task);
             if (oldIndex < 0) return false;
             oldList.splice(oldIndex, 1);
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
             task.parent = target;
             if (afterChildren) target.children.push(task);
             else target.children.unshift(task);
             this._setIndent(task, target.indent + 2);
             this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
@@ -309,15 +313,19 @@
             if (!task) return false;
             const sequentialTargets = this._captureSequentialTargets();
             const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
             const oldList = task.parent ? task.parent.children : this.roots;
             const oldIndex = oldList.indexOf(task);
             if (oldIndex < 0) return false;
             if (!task.parent && oldIndex === this.roots.length - 1) return false;
             oldList.splice(oldIndex, 1);
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
             task.parent = null;
             this.roots.push(task);
             this._setIndent(task, 0);
             this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
@@ -328,6 +336,7 @@
             if (!task || !target || task === target || this._contains(task, target)) return false;
             const sequentialTargets = this._captureSequentialTargets();
             const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
             const oldList = task.parent ? task.parent.children : this.roots;
             const oldIndex = oldList.indexOf(task);
             if (oldIndex < 0) return false;
@@ -339,10 +348,13 @@
                 oldList.splice(oldIndex, 0, task);
                 return false;
             }
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
             task.parent = target.parent;
             targetList.splice(targetIndex + (after ? 1 : 0), 0, task);
             this._setIndent(task, target.indent);
             this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
@@ -385,6 +397,178 @@
             }
         }
 
+        // insertTaskAfter()/removeTask() -- the notepad surface's own
+        // structural operations -- live further down (after
+        // _normalisePhysicalLineEndings()), where the #1049 implementation
+        // that ships in main defines them; no separate copy needed here.
+
+        /**
+         * Check whether `task` could be made to depend on `predecessor`
+         * (predecessor finishes before task starts, a plain FS link) --
+         * without mutating anything. Used for live drag-hover feedback
+         * (#1052), where re-checking on every pointer move must be cheap
+         * and side-effect-free.
+         */
+        canAddDependency(task, predecessor) {
+            if (!task || !predecessor) return { ok: false, reason: 'Pick two tasks to link.' };
+            if (task === predecessor) return { ok: false, reason: 'A task cannot depend on itself.' };
+            if (task.dependencies.some(edge => edge.target === predecessor)) {
+                return { ok: false, reason: `"${task.name}" already depends on "${predecessor.name}".` };
+            }
+            if (this._wouldCreateCycle(task, predecessor)) {
+                return { ok: false, reason: 'That would create a circular dependency.' };
+            }
+            return { ok: true, reason: '' };
+        }
+
+        /**
+         * Would adding the edge predecessor -> task (task depends on
+         * predecessor) close a cycle? True iff `predecessor` is already
+         * reachable from `task` by following existing dependency edges
+         * forward (task -> ... -> predecessor already exists, so the new
+         * edge would complete a loop). Reuses the successors graph
+         * _resolveDependencies() already builds -- no separate traversal
+         * structure to keep in sync.
+         */
+        _wouldCreateCycle(task, predecessor) {
+            const stack = [task];
+            const visited = new Set();
+            while (stack.length) {
+                const current = stack.pop();
+                if (current === predecessor) return true;
+                if (visited.has(current)) continue;
+                visited.add(current);
+                for (const successor of current.successors) stack.push(successor);
+            }
+            return false;
+        }
+
+        /**
+         * Make `task` depend on `predecessor` (a plain FS link), appending
+         * to task's existing [depends: ...] block or creating one. Refuses
+         * -- returns false, changes nothing -- for a self-dependency, a
+         * duplicate, or one that would create a cycle (see
+         * canAddDependency(), which this reuses for the check).
+         */
+        addDependency(task, predecessor) {
+            if (!this.canAddDependency(task, predecessor).ok) return false;
+
+            this.updateLine(task, (line) => {
+                const block = DEPENDS.exec(line);
+                if (block) {
+                    const inner = block[1].trim();
+                    const newInner = inner ? inner + ', ' + predecessor.name : predecessor.name;
+                    const replacement = block[0].replace(block[1], newInner);
+                    return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+                }
+                return line.replace(/\s+$/, '') + ' [depends: ' + predecessor.name + ']';
+            });
+            return true;
+        }
+
+        /**
+         * Remove task's dependency on predecessor. Only removes an
+         * explicit [depends: ...] entry -- an implicit sequential (`*`)
+         * dependency isn't stored as text to remove from, so it isn't
+         * handled here; the caller would need to drop the `*` prefix
+         * itself (a different edit, out of this method's scope).
+         */
+        removeDependency(task, predecessor) {
+            if (!task || !predecessor) return false;
+            const edge = task.dependencies.find(d => d.target === predecessor && !d.shorthand);
+            if (!edge) return false;
+
+            this.updateLine(task, (line) => {
+                const block = DEPENDS.exec(line);
+                if (!block) return line;
+                const specs = block[1].split(',').map(s => s.trim()).filter(Boolean);
+                const remaining = specs.filter(spec => {
+                    const parsed = parseDependencySpec(spec);
+                    const key = parsed.rawName.toLowerCase();
+                    if (key.startsWith('$')) {
+                        return !(predecessor.deliverable && key.slice(1) === predecessor.deliverable.toLowerCase());
+                    }
+                    return key !== predecessor.name.toLowerCase();
+                });
+                if (remaining.length) {
+                    const replacement = block[0].replace(block[1], remaining.join(', '));
+                    return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+                }
+                // No specs left: drop the whole [depends: ...] block and
+                // any single trailing/leading space it leaves behind.
+                const before = line.slice(0, block.index);
+                const after = line.slice(block.index + block[0].length);
+                if (before.endsWith(' ') && !after.startsWith(' ')) return (before.slice(0, -1) + after).replace(/\s+$/, '');
+                return (before + after).replace(/\s+$/, '');
+            });
+            return true;
+        }
+
+        /**
+         * Serialise `task` and its whole subtree as a portable, self-
+         * contained fragment (#1050 "cards"): each line is `task.content`
+         * (no indentText from the source plan), indented purely relative to
+         * `task` itself -- `task` sits at column 0, its children at column
+         * 2, and so on -- so the fragment can be re-inserted at any depth
+         * in a different plan via insertCardAfter() without carrying the
+         * source plan's own absolute indentation along.
+         */
+        cardTextFor(task) {
+            if (!task) return '';
+            const lines = [];
+            const baseIndent = task.indent;
+            const walk = node => {
+                const relative = Math.max(0, node.indent - baseIndent);
+                lines.push(' '.repeat(relative) + node.content);
+                node.children.forEach(walk);
+            };
+            walk(task);
+            return lines.join('\n');
+        }
+
+        /**
+         * Insert a card fragment (as produced by cardTextFor(), or any
+         * outline text with the shallowest line at relative indent 0) as
+         * new sibling tasks starting immediately after `afterTask`, at
+         * `indent` (a `task.indent` value, matching insertTaskAfter()).
+         * Each line becomes its own TaskNode via insertTaskAfter(),
+         * chaining each newly inserted node as the anchor for the next --
+         * the same placement rule a user gets by typing the lines in one
+         * at a time -- so the fragment's own internal hierarchy (however
+         * deep) is reconstructed relative to `indent`, not just appended
+         * flat. Blank lines in the fragment are dropped. Returns the
+         * inserted nodes in document order (empty array if `cardText` had
+         * no non-blank lines).
+         */
+        insertCardAfter(afterTask, indent, cardText) {
+            const rawLines = String(cardText || '').split(/\r\n|\n|\r/).filter(line => line.trim() !== '');
+            if (!rawLines.length) return [];
+            const parsedLines = rawLines.map(line => {
+                const indentText = (line.match(/^\s*/) || [''])[0];
+                return { indent: indentText.length, content: line.slice(indentText.length) };
+            });
+            const minIndent = Math.min(...parsedLines.map(line => line.indent));
+            const baseIndent = Math.max(0, indent);
+            const inserted = [];
+            let anchor = afterTask;
+            for (const line of parsedLines) {
+                const relative = line.indent - minIndent;
+                const node = this.insertTaskAfter(anchor, baseIndent + relative, line.content);
+                inserted.push(node);
+                anchor = node;
+            }
+            return inserted;
+        }
+
+        _preferredEol() {
+            const physical = [];
+            this.leading.forEach(line => physical.push(line));
+            const collect = t => { physical.push(t); t.trailing.forEach(l => physical.push(l)); t.children.forEach(collect); };
+            this.roots.forEach(collect);
+            this.suffix.forEach(line => physical.push(line));
+            return physical.find(line => line.eol)?.eol || '\n';
+        }
+
         _hasFinalLineEnding() {
             return /(?:\r\n|\n|\r)$/.test(this.serialize());
         }
@@ -407,6 +591,81 @@
             }
             const last = physical[physical.length - 1];
             last.eol = hadFinalEol ? (last.eol || preferred) : '';
+        }
+
+        /**
+         * Insert a new task as a sibling immediately after `afterTask` (or as
+         * the last root task when `afterTask` is null), at the given indent
+         * depth (a `task.indent` value, i.e. spaces not outline levels).
+         * The counterpart writers (notepad list surface, #1049; the "+ Add
+         * Task" row helpers) create tasks this way instead of splicing raw
+         * text, so a freshly-typed task gets exactly the same TaskNode
+         * shape -- metadata, dependants, physical-line bookkeeping -- as one
+         * parsed from a file.
+         */
+        insertTaskAfter(afterTask, indent, name) {
+            const hadFinalEol = this._hasFinalLineEnding();
+            indent = Math.max(0, indent);
+            const indentText = ' '.repeat(indent);
+            const content = String(name || '').replace(/[\r\n]+/g, ' ').trim();
+            const physical = { text: indentText + content, eol: '' };
+            const node = new TaskNode(this.tasks.length, physical, indentText, content, taskMetadata(content));
+
+            if (!afterTask) {
+                node.parent = null;
+                this.roots.push(node);
+            } else if (indent > afterTask.indent) {
+                // Deeper than the anchor: nest as its last child.
+                node.parent = afterTask;
+                afterTask.children.push(node);
+            } else {
+                // Same depth or shallower: walk up to the ancestor-or-self of
+                // afterTask that sits at (or just above) the requested depth,
+                // and insert as its next sibling. Descendants of that
+                // ancestor live in its own nested children array rather than
+                // this list, so the new node lands after its whole subtree.
+                let boundary = afterTask;
+                while (boundary.parent && boundary.parent.indent >= indent) boundary = boundary.parent;
+                node.parent = boundary.parent;
+                const list = boundary.parent ? boundary.parent.children : this.roots;
+                list.splice(list.indexOf(boundary) + 1, 0, node);
+            }
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return node;
+        }
+
+        /**
+         * Remove a leaf task (one with no children) from the document.  Any
+         * blank/comment lines trailing it are folded onto the previous
+         * physical line so deleting a task never silently drops content.
+         * Refuses to remove a task that has children -- callers should
+         * outdent or remove those first, the same way a user would have to
+         * clear a summary row's children before deleting it.
+         *
+         * Also used to drop a phase header left with nothing under it once
+         * its last task moved elsewhere, rather than leave a dead,
+         * permanently empty column on the board (#1055, #1065).
+         */
+        removeTask(task) {
+            if (!task || task.children.length) return false;
+            const list = task.parent ? task.parent.children : this.roots;
+            const index = list.indexOf(task);
+            if (index < 0) return false;
+            const hadFinalEol = this._hasFinalLineEnding();
+            const order = this.tasks;
+            const position = order.indexOf(task);
+            list.splice(index, 1);
+            if (task.trailing.length) {
+                const previous = order[position - 1];
+                if (previous) previous.trailing.push(...task.trailing);
+                else this.leading.push(...task.trailing);
+            }
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return true;
         }
 
         indentTasks(tasks) {
@@ -442,6 +701,37 @@
                 stack.push(task);
             }
             this._resolveDependencies();
+        }
+
+        // A task's `trailing` lines are blank/comment lines that happened to
+        // follow it at its *old* physical position. Blank ones are purely
+        // cosmetic spacing between neighbours -- carrying them along on a
+        // move re-homes them next to whatever now follows the task instead,
+        // which reads as a stray/misplaced blank line rather than the
+        // separator it used to be (#911). Non-blank trailing lines (e.g. a
+        // `//` comment) are real content and stay with the task.
+        _dropTrailingBlankLines(task) {
+            task.trailing = task.trailing.filter(line => line.text.trim() !== '');
+        }
+
+        // The task immediately before `task` in the current serialization
+        // order, or null if `task` is first. Read this.tasks *before*
+        // mutating the tree for a move's old predecessor, or after
+        // _refreshTaskOrder() for its new one.
+        _predecessorOf(task) {
+            const index = this.tasks.indexOf(task);
+            return index > 0 ? this.tasks[index - 1] : null;
+        }
+
+        // The task now immediately before `task` in serialization order (if
+        // any) used to be followed by something else -- its own blank
+        // trailing lines represented that old gap, not this new one, so
+        // they'd otherwise land as a stray blank line right before `task`
+        // at its new position (#911). Call after _refreshTaskOrder() so
+        // this.tasks reflects the post-move order.
+        _dropPredecessorBlankTrailing(task) {
+            const predecessor = this._predecessorOf(task);
+            if (predecessor) this._dropTrailingBlankLines(predecessor);
         }
 
         _contains(ancestor, possibleChild) {

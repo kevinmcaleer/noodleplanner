@@ -12,13 +12,19 @@ BENEFITS_START = '---benefits---'
 BASELINE_START = '---baseline---'
 LESSONS_START = '---lessons learned---'
 WHITEBOARD_START = '---whiteboard---'
+PARKING_LOT_START = '---parking lot---'
+# Three-point (PERT) estimate inputs per task (#1053). Canonically written
+# last -- see the ordering note below -- since it has no relationship to
+# any other section's content and there is no reason for another section
+# to need to know where it ends.
+ESTIMATES_START = '---estimates---'
 
 # Every back-matter section marker. The canonical write order (see the
 # update_plan_* functions below, e.g. update_plan_highlights) puts these
 # in the order: highlights, budget, benefits, raid log, comms, lessons
-# learned, baseline, whiteboard. Nothing enforces that order in hand-edited
-# or AI-chat-edited plan text, though, so any function that finds "the next
-# section marker"
+# learned, baseline, whiteboard, parking lot, estimates. Nothing enforces
+# that order in hand-edited or AI-chat-edited plan text, though, so any
+# function that finds "the next section marker"
 # after a given section must scan for *every other* marker here and take
 # whichever occurs earliest -- not just the ones that are supposed to come
 # later in canonical order. Otherwise a section that ends up out of its
@@ -27,7 +33,7 @@ WHITEBOARD_START = '---whiteboard---'
 ALL_SECTION_MARKERS = (
     HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
     RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-    WHITEBOARD_START,
+    WHITEBOARD_START, PARKING_LOT_START, ESTIMATES_START,
 )
 
 
@@ -121,8 +127,8 @@ def convert_plan_format_to_standard(text: str) -> str:
     - Keep % for completion
     - Keep !" for comments
     """
-    # Strip highlights, budget, RAID log, comms, lessons, baseline, and
-    # whiteboard sections before processing
+    # Strip highlights, budget, RAID log, comms, lessons, baseline,
+    # whiteboard, and parking lot sections before processing
     text = strip_highlights(text)
     text = strip_budget(text)
     text = strip_raid_log(text)
@@ -131,6 +137,8 @@ def convert_plan_format_to_standard(text: str) -> str:
     text = strip_lessons(text)
     text = strip_baseline(text)
     text = strip_whiteboard(text)
+    text = strip_parking_lot(text)
+    text = strip_estimates(text)
     lines = text.split('\n')
     output_lines = []
     in_frontmatter = False
@@ -370,7 +378,7 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
         Updated plan text.
     """
     # Preserve any existing budget, benefits, RAID log, comms, lessons,
-    # baseline, and whiteboard sections that follow highlights
+    # baseline, whiteboard, and parking lot sections that follow highlights
     budget_text = extract_budget(plan_text)
     benefits_text = extract_benefits(plan_text)
     raid_log_text = extract_raid_log(plan_text)
@@ -378,7 +386,8 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
     whiteboard_text = extract_whiteboard(plan_text)
-    base = strip_whiteboard(strip_baseline(strip_lessons(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text)))))))).rstrip('\n')
+    parking_lot_text = extract_parking_lot(plan_text)
+    base = strip_parking_lot(strip_whiteboard(strip_baseline(strip_lessons(strip_comms(strip_raid_log(strip_benefits(strip_budget(strip_highlights(plan_text))))))))).rstrip('\n')
     section = generate_highlights_text(highlights)
 
     if not section:
@@ -413,6 +422,10 @@ def update_plan_highlights(plan_text: str, highlights: list) -> str:
     # Re-append the whiteboard section if it was present
     if whiteboard_text:
         result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
+    # Re-append the parking lot section if it was present
+    if parking_lot_text:
+        result = result.rstrip('\n') + '\n\n' + PARKING_LOT_START + '\n' + parking_lot_text
 
     return result
 
@@ -602,6 +615,131 @@ def parse_budget_markdown(text: str) -> list:
         })
 
     return items
+
+
+def extract_estimates(text: str) -> str:
+    """Extract the three-point estimates section text from plan text (#1053).
+
+    Returns the raw text between ``---estimates---`` and whichever other
+    section marker occurs next in the actual text, or EOF. Returns an
+    empty string if no estimates section is present.
+    """
+    start_idx = text.find(ESTIMATES_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(ESTIMATES_START)
+    end_idx = _next_marker_idx(text, after_start, exclude=(ESTIMATES_START,))
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_estimates(text: str) -> str:
+    """Remove the estimates section from plan text (#1053).
+
+    Returns the plan text without the ``---estimates---`` block. This is
+    what keeps a task's recorded three-point inputs from leaking into the
+    task outline the scheduler parses -- see convert_plan_format_to_standard().
+    Preserves whatever other section actually follows the estimates
+    section in the text, regardless of canonical order.
+    """
+    start_idx = text.find(ESTIMATES_START)
+    if start_idx == -1:
+        return text
+
+    before = _strip_trailing_bare_separator(text[:start_idx])
+    end_idx = _next_marker_idx(text, start_idx, exclude=(ESTIMATES_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
+
+    return before
+
+
+def parse_estimates_markdown(text: str) -> list:
+    """Parse a three-point estimates markdown table into a list of records.
+
+    Args:
+        text: Markdown text containing an estimates table (columns: Task,
+            Optimistic, Most Likely, Pessimistic, Mode, Size)
+
+    Returns:
+        List of dicts with keys: task, optimistic, most_likely,
+        pessimistic, mode ('duration' or 'tshirt'), size (t-shirt size
+        letter, only meaningful when mode is 'tshirt')
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    header_index = -1
+    for i, line in enumerate(lines):
+        lower = line.lower()
+        if '|' in lower and 'task' in lower and 'optimistic' in lower:
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        parts = line.split('|')
+        cells = []
+        for i, p in enumerate(parts):
+            stripped = p.strip()
+            if i == 0 and not stripped:
+                continue
+            if i == len(parts) - 1 and not stripped:
+                continue
+            cells.append(stripped)
+        return cells
+
+    headers = [h.lower() for h in parse_row(lines[header_index])]
+
+    aliases = {
+        'task': 'task', 'optimistic': 'optimistic', 'likely': 'most_likely',
+        'pessimistic': 'pessimistic', 'mode': 'mode', 'size': 'size',
+    }
+
+    col_map = {}
+    for idx, h in enumerate(headers):
+        for alias, field in aliases.items():
+            if alias in h:
+                col_map[field] = idx
+                break
+
+    records = []
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        if all(c in '-| ' for c in line):
+            continue
+        if line.lstrip().startswith('//'):
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        task_name = get_cell('task', '')
+        if not task_name:
+            continue
+
+        mode = get_cell('mode', 'duration')
+        records.append({
+            'task': task_name,
+            'optimistic': get_cell('optimistic', ''),
+            'most_likely': get_cell('most_likely', ''),
+            'pessimistic': get_cell('pessimistic', ''),
+            'mode': mode if mode in ('duration', 'tshirt') else 'duration',
+            'size': get_cell('size', ''),
+        })
+
+    return records
 
 
 def parse_raid_markdown(text: str) -> list:
@@ -903,7 +1041,7 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     Replaces the existing ``---raid log---`` section or appends a new
     one after the highlights section.  If *raid_items* is empty, any
     existing RAID log section is removed.  Preserves any comms, lessons,
-    baseline, and whiteboard sections that follow.
+    baseline, whiteboard, and parking lot sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -912,12 +1050,14 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the comms, lessons, baseline, and whiteboard sections
+    # Preserve the comms, lessons, baseline, whiteboard, and parking lot
+    # sections
     comms_text = extract_comms_plan(plan_text)
     lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
     whiteboard_text = extract_whiteboard(plan_text)
-    base = strip_whiteboard(strip_baseline(strip_lessons(strip_comms(strip_raid_log(plan_text))))).rstrip('\n')
+    parking_lot_text = extract_parking_lot(plan_text)
+    base = strip_parking_lot(strip_whiteboard(strip_baseline(strip_lessons(strip_comms(strip_raid_log(plan_text)))))).rstrip('\n')
     table = generate_raid_log_text(raid_items)
 
     result = base
@@ -939,6 +1079,10 @@ def update_plan_raid_log(plan_text: str, raid_items: list) -> str:
     # Re-append the whiteboard section if it was present
     if whiteboard_text:
         result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
+    # Re-append the parking lot section if it was present
+    if parking_lot_text:
+        result = result.rstrip('\n') + '\n\n' + PARKING_LOT_START + '\n' + parking_lot_text
 
     return result
 
@@ -1137,7 +1281,7 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
     Replaces the existing ``---comms---`` section or appends a new
     one after the RAID log section.  If *comms_items* is empty, any
     existing comms section is removed.  Preserves any lessons learned,
-    baseline, and whiteboard sections that follow.
+    baseline, whiteboard, and parking lot sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -1146,11 +1290,13 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the lessons learned, baseline, and whiteboard sections
+    # Preserve the lessons learned, baseline, whiteboard, and parking lot
+    # sections
     lessons_text = extract_lessons(plan_text)
     baseline_text = extract_baseline(plan_text)
     whiteboard_text = extract_whiteboard(plan_text)
-    base = strip_whiteboard(strip_baseline(strip_lessons(strip_comms(plan_text)))).rstrip('\n')
+    parking_lot_text = extract_parking_lot(plan_text)
+    base = strip_parking_lot(strip_whiteboard(strip_baseline(strip_lessons(strip_comms(plan_text))))).rstrip('\n')
     table = generate_comms_plan_text(comms_items)
 
     result = base
@@ -1168,6 +1314,10 @@ def update_plan_comms(plan_text: str, comms_items: list) -> str:
     # Re-append the whiteboard section if it was present
     if whiteboard_text:
         result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
+    # Re-append the parking lot section if it was present
+    if parking_lot_text:
+        result = result.rstrip('\n') + '\n\n' + PARKING_LOT_START + '\n' + parking_lot_text
 
     return result
 
@@ -1324,7 +1474,7 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     Replaces the existing ``---baseline---`` section or appends a new
     one at the end of the plan text (after RAID log).  If
     *baseline_items* is empty, any existing baseline section is removed.
-    Preserves any whiteboard section that follows.
+    Preserves any whiteboard and parking lot sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -1333,9 +1483,10 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the whiteboard section when updating baseline
+    # Preserve the whiteboard and parking lot sections when updating baseline
     whiteboard_text = extract_whiteboard(plan_text)
-    base = strip_whiteboard(strip_baseline(plan_text)).rstrip('\n')
+    parking_lot_text = extract_parking_lot(plan_text)
+    base = strip_parking_lot(strip_whiteboard(strip_baseline(plan_text))).rstrip('\n')
     table = generate_baseline_text(baseline_items)
 
     result = base
@@ -1345,6 +1496,10 @@ def update_plan_baseline(plan_text: str, baseline_items: list) -> str:
     # Re-append the whiteboard section if it was present
     if whiteboard_text:
         result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
+    # Re-append the parking lot section if it was present
+    if parking_lot_text:
+        result = result.rstrip('\n') + '\n\n' + PARKING_LOT_START + '\n' + parking_lot_text
 
     return result
 
@@ -1833,8 +1988,8 @@ def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
 
     Replaces the existing ``---lessons learned---`` section or appends a
     new one after the comms plan.  If *lessons_items* is empty, any
-    existing lessons section is removed.  Preserves any baseline and
-    whiteboard sections that follow.
+    existing lessons section is removed.  Preserves any baseline,
+    whiteboard, and parking lot sections that follow.
 
     Args:
         plan_text: The full plan text.
@@ -1843,10 +1998,11 @@ def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
     Returns:
         Updated plan text.
     """
-    # Preserve the baseline and whiteboard sections
+    # Preserve the baseline, whiteboard, and parking lot sections
     baseline_text = extract_baseline(plan_text)
     whiteboard_text = extract_whiteboard(plan_text)
-    base = strip_whiteboard(strip_baseline(strip_lessons(plan_text))).rstrip('\n')
+    parking_lot_text = extract_parking_lot(plan_text)
+    base = strip_parking_lot(strip_whiteboard(strip_baseline(strip_lessons(plan_text)))).rstrip('\n')
     table = generate_lessons_text(lessons_items)
 
     result = base
@@ -1858,6 +2014,9 @@ def update_plan_lessons(plan_text: str, lessons_items: list) -> str:
 
     if whiteboard_text:
         result = result.rstrip('\n') + '\n\n' + WHITEBOARD_START + '\n' + whiteboard_text
+
+    if parking_lot_text:
+        result = result.rstrip('\n') + '\n\n' + PARKING_LOT_START + '\n' + parking_lot_text
 
     return result
 
@@ -2166,9 +2325,10 @@ def update_plan_whiteboard(plan_text: str, items: list) -> str:
 
     Replaces the existing ``---whiteboard---`` section or appends a new
     one at the end of the plan text.  If *items* is empty, any existing
-    whiteboard section is removed.  The whiteboard section is canonically
-    the last back-matter section (see plan-format.rst), so nothing needs
-    to be preserved and re-appended after it.
+    whiteboard section is removed.  Preserves any parking lot section
+    (issue #1019) that follows -- whiteboard used to be unconditionally
+    the last back-matter section, but parking lot is now canonically the
+    one after it (see plan-format.rst).
 
     Args:
         plan_text: The full plan text.
@@ -2177,10 +2337,240 @@ def update_plan_whiteboard(plan_text: str, items: list) -> str:
     Returns:
         Updated plan text.
     """
-    base = strip_whiteboard(plan_text).rstrip('\n')
+    parking_lot_text = extract_parking_lot(plan_text)
+    base = strip_parking_lot(strip_whiteboard(plan_text)).rstrip('\n')
     table = generate_whiteboard_text(items)
+
+    result = base
+    if table:
+        result = result + '\n\n' + WHITEBOARD_START + '\n' + table
+
+    if parking_lot_text:
+        result = result.rstrip('\n') + '\n\n' + PARKING_LOT_START + '\n' + parking_lot_text
+
+    return result
+
+
+# =====================================================================
+# Parking lot (issue #1019, part of the #885 whiteboard epic)
+#
+# A "good idea, not now" holding pen for whiteboard items that aren't
+# ready to become a task or note yet. Unlike the whiteboard section
+# above, a parked item has no board position, no colour, no backing
+# task -- it is closer to a highlight than a post-it: just a stray
+# thought, kept so it isn't lost when it's taken off the working plan.
+#
+# The section is round-tripped using the marker ``---parking lot---``
+# followed by a table with columns:
+#
+#   ID | Text | Date Parked
+#
+# matched by name, not position, mirroring every table-shaped back-matter
+# section above rather than the heading-based highlights format --
+# a parking lot row has only one piece of free text (no author/date
+# grouping to justify highlights' heading-per-entry shape). ``Text`` is
+# the parked item's own content (a note's title, plus its comment if it
+# had one). ``Date Parked`` is ``YYYY-MM-DD``, the day the item was sent
+# to the parking lot, or empty if unknown (e.g. a hand-typed row).
+#
+# Parking lot is canonically the section after whiteboard -- the newest
+# back-matter section, at the end of the canonical write order (see
+# ALL_SECTION_MARKERS above) -- so update_plan_whiteboard() (and every
+# earlier update_plan_* function) preserves and re-appends it the same
+# way it already does for whiteboard.
+# =====================================================================
+
+
+def extract_parking_lot(text: str) -> str:
+    """Extract the parking lot section text from plan text.
+
+    Returns the raw text between ``---parking lot---`` and whichever other
+    section marker occurs next in the actual text (not just the ones that
+    are supposed to follow it in canonical order), or EOF. Returns an
+    empty string if no parking lot section is present.
+    """
+    start_idx = text.find(PARKING_LOT_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(PARKING_LOT_START)
+    end_idx = _next_marker_idx(text, after_start, exclude=(PARKING_LOT_START,))
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_parking_lot(text: str) -> str:
+    """Remove the parking lot section from plan text.
+
+    Returns the plan text without the ``---parking lot---`` block,
+    suitable for passing to the task parser.  Preserves whatever other
+    section actually follows the parking lot section in the text,
+    regardless of canonical order.
+    """
+    start_idx = text.find(PARKING_LOT_START)
+    if start_idx == -1:
+        return text
+
+    before = _strip_trailing_bare_separator(text[:start_idx])
+    end_idx = _next_marker_idx(text, start_idx, exclude=(PARKING_LOT_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
+
+    return before
+
+
+def parse_parking_lot_markdown(text: str) -> list:
+    """Parse a parking lot markdown table into a list of item dicts.
+
+    Columns are matched by name, not position: ``ID | Text | Date Parked``
+    in any order, extra columns tolerated and ignored.
+
+    Args:
+        text: Markdown text containing a parking lot table.
+
+    Returns:
+        List of dicts with keys: id, text, date_parked.
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    def parse_row(line):
+        parts = re.split(r'(?<!\\)\|', line)
+        if parts and not parts[0].strip():
+            parts = parts[1:]
+        if parts and not parts[-1].strip():
+            parts = parts[:-1]
+        return [cell.strip() for cell in parts]
+
+    header_index = -1
+    headers = []
+    for i, line in enumerate(lines):
+        if '|' not in line:
+            continue
+        cells = [c.strip().lower() for c in parse_row(line)]
+        if 'text' in cells:
+            header_index = i
+            headers = cells
+            break
+
+    if header_index == -1:
+        return []
+
+    aliases = {'id': 'id', 'text': 'text', 'date parked': 'date_parked'}
+    col_map = {}
+    for idx, header in enumerate(headers):
+        if header in aliases and aliases[header] not in col_map:
+            col_map[aliases[header]] = idx
+
+    items = []
+    max_id = 0
+
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        if line.replace('|', '').replace('-', '').replace(' ', '') == '':
+            continue
+        if line.lstrip().startswith('//'):
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        text_value = get_cell('text', '')
+        if not text_value:
+            continue
+
+        id_str = get_cell('id', '')
+        try:
+            item_id = int(id_str) if id_str else max_id + 1
+        except (ValueError, TypeError):
+            item_id = max_id + 1
+        max_id = max(max_id, item_id)
+
+        items.append({
+            'id': item_id,
+            'text': text_value,
+            'date_parked': get_cell('date_parked', ''),
+        })
+
+    return items
+
+
+def generate_parking_lot_text(items: list) -> str:
+    """Generate a formatted markdown table from parking lot items.
+
+    Each column is padded to the width of its widest entry for clean,
+    readable markdown output.
+
+    Args:
+        items: List of dicts with keys: id, text, date_parked.
+
+    Returns:
+        The formatted markdown table string, or empty string if there
+        are no items.
+    """
+    if not items:
+        return ''
+
+    headers = ['ID', 'Text', 'Date Parked']
+
+    def escape_pipe(value):
+        return str(value).replace('|', '\\|').replace('\n', ' ')
+
+    rows = []
+    for item in items:
+        rows.append([
+            escape_pipe(str(item.get('id', ''))),
+            escape_pipe(item.get('text', '')),
+            escape_pipe(item.get('date_parked', '') or ''),
+        ])
+
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def format_row(cells):
+        padded = [cell.ljust(widths[i]) for i, cell in enumerate(cells)]
+        return '| ' + ' | '.join(padded) + ' |'
+
+    separator = '|' + '|'.join('-' * (widths[i] + 2) for i in range(len(headers))) + '|'
+
+    lines = [format_row(headers), separator]
+    for row in rows:
+        lines.append(format_row(row))
+
+    return '\n'.join(lines)
+
+
+def update_plan_parking_lot(plan_text: str, items: list) -> str:
+    """Update plan text with the given parking lot items.
+
+    Replaces the existing ``---parking lot---`` section or appends a new
+    one at the end of the plan text.  If *items* is empty, any existing
+    parking lot section is removed.  Parking lot is canonically the last
+    back-matter section (see plan-format.rst), so nothing needs to be
+    preserved and re-appended after it.
+
+    Args:
+        plan_text: The full plan text.
+        items: List of parking lot item dicts (see
+            ``parse_parking_lot_markdown``).
+
+    Returns:
+        Updated plan text.
+    """
+    base = strip_parking_lot(plan_text).rstrip('\n')
+    table = generate_parking_lot_text(items)
 
     if not table:
         return base
 
-    return base + '\n\n' + WHITEBOARD_START + '\n' + table
+    return base + '\n\n' + PARKING_LOT_START + '\n' + table

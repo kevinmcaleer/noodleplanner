@@ -128,7 +128,7 @@
 }
 
 .portfolio-empty-state h3 {
-    color: #667eea;
+    color: var(--np-accent);
     margin-bottom: 15px;
     font-size: 1.5em;
 }
@@ -159,8 +159,8 @@
 }
 
 .portfolio-project-card.active {
-    border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    border-color: var(--np-accent);
+    box-shadow: 0 4px 12px rgba(16, 139, 185, 0.3);
 }
 
 .portfolio-project-header {
@@ -179,7 +179,7 @@
 }
 
 .portfolio-active-badge {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     padding: 4px 12px;
     border-radius: 12px;
@@ -210,7 +210,7 @@
 
 /* Button styles (if not already defined) */
 .btn-primary {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 10px 20px;
@@ -222,9 +222,9 @@
 }
 
 .btn-primary:hover {
-    background: #5568d3;
+    background: var(--np-accent-hover, #5568d3);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 2px 8px rgba(16, 139, 185, 0.4);
 }
 
 .btn-secondary {
@@ -286,13 +286,13 @@
 }
 
 .portfolio-subnav-btn:hover {
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.06);
+    color: var(--np-accent);
+    background: rgba(16, 139, 185, 0.08);
 }
 
 .portfolio-subnav-btn.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
     font-weight: 600;
 }
 
@@ -338,7 +338,7 @@
 
 .portfolio-status-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-status-table-wrapper {
@@ -457,7 +457,7 @@
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: var(--np-accent-gradient);
     border-radius: 12px;
     transition: width 0.3s ease;
 }
@@ -565,7 +565,7 @@
 .summary-value {
     font-size: 1.8em;
     font-weight: 700;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .portfolio-resources-table-wrapper {
@@ -623,7 +623,7 @@
 
 .project-count-badge {
     display: inline-block;
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     padding: 4px 8px;
     border-radius: 10px;
@@ -674,7 +674,7 @@
 
 /* Small Button */
 .btn-small {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -686,7 +686,7 @@
 }
 
 .btn-small:hover {
-    background: #5568d3;
+    background: var(--np-accent-hover, #5568d3);
     transform: translateY(-1px);
 }
 
@@ -750,13 +750,13 @@
 
 #resourceDetailsBody h3 {
     margin: 25px 0 15px 0;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.4em;
 }
 
 #resourceDetailsBody h4 {
     margin: 15px 0 10px 0;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
 }
 
@@ -784,7 +784,7 @@
 .stat-value {
     font-size: 1.5em;
     font-weight: 700;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .project-assignments {
@@ -804,7 +804,7 @@
 }
 
 .assignments-table th {
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     padding: 10px;
     text-align: left;
@@ -886,7 +886,7 @@
 
 .timeline-controls select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 #portfolioTimelineView.portfolio-timeline-active {
@@ -1243,7 +1243,7 @@
     font-weight: 600;
     color: #212529;
     background: #fff;
-    border: 1px solid #667eea;
+    border: 1px solid var(--np-accent);
     border-radius: 3px;
     padding: 2px 6px;
     outline: none;
@@ -1252,7 +1252,7 @@
 }
 
 .active-indicator {
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.2em;
     margin-right: 4px;
 }
@@ -1276,8 +1276,8 @@
 }
 
 .project-action-btn.project-action-save:hover {
-    color: #667eea;
-    border-color: #667eea;
+    color: var(--np-accent);
+    border-color: var(--np-accent);
 }
 
 .project-action-btn.project-action-delete:hover {
@@ -1337,7 +1337,7 @@
 }
 
 .highlight-author {
-    color: #667eea;
+    color: var(--np-accent);
     font-weight: 500;
 }
 
@@ -1378,7 +1378,7 @@
 
 /* Clickable since issue #953: drills into the programme-altitude view. */
 .programme-badge:hover {
-    background: var(--np-accent, #667eea);
+    background: var(--np-accent);
     color: #ffffff;
 }
 
@@ -1416,8 +1416,8 @@
 
 .portfolio-lasso-box {
     position: fixed;
-    border: 1px solid var(--np-accent, #667eea);
-    background: rgba(102, 126, 234, 0.12);
+    border: 1px solid var(--np-accent);
+    background: rgba(16, 139, 185, 0.12);
     pointer-events: none;
     z-index: 9999;
 }
@@ -1548,7 +1548,7 @@
 
 .portfolio-actions-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-actions-table-wrapper {
@@ -1602,7 +1602,7 @@
 
 .actions-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .actions-task-name {
@@ -1694,7 +1694,7 @@
 
 .portfolio-risks-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-risks-new {
@@ -1716,12 +1716,12 @@
 
 .portfolio-risks-new select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .new-risk-btn {
     padding: 8px 18px;
-    background: #667eea;
+    background: var(--np-accent);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1787,7 +1787,7 @@
 
 .risks-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .risks-title {
@@ -2062,7 +2062,7 @@
 
 .lookahead-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .lookahead-task-name {
@@ -2132,7 +2132,7 @@
     width: 40px;
     height: 40px;
     border: 4px solid #e0e0e0;
-    border-top-color: #667eea;
+    border-top-color: var(--np-accent);
     border-radius: 50%;
     animation: portfolio-spin 0.8s linear infinite;
     margin-bottom: 15px;

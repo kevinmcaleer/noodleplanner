@@ -291,9 +291,9 @@
 
 .wb-note-count-badge:hover,
 .wb-note-count-badge:focus-visible {
-    background: var(--np-accent, #667eea);
+    background: var(--np-accent);
     color: #ffffff;
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
 }
 
 .wb-note-footer {
@@ -320,7 +320,7 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #108BB9 0%, #0d7096 100%);
+    background: var(--np-info-gradient, linear-gradient(135deg, #108BB9 0%, #0d7096 100%));
     color: white;
     display: flex;
     align-items: center;
@@ -388,7 +388,8 @@
 
 .wb-note-menu-default,
 .wb-note-menu-open-task,
-.wb-note-menu-action {
+.wb-note-menu-action,
+.wb-note-menu-promote {
     display: block;
     width: 100%;
     text-align: left;
@@ -406,9 +407,11 @@
 .wb-note-menu-open-task:hover,
 .wb-note-menu-open-task:focus-visible,
 .wb-note-menu-action:hover,
-.wb-note-menu-action:focus-visible {
+.wb-note-menu-action:focus-visible,
+.wb-note-menu-promote:hover,
+.wb-note-menu-promote:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
-    outline: 2px solid var(--np-accent, #667eea);
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -433,7 +436,7 @@
 }
 
 .wb-note-menu-swatch:focus-visible {
-    outline: 2px solid var(--np-accent, #667eea);
+    outline: 2px solid var(--np-accent);
     outline-offset: 2px;
 }
 
@@ -455,6 +458,157 @@
 .wb-note-title-only .wb-note-body,
 .wb-note-title-only .wb-note-footer {
     display: none;
+}
+
+/* Free-form note (issue #1015): a task with zero children has no checklist
+   to summarise, so its progress/avatar footer is hidden -- unlike
+   title-only above (a zoom/collapse state that hides the body too), this
+   is driven purely by the underlying task's own structure and applies at
+   any zoom level; the body stays visible so the note's own comment text
+   (see .wb-note-freetext below) still shows. */
+.wb-note-freeform .wb-note-footer {
+    display: none;
+}
+
+/* A free-form note's body text -- its task's own `comment` field, the
+   same free text the task-details form's "Comment" field reads/writes.
+   Left unstyled-empty (no placeholder) when there is no comment, per
+   #885's "nothing prompts for detail". */
+.wb-note-freetext {
+    padding: 8px 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--np-text, #333333);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+/* ========================================
+   Free-floating text objects (issue #1018)
+
+   Deliberately NOT a re-skin of .wb-note-card above (nor of #1015's
+   free-form note, which is still a bordered card -- see this file's own
+   note on that distinction in whiteboard-notes.js's header comment): no
+   background, no border, no border-radius, no box-shadow, no header, no
+   footer. Just styled text sitting directly on the dot-grid, the way a
+   heading or margin note would sit on a real whiteboard.
+
+   The <foreignObject> itself (.wb-text-object) is a fixed, generous box
+   (SVG foreignObject sizing needs an explicit width/height -- see
+   WB_TEXT_DEFAULT_WIDTH/HEIGHT in whiteboard-notes.js) rendered with
+   `overflow: visible`; .wb-text-object-wrap is `display: inline-block`
+   inside it so it shrinks to hug whatever size its own text actually
+   renders at, rather than the full fixed box -- which is also what makes
+   the delete button (absolutely positioned against the wrap) track the
+   visible text's own corner instead of the oversized box's corner.
+   pointer-events is disabled on the object/wrap and re-enabled only on
+   the text and the delete button, so the empty parts of the fixed box
+   are inert -- a drag or click only ever lands on the glyphs themselves.
+   ======================================== */
+
+.wb-text-object {
+    overflow: visible;
+    pointer-events: none;
+}
+
+.wb-text-object-wrap {
+    display: inline-block;
+    position: relative;
+    pointer-events: none;
+}
+
+.wb-text-object-content {
+    display: inline-block;
+    min-width: 24px;
+    min-height: 1.4em;
+    max-width: 640px;
+    padding: 2px 4px;
+    margin: -2px -4px; /* padding for a comfortable hit target, without shifting the text's own visual position */
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--np-text, #333333);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    cursor: grab;
+    touch-action: none;
+    pointer-events: auto;
+    outline: none;
+}
+
+.wb-text-object-content:active {
+    cursor: grabbing;
+}
+
+/* Mid-edit (wbBeginTextObjectEdit()): a faint dashed outline as the only
+   edit affordance -- present solely while typing, never at rest, so it
+   never reads as the "bordered card" chrome this object type exists to
+   not have. */
+.wb-text-object-content.editing {
+    cursor: text;
+    outline: 1px dashed var(--np-border, #c7c7c7);
+    outline-offset: 3px;
+}
+
+/* A freshly-created, still-empty object (issue #1018: "nothing is
+   mandatory" -- an empty text object is never auto-deleted) shows faint
+   placeholder copy so it stays findable/clickable rather than rendering
+   as literally nothing. */
+.wb-text-object-placeholder {
+    color: var(--np-text-muted, #888888);
+    font-style: italic;
+    font-weight: 400;
+}
+
+.wb-text-object-delete {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 50%;
+    background: var(--np-surface, #ffffff);
+    color: var(--np-text-secondary, #666666);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.wb-text-object-wrap:hover .wb-text-object-delete,
+.wb-text-object-delete:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.wb-text-object-delete:hover,
+.wb-text-object-delete:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    color: var(--np-text, #333333);
+}
+
+/* Touch has no hover -- always show the delete button once the object has
+   been interacted with at all would require extra state for little
+   benefit, so on a coarse pointer it is simply always visible (matches
+   the resize handle's own `pointer: coarse` generosity just below). */
+@media (pointer: coarse) {
+    .wb-text-object-delete {
+        opacity: 1;
+        pointer-events: auto;
+        width: 22px;
+        height: 22px;
+    }
 }
 
 /* Resize handle (issue #848): a small grip in the note's bottom-right
@@ -609,8 +763,8 @@ body.wb-note-drag-active * {
 }
 
 .wb-empty-state-btn-primary {
-    background: var(--np-accent, #667eea);
-    border-color: var(--np-accent, #667eea);
+    background: var(--np-accent);
+    border-color: var(--np-accent);
     color: #ffffff;
 }
 
@@ -695,7 +849,7 @@ body.wb-note-drag-active * {
 }
 
 .wb-add-note-search:focus-visible {
-    outline: 2px solid var(--np-accent, #667eea);
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -776,7 +930,7 @@ body.wb-note-drag-active * {
     padding: 4px 2px;
     border: none;
     background: transparent;
-    color: var(--np-accent, #667eea);
+    color: var(--np-accent);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -815,16 +969,16 @@ body.wb-note-drag-active * {
 }
 
 .wb-add-note-create-input:focus-visible {
-    outline: 2px solid var(--np-accent, #667eea);
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
 .wb-add-note-create-btn {
     flex-shrink: 0;
     padding: 8px 14px;
-    border: 1px solid var(--np-accent, #667eea);
+    border: 1px solid var(--np-accent);
     border-radius: 6px;
-    background: var(--np-accent, #667eea);
+    background: var(--np-accent);
     color: #ffffff;
     font-size: 13px;
     font-weight: 600;
@@ -870,8 +1024,8 @@ body.wb-note-drag-active * {
 }
 
 .wb-add-note-submit {
-    border: 1px solid var(--np-accent, #667eea);
-    background: var(--np-accent, #667eea);
+    border: 1px solid var(--np-accent);
+    background: var(--np-accent);
     color: #ffffff;
 }
 
@@ -889,6 +1043,84 @@ body.wb-note-drag-active * {
         width: auto;
         padding: 0 14px;
     }
+}
+
+/* ── Parking lot panel (issue #1019) ────────────────────────────────────
+   Reuses the Add-note picker's overlay/dialog/header chrome (see
+   .wb-add-note-overlay/.wb-add-note-dialog/.wb-add-note-header above);
+   only the body -- a plain list, no search, no footer -- is new. */
+
+.wb-parking-lot-dialog {
+    max-width: 420px;
+}
+
+.wb-parking-lot-intro {
+    margin: 0;
+    padding: 0 16px 8px;
+    font-size: 12px;
+    color: var(--np-text-secondary, #666666);
+    flex-shrink: 0;
+}
+
+.wb-parking-lot-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 8px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 80px;
+}
+
+.wb-parking-lot-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+.wb-parking-lot-item:hover {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-parking-lot-item-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--np-text, #333333);
+    overflow-wrap: break-word;
+}
+
+.wb-parking-lot-item-date {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--np-text-secondary, #666666);
+}
+
+.wb-parking-lot-item-remove {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-red, #d9534f);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.wb-parking-lot-item-remove:hover,
+.wb-parking-lot-item-remove:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: 2px solid var(--np-red, #d9534f);
+    outline-offset: 1px;
+}
+
+.wb-parking-lot-empty {
+    padding: 20px 12px;
+    text-align: center;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--np-text-muted, #888888);
 }
 
 /* ========================================
@@ -1097,7 +1329,9 @@ body.wb-linking * {
     stroke: #ffffff;
 }
 
-/* The rubber band that follows the pointer mid-drag. */
+/* The rubber band that follows the pointer mid-drag. Dependency mode
+   (#1052) recolours it to match the dependency noodle's own colour, so
+   the drag itself previews which kind of link will land. */
 .wb-noodle-ghost {
     stroke: var(--np-green, #1c9e41);
     stroke-width: 2.5;
@@ -1105,6 +1339,91 @@ body.wb-linking * {
     stroke-linecap: round;
     vector-effect: non-scaling-stroke;
     pointer-events: none;
+}
+
+body.wb-dependency-mode .wb-noodle-ghost {
+    stroke: var(--np-purple, #9b59b6);
+}
+
+/* ── Dependency noodles (#1052) ──────────────────────────────────────
+   A second, distinct kind of noodle: dashed and purple rather than the
+   hierarchy noodle's solid blue, so a board with both never reads as one
+   thing. Same geometry helpers as the hierarchy noodle (see
+   whiteboard-dep-noodles.js), different meaning and different look. */
+.wb-dep-noodle-path {
+    stroke: var(--np-purple, #9b59b6);
+    stroke-width: 2.5;
+    stroke-dasharray: 6 5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.75;
+    transition: opacity 0.12s ease, stroke-width 0.12s ease;
+}
+
+.wb-dep-noodle-arrow {
+    fill: var(--np-purple, #9b59b6);
+    opacity: 0.75;
+}
+
+.wb-dep-noodle-hit {
+    cursor: pointer;
+}
+
+.wb-dep-noodle:hover .wb-dep-noodle-path {
+    opacity: 1;
+    stroke-width: 3.5;
+}
+
+.wb-dep-noodle:hover .wb-dep-noodle-arrow {
+    opacity: 1;
+}
+
+.wb-dep-noodle.selected .wb-dep-noodle-path {
+    opacity: 1;
+    stroke-width: 4;
+    stroke: var(--np-orange, #ff7b01);
+}
+
+.wb-dep-noodle.selected .wb-dep-noodle-arrow {
+    opacity: 1;
+    fill: var(--np-orange, #ff7b01);
+}
+
+.wb-dep-noodle-cut {
+    display: none;
+    cursor: pointer;
+}
+
+.wb-dep-noodle.selected .wb-dep-noodle-cut {
+    display: block;
+}
+
+.wb-dep-noodle-cut-bg {
+    fill: var(--np-surface, #ffffff);
+    stroke: var(--np-orange, #ff7b01);
+    stroke-width: 2;
+}
+
+.wb-dep-noodle-cut-mark {
+    stroke: var(--np-orange, #ff7b01);
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+}
+
+.wb-dep-noodle-cut:hover .wb-dep-noodle-cut-bg {
+    fill: var(--np-orange, #ff7b01);
+}
+
+.wb-dep-noodle-cut:hover .wb-dep-noodle-cut-mark {
+    stroke: #ffffff;
+}
+
+/* ── Link mode toggle (#1052) ────────────────────────────────────────── */
+.wb-link-mode-btn.active {
+    background: var(--np-purple, #9b59b6);
+    border-color: var(--np-purple, #9b59b6);
+    color: #ffffff;
 }
 
 /* ── Transient canvas message ────────────────────────────────────────

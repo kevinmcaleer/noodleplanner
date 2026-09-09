@@ -26,6 +26,7 @@ try:
     from selenium.webdriver.chrome.service import Service as ChromeService
     from selenium.webdriver.common.by import By
     from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.common.action_chains import ActionChains
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.common.exceptions import (
@@ -249,6 +250,86 @@ class TestTabNavigation:
             tools_menu,
         )
         assert is_visible, "Tools menu did not open"
+
+
+class TestBackstageFullScreen:
+    """#972: Backstage is a full-screen mode with a single exit route --
+    the ribbon/status bar hide while it's open, and the back arrow / Esc
+    is the only way out, returning to whatever view was active on entry.
+    """
+
+    def _ribbon_is_hidden(self, browser):
+        return browser.execute_script(
+            "var el = document.getElementById('ribbonShell');"
+            "return !el || window.getComputedStyle(el).display === 'none';"
+        )
+
+    def test_file_button_opens_fullscreen_backstage(self, browser, app_server):
+        """Clicking the ribbon's File button navigates straight into a
+        full-screen Backstage -- no dropdown, ribbon/status bar hidden."""
+        browser.get(app_server)
+        time.sleep(0.3)
+
+        file_btn = browser.find_element(By.CSS_SELECTOR, '[data-action="open-backstage"]')
+        file_btn.click()
+        time.sleep(0.3)
+
+        backstage_tab = browser.find_element(By.ID, "backstage-tab")
+        assert "active" in backstage_tab.get_attribute("class"), \
+            "Backstage tab content not active after clicking File"
+
+        is_fullscreen = browser.execute_script(
+            "return document.body.classList.contains('backstage-fullscreen')"
+        )
+        assert is_fullscreen, "body did not gain backstage-fullscreen on entry"
+        assert self._ribbon_is_hidden(browser), "Ribbon still visible in full-screen Backstage"
+
+        # No File dropdown should exist anymore (#972 retired it).
+        assert browser.execute_script(
+            "return document.querySelectorAll('.ribbon-file-menu-item[data-file-index]').length"
+        ) == 0
+
+    def test_back_arrow_exits_to_previous_view_and_restores_chrome(self, browser, app_server):
+        """The back arrow returns to the view that was active on entry and
+        un-hides the ribbon/status bar."""
+        browser.get(app_server)
+        time.sleep(0.3)
+        # Start from the editor (Plan) view, then enter Backstage.
+        browser.execute_script("switchToView('editor');")
+        time.sleep(0.2)
+        browser.execute_script("switchToView('backstage');")
+        time.sleep(0.3)
+
+        back_btn = browser.find_element(By.ID, "backstageBackBtn")
+        back_btn.click()
+        time.sleep(0.3)
+
+        editor_tab = browser.find_element(By.ID, "editor-tab")
+        assert "active" in editor_tab.get_attribute("class"), \
+            "Back arrow did not restore the editor view"
+
+        is_fullscreen = browser.execute_script(
+            "return document.body.classList.contains('backstage-fullscreen')"
+        )
+        assert not is_fullscreen, "backstage-fullscreen not cleared after exiting"
+        assert not self._ribbon_is_hidden(browser), "Ribbon still hidden after exiting Backstage"
+
+    def test_escape_key_exits_backstage(self, browser, app_server):
+        """Esc is the same exit route as the back arrow."""
+        browser.get(app_server)
+        time.sleep(0.3)
+        browser.execute_script("switchToView('portfolio');")
+        time.sleep(0.2)
+        browser.execute_script("switchToView('backstage');")
+        time.sleep(0.3)
+
+        body = browser.find_element(By.TAG_NAME, "body")
+        body.send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
+
+        backstage_tab = browser.find_element(By.ID, "backstage-tab")
+        assert "active" not in backstage_tab.get_attribute("class"), \
+            "Esc did not exit Backstage"
 
 
 class TestEditorInput:
@@ -574,7 +655,6 @@ class TestKanbanReliability:
             switchKanbanView('progress');
             toggleKanbanPrioritySort(true);
             toggleKanbanHideCompleted(true);
-            document.querySelector('.kanban-column-collapse').click();
             return document.getElementById('planEditor').value;
             """
         )
@@ -590,8 +670,7 @@ class TestKanbanReliability:
             return {
                 mode: document.getElementById('kanbanViewMode').value,
                 sort: document.getElementById('kanbanSortPriority').checked,
-                hide: document.getElementById('kanbanHideCompleted').checked,
-                collapsed: document.querySelectorAll('.kanban-column.collapsed').length
+                hide: document.getElementById('kanbanHideCompleted').checked
             };
             """
         )
@@ -602,14 +681,12 @@ class TestKanbanReliability:
             }
             kanbanBoard.sortByPriority = false;
             kanbanBoard.hideCompleted = false;
-            kanbanBoard.collapsedColumns.clear();
             """
         )
         assert restored == {
             "mode": "progress",
             "sort": True,
             "hide": True,
-            "collapsed": 1,
         }
 
     def test_column_reorder_moves_the_complete_phase_model(
@@ -630,6 +707,184 @@ class TestKanbanReliability:
         assert result["text"].endswith(
             "Phase Two\n  Task B 0%\nPhase One\n  Task A 0%"
         )
+
+    def test_task_form_style_save_updates_board_without_waiting_for_debounce(
+        self, browser, app_server
+    ):
+        """Regression test for #1063: saving the task detail form (which
+        writes editor.value directly and dispatches a synthetic, untrusted
+        'input' event -- exactly like saveTask() in script.js) must refresh
+        the board card immediately, not only after the 1s debounce used for
+        real keystrokes typed directly into the editor."""
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            const editor = document.getElementById('planEditor');
+            const renamed = editor.value.replace('Task A 0%', 'Renamed Task 0%');
+            editor.value = renamed;
+            // Mirrors saveTask(): a programmatic value write followed by an
+            // untrusted 'input' event, with no explicit board render call.
+            editor.dispatchEvent(new Event('input'));
+            return {
+                cardTextImmediate: Array.from(
+                    document.querySelectorAll('.kanban-card')
+                ).map(el => el.dataset.taskName)
+            };
+            """
+        )
+        assert "Renamed Task" in result["cardTextImmediate"]
+        assert "Task A" not in result["cardTextImmediate"]
+
+
+class TestNotepadView:
+    """Coverage for the notepad list surface (#1049): typing a line and
+    pressing Enter creates a task, Tab/Shift+Tab indent and outdent,
+    Backspace removes an emptied leaf row, and drag-to-reorder works --
+    all exercised in a real browser, on the same #planEditor document
+    every other view shares."""
+
+    PLAN = "Phase One\n  Task A 1d\n  Task B 1d\n"
+
+    def _load_plan(self, browser, app_server):
+        browser.get(app_server)
+        browser.execute_script(
+            """
+            const project = {
+                id: 'issue-1049-test',
+                name: 'Notepad view',
+                planText: arguments[0],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            localStorage.setItem('noodleplanner_projects', JSON.stringify({[project.id]: project}));
+            localStorage.setItem('noodleplanner_current_project', project.id);
+            """,
+            self.PLAN,
+        )
+        browser.refresh()
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+        browser.execute_script("switchToView('notepad');")
+        WebDriverWait(browser, 5).until(
+            lambda driver: driver.find_element(By.ID, "notepad-view").get_attribute("class")
+            and "active" in driver.find_element(By.ID, "notepad-view").get_attribute("class")
+        )
+
+    def _rows(self, browser):
+        return browser.find_elements(By.CSS_SELECTOR, "#notepadContainer .notepad-row")
+
+    def _row_input(self, browser, text):
+        for row in self._rows(browser):
+            field = row.find_element(By.CSS_SELECTOR, ".notepad-input")
+            if field.get_attribute("value") == text:
+                return field
+        raise AssertionError(f"no notepad row with value {text!r}")
+
+    def test_notepad_view_shows_a_clean_task_list(self, browser, app_server):
+        """The surface renders one row per task, with the raw task name only
+        -- no front matter, no Markdown syntax -- plus a trailing draft row."""
+        self._load_plan(browser, app_server)
+        values = [
+            row.find_element(By.CSS_SELECTOR, ".notepad-input").get_attribute("value")
+            for row in self._rows(browser)
+        ]
+        assert values == ["Phase One", "Task A", "Task B", ""]
+
+    def test_typing_and_enter_creates_a_task(self, browser, app_server):
+        self._load_plan(browser, app_server)
+        rows = self._rows(browser)
+        draft = rows[-1].find_element(By.CSS_SELECTOR, ".notepad-input")
+        draft.click()
+        draft.send_keys("Task C")
+        draft.send_keys(Keys.ENTER)
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task C" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+        editor_value = browser.find_element(By.ID, "planEditor").get_attribute("value")
+        assert "Task B" in editor_value and "Task C" in editor_value
+        # A fresh, empty draft row is ready right after the new task.
+        rows = self._rows(browser)
+        assert rows[-1].find_element(By.CSS_SELECTOR, ".notepad-input").get_attribute("value") == ""
+
+    def test_tab_indents_and_preserves_the_typed_text(self, browser, app_server):
+        self._load_plan(browser, app_server)
+        rows = self._rows(browser)
+        draft = rows[-1].find_element(By.CSS_SELECTOR, ".notepad-input")
+        draft.click()
+        draft.send_keys("Task C")
+        draft.send_keys(Keys.TAB)
+        # Tab re-renders the draft row (its position/indent changes) -- the
+        # element above is now stale; re-query, the same way a real user's
+        # focus follows the rebuilt row rather than a held-onto reference.
+        rows = self._rows(browser)
+        draft = rows[-1].find_element(By.CSS_SELECTOR, ".notepad-input")
+        assert draft.get_attribute("value") == "Task C", (
+            "Tab must not discard text already typed into the draft row"
+        )
+        draft.send_keys(Keys.ENTER)
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task C" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+        editor_value = browser.find_element(By.ID, "planEditor").get_attribute("value")
+        assert "  Task B 1d\n    Task C" in editor_value
+
+    def test_shift_tab_outdents_an_existing_task(self, browser, app_server):
+        self._load_plan(browser, app_server)
+        field = self._row_input(browser, "Task B")
+        field.click()
+        ActionChains(browser).key_down(Keys.SHIFT).send_keys(Keys.TAB).key_up(Keys.SHIFT).perform()
+        WebDriverWait(browser, 5).until(
+            lambda driver: "\nTask B 1d" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+
+    def test_backspace_removes_an_emptied_leaf_task(self, browser, app_server):
+        self._load_plan(browser, app_server)
+        field = self._row_input(browser, "Task B")
+        field.click()
+        # Select-all + Backspace empties the field without ever losing focus
+        # (unlike .clear(), whose exact focus/blur sequence is driver-
+        # dependent); the *second* Backspace, on an already-empty field, is
+        # the one that should trigger removal.
+        field.send_keys(Keys.CONTROL, "a")
+        field.send_keys(Keys.BACKSPACE)
+        field.send_keys(Keys.BACKSPACE)
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task B" not in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
+        editor_value = browser.find_element(By.ID, "planEditor").get_attribute("value")
+        assert "Task A" in editor_value
+
+    def test_drag_reorders_through_the_same_model_used_elsewhere(self, browser, app_server):
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            const rows = document.querySelectorAll('#notepadContainer .notepad-row');
+            const source = rows[1].querySelector('.notepad-drag-handle'); // Task A
+            const target = rows[2]; // Task B
+            const transfer = new DataTransfer();
+            source.dispatchEvent(new DragEvent('dragstart', {bubbles: true, cancelable: true, dataTransfer: transfer}));
+            target.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: transfer, clientY: target.getBoundingClientRect().bottom - 1}));
+            target.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: transfer, clientY: target.getBoundingClientRect().bottom - 1}));
+            source.dispatchEvent(new DragEvent('dragend', {bubbles: true, dataTransfer: transfer}));
+            return document.getElementById('planEditor').value;
+            """
+        )
+        assert "  Task B 1d\n  Task A 1d" in result
+
+    def test_board_button_switches_to_the_kanban_view_on_the_same_document(
+        self, browser, app_server
+    ):
+        self._load_plan(browser, app_server)
+        browser.find_element(By.CSS_SELECTOR, ".notepad-kanban-btn").click()
+        WebDriverWait(browser, 5).until(
+            lambda driver: "active" in driver.find_element(By.ID, "kanban-tab").get_attribute("class")
+        )
+        # Same #planEditor, same tasks -- the board is a different lens over
+        # the identical document, not a fork of it.
+        editor_value = browser.find_element(By.ID, "planEditor").get_attribute("value")
+        assert "Task A" in editor_value and "Task B" in editor_value
 
 
 class TestResponsiveLayout:

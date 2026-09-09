@@ -168,6 +168,14 @@ const BASELINE_START = '---baseline---';
 const BENEFITS_START = '---benefits---';
 const LESSONS_START = '---lessons learned---';
 const WHITEBOARD_START = '---whiteboard---';
+// Issue #1019: the "good idea, not now" parking lot, canonically the
+// section *after* whiteboard -- see format_converter.py's matching
+// ALL_SECTION_MARKERS comment for the full canonical order.
+const PARKING_LOT_START = '---parking lot---';
+// Issue #1053: three-point (PERT) estimate inputs per task, canonically
+// the last back-matter section -- see format_converter.py's matching
+// ALL_SECTION_MARKERS comment.
+const ESTIMATES_START = '---estimates---';
 
 // Benefits state
 let benefitItems = [];
@@ -219,7 +227,7 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'notepad', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm', 'comms'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet', 'stakeholders'];
 const TOOLS_VIEWS = ['guide'];

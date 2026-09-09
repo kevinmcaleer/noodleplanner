@@ -1,9 +1,52 @@
 /* ========================================
-   Backstage view (#943) — Office-Backstage-style shell behind Home
+   Backstage view (#943/#972) — full-screen, Office-Backstage-style shell
+   behind File
    ======================================== */
+
+/* #972: while Backstage is open, the header/ribbon and status bar hide --
+   "you have stepped out of the document" -- and the space status-bar.css
+   reserves for the fixed status bar (body{padding-bottom:36px}) is
+   reclaimed so Backstage genuinely fills the viewport. The back arrow
+   (.backstage-back-arrow) is what makes this not a trap; see backstage.js's
+   exitBackstage(). */
+body.backstage-fullscreen #ribbonShell,
+body.backstage-fullscreen .status-bar {
+    display: none !important;
+}
+
+body.backstage-fullscreen {
+    padding-bottom: 0 !important;
+}
 
 #backstage-tab.tab-content {
     overflow: auto;
+    position: relative;
+}
+
+.backstage-back-arrow {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 8px 0 0 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333);
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-back-arrow:hover,
+.backstage-back-arrow:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: none;
 }
 
 .backstage-container {
@@ -41,7 +84,7 @@
 
 .backstage-rail-btn svg.icon {
     flex: 0 0 auto;
-    color: var(--np-accent, #667eea);
+    color: var(--np-accent);
     margin-right: 0;
 }
 
@@ -95,8 +138,50 @@
 .backstage-back-btn:hover,
 .backstage-back-btn:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
     outline: none;
+}
+
+/* #972: the landing view's short "start a new plan" strip (Blank + a few
+   real templates) -- distinct from .backstage-template-grid below, the full
+   browser #backstageTemplatesView opens via "More templates"/the rail's
+   Templates button. Fixed-width, non-wrapping cards so it reads as a strip
+   even at 4-5 cards, sized to sit above the fold ahead of Recent. */
+.backstage-template-strip {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+}
+
+.backstage-template-strip .backstage-template-card {
+    flex: 0 0 150px;
+}
+
+.backstage-main-header-landing {
+    justify-content: space-between;
+}
+
+.backstage-more-templates-btn {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--np-accent);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.backstage-more-templates-btn:hover,
+.backstage-more-templates-btn:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.backstage-recent-title {
+    margin-top: 4px;
 }
 
 .backstage-template-grid {
@@ -128,7 +213,7 @@
 .backstage-template-card:hover,
 .backstage-template-card:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
     outline: none;
 }
 
@@ -138,39 +223,12 @@
 
 .backstage-template-card-icon {
     display: flex;
-    color: var(--np-accent, #667eea);
+    color: var(--np-accent);
 }
 
 .backstage-template-card-name {
     font-weight: 600;
     color: var(--np-text, #333);
-}
-
-.backstage-template-card-desc {
-    font-size: 0.82em;
-    line-height: 1.35;
-    color: var(--np-text-secondary, #666);
-    /* Descriptions vary a lot in length; clamp so a wordy one can't stretch
-       the card out of the grid's 3/4 portrait ratio. */
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-/* Loading / error line shown in the template grid alongside the Blank card,
-   which stays available either way. */
-.backstage-template-status {
-    grid-column: 1 / -1;
-    margin: 0;
-    align-self: center;
-    color: var(--np-text-secondary, #666);
-    font-size: 0.9em;
-}
-
-.backstage-template-status-error {
-    color: var(--np-red, #c21d1d);
 }
 
 .backstage-recent-empty {
@@ -219,18 +277,18 @@
 .backstage-recent-item:hover,
 .backstage-recent-item:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
     outline: none;
 }
 
 .backstage-recent-item.active {
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
 }
 
 .backstage-recent-item-icon {
     flex: 0 0 auto;
     display: flex;
-    color: var(--np-accent, #667eea);
+    color: var(--np-accent);
 }
 
 .backstage-recent-item-body {
@@ -262,7 +320,7 @@
     letter-spacing: 0.04em;
     padding: 2px 8px;
     border-radius: 10px;
-    background: var(--np-accent, #667eea);
+    background: var(--np-accent);
     color: #ffffff;
 }
 

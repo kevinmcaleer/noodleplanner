@@ -129,15 +129,24 @@ def create_driver():
     options.add_argument("--window-size=1440,900")
     options.add_argument("--force-device-scale-factor=2")
 
-    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian)
-    chromium_paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
+    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian),
+    # then this sandbox's own pre-installed Playwright Chromium build (the
+    # Claude Code web sandbox sets PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+    # and has no /usr/bin/chromium at all).
+    import glob
+
+    chromium_paths = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        *sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")),
+    ]
     for path in chromium_paths:
         if os.path.exists(path):
             options.binary_location = path
             break
 
     # Try system chromedriver first
-    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver"]
+    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver", "/opt/node22/bin/chromedriver"]
     for drv_path in chromedriver_paths:
         if os.path.exists(drv_path):
             try:
@@ -328,6 +337,10 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "gantt")
     capture_full(driver, section / "gv-01-gantt-full.png")
 
+    # np-01: Notepad list view
+    switch_to_view(driver, "notepad")
+    capture_full(driver, section / "np-01-notepad-view.png")
+
     # kb-01: Kanban board (grouped by phase — the default)
     switch_to_view(driver, "kanban")
     capture_full(driver, section / "kb-01-kanban-phase.png")
@@ -365,8 +378,9 @@ def capture_how_to(driver, base_url):
     time.sleep(0.6)
     capture_full(driver, section / "wb-01-whiteboard-notes.png")
 
-    # wb-02: Note colour menu (issue #849) — open the first note's `...`
-    # menu so the Palette/Pastel/Dark swatch grid is visible.
+    # wb-02: Note colour menu (issue #849, palette replaced by #1017) —
+    # open the first note's `...` menu so the fixed pastel swatch grid
+    # is visible.
     menu_btn = driver.find_elements(By.CSS_SELECTOR, ".wb-note-menu-btn")
     if menu_btn:
         menu_btn[0].click()

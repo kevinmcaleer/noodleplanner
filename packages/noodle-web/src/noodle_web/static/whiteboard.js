@@ -464,6 +464,7 @@ function wbHandleMouseDown(e) {
         // A press on bare canvas dismisses any selected noodle, the same
         // way clicking away from a note closes its `...` menu.
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
+        if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
         wbIsDragging = true;
         wbDragStartX = e.clientX;
         wbDragStartY = e.clientY;
@@ -582,16 +583,24 @@ function wbHandleKeydown(e) {
 
     // Noodle editing keys, before the pan/zoom set: a selected noodle owns
     // Delete/Backspace and Escape while it is selected.
-    if ((e.key === 'Delete' || e.key === 'Backspace') &&
-        typeof wbCutSelectedNoodle === 'function') {
-        if (wbCutSelectedNoodle()) { e.preventDefault(); return; }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (typeof wbCutSelectedNoodle === 'function' && wbCutSelectedNoodle()) { e.preventDefault(); return; }
+        if (typeof wbCutSelectedDependencyNoodle === 'function' && wbCutSelectedDependencyNoodle()) { e.preventDefault(); return; }
     }
-    if (e.key === 'Escape' && typeof wbClearNoodleSelection === 'function') {
-        wbClearNoodleSelection();
+    if (e.key === 'Escape') {
+        if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
+        if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
     }
     if ((e.key === 'n' || e.key === 'N') && typeof wbCreateNoteInViewportCentre === 'function') {
         e.preventDefault();
         wbCreateNoteInViewportCentre();
+        return;
+    }
+    // Issue #1018: a free-floating text object -- the "no task, no card"
+    // sibling of `n`'s post-it, same viewport-centre placement.
+    if ((e.key === 't' || e.key === 'T') && typeof wbCreateTextObjectInViewportCentre === 'function') {
+        e.preventDefault();
+        wbCreateTextObjectInViewportCentre();
         return;
     }
 

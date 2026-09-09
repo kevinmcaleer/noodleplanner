@@ -40,6 +40,17 @@
  * caller-supplied resolveLevel(taskName) callback, rather than eagerly
  * walking the whole task tree up front.
  *
+ * Issue #1016 ("nested subtasks within a post-it checklist, deeper than
+ * one level"): the breadcrumb stack above was already built with no depth
+ * cap -- tpPushLevel()/tpPopToIndex() are plain array operations with no
+ * "level 0 is special" logic, and tpDrillInto() calls resolveLevel() fresh
+ * on every drill, so a child-with-children badge (tpBuildRow() below)
+ * already appears at any depth, not just the root. #1016 added
+ * tests/test_task_peek.py's TestPeekDeepNesting (four levels deep) and
+ * TestPeekPlanTextRerender (the stack survives a plan-text auto-render
+ * several levels in) as a regression lock on that, rather than changing
+ * this file's behaviour.
+ *
  * Positioning/Escape/outside-click/focus-management deliberately mirror
  * the conventions whiteboard-notes.js's own `...` note menu established
  * for #849 (see wbOpenNoteMenu()/wbCloseNoteMenu()/wbNoteMenuKeydown()): a

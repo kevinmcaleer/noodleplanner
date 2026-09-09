@@ -1,0 +1,152 @@
+/* Three-point (PERT) estimating popup (#1053). */
+
+.estimate-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.estimate-popup {
+    background: var(--np-surface, #fff);
+    border-radius: 10px;
+    width: 380px;
+    max-width: 92vw;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.estimate-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
+}
+
+.estimate-popup-close {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--np-text-secondary, #6c757d);
+}
+
+.estimate-popup-mode-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 16px 0;
+}
+
+.estimate-mode-btn {
+    flex: 1;
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.estimate-mode-btn.active {
+    background: var(--np-blue, #108bb9);
+    border-color: var(--np-blue, #108bb9);
+    color: #fff;
+}
+
+.estimate-popup-body {
+    padding: 14px 16px;
+}
+
+.estimate-duration-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.estimate-duration-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--np-text-secondary, #6c757d);
+}
+
+.estimate-duration-fields input {
+    padding: 6px 8px;
+    border: 1px solid var(--np-border, #dee2e6);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.estimate-tshirt-fields {
+    display: flex;
+    gap: 6px;
+}
+
+.estimate-tshirt-btn {
+    flex: 1;
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    border-radius: 6px;
+    padding: 10px 0;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.estimate-tshirt-btn.active {
+    background: var(--np-blue, #108bb9);
+    border-color: var(--np-blue, #108bb9);
+    color: #fff;
+}
+
+.estimate-preview {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--np-text-secondary, #6c757d);
+}
+
+.estimate-popup-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--np-border, #dee2e6);
+}
+
+.estimate-popup-cancel,
+.estimate-popup-save {
+    padding: 7px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.estimate-popup-cancel {
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+}
+
+.estimate-popup-save {
+    border: 1px solid var(--np-blue, #108bb9);
+    background: var(--np-blue, #108bb9);
+    color: #fff;
+}
+
+.estimate-open-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    color: inherit;
+}

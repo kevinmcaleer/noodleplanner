@@ -146,12 +146,17 @@ class TestJoinerFlow:
     def test_join_with_wrong_code_fails(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
-            with pytest.raises(WebSocketDisconnect):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
                 with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": "000000", "display_name": "Eve",
                     }))
                     joiner_ws.receive_text()
+            # #1057: collab_join.html surfaces this reason to the joiner
+            # instead of always guessing "check the code" -- see that
+            # template's close handler.
+            assert exc_info.value.code == 4401
+            assert exc_info.value.reason == "Incorrect or expired code."
 
     def test_join_with_expired_code_fails(self, client, monkeypatch):
         info = _start_session(client)
@@ -172,10 +177,12 @@ class TestJoinerFlow:
 
     def test_join_with_malformed_first_message_fails(self, client):
         info = _start_session(client)
-        with pytest.raises(WebSocketDisconnect):
+        with pytest.raises(WebSocketDisconnect) as exc_info:
             with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
                 joiner_ws.send_text("not json")
                 joiner_ws.receive_text()
+        assert exc_info.value.code == 4400
+        assert exc_info.value.reason == "Malformed join request."
 
 
 class TestRelay:
@@ -466,11 +473,16 @@ class TestJoinAttemptRateLimiting:
     def test_join_attempts_allowed_again_after_window_passes(self, client):
         info = _start_session(client)
         with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
+            # A *failed* attempt is what consumes the budget. #971 changed
+            # successful joins to be forgiven (see
+            # security.forgive_join_attempt), so a correct code no longer
+            # counts and cannot be used to exhaust the limit here.
             with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
                 ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                    "type": "join", "code": "000000", "display_name": "Eve",
                 }))
-                ws.receive_text()  # ack -- this one attempt consumes the budget
+                with pytest.raises(WebSocketDisconnect):
+                    ws.receive_text()
 
             with pytest.raises(WebSocketDisconnect) as exc_info:
                 with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
@@ -489,6 +501,39 @@ class TestJoinAttemptRateLimiting:
                 }))
                 ack = json.loads(ws.receive_text())
                 assert ack == {"type": "joined", "display_name": "Bob"}
+
+    def test_successful_joins_do_not_exhaust_the_budget(self, client):
+        """#971: #766 requires at least 10 concurrent joiners, but a team in
+        one office shares a public IP. Counting correct codes against the
+        anti-brute-force budget made that impossible -- the eleventh
+        colleague was refused. Successful joins are now forgiven."""
+        info = _start_session(client)
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            for index in range(6):
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": f"Joiner {index}",
+                    }))
+                    ack = json.loads(ws.receive_text())
+                    assert ack["type"] == "joined", f"joiner {index} was refused"
+
+    def test_wrong_codes_still_exhaust_the_budget_end_to_end(self, client):
+        """The other half of the same change: forgiving successes must not
+        have weakened the protection against guessing the code."""
+        info = _start_session(client)
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            for _ in range(2):
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.send_text(json.dumps({
+                        "type": "join", "code": "000000", "display_name": "Eve",
+                    }))
+                    with pytest.raises(WebSocketDisconnect):
+                        ws.receive_text()
+
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.receive_text()
+            assert exc_info.value.code == 4429
 
     def test_join_rate_limit_does_not_affect_the_host_connection(self, client):
         """The host connects with `?token=...`; that branch never calls
@@ -927,3 +972,97 @@ class TestMultiJoinerRouting:
 
         assert secret not in caplog.text
         assert info["session_id"] not in caplog.text
+
+
+class TestJoinerPrivilegeBoundary:
+    """#971 security review: the host-only control messages must be exactly
+    that.
+
+    `end_session` (#965), `kick` (#966) and the `to_joiner` addressing
+    envelope (#967) are all interpreted in `_relay_as_host`, which only runs
+    on the host's socket -- a joiner's frames go through `_relay_as_joiner`,
+    which relays them opaquely. These tests prove that boundary holds rather
+    than inferring it from where the code happens to sit, because a joiner
+    is an untrusted remote party who knows only a six-digit code, and the
+    cost of getting this wrong is one of them ending everyone's session or
+    removing a colleague.
+    """
+
+    @staticmethod
+    def _join(client, info, host_ws, display_name):
+        joiner_ws = client.websocket_connect(f"/ws/session/{info['session_id']}").__enter__()
+        joiner_ws.send_text(json.dumps({
+            "type": "join", "code": info["join_code"], "display_name": display_name,
+        }))
+        joiner_ws.receive_text()  # ack
+        snapshot = json.loads(host_ws.receive_text())["joiners"]
+        return joiner_ws, next(j["id"] for j in snapshot if j["display_name"] == display_name)
+
+    def test_a_joiner_cannot_end_the_session(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            joiner_ws, _ = self._join(client, info, host_ws, "Mallory")
+
+            joiner_ws.send_text(json.dumps({"type": "end_session"}))
+
+            # Relayed to the host as ordinary opaque content, not acted on.
+            wrapper = json.loads(host_ws.receive_text())
+            assert wrapper["type"] == "from_joiner"
+            assert json.loads(wrapper["frame"])["type"] == "end_session"
+
+            # The session is still live and still relaying.
+            assert collab_sessions.get_session(info["session_id"]) is not None
+            host_ws.send_text("still-here")
+            assert joiner_ws.receive_text() == "still-here"
+
+            joiner_ws.__exit__(None, None, None)
+            host_ws.receive_text()  # presence after the disconnect
+
+    def test_a_joiner_cannot_kick_another_joiner(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            mallory_ws, _ = self._join(client, info, host_ws, "Mallory")
+
+            mallory_ws.send_text(json.dumps({"type": "kick", "joiner_id": alice_id}))
+            host_ws.receive_text()  # relayed as opaque content only
+
+            # Alice is untouched: still in the session and still receiving.
+            assert len(collab_sessions.get_session(info["session_id"]).joiners) == 2
+            host_ws.send_text("alice-is-still-here")
+            assert alice_ws.receive_text() == "alice-is-still-here"
+            assert mallory_ws.receive_text() == "alice-is-still-here"
+
+            mallory_ws.__exit__(None, None, None)
+            host_ws.receive_text()
+            alice_ws.__exit__(None, None, None)
+            host_ws.receive_text()
+
+    def test_a_joiner_cannot_address_a_frame_at_another_joiner(self, client):
+        """#967's `to_joiner` envelope is a host privilege. A joiner sending
+        one must not become a way to speak to another joiner directly --
+        that would bypass the host entirely, and the host is the only party
+        the security model gives that reach."""
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            mallory_ws, _ = self._join(client, info, host_ws, "Mallory")
+
+            mallory_ws.send_text(json.dumps({
+                "type": "to_joiner", "joiner_id": alice_id, "frame": "direct-to-alice",
+            }))
+            # It reached the host as content, wrapped like anything else.
+            wrapper = json.loads(host_ws.receive_text())
+            assert wrapper["type"] == "from_joiner"
+            assert "direct-to-alice" in wrapper["frame"]
+
+            # Alice never got it: a host broadcast is the first thing she
+            # reads, which it could not be if the forged frame had arrived.
+            host_ws.send_text("from-the-host")
+            assert alice_ws.receive_text() == "from-the-host"
+            assert mallory_ws.receive_text() == "from-the-host"
+
+            mallory_ws.__exit__(None, None, None)
+            host_ws.receive_text()
+            alice_ws.__exit__(None, None, None)
+            host_ws.receive_text()

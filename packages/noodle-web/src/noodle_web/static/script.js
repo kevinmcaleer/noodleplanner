@@ -90,7 +90,7 @@ function mergeDuplicateSections(text) {
     const HIGHLIGHTS_END = '---end-highlights---';
     const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
                       '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-                      '---whiteboard---'];
+                      '---whiteboard---', '---parking lot---', '---estimates---'];
 
     for (const marker of sections) {
         const firstIdx = text.indexOf(marker);
@@ -448,6 +448,11 @@ async function handleBoardFileUpload(file) {
 const NavigationController = (() => {
     const registry = {};
     let currentView = null;
+    // The view that was active immediately before the current one -- set the
+    // instant a navigation begins (before currentView is overwritten), so a
+    // view like Backstage (#972) can record "what to return to" from inside
+    // its own activate() hook, which by then only sees the new currentView.
+    let previousView = null;
     let transitioning = false;
 
     // Duration must match the CSS animation duration for np-context-fade-out/in
@@ -527,6 +532,7 @@ const NavigationController = (() => {
         if (currentView && registry[currentView] && registry[currentView].deactivate) {
             registry[currentView].deactivate();
         }
+        previousView = currentView;
         currentView = viewName;
         registry[viewName].activate();
     }
@@ -559,6 +565,7 @@ const NavigationController = (() => {
             if (currentView && registry[currentView] && registry[currentView].deactivate) {
                 registry[currentView].deactivate();
             }
+            previousView = currentView;
             currentView = viewName;
             registry[viewName].activate();
 
@@ -581,6 +588,10 @@ const NavigationController = (() => {
         return currentView;
     }
 
+    function getPreviousView() {
+        return previousView;
+    }
+
     function getRegistry() {
         return registry;
     }
@@ -589,7 +600,7 @@ const NavigationController = (() => {
         return transitioning;
     }
 
-    return { register, navigateTo, getCurrentView, getRegistry, isTransitioning };
+    return { register, navigateTo, getCurrentView, getPreviousView, getRegistry, isTransitioning };
 })();
 
 // Shared helper: set a single nav tab as active, clearing all others (NAV-3)
@@ -690,6 +701,7 @@ function deactivateKanban() {
 const OUTPUT_VIEWS = {
     'project-report': 'planTab',
     'tasks': 'planTab',
+    'notepad': 'planTab',
     'gantt': 'planTab',
     'calendar': 'planTab',
     'timeline': 'planTab',
@@ -2587,6 +2599,38 @@ function findTaskLineNumber(task) {
 /**
  * Show the task context menu near the clicked button.
  */
+/**
+ * Open the reusable-card library popup (#1050) for `task`: save its
+ * subtree as a new card, or insert a saved card after it. Shared by both
+ * task context menus so the editor/getText/setText/insertAtCursor wiring
+ * lives in one place.
+ */
+function openCardLibraryForTask(task) {
+    if (typeof CardLibrary === 'undefined') return;
+    const editor = document.getElementById('planEditor');
+    if (!editor) return;
+    CardLibrary.openCardLibraryPopup({
+        getText: () => editor.value,
+        setText: (text) => {
+            editor.value = text;
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+        taskName: task.name,
+        insertAtCursor: (text) => {
+            const start = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
+            const end = editor.selectionEnd != null ? editor.selectionEnd : start;
+            const before = editor.value.slice(0, start);
+            const after = editor.value.slice(end);
+            const insertion = (before && !before.endsWith('\n') ? '\n' : '') + text;
+            editor.value = before + insertion + after;
+            const caret = before.length + insertion.length;
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            editor.focus();
+            editor.setSelectionRange(caret, caret);
+        },
+    });
+}
+
 function showTaskContextMenu(event, task, taskIndex) {
     event.stopPropagation();
     event.preventDefault();
@@ -2615,6 +2659,31 @@ function showTaskContextMenu(event, task, taskIndex) {
     if (!task.is_summary) {
         items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
             openTaskInspectorByName(task.name);
+        }));
+    }
+
+    // Estimate (#1053) -- only for non-summary tasks, mirroring Inspect Task
+    if (!task.is_summary && typeof EstimatingTool !== 'undefined') {
+        items.push(createContextMenuItem('Estimate\u2026', '\uD83C\uDFAF', () => {
+            const editor = document.getElementById('planEditor');
+            if (!editor) return;
+            EstimatingTool.openEstimatePopup({
+                getText: () => editor.value,
+                setText: (text) => {
+                    editor.value = text;
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                },
+                taskName: task.name,
+            });
+        }));
+    }
+
+    // Cards (#1050) -- save this task's subtree as a reusable card, or
+    // insert a saved one after it. Available for summary tasks too (a
+    // phase or a governance block is a natural card), unlike Estimate.
+    if (typeof CardLibrary !== 'undefined') {
+        items.push(createContextMenuItem('Cards…', '📇', () => {
+            openCardLibraryForTask(task);
         }));
     }
 
@@ -2713,6 +2782,31 @@ function showTaskContextMenuAtPosition(event, task, taskIndex) {
     if (!task.is_summary) {
         items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
             openTaskInspectorByName(task.name);
+        }));
+    }
+
+    // Estimate (#1053) -- only for non-summary tasks, mirroring Inspect Task
+    if (!task.is_summary && typeof EstimatingTool !== 'undefined') {
+        items.push(createContextMenuItem('Estimate\u2026', '\uD83C\uDFAF', () => {
+            const editor = document.getElementById('planEditor');
+            if (!editor) return;
+            EstimatingTool.openEstimatePopup({
+                getText: () => editor.value,
+                setText: (text) => {
+                    editor.value = text;
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                },
+                taskName: task.name,
+            });
+        }));
+    }
+
+    // Cards (#1050) -- save this task's subtree as a reusable card, or
+    // insert a saved one after it. Available for summary tasks too (a
+    // phase or a governance block is a natural card), unlike Estimate.
+    if (typeof CardLibrary !== 'undefined') {
+        items.push(createContextMenuItem('Cards…', '📇', () => {
+            openCardLibraryForTask(task);
         }));
     }
 
@@ -3083,18 +3177,37 @@ function createTaskContextButton(task, taskIndex) {
     return btn;
 }
 
-function populateSubtasks(parentLineNumber, lines) {
-    const subtasksList = document.getElementById('subtasksList');
-    if (!subtasksList) return;
+// Indentation width for a line, with tabs expanded to a fixed column count so
+// tab- and space-indented plans (and anything in between) compare on the same
+// scale. Only the ordering between lines matters to populateSubtasks() below,
+// not the absolute value.
+function getIndentWidth(line, tabWidth = 4) {
+    let width = 0;
+    for (const ch of line) {
+        if (ch === ' ') width += 1;
+        else if (ch === '\t') width += tabWidth;
+        else break;
+    }
+    return width;
+}
 
-    subtasksList.innerHTML = '';
-
-    // Get parent task indentation level
+// Direct-child line numbers (1-indexed) of the task at parentLineNumber.
+// Pure and DOM-free so it can be unit tested directly (see
+// tests/test_subtask_indentation.js).
+//
+// Levels are derived the same way scheduling_engine.py's indent parser does
+// server-side (#748 was the same class of bug there): walk a stack of
+// enclosing indents, and whatever is deeper than the nearest one on the
+// stack becomes its child, one level down -- whatever the actual column
+// delta is. This replaces the old `indentDiff === 2 || indentDiff === 4`
+// check, which silently dropped every child on a tab-indented, 3-space,
+// 8-space or mixed-indent (post-import) plan.
+function findDirectChildLineNumbers(parentLineNumber, lines) {
     const parentLine = lines[parentLineNumber - 1];
-    const parentIndent = parentLine.search(/\S/); // Find first non-whitespace character
+    const parentIndent = getIndentWidth(parentLine);
 
-    // Find all child tasks (tasks with greater indentation on subsequent lines)
-    const subtasks = [];
+    const childLineNumbers = [];
+    const indentStack = [{ indent: parentIndent, level: 0 }];
     for (let i = parentLineNumber; i < lines.length; i++) {
         const line = lines[i];
         const trimmed = line.trim();
@@ -3102,29 +3215,45 @@ function populateSubtasks(parentLineNumber, lines) {
         // Skip empty lines
         if (!trimmed) continue;
 
-        // Skip front matter, phase headers, summary lines
-        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+        // Back-matter marker (RAID log, comms, baseline, etc.) -- the task
+        // outline is over, so stop scanning rather than skipping past it
+        // and risking back matter being read as more of the outline.
+        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
 
-        const indent = line.search(/\S/);
+        const indent = getIndentWidth(line);
 
-        // If we hit a line at same or lower indentation, we're done
-        if (indent <= parentIndent && i > parentLineNumber) {
-            break;
+        // Same or lower indentation than the parent: its subtree is done.
+        if (indent <= parentIndent) break;
+
+        while (indentStack.length > 1 && indentStack[indentStack.length - 1].indent >= indent) {
+            indentStack.pop();
         }
+        const level = indentStack[indentStack.length - 1].level + 1;
+        indentStack.push({ indent, level });
 
-        // Check if this is a direct child (one level more indented)
-        if (i > parentLineNumber - 1 && indent > parentIndent) {
-            // Check if it's a direct child (immediate next level)
-            const indentDiff = indent - parentIndent;
-            if (indentDiff === 2 || indentDiff === 4) { // 2 spaces or 4 spaces = one level
-                const task = parseTaskLine(line, i + 1);
-                if (task.name) {
-                    subtasks.push({
-                        ...task,
-                        lineNumber: i + 1
-                    });
-                }
-            }
+        // Only the level immediately below the parent is a direct child;
+        // anything deeper is a grandchild (or further) and is excluded.
+        if (level === 1) {
+            childLineNumbers.push(i + 1);
+        }
+    }
+    return childLineNumbers;
+}
+
+function populateSubtasks(parentLineNumber, lines) {
+    const subtasksList = document.getElementById('subtasksList');
+    if (!subtasksList) return;
+
+    subtasksList.innerHTML = '';
+
+    const subtasks = [];
+    for (const lineNumber of findDirectChildLineNumbers(parentLineNumber, lines)) {
+        const task = parseTaskLine(lines[lineNumber - 1], lineNumber);
+        if (task.name) {
+            subtasks.push({
+                ...task,
+                lineNumber
+            });
         }
     }
 
@@ -9695,11 +9824,19 @@ async function syncMSProjectTarget() {
 async function processMSProjectSyncInput(bytesOrFile, filename) {
     if (/\.mpp$/i.test(filename || '')) {
         try {
-            const { importMppBytes } = await import('/static/mpp-export.js');
+            const { importMppBytes, parseResourceShortnames } = await import('/static/mpp-export.js');
             const bytes = bytesOrFile instanceof ArrayBuffer
                 ? new Uint8Array(bytesOrFile)
                 : new Uint8Array(await bytesOrFile.arrayBuffer());
-            const markdown = importMppBytes(bytes);
+            // Reuse the current plan's own resource shortcodes (@jd, not a
+            // freshly re-derived @jdoe) where the full name matches -- a
+            // .mpp file's resource table has no home for the shortcode
+            // itself, so re-deriving one from scratch on every sync would
+            // otherwise report a spurious diff on every task referencing
+            // that resource, forever (#912).
+            const editor = document.getElementById('planEditor');
+            const preferredShortnames = parseResourceShortnames(editor ? editor.value : '');
+            const markdown = importMppBytes(bytes, preferredShortnames);
             await applyImportedMspMarkdown(markdown, filename);
         } catch (error) {
             showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
@@ -13391,6 +13528,51 @@ function updatePlanBaselineText(planText, items) {
 // parseThemeColours()/saveThemeColours() (kanban.js) for a read/write
 // helper pair, and the Python-side parse_whiteboard_markdown /
 // generate_whiteboard_text pair in format_converter.py.
+//
+// Free-floating text objects (issue #1018): a *second* row shape sharing
+// this exact same table, discriminated by three more columns -- Kind | Id
+// | Text -- rather than a second section or a sentinel Task value. Why a
+// second row shape in the same table rather than a cleanly-separated
+// second ---whiteboard-text--- section (the issue's other suggested
+// option): every existing whiteboard mutation (drag, resize, colour pick,
+// add/remove note, rename, delete...) already works by reading the whole
+// table into `items`, mutating it, and calling
+// updatePlanWhiteboardText(planText, items) to rewrite the *entire*
+// section from `items` alone (see whiteboard-notes.js's
+// wbCommitNoteChange() and friends) -- a second, separately-parsed section
+// nested in the same ---whiteboard--- block would be silently destroyed
+// the next time a user so much as dragged an unrelated post-it, since
+// nothing about that rewrite path knows the second section exists. Folding
+// text objects into the same `items` array/table sidesteps that entirely:
+// one parse, one rewrite, one section, no coupling to fix.
+//
+// A text-object row has no Task (it isn't backed by a task -- see this
+// issue's own framing: "position + text content only, no other post-it
+// fields") and none of a post-it's fields (Colour/Width/Height/Collapsed
+// don't apply to bare text); it uses:
+//
+//   Kind: the literal string "text" (blank/absent means "post-it", the
+//         pre-existing row shape, unchanged).
+//   Id:   an opaque, generated identifier (e.g. "t1a2b3c4") standing in
+//         for the Task column's role as the row's unique key, since a
+//         text object has no task name to key off.
+//   Text: the object's own text content, escaped so embedded pipes and
+//         newlines survive the single-line table-cell format (own
+//         escaping from the other columns' since Text, unlike Task/
+//         Colour, is expected to hold real user prose -- see
+//         generateWhiteboardText()'s escapeTextCell()).
+//
+// parseWhiteboardMarkdown() returns a text-object row as
+// `{ kind: 'text', id, text, x, y }` -- deliberately a different, smaller
+// shape than a post-it row's `{ task, x, y, colour, width, height,
+// collapsed }`, with no `kind`/`id`/`text` keys present at all on a
+// post-it row (rather than e.g. `kind: 'note'` on every row), so parsing
+// an old plan with no text objects produces byte-for-byte the same item
+// shape as before this issue -- see tests/test_whiteboard_backmatter.mjs.
+// generateWhiteboardText() only emits the Kind/Id/Text columns at all when
+// at least one item actually has kind 'text', so a plan with only post-it
+// rows still round-trips through an edit with the exact same seven-column
+// table it always has.
 // =====================================================================
 
 /**
@@ -13403,11 +13585,14 @@ function extractWhiteboardFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + WHITEBOARD_START.length;
 
-    // Whiteboard is canonically the last back-matter section, but stay
-    // defensive in case some other marker follows it in hand-edited text.
+    // Whiteboard is canonically the second-to-last back-matter section
+    // (parking lot, issue #1019, follows it) -- scan for every other
+    // marker, not just the ones that used to come after it, so a parking
+    // lot section is never swallowed into "whiteboard text".
     let endIdx = planText.length;
     for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                          PARKING_LOT_START]) {
         const mIdx = planText.indexOf(marker, afterStart);
         if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
     }
@@ -13452,6 +13637,9 @@ function parseWhiteboardMarkdown(text) {
     const aliases = {
         task: 'task', x: 'x', y: 'y', colour: 'colour', color: 'colour',
         width: 'width', height: 'height', collapsed: 'collapsed',
+        // Issue #1018: free-floating text object columns -- see this
+        // file's "Whiteboard back matter" header comment above.
+        kind: 'kind', id: 'id', text: 'text',
     };
     const colMap = {};
     headers.forEach((h, idx) => {
@@ -13477,6 +13665,28 @@ function parseWhiteboardMarkdown(text) {
             const idx = colMap[field];
             if (idx !== undefined && idx < cells.length) return cells[idx].replace(/\\\|/g, '|');
             return fallback !== undefined ? fallback : '';
+        }
+
+        // Issue #1018: a free-floating text object row -- discriminated by
+        // Kind="text" rather than by an empty Task (Task is meaningless
+        // for a row with no backing task at all). Id stands in for Task's
+        // role as this row's unique key; a text row with no Id can't be
+        // reliably tracked (drag/edit/delete all key off it), so it's
+        // dropped, matching the existing "no Task, no row" rule for
+        // post-its just below. Returns a deliberately different, smaller
+        // shape than a post-it row -- see this file's header comment.
+        const kindStr = getCell('kind', '').trim().toLowerCase();
+        if (kindStr === 'text') {
+            const idStr = getCell('id', '').trim();
+            if (!idStr) continue;
+            items.push({
+                kind: 'text',
+                id: idStr,
+                text: getCell('text', '').replace(/\\n/g, '\n'),
+                x: safeInt(getCell('x', '0'), 0),
+                y: safeInt(getCell('y', '0'), 0),
+            });
+            continue;
         }
 
         const taskName = getCell('task', '');
@@ -13511,15 +13721,42 @@ function generateWhiteboardText(items) {
     const escapePipe = (value) => String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
     const cellOrBlank = (value) => (value === null || value === undefined || value === '') ? '' : String(value);
 
-    const rows = items.map(item => [
-        escapePipe(item.task || ''),
-        escapePipe(String(item.x != null ? item.x : 0)),
-        escapePipe(String(item.y != null ? item.y : 0)),
-        escapePipe(item.colour || ''),
-        escapePipe(cellOrBlank(item.width)),
-        escapePipe(cellOrBlank(item.height)),
-        escapePipe(item.collapsed ? 'yes' : 'no'),
-    ]);
+    // Issue #1018: newlines in a text object's own content are meaningful
+    // (a heading can wrap), unlike every other column here, so this cell
+    // gets its own escaping that round-trips a literal newline instead of
+    // flattening it to a space -- see parseWhiteboardMarkdown()'s matching
+    // unescape (`.replace(/\\n/g, '\n')`) and this file's header comment.
+    const escapeTextCell = (value) => String(value == null ? '' : value)
+        .replace(/\\/g, '\\\\')
+        .replace(/\|/g, '\\|')
+        .replace(/\n/g, '\\n');
+
+    // The Kind/Id/Text columns only exist to carry issue #1018's text
+    // objects -- a plan with none still writes (and round-trips through)
+    // the exact same seven-column post-it table it always has.
+    const hasTextObjects = items.some(item => item && item.kind === 'text');
+    if (hasTextObjects) headers.push('Kind', 'Id', 'Text');
+
+    const rows = items.map(item => {
+        const isText = !!(item && item.kind === 'text');
+        const cells = [
+            escapePipe(isText ? '' : (item.task || '')),
+            escapePipe(String(item.x != null ? item.x : 0)),
+            escapePipe(String(item.y != null ? item.y : 0)),
+            escapePipe(isText ? '' : (item.colour || '')),
+            escapePipe(isText ? '' : cellOrBlank(item.width)),
+            escapePipe(isText ? '' : cellOrBlank(item.height)),
+            escapePipe(isText ? '' : (item.collapsed ? 'yes' : 'no')),
+        ];
+        if (hasTextObjects) {
+            cells.push(
+                escapePipe(isText ? 'text' : ''),
+                escapePipe(isText ? (item.id || '') : ''),
+                escapeTextCell(isText ? (item.text || '') : '')
+            );
+        }
+        return cells;
+    });
 
     const widths = headers.map(h => h.length);
     rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
@@ -13545,15 +13782,23 @@ function generateWhiteboardText(items) {
 function validateWhiteboardRows(items, summaryTaskNames) {
     // Task is matched case-insensitively, the same as dependency name
     // resolution (see "Resolution rules" in plan-format.rst).
+    //
+    // Issue #1018's text-object rows have no `.task` at all (they aren't
+    // backed by a task -- see this file's "Whiteboard back matter" header
+    // comment), so both rules below skip them entirely: "orphan"/
+    // "duplicate" are concepts about a row's Task referencing (or
+    // colliding with) a task name, which simply doesn't apply.
     const warnings = [];
     const nameCounts = {};
     items.forEach(item => {
+        if (item && item.kind === 'text') return;
         const key = item.task.toLowerCase();
         nameCounts[key] = (nameCounts[key] || 0) + 1;
     });
 
     const seenDuplicates = new Set();
     items.forEach(item => {
+        if (item && item.kind === 'text') return;
         const name = item.task;
         const key = name.toLowerCase();
         if (nameCounts[key] > 1 && !seenDuplicates.has(key)) {
@@ -13570,6 +13815,7 @@ function validateWhiteboardRows(items, summaryTaskNames) {
         const validNames = new Set(Array.from(summaryTaskNames, (n) => n.toLowerCase()));
         const seenOrphans = new Set();
         items.forEach(item => {
+            if (item && item.kind === 'text') return;
             const name = item.task;
             const key = name.toLowerCase();
             if (name && !validNames.has(key) && !seenOrphans.has(key)) {
@@ -13605,7 +13851,8 @@ function updatePlanWhiteboardText(planText, items) {
         const afterStart = startIdx + WHITEBOARD_START.length;
         let endIdx = planText.length;
         for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                              PARKING_LOT_START]) {
             const mIdx = planText.indexOf(marker, afterStart);
             if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
         }
@@ -13654,6 +13901,183 @@ function renamePlanWhiteboardTask(planText, oldName, newName) {
     if (!changed) return planText;
 
     return updatePlanWhiteboardText(planText, items);
+}
+
+// =====================================================================
+// Parking lot (issue #1019, part of the #885 whiteboard epic)
+//
+// A "good idea, not now" holding pen: whiteboard.js's "Send to parking
+// lot" note-menu action moves an item's text here instead of discarding
+// it. Round-tripped using the marker ---parking lot---, canonically the
+// section *after* ---whiteboard--- (see this file's own header comment
+// above and format_converter.py's ALL_SECTION_MARKERS), followed by a
+// table with columns:
+//
+//   ID | Text | Date Parked
+//
+// matched by name, not position, mirroring the whiteboard/RAID/comms
+// table convention rather than highlights' heading-per-entry shape --
+// a parked item is just one piece of free text, with nothing to group
+// entries by the way highlights groups by date+author.
+// =====================================================================
+
+/**
+ * Extract the raw ---parking lot--- section text from plan text, or ''
+ * if there isn't one.
+ */
+function extractParkingLotFromPlanText(planText) {
+    if (!planText) return '';
+    const startIdx = planText.indexOf(PARKING_LOT_START);
+    if (startIdx === -1) return '';
+    const afterStart = startIdx + PARKING_LOT_START.length;
+
+    // Parking lot is canonically the last back-matter section, but stay
+    // defensive in case some other marker follows it in hand-edited text.
+    let endIdx = planText.length;
+    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                          WHITEBOARD_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
+
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+/**
+ * Parse a parking lot markdown table into an array of item objects.
+ * Columns are matched by name, not position: ID | Text | Date Parked in
+ * any order, extra columns tolerated and ignored. Mirrors
+ * format_converter.py's parse_parking_lot_markdown.
+ */
+function parseParkingLotMarkdown(text) {
+    if (!text) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+    function parseRow(line) {
+        let parts = line.split(/(?<!\\)\|/);
+        if (parts.length && !parts[0].trim()) parts = parts.slice(1);
+        if (parts.length && !parts[parts.length - 1].trim()) parts = parts.slice(0, -1);
+        return parts.map(c => c.trim());
+    }
+
+    let headerIndex = -1;
+    let headers = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].includes('|')) continue;
+        const cells = parseRow(lines[i]).map(c => c.toLowerCase());
+        if (cells.includes('text')) {
+            headerIndex = i;
+            headers = cells;
+            break;
+        }
+    }
+    if (headerIndex === -1) return [];
+
+    const aliases = { id: 'id', text: 'text', 'date parked': 'date_parked' };
+    const colMap = {};
+    headers.forEach((h, idx) => {
+        if (aliases[h] && !(aliases[h] in colMap)) colMap[aliases[h]] = idx;
+    });
+
+    const items = [];
+    let maxId = 0;
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (line.replace(/[|\- ]/g, '') === '') continue; // separator row
+        if (line.startsWith('//')) continue;
+
+        const cells = parseRow(line);
+        if (!cells.length) continue;
+
+        function getCell(field, fallback) {
+            const idx = colMap[field];
+            if (idx !== undefined && idx < cells.length) return cells[idx].replace(/\\\|/g, '|');
+            return fallback !== undefined ? fallback : '';
+        }
+
+        const text = getCell('text', '');
+        if (!text) continue;
+
+        const idStr = getCell('id', '');
+        const parsedId = parseInt(idStr, 10);
+        const itemId = idStr && !Number.isNaN(parsedId) ? parsedId : maxId + 1;
+        maxId = Math.max(maxId, itemId);
+
+        items.push({
+            id: itemId,
+            text,
+            date_parked: getCell('date_parked', ''),
+        });
+    }
+    return items;
+}
+
+/**
+ * Generate a formatted markdown table from parking lot items, columns
+ * padded to their widest entry (matching the other back-matter
+ * generators). Returns '' if there are no items.
+ */
+function generateParkingLotText(items) {
+    if (!items || items.length === 0) return '';
+    const headers = ['ID', 'Text', 'Date Parked'];
+
+    const escapePipe = (value) => String(value == null ? '' : value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const rows = items.map(item => [
+        escapePipe(item.id),
+        escapePipe(item.text || ''),
+        escapePipe(item.date_parked || ''),
+    ]);
+
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
+
+    const pad = (s, w) => s + ' '.repeat(Math.max(0, w - s.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Update plan text with the given parking lot items, rewriting only the
+ * ---parking lot--- section and leaving every other back-matter section,
+ * front matter, and the task outline untouched. If `items` is empty, any
+ * existing parking lot section is removed. Parking lot is canonically the
+ * last back-matter section, so nothing needs to be preserved and
+ * re-appended after it -- mirrors updatePlanWhiteboardText().
+ */
+function updatePlanParkingLotText(planText, items) {
+    const startIdx = planText.indexOf(PARKING_LOT_START);
+    let before = planText;
+    let after = '';
+    if (startIdx !== -1) {
+        const afterStart = startIdx + PARKING_LOT_START.length;
+        let endIdx = planText.length;
+        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                              WHITEBOARD_START]) {
+            const mIdx = planText.indexOf(marker, afterStart);
+            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+        }
+        before = planText.substring(0, startIdx);
+        after = planText.substring(endIdx);
+    }
+    before = before.replace(/\n+$/, '');
+
+    const table = generateParkingLotText(items);
+    let result = before;
+    if (table) {
+        result = result + '\n\n' + PARKING_LOT_START + '\n' + table;
+    }
+    if (after) {
+        result = result.replace(/\n+$/, '') + '\n\n' + after.replace(/^\n+/, '');
+    }
+    return result;
 }
 
 /**
@@ -15181,6 +15605,22 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     html += '  </div>';
     html += '</div>';
 
+    // --- Estimate (#1053) ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">🎯</span> Estimate</div>';
+    html += '  <div class="inspector-section-body">';
+    html += '    <button type="button" class="estimate-open-btn" id="inspectorEstimateBtn">Three-point estimate…</button>';
+    html += '  </div>';
+    html += '</div>';
+
+    // --- Cards (#1050) ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">📇</span> Cards</div>';
+    html += '  <div class="inspector-section-body">';
+    html += '    <button type="button" class="estimate-open-btn" id="inspectorCardsBtn">Save / insert card…</button>';
+    html += '  </div>';
+    html += '</div>';
+
     // --- Comment ---
     if (task.comment) {
         html += '<div class="inspector-section">';
@@ -15206,6 +15646,28 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     // Edit button is now in the inspector header — no inline button needed
 
     body.innerHTML = html;
+
+    const estimateBtn = document.getElementById('inspectorEstimateBtn');
+    if (estimateBtn && typeof EstimatingTool !== 'undefined') {
+        estimateBtn.addEventListener('click', () => {
+            const editor = document.getElementById('planEditor');
+            if (!editor) return;
+            EstimatingTool.openEstimatePopup({
+                getText: () => editor.value,
+                setText: (text) => {
+                    editor.value = text;
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                    openTaskInspectorByName(task.name);
+                },
+                taskName: task.name,
+            });
+        });
+    }
+
+    const cardsBtn = document.getElementById('inspectorCardsBtn');
+    if (cardsBtn && typeof CardLibrary !== 'undefined') {
+        cardsBtn.addEventListener('click', () => openCardLibraryForTask(task));
+    }
 }
 
 

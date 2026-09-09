@@ -1,37 +1,51 @@
 /**
- * backstage.js — Office-Backstage-style shell behind Home (issue #943,
- * sub-issue of epic #903).
+ * backstage.js — full-screen, Office-Backstage-style shell behind File
+ * (issue #943 landed it as a panel; #972, this revision, makes it the
+ * full-screen front door the epic #903 always intended: File navigates
+ * straight to it, the header/ribbon/status bar hide while it's open, and a
+ * back arrow / Esc is the one way out).
  *
  * Provides:
- *   - #backstage-tab: a left rail of file actions (New plan, Open, Import,
- *     Export, Templates, Print, Settings) plus a "Recent" grid of projects
- *     built from project-storage.js's listProjects().
+ *   - #backstage-tab: a left rail of file actions (New plan, Open, Save,
+ *     Import, Export, Print, Templates, Settings) plus a "start a new plan"
+ *     template strip and a "Recent" grid of projects (listProjects()) in
+ *     the main area.
  *   - File actions reuse ribbon.js's own FILE_ACTIONS map rather than
  *     re-implementing project creation/import/export -- see runFileAction()
  *     below. ribbon.js is a classic (non-module) script, so its top-level
  *     `const FILE_ACTIONS` is readable here as a shared lexical binding once
  *     it has run, the same cross-script pattern ribbon.js itself uses for
  *     NavigationController/currentThemeChoice (see ribbon.js's comments).
- *   - #backstageTemplatesBtn (#944, this file) swaps the main area into a
- *     template-picker sub-view (#backstageTemplatesView) instead of the
- *     Recent grid. It is not the same feature as the ribbon's own
+ *   - #backstageTemplatesBtn / "More templates" (#944, this file) swap the
+ *     main area into a template-picker sub-view (#backstageTemplatesView)
+ *     instead of the Recent grid. Not the same feature as the ribbon's own
  *     "Templates" File-menu item (nav.js's openTemplatesModal(), which
  *     inserts a starter plan into the *current* project, overwriting it).
- *     Picking a card here **creates a new plan** and leaves Backstage --
- *     see createPlanFromTemplate() below. Card rendering is still a plain
- *     placeholder; #945 gives it the real portrait renderer, see
- *     renderTemplateCard().
- *   - Templates come from the same `/api/templates` endpoint the ribbon's
- *     Templates modal already uses (app.py), not a hardcoded list.
+ *     Picking a card here creates a **separate new plan** and opens it --
+ *     the follow-up #972 left open, see createPlanFromTemplate() below.
+ *     #945/#946 (portrait card rendering, seed templates) are still to come.
+ *   - Real template data comes from `/api/templates`, cached in
+ *     `templatesData` (state.js) -- the same global nav.js's own Templates
+ *     modal (openTemplatesModal()) already populates and reads, so opening
+ *     either one first warms the cache for the other.
+ *   - Full-screen: activate()/deactivate() toggle `body.backstage-fullscreen`
+ *     (backstage.css hides #ribbonShell and .status-bar under it, and
+ *     reclaims the bottom padding status-bar.css reserves for the status
+ *     bar). The back arrow and Esc both call exitBackstage(), which returns
+ *     to whatever view NavigationController.getPreviousView() recorded on
+ *     entry -- 'portfolio' if there wasn't one (first run, no project open).
  *
  * Depends on:
- *   - NavigationController (script.js) — view registry & navigateTo()
- *   - listProjects / getCurrentProjectId / createProject / saveCurrentProjectState
- *     (project-storage.js)
- *   - switchToProject / switchMainTab / showNotification / renderProjectsList (portfolio.js)
+ *   - NavigationController (script.js) — view registry, navigateTo(),
+ *     getCurrentView()/getPreviousView()
+ *   - listProjects / getCurrentProjectId / createProject /
+ *     saveCurrentProjectState (project-storage.js)
+ *   - switchToProject / switchToView / showNotification / renderProjectsList
+ *     (portfolio.js / script.js)
  *   - loadProjectIntoEditor / refreshProjectSelectors (multi-plan-loader.js)
  *   - setFrontMatterField / renderProjectsTable (portfolio-projects-table.js)
  *   - FILE_ACTIONS / notAvailable (ribbon.js)
+ *   - templatesData (state.js) / fetch('/api/templates')
  */
 
 (function () {
@@ -140,9 +154,14 @@
      * Create a plan, load it, and leave Backstage for the editor.
      *
      * Follows portfolio.js's showCreateProjectDialog() -- the existing
-     * creation precedent -- and adds the switch out of Backstage, since
-     * unlike that dialog this is invoked from a view the new plan isn't
-     * visible in. `planText` empty means a blank plan.
+     * creation precedent -- but leaves the view as well, which that dialog
+     * doesn't: called from full-screen Backstage it would otherwise create
+     * the plan and leave you staring at a front door that doesn't show it.
+     * Exits via switchToView() rather than switchMainTab() for the reason
+     * #1044 found in switchToProject(): only the NavigationController path
+     * deactivates Backstage, and skipping it strands
+     * `body.backstage-fullscreen` (and the hidden ribbon) on.
+     * `planText` empty means a blank plan.
      */
     async function createPlan(name, planText, message) {
         if (typeof createProject !== 'function') {
@@ -160,16 +179,17 @@
         const project = createProject(name, planText);
         if (!project) return null;
 
-        // Load first, switch second -- the same order portfolio.js's
-        // switchToProject() uses, so the editor never flashes the outgoing
-        // plan on the way in.
         if (typeof loadProjectIntoEditor === 'function') {
             await loadProjectIntoEditor(project.id);
         }
         if (typeof renderProjectsList === 'function') renderProjectsList();
         if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
         if (typeof renderProjectsTable === 'function') renderProjectsTable();
-        if (typeof switchMainTab === 'function') switchMainTab('editor');
+        if (typeof switchToView === 'function') {
+            switchToView('editor');
+        } else if (typeof switchMainTab === 'function') {
+            switchMainTab('editor');
+        }
         if (typeof showNotification === 'function') {
             showNotification(message || ('Project created: ' + project.name));
         }
@@ -186,9 +206,11 @@
     /**
      * Fetch a template's `.md` and start a new plan from it. This is the
      * difference from the ribbon's Templates modal (nav.js useTemplate()),
-     * which loads template content over whatever plan is currently open.
+     * which loads template content over whatever plan is currently open --
+     * destructive from a front door whose job is starting something new.
      */
     async function createPlanFromTemplate(templateId, card) {
+        const known = findTemplate(templateId);
         const label = card ? card.querySelector('.backstage-template-card-name') : null;
         const originalLabel = label ? label.textContent : '';
         try {
@@ -198,19 +220,20 @@
             const response = await fetch(`/api/templates/${encodeURIComponent(templateId)}`);
             if (!response.ok) throw new Error('Failed to load template');
             const template = await response.json();
+            const title = template.title || (known && known.title) || templateId;
 
-            const name = prompt('Name for the new plan:', template.title || '');
+            const name = prompt('Name for the new plan:', title);
             if (!name) return;
 
             await createPlan(
                 name,
                 planTextFromTemplate(template.content, name),
-                `Created "${name}" from the ${template.title} template`
+                `Created "${name}" from the ${title} template`
             );
-        } catch (err) {
-            console.error('Error creating plan from template:', err);
+        } catch (error) {
+            console.error('Backstage: error creating plan from template:', error);
             if (typeof showNotification === 'function') {
-                showNotification('Could not create a plan from that template: ' + err.message, 'error');
+                showNotification('Could not create a plan from that template: ' + error.message, 'error');
             }
         } finally {
             if (card) card.disabled = false;
@@ -220,31 +243,39 @@
 
     // ── Template picker ─────────────────────────────────────────────────
 
-    // Cached `/api/templates` payload -- the same endpoint and shape the
-    // ribbon's Templates modal uses (nav.js's templatesData).
-    let templatePickerData = null;
+    // How many real templates the landing strip shows alongside Blank --
+    // "four or five cards including Blank" per #972's own layout spec.
+    const STRIP_TEMPLATE_COUNT = 3;
 
+    /**
+     * Fetches /api/templates once per session, caching into `templatesData`
+     * (state.js) -- the same global nav.js's openTemplatesModal() reads and
+     * populates, so whichever of the two runs first warms it for the other.
+     * Returns null (rather than throwing) on failure so callers can leave
+     * the Blank card visible instead of showing a broken grid/strip.
+     */
     async function loadTemplates() {
-        if (templatePickerData) return templatePickerData;
-        const response = await fetch('/api/templates');
-        if (!response.ok) throw new Error('Failed to load templates');
-        const data = await response.json();
-        templatePickerData = Array.isArray(data.templates) ? data.templates : [];
-        return templatePickerData;
+        if (templatesData) return templatesData;
+        try {
+            const response = await fetch('/api/templates');
+            if (!response.ok) throw new Error('Failed to load templates');
+            templatesData = await response.json();
+            return templatesData;
+        } catch (error) {
+            console.error('Backstage: error loading templates:', error);
+            return null;
+        }
     }
 
     function renderTemplateCard(template) {
-        // #945 replaces this body with the real portrait-rendered card.
-        const description = template.description
-            ? `<span class="backstage-template-card-desc">${escapeHtml(template.description)}</span>`
-            : '';
+        // #945 replaces this body with the real portrait-rendered card
+        // (summary-task rows + milestone bubbles, off plan-model.js).
         return `
             <button type="button" class="backstage-template-card" data-template-id="${escapeHtml(template.id)}">
                 <span class="backstage-template-card-icon">
                     <svg class="icon" width="28" height="28" aria-hidden="true"><use href="#icon-doc"/></svg>
                 </span>
-                <span class="backstage-template-card-name">${escapeHtml(template.title || template.id)}</span>
-                ${description}
+                <span class="backstage-template-card-name">${escapeHtml(template.title)}</span>
             </button>
         `;
     }
@@ -260,24 +291,37 @@
         `;
     }
 
+    /** The landing view's short "start a new plan" strip: Blank plus up to
+     * STRIP_TEMPLATE_COUNT templates, preferring ones flagged `popular` in
+     * their template.yml (the same flag nav.js's Templates modal uses for
+     * its own "Start Here" section) so the strip surfaces the templates
+     * most likely to be picked. */
+    async function renderTemplateStrip() {
+        const strip = document.getElementById('backstageTemplateStrip');
+        if (!strip) return;
+        strip.innerHTML = renderBlankPlanCard();
+        const data = await loadTemplates();
+        if (!data) return; // Blank stays visible; strip just skips real templates.
+        const all = data.templates || [];
+        const popular = all.filter((t) => t.popular);
+        const picks = (popular.length > 0 ? popular : all).slice(0, STRIP_TEMPLATE_COUNT);
+        strip.innerHTML = renderBlankPlanCard() + picks.map(renderTemplateCard).join('');
+    }
+
     async function renderTemplatePicker() {
         const grid = document.getElementById('backstageTemplateGrid');
         if (!grid) return;
+        grid.innerHTML = renderBlankPlanCard();
+        const data = await loadTemplates();
+        if (!data) return; // Blank stays visible; grid just skips real templates.
+        grid.innerHTML = renderBlankPlanCard() + (data.templates || []).map(renderTemplateCard).join('');
+    }
 
-        // Blank is always available, so render it before the fetch resolves
-        // rather than blanking the grid behind a spinner.
-        grid.innerHTML = renderBlankPlanCard() +
-            '<p class="backstage-template-status">Loading templates…</p>';
-
-        try {
-            const templates = await loadTemplates();
-            grid.innerHTML = renderBlankPlanCard() + templates.map(renderTemplateCard).join('');
-        } catch (err) {
-            console.error('Error loading templates:', err);
-            grid.innerHTML = renderBlankPlanCard() +
-                '<p class="backstage-template-status backstage-template-status-error">' +
-                'Templates could not be loaded. You can still start a blank plan.</p>';
-        }
+    /** Looks up a template by id from whichever of the strip/grid the click
+     * came from -- both render off the same `templatesData` cache. */
+    function findTemplate(templateId) {
+        const all = (templatesData && templatesData.templates) || [];
+        return all.find((t) => t.id === templateId);
     }
 
     function showTemplatesView() {
@@ -297,18 +341,60 @@
         recentView.style.display = '';
     }
 
+    // ── Full-screen enter/exit ──────────────────────────────────────────
+
+    // The view to return to on exit -- captured once, right as Backstage
+    // activates (see NavigationController.register('backstage') below),
+    // from NavigationController.getPreviousView() (script.js). That getter
+    // reflects whatever was current the instant *this* navigation began, so
+    // reading it here (rather than getCurrentView()) is what makes "return
+    // to whatever view was active on entry" correct even though activate()
+    // itself only runs after currentView has already become 'backstage'.
+    let entryView = null;
+
+    /** ← arrow / Esc: the one way out of full-screen Backstage (#972). Falls
+     * back to 'portfolio' when there's nothing sensible to return to --
+     * first run with no project open, or entryView somehow being
+     * 'backstage' itself (e.g. File clicked again while already here). */
+    function exitBackstage() {
+        const target = (entryView && entryView !== 'backstage') ? entryView : 'portfolio';
+        if (typeof switchToView === 'function') switchToView(target);
+    }
+
     // ── Wiring ───────────────────────────────────────────────────────────
 
+    function handleTemplateCardClick(e) {
+        const card = e.target.closest('.backstage-template-card[data-template-id]');
+        if (!card) return;
+        if (card.dataset.templateId === 'blank') {
+            createBlankPlan();
+            return;
+        }
+        createPlanFromTemplate(card.dataset.templateId, card);
+    }
+
     function init() {
+        const backArrow = document.getElementById('backstageBackBtn');
+        if (backArrow) {
+            backArrow.addEventListener('click', exitBackstage);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            if (typeof NavigationController === 'undefined') return;
+            if (NavigationController.getCurrentView() !== 'backstage') return;
+            exitBackstage();
+        });
+
         const rail = document.querySelector('.backstage-rail');
         if (rail) {
             rail.addEventListener('click', (e) => {
                 const actionBtn = e.target.closest('[data-backstage-action]');
                 if (actionBtn) {
                     // "New plan" is the rail's spelling of the Blank card, so
-                    // it takes the same path -- FILE_ACTIONS' version creates
-                    // the project but leaves you looking at Backstage, which
-                    // is wrong from a view the new plan isn't listed in.
+                    // it takes the same path. FILE_ACTIONS' version creates
+                    // the project but stays in Backstage, which from a
+                    // full-screen front door leaves the new plan invisible.
                     if (actionBtn.dataset.backstageAction === 'New plan') {
                         createBlankPlan();
                     } else {
@@ -333,6 +419,18 @@
             });
         }
 
+        // "More templates →" (#972) lands in the same place as the rail's
+        // own Templates button -- both just open the full browser.
+        const moreBtn = document.getElementById('backstageMoreTemplatesBtn');
+        if (moreBtn) {
+            moreBtn.addEventListener('click', showTemplatesView);
+        }
+
+        const strip = document.getElementById('backstageTemplateStrip');
+        if (strip) {
+            strip.addEventListener('click', handleTemplateCardClick);
+        }
+
         const backBtn = document.getElementById('backstageTemplatesBackBtn');
         if (backBtn) {
             backBtn.addEventListener('click', showRecentView);
@@ -340,20 +438,13 @@
 
         const grid = document.getElementById('backstageTemplateGrid');
         if (grid) {
-            grid.addEventListener('click', (e) => {
-                const card = e.target.closest('.backstage-template-card[data-template-id]');
-                if (!card) return;
-                if (card.dataset.templateId === 'blank') {
-                    createBlankPlan();
-                    return;
-                }
-                createPlanFromTemplate(card.dataset.templateId, card);
-            });
+            grid.addEventListener('click', handleTemplateCardClick);
         }
 
         if (typeof NavigationController !== 'undefined') {
             NavigationController.register('backstage', {
                 activate() {
+                    entryView = NavigationController.getPreviousView();
                     if (typeof saveCurrentProjectState === 'function') {
                         saveCurrentProjectState();
                     }
@@ -369,10 +460,17 @@
                     // Hide the project subnav while in backstage view (it isn't project-scoped)
                     const planSubnav = document.getElementById('planSubnav');
                     if (planSubnav) planSubnav.classList.remove('visible');
+                    // #972: full screen -- header/ribbon/status bar hide
+                    // under this class (backstage.css); the back arrow
+                    // above is what makes that not a trap.
+                    document.body.classList.add('backstage-fullscreen');
                     showRecentView();
                     renderRecent();
+                    renderTemplateStrip();
                 },
-                deactivate() {},
+                deactivate() {
+                    document.body.classList.remove('backstage-fullscreen');
+                },
             });
         }
     }

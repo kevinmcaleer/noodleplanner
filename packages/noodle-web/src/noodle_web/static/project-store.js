@@ -51,6 +51,11 @@
 
     const MIGRATION_META_KEY = 'migration';
     const DEPS_META_KEY = 'programmeDependencies';
+    // Programme-owned data (#954/#735) -- lazily-created per-programme
+    // records (SRO/vision/outcomes, benefits links, and later #738/#740/
+    // #741/#742's own slices). Never existed pre-#794, so there's no
+    // legacy localStorage key for it to migrate.
+    const PROGRAMME_DATA_META_KEY = 'programmeData';
 
     let keyCounter = 0;
 
@@ -752,6 +757,7 @@
             LEGACY_HISTORY_PREFIX: LEGACY_HISTORY_PREFIX,
             LEGACY_DEPS_KEY: LEGACY_DEPS_KEY,
             DEPS_META_KEY: DEPS_META_KEY,
+            PROGRAMME_DATA_META_KEY: PROGRAMME_DATA_META_KEY,
             stats: stats,
             isActive: isActive,
             isReady: function () { return state.ready; },

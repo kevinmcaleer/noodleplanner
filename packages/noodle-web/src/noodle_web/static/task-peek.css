@@ -53,7 +53,7 @@
     background: none;
     padding: 2px 4px;
     border-radius: 4px;
-    color: var(--np-accent, #667eea);
+    color: var(--np-accent);
     cursor: pointer;
     max-width: 120px;
     overflow: hidden;
@@ -64,7 +64,7 @@
 .task-peek-crumb:hover,
 .task-peek-crumb:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
-    outline: 2px solid var(--np-accent, #667eea);
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -114,9 +114,9 @@
 
 .task-peek-open-details-btn:hover,
 .task-peek-open-details-btn:focus-visible {
-    background: var(--np-accent, #667eea);
+    background: var(--np-accent);
     color: #ffffff;
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
 }
 
 .task-peek-close-btn {

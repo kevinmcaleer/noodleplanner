@@ -20,6 +20,13 @@
  * what actually authenticates the ECDH exchange, and the two must never be
  * conflated).
  *
+ * #969 extends #967's op model from the task outline to the RAID/risk log
+ * -- see collab-backmatter-ops.js's module docstring for the row-op
+ * protocol and why it's RAID only for now. It rides the exact same
+ * `enc` frame and relay as everything else here: `applyCollabBackmatterOp`
+ * and `broadcastCollabPlan`'s `raidNotice` parameter are the only new
+ * surface, added right alongside the task-op equivalents they mirror.
+ *
  * #967 lifted the single-joiner limit this file used to carry. The relay
  * now tags every joiner->host frame with its sender id (app.py's
  * `_wrap_from_joiner`) and routes host->joiner frames addressed at one
@@ -46,6 +53,22 @@ let opsModule = null;
 function loadCollabOps() {
     if (!opsModule) opsModule = import('/static/collab-ops.js');
     return opsModule;
+}
+
+// #969: the RAID/risk log's row-op counterpart to collab-ops.js's task
+// ops -- see collab-backmatter-ops.js's module docstring for why RAID
+// only (of the four back-matter sections #969 names) and how the
+// row-based op protocol is meant to extend to the others later.
+let backmatterOpsModule = null;
+function loadCollabBackmatterOps() {
+    if (!backmatterOpsModule) backmatterOpsModule = import('/static/collab-backmatter-ops.js');
+    return backmatterOpsModule;
+}
+
+let autosaveModule = null;
+function loadCollabAutosave() {
+    if (!autosaveModule) autosaveModule = import('/static/collab-autosave.js');
+    return autosaveModule;
 }
 
 let collabSocket = null;
@@ -75,6 +98,15 @@ let collabApplyingRemoteOp = false;
 // raced another participant produce a conflict notice. Created lazily
 // with collab-ops.js, which is loaded on demand.
 let collabConflicts = null;
+// #969: the same tracking, kept as a *separate* instance keyed by RAID
+// row id rather than task name -- see collab-backmatter-ops.js's module
+// docstring for why sharing collabConflicts would risk a task id and a
+// row id that happen to collide cross-reporting each other's conflicts.
+let collabBackmatterConflicts = null;
+// #968: debounce handle for the host's local crash-recovery snapshot --
+// see collab-autosave.js's module docstring and scheduleCollabAutosave
+// below.
+let collabAutosaveTimer = null;
 
 /** The host's authoritative plan document. This is the same textarea the
  * PM edits by hand -- there is deliberately no second copy of the plan for
@@ -106,6 +138,82 @@ function closeCollabSessionModal() {
 function endCollabSession() {
     if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
     collabSocket.send(JSON.stringify({ type: 'end_session' }));
+    // #968: an explicit end means the host has consciously chosen to stop
+    // -- the crash-recovery snapshot exists only for the *unexpected* drop,
+    // so it has nothing left to protect against once the host has said
+    // "we're done" themselves. Cancel any pending debounced write too, or
+    // the close handler's flush-on-close (below) would write a fresh
+    // snapshot right back after this clears it.
+    clearTimeout(collabAutosaveTimer);
+    collabAutosaveTimer = null;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (projectId) clearCollabAutosaveForProject(projectId);
+}
+
+/** Give up the #968 recovery snapshot for `projectId`, if it holds one.
+ * Called on the host's own explicit "end session" above, and from
+ * project-storage.js's saveCurrentProjectState() on every real save --
+ * once the project record itself has this content, the snapshot is
+ * redundant. Safe to call with no session or no snapshot in play; both are
+ * no-ops. */
+async function clearCollabAutosaveForProject(projectId) {
+    if (!projectId) return;
+    const { clearCollabAutosaveIfCurrent } = await loadCollabAutosave();
+    clearCollabAutosaveIfCurrent(projectId);
+}
+
+/** Debounced after every joiner op the host applies (#968) -- see
+ * collab-autosave.js's module docstring for why this needs to be tighter
+ * than the general 30 s project autosave. */
+async function scheduleCollabAutosave() {
+    const { COLLAB_AUTOSAVE_DEBOUNCE_MS } = await loadCollabAutosave();
+    clearTimeout(collabAutosaveTimer);
+    collabAutosaveTimer = setTimeout(writeCollabAutosaveNow, COLLAB_AUTOSAVE_DEBOUNCE_MS);
+}
+
+async function writeCollabAutosaveNow() {
+    const editor = collabEditor();
+    if (!editor) return;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (!projectId) return;
+    const { buildCollabAutosaveRecord, writeCollabAutosave } = await loadCollabAutosave();
+    writeCollabAutosave(buildCollabAutosaveRecord(projectId, collabSessionId, editor.value, collabPlanRev));
+}
+
+/** #968: after the plan for `projectId` has just been loaded into the
+ * editor (page load, or the host reconnecting after a refresh), check
+ * whether an earlier session left a newer recovery snapshot for it and, if
+ * so, let the host choose to bring it back or discard it -- see
+ * collab-autosave.js's shouldOfferCollabRecovery for why an interrupted
+ * session is distinguishable from a clean end. Called once on startup --
+ * see multi-plan-loader.js's initMultiPlanLoader(). Never applies a
+ * snapshot without the host's confirmation. */
+async function checkCollabAutosaveRecovery(projectId) {
+    if (!projectId) return;
+    const project = typeof loadProject === 'function' ? loadProject(projectId) : null;
+    if (!project) return;
+
+    const { readCollabAutosave, shouldOfferCollabRecovery, clearCollabAutosaveIfCurrent } = await loadCollabAutosave();
+    const snapshot = readCollabAutosave();
+    if (!shouldOfferCollabRecovery(snapshot, project)) return;
+
+    const recover = confirm(
+        'A collaborative planning session was interrupted before its changes were saved. ' +
+        'Recover the latest changes made during that session?'
+    );
+    if (!recover) {
+        clearCollabAutosaveIfCurrent(projectId);
+        return;
+    }
+
+    const editor = collabEditor();
+    if (editor) {
+        editor.value = snapshot.planText;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+    clearCollabAutosaveIfCurrent(projectId);
+    if (typeof showToast === 'function') showToast('Recovered changes from the interrupted planning session', 'success');
 }
 
 /** Host-initiated removal of one participant (#966) -- see app.py's
@@ -227,15 +335,43 @@ async function sendCollabMessageTo(joinerId, plaintext) {
  * a diff protocol would add reconciliation bugs (and a second way for
  * clients to disagree about state) to buy back bandwidth nobody is short
  * of. `notice`, when present, is the "X also edited this" message from the
- * conflict rule -- see collab-ops.js's describeConflict. */
-async function broadcastCollabPlan(notice) {
+ * conflict rule -- see collab-ops.js's describeConflict.
+ *
+ * #969: the plan text is one document, tasks and RAID log alike, so any
+ * change to it -- a task op, a RAID row op, or the host's own typing --
+ * is broadcast as both a `plan_snapshot` and a `raid_snapshot` together.
+ * That costs a little redundant chatter when only one half actually
+ * changed, which is the same trade-off this function's own task-snapshot
+ * broadcast already makes (see the comment above): correctness from a
+ * single full-snapshot source of truth, over a diff protocol that would
+ * have to reconcile two content types instead of one. `raidNotice` is the
+ * RAID counterpart of `notice` -- see describeBackmatterConflict. */
+async function broadcastCollabPlan(notice, raidNotice, sectionNotice) {
     if (collabSessionKeys.size === 0) return 0;
     const { buildPlanSnapshot } = await loadCollabOps();
+    const { buildRaidSnapshot, buildSectionSnapshot, EDITABLE_SECTIONS } = await loadCollabBackmatterOps();
     const editor = collabEditor();
     if (!editor) return 0;
     const snapshot = buildPlanSnapshot(editor.value, collabPlanRev);
     if (notice) snapshot.notice = notice;
-    return sendCollabMessage(JSON.stringify(snapshot));
+    const raidSnapshot = buildRaidSnapshot(editor.value, collabPlanRev);
+    if (raidNotice) raidSnapshot.notice = raidNotice;
+    let sent = await sendCollabMessage(JSON.stringify(snapshot));
+    sent += await sendCollabMessage(JSON.stringify(raidSnapshot));
+
+    // #1036: the other editable back-matter sections travel the same way,
+    // one `backmatter_snapshot` each. RAID keeps its own frame type for
+    // compatibility with the joiner #969 already shipped.
+    for (const section of EDITABLE_SECTIONS) {
+        if (section === 'raid') continue;
+        const sectionSnapshot = buildSectionSnapshot(editor.value, collabPlanRev, section);
+        if (!sectionSnapshot) continue;
+        if (sectionNotice && sectionNotice.section === section) {
+            sectionSnapshot.notice = sectionNotice.text;
+        }
+        sent += await sendCollabMessage(JSON.stringify(sectionSnapshot));
+    }
+    return sent;
 }
 
 /** Apply one joiner's edit intent to the host's plan, then tell everyone.
@@ -283,13 +419,73 @@ async function applyCollabPlanOp(joinerId, op) {
     }
 
     collabPlanRev++;
+    // #968: this is an *incoming* contribution the host would otherwise
+    // have no record of outside the next real save -- see
+    // collab-autosave.js's module docstring.
+    scheduleCollabAutosave();
     // Only announce an edit that actually raced someone else's recent edit
     // to the same task. Reporting every value change would mean a person
     // working through the plan alone got a stream of "also edited this"
     // notices, and a notice that always fires is one nobody reads.
     const editor_name = collabJoinerNames.get(joinerId);
     const raced = collabConflicts.record(op.expect || String(op.id), editor_name);
-    await broadcastCollabPlan(raced ? describeConflict(op, result.previous, editor_name) : null);
+    await broadcastCollabPlan(raced ? describeConflict(op, result.previous, editor_name) : null, null);
+}
+
+/** #969: apply one joiner's RAID row edit intent to the host's plan, then
+ * tell everyone -- the RAID counterpart of applyCollabPlanOp above. Same
+ * host-authoritative model (joiners never touch the document, they ask
+ * the host to) and the same arrival-order-is-the-conflict-rule guarantee;
+ * see collab-backmatter-ops.js's module docstring for how row identity
+ * and staleness differ from task ops. */
+async function applyCollabBackmatterOp(joinerId, op) {
+    const { applyBackmatterOp, describeBackmatterConflict } = await loadCollabBackmatterOps();
+    const { createConflictTracker } = await loadCollabOps();
+    if (!collabBackmatterConflicts) collabBackmatterConflicts = createConflictTracker();
+    const editor = collabEditor();
+    if (!editor) return;
+
+    const result = applyBackmatterOp(editor.value, op);
+    if (!result.ok) {
+        await sendCollabMessageTo(joinerId, JSON.stringify({
+            type: 'backmatter_op_rejected', section: op.section, op: op.op, reason: result.reason,
+        }));
+        return;
+    }
+
+    editor.value = result.text;
+    collabApplyingRemoteOp = true;
+    try {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    } finally {
+        collabApplyingRemoteOp = false;
+    }
+    if (typeof renderPlan === 'function') {
+        try {
+            await renderPlan();
+        } catch (error) {
+            collabLog('(applied an edit but could not re-render the plan)');
+        }
+    }
+
+    collabPlanRev++;
+    // #968: same crash-recovery discipline as applyCollabPlanOp -- a RAID
+    // row a joiner just added or edited is exactly the kind of incoming
+    // contribution the host would otherwise have no record of outside the
+    // next real save, and it deserves no less protection than a task edit.
+    scheduleCollabAutosave();
+    const editor_name = collabJoinerNames.get(joinerId);
+    // #1036: the tracker is keyed by section *and* row, so row 1 of the
+    // comms plan and row 1 of the RAID log are not mistaken for the same
+    // thing -- the mistake the separate task/RAID trackers already exist
+    // to avoid, now that there is more than one row-based section.
+    const raced = collabBackmatterConflicts.record(`${op.section}:${op.row_id}`, editor_name);
+    const notice = raced ? describeBackmatterConflict(op, result.previous, editor_name) : null;
+    if (op.section === 'raid') {
+        await broadcastCollabPlan(null, notice, null);
+    } else {
+        await broadcastCollabPlan(null, null, notice ? { section: op.section, text: notice } : null);
+    }
 }
 
 /** Push the host's own typing out to joiners (#967).
@@ -317,7 +513,7 @@ function scheduleCollabPlanBroadcast() {
     clearTimeout(collabLocalEditTimer);
     collabLocalEditTimer = setTimeout(() => {
         collabPlanRev++;
-        broadcastCollabPlan(null);
+        broadcastCollabPlan(null, null);
     }, 250);
 }
 
@@ -365,11 +561,24 @@ async function handleCollabMessage(raw) {
         collabLog('Secure channel established with joiner.');
         // #967: hand the new joiner the current plan straight away, so they
         // have something to edit without waiting for someone else to make
-        // the next change.
+        // the next change. #969: the RAID log rides along the same way.
         const { buildPlanSnapshot } = await loadCollabOps();
+        const {
+            buildRaidSnapshot, buildSectionSnapshot, EDITABLE_SECTIONS,
+        } = await loadCollabBackmatterOps();
         const editor = collabEditor();
         if (editor) {
             await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(editor.value, collabPlanRev)));
+            await sendCollabMessageTo(joinerId, JSON.stringify(buildRaidSnapshot(editor.value, collabPlanRev)));
+            // #1036: and the rest of the editable back matter, so a joiner
+            // arrives with every section they can edit already populated.
+            for (const section of EDITABLE_SECTIONS) {
+                if (section === 'raid') continue;
+                const snapshot = buildSectionSnapshot(editor.value, collabPlanRev, section);
+                if (snapshot) {
+                    await sendCollabMessageTo(joinerId, JSON.stringify(snapshot));
+                }
+            }
         }
         return;
     }
@@ -388,10 +597,11 @@ async function handleCollabMessage(raw) {
             return;
         }
 
-        // #967: an edit intent, or ordinary chatter. Only content that
+        // #967/#969: an edit intent, or ordinary chatter. Only content that
         // decrypted under this joiner's own key gets this far, so the
         // sender is authenticated before any op is applied.
         const { isPlanOp } = await loadCollabOps();
+        const { isBackmatterOp } = await loadCollabBackmatterOps();
         let parsed = null;
         try {
             parsed = JSON.parse(plaintext);
@@ -400,6 +610,10 @@ async function handleCollabMessage(raw) {
         }
         if (isPlanOp(parsed)) {
             await applyCollabPlanOp(joinerId, parsed);
+            return;
+        }
+        if (isBackmatterOp(parsed)) {
+            await applyCollabBackmatterOp(joinerId, parsed);
             return;
         }
         collabLog(`joiner: ${plaintext}`);
@@ -448,6 +662,7 @@ async function startCollabSession() {
     collabJoinerNames.clear();
     collabPlanRev = 0;
     if (collabConflicts) collabConflicts.reset();
+    if (collabBackmatterConflicts) collabBackmatterConflicts.reset();
     attachCollabLocalEditListener();
     renderCollabPresence([]);
 
@@ -523,6 +738,15 @@ async function startCollabSession() {
         // and find no keys.
         clearTimeout(collabLocalEditTimer);
         collabLocalEditTimer = null;
+        // #968: a pending debounced autosave hasn't written its snapshot
+        // yet -- this close might be the very crash that snapshot exists
+        // for, so flush it now instead of leaving it queued behind a timer
+        // that a closed page will never run.
+        if (collabAutosaveTimer) {
+            clearTimeout(collabAutosaveTimer);
+            collabAutosaveTimer = null;
+            writeCollabAutosaveNow();
+        }
         renderCollabPresence([]);
     });
 }

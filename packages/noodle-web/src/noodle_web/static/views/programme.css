@@ -232,6 +232,10 @@
 .programme-dep-scope--internal { background: #d4edda; color: #155724; }
 .programme-dep-scope--external { background: #fff3bf; color: #b07b00; }
 
+[data-theme="dark"] .programme-dep-scope {
+    filter: brightness(1.1);
+}
+
 /* Resourcing (#739) -- demand vs capacity for the programme's aggregate
    resource pool, reusing the portfolio-wide Team Allocation view's
    computation (aggregateResourceDemandVsCapacity(),
@@ -300,4 +304,70 @@
 
 .programme-resourcing-row--over td:first-child {
     border-left: 3px solid var(--np-red, #c21d1d);
+}
+
+/* SRO/vision/outcomes editor (#954/#735, replacing #734's stub banner)
+   and the Benefits Realisation rollup below it. Outcome rows reuse
+   .programme-milestone-list/.programme-milestone's list styling, the
+   contribution table reuses .programme-resourcing-table, and the "add a
+   link" toolbar reuses .programme-deps-toolbar -- only what's genuinely
+   new gets its own rule here. */
+.programme-form-row {
+    margin-bottom: 12px;
+}
+
+.programme-form-row label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--np-text-secondary, #666666);
+}
+
+.programme-outcome-name {
+    flex: 1;
+    font-weight: 600;
+    color: var(--np-text, #333333);
+}
+
+.programme-outcome-desc {
+    color: var(--np-text-muted, #888888);
+    font-size: 0.9em;
+}
+
+.programme-outcome-add {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.programme-outcome-add input {
+    flex: 1 1 160px;
+}
+
+.programme-outcome-rollup {
+    margin-bottom: 20px;
+}
+
+.programme-outcome-rollup h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 8px;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--np-text, #333333);
+}
+
+.programme-outcome-total {
+    font-size: 0.78em;
+    font-weight: 600;
+    color: var(--np-text-secondary, #666666);
+    text-transform: none;
+}
+
+.programme-benefit-link--stale td {
+    color: var(--np-text-muted, #888888);
+    font-style: italic;
 }

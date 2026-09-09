@@ -31,6 +31,17 @@ The note appears with its title already selected, so just type the name and pres
 
    A post-it is a real task, straight away. It starts at the top level of your plan and shows up everywhere else — the Tasks table, the Gantt chart, the outline — immediately. Nothing needs to be "promoted" later.
 
+Free-form Notes
+------------------
+
+A brand-new post-it starts as a **free-form note**: just a title, with no checklist, dates or subtasks forced onto it. That is the whole point — the fastest way to get a thought onto the board is to type it and stop.
+
+If you also want a line or two of detail, open **Open task details** on the note's ``...`` menu and fill in **Comment**. It shows up in the note's body.
+
+The moment you give the note its *first* subtask — indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step and no way to switch back short of removing every subtask again.
+
+**Promote to task** on a free-form note's ``...`` menu is a shortcut for exactly that first-subtask step: it turns the note's own **Comment** text into a real subtask underneath it, and the note switches to a checklist right away. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
+
 Rename a Note
 ---------------
 
@@ -63,6 +74,17 @@ You can also use **Unlink from "…"** on the note's ``...`` menu, which is easi
 .. note::
 
    Unlinking never deletes anything. The task moves back to the top level of your plan, keeping its own subtasks. To actually remove a task, use **Delete task** on the ``...`` menu — that one asks for confirmation, because unlike everything else on the board it destroys plan content.
+
+Draw Dependency Links
+-----------------------
+
+The **Hierarchy / Dependency** toggle in the toolbar switches what dragging a noodle handle means. **Hierarchy** (the default) is everything above: it makes a subtask. **Dependency** draws a real scheduling dependency instead — the target task must finish before the source task starts — the same relationship the ``[depends: ...]`` syntax and the Gantt view already use.
+
+A dependency noodle is dashed and purple, so it never reads as a hierarchy link even on a board that has both. The drag itself previews which kind is coming: the ghost line changes colour to match the mode you're in.
+
+Creating a link that would make a circular dependency (A depends on B, which already depends on A) is refused with a short message, the same way a self-link or an already-linked pair are refused for hierarchy noodles.
+
+Unlinking a dependency noodle works exactly like unlinking a hierarchy one — click to select, then the ``✕`` or :kbd:`Delete` — and removes only the dependency, never the task or its subtasks.
 
 The Plan Structure Panel
 --------------------------
@@ -106,7 +128,7 @@ Both moving and resizing save once you release, as a single undo step — nothin
 Tick Off a Todo
 -----------------
 
-A note lists its subtasks as a checklist. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
+Once a note has at least one subtask, it lists them as a checklist with a progress footer (``2 / 5``) — this is what a `Free-form Notes`_ note turns into the moment it earns its first subtask. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
 
 A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once. If a note has both kinds, a quiet ``+ N linked notes`` line at the bottom of the list says so.
 
@@ -126,15 +148,15 @@ This popover is deliberately lightweight — just name, assignee and completion.
 Colour a Note
 ---------------
 
-Click the ``...`` menu in a note's top-right corner. The menu opens a swatch grid — Palette, Pastel and Dark rows, plus a **Default colour** option at the top to clear any colour you have set.
+Click the ``...`` menu in a note's top-right corner. The menu opens a swatch grid of soft pastel colours — two shades each of yellow, pink, green, blue and red — plus a **Default colour** option at the top to clear any colour you have set. This is purely a personal, manual choice: it carries no meaning of its own and has nothing to do with the Kanban board's rule-based conditional formatting.
 
 .. figure:: /_static/img/how-to/wb-02-note-colour-menu.png
-   :alt: A note's "..." menu open, showing the Default colour option and Palette/Pastel/Dark colour swatch grids
+   :alt: A note's "..." menu open, showing the Default colour option and a grid of pastel colour swatches
    :width: 100%
 
    The note colour menu, opened from a note's ``...`` button.
 
-A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic palette colour NoodlePlanner assigns every task, based on its place in the outline.
+A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic pastel colour NoodlePlanner assigns every task, based on its place in the outline.
 
 Remove a Note from the Board
 -------------------------------
@@ -148,6 +170,15 @@ Open the note's ``...`` menu and choose **Remove from board**.
    To delete the task itself, use **Delete task** on the same menu instead.
 
 Adding the same task back later gives it a fresh position on the board — it does not remember where the old note used to sit.
+
+Send an Idea to the Parking Lot
+----------------------------------
+
+Not every post-it is ready to become a task yet. For a "good idea, not now" — something worth keeping but not worth cluttering the board or the plan with — open the note's ``...`` menu and choose **Send to parking lot**.
+
+Unlike **Remove from board**, this genuinely takes the idea out of the working plan: the task (and any subtasks it has) is deleted from the outline, and the whiteboard row goes with it, but the note's own text — its title, plus its comment if it had one — is kept as a new entry in the parking lot rather than thrown away. There is no confirmation prompt and it is one ordinary undo step, the same as every other board action.
+
+Click **Parking lot** in the whiteboard toolbar to see what has been sent there. It is a simple list — the parked text and the date it was parked, with a **Remove** button to delete an entry for good once you are sure you do not need it. There is no way to send a parked item back onto the board from here; if the idea turns out to be worth doing after all, add it back as a new post-it.
 
 Keyboard and Pointer Reference
 --------------------------------

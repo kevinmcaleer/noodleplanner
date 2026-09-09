@@ -45,6 +45,40 @@ let wbNoodleNodes = new Map();
 /** The link currently being dragged out of a note, or null. */
 let wbActiveLink = null;
 
+/**
+ * Which kind of link the drag gesture below currently draws (#1052):
+ * 'hierarchy' (the default -- re-parents in the outline, unchanged
+ * behaviour) or 'dependency' (writes a real [depends: ...] link via
+ * plan-model.js, in whiteboard-dep-noodles.js). One gesture, two
+ * meanings, switched by a toolbar toggle -- see wbSetLinkMode().
+ */
+let wbLinkMode = 'hierarchy';
+
+function wbSetLinkMode(mode) {
+    wbLinkMode = (mode === 'dependency') ? 'dependency' : 'hierarchy';
+    document.body.classList.toggle('wb-dependency-mode', wbLinkMode === 'dependency');
+
+    const btn = document.getElementById('whiteboardLinkModeBtn');
+    const label = document.getElementById('whiteboardLinkModeLabel');
+    if (btn && label) {
+        const isDep = wbLinkMode === 'dependency';
+        label.textContent = isDep ? 'Dependency' : 'Hierarchy';
+        btn.setAttribute('aria-pressed', String(isDep));
+        btn.setAttribute('aria-label',
+            'Link mode: ' + label.textContent + '. Click to switch to ' + (isDep ? 'Hierarchy' : 'Dependency') + ' mode.');
+        btn.classList.toggle('active', isDep);
+    }
+}
+
+function wbGetLinkMode() {
+    return wbLinkMode;
+}
+
+/** Toolbar button handler (#1052). */
+function wbToggleLinkMode() {
+    wbSetLinkMode(wbLinkMode === 'dependency' ? 'hierarchy' : 'dependency');
+}
+
 /** The selected noodle's id, or null. */
 let wbSelectedNoodle = null;
 
@@ -464,7 +498,9 @@ function wbUpdateLinkDrag(clientX, clientY) {
     wbActiveLink.hoverName = (name && name !== wbActiveLink.parentName) ? name : null;
 
     if (noteEl && wbActiveLink.hoverName) {
-        const ok = wbCanLinkNotes(wbLastTasks, wbActiveLink.parentName, wbActiveLink.hoverName).ok;
+        const ok = wbLinkMode === 'dependency'
+            ? wbCanLinkDependency(wbActiveLink.parentName, wbActiveLink.hoverName).ok
+            : wbCanLinkNotes(wbLastTasks, wbActiveLink.parentName, wbActiveLink.hoverName).ok;
         noteEl.classList.toggle('wb-link-target', ok);
         noteEl.classList.toggle('wb-link-target-invalid', !ok);
     }
@@ -482,7 +518,9 @@ function wbEndLinkDrag(clientX, clientY) {
     if (hoverEl) hoverEl.classList.remove('wb-link-target', 'wb-link-target-invalid');
     wbActiveLink = null;
 
-    if (hoverName) wbLinkNotes(parentName, hoverName);
+    if (!hoverName) return;
+    if (wbLinkMode === 'dependency') wbLinkDependency(parentName, hoverName);
+    else wbLinkNotes(parentName, hoverName);
 }
 
 function wbLinkDragMouseMove(e) {

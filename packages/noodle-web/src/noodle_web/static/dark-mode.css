@@ -3,7 +3,14 @@
    Applied via [data-theme="dark"] on <html>
    ======================================== */
 
-/* ---- Semantic colour tokens (light defaults) ---- */
+/* ---- Semantic colour tokens (light defaults) ----
+   NoodlePlanner identity tokens (issue #1024): built from the app's own
+   --np-red/orange/yellow/green/blue/dark-blue palette (base.css) rather
+   than the generic indigo/purple (var(--np-accent)/var(--np-accent-hover)) template gradient the
+   app previously shipped with. The approved design-handoff ZIP linked from
+   the parent epic (#998) 404s/403s for this session, so these are a
+   documented interim identity derived from the app's existing brand
+   colours -- swap the values below if/when the approved assets arrive. */
 :root {
     --np-bg: #ffffff;
     --np-bg-alt: #f8f9fa;
@@ -15,9 +22,24 @@
     --np-text: #333333;
     --np-text-secondary: #666666;
     --np-text-muted: #888888;
-    --np-accent: #667eea;
-    --np-accent-hover: #5a6fd6;
-    --np-accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --np-accent: var(--np-blue);
+    --np-accent-hover: #0d7096;
+    --np-accent-soft: var(--np-blue-subtle);
+    --np-accent-gradient: linear-gradient(135deg, var(--np-blue) 0%, var(--np-green) 100%);
+    --np-danger: var(--np-red);
+    --np-danger-hover: #a01717;
+    --np-danger-gradient: linear-gradient(135deg, var(--np-red) 0%, #a01717 100%);
+    --np-warning: var(--np-orange);
+    --np-warning-hover: #e56a00;
+    --np-warning-gradient: linear-gradient(135deg, var(--np-orange) 0%, #e56a00 100%);
+    --np-success: var(--np-green);
+    --np-success-hover: #16812f;
+    --np-success-gradient: linear-gradient(135deg, var(--np-green) 0%, #16812f 100%);
+    --np-info: var(--np-blue);
+    --np-info-gradient: linear-gradient(135deg, var(--np-blue) 0%, #0d7096 100%);
+    --np-font-heading: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --np-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --np-font-mono: 'Courier New', Courier, monospace;
     --np-shadow: rgba(0, 0, 0, 0.1);
     --np-shadow-strong: rgba(0, 0, 0, 0.15);
     --np-overlay: rgba(0, 0, 0, 0.6);
@@ -54,9 +76,21 @@
     --np-text: #e0e0e0;
     --np-text-secondary: #b0b0c0;
     --np-text-muted: #888899;
-    --np-accent: #7b8ff0;
-    --np-accent-hover: #8fa0f7;
-    --np-accent-gradient: linear-gradient(135deg, #7b8ff0 0%, #9b6ddb 100%);
+    --np-accent: #3fb6e0;
+    --np-accent-hover: #5cc4e8;
+    --np-accent-soft: #1c3a47;
+    --np-accent-gradient: linear-gradient(135deg, #3fb6e0 0%, #4ecb72 100%);
+    --np-danger: #e05252;
+    --np-danger-hover: #e87070;
+    --np-danger-gradient: linear-gradient(135deg, #e05252 0%, #c94040 100%);
+    --np-warning: #ffa64d;
+    --np-warning-hover: #ffb870;
+    --np-warning-gradient: linear-gradient(135deg, #ffa64d 0%, #ef9538 100%);
+    --np-success: #4ecb72;
+    --np-success-hover: #6ad68a;
+    --np-success-gradient: linear-gradient(135deg, #4ecb72 0%, #3aad5c 100%);
+    --np-info: #3fb6e0;
+    --np-info-gradient: linear-gradient(135deg, #3fb6e0 0%, #2a93b8 100%);
     --np-shadow: rgba(0, 0, 0, 0.3);
     --np-shadow-strong: rgba(0, 0, 0, 0.5);
     --np-overlay: rgba(0, 0, 0, 0.75);
@@ -2650,10 +2684,6 @@ body {
     background: #0d1b22;
 }
 
-[data-theme="dark"] .ribbon-collapse-btn {
-    color: #8fa8b3;
-}
-
 [data-theme="dark"] .ribbon-body {
     background: #1b2f39;
     border-bottom-color: #233a45;
@@ -2717,27 +2747,33 @@ body {
     border-color: #2f5f74;
 }
 
-[data-theme="dark"] .ribbon-body-simple .ribbon-more {
-    border-left-color: #233a45;
-}
-
-[data-theme="dark"] .ribbon-body-simple .ribbon-more-btn {
+/* -- #1026: per-group dropdown trigger + flyout -- */
+[data-theme="dark"] .ribbon-simple-group-trigger {
     color: #d3e2e8;
     border-color: #2f5f74;
 }
 
-[data-theme="dark"] .ribbon-body-simple .ribbon-more-btn:hover {
+[data-theme="dark"] .ribbon-simple-group-trigger:hover {
     background: rgba(16, 139, 185, 0.22);
 }
 
-/* -- "Ribbon Display Options" dropdown (#955) -- */
+[data-theme="dark"] .ribbon-simple-group-popover {
+    background: #1b2f39;
+    border-color: #233a45;
+}
+
+[data-theme="dark"] .ribbon-simple-group-popover .ribbon-group {
+    border-bottom-color: #233a45;
+}
+
+/* -- #1027: ribbon display selector -- */
 [data-theme="dark"] .ribbon-display-toggle-btn {
     color: #8fa8b3;
-    border-color: #2f5f74;
 }
 
-[data-theme="dark"] .ribbon-display-toggle-btn:hover {
-    background: rgba(16, 139, 185, 0.22);
+[data-theme="dark"] .ribbon-display-toggle-btn:hover,
+[data-theme="dark"] .ribbon-display-toggle-btn:focus-visible {
+    color: #d3e2e8;
 }
 
 [data-theme="dark"] .ribbon-display-menu {
@@ -2765,13 +2801,6 @@ body {
 
 [data-theme="dark"] .backstage-recent-item-badge {
     filter: brightness(1.1);
-}
-
-/* --np-red is a brand palette colour with no dark variant; as body text on
-   the dark surface it is far too dark to read, so the template grid's error
-   line borrows the existing subtle red instead of inventing a new hex. */
-[data-theme="dark"] .backstage-template-status-error {
-    color: var(--np-red-subtle, #f5d0d0);
 }
 
 /* ── Whiteboard authoring: noodles + outline panel (dark) ────────────────
