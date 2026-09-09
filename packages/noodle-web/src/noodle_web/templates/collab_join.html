@@ -837,7 +837,28 @@
                 if (raidContainer) raidContainer.innerHTML = '';
 
                 if (!wasJoined) {
-                    status.textContent = 'Could not join -- check the code and try again.';
+                    // #1057: this used to always say "check the code", even
+                    // when the code was never the problem -- e.g. a rate
+                    // limit (4429, with a real `reason` telling the joiner
+                    // how long to wait) or a corporate network's proxy/
+                    // firewall interfering with the WebSocket upgrade
+                    // entirely, which closes the socket abnormally (code
+                    // 1006, no reason -- the browser never got a close
+                    // frame from the server at all) rather than the server
+                    // ever seeing and rejecting a join attempt. Telling a
+                    // user in that second case to "check the code" sends
+                    // them looking in the wrong place. Prefer whatever
+                    // reason the server actually gave; fall back to the
+                    // network explanation only when the closure looks
+                    // abnormal (no reason, and not one of this app's own
+                    // admission-rejection codes below 1006 wouldn't be).
+                    if (event.reason) {
+                        status.textContent = `${event.reason} Enter the code again to try again.`;
+                    } else if (event.code === 1006) {
+                        status.textContent = 'Could not connect to the session -- this looks like a network issue (for example, a corporate proxy or firewall blocking secure WebSocket connections) rather than the code. Try a different network, or check with your IT team, then try again.';
+                    } else {
+                        status.textContent = 'Could not join -- check the code and try again.';
+                    }
                     return;
                 }
 

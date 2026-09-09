@@ -1956,13 +1956,22 @@ async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional
         or not isinstance(display_name, str)
         or not display_name.strip()
     ):
-        await websocket.close(code=4400)
+        await websocket.close(code=4400, reason="Malformed join request.")
         return None, ""
 
     display_name = display_name.strip()[:100]
     state = collab_sessions.join_session(session_id, code, display_name, websocket)
     if state is None:
-        await websocket.close(code=4401)
+        # #1057: distinct from the malformed-handshake case above -- the
+        # request was well-formed but the code didn't match a live session
+        # (wrong code, or a code for a session that already ended/expired).
+        # collab_join.html surfaces this `reason` directly to the joiner
+        # instead of always guessing "check the code", which was misleading
+        # when the real cause was something else entirely (e.g. #1057's
+        # report: a corporate network's proxy interfering with the
+        # WebSocket, which closes with no reason at all -- see that
+        # module's close handler for how it tells the two apart).
+        await websocket.close(code=4401, reason="Incorrect or expired code.")
         return None, ""
 
     await websocket.send_text(json.dumps({"type": "joined", "display_name": display_name}))
