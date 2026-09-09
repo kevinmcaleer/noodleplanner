@@ -466,11 +466,16 @@ class TestJoinAttemptRateLimiting:
     def test_join_attempts_allowed_again_after_window_passes(self, client):
         info = _start_session(client)
         with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
+            # A *failed* attempt is what consumes the budget. #971 changed
+            # successful joins to be forgiven (see
+            # security.forgive_join_attempt), so a correct code no longer
+            # counts and cannot be used to exhaust the limit here.
             with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
                 ws.send_text(json.dumps({
-                    "type": "join", "code": info["join_code"], "display_name": "Alice",
+                    "type": "join", "code": "000000", "display_name": "Eve",
                 }))
-                ws.receive_text()  # ack -- this one attempt consumes the budget
+                with pytest.raises(WebSocketDisconnect):
+                    ws.receive_text()
 
             with pytest.raises(WebSocketDisconnect) as exc_info:
                 with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
@@ -489,6 +494,39 @@ class TestJoinAttemptRateLimiting:
                 }))
                 ack = json.loads(ws.receive_text())
                 assert ack == {"type": "joined", "display_name": "Bob"}
+
+    def test_successful_joins_do_not_exhaust_the_budget(self, client):
+        """#971: #766 requires at least 10 concurrent joiners, but a team in
+        one office shares a public IP. Counting correct codes against the
+        anti-brute-force budget made that impossible -- the eleventh
+        colleague was refused. Successful joins are now forgiven."""
+        info = _start_session(client)
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            for index in range(6):
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.send_text(json.dumps({
+                        "type": "join", "code": info["join_code"], "display_name": f"Joiner {index}",
+                    }))
+                    ack = json.loads(ws.receive_text())
+                    assert ack["type"] == "joined", f"joiner {index} was refused"
+
+    def test_wrong_codes_still_exhaust_the_budget_end_to_end(self, client):
+        """The other half of the same change: forgiving successes must not
+        have weakened the protection against guessing the code."""
+        info = _start_session(client)
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            for _ in range(2):
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.send_text(json.dumps({
+                        "type": "join", "code": "000000", "display_name": "Eve",
+                    }))
+                    with pytest.raises(WebSocketDisconnect):
+                        ws.receive_text()
+
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(f"/ws/session/{info['session_id']}") as ws:
+                    ws.receive_text()
+            assert exc_info.value.code == 4429
 
     def test_join_rate_limit_does_not_affect_the_host_connection(self, client):
         """The host connects with `?token=...`; that branch never calls

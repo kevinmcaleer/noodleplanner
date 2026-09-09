@@ -215,6 +215,32 @@ def is_join_rate_limited(ip: str) -> tuple[bool, int]:
     return False, 0
 
 
+def forgive_join_attempt(ip: str) -> None:
+    """Un-count one join attempt from `ip` after it turned out to be a
+    legitimate, successful join (#971).
+
+    The budget above exists to throttle *guessing* at a six-digit code. A
+    join that presented the correct code is not a guess, and counting it
+    made the limiter contradict the epic's own acceptance criterion: #766
+    requires at least 10 concurrent joiners, but a team sitting in one
+    office shares a single public IP, so the eleventh colleague to join
+    within a minute was refused. That was found by the #971 load test,
+    which could not get 12 joiners onto one session.
+
+    Forgiving only successes keeps the security property exactly as it was
+    -- ten *wrong* codes in a window still locks the source out, and an
+    attacker gains nothing, since forgiveness requires already knowing the
+    code they are trying to find.
+
+    Removes the most recent timestamp rather than a specific one: under
+    concurrent joins the entries are interchangeable, and it is the count
+    that the limit is expressed in.
+    """
+    attempts = _join_rate_limit_store.get(ip)
+    if attempts:
+        attempts.pop()
+
+
 def reset_join_rate_limit_store() -> None:
     """Clear the join-attempt rate limit store. Useful for testing."""
     _join_rate_limit_store.clear()

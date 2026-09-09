@@ -79,6 +79,7 @@ from .security import (
     ErrorSanitizationMiddleware,
     APIKeyAuthMiddleware,
     get_websocket_client_ip,
+    forgive_join_attempt,
     is_join_rate_limited,
     is_production,
 )
@@ -2264,6 +2265,11 @@ async def collab_session_ws(websocket: WebSocket, session_id: str):
     state, _display_name = await _admit_joiner(websocket, session_id)
     if state is None:
         return
+    # #971: this one presented the correct code, so it was a colleague
+    # arriving rather than an attempt at the 6-digit space. Give the budget
+    # back, or a team behind one office IP cannot get past its tenth member
+    # -- see forgive_join_attempt's docstring.
+    forgive_join_attempt(ip)
     await _relay_as_joiner(state, websocket, session_id)
 
 
