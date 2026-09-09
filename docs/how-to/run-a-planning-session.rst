@@ -1,0 +1,136 @@
+How to Run a Live Planning Session
+====================================
+
+A planning session opens your plan to your team for a live working
+session — a planning workshop, a stand-up, a risk review — so everyone can
+edit it at once from their own browser.
+
+Nothing is stored on the server. The relay routes messages between you and
+the people who join, and forgets the session the moment you end it or
+disconnect. Your browser holds the only copy of the plan.
+
+Starting a Session
+--------------------
+
+1. Open the project you want to work on.
+2. Choose **Planning session** from the ribbon.
+3. NoodlePlanner shows a **six-digit code** and a **holding link**.
+4. Send both to your team — email, chat, however you normally would.
+
+The session is live from that moment. You stay in your normal editor; the
+plan on screen is the one everybody is editing.
+
+Joining a Session
+-------------------
+
+People who join open the holding link, enter the six-digit code and their
+name, and land on a deliberately simple page: the task outline, the RAID
+log, the benefits map, the comms plan and the weekly updates. No front
+matter, no syntax, no project cockpit.
+
+.. important::
+
+   The holding link must be shared **whole**. It carries a security token
+   after the ``#``, which is what lets the two browsers set up encryption
+   the relay cannot read. A link truncated at the ``#`` will not work, and
+   the joiner is told so rather than falling back to something weaker.
+
+What Everyone Can Edit
+------------------------
+
+Joiners send *intents* — "set this task to 75%", "add this risk" — and your
+browser applies them to the real plan and sends the result back out. That
+means the plan only ever changes in one place, so there is no merge to go
+wrong.
+
+Live editing covers:
+
+* **Tasks** — add, rename, set percent complete
+* **RAID log** — add, edit and delete rows
+* **Benefits map** and **comms plan** — add, edit and delete rows
+* **Weekly updates** — add, edit and delete entries
+
+Your own typing goes out to everyone too, so the session works whether the
+change starts with you or with someone else.
+
+When Two People Edit the Same Thing
+-------------------------------------
+
+Edits are applied in the order your browser receives them, so the last one
+wins — and, importantly, it is never silent. Both people see a notice
+naming who changed it and what the value was before:
+
+.. code-block:: text
+
+   Bob also edited this — was 50%.
+
+Editing *different* tasks never loses either edit. The notice only appears
+when someone genuinely edited the same item moments after you did, so it
+stays worth reading.
+
+If someone else changed an item while you were typing, your edit is
+refused rather than applied to the wrong thing, and you are told to try
+again against the current version.
+
+Seeing and Removing Participants
+----------------------------------
+
+The session panel lists everyone who has joined and whether they are
+currently active. **Remove** disconnects one person without affecting the
+session or anyone else — they see an explanation and can rejoin if you
+share the code again.
+
+Ending a Session
+------------------
+
+**End session** closes every connection. Joiners are told the session
+ended and their copy is discarded — nothing persists on their machine.
+
+The same happens if you simply close your laptop, with a message saying the
+host disconnected. Sessions also expire on their own after a period of
+inactivity.
+
+If Your Browser Crashes Mid-Session
+-------------------------------------
+
+While a session is running, your browser saves contributions locally as
+they arrive. If it dies — a crash, a closed laptop, a lost tab — you are
+offered the session back the next time you open NoodlePlanner:
+
+.. code-block:: text
+
+   A planning session ended unexpectedly. Contributions from it
+   were saved locally.  [Restore]  [Discard]
+
+It is an offer rather than an automatic restore, because you may have moved
+on since, and quietly overwriting your current plan would be worse than the
+crash. Ending a session normally clears it, so you are not asked about work
+that was never at risk.
+
+Security
+----------
+
+* The six-digit code only gets someone **into** the session. It is never
+  used as an encryption key — a million combinations is far too few. The
+  encryption keys come from an exchange between the two browsers,
+  authenticated by the token in the holding link.
+* The relay only ever sees ciphertext. It cannot read your plan.
+* Session addresses are long and unguessable, and repeated **wrong** code
+  attempts from one place are rate limited. Correct ones are not, so a
+  whole team behind one office connection can join.
+* Only you can end the session or remove someone. A joiner cannot do
+  either, even by crafting their own messages.
+
+Limitations
+-------------
+
+* The free-form post-it whiteboard for joiners is not built yet; the joiner
+  page is the simple list described above.
+* Joiners hold no saved copy. Only the host's browser saves, by design.
+* Sessions do not survive a server restart — deliberately, since the server
+  stores nothing.
+
+.. seealso::
+
+   :doc:`../explanation/browser-first-architecture`
+       Why the relay stores nothing, and what the server is still used for.
