@@ -286,15 +286,19 @@
             if (!task || !target || task === target || this._contains(task, target)) return false;
             const sequentialTargets = this._captureSequentialTargets();
             const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
             const oldList = task.parent ? task.parent.children : this.roots;
             const oldIndex = oldList.indexOf(task);
             if (oldIndex < 0) return false;
             oldList.splice(oldIndex, 1);
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
             task.parent = target;
             if (afterChildren) target.children.push(task);
             else target.children.unshift(task);
             this._setIndent(task, target.indent + 2);
             this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
@@ -309,15 +313,19 @@
             if (!task) return false;
             const sequentialTargets = this._captureSequentialTargets();
             const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
             const oldList = task.parent ? task.parent.children : this.roots;
             const oldIndex = oldList.indexOf(task);
             if (oldIndex < 0) return false;
             if (!task.parent && oldIndex === this.roots.length - 1) return false;
             oldList.splice(oldIndex, 1);
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
             task.parent = null;
             this.roots.push(task);
             this._setIndent(task, 0);
             this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
@@ -328,6 +336,7 @@
             if (!task || !target || task === target || this._contains(task, target)) return false;
             const sequentialTargets = this._captureSequentialTargets();
             const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
             const oldList = task.parent ? task.parent.children : this.roots;
             const oldIndex = oldList.indexOf(task);
             if (oldIndex < 0) return false;
@@ -339,10 +348,13 @@
                 oldList.splice(oldIndex, 0, task);
                 return false;
             }
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
             task.parent = target.parent;
             targetList.splice(targetIndex + (after ? 1 : 0), 0, task);
             this._setIndent(task, target.indent);
             this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
             this._normalisePhysicalLineEndings(hadFinalEol);
             this._expandBrokenSequentialLinks(sequentialTargets);
             this._resolveDependencies();
@@ -513,6 +525,37 @@
                 stack.push(task);
             }
             this._resolveDependencies();
+        }
+
+        // A task's `trailing` lines are blank/comment lines that happened to
+        // follow it at its *old* physical position. Blank ones are purely
+        // cosmetic spacing between neighbours -- carrying them along on a
+        // move re-homes them next to whatever now follows the task instead,
+        // which reads as a stray/misplaced blank line rather than the
+        // separator it used to be (#911). Non-blank trailing lines (e.g. a
+        // `//` comment) are real content and stay with the task.
+        _dropTrailingBlankLines(task) {
+            task.trailing = task.trailing.filter(line => line.text.trim() !== '');
+        }
+
+        // The task immediately before `task` in the current serialization
+        // order, or null if `task` is first. Read this.tasks *before*
+        // mutating the tree for a move's old predecessor, or after
+        // _refreshTaskOrder() for its new one.
+        _predecessorOf(task) {
+            const index = this.tasks.indexOf(task);
+            return index > 0 ? this.tasks[index - 1] : null;
+        }
+
+        // The task now immediately before `task` in serialization order (if
+        // any) used to be followed by something else -- its own blank
+        // trailing lines represented that old gap, not this new one, so
+        // they'd otherwise land as a stray blank line right before `task`
+        // at its new position (#911). Call after _refreshTaskOrder() so
+        // this.tasks reflects the post-move order.
+        _dropPredecessorBlankTrailing(task) {
+            const predecessor = this._predecessorOf(task);
+            if (predecessor) this._dropTrailingBlankLines(predecessor);
         }
 
         _contains(ancestor, possibleChild) {

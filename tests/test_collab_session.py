@@ -146,12 +146,17 @@ class TestJoinerFlow:
     def test_join_with_wrong_code_fails(self, client):
         info = _start_session(client)
         with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}"):
-            with pytest.raises(WebSocketDisconnect):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
                 with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
                     joiner_ws.send_text(json.dumps({
                         "type": "join", "code": "000000", "display_name": "Eve",
                     }))
                     joiner_ws.receive_text()
+            # #1057: collab_join.html surfaces this reason to the joiner
+            # instead of always guessing "check the code" -- see that
+            # template's close handler.
+            assert exc_info.value.code == 4401
+            assert exc_info.value.reason == "Incorrect or expired code."
 
     def test_join_with_expired_code_fails(self, client, monkeypatch):
         info = _start_session(client)
@@ -172,10 +177,12 @@ class TestJoinerFlow:
 
     def test_join_with_malformed_first_message_fails(self, client):
         info = _start_session(client)
-        with pytest.raises(WebSocketDisconnect):
+        with pytest.raises(WebSocketDisconnect) as exc_info:
             with client.websocket_connect(f"/ws/session/{info['session_id']}") as joiner_ws:
                 joiner_ws.send_text("not json")
                 joiner_ws.receive_text()
+        assert exc_info.value.code == 4400
+        assert exc_info.value.reason == "Malformed join request."
 
 
 class TestRelay:
