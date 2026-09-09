@@ -2431,9 +2431,22 @@ class KanbanBoard {
         const model = NoodlePlanModel.modelForEditor(editor);
         const dragged = model.tasks.find(task => model.lineNumber(task) === draggedLineNumber);
         const target = model.tasks.find(task => model.lineNumber(task) === targetLineNumber);
+        if (!dragged || !target) return;
+
+        // Dropping a card directly onto a card in another phase (rather than
+        // onto the target column's empty body) reorders through here too, so
+        // this needs the same "drop the now-pointless header" cleanup as
+        // handleCardDrop's phase case, or a phase emptied out this way is
+        // left behind forever (#1065).
+        let oldPhaseNode = dragged.parent;
+        while (oldPhaseNode && oldPhaseNode.parent) oldPhaseNode = oldPhaseNode.parent;
+
         const updated = insertBefore
             ? model.moveBefore(dragged, target)
             : model.moveAfter(dragged, target);
+        if (updated && oldPhaseNode && oldPhaseNode.children.length === 0) {
+            model.removeTask(oldPhaseNode);
+        }
         if (updated) this.commitMarkdown(model.serialize(), { model: model });
     }
 
