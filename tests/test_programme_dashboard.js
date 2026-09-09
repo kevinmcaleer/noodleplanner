@@ -16,6 +16,10 @@
  *   - filterDependenciesForProgramme(): scopes the portfolio-wide
  *     dependency store down to the links relevant to one programme,
  *     tagging each 'internal' or 'external' (#737).
+ *   - computeOutcomeContributions(): rolls project benefits up into their
+ *     linked programme outcomes (#735), pairing each outcome with the
+ *     benefit links that name it, enriched with live benefit
+ *     title/status and flagged stale when the live benefit is gone.
  *
  * Run with: node tests/test_programme_dashboard.js
  */
@@ -32,6 +36,7 @@ const {
     aggregateEscalatedRaidItems,
     ragById,
     filterDependenciesForProgramme,
+    computeOutcomeContributions,
 } = mod;
 
 let failures = 0;
@@ -324,6 +329,56 @@ assertEqual(
     filterDependenciesForProgramme([{ id: 'd1', from_project_id: 'p1', to_project_id: 'p2' }], []),
     [],
     'empty member list scopes nothing in'
+);
+
+// --- computeOutcomeContributions (#735) ---------------------------------------
+
+(() => {
+    const outcomes = [
+        { id: 1, name: 'Faster onboarding' },
+        { id: 2, name: 'Lower support cost' },
+    ];
+    const benefitLinks = [
+        { projectId: 'p1', benefitItemId: 3, outcomeId: 1, contributionPercent: 60, benefitTitle: 'Reduced ramp-up time' },
+        { projectId: 'p2', benefitItemId: 1, outcomeId: 1, contributionPercent: 25, benefitTitle: 'Self-serve setup' },
+        { projectId: 'p1', benefitItemId: 9, outcomeId: 2, contributionPercent: 50, benefitTitle: 'Fewer tickets (renamed since)' },
+    ];
+    const benefitItems = [
+        { projectId: 'p1', projectName: 'Alpha', id: 3, title: 'Reduced ramp-up time', status: 'In Progress', type: 'benefit' },
+        { projectId: 'p2', projectName: 'Beta', id: 1, title: 'Self-serve setup', status: 'Achieved', type: 'benefit' },
+        // p1's benefit id 9 is not in the live list -- it was deleted or renumbered since linking.
+    ];
+
+    const result = computeOutcomeContributions(outcomes, benefitLinks, benefitItems);
+
+    assertEqual(result.map((r) => r.outcomeName), ['Faster onboarding', 'Lower support cost'],
+        'one rollup entry per outcome, in outcome order');
+
+    const onboarding = result.find((r) => r.outcomeId === 1);
+    assertEqual(onboarding.contributions.length, 2, 'both links naming outcome 1 are collected');
+    assertEqual(onboarding.totalContributionPercent, 85, 'contribution percents for the outcome are summed');
+    assertEqual(
+        onboarding.contributions.find((c) => c.benefitItemId === 3),
+        { projectId: 'p1', projectName: 'Alpha', benefitItemId: 3, title: 'Reduced ramp-up time',
+          status: 'In Progress', contributionPercent: 60, stale: false },
+        'a contribution is enriched with the live benefit\'s current title, project name and status'
+    );
+
+    const supportCost = result.find((r) => r.outcomeId === 2);
+    assertEqual(supportCost.contributions.length, 1, 'the link naming outcome 2 is collected');
+    assertEqual(supportCost.contributions[0].stale, true,
+        'a link whose benefit is no longer in the live list is flagged stale');
+    assertEqual(supportCost.contributions[0].title, 'Fewer tickets (renamed since)',
+        'a stale contribution falls back to the title cached at link time');
+    assertEqual(supportCost.totalContributionPercent, 50, 'a stale contribution still counts toward the total');
+})();
+
+assertEqual(computeOutcomeContributions([], [], []), [], 'no outcomes means no rollup entries');
+assertEqual(computeOutcomeContributions(undefined, undefined, undefined), [], 'undefined inputs mean no rollup entries');
+assertEqual(
+    computeOutcomeContributions([{ id: 1, name: 'Solo outcome' }], [], []),
+    [{ outcomeId: 1, outcomeName: 'Solo outcome', contributions: [], totalContributionPercent: 0 }],
+    'an outcome with no linked benefits still appears, with an empty contribution list'
 );
 
 console.log(failures === 0

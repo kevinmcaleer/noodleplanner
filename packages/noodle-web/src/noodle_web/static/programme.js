@@ -37,13 +37,25 @@
  *     below, rather than reimplementing resource math. Capacity uses the
  *     same day-for-day assumption portfolio-leveling.js's
  *     LEVELLING_DAILY_CAPACITY names for its own overload detection.
- *   - SRO and vision/outcomes summary: stubbed -- #910's architecture has
- *     no programme-level file/storage (a programme is just a shared
- *     `programme:` slug on its member projects), and no per-project field
- *     naturally maps onto a programme-wide owner or vision statement.
- *     Where programme-level data should actually live is #954's job, not
- *     this issue's -- inventing a new persisted field here would fight
- *     that decision instead of waiting for it.
+ *   - SRO, vision and outcomes: real (#954/#735) -- #954 decided
+ *     programme-owned data (data with no project to derive it from) gets
+ *     its own lazily-created record, `programme-data-store.js`'s
+ *     `noodleplanner_programme_data`, keyed by programme slug. SRO and
+ *     vision are free text; outcomes are a short named list. Previously
+ *     stubbed here as "not yet tracked" pending that decision (#734/PR
+ *     #978) -- see programme-data-store.js's header comment for the
+ *     record's full shape and how #738/#740/#741/#742 will extend it.
+ *   - Benefits realisation: real (#735) -- for each programme outcome,
+ *     which project benefits (type 'benefit', benefits.js) are linked to
+ *     it and by how much. A benefit's own linked_to/contribution_percent
+ *     (benefits.js) is intra-project only (it chains to another row in
+ *     that SAME project's own benefits table), so it can't itself name a
+ *     programme outcome living outside that project -- the outcome link
+ *     lives in programme-data-store.js's benefitLinks instead, the same
+ *     "cross-project relationship gets its own store" pattern #737 uses
+ *     for dependencies (see portfolio-dependencies.js's header comment).
+ *     computeOutcomeContributions() below is the pure rollup, pairing each
+ *     outcome with its linked benefits and summing contribution_percent.
  *
  * Depends on: portfolio-projects-table.js (deriveProgrammes,
  * loadAllProjectsIntoCache, escapeHtml), multi-plan-loader.js
@@ -55,9 +67,12 @@
  * propagateProgrammeDependencies, ragCircleHtml, ragToColour,
  * showAddDependencyDialog, showEditDependencyDialog,
  * confirmDeleteProgrammeDependency), portfolio-resources.js
- * (aggregateResourceDemandVsCapacity) -- all loaded before this file
- * resolves any of these at call time (classic scripts, same pattern as
- * nav.js's own dependency on state.js).
+ * (aggregateResourceDemandVsCapacity), programme-data-store.js
+ * (getProgrammeData, setProgrammeData, addProgrammeOutcome,
+ * updateProgrammeOutcome, deleteProgrammeOutcome, linkBenefitToOutcome,
+ * unlinkBenefitFromOutcome) -- all loaded before this file resolves any
+ * of these at call time (classic scripts, same pattern as nav.js's own
+ * dependency on state.js).
  */
 
 let currentProgrammeSlug = null;
@@ -247,17 +262,252 @@ function extractProgrammeBenefitItems(planText) {
 }
 
 /**
- * Honest stub banner for the fields this issue deliberately doesn't build
- * real data for -- SRO and the vision/outcomes summary. See the file
- * header comment for why: no programme-level storage exists yet (#954).
+ * Render the SRO/vision/outcomes editor (#954/#735, replacing #734's
+ * "not yet tracked" stub) into #programmeSroVision. Reads/writes the
+ * programme's record via programme-data-store.js, lazily created on the
+ * first edit -- a programme nobody has set an SRO/vision/outcome for yet
+ * has no record and this renders empty inputs, not an error.
  */
-function renderProgrammeOverviewNote() {
-    return '' +
-        '<div class="programme-stub-banner">' +
-        '<p><strong>SRO:</strong> <span class="programme-stub-value">Not yet tracked</span> — programmes have no storage of their own yet ' +
-        '(<a href="https://github.com/kevinmcaleer/noodleplanner/issues/954" target="_blank" rel="noopener">#954</a>), and no existing per-project field maps onto a programme-level owner.</p>' +
-        '<p><strong>Vision / outcomes:</strong> <span class="programme-stub-value">Not yet tracked</span> — same reason: there is nowhere at programme level to persist a summary until #954 settles where programme data lives.</p>' +
+function renderProgrammeSroVision(programme) {
+    const el = document.getElementById('programmeSroVision');
+    if (!el) return;
+
+    const data = (typeof getProgrammeData === 'function') ? (getProgrammeData(programme.slug) || {}) : {};
+    const outcomes = data.outcomes || [];
+    const slugAttr = escapeHtml(programme.slug).replace(/'/g, "\\'");
+
+    const outcomesHtml = outcomes.length === 0
+        ? '<p class="programme-empty-hint">No outcomes defined yet. Outcomes are what project benefits roll up into, below.</p>'
+        : '<ul class="programme-milestone-list">' + outcomes.map((o) =>
+            '<li class="programme-milestone">' +
+            `<span class="programme-outcome-name">${escapeHtml(o.name)}</span>` +
+            (o.description ? `<span class="programme-outcome-desc">${escapeHtml(o.description)}</span>` : '') +
+            `<button type="button" class="btn-danger btn-sm" onclick="deleteProgrammeOutcomeConfirm('${slugAttr}', ${o.id})" aria-label="Delete outcome">Delete</button>` +
+            '</li>'
+        ).join('') + '</ul>';
+
+    el.innerHTML =
+        '<div class="programme-form-row">' +
+        '<label for="programmeSroInput">SRO</label>' +
+        `<input type="text" id="programmeSroInput" class="form-control" maxlength="200" ` +
+        `placeholder="Senior Responsible Owner" value="${escapeHtml(data.sro || '')}" ` +
+        `onchange="saveProgrammeSro('${slugAttr}', this.value)">` +
+        '</div>' +
+        '<div class="programme-form-row">' +
+        '<label for="programmeVisionInput">Vision</label>' +
+        `<textarea id="programmeVisionInput" class="form-control" rows="3" ` +
+        `placeholder="What this programme exists to achieve" ` +
+        `onchange="saveProgrammeVision('${slugAttr}', this.value)">${escapeHtml(data.vision || '')}</textarea>` +
+        '</div>' +
+        '<div class="programme-outcomes">' +
+        '<h4>Outcomes</h4>' +
+        outcomesHtml +
+        `<form class="programme-outcome-add" onsubmit="submitAddProgrammeOutcome(event, '${slugAttr}')">` +
+        '<input type="text" id="programmeOutcomeNameInput" class="form-control" maxlength="200" placeholder="New outcome name" required>' +
+        '<input type="text" id="programmeOutcomeDescInput" class="form-control" maxlength="500" placeholder="Description (optional)">' +
+        '<button type="submit" class="btn-secondary btn-sm">Add Outcome</button>' +
+        '</form>' +
         '</div>';
+}
+
+function saveProgrammeSro(slug, value) {
+    if (typeof setProgrammeData !== 'function') return;
+    setProgrammeData(slug, { sro: value.trim() || null });
+}
+
+function saveProgrammeVision(slug, value) {
+    if (typeof setProgrammeData !== 'function') return;
+    setProgrammeData(slug, { vision: value.trim() || null });
+}
+
+/** Refresh both the SRO/vision/outcomes editor and the benefits rollup -- an outcome add/edit/delete affects what the rollup below has to show. */
+function refreshProgrammeOwnedDataView() {
+    const programme = getCurrentPortfolioProgramme();
+    if (!programme) return;
+    renderProgrammeSroVision(programme);
+    loadProgrammeDashboardData(programme);
+}
+
+function submitAddProgrammeOutcome(event, slug) {
+    event.preventDefault();
+    const nameInput = document.getElementById('programmeOutcomeNameInput');
+    const descInput = document.getElementById('programmeOutcomeDescInput');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) return;
+    if (typeof addProgrammeOutcome === 'function') {
+        addProgrammeOutcome(slug, { name: name, description: descInput ? descInput.value.trim() : '' });
+    }
+    refreshProgrammeOwnedDataView();
+}
+
+function deleteProgrammeOutcomeConfirm(slug, outcomeId) {
+    if (!confirm('Delete this outcome? Any project benefits linked to it will be unlinked.')) return;
+    if (typeof deleteProgrammeOutcome === 'function') deleteProgrammeOutcome(slug, outcomeId);
+    refreshProgrammeOwnedDataView();
+}
+
+// ── Benefits realisation rollup (#735) ──────────────────────────────────
+
+/**
+ * Roll project benefits up into their linked programme outcomes.
+ * `benefitLinks` are the programme's own link records
+ * (linkBenefitToOutcome(), programme-data-store.js), each naming a
+ * (projectId, benefitItemId) pair and an outcomeId. `benefitItems` is the
+ * *live* per-project benefit items for this programme (tagged with
+ * projectId/projectName by loadProgrammeDashboardData()) -- used so the
+ * rollup shows each benefit's current title/status rather than what was
+ * cached at link time, and so a benefit that's since been deleted shows as
+ * stale rather than silently vanishing from the outcome it was linked to.
+ * Pure/testable, same convention as filterDependenciesForProgramme() (#737).
+ */
+function computeOutcomeContributions(outcomes, benefitLinks, benefitItems) {
+    const liveByKey = {};
+    (benefitItems || []).forEach((item) => {
+        if (item) liveByKey[item.projectId + ':' + item.id] = item;
+    });
+
+    return (outcomes || []).map((outcome) => {
+        const contributions = (benefitLinks || [])
+            .filter((link) => link && link.outcomeId === outcome.id)
+            .map((link) => {
+                const live = liveByKey[link.projectId + ':' + link.benefitItemId];
+                return {
+                    projectId: link.projectId,
+                    projectName: live ? live.projectName : '',
+                    benefitItemId: link.benefitItemId,
+                    title: live ? live.title : (link.benefitTitle || '(deleted benefit)'),
+                    status: live ? live.status : '',
+                    contributionPercent: link.contributionPercent || 0,
+                    stale: !live,
+                };
+            });
+        const totalContributionPercent = contributions.reduce((sum, c) => sum + c.contributionPercent, 0);
+        return {
+            outcomeId: outcome.id,
+            outcomeName: outcome.name,
+            contributions: contributions,
+            totalContributionPercent: totalContributionPercent,
+        };
+    });
+}
+
+/** Cache of this programme's linkable ('benefit'-type) items, populated by loadProgrammeDashboardData(), read by the "link a benefit" dialog. */
+let programmeLinkableBenefitItems = [];
+
+/** Render the Benefits Realisation section: each outcome with its linked project benefits and their summed contribution. */
+function renderProgrammeBenefitsRealisation(outcomeContributions, slug) {
+    const el = document.getElementById('programmeBenefitsRealisation');
+    if (!el) return;
+
+    const addLink = programmeLinkableBenefitItems.length > 0
+        ? '<a href="javascript:void(0)" class="add-item-link" onclick="showLinkBenefitToOutcomeDialog()">' +
+            '<span class="add-icon">+</span> Link a Benefit to an Outcome</a>'
+        : '';
+    const toolbar = '<div class="programme-deps-toolbar">' + addLink + '</div>';
+
+    if (!outcomeContributions || outcomeContributions.length === 0) {
+        el.innerHTML = toolbar +
+            '<p class="programme-empty-hint">Define an outcome above, then link project benefits to it here.</p>';
+        return;
+    }
+
+    const slugAttr = escapeHtml(slug).replace(/'/g, "\\'");
+    el.innerHTML = toolbar + outcomeContributions.map((oc) => {
+        const rows = oc.contributions.length === 0
+            ? '<p class="programme-empty-hint">No project benefits linked to this outcome yet.</p>'
+            : '<table class="programme-resourcing-table"><thead><tr>' +
+                '<th scope="col">Project</th><th scope="col">Benefit</th><th scope="col">Status</th>' +
+                '<th scope="col">Contribution</th><th scope="col"></th></tr></thead><tbody>' +
+                oc.contributions.map((c) => '<tr' + (c.stale ? ' class="programme-benefit-link--stale"' : '') + '>' +
+                    '<td>' + escapeHtml(c.projectName || '-') + '</td>' +
+                    '<td>' + escapeHtml(c.title) + (c.stale ? ' <span class="programme-stub-value">(no longer found)</span>' : '') + '</td>' +
+                    '<td>' + escapeHtml(c.status || '-') + '</td>' +
+                    '<td>' + c.contributionPercent + '%</td>' +
+                    '<td><button class="btn-danger btn-sm" ' +
+                    `onclick="unlinkProgrammeBenefit('${slugAttr}', '${escapeHtml(c.projectId).replace(/'/g, "\\'")}', ${c.benefitItemId})" ` +
+                    'aria-label="Unlink">Unlink</button></td>' +
+                    '</tr>').join('') +
+                '</tbody></table>';
+        return '<div class="programme-outcome-rollup">' +
+            `<h4>${escapeHtml(oc.outcomeName)} <span class="programme-outcome-total">${oc.totalContributionPercent}% total contribution</span></h4>` +
+            rows + '</div>';
+    }).join('');
+}
+
+/** Open the "link a benefit to an outcome" modal, following the same task-form-modal pattern as portfolio-projects-table.js's programme dialog. */
+function showLinkBenefitToOutcomeDialog() {
+    const programme = getCurrentPortfolioProgramme();
+    if (!programme) return;
+    const data = (typeof getProgrammeData === 'function') ? (getProgrammeData(programme.slug) || {}) : {};
+    const outcomes = data.outcomes || [];
+    if (outcomes.length === 0) { alert('Add a programme outcome first.'); return; }
+    if (programmeLinkableBenefitItems.length === 0) { alert("No benefit items found in this programme's member projects."); return; }
+
+    const itemOptions = programmeLinkableBenefitItems.map((b, idx) =>
+        `<option value="${idx}">${escapeHtml(b.projectName)} — ${escapeHtml(b.title)}</option>`).join('');
+    const outcomeOptions = outcomes.map((o) => `<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('');
+    const slugAttr = escapeHtml(programme.slug).replace(/'/g, "\\'");
+
+    const html = '<div id="linkBenefitModalOverlay" class="modal-overlay active" ' +
+        'onclick="if(event.target===this)closeLinkBenefitDialog()" role="dialog" aria-modal="true" aria-labelledby="linkBenefitModalTitle">' +
+        '<div class="task-form-modal" style="max-width:420px;width:min(420px,92vw);">' +
+        '<div class="modal-header">' +
+        '<h3 id="linkBenefitModalTitle" style="margin:0;">Link Benefit to Outcome</h3>' +
+        '<button class="close-btn" onclick="closeLinkBenefitDialog()" aria-label="Close">&times;</button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+        `<form id="linkBenefitForm" onsubmit="submitLinkBenefitToOutcome(event, '${slugAttr}')">` +
+        '<div class="form-group"><label for="linkBenefitItemSelect">Project benefit</label>' +
+        `<select id="linkBenefitItemSelect" class="form-control">${itemOptions}</select></div>` +
+        '<div class="form-group"><label for="linkBenefitOutcomeSelect">Programme outcome</label>' +
+        `<select id="linkBenefitOutcomeSelect" class="form-control">${outcomeOptions}</select></div>` +
+        '<div class="form-group"><label for="linkBenefitContributionInput">Contribution %</label>' +
+        '<input type="number" id="linkBenefitContributionInput" class="form-control" min="0" max="100" value="100"></div>' +
+        '<div style="text-align:right;margin-top:16px;">' +
+        '<button type="button" class="btn-secondary" onclick="closeLinkBenefitDialog()" style="margin-right:8px;">Cancel</button>' +
+        '<button type="submit" class="btn-primary">Link</button>' +
+        '</div>' +
+        '</form>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container.firstChild);
+}
+
+function closeLinkBenefitDialog() {
+    const overlay = document.getElementById('linkBenefitModalOverlay');
+    if (overlay) overlay.remove();
+}
+
+function submitLinkBenefitToOutcome(event, slug) {
+    event.preventDefault();
+    const itemSelect = document.getElementById('linkBenefitItemSelect');
+    const outcomeSelect = document.getElementById('linkBenefitOutcomeSelect');
+    const contribInput = document.getElementById('linkBenefitContributionInput');
+    const item = itemSelect ? programmeLinkableBenefitItems[parseInt(itemSelect.value, 10)] : null;
+    closeLinkBenefitDialog();
+    if (!item || !outcomeSelect) return;
+
+    if (typeof linkBenefitToOutcome === 'function') {
+        linkBenefitToOutcome(slug, {
+            projectId: item.projectId,
+            benefitItemId: item.id,
+            benefitTitle: item.title,
+            outcomeId: parseInt(outcomeSelect.value, 10),
+            contributionPercent: contribInput ? parseInt(contribInput.value, 10) || 0 : 0,
+        });
+    }
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) loadProgrammeDashboardData(programme);
+}
+
+function unlinkProgrammeBenefit(slug, projectId, benefitItemId) {
+    if (typeof unlinkBenefitFromOutcome === 'function') unlinkBenefitFromOutcome(slug, projectId, benefitItemId);
+    const programme = getCurrentPortfolioProgramme();
+    if (programme) loadProgrammeDashboardData(programme);
 }
 
 /** Map an array of {id, rag} entries to {[id]: rag} for cheap lookups while rendering. */
@@ -616,7 +866,9 @@ async function loadProgrammeDashboardData(programme) {
 
         projectRags.push({ id: project.id, name: project.name, rag });
         allMilestones.push(...extractProjectMilestones(tasks, project.id, project.name));
-        allBenefitItems.push(...extractProgrammeBenefitItems(project.planText || ''));
+        extractProgrammeBenefitItems(project.planText || '').forEach((item) => {
+            allBenefitItems.push(Object.assign({}, item, { projectId: project.id, projectName: project.name }));
+        });
         raidItemsByProject.push({ projectId: project.id, projectName: project.name, items: raidItems });
     });
 
@@ -632,6 +884,9 @@ async function loadProgrammeDashboardData(programme) {
     if (currentProgrammeSlug !== slugAtStart) return;
 
     const resourceDemand = aggregateProgrammeResourceDemand(relevant);
+    const programmeData = (typeof getProgrammeData === 'function') ? (getProgrammeData(programme.slug) || {}) : {};
+    programmeLinkableBenefitItems = allBenefitItems.filter((b) => (b.type || 'benefit').toLowerCase() === 'benefit');
+    const outcomeContributions = computeOutcomeContributions(programmeData.outcomes, programmeData.benefitLinks, allBenefitItems);
 
     renderProgrammeMemberGrid(programme, ragById(projectRags));
     renderProgrammeStatTiles(computeRagRollup(projectRags), aggregateBenefitsOnTrack(allBenefitItems), escalatedItems.length);
@@ -639,25 +894,27 @@ async function loadProgrammeDashboardData(programme) {
     renderProgrammeEscalatedRisks(escalatedItems);
     renderProgrammeDependencyBoard(scopedDeps, dependencyPropagation);
     renderProgrammeResourcing(resourceDemand);
+    renderProgrammeBenefitsRealisation(outcomeContributions, programme.slug);
 }
 
 /**
  * Render the programme overview dashboard: name, member-project count,
- * SRO/vision stub banner, key metrics tiles, key milestones, and the
- * member-project grid. The synchronous parts (title, meta, note, and a
- * grid with loading RAG badges) render immediately; loadProgrammeDashboardData()
+ * SRO/vision/outcomes editor, key metrics tiles, key milestones, and the
+ * member-project grid. The synchronous parts (title, meta, SRO/vision, and
+ * a grid with loading RAG badges) render immediately; loadProgrammeDashboardData()
  * fills in the parts that need /api/parse data once it resolves.
  */
 function renderProgrammeView() {
     const titleEl = document.getElementById('programmeViewTitle');
     const metaEl = document.getElementById('programmeViewMeta');
     const gridEl = document.getElementById('programmeViewProjects');
-    const noteEl = document.getElementById('programmeDashboardNote');
+    const sroVisionEl = document.getElementById('programmeSroVision');
     const tilesEl = document.getElementById('programmeStatTiles');
     const milestonesEl = document.getElementById('programmeMilestones');
     const escalatedEl = document.getElementById('programmeEscalatedRisks');
     const depsEl = document.getElementById('programmeDependencies');
     const resourcingEl = document.getElementById('programmeResourcing');
+    const benefitsEl = document.getElementById('programmeBenefitsRealisation');
     if (!titleEl || !gridEl) return;
 
     const programme = getCurrentPortfolioProgramme();
@@ -667,19 +924,20 @@ function renderProgrammeView() {
             metaEl.textContent = 'It has no member projects left, or none was selected. Go back to Portfolio and pick a programme badge.';
         }
         gridEl.innerHTML = '';
-        if (noteEl) noteEl.innerHTML = '';
+        if (sroVisionEl) sroVisionEl.innerHTML = '';
         if (tilesEl) tilesEl.innerHTML = '';
         if (milestonesEl) milestonesEl.innerHTML = '';
         if (escalatedEl) escalatedEl.innerHTML = '';
         if (depsEl) depsEl.innerHTML = '';
         if (resourcingEl) resourcingEl.innerHTML = '';
+        if (benefitsEl) benefitsEl.innerHTML = '';
         return;
     }
 
     titleEl.textContent = programme.name;
     const count = programme.projects.length;
     if (metaEl) metaEl.textContent = `${count} project${count === 1 ? '' : 's'} in this programme`;
-    if (noteEl) noteEl.innerHTML = renderProgrammeOverviewNote();
+    renderProgrammeSroVision(programme);
 
     if (count === 0) {
         gridEl.innerHTML = '<div class="portfolio-empty-state"><h3>No projects yet</h3>' +
@@ -689,6 +947,7 @@ function renderProgrammeView() {
         if (escalatedEl) escalatedEl.innerHTML = '';
         if (depsEl) depsEl.innerHTML = '';
         if (resourcingEl) resourcingEl.innerHTML = '';
+        if (benefitsEl) benefitsEl.innerHTML = '';
         return;
     }
 
@@ -697,6 +956,7 @@ function renderProgrammeView() {
     if (escalatedEl) escalatedEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (depsEl) depsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
     if (resourcingEl) resourcingEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
+    if (benefitsEl) benefitsEl.innerHTML = '<div class="portfolio-loading"><div class="portfolio-loading-spinner"></div></div>';
 
     renderProgrammeMemberGrid(programme, {});
     loadProgrammeDashboardData(programme);
@@ -767,5 +1027,6 @@ if (typeof module !== 'undefined' && module.exports) {
         ragById,
         filterDependenciesForProgramme,
         aggregateProgrammeResourceDemand,
+        computeOutcomeContributions,
     };
 }
