@@ -101,6 +101,28 @@
             background: rgba(217, 119, 6, 0.12); color: #b45309; font-size: 0.85rem;
         }
         @media (prefers-color-scheme: dark) { #planNotice { color: #fbbf24; } }
+
+        /* #969 RAID/risk log */
+        h2.section-heading {
+            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--muted); margin: 20px 0 6px;
+        }
+        #raidRows { border: 1px solid var(--border); border-radius: 8px; max-height: 220px; overflow-y: auto; }
+        .raid-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 0.85rem;
+        }
+        .raid-row:last-child { border-bottom: none; }
+        .raid-row-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+        .raid-row-title[contenteditable="true"]:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .raid-row-type, .raid-row-status {
+            border: 1px solid var(--border); border-radius: 6px; background: transparent;
+            color: var(--text); font-size: 0.8rem; padding: 3px 4px;
+        }
+        .raid-row-delete {
+            width: auto; padding: 2px 8px; border-radius: 6px;
+            background: transparent; border: 1px solid var(--border); color: var(--muted);
+        }
     </style>
 </head>
 <body>
@@ -128,6 +150,16 @@
             <div class="row">
                 <input id="newTaskName" placeholder="Add a task">
                 <button type="button" id="addTaskBtn">Add</button>
+            </div>
+
+            <!-- #969: the RAID/risk log, edited via the same host-authoritative
+                 op model as the task outline above (see collab-backmatter-ops.js)
+                 -- this page never edits the log directly, only sends intents. -->
+            <h2 class="section-heading">RAID / risk log</h2>
+            <div id="raidRows"></div>
+            <div class="row">
+                <input id="newRaidTitle" placeholder="Add a risk, action, issue or decision">
+                <button type="button" id="addRaidBtn">Add</button>
             </div>
 
             <div id="relayLog"></div>
@@ -270,6 +302,101 @@
             }
         }
 
+        // #969: the RAID/risk log, following the exact same "send an intent,
+        // render what the host sends back" pattern as sendPlanOp/
+        // renderPlanSnapshot above -- see collab-backmatter-ops.js for the
+        // row-op protocol and why it's scoped to RAID for now. */
+        async function sendBackmatterOp(op) {
+            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(
+                sessionKey, JSON.stringify({ type: 'backmatter_op', section: 'raid', rev: raidRev, ...op }), sessionId
+            );
+            socket.send(envelope);
+        }
+
+        /** Render the host's RAID snapshot. Rebuilt wholesale each time, for
+         * the same reason renderPlanSnapshot is: the host is the only writer
+         * of the plan text the RAID log lives in. */
+        function renderRaidSnapshot(snapshot) {
+            raidRows = Array.isArray(snapshot.items) ? snapshot.items : [];
+            raidRev = snapshot.rev;
+            if (snapshot.notice) showPlanNotice(snapshot.notice);
+
+            const container = document.getElementById('raidRows');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (raidRows.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'plan-empty';
+                empty.textContent = 'No RAID log items yet.';
+                container.appendChild(empty);
+                return;
+            }
+
+            for (const row of raidRows) {
+                const el = document.createElement('div');
+                el.className = 'raid-row';
+
+                const title = document.createElement('span');
+                title.className = 'raid-row-title';
+                title.textContent = row.title || row.description || '(untitled)';
+                title.contentEditable = 'true';
+                title.spellcheck = false;
+                title.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
+                    if (event.key === 'Escape') { title.textContent = row.title; title.blur(); }
+                });
+                title.addEventListener('blur', () => {
+                    const value = title.textContent.trim();
+                    if (!value || value === row.title) { title.textContent = row.title; return; }
+                    sendBackmatterOp({ op: 'edit_row', row_id: row.id, fields: { title: value } });
+                });
+                el.appendChild(title);
+
+                const type = document.createElement('select');
+                type.className = 'raid-row-type';
+                ['risk', 'action', 'issue', 'decision', 'dependency'].forEach((t) => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    if (t === row.type) opt.selected = true;
+                    type.appendChild(opt);
+                });
+                type.addEventListener('change', () => {
+                    sendBackmatterOp({ op: 'edit_row', row_id: row.id, fields: { type: type.value } });
+                });
+                el.appendChild(type);
+
+                const status = document.createElement('select');
+                status.className = 'raid-row-status';
+                ['open', 'closed', 'transferred'].forEach((s) => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    if (s === row.status) opt.selected = true;
+                    status.appendChild(opt);
+                });
+                status.addEventListener('change', () => {
+                    sendBackmatterOp({ op: 'edit_row', row_id: row.id, fields: { status: status.value } });
+                });
+                el.appendChild(status);
+
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'raid-row-delete';
+                del.textContent = '×';
+                del.title = 'Delete';
+                del.addEventListener('click', () => {
+                    sendBackmatterOp({ op: 'delete_row', row_id: row.id });
+                });
+                el.appendChild(del);
+
+                container.appendChild(el);
+            }
+        }
+
         let socket = null;
         let connectKey = null;
         let keyPair = null;
@@ -283,6 +410,10 @@
         let planTasks = [];
         let planRev = 0;
         let planNoticeTimer = null;
+
+        // #969: same contract as planTasks/planRev, for the RAID log.
+        let raidRows = [];
+        let raidRev = 0;
 
         // #966: how often this joiner tells the host it's still here, via
         // the lightweight `{"type": "presence_ping"}` heartbeat -- kept
@@ -410,6 +541,19 @@
                                 : 'The host could not apply that change.');
                             return;
                         }
+                        if (parsed && parsed.type === 'raid_snapshot') {
+                            renderRaidSnapshot(parsed);
+                            return;
+                        }
+                        if (parsed && parsed.type === 'backmatter_op_rejected') {
+                            // #969: the RAID counterpart of plan_op_rejected
+                            // above -- 'unknown_row' means someone else
+                            // deleted or renamed it out from under us.
+                            showPlanNotice(parsed.reason === 'unknown_row'
+                                ? 'That RAID item changed while you were editing — try again.'
+                                : 'The host could not apply that change.');
+                            return;
+                        }
                         log(`host: ${plaintext}`);
                     } catch (error) {
                         log('(failed to decrypt a message -- dropped)');
@@ -460,6 +604,12 @@
                 if (planContainer) planContainer.innerHTML = '';
                 const planNoticeEl = document.getElementById('planNotice');
                 if (planNoticeEl) planNoticeEl.hidden = true;
+                // #969: the RAID log is the host's too -- drop it on
+                // disconnect along with the rest of the session state.
+                raidRows = [];
+                raidRev = 0;
+                const raidContainer = document.getElementById('raidRows');
+                if (raidContainer) raidContainer.innerHTML = '';
 
                 if (!wasJoined) {
                     status.textContent = 'Could not join -- check the code and try again.';
@@ -494,6 +644,21 @@
         document.getElementById('addTaskBtn').addEventListener('click', submitNewTask);
         document.getElementById('newTaskName').addEventListener('keydown', (event) => {
             if (event.key === 'Enter') { event.preventDefault(); submitNewTask(); }
+        });
+
+        // #969: add a RAID row. Lands with the type/status defaults
+        // applyBackmatterOp gives a fresh row (risk, open) -- refining
+        // those is what the per-row dropdowns rendered above are for.
+        function submitNewRaidRow() {
+            const input = document.getElementById('newRaidTitle');
+            const title = input.value.trim();
+            if (!title) return;
+            sendBackmatterOp({ op: 'add_row', fields: { title } });
+            input.value = '';
+        }
+        document.getElementById('addRaidBtn').addEventListener('click', submitNewRaidRow);
+        document.getElementById('newRaidTitle').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') { event.preventDefault(); submitNewRaidRow(); }
         });
 
         document.getElementById('relaySend').addEventListener('click', async () => {
