@@ -13402,6 +13402,51 @@ function updatePlanBaselineText(planText, items) {
 // parseThemeColours()/saveThemeColours() (kanban.js) for a read/write
 // helper pair, and the Python-side parse_whiteboard_markdown /
 // generate_whiteboard_text pair in format_converter.py.
+//
+// Free-floating text objects (issue #1018): a *second* row shape sharing
+// this exact same table, discriminated by three more columns -- Kind | Id
+// | Text -- rather than a second section or a sentinel Task value. Why a
+// second row shape in the same table rather than a cleanly-separated
+// second ---whiteboard-text--- section (the issue's other suggested
+// option): every existing whiteboard mutation (drag, resize, colour pick,
+// add/remove note, rename, delete...) already works by reading the whole
+// table into `items`, mutating it, and calling
+// updatePlanWhiteboardText(planText, items) to rewrite the *entire*
+// section from `items` alone (see whiteboard-notes.js's
+// wbCommitNoteChange() and friends) -- a second, separately-parsed section
+// nested in the same ---whiteboard--- block would be silently destroyed
+// the next time a user so much as dragged an unrelated post-it, since
+// nothing about that rewrite path knows the second section exists. Folding
+// text objects into the same `items` array/table sidesteps that entirely:
+// one parse, one rewrite, one section, no coupling to fix.
+//
+// A text-object row has no Task (it isn't backed by a task -- see this
+// issue's own framing: "position + text content only, no other post-it
+// fields") and none of a post-it's fields (Colour/Width/Height/Collapsed
+// don't apply to bare text); it uses:
+//
+//   Kind: the literal string "text" (blank/absent means "post-it", the
+//         pre-existing row shape, unchanged).
+//   Id:   an opaque, generated identifier (e.g. "t1a2b3c4") standing in
+//         for the Task column's role as the row's unique key, since a
+//         text object has no task name to key off.
+//   Text: the object's own text content, escaped so embedded pipes and
+//         newlines survive the single-line table-cell format (own
+//         escaping from the other columns' since Text, unlike Task/
+//         Colour, is expected to hold real user prose -- see
+//         generateWhiteboardText()'s escapeTextCell()).
+//
+// parseWhiteboardMarkdown() returns a text-object row as
+// `{ kind: 'text', id, text, x, y }` -- deliberately a different, smaller
+// shape than a post-it row's `{ task, x, y, colour, width, height,
+// collapsed }`, with no `kind`/`id`/`text` keys present at all on a
+// post-it row (rather than e.g. `kind: 'note'` on every row), so parsing
+// an old plan with no text objects produces byte-for-byte the same item
+// shape as before this issue -- see tests/test_whiteboard_backmatter.mjs.
+// generateWhiteboardText() only emits the Kind/Id/Text columns at all when
+// at least one item actually has kind 'text', so a plan with only post-it
+// rows still round-trips through an edit with the exact same seven-column
+// table it always has.
 // =====================================================================
 
 /**
@@ -13463,6 +13508,9 @@ function parseWhiteboardMarkdown(text) {
     const aliases = {
         task: 'task', x: 'x', y: 'y', colour: 'colour', color: 'colour',
         width: 'width', height: 'height', collapsed: 'collapsed',
+        // Issue #1018: free-floating text object columns -- see this
+        // file's "Whiteboard back matter" header comment above.
+        kind: 'kind', id: 'id', text: 'text',
     };
     const colMap = {};
     headers.forEach((h, idx) => {
@@ -13488,6 +13536,28 @@ function parseWhiteboardMarkdown(text) {
             const idx = colMap[field];
             if (idx !== undefined && idx < cells.length) return cells[idx].replace(/\\\|/g, '|');
             return fallback !== undefined ? fallback : '';
+        }
+
+        // Issue #1018: a free-floating text object row -- discriminated by
+        // Kind="text" rather than by an empty Task (Task is meaningless
+        // for a row with no backing task at all). Id stands in for Task's
+        // role as this row's unique key; a text row with no Id can't be
+        // reliably tracked (drag/edit/delete all key off it), so it's
+        // dropped, matching the existing "no Task, no row" rule for
+        // post-its just below. Returns a deliberately different, smaller
+        // shape than a post-it row -- see this file's header comment.
+        const kindStr = getCell('kind', '').trim().toLowerCase();
+        if (kindStr === 'text') {
+            const idStr = getCell('id', '').trim();
+            if (!idStr) continue;
+            items.push({
+                kind: 'text',
+                id: idStr,
+                text: getCell('text', '').replace(/\\n/g, '\n'),
+                x: safeInt(getCell('x', '0'), 0),
+                y: safeInt(getCell('y', '0'), 0),
+            });
+            continue;
         }
 
         const taskName = getCell('task', '');
@@ -13522,15 +13592,42 @@ function generateWhiteboardText(items) {
     const escapePipe = (value) => String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
     const cellOrBlank = (value) => (value === null || value === undefined || value === '') ? '' : String(value);
 
-    const rows = items.map(item => [
-        escapePipe(item.task || ''),
-        escapePipe(String(item.x != null ? item.x : 0)),
-        escapePipe(String(item.y != null ? item.y : 0)),
-        escapePipe(item.colour || ''),
-        escapePipe(cellOrBlank(item.width)),
-        escapePipe(cellOrBlank(item.height)),
-        escapePipe(item.collapsed ? 'yes' : 'no'),
-    ]);
+    // Issue #1018: newlines in a text object's own content are meaningful
+    // (a heading can wrap), unlike every other column here, so this cell
+    // gets its own escaping that round-trips a literal newline instead of
+    // flattening it to a space -- see parseWhiteboardMarkdown()'s matching
+    // unescape (`.replace(/\\n/g, '\n')`) and this file's header comment.
+    const escapeTextCell = (value) => String(value == null ? '' : value)
+        .replace(/\\/g, '\\\\')
+        .replace(/\|/g, '\\|')
+        .replace(/\n/g, '\\n');
+
+    // The Kind/Id/Text columns only exist to carry issue #1018's text
+    // objects -- a plan with none still writes (and round-trips through)
+    // the exact same seven-column post-it table it always has.
+    const hasTextObjects = items.some(item => item && item.kind === 'text');
+    if (hasTextObjects) headers.push('Kind', 'Id', 'Text');
+
+    const rows = items.map(item => {
+        const isText = !!(item && item.kind === 'text');
+        const cells = [
+            escapePipe(isText ? '' : (item.task || '')),
+            escapePipe(String(item.x != null ? item.x : 0)),
+            escapePipe(String(item.y != null ? item.y : 0)),
+            escapePipe(isText ? '' : (item.colour || '')),
+            escapePipe(isText ? '' : cellOrBlank(item.width)),
+            escapePipe(isText ? '' : cellOrBlank(item.height)),
+            escapePipe(isText ? '' : (item.collapsed ? 'yes' : 'no')),
+        ];
+        if (hasTextObjects) {
+            cells.push(
+                escapePipe(isText ? 'text' : ''),
+                escapePipe(isText ? (item.id || '') : ''),
+                escapeTextCell(isText ? (item.text || '') : '')
+            );
+        }
+        return cells;
+    });
 
     const widths = headers.map(h => h.length);
     rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
@@ -13556,15 +13653,23 @@ function generateWhiteboardText(items) {
 function validateWhiteboardRows(items, summaryTaskNames) {
     // Task is matched case-insensitively, the same as dependency name
     // resolution (see "Resolution rules" in plan-format.rst).
+    //
+    // Issue #1018's text-object rows have no `.task` at all (they aren't
+    // backed by a task -- see this file's "Whiteboard back matter" header
+    // comment), so both rules below skip them entirely: "orphan"/
+    // "duplicate" are concepts about a row's Task referencing (or
+    // colliding with) a task name, which simply doesn't apply.
     const warnings = [];
     const nameCounts = {};
     items.forEach(item => {
+        if (item && item.kind === 'text') return;
         const key = item.task.toLowerCase();
         nameCounts[key] = (nameCounts[key] || 0) + 1;
     });
 
     const seenDuplicates = new Set();
     items.forEach(item => {
+        if (item && item.kind === 'text') return;
         const name = item.task;
         const key = name.toLowerCase();
         if (nameCounts[key] > 1 && !seenDuplicates.has(key)) {
@@ -13581,6 +13686,7 @@ function validateWhiteboardRows(items, summaryTaskNames) {
         const validNames = new Set(Array.from(summaryTaskNames, (n) => n.toLowerCase()));
         const seenOrphans = new Set();
         items.forEach(item => {
+            if (item && item.kind === 'text') return;
             const name = item.task;
             const key = name.toLowerCase();
             if (name && !validNames.has(key) && !seenOrphans.has(key)) {

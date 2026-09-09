@@ -194,6 +194,88 @@ test('parseWhiteboardMarkdown: a duplicate Task across two rows keeps both rows'
 });
 
 // ---------------------------------------------------------------------------
+// Free-floating text objects (issue #1018) -- Kind/Id/Text columns sharing
+// the same table as post-it rows. See script.js's "Whiteboard back matter"
+// header comment for why this is a second row shape in the same table
+// rather than a second section.
+// ---------------------------------------------------------------------------
+
+const TEXT_TABLE = [
+  '| Task | X   | Y  | Kind | Id      | Text          |',
+  '|------|-----|----|------|---------|---------------|',
+  '|      | 200 | 60 | text | t1a2b3c | Section label |',
+].join('\n');
+
+test('parseWhiteboardMarkdown: a Kind=text row parses to a text-object shape, not a post-it shape', () => {
+  const items = parseWhiteboardMarkdown(TEXT_TABLE);
+  eqJSON(items, [
+    { kind: 'text', id: 't1a2b3c', text: 'Section label', x: 200, y: 60 },
+  ]);
+});
+
+test('parseWhiteboardMarkdown: a Kind=text row with no Id is dropped (unlike a post-it row, it has nothing else to key off)', () => {
+  const text = [
+    '| Task | X | Y | Kind | Id | Text |',
+    '|------|---|---|------|----|------|',
+    '|      | 1 | 2 | text |    | Oops |',
+  ].join('\n');
+  eqJSON(parseWhiteboardMarkdown(text), []);
+});
+
+test('parseWhiteboardMarkdown: a text object round-trips embedded pipes and newlines', () => {
+  const items = [{ kind: 'text', id: 't1', text: 'Line one\nLine two | with a pipe', x: 5, y: 9 }];
+  const table = generateWhiteboardText(items);
+  eqJSON(parseWhiteboardMarkdown(table), items);
+});
+
+test('parseWhiteboardMarkdown: a plan with only post-it rows (no Kind/Id/Text columns at all) parses exactly as before', () => {
+  const items = parseWhiteboardMarkdown(SAMPLE_TABLE);
+  eqJSON(items, [
+    { task: 'Discovery', x: 120, y: 80, colour: '#4A90D9', width: 240, height: 200, collapsed: false },
+    { task: 'Build', x: 420, y: 80, colour: '', width: 240, height: 260, collapsed: false },
+  ]);
+});
+
+test('generateWhiteboardText: a list of only post-it items omits Kind/Id/Text columns entirely', () => {
+  const items = parseWhiteboardMarkdown(SAMPLE_TABLE);
+  const text = generateWhiteboardText(items);
+  assert.doesNotMatch(text.split('\n')[0], /Kind|Id|Text/);
+});
+
+test('generateWhiteboardText: a mixed list of post-it and text-object rows round-trips both, each keeping its own shape', () => {
+  const items = [
+    { task: 'Discovery', x: 120, y: 80, colour: '#4A90D9', width: 240, height: 200, collapsed: false },
+    { kind: 'text', id: 't1a2b3c', text: 'Section label', x: 200, y: 60 },
+  ];
+  const text = generateWhiteboardText(items);
+  eqJSON(parseWhiteboardMarkdown(text), items);
+});
+
+test('updatePlanWhiteboardText: a text-object-only board round-trips through the plan', () => {
+  const planText = 'Phase 1\n  Task 1 3d';
+  const items = [{ kind: 'text', id: 't1', text: 'Margin question?', x: 10, y: 20 }];
+  const result = updatePlanWhiteboardText(planText, items);
+  const roundTripped = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(result));
+  eqJSON(roundTripped, items);
+});
+
+test('validateWhiteboardRows: a text-object row produces no orphan/duplicate warnings and does not throw', () => {
+  const items = [
+    { task: 'Discovery', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false },
+    { kind: 'text', id: 't1', text: 'A heading', x: 0, y: 0 },
+  ];
+  eqJSON(validateWhiteboardRows(items, ['Discovery']), []);
+});
+
+test('validateWhiteboardRows: two text-object rows never collide with each other', () => {
+  const items = [
+    { kind: 'text', id: 't1', text: 'One', x: 0, y: 0 },
+    { kind: 'text', id: 't2', text: 'One', x: 10, y: 10 },
+  ];
+  eqJSON(validateWhiteboardRows(items), []);
+});
+
+// ---------------------------------------------------------------------------
 // validateWhiteboardRows
 // ---------------------------------------------------------------------------
 

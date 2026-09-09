@@ -480,6 +480,134 @@
     overflow-wrap: break-word;
 }
 
+/* ========================================
+   Free-floating text objects (issue #1018)
+
+   Deliberately NOT a re-skin of .wb-note-card above (nor of #1015's
+   free-form note, which is still a bordered card -- see this file's own
+   note on that distinction in whiteboard-notes.js's header comment): no
+   background, no border, no border-radius, no box-shadow, no header, no
+   footer. Just styled text sitting directly on the dot-grid, the way a
+   heading or margin note would sit on a real whiteboard.
+
+   The <foreignObject> itself (.wb-text-object) is a fixed, generous box
+   (SVG foreignObject sizing needs an explicit width/height -- see
+   WB_TEXT_DEFAULT_WIDTH/HEIGHT in whiteboard-notes.js) rendered with
+   `overflow: visible`; .wb-text-object-wrap is `display: inline-block`
+   inside it so it shrinks to hug whatever size its own text actually
+   renders at, rather than the full fixed box -- which is also what makes
+   the delete button (absolutely positioned against the wrap) track the
+   visible text's own corner instead of the oversized box's corner.
+   pointer-events is disabled on the object/wrap and re-enabled only on
+   the text and the delete button, so the empty parts of the fixed box
+   are inert -- a drag or click only ever lands on the glyphs themselves.
+   ======================================== */
+
+.wb-text-object {
+    overflow: visible;
+    pointer-events: none;
+}
+
+.wb-text-object-wrap {
+    display: inline-block;
+    position: relative;
+    pointer-events: none;
+}
+
+.wb-text-object-content {
+    display: inline-block;
+    min-width: 24px;
+    min-height: 1.4em;
+    max-width: 640px;
+    padding: 2px 4px;
+    margin: -2px -4px; /* padding for a comfortable hit target, without shifting the text's own visual position */
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--np-text, #333333);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    cursor: grab;
+    touch-action: none;
+    pointer-events: auto;
+    outline: none;
+}
+
+.wb-text-object-content:active {
+    cursor: grabbing;
+}
+
+/* Mid-edit (wbBeginTextObjectEdit()): a faint dashed outline as the only
+   edit affordance -- present solely while typing, never at rest, so it
+   never reads as the "bordered card" chrome this object type exists to
+   not have. */
+.wb-text-object-content.editing {
+    cursor: text;
+    outline: 1px dashed var(--np-border, #c7c7c7);
+    outline-offset: 3px;
+}
+
+/* A freshly-created, still-empty object (issue #1018: "nothing is
+   mandatory" -- an empty text object is never auto-deleted) shows faint
+   placeholder copy so it stays findable/clickable rather than rendering
+   as literally nothing. */
+.wb-text-object-placeholder {
+    color: var(--np-text-muted, #888888);
+    font-style: italic;
+    font-weight: 400;
+}
+
+.wb-text-object-delete {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 50%;
+    background: var(--np-surface, #ffffff);
+    color: var(--np-text-secondary, #666666);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.wb-text-object-wrap:hover .wb-text-object-delete,
+.wb-text-object-delete:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.wb-text-object-delete:hover,
+.wb-text-object-delete:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    color: var(--np-text, #333333);
+}
+
+/* Touch has no hover -- always show the delete button once the object has
+   been interacted with at all would require extra state for little
+   benefit, so on a coarse pointer it is simply always visible (matches
+   the resize handle's own `pointer: coarse` generosity just below). */
+@media (pointer: coarse) {
+    .wb-text-object-delete {
+        opacity: 1;
+        pointer-events: auto;
+        width: 22px;
+        height: 22px;
+    }
+}
+
 /* Resize handle (issue #848): a small grip in the note's bottom-right
    corner. Sized generously on touch (via the `pointer: coarse` rule
    further down) since it's the one drag target that has no long-press

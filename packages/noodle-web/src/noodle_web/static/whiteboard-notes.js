@@ -195,6 +195,47 @@
  * placeholder child so the new line would parse as a summary task
  * immediately; that placeholder is exactly the "forced checklist
  * structure" #1015 asks not to impose, so it is gone.
+ *
+ * Free-floating text objects (issue #1018, part of #885): a second, wholly
+ * separate canvas object type living alongside post-it notes -- bare text
+ * at a position, no card, no border, no background, not backed by a task
+ * at all. Explicitly distinct from #1015's free-form note above: a
+ * free-form note is still a post-it (a bordered `.wb-note-card`, backed by
+ * a real task in the outline, with a title/menu/footer that just happen to
+ * be visually minimal because it has no children) -- a text object has
+ * none of that. It is rendered as its own `.wb-text-object`
+ * <foreignObject> (wbRenderTextObjects()/wbCreateTextObjectNode()/
+ * wbUpdateTextObjectNode()), sharing the same notes layer (so it pans/
+ * zooms/z-orders alongside post-its) but never touching `wbNoteNodes`,
+ * `wbBuildNoteViewModel()`, or the task outline.
+ *
+ * Storage: see script.js's "Whiteboard back matter" header comment for the
+ * full rationale -- a text object is a second row shape (`{ kind: 'text',
+ * id, text, x, y }`) in the *same* ---whiteboard--- table post-it rows use
+ * (Kind/Id/Text columns), not a second section, precisely because every
+ * existing whiteboard mutation already rewrites the *entire* table from
+ * `items` on every commit (wbCommitNoteChange() et al.) -- a separate
+ * section would be silently wiped by the next unrelated post-it drag.
+ * `id` (wbGenerateTextObjectId()) stands in for a post-it row's Task as
+ * this row's unique key, since a text object has no task name to key off.
+ *
+ * Interaction: deliberately a smaller, parallel implementation of #848's
+ * drag machinery (wbActiveTextDrag/wbBeginTextDrag()/
+ * wbUpdateTextDragFromClient()/wbFinishTextDrag()) rather than a
+ * generalisation of wbActiveDrag itself -- text objects have no resize
+ * handle, no z-order-to-front commit, no noodles, so folding them into the
+ * note drag state machine would mean threading a `kind` branch through
+ * code that already carries a lot of state for a feature this one doesn't
+ * need. A click that doesn't move past WB_DRAG_MOVE_THRESHOLD enters
+ * inline edit (wbBeginTextObjectEdit()) instead of starting a drag --
+ * exactly the same click-vs-drag disambiguation #848 already uses for a
+ * note's header, just without that separate double-press-to-rename step
+ * (there is nothing else to distinguish "edit" from here: the whole object
+ * *is* its text). No resize: per the issue, bare text has no fixed box to
+ * resize -- it simply grows/shrinks with its own content
+ * (`.wb-text-object` renders with `overflow: visible` over a generous
+ * fixed <foreignObject> box rather than a content-fitted one, since SVG
+ * foreignObject sizing requires an explicit width/height).
  */
 
 // ── Configuration ───────────────────────────────────────────────────────
@@ -232,6 +273,15 @@ const WB_NOTE_TITLE_ONLY_ZOOM = 0.4;
 const WB_HEADER_DOUBLE_PRESS_MS = 450;
 const WB_HEADER_DOUBLE_PRESS_SLOP = 6;
 
+// Issue #1018: a text object's <foreignObject> box. Generous and fixed
+// (SVG foreignObject sizing needs an explicit width/height) but rendered
+// with `overflow: visible` and an inner element that only occupies as
+// much of that box as its own text needs -- see views/whiteboard.css's
+// `.wb-text-object`/`.wb-text-object-content` -- so in practice the object
+// reads as "however big its text is", not as a fixed box.
+const WB_TEXT_DEFAULT_WIDTH = 320;
+const WB_TEXT_DEFAULT_HEIGHT = 120;
+
 // ── Module state ─────────────────────────────────────────────────────────
 // Cache of the most recently parsed tasks/planText (see file header) plus
 // a map from summary task name -> the DOM we built for it last render, so
@@ -240,6 +290,10 @@ const WB_HEADER_DOUBLE_PRESS_SLOP = 6;
 let wbLastTasks = [];
 let wbLastPlanText = '';
 let wbNoteNodes = new Map(); // summary task name -> { fo, refs: {...} }
+
+// Issue #1018: same idea as wbNoteNodes, keyed by a text object's own
+// generated `id` (never a task name) instead of a task name.
+let wbTextNodes = new Map(); // text-object id -> { fo, refs: {...} }
 
 // Colour-menu state (issue #849). Only one `...` menu is ever open at a
 // time (matches mindmap.js's single mmColourPicker / status-bar.js's
@@ -716,6 +770,17 @@ function wbExceedsMoveThreshold(startClientX, startClientY, clientX, clientY, th
 }
 
 /**
+ * A short, opaque id for a brand-new text object (issue #1018) -- stands
+ * in for a post-it row's Task as the whiteboard row's unique key (see
+ * script.js's "Whiteboard back matter" header comment). Not a UUID: just
+ * distinct enough that two objects created back-to-back never collide,
+ * and short enough to keep the ---whiteboard--- table's Id column narrow.
+ */
+function wbGenerateTextObjectId() {
+    return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/**
  * Move the row named `taskName` (case-insensitive) to the end of `items`,
  * i.e. "renders last" == "z-orders frontmost" once wbRenderNotes() creates
  * fresh note nodes in row order (see the file header comment on Z-order).
@@ -974,6 +1039,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbTaskAncestorNames, wbTaskAncestorPath, wbSummaryTaskEntries,
         wbTasksNotOnBoard, wbFilterPickerEntries, wbRectsOverlap,
         wbFindFreeSpacePosition, wbBuildAddNoteRows, wbInsertNewSummaryTaskLine,
+        wbGenerateTextObjectId,
     };
 }
 
@@ -1047,6 +1113,14 @@ function wbRenderNotes() {
         }
     }
 
+    // Issue #1018: free-floating text objects are their own row shape in
+    // the same `rows` this pass already parsed (see script.js's header
+    // comment) -- rendered in the same pass so they never lag a post-it's
+    // own render by a frame, into the same notes layer so they pan/zoom/
+    // z-order together.
+    const textItems = rows.filter(r => r && r.kind === 'text' && r.id);
+    wbRenderTextObjects(layer, textItems);
+
     // Noodles and the floating outline panel are rendered from the exact
     // same rows/tasks this pass just used, in the same pass, so a note, the
     // noodle arriving at it, and its row in the outline can never disagree
@@ -1059,8 +1133,11 @@ function wbRenderNotes() {
     // rendered -- covers both a genuinely empty ---whiteboard--- section
     // and one that only has orphan rows (rows naming a task that no
     // longer exists), which is exactly right: an orphan-only board is, to
-    // the user looking at it, indistinguishable from an empty one.
-    wbUpdateEmptyState(viewModels.length > 0);
+    // the user looking at it, indistinguishable from an empty one. A
+    // board with only text objects and no post-its (issue #1018) also
+    // counts as having content -- the empty-state CTA would otherwise sit
+    // on top of the very text the user just added.
+    wbUpdateEmptyState(viewModels.length > 0 || textItems.length > 0);
 }
 
 /** Build the static DOM skeleton for one note, cached refs for updates. */
@@ -1335,6 +1412,121 @@ function wbUpdateNoteNode(entry, vm) {
         avatar.textContent = wbGetInitials(resource);
         refs.avatars.appendChild(avatar);
     });
+}
+
+// ── Free-floating text objects (issue #1018) ────────────────────────────
+//
+// See the file header comment for the overall design. Deliberately a
+// small, self-contained sibling to the post-it rendering above: its own
+// node map (wbTextNodes), its own drag state (wbActiveTextDrag), never
+// touching wbNoteNodes/wbBuildNoteViewModel/the task outline.
+
+/**
+ * Render (or update in place) every text object `items` (already filtered
+ * to `kind === 'text'` rows by wbRenderNotes()) calls for -- the text-
+ * object twin of the note-rendering loop just above, appended into the
+ * same `layer` (the notes layer) so text objects pan/zoom/z-order
+ * alongside post-its.
+ */
+function wbRenderTextObjects(layer, items) {
+    if (!layer) return;
+    const seen = new Set();
+    items.forEach(item => {
+        seen.add(item.id);
+        let entry = wbTextNodes.get(item.id);
+        if (!entry) {
+            entry = wbCreateTextObjectNode();
+            layer.appendChild(entry.fo);
+            wbTextNodes.set(item.id, entry);
+        }
+        wbUpdateTextObjectNode(entry, item);
+    });
+
+    for (const [id, entry] of wbTextNodes) {
+        if (!seen.has(id)) {
+            entry.fo.remove();
+            wbTextNodes.delete(id);
+        }
+    }
+}
+
+/**
+ * Build the static DOM skeleton for one text object: a <foreignObject>
+ * (`.wb-text-object`) containing a single content div (`.wb-text-object-
+ * content`) and a small hover-only delete button -- deliberately nothing
+ * else. No header, no card, no border, no footer: see views/whiteboard.css
+ * for the "reads as part of the canvas surface itself" styling this is
+ * built to carry.
+ */
+function wbCreateTextObjectNode() {
+    const fo = document.createElementNS(SVG_NS, 'foreignObject');
+    fo.setAttribute('class', 'wb-text-object');
+
+    const wrap = document.createElementNS(XHTML_NS, 'div');
+    wrap.setAttribute('class', 'wb-text-object-wrap');
+
+    const content = document.createElementNS(XHTML_NS, 'div');
+    content.setAttribute('class', 'wb-text-object-content');
+    content.setAttribute('spellcheck', 'false');
+
+    const deleteBtn = document.createElementNS(XHTML_NS, 'button');
+    deleteBtn.setAttribute('class', 'wb-text-object-delete');
+    deleteBtn.setAttribute('type', 'button');
+    deleteBtn.setAttribute('title', 'Delete this text');
+    deleteBtn.setAttribute('aria-label', 'Delete this text object');
+    deleteBtn.textContent = '×'; // multiplication sign, reused as a small close glyph
+    deleteBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = fo.dataset.wbTextId;
+        if (id) wbDeleteTextObject(id);
+    });
+    deleteBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
+    wrap.appendChild(content);
+    wrap.appendChild(deleteBtn);
+    fo.appendChild(wrap);
+
+    const entry = { fo, refs: { wrap, content, deleteBtn } };
+
+    // Drag-vs-edit-click wiring -- see wbTextObjectMouseDown()'s doc
+    // comment for the disambiguation rule. Attached to `content` (not
+    // `wrap`) so the delete button's own mousedown (already stopped above)
+    // is never mistaken for the start of a drag.
+    content.addEventListener('mousedown', (e) => wbTextObjectMouseDown(e, entry));
+    content.addEventListener('touchstart', (e) => wbTextObjectTouchStart(e, entry), { passive: false });
+
+    return entry;
+}
+
+/** Update one text object's DOM in place from its current row item. */
+function wbUpdateTextObjectNode(entry, item) {
+    const { fo, refs } = entry;
+    const width = WB_TEXT_DEFAULT_WIDTH;
+    const height = WB_TEXT_DEFAULT_HEIGHT;
+    const x = Math.round(item.x || 0);
+    const y = Math.round(item.y || 0);
+
+    fo.setAttribute('x', String(x));
+    fo.setAttribute('y', String(y));
+    fo.setAttribute('width', String(width));
+    fo.setAttribute('height', String(height));
+    fo.dataset.wbTextId = item.id;
+    fo.dataset.wbX = String(x);
+    fo.dataset.wbY = String(y);
+    fo.dataset.wbWidth = String(width);
+    fo.dataset.wbHeight = String(height);
+
+    // Never stomp on live-typed content: while this object is mid-edit,
+    // its DOM is the source of truth (nothing has committed to plan text
+    // yet), so a re-render triggered by something else on the board must
+    // leave it alone.
+    if (refs.content.isContentEditable) return;
+
+    const text = String(item.text || '');
+    refs.content.textContent = text;
+    refs.content.classList.toggle('wb-text-object-placeholder', !text);
+    if (!text) refs.content.textContent = 'Text…';
 }
 
 /**
@@ -1696,6 +1888,358 @@ if (typeof window !== 'undefined') {
     window.addEventListener('touchmove', wbNoteDragTouchMove, { passive: false });
     window.addEventListener('touchend', wbNoteDragTouchEnd);
     window.addEventListener('touchcancel', wbNoteDragTouchEnd);
+}
+
+// ── Text object drag / edit interaction (issue #1018) ───────────────────
+//
+// A deliberately smaller, parallel state machine to the note drag/resize
+// one above -- see the file header comment for why this isn't a
+// generalisation of wbActiveDrag. Move-only (no resize, no z-order-to-
+// front commit, no noodles); a press that never exceeds
+// WB_DRAG_MOVE_THRESHOLD is a click, which enters inline edit instead of
+// starting a drag.
+
+let wbActiveTextDrag = null;
+
+/** A text object's current board position, read off its own <foreignObject> dataset. */
+function wbTextObjectCurrentRect(entry) {
+    const fo = entry.fo;
+    return {
+        x: parseFloat(fo.dataset.wbX || fo.getAttribute('x') || '0') || 0,
+        y: parseFloat(fo.dataset.wbY || fo.getAttribute('y') || '0') || 0,
+    };
+}
+
+function wbBeginTextDrag(entry, clientX, clientY, touchId) {
+    const rect = wbTextObjectCurrentRect(entry);
+    wbActiveTextDrag = {
+        phase: 'active',
+        entry,
+        touchId: (touchId === undefined) ? null : touchId,
+        startClientX: clientX,
+        startClientY: clientY,
+        startX: rect.x,
+        startY: rect.y,
+        moved: false,
+    };
+    wbSetDragCursor('grabbing');
+}
+
+/** Apply the live pointer position to the dragged text object's DOM only. */
+function wbUpdateTextDragFromClient(clientX, clientY) {
+    const drag = wbActiveTextDrag;
+    if (!drag || drag.phase !== 'active') return;
+    if (!drag.moved && wbExceedsMoveThreshold(drag.startClientX, drag.startClientY, clientX, clientY, WB_DRAG_MOVE_THRESHOLD)) {
+        drag.moved = true;
+    }
+    if (!drag.moved) return;
+    const { dx, dy } = wbDragBoardDelta(drag.startClientX, drag.startClientY, clientX, clientY, wbCurrentZoom());
+    const x = Math.round(drag.startX + dx);
+    const y = Math.round(drag.startY + dy);
+    const fo = drag.entry.fo;
+    fo.setAttribute('x', String(x));
+    fo.setAttribute('y', String(y));
+    fo.dataset.wbX = String(x);
+    fo.dataset.wbY = String(y);
+}
+
+/**
+ * The one markdown commit for a text-object gesture -- re-read the
+ * whiteboard table fresh from #planEditor, apply `mutateItemFn` to this
+ * object's own row (matched by `id`, never `task` -- see the file header
+ * comment), and commit through the same wbCommitMarkdown() path every
+ * other whiteboard write uses.
+ */
+function wbCommitTextObjectChange(id, mutateItemFn) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !id) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText));
+    const idx = items.findIndex(it => it && it.kind === 'text' && it.id === id);
+    if (idx === -1) return false; // row vanished from underneath us -- nothing to persist
+
+    if (typeof mutateItemFn === 'function') mutateItemFn(items[idx]);
+
+    const nextText = updatePlanWhiteboardText(planText, items);
+    return wbCommitMarkdown(nextText);
+}
+
+/** End the active text-object drag gesture: commit its new position, or
+ * (a click that never moved) enter inline edit instead. */
+function wbFinishTextDrag() {
+    const drag = wbActiveTextDrag;
+    if (!drag) return;
+    wbActiveTextDrag = null;
+    wbSetDragCursor('');
+
+    if (!drag.moved) {
+        wbBeginTextObjectEdit(drag.entry);
+        return;
+    }
+    const rect = wbTextObjectCurrentRect(drag.entry);
+    wbCommitTextObjectChange(drag.entry.fo.dataset.wbTextId, (item) => {
+        item.x = Math.round(rect.x);
+        item.y = Math.round(rect.y);
+    });
+}
+
+function wbTextObjectFindTouchById(touchList, id) {
+    return wbFindTouchById(touchList, id);
+}
+
+/**
+ * A press on a text object's content: never hijack an already-editing
+ * object (so cursor placement/text selection inside it works normally),
+ * otherwise start a drag-or-click gesture -- resolved on release by
+ * wbFinishTextDrag() into either a committed reposition or an inline edit.
+ */
+function wbTextObjectMouseDown(e, entry) {
+    if (e.button !== 0 || wbActiveTextDrag) return;
+    if (entry.refs.content.isContentEditable) return;
+    e.preventDefault();
+    e.stopPropagation(); // never let this fall through to canvas panning
+    wbBeginTextDrag(entry, e.clientX, e.clientY);
+}
+
+function wbTextDragMouseMove(e) {
+    if (!wbActiveTextDrag || wbActiveTextDrag.touchId !== null) return;
+    wbUpdateTextDragFromClient(e.clientX, e.clientY);
+}
+
+function wbTextDragMouseUp(e) {
+    if (!wbActiveTextDrag || wbActiveTextDrag.touchId !== null) return;
+    if (typeof e.button === 'number' && e.button !== 0) return;
+    wbFinishTextDrag();
+}
+
+/**
+ * Touch twin of wbTextObjectMouseDown() -- same pending/long-press-to-
+ * drag shape as wbNoteHeaderTouchStart() (issue #848), so a touch that
+ * turns out to be an attempted canvas pan/scroll is abandoned rather than
+ * dragging a text object by accident, and a quick tap enters edit mode
+ * exactly like a mouse click does.
+ */
+function wbTextObjectTouchStart(e, entry) {
+    if (wbActiveTextDrag || e.touches.length !== 1) return;
+    if (entry.refs.content.isContentEditable) return;
+
+    const touch = e.touches[0];
+    const rect = wbTextObjectCurrentRect(entry);
+    wbActiveTextDrag = {
+        phase: 'pending',
+        entry,
+        touchId: touch.identifier,
+        startClientX: touch.clientX,
+        startClientY: touch.clientY,
+        startX: rect.x,
+        startY: rect.y,
+        moved: false,
+        longPressTimer: setTimeout(() => {
+            if (!wbActiveTextDrag || wbActiveTextDrag.entry !== entry) return;
+            wbActiveTextDrag.phase = 'active';
+            wbActiveTextDrag.longPressTimer = null;
+            wbSetDragCursor('grabbing');
+        }, WB_TOUCH_LONG_PRESS_MS),
+    };
+}
+
+function wbTextDragTouchMove(e) {
+    const drag = wbActiveTextDrag;
+    if (!drag || drag.touchId === null) return;
+    const touch = wbTextObjectFindTouchById(e.touches, drag.touchId);
+    if (!touch) return;
+
+    if (drag.phase === 'pending') {
+        if (wbExceedsMoveThreshold(drag.startClientX, drag.startClientY, touch.clientX, touch.clientY, WB_TOUCH_CANCEL_THRESHOLD)) {
+            if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+            wbActiveTextDrag = null;
+        }
+        return;
+    }
+
+    e.preventDefault();
+    wbUpdateTextDragFromClient(touch.clientX, touch.clientY);
+}
+
+function wbTextDragTouchEnd(e) {
+    const drag = wbActiveTextDrag;
+    if (!drag || drag.touchId === null) return;
+    if (wbTextObjectFindTouchById(e.touches, drag.touchId)) return; // a different touch ended
+
+    if (drag.phase === 'pending') {
+        if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+        wbActiveTextDrag = null;
+        wbBeginTextObjectEdit(drag.entry); // a plain tap: same as a mouse click
+        return;
+    }
+    wbFinishTextDrag();
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('mousemove', wbTextDragMouseMove);
+    window.addEventListener('mouseup', wbTextDragMouseUp);
+    window.addEventListener('touchmove', wbTextDragTouchMove, { passive: false });
+    window.addEventListener('touchend', wbTextDragTouchEnd);
+    window.addEventListener('touchcancel', wbTextDragTouchEnd);
+}
+
+/**
+ * Put a text object into inline edit mode: contentEditable directly on its
+ * content div (the whole object *is* its text, unlike a note's separate
+ * title-only rename), caret placed at the end. Blur or Escape settle it --
+ * Escape reverts to the last-committed text, blur (including the natural
+ * one from clicking elsewhere on the board) commits whatever was typed.
+ * A newly-created, still-empty object that's left empty is not deleted
+ * automatically -- see wbUpdateTextObjectNode()'s placeholder handling --
+ * matching #885's "nothing is mandatory".
+ */
+function wbBeginTextObjectEdit(entry) {
+    const content = entry.refs.content;
+    if (!content || content.isContentEditable) return;
+
+    const id = entry.fo.dataset.wbTextId;
+    const wasPlaceholder = content.classList.contains('wb-text-object-placeholder');
+    const originalText = wasPlaceholder ? '' : content.textContent;
+
+    content.textContent = originalText;
+    content.classList.remove('wb-text-object-placeholder');
+    content.contentEditable = 'true';
+    content.classList.add('editing');
+    content.focus();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    let settled = false;
+    const finish = (commit) => {
+        if (settled) return;
+        settled = true;
+        content.contentEditable = 'false';
+        content.classList.remove('editing');
+        content.removeEventListener('keydown', onKeydown);
+        content.removeEventListener('blur', onBlur);
+
+        const typed = (content.innerText || content.textContent || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
+        if (!commit || typed === originalText) {
+            content.textContent = originalText || 'Text…';
+            content.classList.toggle('wb-text-object-placeholder', !originalText);
+            return;
+        }
+        content.textContent = typed || 'Text…';
+        content.classList.toggle('wb-text-object-placeholder', !typed);
+        wbCommitTextObjectChange(id, (item) => { item.text = typed; });
+    };
+
+    const onKeydown = (e) => {
+        e.stopPropagation(); // canvas shortcuts must not fire while typing
+        if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    };
+    const onBlur = () => finish(true);
+
+    content.addEventListener('keydown', onKeydown);
+    content.addEventListener('blur', onBlur);
+}
+
+/**
+ * Delete one text object's row, confirmation-free -- unlike deleting a
+ * post-it's task (wbDeleteNoteTask()), this destroys nothing but the
+ * object's own position/text: there is no task, no subtree, no other view
+ * of this content anywhere else in the plan.
+ */
+function wbDeleteTextObject(id) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !id) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText))
+        .filter(item => !(item && item.kind === 'text' && item.id === id));
+    return wbCommitMarkdown(updatePlanWhiteboardText(planText, items));
+}
+
+/**
+ * Create a brand-new text object centred on the board point (x, y),
+ * committed as its own whiteboard row (never a task -- see the file
+ * header comment). Falls back to the same free-space scan wbCreateNoteAt()
+ * uses when the centred point would overlap an existing note or text
+ * object, and goes straight into edit mode so typing the text is part of
+ * the same gesture, mirroring wbCreateNoteAt()'s title-edit handoff.
+ */
+function wbCreateTextObjectAt(boardX, boardY) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor) return null;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return null;
+    }
+
+    const planText = editor.value;
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText));
+    const id = wbGenerateTextObjectId();
+
+    const width = WB_TEXT_DEFAULT_WIDTH;
+    const height = WB_TEXT_DEFAULT_HEIGHT;
+    let x = Math.round(boardX - width / 2);
+    let y = Math.round(boardY - height / 2);
+
+    const existingRects = items.map(item => ({
+        x: item.x || 0,
+        y: item.y || 0,
+        width: (item.kind === 'text') ? WB_TEXT_DEFAULT_WIDTH : (item.width || WB_NOTE_DEFAULT_WIDTH),
+        height: (item.kind === 'text') ? WB_TEXT_DEFAULT_HEIGHT : (item.height || WB_NOTE_DEFAULT_HEIGHT),
+    }));
+    const wanted = { x, y, width, height };
+    const clashes = existingRects.some(rect => wbRectsOverlap(wanted, rect, 8));
+    if (clashes && typeof wbFindFreeSpacePosition === 'function' &&
+        typeof wbCurrentViewportBoardRect === 'function') {
+        const free = wbFindFreeSpacePosition(existingRects, wbCurrentViewportBoardRect(), width, height);
+        if (free) { x = Math.round(free.x); y = Math.round(free.y); }
+    }
+
+    items.push({ kind: 'text', id, text: '', x, y });
+    if (!wbCommitMarkdown(updatePlanWhiteboardText(planText, items))) return null;
+
+    // Same reasoning as wbCreateNoteAt(): the commit's renderText() is
+    // async, so poll briefly for the new node rather than guessing a delay.
+    let attempts = 0;
+    const focusWhenReady = () => {
+        const entry = wbTextNodes.get(id);
+        if (entry) { wbBeginTextObjectEdit(entry); return; }
+        if (++attempts < 20) setTimeout(focusWhenReady, 50);
+    };
+    setTimeout(focusWhenReady, 50);
+
+    return id;
+}
+
+/** wbCreateTextObjectAt() for a client-space point. */
+function wbCreateTextObjectAtClientPoint(clientX, clientY) {
+    if (typeof wbClientToBoard !== 'function') return null;
+    const point = wbClientToBoard(clientX, clientY);
+    return wbCreateTextObjectAt(point.x, point.y);
+}
+
+/** wbCreateTextObjectAt() for the middle of whatever is currently on
+ * screen -- the toolbar's "New text" button and the `t` keyboard shortcut. */
+function wbCreateTextObjectInViewportCentre() {
+    if (typeof wbCurrentViewportBoardRect !== 'function') return null;
+    const rect = wbCurrentViewportBoardRect();
+    return wbCreateTextObjectAt(rect.x + rect.width / 2, rect.y + rect.height / 2);
 }
 
 /** Build one child-task row for a note body. */

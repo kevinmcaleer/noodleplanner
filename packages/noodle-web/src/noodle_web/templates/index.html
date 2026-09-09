@@ -1385,6 +1385,10 @@ Press Enter to render..."></textarea>
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
                                             <span>New post-it</span>
                                         </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="New free-floating text (no task, no card -- just text on the canvas)" aria-label="New free-floating text object on the whiteboard">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
+                                            <span>New text</span>
+                                        </button>
                                         <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add an existing task to the board" aria-label="Add an existing task to the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                                             <span>Add existing</span>
@@ -1395,7 +1399,7 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-hint">
-                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
+                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
                                     </div>
                                 </div>
                                 <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas. Pan, zoom, and double-click empty space to add a post-it.">

@@ -594,6 +594,13 @@ function wbHandleKeydown(e) {
         wbCreateNoteInViewportCentre();
         return;
     }
+    // Issue #1018: a free-floating text object -- the "no task, no card"
+    // sibling of `n`'s post-it, same viewport-centre placement.
+    if ((e.key === 't' || e.key === 'T') && typeof wbCreateTextObjectInViewportCentre === 'function') {
+        e.preventDefault();
+        wbCreateTextObjectInViewportCentre();
+        return;
+    }
 
     switch (e.key) {
         case 'ArrowUp':
