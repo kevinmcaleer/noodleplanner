@@ -2304,7 +2304,18 @@ class KanbanBoard {
                 // Structural moves go through the parse-once plan model (#927).
                 if (typeof NoodlePlanModel === 'undefined') return;
                 const model = NoodlePlanModel.modelForEditor(editor);
+                // A phase header can't represent having zero tasks in the
+                // markdown, so once this move empties it out, drop the
+                // header line too rather than leave a dead, permanently
+                // empty column on the board (#1055).
+                const oldPhaseLineNumber = this.phaseLineNumbers.get(task.phase);
+                const oldPhaseNode = oldPhaseLineNumber
+                    ? model.tasks.find(node => model.lineNumber(node) === oldPhaseLineNumber)
+                    : null;
                 updated = this.moveTaskToPhase(model, taskLineNumber, targetColumn);
+                if (updated && oldPhaseNode && oldPhaseNode.parent === null && oldPhaseNode.children.length === 0) {
+                    model.removeTask(oldPhaseNode);
+                }
                 if (updated) this.commitMarkdown(model.serialize(), { model: model });
                 return;
 
