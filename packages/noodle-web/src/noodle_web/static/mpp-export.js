@@ -462,6 +462,38 @@ export function generateShortname(fullName) {
   return (parts[0][0] + parts[parts.length - 1]).toLowerCase();
 }
 
+/**
+ * Map of full resource name (lower-cased) → shortname, read from a plan's
+ * `Resources:` front matter (`- @jd: Jane Doe`). A .mpp file's resource
+ * table only ever carries the full name -- the `@jd` shortcode is plan
+ * markdown syntax with no home in the binary format -- so re-deriving a
+ * shortname from scratch on every reimport (generateShortname's
+ * first-initial-plus-surname heuristic) can land on something other than
+ * what the plan already uses (e.g. "Jane Doe" → "jdoe", not the plan's own
+ * "@jd"). That shows up as a spurious per-task diff on every field
+ * referencing the resource, on every sync, forever (#912). Passing this map
+ * into projectToMarkdown lets a sync reuse the plan's own shortnames instead.
+ */
+export function parseResourceShortnames(planText) {
+  const shortnameByFullName = new Map();
+  const lines = String(planText || "").split("\n");
+  let inFrontMatter = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === "---") {
+      if (inFrontMatter) break;
+      inFrontMatter = true;
+      continue;
+    }
+    if (!inFrontMatter) continue;
+    const match = trimmed.match(/^-\s*@(\w+):\s*(.+)/);
+    if (!match) continue;
+    const fullName = match[2].split(",")[0].trim();
+    if (fullName) shortnameByFullName.set(fullName.toLowerCase(), match[1]);
+  }
+  return shortnameByFullName;
+}
+
 /** Notes the exporter wrote about links it left out are not plan content. */
 function isExportNote(line) {
   return /^Dependency on ".*" was not exported: /.test(line);
@@ -482,8 +514,12 @@ function lagToken(lagDays) {
  * and additionally keeps what that importer drops:
  * milestones as `0d`, dependency type and lag as `Name:SS +2d`, and task
  * notes as a quoted comment.
+ *
+ * `preferredShortnames` (full name, lower-cased → shortname) is consulted
+ * before generateShortname's heuristic, so a sync reimport can reuse the
+ * current plan's own shortcodes instead of deriving new ones (#912).
  */
-export function projectToMarkdown(project) {
+export function projectToMarkdown(project, preferredShortnames) {
   const title = project.title || "Project";
   const tasks = (project.tasks || []).filter((t) => t.name);
   const resources = (project.resources || []).filter((r) => r.name);
@@ -491,7 +527,8 @@ export function projectToMarkdown(project) {
   const shortnames = new Map(); // resource uid → shortname
   const used = new Set();
   for (const r of [...resources].sort((a, b) => a.uid - b.uid)) {
-    const base = generateShortname(r.name);
+    const preferred = preferredShortnames && preferredShortnames.get(String(r.name).toLowerCase());
+    const base = preferred || generateShortname(r.name);
     let short = base;
     let counter = 2;
     while (used.has(short)) short = `${base}${counter++}`;
@@ -571,13 +608,19 @@ export function projectToMarkdown(project) {
   return lines.join("\n") + "\n";
 }
 
-/** Markdown from the bytes of a .mpp file. Pure. */
-export function importMppBytes(bytes) {
-  return projectToMarkdown(readProject(bytes));
+/**
+ * Markdown from the bytes of a .mpp file. Pure.
+ *
+ * `preferredShortnames` (see projectToMarkdown) lets a sync reimport reuse
+ * the current plan's own resource shortcodes; omit it for a first-ever
+ * import, where there is no existing plan to match against.
+ */
+export function importMppBytes(bytes, preferredShortnames) {
+  return projectToMarkdown(readProject(bytes), preferredShortnames);
 }
 
 /** Markdown from a File the user chose. Reads it locally; no request. */
-export async function importMppFile(file) {
+export async function importMppFile(file, preferredShortnames) {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  return importMppBytes(bytes);
+  return importMppBytes(bytes, preferredShortnames);
 }

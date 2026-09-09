@@ -30,6 +30,7 @@ import {
   generateShortname,
   importMppBytes,
   inclusiveFinish,
+  parseResourceShortnames,
   projectToMarkdown,
   resolvePredecessorLinks,
 } from "../packages/noodle-web/src/noodle_web/static/mpp-export.js";
@@ -247,6 +248,81 @@ test("shortnames follow the Python rule", () => {
   assert.equal(generateShortname("Alice"), "alice");
   assert.equal(generateShortname("Bob J. Jones"), "bjones");
   assert.equal(generateShortname(""), "");
+});
+
+// #912: a .mpp file's resource table only ever carries the full name, so a
+// sync reimport re-deriving "Kevin McAleer" -> "kmcaleer" from scratch
+// disagreed with a plan that had chosen "@kevin" -- reporting every task
+// referencing that resource as spuriously changed, on every sync.
+test("parseResourceShortnames reads the plan's own @shortname: Full Name mapping", () => {
+  const plan = [
+    "---",
+    "title: Plan",
+    "Resources:",
+    "- @kevin: Kevin McAleer",
+    "- @adam: Adam Reid, Designer",
+    "---",
+    "",
+    "Task 1d @kevin",
+  ].join("\n");
+  const map = parseResourceShortnames(plan);
+  assert.equal(map.get("kevin mcaleer"), "kevin");
+  assert.equal(map.get("adam reid"), "adam");
+  assert.equal(map.size, 2);
+});
+
+test("parseResourceShortnames returns an empty map for a plan with no Resources section", () => {
+  assert.equal(parseResourceShortnames("---\ntitle: Plan\n---\nTask 1d").size, 0);
+  assert.equal(parseResourceShortnames("").size, 0);
+});
+
+test("projectToMarkdown prefers the plan's existing shortname over generateShortname's guess", () => {
+  const project = {
+    title: "Plan",
+    tasks: [{ uid: 1, name: "Task", start: new Date(), finish: new Date(), durationDays: 1, outlineLevel: 1, parentUid: 0 }],
+    relations: [],
+    resources: [{ uid: 1, name: "Kevin McAleer" }],
+    assignments: [{ taskUid: 1, resourceUid: 1 }],
+  };
+  const preferred = new Map([["kevin mcaleer", "kevin"]]);
+  const markdown = projectToMarkdown(project, preferred);
+  assert.ok(markdown.includes("- @kevin: Kevin McAleer"), markdown);
+  assert.ok(markdown.includes("Task 1d @kevin"), markdown);
+  assert.ok(!markdown.includes("kmcaleer"), markdown);
+});
+
+test("projectToMarkdown falls back to generateShortname for a resource the preferred map does not cover", () => {
+  const project = {
+    title: "Plan",
+    tasks: [{ uid: 1, name: "Task", start: new Date(), finish: new Date(), durationDays: 1, outlineLevel: 1, parentUid: 0 }],
+    relations: [],
+    resources: [{ uid: 1, name: "Kevin McAleer" }, { uid: 2, name: "New Person" }],
+    assignments: [{ taskUid: 1, resourceUid: 1 }, { taskUid: 1, resourceUid: 2 }],
+  };
+  const preferred = new Map([["kevin mcaleer", "kevin"]]);
+  const markdown = projectToMarkdown(project, preferred);
+  assert.ok(markdown.includes("- @kevin: Kevin McAleer"), markdown);
+  assert.ok(markdown.includes("- @nperson: New Person"), markdown);
+});
+
+test("a synced .mpp with nothing changed reimports with no diff against the current plan", { skip: !roundTrip }, () => {
+  const currentPlan = PLAN; // uses @kevin / @adam, not generateShortname's own guesses
+  const parse = parsePayload(currentPlan);
+  const project = buildProjectFromParse(parse, "Browser export");
+  const bytes = buildMpp(project, new Uint8Array(readFileSync(template)), () => {});
+
+  // Without the plan's own shortnames, the reimport disagrees with itself.
+  const naiveMarkdown = importMppBytes(bytes);
+  assert.ok(naiveMarkdown.includes("@kmcaleer"), naiveMarkdown);
+  assert.ok(!naiveMarkdown.includes("@kevin "), naiveMarkdown);
+
+  // With them (as the real sync flow now passes), reimporting an unchanged
+  // export reuses the exact shortcodes the current plan already has.
+  const preferred = parseResourceShortnames(currentPlan);
+  const syncedMarkdown = importMppBytes(bytes, preferred);
+  assert.ok(syncedMarkdown.includes("- @kevin: Kevin McAleer"), syncedMarkdown);
+  assert.ok(syncedMarkdown.includes("- @adam: Adam Reid"), syncedMarkdown);
+  assert.ok(syncedMarkdown.includes("Build 5d @adam @kevin 50%"), syncedMarkdown);
 });
 
 // --- no request but the template -------------------------------------------------

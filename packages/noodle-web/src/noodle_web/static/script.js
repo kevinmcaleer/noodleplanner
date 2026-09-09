@@ -9741,11 +9741,19 @@ async function syncMSProjectTarget() {
 async function processMSProjectSyncInput(bytesOrFile, filename) {
     if (/\.mpp$/i.test(filename || '')) {
         try {
-            const { importMppBytes } = await import('/static/mpp-export.js');
+            const { importMppBytes, parseResourceShortnames } = await import('/static/mpp-export.js');
             const bytes = bytesOrFile instanceof ArrayBuffer
                 ? new Uint8Array(bytesOrFile)
                 : new Uint8Array(await bytesOrFile.arrayBuffer());
-            const markdown = importMppBytes(bytes);
+            // Reuse the current plan's own resource shortcodes (@jd, not a
+            // freshly re-derived @jdoe) where the full name matches -- a
+            // .mpp file's resource table has no home for the shortcode
+            // itself, so re-deriving one from scratch on every sync would
+            // otherwise report a spurious diff on every task referencing
+            // that resource, forever (#912).
+            const editor = document.getElementById('planEditor');
+            const preferredShortnames = parseResourceShortnames(editor ? editor.value : '');
+            const markdown = importMppBytes(bytes, preferredShortnames);
             await applyImportedMspMarkdown(markdown, filename);
         } catch (error) {
             showMessage('editor', 'error', 'MS Project import failed: ' + error.message);
