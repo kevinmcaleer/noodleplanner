@@ -935,7 +935,7 @@ const tourSteps = [
     {
         title: "Toolbar Actions",
         message: "Use these buttons to manage your project. Open Project Details, indent/outdent tasks, upload files, or download your plan.",
-        target: ".editor-toolbar",
+        target: "#ribbonShell",
         position: "bottom"
     },
     {
