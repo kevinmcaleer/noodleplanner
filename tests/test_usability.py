@@ -708,6 +708,34 @@ class TestKanbanReliability:
             "Phase Two\n  Task B 0%\nPhase One\n  Task A 0%"
         )
 
+    def test_task_form_style_save_updates_board_without_waiting_for_debounce(
+        self, browser, app_server
+    ):
+        """Regression test for #1063: saving the task detail form (which
+        writes editor.value directly and dispatches a synthetic, untrusted
+        'input' event -- exactly like saveTask() in script.js) must refresh
+        the board card immediately, not only after the 1s debounce used for
+        real keystrokes typed directly into the editor."""
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            const editor = document.getElementById('planEditor');
+            const renamed = editor.value.replace('Task A 0%', 'Renamed Task 0%');
+            editor.value = renamed;
+            // Mirrors saveTask(): a programmatic value write followed by an
+            // untrusted 'input' event, with no explicit board render call.
+            editor.dispatchEvent(new Event('input'));
+            return {
+                cardTextImmediate: Array.from(
+                    document.querySelectorAll('.kanban-card')
+                ).map(el => el.dataset.taskName)
+            };
+            """
+        )
+        assert "Renamed Task" in result["cardTextImmediate"]
+        assert "Task A" not in result["cardTextImmediate"]
+
 
 class TestNotepadView:
     """Coverage for the notepad list surface (#1049): typing a line and
