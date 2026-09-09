@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
-  SCOPES, FILE_MENU, QUICK_ACTIONS, TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CONTEXTUAL_TABS,
+  SCOPES, QUICK_ACTIONS, TABS, PORTFOLIO_TABS, PROGRAMME_TABS, CONTEXTUAL_TABS,
   CONTEXT_FOR_VIEW, contextualTabFor, tabsForScope, scopeForView,
 } from "../packages/noodle-web/src/noodle_web/static/ribbon-ia.js";
 
@@ -54,10 +54,9 @@ test("every button icon exists in the app's SVG sprite", () => {
   assert.deepEqual(missing, [], `unknown icon ids:\n${missing.join("\n")}`);
 });
 
-test("file menu, quick actions and contextual-tab icons also exist in the sprite", () => {
+test("quick actions and contextual-tab icons also exist in the sprite", () => {
   const known = spriteIconIds();
   const missing = [];
-  for (const f of FILE_MENU) if (!known.has(f.icon)) missing.push(`fileMenu: "${f.icon}" for "${f.label}"`);
   for (const q of QUICK_ACTIONS) if (!known.has(q.icon)) missing.push(`quickActions: "${q.icon}" for "${q.label}"`);
   for (const s of SCOPES) if (!known.has(s.icon)) missing.push(`scopes: "${s.icon}" for "${s.label}"`);
   for (const c of CONTEXTUAL_TABS) if (!known.has(c.icon)) missing.push(`contextualTabs: "${c.icon}" for "${c.label}"`);
