@@ -90,7 +90,7 @@ function mergeDuplicateSections(text) {
     const HIGHLIGHTS_END = '---end-highlights---';
     const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
                       '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-                      '---whiteboard---'];
+                      '---whiteboard---', '---parking lot---'];
 
     for (const marker of sections) {
         const firstIdx = text.indexOf(marker);
@@ -13459,11 +13459,14 @@ function extractWhiteboardFromPlanText(planText) {
     if (startIdx === -1) return '';
     const afterStart = startIdx + WHITEBOARD_START.length;
 
-    // Whiteboard is canonically the last back-matter section, but stay
-    // defensive in case some other marker follows it in hand-edited text.
+    // Whiteboard is canonically the second-to-last back-matter section
+    // (parking lot, issue #1019, follows it) -- scan for every other
+    // marker, not just the ones that used to come after it, so a parking
+    // lot section is never swallowed into "whiteboard text".
     let endIdx = planText.length;
     for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                          PARKING_LOT_START]) {
         const mIdx = planText.indexOf(marker, afterStart);
         if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
     }
@@ -13722,7 +13725,8 @@ function updatePlanWhiteboardText(planText, items) {
         const afterStart = startIdx + WHITEBOARD_START.length;
         let endIdx = planText.length;
         for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
-                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START]) {
+                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                              PARKING_LOT_START]) {
             const mIdx = planText.indexOf(marker, afterStart);
             if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
         }
@@ -13771,6 +13775,183 @@ function renamePlanWhiteboardTask(planText, oldName, newName) {
     if (!changed) return planText;
 
     return updatePlanWhiteboardText(planText, items);
+}
+
+// =====================================================================
+// Parking lot (issue #1019, part of the #885 whiteboard epic)
+//
+// A "good idea, not now" holding pen: whiteboard.js's "Send to parking
+// lot" note-menu action moves an item's text here instead of discarding
+// it. Round-tripped using the marker ---parking lot---, canonically the
+// section *after* ---whiteboard--- (see this file's own header comment
+// above and format_converter.py's ALL_SECTION_MARKERS), followed by a
+// table with columns:
+//
+//   ID | Text | Date Parked
+//
+// matched by name, not position, mirroring the whiteboard/RAID/comms
+// table convention rather than highlights' heading-per-entry shape --
+// a parked item is just one piece of free text, with nothing to group
+// entries by the way highlights groups by date+author.
+// =====================================================================
+
+/**
+ * Extract the raw ---parking lot--- section text from plan text, or ''
+ * if there isn't one.
+ */
+function extractParkingLotFromPlanText(planText) {
+    if (!planText) return '';
+    const startIdx = planText.indexOf(PARKING_LOT_START);
+    if (startIdx === -1) return '';
+    const afterStart = startIdx + PARKING_LOT_START.length;
+
+    // Parking lot is canonically the last back-matter section, but stay
+    // defensive in case some other marker follows it in hand-edited text.
+    let endIdx = planText.length;
+    for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                          RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                          WHITEBOARD_START]) {
+        const mIdx = planText.indexOf(marker, afterStart);
+        if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+    }
+
+    return planText.substring(afterStart, endIdx).trim();
+}
+
+/**
+ * Parse a parking lot markdown table into an array of item objects.
+ * Columns are matched by name, not position: ID | Text | Date Parked in
+ * any order, extra columns tolerated and ignored. Mirrors
+ * format_converter.py's parse_parking_lot_markdown.
+ */
+function parseParkingLotMarkdown(text) {
+    if (!text) return [];
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+    function parseRow(line) {
+        let parts = line.split(/(?<!\\)\|/);
+        if (parts.length && !parts[0].trim()) parts = parts.slice(1);
+        if (parts.length && !parts[parts.length - 1].trim()) parts = parts.slice(0, -1);
+        return parts.map(c => c.trim());
+    }
+
+    let headerIndex = -1;
+    let headers = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].includes('|')) continue;
+        const cells = parseRow(lines[i]).map(c => c.toLowerCase());
+        if (cells.includes('text')) {
+            headerIndex = i;
+            headers = cells;
+            break;
+        }
+    }
+    if (headerIndex === -1) return [];
+
+    const aliases = { id: 'id', text: 'text', 'date parked': 'date_parked' };
+    const colMap = {};
+    headers.forEach((h, idx) => {
+        if (aliases[h] && !(aliases[h] in colMap)) colMap[aliases[h]] = idx;
+    });
+
+    const items = [];
+    let maxId = 0;
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (line.replace(/[|\- ]/g, '') === '') continue; // separator row
+        if (line.startsWith('//')) continue;
+
+        const cells = parseRow(line);
+        if (!cells.length) continue;
+
+        function getCell(field, fallback) {
+            const idx = colMap[field];
+            if (idx !== undefined && idx < cells.length) return cells[idx].replace(/\\\|/g, '|');
+            return fallback !== undefined ? fallback : '';
+        }
+
+        const text = getCell('text', '');
+        if (!text) continue;
+
+        const idStr = getCell('id', '');
+        const parsedId = parseInt(idStr, 10);
+        const itemId = idStr && !Number.isNaN(parsedId) ? parsedId : maxId + 1;
+        maxId = Math.max(maxId, itemId);
+
+        items.push({
+            id: itemId,
+            text,
+            date_parked: getCell('date_parked', ''),
+        });
+    }
+    return items;
+}
+
+/**
+ * Generate a formatted markdown table from parking lot items, columns
+ * padded to their widest entry (matching the other back-matter
+ * generators). Returns '' if there are no items.
+ */
+function generateParkingLotText(items) {
+    if (!items || items.length === 0) return '';
+    const headers = ['ID', 'Text', 'Date Parked'];
+
+    const escapePipe = (value) => String(value == null ? '' : value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+    const rows = items.map(item => [
+        escapePipe(item.id),
+        escapePipe(item.text || ''),
+        escapePipe(item.date_parked || ''),
+    ]);
+
+    const widths = headers.map(h => h.length);
+    rows.forEach(row => row.forEach((cell, i) => { widths[i] = Math.max(widths[i], cell.length); }));
+
+    const pad = (s, w) => s + ' '.repeat(Math.max(0, w - s.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map(w => '-'.repeat(w + 2)).join('|') + '|';
+
+    const lines = [formatRow(headers), separator];
+    rows.forEach(row => lines.push(formatRow(row)));
+    return lines.join('\n');
+}
+
+/**
+ * Update plan text with the given parking lot items, rewriting only the
+ * ---parking lot--- section and leaving every other back-matter section,
+ * front matter, and the task outline untouched. If `items` is empty, any
+ * existing parking lot section is removed. Parking lot is canonically the
+ * last back-matter section, so nothing needs to be preserved and
+ * re-appended after it -- mirrors updatePlanWhiteboardText().
+ */
+function updatePlanParkingLotText(planText, items) {
+    const startIdx = planText.indexOf(PARKING_LOT_START);
+    let before = planText;
+    let after = '';
+    if (startIdx !== -1) {
+        const afterStart = startIdx + PARKING_LOT_START.length;
+        let endIdx = planText.length;
+        for (const marker of [HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
+                              RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
+                              WHITEBOARD_START]) {
+            const mIdx = planText.indexOf(marker, afterStart);
+            if (mIdx !== -1 && mIdx < endIdx) endIdx = mIdx;
+        }
+        before = planText.substring(0, startIdx);
+        after = planText.substring(endIdx);
+    }
+    before = before.replace(/\n+$/, '');
+
+    const table = generateParkingLotText(items);
+    let result = before;
+    if (table) {
+        result = result + '\n\n' + PARKING_LOT_START + '\n' + table;
+    }
+    if (after) {
+        result = result.replace(/\n+$/, '') + '\n\n' + after.replace(/^\n+/, '');
+    }
+    return result;
 }
 
 /**

@@ -1042,6 +1042,84 @@ body.wb-note-drag-active * {
     }
 }
 
+/* ── Parking lot panel (issue #1019) ────────────────────────────────────
+   Reuses the Add-note picker's overlay/dialog/header chrome (see
+   .wb-add-note-overlay/.wb-add-note-dialog/.wb-add-note-header above);
+   only the body -- a plain list, no search, no footer -- is new. */
+
+.wb-parking-lot-dialog {
+    max-width: 420px;
+}
+
+.wb-parking-lot-intro {
+    margin: 0;
+    padding: 0 16px 8px;
+    font-size: 12px;
+    color: var(--np-text-secondary, #666666);
+    flex-shrink: 0;
+}
+
+.wb-parking-lot-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 8px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 80px;
+}
+
+.wb-parking-lot-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+.wb-parking-lot-item:hover {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.wb-parking-lot-item-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--np-text, #333333);
+    overflow-wrap: break-word;
+}
+
+.wb-parking-lot-item-date {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--np-text-secondary, #666666);
+}
+
+.wb-parking-lot-item-remove {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-red, #d9534f);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.wb-parking-lot-item-remove:hover,
+.wb-parking-lot-item-remove:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: 2px solid var(--np-red, #d9534f);
+    outline-offset: 1px;
+}
+
+.wb-parking-lot-empty {
+    padding: 20px 12px;
+    text-align: center;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--np-text-muted, #888888);
+}
+
 /* ========================================
    Authoring the plan from the board: noodles, the floating outline
    panel, inline rename, and the new-post-it affordances.

@@ -16,9 +16,10 @@ The canonical guarantee
 
 1. **Complete.** The ``.md`` file alone holds the whole plan: front matter,
    the task outline, and every back-matter section (highlights, RAID log,
-   communications plan, budget, benefits, lessons learned, baseline). Nothing
-   about a plan lives only in the browser's storage or in a database. See
-   `Where plan data lives`_ for the audit.
+   communications plan, budget, benefits, lessons learned, baseline,
+   whiteboard, parking lot). Nothing about a plan lives only in the
+   browser's storage or in a database. See `Where plan data lives`_ for
+   the audit.
 2. **Lossless.** Opening a plan and saving it without editing it leaves
    every byte as it was, with one narrow exception: the four front-matter
    keys the app maintains (`Keys the app maintains`_). Each of those is a
@@ -305,6 +306,17 @@ position, so extra or reordered columns are tolerated), except highlights.
        whiteboard/todo-list view's note layout (one row per note). See
        `Whiteboard rows`_ below for the columns and the orphan/duplicate
        rules.
+   * - ``---parking lot---``
+     - Table: ``ID | Text | Date Parked``. The "good idea, not now"
+       holding pen (issue #1019, part of #885): a whiteboard note's `...`
+       menu offers "Send to parking lot", which deletes the note's task
+       (and any subtasks) from the outline the same way "Delete task"
+       does, but keeps its text here instead of discarding it. ``Text``
+       is the note's title, plus its comment (the ``!"text"`` free-form
+       body, if any) appended after an em dash. ``Date Parked`` is
+       ``YYYY-MM-DD``, the day it was sent here, or empty for a
+       hand-typed row. Canonically the last back-matter section, after
+       ``---whiteboard---``.
 
 A ``# Heading`` line directly after a marker (``# RAID Log``) is allowed
 and kept.

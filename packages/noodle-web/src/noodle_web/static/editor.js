@@ -123,6 +123,7 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
         let inRaidLogSection = false;
         let inBaselineSection = false;
         let inWhiteboardSection = false;
+        let inParkingLotSection = false;
         // Dependency tokens the last parse flagged as circular, keyed by
         // 1-based line number (see updateCircularDependencyWarnings).
         const circularByLine = window._circularDependencyLines || {};
@@ -286,6 +287,20 @@ function setupEditor(editor, lineNumbers, highlightLayer, shouldRender) {
             }
             // Dim lines inside whiteboard section
             if (inWhiteboardSection) {
+                if (line.trim() === '---parking lot---') {
+                    inWhiteboardSection = false;
+                    inParkingLotSection = true;
+                    return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                }
+                return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Track parking lot section (issue #1019)
+            if (line.trim() === '---parking lot---') {
+                inParkingLotSection = true;
+                return '<span class="syntax-highlights-delimiter">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            }
+            // Dim lines inside parking lot section
+            if (inParkingLotSection) {
                 return '<span class="syntax-highlights-content">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
             }
 

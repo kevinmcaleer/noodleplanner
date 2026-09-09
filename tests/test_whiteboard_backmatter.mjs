@@ -56,6 +56,7 @@ const sandbox = {
   BENEFITS_START: '---benefits---',
   LESSONS_START: '---lessons learned---',
   WHITEBOARD_START: '---whiteboard---',
+  PARKING_LOT_START: '---parking lot---',
 };
 
 liftFunctions(sandbox, 'script.js', [
@@ -66,12 +67,17 @@ liftFunctions(sandbox, 'script.js', [
   'updatePlanWhiteboardText',
   'renamePlanWhiteboardTask',
   'mergeDuplicateSections',
+  'extractParkingLotFromPlanText',
+  'parseParkingLotMarkdown',
+  'generateParkingLotText',
+  'updatePlanParkingLotText',
 ]);
 
 const {
   extractWhiteboardFromPlanText, parseWhiteboardMarkdown, generateWhiteboardText,
   validateWhiteboardRows, updatePlanWhiteboardText, renamePlanWhiteboardTask,
-  mergeDuplicateSections,
+  mergeDuplicateSections, extractParkingLotFromPlanText, parseParkingLotMarkdown,
+  generateParkingLotText, updatePlanParkingLotText,
 } = sandbox;
 
 /**
@@ -477,5 +483,173 @@ test('a plan with a whiteboard section schedules the same tasks as the same plan
 
   const namesWithout = scheduleTasksFromText(planBody(withoutWhiteboard), { today: '2026-06-01' }).map((t) => t.name);
   const namesWith = scheduleTasksFromText(planBody(withWhiteboard), { today: '2026-06-01' }).map((t) => t.name);
+  assert.deepEqual(namesWith, namesWithout);
+});
+
+// ---------------------------------------------------------------------------
+// Parking lot (issue #1019) -- the "good idea, not now" holding pen.
+// Canonically the section *after* ---whiteboard---, so every whiteboard
+// helper above must stop at a following ---parking lot--- marker instead
+// of swallowing it (mirrors this file's own whiteboard-vs-baseline
+// ordering coverage).
+// ---------------------------------------------------------------------------
+
+const PARKING_LOT_TABLE = [
+  '| ID | Text                   | Date Parked |',
+  '|----|------------------------|-------------|',
+  '| 1  | Explore a mobile app   | 2026-03-01  |',
+  '| 2  | Ask about extra budget |             |',
+].join('\n');
+
+test('extractWhiteboardFromPlanText stops before a following ---parking lot--- section', () => {
+  const text = 'Phase 1\n  Task 1 3d\n\n---whiteboard---\n' + SAMPLE_TABLE +
+    '\n\n---parking lot---\n' + PARKING_LOT_TABLE;
+  const result = extractWhiteboardFromPlanText(text);
+  assert.match(result, /Discovery/);
+  assert.doesNotMatch(result, /---parking lot---/);
+  assert.doesNotMatch(result, /Explore a mobile app/);
+});
+
+test('updatePlanWhiteboardText preserves a following ---parking lot--- section', () => {
+  const text = 'Phase 1\n  Task 1 3d\n\n---whiteboard---\n' + SAMPLE_TABLE +
+    '\n\n---parking lot---\n' + PARKING_LOT_TABLE;
+  const items = [{ task: 'Phase 1', x: 1, y: 1, colour: '', width: null, height: null, collapsed: false }];
+  const result = updatePlanWhiteboardText(text, items);
+  assert.match(result, /---parking lot---/);
+  assert.match(result, /Explore a mobile app/);
+  assert.ok(result.indexOf('---whiteboard---') < result.indexOf('---parking lot---'));
+});
+
+test('extractParkingLotFromPlanText returns empty string when absent', () => {
+  assert.equal(extractParkingLotFromPlanText('Phase 1\n  Task 1 3d'), '');
+});
+
+test('extractParkingLotFromPlanText extracts the section body', () => {
+  const text = 'Phase 1\n  Task 1 3d\n\n---parking lot---\n' + PARKING_LOT_TABLE;
+  const result = extractParkingLotFromPlanText(text);
+  assert.match(result, /Explore a mobile app/);
+  assert.doesNotMatch(result, /---parking lot---/);
+});
+
+test('parseParkingLotMarkdown parses every column', () => {
+  const items = parseParkingLotMarkdown(PARKING_LOT_TABLE);
+  eqJSON(items, [
+    { id: 1, text: 'Explore a mobile app', date_parked: '2026-03-01' },
+    { id: 2, text: 'Ask about extra budget', date_parked: '' },
+  ]);
+});
+
+test('parseParkingLotMarkdown returns [] for empty or table-less text', () => {
+  eqJSON(parseParkingLotMarkdown(''), []);
+  eqJSON(parseParkingLotMarkdown('no table here'), []);
+});
+
+test('parseParkingLotMarkdown matches columns by name, not position', () => {
+  const text = [
+    '| Date Parked | Text         | ID |',
+    '|--------------|--------------|----|',
+    '| 2026-04-01   | A stray idea | 5  |',
+  ].join('\n');
+  const items = parseParkingLotMarkdown(text);
+  eqJSON(items, [{ id: 5, text: 'A stray idea', date_parked: '2026-04-01' }]);
+});
+
+test('parseParkingLotMarkdown: a row with no Text is skipped', () => {
+  const text = [
+    '| ID | Text | Date Parked |',
+    '|----|------|-------------|',
+    '| 1  |      | 2026-01-01  |',
+  ].join('\n');
+  eqJSON(parseParkingLotMarkdown(text), []);
+});
+
+test('generateParkingLotText: empty list returns empty string', () => {
+  assert.equal(generateParkingLotText([]), '');
+});
+
+test('generateParkingLotText round-trips through parseParkingLotMarkdown', () => {
+  const items = parseParkingLotMarkdown(PARKING_LOT_TABLE);
+  const text = generateParkingLotText(items);
+  eqJSON(parseParkingLotMarkdown(text), items);
+});
+
+test('generateParkingLotText escapes a pipe in Text', () => {
+  const items = [{ id: 1, text: 'A | B', date_parked: '' }];
+  const text = generateParkingLotText(items);
+  assert.match(text, /A \\\| B/);
+  assert.equal(parseParkingLotMarkdown(text)[0].text, 'A | B');
+});
+
+test('updatePlanParkingLotText appends a new section', () => {
+  const text = 'Phase 1\n  Task 1 3d';
+  const items = [{ id: 1, text: 'A good idea', date_parked: '2026-01-01' }];
+  const result = updatePlanParkingLotText(text, items);
+  assert.match(result, /---parking lot---/);
+  assert.match(result, /A good idea/);
+});
+
+test('updatePlanParkingLotText replaces an existing section without touching others', () => {
+  const text = 'Phase 1\n  Task 1 3d\n\n---raid log---\n| Type | Description |\n|------|-------------|\n| risk | R1 |' +
+    '\n\n---parking lot---\n' + PARKING_LOT_TABLE;
+  const items = [{ id: 1, text: 'Replacement idea', date_parked: '' }];
+  const result = updatePlanParkingLotText(text, items);
+  assert.equal((result.match(/---parking lot---/g) || []).length, 1);
+  assert.doesNotMatch(result, /Explore a mobile app/);
+  assert.match(result, /Replacement idea/);
+  assert.match(result, /---raid log---/);
+  assert.match(result, /R1/);
+});
+
+test('updatePlanParkingLotText with an empty items list removes the section', () => {
+  const text = 'Phase 1\n  Task 1 3d\n\n---parking lot---\n' + PARKING_LOT_TABLE;
+  const result = updatePlanParkingLotText(text, []);
+  assert.doesNotMatch(result, /---parking lot---/);
+  assert.equal(result.trim(), 'Phase 1\n  Task 1 3d');
+});
+
+test('mergeDuplicateSections merges duplicate ---parking lot--- markers, keeping the first', () => {
+  const text = [
+    'Phase A',
+    '  Task 1 3d',
+    '',
+    '---parking lot---',
+    '| ID | Text | Date Parked |',
+    '|----|------|-------------|',
+    '| 1  | Idea A |           |',
+    '',
+    '---parking lot---',
+    '| ID | Text | Date Parked |',
+    '|----|------|-------------|',
+    '| 1  | Idea B |           |',
+  ].join('\n');
+
+  const result = mergeDuplicateSections(text);
+  assert.equal((result.match(/---parking lot---/g) || []).length, 1);
+  assert.match(result, /Idea A/);
+  assert.doesNotMatch(result, /Idea B/);
+});
+
+test('planBody stops the task outline at a ---parking lot--- marker', () => {
+  const plan = [
+    '---',
+    'title: Test',
+    '---',
+    'Phase A',
+    '  Task A1 2d @jd',
+    '  Task A2 3d',
+    '',
+    '---parking lot---',
+    PARKING_LOT_TABLE,
+  ].join('\n');
+  const body = planBody(plan);
+  assert.equal(body.trim(), 'Phase A\n  Task A1 2d @jd\n  Task A2 3d');
+});
+
+test('a plan with a parking lot section schedules the same tasks as the same plan without one', () => {
+  const without = ['Task A 2d', 'Task B 3d'].join('\n');
+  const withParkingLot = without + '\n\n---parking lot---\n' + PARKING_LOT_TABLE;
+
+  const namesWithout = scheduleTasksFromText(planBody(without), { today: '2026-06-01' }).map((t) => t.name);
+  const namesWith = scheduleTasksFromText(planBody(withParkingLot), { today: '2026-06-01' }).map((t) => t.name);
   assert.deepEqual(namesWith, namesWithout);
 });

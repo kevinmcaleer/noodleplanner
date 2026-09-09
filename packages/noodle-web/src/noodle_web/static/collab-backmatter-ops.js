@@ -108,6 +108,7 @@ const COMMS_START = '---comms---';
 const LESSONS_START = '---lessons learned---';
 const BASELINE_START = '---baseline---';
 const WHITEBOARD_START = '---whiteboard---';
+const PARKING_LOT_START = '---parking lot---';
 
 // Every back-matter section marker this module needs to avoid tripping
 // over -- mirrors format_converter.py's ALL_SECTION_MARKERS. A section
@@ -118,6 +119,7 @@ const WHITEBOARD_START = '---whiteboard---';
 const ALL_SECTION_MARKERS = [
     '---highlights---', '---end-highlights---', '---budget---', '---benefits---',
     RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START,
+    PARKING_LOT_START,
 ];
 
 /** Index of `marker` where it is the *entire* trimmed content of its own
@@ -420,12 +422,14 @@ export function spliceRaidSection(planText, items) {
     const lessonsText = extractSection(text, LESSONS_START);
     const baselineText = extractSection(text, BASELINE_START);
     const whiteboardText = extractSection(text, WHITEBOARD_START);
+    const parkingLotText = extractSection(text, PARKING_LOT_START);
 
     let base = stripSection(text, RAID_LOG_START);
     base = stripSection(base, COMMS_START);
     base = stripSection(base, LESSONS_START);
     base = stripSection(base, BASELINE_START);
     base = stripSection(base, WHITEBOARD_START);
+    base = stripSection(base, PARKING_LOT_START);
     base = base.replace(/\n+$/, '');
 
     const table = serializeRaidTable(items);
@@ -435,6 +439,7 @@ export function spliceRaidSection(planText, items) {
     if (lessonsText) result = result.replace(/\n+$/, '') + '\n\n' + LESSONS_START + '\n' + lessonsText;
     if (baselineText) result = result.replace(/\n+$/, '') + '\n\n' + BASELINE_START + '\n' + baselineText;
     if (whiteboardText) result = result.replace(/\n+$/, '') + '\n\n' + WHITEBOARD_START + '\n' + whiteboardText;
+    if (parkingLotText) result = result.replace(/\n+$/, '') + '\n\n' + PARKING_LOT_START + '\n' + parkingLotText;
     return result;
 }
 

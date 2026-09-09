@@ -2551,6 +2551,7 @@ function wbBuildNoteMenu(taskName) {
     wbAppendColourMenuSection(list, taskName);
     wbAppendStructureMenuSection(list, taskName);
     wbAppendOpenTaskMenuSection(list, taskName);
+    wbAppendParkMenuSection(list, taskName);
     wbAppendRemoveMenuSection(list, taskName);
 
     return menu;
@@ -2634,6 +2635,39 @@ function wbAppendOpenTaskMenuSection(list, taskName) {
         e.stopPropagation();
         wbCloseNoteMenu();
         wbOpenChildTask(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+}
+
+/**
+ * Append issue #1019's entire contribution to the note menu: a divider
+ * followed by a single "Send to parking lot" action -- the "good idea,
+ * not now" counterpart to Remove/Delete just below it, set apart with its
+ * own divider so it doesn't read as a third flavour of the same
+ * destructive group. Styled with the same neutral `.wb-note-menu-action`
+ * look as Rename/Unlink/Open task details above (not
+ * `.wb-note-menu-remove`'s red): parking an idea is not destructive, it
+ * relocates the text (see wbSendNoteToParkingLot()'s own doc comment).
+ */
+function wbAppendParkMenuSection(list, taskName) {
+    const dividerLi = document.createElement('li');
+    dividerLi.className = 'wb-note-menu-divider';
+    dividerLi.setAttribute('role', 'separator');
+    list.appendChild(dividerLi);
+
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-action';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Send to parking lot';
+    btn.title = 'Not ready yet? Park this idea -- it leaves the board and the plan, but its text is kept in the parking lot';
+    btn.setAttribute('aria-label', `Send ${taskName} to the parking lot`);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbSendNoteToParkingLot(taskName);
     });
     li.appendChild(btn);
     list.appendChild(li);
@@ -4035,4 +4069,242 @@ function wbDeleteNoteTask(taskName) {
     }
 
     return wbCommitMarkdown(next);
+}
+
+/** Today's date as YYYY-MM-DD, local time -- matches every other date
+ * field this app writes into plan text (front matter's `last_saved`,
+ * highlights headings, etc). */
+function wbTodayIsoDate() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** The text a parked item carries into the ---parking lot--- section: the
+ * note's title, plus its free-form comment (issue #1015's `!"text"` body)
+ * if it had one -- everything a "Delete task" confirmation would otherwise
+ * throw away, folded into one line (the parking lot table, like every
+ * other back-matter table here, is one row per item). */
+function wbBuildParkedItemText(taskName, task) {
+    const name = String(taskName || '').trim();
+    const comment = (task && task.comment) ? String(task.comment).trim() : '';
+    return comment ? `${name} — ${comment}` : name;
+}
+
+/**
+ * Send a note to the parking lot (issue #1019): the "good idea, not now"
+ * counterpart to "Remove from board"/"Delete task". A parked idea is, by
+ * the issue's own framing, meant to genuinely leave the working plan --
+ * not just come off the board -- so this deletes the task (subtree and
+ * all, same as wbDeleteNoteTask()) *and* takes its whiteboard row with it,
+ * but instead of discarding the task's text it is preserved as a new row
+ * in the ---parking lot--- section (see extractParkingLotFromPlanText()/
+ * parseParkingLotMarkdown()/updatePlanParkingLotText() in script.js).
+ *
+ * Every #1015 note -- free-form or checklist -- is still task-backed, so
+ * this one action covers both: a checklist note's children go with it
+ * (their own titles are not individually preserved as separate parking
+ * rows -- this is a "stray thought", not a task-import tool; see this
+ * issue's PR description for the trade-off). No confirmation prompt,
+ * unlike "Delete task": nothing is actually lost -- the idea moves to the
+ * parking lot rather than being destroyed -- and this is one
+ * wbCommitMarkdown() call, so it is one ordinary undo step like every
+ * other board action.
+ */
+function wbSendNoteToParkingLot(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof wbDeleteTaskFromPlanText !== 'function' ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function' ||
+        typeof extractParkingLotFromPlanText !== 'function' ||
+        typeof parseParkingLotMarkdown !== 'function' ||
+        typeof updatePlanParkingLotText !== 'function') {
+        return false;
+    }
+
+    const task = (wbLastTasks || []).find(t => t && t.name === taskName);
+    const parkedText = wbBuildParkedItemText(taskName, task);
+
+    let next = wbDeleteTaskFromPlanText(editor.value, taskName);
+    if (next === editor.value) return false;
+
+    const gone = new Set([String(taskName).toLowerCase()]);
+    wbDescendantNames(wbLastTasks, taskName).forEach(n => gone.add(n));
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(next))
+        .filter(item => !(item && item.task && gone.has(String(item.task).toLowerCase())));
+    next = updatePlanWhiteboardText(next, items);
+
+    const parkedItems = parseParkingLotMarkdown(extractParkingLotFromPlanText(next));
+    const nextId = parkedItems.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+    parkedItems.push({ id: nextId, text: parkedText, date_parked: wbTodayIsoDate() });
+    next = updatePlanParkingLotText(next, parkedItems);
+
+    return wbCommitMarkdown(next);
+}
+
+// ── Parking lot panel (issue #1019) ─────────────────────────────────────
+//
+// The "viewable/manageable" half of #1019's acceptance criteria: a simple
+// list, deliberately no more than that (the issue's own words: "doesn't
+// have to be fancy"). Follows the Add-note picker's floating-dialog
+// convention (wbOpenAddNotePicker()/wbCloseAddNotePicker() above) --
+// single overlay appended to document.body, rebuilt fresh on each open so
+// it can never go stale across repeated opens in one session -- just
+// without that picker's search/multi-select machinery, since "manage"
+// here only means "see what's parked, and remove one you no longer want".
+// Deliberately offers no "restore to board" action: that would mean
+// re-creating a task from parked text, which is #1020's promote-to-task
+// territory, not this issue's.
+
+/** Close the panel, if open, and return focus to the toolbar button that
+ * opened it. */
+function wbCloseParkingLotPanel() {
+    const overlay = document.getElementById('wbParkingLotOverlay');
+    if (overlay) overlay.remove();
+    document.removeEventListener('keydown', wbParkingLotPanelKeydown, true);
+
+    const btn = document.getElementById('whiteboardParkingLotBtn');
+    if (btn) btn.focus();
+}
+
+/** Escape closes the panel, matching every other floating dialog here. */
+function wbParkingLotPanelKeydown(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        wbCloseParkingLotPanel();
+    }
+}
+
+/** The parking lot's current items, straight off the plan text --
+ * re-read on every open/render rather than cached, so the panel can never
+ * show something that's already been edited out from under it (a hand
+ * edit in the raw markdown editor, say). */
+function wbCurrentParkingLotItems() {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor ||
+        typeof extractParkingLotFromPlanText !== 'function' ||
+        typeof parseParkingLotMarkdown !== 'function') {
+        return [];
+    }
+    return parseParkingLotMarkdown(extractParkingLotFromPlanText(editor.value));
+}
+
+/** Remove one parked item permanently (its text is not going anywhere
+ * else -- unlike sending a note here, this is the actual delete). One
+ * wbCommitMarkdown() call, one undo step. */
+function wbDeleteParkedItem(itemId) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || typeof updatePlanParkingLotText !== 'function') return false;
+
+    const items = wbCurrentParkingLotItems();
+    const next = items.filter(item => item && item.id !== itemId);
+    if (next.length === items.length) return false;
+
+    const nextText = updatePlanParkingLotText(editor.value, next);
+    const committed = wbCommitMarkdown(nextText);
+    if (committed) wbRenderParkingLotList();
+    return committed;
+}
+
+/** Rebuild the panel's <ul> from the current parking lot items. */
+function wbRenderParkingLotList() {
+    const list = document.getElementById('wbParkingLotList');
+    if (!list) return;
+
+    const items = wbCurrentParkingLotItems();
+    list.innerHTML = '';
+
+    if (!items.length) {
+        const empty = document.createElement('li');
+        empty.className = 'wb-parking-lot-empty';
+        empty.textContent = 'Nothing parked yet. Use a note\'s "..." menu to send an idea here.';
+        list.appendChild(empty);
+        return;
+    }
+
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'wb-parking-lot-item';
+
+        const textEl = document.createElement('span');
+        textEl.className = 'wb-parking-lot-item-text';
+        textEl.textContent = item.text;
+        li.appendChild(textEl);
+
+        if (item.date_parked) {
+            const dateEl = document.createElement('span');
+            dateEl.className = 'wb-parking-lot-item-date';
+            dateEl.textContent = item.date_parked;
+            li.appendChild(dateEl);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'wb-parking-lot-item-remove';
+        removeBtn.textContent = 'Remove';
+        removeBtn.setAttribute('aria-label', `Permanently remove "${item.text}" from the parking lot`);
+        removeBtn.addEventListener('click', () => wbDeleteParkedItem(item.id));
+        li.appendChild(removeBtn);
+
+        list.appendChild(li);
+    });
+}
+
+/** Open the parking lot panel: a modal dialog listing every parked item
+ * with a per-row "Remove" action -- see this section's header comment for
+ * why there is no "restore to board" here. */
+function wbOpenParkingLotPanel() {
+    wbCloseParkingLotPanel();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'wbParkingLotOverlay';
+    overlay.className = 'wb-add-note-overlay';
+    overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) wbCloseParkingLotPanel();
+    });
+
+    const dialog = document.createElement('div');
+    dialog.id = 'wbParkingLotDialog';
+    dialog.className = 'wb-add-note-dialog wb-parking-lot-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'wbParkingLotTitle');
+    dialog.addEventListener('mousedown', (e) => e.stopPropagation());
+
+    const header = document.createElement('div');
+    header.className = 'wb-add-note-header';
+    const title = document.createElement('h2');
+    title.id = 'wbParkingLotTitle';
+    title.className = 'wb-add-note-title';
+    title.textContent = 'Parking lot';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'wb-add-note-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => wbCloseParkingLotPanel());
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const intro = document.createElement('p');
+    intro.className = 'wb-parking-lot-intro';
+    intro.textContent = 'Good ideas, not now -- sent here from the whiteboard, kept in your plan file.';
+
+    const list = document.createElement('ul');
+    list.id = 'wbParkingLotList';
+    list.className = 'wb-parking-lot-list';
+    list.setAttribute('role', 'list');
+    list.setAttribute('aria-label', 'Parked items');
+
+    dialog.appendChild(header);
+    dialog.appendChild(intro);
+    dialog.appendChild(list);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    wbRenderParkingLotList();
+    document.addEventListener('keydown', wbParkingLotPanelKeydown, true);
+    closeBtn.focus();
 }

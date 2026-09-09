@@ -40,6 +40,11 @@ from noodle_core import (
     validate_whiteboard_rows,
     generate_whiteboard_text,
     update_plan_whiteboard,
+    extract_parking_lot,
+    strip_parking_lot,
+    parse_parking_lot_markdown,
+    generate_parking_lot_text,
+    update_plan_parking_lot,
 )
 
 
@@ -2750,6 +2755,289 @@ class TestWhiteboardPreservedDuringSectionUpdates:
         assert '---lessons learned---' in result
         assert '---whiteboard---' in result
         assert 'Discovery' in result
+
+
+SAMPLE_PARKING_LOT = (
+    "| ID | Text                        | Date Parked |\n"
+    "|----|-----------------------------|-------------|\n"
+    "| 1  | Explore a mobile app        | 2026-03-01  |\n"
+    "| 2  | Ask about extra budget      |             |"
+)
+
+
+class TestExtractParkingLot:
+    def test_absent_returns_empty_string(self):
+        assert extract_parking_lot("Phase 1\n  Task 1 3d") == ''
+
+    def test_extracts_the_section_body(self):
+        text = "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        result = extract_parking_lot(text)
+        assert 'Explore a mobile app' in result
+        assert '---parking lot---' not in result
+
+    def test_stops_before_a_following_section_out_of_canonical_order(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT +
+            "\n\n---baseline---\n| Task Name |\n|-----------|\n| Task 1 |"
+        )
+        result = extract_parking_lot(text)
+        assert 'Explore a mobile app' in result
+        assert '---baseline---' not in result
+        assert 'Task Name' not in result
+
+
+class TestStripParkingLot:
+    def test_absent_returns_text_unchanged(self):
+        text = "Phase 1\n  Task 1 3d"
+        assert strip_parking_lot(text) == text
+
+    def test_removes_the_section(self):
+        text = "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        result = strip_parking_lot(text)
+        assert '---parking lot---' not in result
+        assert 'Explore a mobile app' not in result
+        assert result.rstrip() == "Phase 1\n  Task 1 3d"
+
+    def test_preserves_a_section_that_follows_it(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT +
+            "\n\n---baseline---\n| Task Name |\n|-----------|\n| Task 1 |"
+        )
+        result = strip_parking_lot(text)
+        assert '---parking lot---' not in result
+        assert 'Explore a mobile app' not in result
+        assert '---baseline---' in result
+        assert 'Task Name' in result
+
+
+class TestParkingLotWhiteboardOrdering:
+    """Parking lot is canonically the section after whiteboard -- before
+    this issue, extract_whiteboard/strip_whiteboard/update_plan_whiteboard
+    treated whiteboard as unconditionally last, which would have swallowed
+    a following parking lot section whole."""
+
+    def test_extract_whiteboard_stops_before_a_following_parking_lot_section(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD +
+            "\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        whiteboard_text = extract_whiteboard(text)
+        assert 'Discovery' in whiteboard_text
+        assert '---parking lot---' not in whiteboard_text
+        assert 'Explore a mobile app' not in whiteboard_text
+
+    def test_strip_whiteboard_preserves_a_following_parking_lot_section(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD +
+            "\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        result = strip_whiteboard(text)
+        assert '---whiteboard---' not in result
+        assert 'Discovery' not in result
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+
+    def test_update_plan_whiteboard_preserves_a_following_parking_lot_section(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD +
+            "\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        items = [{'task': 'Phase 1', 'x': 1, 'y': 1, 'colour': '', 'width': None, 'height': None, 'collapsed': False}]
+        result = update_plan_whiteboard(text, items)
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+        # canonical order: whiteboard before parking lot
+        assert result.find('---whiteboard---') < result.find('---parking lot---')
+
+
+class TestParseParkingLotMarkdown:
+    def test_parses_every_column(self):
+        items = parse_parking_lot_markdown(SAMPLE_PARKING_LOT)
+        assert items == [
+            {'id': 1, 'text': 'Explore a mobile app', 'date_parked': '2026-03-01'},
+            {'id': 2, 'text': 'Ask about extra budget', 'date_parked': ''},
+        ]
+
+    def test_empty_text_returns_empty_list(self):
+        assert parse_parking_lot_markdown('') == []
+        assert parse_parking_lot_markdown('no table here') == []
+
+    def test_columns_are_matched_by_name_not_position(self):
+        text = (
+            "| Date Parked | Text          | ID |\n"
+            "|--------------|---------------|----|\n"
+            "| 2026-04-01   | A stray idea  | 5  |"
+        )
+        items = parse_parking_lot_markdown(text)
+        assert items == [{'id': 5, 'text': 'A stray idea', 'date_parked': '2026-04-01'}]
+
+    def test_row_with_no_id_gets_the_next_free_one(self):
+        text = (
+            "| Text  | Date Parked |\n"
+            "|-------|-------------|\n"
+            "| Idea A |            |\n"
+            "| Idea B |            |"
+        )
+        items = parse_parking_lot_markdown(text)
+        assert [i['id'] for i in items] == [1, 2]
+
+    def test_row_with_no_text_is_skipped(self):
+        text = (
+            "| ID | Text | Date Parked |\n"
+            "|----|------|-------------|\n"
+            "| 1  |      | 2026-01-01  |"
+        )
+        assert parse_parking_lot_markdown(text) == []
+
+
+class TestGenerateParkingLotText:
+    def test_empty_list_returns_empty_string(self):
+        assert generate_parking_lot_text([]) == ''
+
+    def test_round_trips_through_parse(self):
+        items = parse_parking_lot_markdown(SAMPLE_PARKING_LOT)
+        text = generate_parking_lot_text(items)
+        assert parse_parking_lot_markdown(text) == items
+
+    def test_pipe_in_text_is_escaped(self):
+        items = [{'id': 1, 'text': 'A | B', 'date_parked': ''}]
+        text = generate_parking_lot_text(items)
+        assert 'A \\| B' in text
+        assert parse_parking_lot_markdown(text)[0]['text'] == 'A | B'
+
+
+class TestUpdatePlanParkingLot:
+    def test_appends_a_new_section(self):
+        text = "Phase 1\n  Task 1 3d"
+        items = [{'id': 1, 'text': 'A good idea', 'date_parked': '2026-01-01'}]
+        result = update_plan_parking_lot(text, items)
+        assert '---parking lot---' in result
+        assert 'A good idea' in result.split('---parking lot---')[1]
+
+    def test_replaces_an_existing_section(self):
+        text = "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        items = [{'id': 1, 'text': 'Replacement idea', 'date_parked': ''}]
+        result = update_plan_parking_lot(text, items)
+        assert result.count('---parking lot---') == 1
+        assert 'Explore a mobile app' not in result
+        assert 'Replacement idea' in result
+
+    def test_empty_items_removes_the_section(self):
+        text = "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        result = update_plan_parking_lot(text, [])
+        assert '---parking lot---' not in result
+        assert result.rstrip() == "Phase 1\n  Task 1 3d"
+
+    def test_does_not_touch_other_sections(self):
+        text = (
+            "Phase 1\n  Task 1 3d\n\n---raid log---\n"
+            "| Type | Description |\n|------|-------------|\n| risk | R1 |\n\n"
+            "---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        items = [{'id': 1, 'text': 'New idea', 'date_parked': ''}]
+        result = update_plan_parking_lot(text, items)
+        assert '---raid log---' in result
+        assert 'R1' in result
+
+
+class TestParkingLotNotParsedAsTasks:
+    """A ---parking lot--- section must never be read as part of the task
+    outline -- in either direction (with vs without the section)."""
+
+    def test_convert_plan_format_strips_parking_lot(self):
+        text = "Phase 1\n  Task 1 3d\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        converted = convert_plan_format_to_standard(text)
+        assert '---parking lot---' not in converted
+        assert 'Explore a mobile app' not in converted
+
+    def test_same_outline_with_and_without_parking_lot_section(self):
+        without = "Phase 1\n  Task 1 3d\n  Task 2 2d"
+        with_pl = without + "\n\n---parking lot---\n" + SAMPLE_PARKING_LOT
+        assert convert_plan_format_to_standard(without) == convert_plan_format_to_standard(with_pl)
+
+
+class TestParkingLotPreservedDuringSectionUpdates:
+    """Updates to other sections must not destroy the parking lot table
+    (mirrors TestWhiteboardPreservedDuringSectionUpdates)."""
+
+    def test_update_highlights_preserves_parking_lot(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---highlights---\n## 2026-04-01 @Alice\n- Old\n\n"
+            "---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        result = update_plan_highlights(plan, [
+            {'date': '2026-04-15', 'author': 'Bob', 'content': '- New'},
+        ])
+        assert '---highlights---' in result
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+        assert result.find('---highlights---') < result.find('---parking lot---')
+
+    def test_update_raid_log_preserves_parking_lot(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---raid log---\n"
+            "| Type | Description | Status | Score | Owner | Date |\n"
+            "|------|-------------|--------|-------|-------|------|\n"
+            "| risk | old         | open   | 9     | kev   | 2026 |\n\n"
+            "---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        result = update_plan_raid_log(plan, [
+            {'type': 'risk', 'title': 'new risk', 'description': 'd', 'status': 'open',
+             'impact': 3, 'likelihood': 3, 'score': 9, 'owner': 'kev'},
+        ])
+        assert '---raid log---' in result
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+
+    def test_update_comms_preserves_parking_lot(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---comms---\n"
+            "| Activity |\n|----------|\n| Old |\n\n"
+            "---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        result = update_plan_comms(plan, [
+            {'activity': 'Kickoff', 'audience': 'All', 'content': 'Intro',
+             'frequency': 'Once', 'channel': 'Email', 'owner': 'PM', 'status': 'done'},
+        ])
+        assert '---comms---' in result
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+
+    def test_update_lessons_preserves_parking_lot(self):
+        plan = (
+            "Phase 1\n  Task 1 @john 3d\n\n"
+            "---lessons learned---\n" + SAMPLE_LESSONS + "\n\n"
+            "---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        result = update_plan_lessons(plan, parse_lessons_markdown(SAMPLE_LESSONS))
+        assert '---lessons learned---' in result
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+
+    def test_update_baseline_preserves_parking_lot(self):
+        plan = (
+            "Phase 1\n  Task 1 3d\n\n---baseline---\n"
+            "| Task Name |\n|-----------|\n| Old Task |\n\n"
+            "---parking lot---\n" + SAMPLE_PARKING_LOT
+        )
+        result = update_plan_baseline(plan, [
+            {'name': 'Task 1', 'start': '2026-01-01', 'finish': '2026-01-02', 'duration': '2d'},
+        ])
+        assert '---baseline---' in result
+        assert '---parking lot---' in result
+        assert 'Explore a mobile app' in result
+
+    def test_no_parking_lot_section_does_not_introduce_one(self):
+        """A plan that never uses this feature must round-trip through an
+        unrelated section's update without gaining an empty
+        ---parking lot--- marker."""
+        plan = "Phase 1\n  Task 1 @john 3d\n\n---whiteboard---\n" + SAMPLE_WHITEBOARD
+        items = [{'task': 'Phase 1', 'x': 1, 'y': 1, 'colour': '', 'width': None, 'height': None, 'collapsed': False}]
+        result = update_plan_whiteboard(plan, items)
+        assert '---parking lot---' not in result
 
 
 if __name__ == "__main__":
