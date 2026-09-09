@@ -313,6 +313,17 @@ function saveCurrentProjectState() {
         planText: planText
     });
 
+    // #968: the project record now holds this content, so a collab
+    // crash-recovery snapshot for it (collab-autosave.js, via
+    // collab-session.js's clearCollabAutosaveForProject) is redundant --
+    // this fires on every save, explicit or the periodic autosave, which
+    // is deliberately broader than "explicit save only": either way the
+    // real record is now authoritative, so there is nothing left to
+    // recover that isn't already saved.
+    if (result && typeof clearCollabAutosaveForProject === 'function') {
+        clearCollabAutosaveForProject(projectId).catch(() => {});
+    }
+
     // Update version badge in status bar
     if (typeof updateVersionBadge === 'function') {
         updateVersionBadge();

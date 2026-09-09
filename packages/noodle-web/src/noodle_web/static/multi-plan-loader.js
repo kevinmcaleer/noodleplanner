@@ -530,7 +530,16 @@ if (typeof window !== 'undefined') {
         // Load current project into editor if one is set
         const currentId = getCurrentProjectId();
         if (currentId && loadProject(currentId)) {
-            loadProjectIntoEditor(currentId);
+            const loaded = loadProjectIntoEditor(currentId);
+            // #968: once the project's own saved text is in the editor,
+            // check whether a collab session was interrupted before it
+            // could save and, if so, offer to recover it -- see
+            // collab-session.js's checkCollabAutosaveRecovery. Chained
+            // after loadProjectIntoEditor so a recovered snapshot can't be
+            // clobbered by its own (synchronous) editor.value assignment.
+            if (typeof checkCollabAutosaveRecovery === 'function') {
+                Promise.resolve(loaded).then(() => checkCollabAutosaveRecovery(currentId));
+            }
         }
 
         // Default to Dashboard view with the plan sub-navigation bar visible
