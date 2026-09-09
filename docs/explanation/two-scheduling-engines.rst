@@ -124,6 +124,8 @@ the corpus will need regenerating and the browser engine will need
 Related
 --------
 
+- :doc:`browser-first-architecture` — the programme-level view: the route
+  inventory, the JS-native vs Pyodide decision, and the end-state
 - :doc:`../reference/plan-format` — the format both engines implement
 - Issue #793 — the port
 - Issue #788 — the browser-first programme this is part of
