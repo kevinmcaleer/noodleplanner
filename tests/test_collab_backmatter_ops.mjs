@@ -282,7 +282,7 @@ test('malformed ops are rejected rather than throwing', () => {
         { type: 'backmatter_op', section: 'raid' },
         // #1036 made comms a real section, so an unsupported one is now
         // weekly updates rather than comms.
-        { type: 'backmatter_op', section: 'highlights', op: 'add_row', fields: {} },
+        { type: 'backmatter_op', section: 'budget', op: 'add_row', fields: {} },
         { type: 'backmatter_op', section: 'raid', op: 'drop_database' },
         { type: 'plan_op', section: 'raid', op: 'add_row', fields: {} },
         op({ op: 'edit_row', row_id: 1, fields: { type: 'not_a_real_type' } }),
@@ -304,7 +304,8 @@ test('isBackmatterOp accepts only the three real RAID row ops', () => {
     // still not a supported section, and must still be refused.
     assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'benefits', op: 'add_row' }), true);
     assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'comms', op: 'add_row' }), true);
-    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'highlights', op: 'add_row' }), false);
+    // #1036 added highlights too; budget is still not editable live.
+    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'highlights', op: 'add_row' }), true);
     assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'budget', op: 'add_row' }), false);
 });
 
@@ -354,8 +355,8 @@ function sectionOp(section, fields) {
     return { type: 'backmatter_op', section, ...fields };
 }
 
-test('#1036: benefits and comms are editable sections, weekly updates is not', () => {
-    assert.deepEqual(EDITABLE_SECTIONS.slice().sort(), ['benefits', 'comms', 'raid']);
+test('#1036: every section #766 names is editable', () => {
+    assert.deepEqual(EDITABLE_SECTIONS.slice().sort(), ['benefits', 'comms', 'highlights', 'raid']);
 });
 
 test('#1036: a benefits snapshot reads the rows the host has', () => {
@@ -496,4 +497,223 @@ test('#1036: setting a field to what it already was changes nothing', () => {
     );
     // Neighbouring sections still parse identically.
     assert.deepEqual(buildRaidSnapshot(applied.text, 1).items, buildRaidSnapshot(SECTIONED_PLAN, 1).items);
+});
+
+// ===========================================================================
+// #1036: weekly updates (---highlights---)
+//
+// The section that is not a table. Two things differ fundamentally and both
+// are load-bearing for safety, so both are tested directly: entries are
+// addressed by *position* (so an op needs `expect`, exactly as #967's task
+// ops do), and their content legitimately contains newlines (so it cannot be
+// newline-collapsed the way every other field here is).
+// ===========================================================================
+
+const HL_PLAN = [
+    'Phase 1',
+    '  Design API 50%',
+    '',
+    '---highlights---',
+    '## 2026-01-05 @dana',
+    'Kickoff went well.',
+    'Two risks raised.',
+    '',
+    '## 2026-01-12 @alice',
+    'Design signed off.',
+    '---end-highlights---',
+    '',
+    '---raid log---',
+    '',
+    '| ID | Type | Title | Description | Owner | Status |',
+    '|----|------|-------|-------------|-------|--------|',
+    '| 1  | risk | Vendor delay | Kit may slip | Dana | open |',
+    '',
+].join('\n');
+
+function hlOp(fields) {
+    return { type: 'backmatter_op', section: 'highlights', ...fields };
+}
+
+test('#1036: highlights parse into positional entries with multi-line content', () => {
+    const items = buildSectionSnapshot(HL_PLAN, 1, 'highlights').items;
+    assert.equal(items.length, 2);
+    assert.deepEqual(items.map((e) => [e.id, e.date, e.author]), [
+        [0, '2026-01-05', 'dana'],
+        [1, '2026-01-12', 'alice'],
+    ]);
+    assert.equal(items[0].content, 'Kickoff went well.\nTwo risks raised.',
+        'multi-line content survives intact');
+});
+
+test('#1036: editing an entry keeps its newlines', () => {
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana',
+        fields: { content: 'Line one\nLine two\nLine three' },
+    }));
+    assert.equal(result.ok, true);
+    const items = buildSectionSnapshot(result.text, 1, 'highlights').items;
+    assert.equal(items[0].content, 'Line one\nLine two\nLine three');
+    // The other entry and the RAID log are untouched.
+    assert.equal(items[1].author, 'alice');
+    assert.equal(buildRaidSnapshot(result.text, 1).items.length, 1);
+});
+
+test('#1036: a positional op without a matching expect is rejected as stale', () => {
+    // Someone deleted the first entry, so index 0 is now Alice's.
+    const shifted = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'delete_row', row_id: 0, expect: '2026-01-05 @dana',
+    }));
+    assert.equal(shifted.ok, true);
+
+    const stale = applyBackmatterOp(shifted.text, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana', fields: { content: 'clobbered' },
+    }));
+    assert.equal(stale.ok, false);
+    assert.equal(stale.reason, 'stale');
+    // Alice's entry, which now occupies index 0, was left alone.
+    assert.equal(buildSectionSnapshot(shifted.text, 1, 'highlights').items[0].content, 'Design signed off.');
+});
+
+test('#1036: adding and deleting a weekly update', () => {
+    const added = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'add_row', fields: { date: '2026-01-19', author: 'bob', content: 'Build started.' },
+    }));
+    assert.equal(added.ok, true);
+    let items = buildSectionSnapshot(added.text, 1, 'highlights').items;
+    assert.equal(items.length, 3);
+    assert.equal(items[2].author, 'bob');
+
+    const deleted = applyBackmatterOp(added.text, hlOp({
+        op: 'delete_row', row_id: 2, expect: '2026-01-19 @bob',
+    }));
+    assert.equal(deleted.ok, true);
+    items = buildSectionSnapshot(deleted.text, 1, 'highlights').items;
+    assert.equal(items.length, 2);
+});
+
+test('#1036: a malformed date or author is refused rather than written', () => {
+    // The heading grammar is strict; an entry that does not match it would
+    // be unreadable on the next parse, silently losing the content.
+    for (const fields of [
+        { date: 'last Tuesday', author: 'dana', content: 'x' },
+        { date: '2026-01-19', author: '   ', content: 'x' },
+        { date: '', author: 'dana', content: 'x' },
+    ]) {
+        assert.equal(applyBackmatterOp(HL_PLAN, hlOp({ op: 'add_row', fields })).ok, false);
+    }
+});
+
+test('#1036: an author with spaces is folded into a single readable token', () => {
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'add_row', fields: { date: '2026-01-19', author: '@dana smith', content: 'x' },
+    }));
+    assert.equal(result.ok, true);
+    const items = buildSectionSnapshot(result.text, 1, 'highlights').items;
+    assert.equal(items[2].author, 'dana-smith', 'still one token, so the heading parses back');
+});
+
+// -- the injection class, for a section where newlines are legitimate -------
+
+// Content here keeps its newlines, so the collapsing defence every other
+// field uses is unavailable. Indenting the offending line is *not* a
+// substitute -- the parser trims each line before matching, so an indented
+// heading or marker parses exactly like an unindented one (a first cut
+// tried that, and these three tests caught it). The op is refused instead,
+// which is also the honest outcome: silently rewriting someone's weekly
+// update is a worse failure than declining the edit.
+
+test('#1036: content that would forge a section marker is refused', () => {
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana',
+        fields: { content: 'Real update\n---raid log---\n| 9 | risk | Forged | | | |' },
+    }));
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'invalid');
+    // The document is untouched: still one RAID marker, and the entry keeps
+    // the content it had.
+    assert.equal(HL_PLAN.split('\n').filter((l) => l.trim() === '---raid log---').length, 1);
+    assert.equal(buildSectionSnapshot(HL_PLAN, 1, 'highlights').items[0].content,
+        'Kickoff went well.\nTwo risks raised.');
+});
+
+test('#1036: content that would forge a new weekly entry heading is refused', () => {
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana',
+        fields: { content: 'Real update\n## 2026-02-02 @mallory\nFabricated entry' },
+    }));
+    assert.equal(result.ok, false);
+    assert.equal(buildSectionSnapshot(HL_PLAN, 1, 'highlights').items.length, 2);
+});
+
+test('#1036: an indented forged heading is refused too', () => {
+    // The specific bypass a first implementation was vulnerable to.
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana',
+        fields: { content: 'Real update\n   ## 2026-02-02 @mallory\nFabricated' },
+    }));
+    assert.equal(result.ok, false);
+});
+
+test('#1036: content that would forge the highlights end marker is refused', () => {
+    // Closing the section early would orphan every entry after it.
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana',
+        fields: { content: 'Real update\n---end-highlights---\nEscaped text' },
+    }));
+    assert.equal(result.ok, false);
+});
+
+test('#1036: ordinary multi-line prose is still accepted', () => {
+    // The rejection above must not be so broad that it blocks normal use --
+    // hyphens, hashes and pipes are all fine as long as a whole line does
+    // not parse as structure.
+    const result = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana',
+        fields: { content: 'Went well.\n\n- bullet one\n- bullet two\n### A sub-heading\nCost | benefit split' },
+    }));
+    assert.equal(result.ok, true);
+    const content = buildSectionSnapshot(result.text, 1, 'highlights').items[0].content;
+    assert.ok(content.includes('- bullet one'));
+    assert.ok(content.includes('### A sub-heading'));
+    assert.ok(content.includes('Cost | benefit split'));
+});
+
+test('#1036: weekly updates is now an editable section', () => {
+    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'highlights', op: 'add_row' }), true);
+    assert.deepEqual(EDITABLE_SECTIONS.slice().sort(), ['benefits', 'comms', 'highlights', 'raid']);
+});
+
+test('#1036: repeated ops leave exactly one highlights end marker', () => {
+    // Regression: the section ends at the *next* marker line, which for
+    // highlights is its own end marker -- so the old one survived in the
+    // tail while the new block brought another, and a duplicate
+    // accumulated on every op. Invisible to parseHighlights (it stops at
+    // the first end marker), so only counting the markers catches it.
+    let text = HL_PLAN;
+    for (let i = 0; i < 4; i++) {
+        const result = applyBackmatterOp(text, hlOp({
+            op: 'edit_row', row_id: 0, expect: '2026-01-05 @dana', fields: { content: `Pass ${i}` },
+        }));
+        assert.equal(result.ok, true);
+        text = result.text;
+        assert.equal(
+            text.split('\n').filter((l) => l.trim() === '---end-highlights---').length, 1,
+            `duplicate end marker after ${i + 1} ops`,
+        );
+    }
+    assert.equal(text.split('\n').filter((l) => l.trim() === '---highlights---').length, 1);
+    // And the neighbouring section is still intact after all that splicing.
+    assert.equal(buildRaidSnapshot(text, 1).items.length, 1);
+});
+
+test('#1036: deleting the last entry removes the section and its end marker', () => {
+    let text = applyBackmatterOp(HL_PLAN, hlOp({
+        op: 'delete_row', row_id: 1, expect: '2026-01-12 @alice',
+    })).text;
+    text = applyBackmatterOp(text, hlOp({
+        op: 'delete_row', row_id: 0, expect: '2026-01-05 @dana',
+    })).text;
+    assert.equal(text.includes('---highlights---'), false);
+    assert.equal(text.includes('---end-highlights---'), false);
+    assert.equal(buildRaidSnapshot(text, 1).items.length, 1, 'the RAID log survived');
 });

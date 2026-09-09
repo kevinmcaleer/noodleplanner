@@ -129,6 +129,19 @@
            100% }` globally, so without an override two of them expand and
            squeeze the flex:1 title to zero width -- the row renders looking
            like the title is missing entirely. */
+        /* #1036: weekly updates -- entries, not table rows. */
+        #highlightsRows { border: 1px solid var(--border); border-radius: 8px; max-height: 260px; overflow-y: auto; }
+        .entry-row { padding: 8px; border-bottom: 1px solid var(--border); }
+        .entry-row:last-child { border-bottom: none; }
+        .entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .entry-label { flex: 1; font-size: 0.8rem; color: var(--muted); }
+        .entry-body {
+            width: 100%; margin-bottom: 0; padding: 6px 8px; font-size: 0.85rem;
+            border: 1px solid var(--border); border-radius: 6px;
+            background: transparent; color: var(--text); resize: vertical;
+            font-family: inherit;
+        }
+
         .section-row-input {
             width: auto;
             max-width: 110px;
@@ -190,6 +203,13 @@
             <div class="row">
                 <input id="newCommsTitle" placeholder="Add a comms activity">
                 <button type="button" id="addCommsBtn">Add</button>
+            </div>
+
+            <h2 class="section-heading">Weekly updates</h2>
+            <div id="highlightsRows"></div>
+            <div class="row">
+                <input id="newHighlightsTitle" placeholder="Your name">
+                <button type="button" id="addHighlightsBtn">Add</button>
             </div>
 
             <div id="relayLog"></div>
@@ -365,6 +385,13 @@
                 titleField: 'activity',
                 extraFields: ['audience', 'channel'],
             },
+            highlights: {
+                heading: 'Weekly updates',
+                placeholder: 'Add an update (your name)',
+                // Not a table: entries are addressed by position, so every
+                // edit carries `expect` -- see collab-backmatter-ops.js.
+                entries: true,
+            },
         };
 
         const sectionState = {};
@@ -381,6 +408,51 @@
                 sessionId
             );
             socket.send(envelope);
+        }
+
+        /** Render the weekly-updates entries: a `date @author` label and a
+         * multi-line body, rather than a table row. Every edit sends the
+         * `expect` the entry was rendered from, so an entry that shifted
+         * position under a concurrent add or delete is refused by the host
+         * rather than overwritten. */
+        function renderEntrySection(section, container) {
+            for (const entry of sectionState[section].rows) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'entry-row';
+                const expect = `${entry.date} @${entry.author}`;
+
+                const head = document.createElement('div');
+                head.className = 'entry-head';
+
+                const label = document.createElement('span');
+                label.className = 'entry-label';
+                label.textContent = expect;
+                head.appendChild(label);
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'raid-row-delete';
+                remove.textContent = '×';
+                remove.title = 'Delete';
+                remove.addEventListener('click', () => {
+                    sendSectionOp(section, { op: 'delete_row', row_id: entry.id, expect });
+                });
+                head.appendChild(remove);
+                wrapper.appendChild(head);
+
+                const body = document.createElement('textarea');
+                body.className = 'entry-body';
+                body.rows = 3;
+                body.value = entry.content || '';
+                body.addEventListener('blur', () => {
+                    if (body.value === (entry.content || '')) return;
+                    sendSectionOp(section, {
+                        op: 'edit_row', row_id: entry.id, expect, fields: { content: body.value },
+                    });
+                });
+                wrapper.appendChild(body);
+                container.appendChild(wrapper);
+            }
         }
 
         /** Render one back-matter section's snapshot. Rebuilt wholesale for
@@ -404,6 +476,11 @@
                 empty.className = 'plan-empty';
                 empty.textContent = 'Nothing here yet.';
                 container.appendChild(empty);
+                return;
+            }
+
+            if (config.entries) {
+                renderEntrySection(section, container);
                 return;
             }
 
@@ -820,7 +897,18 @@
             const submit = () => {
                 const value = input.value.trim();
                 if (!value) return;
-                sendSectionOp(section, { op: 'add_row', fields: { [config.titleField]: value } });
+                if (config.entries) {
+                    // A weekly update is dated by the host's clock rather
+                    // than a field the joiner types: the heading grammar
+                    // requires a strict ISO date, and asking a person to
+                    // hand-type one is a rejected op waiting to happen.
+                    const today = new Date().toISOString().slice(0, 10);
+                    sendSectionOp(section, {
+                        op: 'add_row', fields: { date: today, author: value, content: '' },
+                    });
+                } else {
+                    sendSectionOp(section, { op: 'add_row', fields: { [config.titleField]: value } });
+                }
                 input.value = '';
             };
             button.addEventListener('click', submit);
