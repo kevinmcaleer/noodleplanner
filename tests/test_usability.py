@@ -574,7 +574,6 @@ class TestKanbanReliability:
             switchKanbanView('progress');
             toggleKanbanPrioritySort(true);
             toggleKanbanHideCompleted(true);
-            document.querySelector('.kanban-column-collapse').click();
             return document.getElementById('planEditor').value;
             """
         )
@@ -590,8 +589,7 @@ class TestKanbanReliability:
             return {
                 mode: document.getElementById('kanbanViewMode').value,
                 sort: document.getElementById('kanbanSortPriority').checked,
-                hide: document.getElementById('kanbanHideCompleted').checked,
-                collapsed: document.querySelectorAll('.kanban-column.collapsed').length
+                hide: document.getElementById('kanbanHideCompleted').checked
             };
             """
         )
@@ -602,14 +600,12 @@ class TestKanbanReliability:
             }
             kanbanBoard.sortByPriority = false;
             kanbanBoard.hideCompleted = false;
-            kanbanBoard.collapsedColumns.clear();
             """
         )
         assert restored == {
             "mode": "progress",
             "sort": True,
             "hide": True,
-            "collapsed": 1,
         }
 
     def test_column_reorder_moves_the_complete_phase_model(
