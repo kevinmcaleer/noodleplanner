@@ -162,7 +162,24 @@ class KanbanBoard {
             editor._noodlePlanModelText = nextText;
         }
         const kanbanEditor = document.getElementById('kanbanPlanEditor');
-        if (kanbanEditor) kanbanEditor.value = nextText;
+        if (kanbanEditor) {
+            kanbanEditor.value = nextText;
+            // Setting kanbanEditor.value here means it already matches
+            // editor.value by the time the 'input' dispatch below reaches
+            // the main->kanban mirror listener (script.js), so that listener's
+            // `kanbanEditor.value !== mainEditor.value` guard is false and it
+            // never re-dispatches 'input' on kanbanEditor. Without an 'input'
+            // event of its own, kanbanEditor's line-number gutter and syntax
+            // highlight overlay (populated by editor.js's per-editor
+            // _updateLineNumbers closure) never redraw, so the Kanban board's
+            // plan panel keeps showing the pre-drop markdown until some other
+            // edit happens to touch it -- same mechanism as #974, but for
+            // every board write-back (drag/drop included) rather than just
+            // switching projects (#1061).
+            if (kanbanEditor._updateLineNumbers) {
+                kanbanEditor._updateLineNumbers();
+            }
+        }
         if (typeof getCurrentProjectId === 'function') {
             const projectId = getCurrentProjectId();
             if (projectId && typeof updateCachedProject === 'function') {
