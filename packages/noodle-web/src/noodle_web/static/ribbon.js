@@ -162,9 +162,13 @@ const KANBAN_GROUP_MODES = ['phase', 'resource', 'progress', 'label', 'bucket'].
 const HIGHLIGHT_PRESETS = [
     { label: 'All', preset: 'all' },
     { label: 'Plain (no highlighting)', preset: 'plain' },
+    { label: 'Design', preset: 'design' },
     { label: 'Add Tasks', preset: 'add-tasks' },
     { label: 'Dependencies', preset: 'dependencies' },
     { label: 'Estimating', preset: 'estimating' },
+    { label: 'Scheduling', preset: 'scheduling' },
+    { label: 'Risks', preset: 'risks' },
+    { label: 'Comms', preset: 'comms' },
 ].map(({ label, preset }) => ({
     label,
     run: () => { if (typeof HighlightToggles !== 'undefined') HighlightToggles.applyPreset(preset); },
@@ -271,6 +275,11 @@ const LABEL_ACTIONS = {
     'Show Comments': () => HighlightToggles.toggleCategory('comment'),
     'Show Dependencies': () => HighlightToggles.toggleCategory('dependency'),
     'Highlight Preset': () => openFormatMenu(HIGHLIGHT_PRESETS, 'Highlight Preset'),
+
+    // The DADESRC guided flow shell (#1054): a persistent bar the shell
+    // injects itself, not a ribbon popover, so nothing here needs
+    // OPENS_OWN_POPOVER treatment.
+    'Guided Plan': () => { if (typeof PlanWizard !== 'undefined') PlanWizard.open(); },
 
     // Gantt toggles -- real checkboxes in the (hidden-when-inactive) gantt
     // view, flipped via a real 'change' event so views-gantt.js's own

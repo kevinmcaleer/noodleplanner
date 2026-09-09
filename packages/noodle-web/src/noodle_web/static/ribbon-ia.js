@@ -74,6 +74,7 @@ export const TABS = [
                     [['link', 'Show Dependencies'], ['pin', 'Highlight Preset', 'caret']],
                 ],
             },
+            { name: 'Wizard', lg: [['bulb', 'Guided Plan']] },
         ],
     },
     {

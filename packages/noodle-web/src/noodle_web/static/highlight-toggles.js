@@ -30,6 +30,15 @@
         'add-tasks': { duration: false, resource: false, tag: false, comment: false, dependency: false },
         dependencies: { duration: false, resource: false, tag: false, comment: false, dependency: true },
         estimating: { duration: true, resource: false, tag: false, comment: false, dependency: false },
+        // The remaining DADESRC stages (#1054): Design has no task-line
+        // editor visible yet (Backstage), so it's the same as 'plain'.
+        // Scheduling cares about both what drives dates (duration) and
+        // what drives sequencing (dependency). Risks and Comms both host a
+        // separate list view, not the task-line editor, so 'plain' too.
+        design: { duration: false, resource: false, tag: false, comment: false, dependency: false },
+        scheduling: { duration: true, resource: false, tag: false, comment: false, dependency: true },
+        risks: { duration: false, resource: false, tag: false, comment: false, dependency: false },
+        comms: { duration: false, resource: false, tag: false, comment: false, dependency: false },
     };
 
     function defaultState() {

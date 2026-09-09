@@ -109,6 +109,16 @@ test('applyPreset("dependencies") lights only dependencies, per #783(D)\'s stage
     assert.deepEqual({ ...mod.getState() }, { duration: false, resource: false, tag: false, comment: false, dependency: true });
 });
 
+test('applyPreset covers the remaining DADESRC stage presets (#1054)', () => {
+    const { mod } = loadModule();
+    assert.deepEqual({ ...mod.PRESETS.design }, { duration: false, resource: false, tag: false, comment: false, dependency: false });
+    assert.deepEqual({ ...mod.PRESETS.scheduling }, { duration: true, resource: false, tag: false, comment: false, dependency: true });
+    assert.deepEqual({ ...mod.PRESETS.risks }, { duration: false, resource: false, tag: false, comment: false, dependency: false });
+    assert.deepEqual({ ...mod.PRESETS.comms }, { duration: false, resource: false, tag: false, comment: false, dependency: false });
+    assert.equal(mod.applyPreset('scheduling'), true);
+    assert.deepEqual({ ...mod.getState() }, { duration: true, resource: false, tag: false, comment: false, dependency: true });
+});
+
 test('applyPreset with an unknown name is a no-op and returns false', () => {
     const { mod } = loadModule();
     const before = mod.getState();
