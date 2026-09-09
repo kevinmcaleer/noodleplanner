@@ -65,6 +65,12 @@ function loadCollabBackmatterOps() {
     return backmatterOpsModule;
 }
 
+let autosaveModule = null;
+function loadCollabAutosave() {
+    if (!autosaveModule) autosaveModule = import('/static/collab-autosave.js');
+    return autosaveModule;
+}
+
 let collabSocket = null;
 let collabConnectKey = null;
 let collabKeyPair = null;
@@ -97,6 +103,10 @@ let collabConflicts = null;
 // docstring for why sharing collabConflicts would risk a task id and a
 // row id that happen to collide cross-reporting each other's conflicts.
 let collabBackmatterConflicts = null;
+// #968: debounce handle for the host's local crash-recovery snapshot --
+// see collab-autosave.js's module docstring and scheduleCollabAutosave
+// below.
+let collabAutosaveTimer = null;
 
 /** The host's authoritative plan document. This is the same textarea the
  * PM edits by hand -- there is deliberately no second copy of the plan for
@@ -128,6 +138,82 @@ function closeCollabSessionModal() {
 function endCollabSession() {
     if (!collabSocket || collabSocket.readyState !== WebSocket.OPEN) return;
     collabSocket.send(JSON.stringify({ type: 'end_session' }));
+    // #968: an explicit end means the host has consciously chosen to stop
+    // -- the crash-recovery snapshot exists only for the *unexpected* drop,
+    // so it has nothing left to protect against once the host has said
+    // "we're done" themselves. Cancel any pending debounced write too, or
+    // the close handler's flush-on-close (below) would write a fresh
+    // snapshot right back after this clears it.
+    clearTimeout(collabAutosaveTimer);
+    collabAutosaveTimer = null;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (projectId) clearCollabAutosaveForProject(projectId);
+}
+
+/** Give up the #968 recovery snapshot for `projectId`, if it holds one.
+ * Called on the host's own explicit "end session" above, and from
+ * project-storage.js's saveCurrentProjectState() on every real save --
+ * once the project record itself has this content, the snapshot is
+ * redundant. Safe to call with no session or no snapshot in play; both are
+ * no-ops. */
+async function clearCollabAutosaveForProject(projectId) {
+    if (!projectId) return;
+    const { clearCollabAutosaveIfCurrent } = await loadCollabAutosave();
+    clearCollabAutosaveIfCurrent(projectId);
+}
+
+/** Debounced after every joiner op the host applies (#968) -- see
+ * collab-autosave.js's module docstring for why this needs to be tighter
+ * than the general 30 s project autosave. */
+async function scheduleCollabAutosave() {
+    const { COLLAB_AUTOSAVE_DEBOUNCE_MS } = await loadCollabAutosave();
+    clearTimeout(collabAutosaveTimer);
+    collabAutosaveTimer = setTimeout(writeCollabAutosaveNow, COLLAB_AUTOSAVE_DEBOUNCE_MS);
+}
+
+async function writeCollabAutosaveNow() {
+    const editor = collabEditor();
+    if (!editor) return;
+    const projectId = typeof getCurrentProjectId === 'function' ? getCurrentProjectId() : null;
+    if (!projectId) return;
+    const { buildCollabAutosaveRecord, writeCollabAutosave } = await loadCollabAutosave();
+    writeCollabAutosave(buildCollabAutosaveRecord(projectId, collabSessionId, editor.value, collabPlanRev));
+}
+
+/** #968: after the plan for `projectId` has just been loaded into the
+ * editor (page load, or the host reconnecting after a refresh), check
+ * whether an earlier session left a newer recovery snapshot for it and, if
+ * so, let the host choose to bring it back or discard it -- see
+ * collab-autosave.js's shouldOfferCollabRecovery for why an interrupted
+ * session is distinguishable from a clean end. Called once on startup --
+ * see multi-plan-loader.js's initMultiPlanLoader(). Never applies a
+ * snapshot without the host's confirmation. */
+async function checkCollabAutosaveRecovery(projectId) {
+    if (!projectId) return;
+    const project = typeof loadProject === 'function' ? loadProject(projectId) : null;
+    if (!project) return;
+
+    const { readCollabAutosave, shouldOfferCollabRecovery, clearCollabAutosaveIfCurrent } = await loadCollabAutosave();
+    const snapshot = readCollabAutosave();
+    if (!shouldOfferCollabRecovery(snapshot, project)) return;
+
+    const recover = confirm(
+        'A collaborative planning session was interrupted before its changes were saved. ' +
+        'Recover the latest changes made during that session?'
+    );
+    if (!recover) {
+        clearCollabAutosaveIfCurrent(projectId);
+        return;
+    }
+
+    const editor = collabEditor();
+    if (editor) {
+        editor.value = snapshot.planText;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (typeof saveCurrentProjectState === 'function') saveCurrentProjectState();
+    clearCollabAutosaveIfCurrent(projectId);
+    if (typeof showToast === 'function') showToast('Recovered changes from the interrupted planning session', 'success');
 }
 
 /** Host-initiated removal of one participant (#966) -- see app.py's
@@ -320,6 +406,10 @@ async function applyCollabPlanOp(joinerId, op) {
     }
 
     collabPlanRev++;
+    // #968: this is an *incoming* contribution the host would otherwise
+    // have no record of outside the next real save -- see
+    // collab-autosave.js's module docstring.
+    scheduleCollabAutosave();
     // Only announce an edit that actually raced someone else's recent edit
     // to the same task. Reporting every value change would mean a person
     // working through the plan alone got a stream of "also edited this"
@@ -366,6 +456,11 @@ async function applyCollabBackmatterOp(joinerId, op) {
     }
 
     collabPlanRev++;
+    // #968: same crash-recovery discipline as applyCollabPlanOp -- a RAID
+    // row a joiner just added or edited is exactly the kind of incoming
+    // contribution the host would otherwise have no record of outside the
+    // next real save, and it deserves no less protection than a task edit.
+    scheduleCollabAutosave();
     const editor_name = collabJoinerNames.get(joinerId);
     const raced = collabBackmatterConflicts.record(String(op.row_id), editor_name);
     await broadcastCollabPlan(null, raced ? describeBackmatterConflict(op, result.previous, editor_name) : null);
@@ -610,6 +705,15 @@ async function startCollabSession() {
         // and find no keys.
         clearTimeout(collabLocalEditTimer);
         collabLocalEditTimer = null;
+        // #968: a pending debounced autosave hasn't written its snapshot
+        // yet -- this close might be the very crash that snapshot exists
+        // for, so flush it now instead of leaving it queued behind a timer
+        // that a closed page will never run.
+        if (collabAutosaveTimer) {
+            clearTimeout(collabAutosaveTimer);
+            collabAutosaveTimer = null;
+            writeCollabAutosaveNow();
+        }
         renderCollabPresence([]);
     });
 }
