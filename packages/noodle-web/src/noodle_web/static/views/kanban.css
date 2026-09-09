@@ -17,7 +17,7 @@
     max-width: 600px; /* Prevent editor from getting too wide */
     display: flex;
     flex-direction: column;
-    background: #1e1e1e;
+    background: var(--np-editor-bg, #1e1e1e);
     transition: width 0.3s ease;
     overflow: hidden;
     flex-shrink: 0; /* Prevent shrinking when content changes */
@@ -226,7 +226,7 @@
 
 .kanban-column-header {
     padding: 15px;
-    background: linear-gradient(135deg, #108BB9 0%, #0d7096 100%);
+    background: var(--np-info-gradient, linear-gradient(135deg, #108BB9 0%, #0d7096 100%));
     color: white;
     border-radius: 8px 8px 0 0;
     display: flex;
@@ -749,7 +749,7 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #108BB9 0%, #0d7096 100%);
+    background: var(--np-info-gradient, linear-gradient(135deg, #108BB9 0%, #0d7096 100%));
     color: white;
     display: flex;
     align-items: center;
@@ -879,7 +879,7 @@
     background: #f8f9fa;
     border: 2px dashed #dee2e6;
     border-radius: 6px;
-    color: #667eea;
+    color: var(--np-accent);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -887,7 +887,7 @@
 
 .kanban-add-task-btn:hover {
     background: #e9ecef;
-    border-color: #667eea;
+    border-color: var(--np-accent);
     transform: translateY(-1px);
 }
 

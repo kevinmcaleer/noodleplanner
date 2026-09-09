@@ -38,7 +38,7 @@
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
     min-width: 32px;
     min-height: 32px;
 }
@@ -76,7 +76,7 @@
     font-size: 12px;
     font-weight: 700;
     border: 2px solid var(--np-border, #dee2e6);
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
 }
 
 .plan-wizard-step.current .plan-wizard-step-bubble {
@@ -93,12 +93,12 @@
 
 .plan-wizard-step.skipped .plan-wizard-step-bubble {
     border-color: var(--np-border, #dee2e6);
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
 }
 
 .plan-wizard-step-label {
     font-size: 10px;
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
     white-space: nowrap;
 }
 
@@ -110,7 +110,7 @@
 .plan-wizard-description {
     padding: 10px 14px;
     font-size: 13px;
-    color: var(--np-muted, #6c757d);
+    color: var(--np-text-secondary, #6c757d);
     overflow-y: auto;
 }
 
