@@ -328,6 +328,10 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "gantt")
     capture_full(driver, section / "gv-01-gantt-full.png")
 
+    # np-01: Notepad list view
+    switch_to_view(driver, "notepad")
+    capture_full(driver, section / "np-01-notepad-view.png")
+
     # kb-01: Kanban board (grouped by phase — the default)
     switch_to_view(driver, "kanban")
     capture_full(driver, section / "kb-01-kanban-phase.png")

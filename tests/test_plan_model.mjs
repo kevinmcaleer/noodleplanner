@@ -158,6 +158,80 @@ test('reorder preserves CRLF and the absence of a final newline', () => {
     assert.equal(model.serialize(), 'Phase\r\n  B 1d\r\n  A 1d');
 });
 
+test('insertTaskAfter appends a root task with matching indentation', () => {
+    const model = PlanModel.parse('First\n');
+    const node = model.insertTaskAfter(model.tasks[0], 0, 'Second');
+    assert.equal(node.name, 'Second');
+    assert.equal(model.serialize(), 'First\nSecond\n');
+    assert.deepEqual(model.tasks.map(task => task.name), ['First', 'Second']);
+});
+
+test('insertTaskAfter with no anchor appends to an empty document', () => {
+    const model = PlanModel.parse('');
+    const node = model.insertTaskAfter(null, 0, 'First task');
+    assert.equal(node.name, 'First task');
+    assert.equal(model.serialize(), 'First task');
+});
+
+test('insertTaskAfter at a deeper indent nests under the anchor task', () => {
+    const model = PlanModel.parse('Phase\n');
+    const phase = model.tasks[0];
+    const child = model.insertTaskAfter(phase, 2, 'Child task');
+    assert.equal(child.parent, phase);
+    assert.deepEqual(phase.children, [child]);
+    assert.equal(model.serialize(), 'Phase\n  Child task\n');
+});
+
+test('insertTaskAfter nests after an existing last child, not before it', () => {
+    const model = PlanModel.parse('Phase\n  Existing child 1d\n');
+    const phase = model.tasks[0];
+    model.insertTaskAfter(phase, 2, 'New child');
+    assert.deepEqual(model.tasks.map(task => task.name), ['Phase', 'Existing child', 'New child']);
+    assert.equal(model.serialize(), 'Phase\n  Existing child 1d\n  New child\n');
+});
+
+test('insertTaskAfter at a shallower indent closes out the anchor\'s whole subtree first', () => {
+    const model = PlanModel.parse('Phase\n  Task\n    Sub task 1d\nOther phase\n');
+    const subTask = model.findByName('Sub task');
+    const node = model.insertTaskAfter(subTask, 0, 'New root');
+    assert.equal(node.parent, null);
+    assert.deepEqual(
+        model.tasks.map(task => task.name),
+        ['Phase', 'Task', 'Sub task', 'New root', 'Other phase']
+    );
+    assert.equal(
+        model.serialize(),
+        'Phase\n  Task\n    Sub task 1d\nNew root\nOther phase\n'
+    );
+});
+
+test('insertTaskAfter preserves CRLF and a missing final newline', () => {
+    const model = PlanModel.parse('First\r\nSecond');
+    model.insertTaskAfter(model.tasks[0], 0, 'Between');
+    assert.equal(model.serialize(), 'First\r\nBetween\r\nSecond');
+});
+
+test('removeTask drops a leaf task and keeps the rest of the document intact', () => {
+    const model = PlanModel.parse('First\nSecond\nThird\n');
+    const second = model.findByName('Second');
+    assert.equal(model.removeTask(second), true);
+    assert.equal(model.serialize(), 'First\nThird\n');
+    assert.deepEqual(model.tasks.map(task => task.name), ['First', 'Third']);
+});
+
+test('removeTask refuses to remove a task that still has children', () => {
+    const model = PlanModel.parse('Phase\n  Child 1d\n');
+    assert.equal(model.removeTask(model.tasks[0]), false);
+    assert.equal(model.serialize(), 'Phase\n  Child 1d\n');
+});
+
+test('removeTask folds trailing comment lines onto the previous task', () => {
+    const model = PlanModel.parse('First\nSecond\n// a note\nThird\n');
+    const second = model.findByName('Second');
+    assert.equal(model.removeTask(second), true);
+    assert.equal(model.serialize(), 'First\n// a note\nThird\n');
+});
+
 // #911: reordering spliced a blank line -- which had separated two other
 // tasks in the original text -- into the gap the move created, instead of
 // it just disappearing along with the boundary it used to mark.
