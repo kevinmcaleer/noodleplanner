@@ -3094,18 +3094,37 @@ function createTaskContextButton(task, taskIndex) {
     return btn;
 }
 
-function populateSubtasks(parentLineNumber, lines) {
-    const subtasksList = document.getElementById('subtasksList');
-    if (!subtasksList) return;
+// Indentation width for a line, with tabs expanded to a fixed column count so
+// tab- and space-indented plans (and anything in between) compare on the same
+// scale. Only the ordering between lines matters to populateSubtasks() below,
+// not the absolute value.
+function getIndentWidth(line, tabWidth = 4) {
+    let width = 0;
+    for (const ch of line) {
+        if (ch === ' ') width += 1;
+        else if (ch === '\t') width += tabWidth;
+        else break;
+    }
+    return width;
+}
 
-    subtasksList.innerHTML = '';
-
-    // Get parent task indentation level
+// Direct-child line numbers (1-indexed) of the task at parentLineNumber.
+// Pure and DOM-free so it can be unit tested directly (see
+// tests/test_subtask_indentation.js).
+//
+// Levels are derived the same way scheduling_engine.py's indent parser does
+// server-side (#748 was the same class of bug there): walk a stack of
+// enclosing indents, and whatever is deeper than the nearest one on the
+// stack becomes its child, one level down -- whatever the actual column
+// delta is. This replaces the old `indentDiff === 2 || indentDiff === 4`
+// check, which silently dropped every child on a tab-indented, 3-space,
+// 8-space or mixed-indent (post-import) plan.
+function findDirectChildLineNumbers(parentLineNumber, lines) {
     const parentLine = lines[parentLineNumber - 1];
-    const parentIndent = parentLine.search(/\S/); // Find first non-whitespace character
+    const parentIndent = getIndentWidth(parentLine);
 
-    // Find all child tasks (tasks with greater indentation on subsequent lines)
-    const subtasks = [];
+    const childLineNumbers = [];
+    const indentStack = [{ indent: parentIndent, level: 0 }];
     for (let i = parentLineNumber; i < lines.length; i++) {
         const line = lines[i];
         const trimmed = line.trim();
@@ -3113,29 +3132,45 @@ function populateSubtasks(parentLineNumber, lines) {
         // Skip empty lines
         if (!trimmed) continue;
 
-        // Skip front matter, phase headers, summary lines
-        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) continue;
+        // Back-matter marker (RAID log, comms, baseline, etc.) -- the task
+        // outline is over, so stop scanning rather than skipping past it
+        // and risking back matter being read as more of the outline.
+        if (trimmed.startsWith('---') || trimmed.startsWith('#') || trimmed.includes('===')) break;
 
-        const indent = line.search(/\S/);
+        const indent = getIndentWidth(line);
 
-        // If we hit a line at same or lower indentation, we're done
-        if (indent <= parentIndent && i > parentLineNumber) {
-            break;
+        // Same or lower indentation than the parent: its subtree is done.
+        if (indent <= parentIndent) break;
+
+        while (indentStack.length > 1 && indentStack[indentStack.length - 1].indent >= indent) {
+            indentStack.pop();
         }
+        const level = indentStack[indentStack.length - 1].level + 1;
+        indentStack.push({ indent, level });
 
-        // Check if this is a direct child (one level more indented)
-        if (i > parentLineNumber - 1 && indent > parentIndent) {
-            // Check if it's a direct child (immediate next level)
-            const indentDiff = indent - parentIndent;
-            if (indentDiff === 2 || indentDiff === 4) { // 2 spaces or 4 spaces = one level
-                const task = parseTaskLine(line, i + 1);
-                if (task.name) {
-                    subtasks.push({
-                        ...task,
-                        lineNumber: i + 1
-                    });
-                }
-            }
+        // Only the level immediately below the parent is a direct child;
+        // anything deeper is a grandchild (or further) and is excluded.
+        if (level === 1) {
+            childLineNumbers.push(i + 1);
+        }
+    }
+    return childLineNumbers;
+}
+
+function populateSubtasks(parentLineNumber, lines) {
+    const subtasksList = document.getElementById('subtasksList');
+    if (!subtasksList) return;
+
+    subtasksList.innerHTML = '';
+
+    const subtasks = [];
+    for (const lineNumber of findDirectChildLineNumbers(parentLineNumber, lines)) {
+        const task = parseTaskLine(lines[lineNumber - 1], lineNumber);
+        if (task.name) {
+            subtasks.push({
+                ...task,
+                lineNumber
+            });
         }
     }
 
