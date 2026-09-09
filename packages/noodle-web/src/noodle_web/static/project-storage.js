@@ -207,6 +207,8 @@ function deleteProject(projectId) {
         return false;
     }
 
+    const deletedPlanText = projects[projectId].planText || '';
+
     delete projects[projectId];
 
     // If deleting current project, clear current project ID
@@ -227,6 +229,19 @@ function deleteProject(projectId) {
             localStorage.removeItem('noodle_history_' + projectId);
         } catch (e) {
             // Ignore errors if key does not exist
+        }
+    }
+
+    // If this was the last member of its programme, its programme-owned
+    // data (#954/#735 -- SRO/vision/outcomes/benefit links) shouldn't
+    // linger with no programme left to show it (see also
+    // removeSelectedFromProgramme()/renameProgramme() in
+    // portfolio-projects-table.js for the other membership-change hooks).
+    if (typeof extractProjectProgramme === 'function' && typeof deriveProgrammes === 'function' &&
+        typeof deleteProgrammeData === 'function') {
+        const programme = extractProjectProgramme(deletedPlanText);
+        if (programme && !deriveProgrammes(Object.values(projects)).some((p) => p.slug === programme.slug)) {
+            deleteProgrammeData(programme.slug);
         }
     }
 
