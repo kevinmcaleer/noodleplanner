@@ -33,20 +33,6 @@ export const SCOPES = [
     { id: 'portfolio', label: 'Portfolio', icon: 'chart', blurb: 'Investment level: weighting, gates, benefits roll-up, heat maps, assurance.' },
 ];
 
-export const FILE_MENU = [
-    // Office-style entry point onto the Backstage shell (#943) -- the
-    // individual items below stay in place as quick-access shortcuts.
-    { icon: 'home', label: 'Home', kbd: '' },
-    { icon: 'add', label: 'New plan', kbd: 'Cmd+N' },
-    { icon: 'doc', label: 'Open…', kbd: 'Cmd+O' },
-    { icon: 'save', label: 'Save', kbd: 'Cmd+S' },
-    { icon: 'upload', label: 'Import from Excel / MS Project', kbd: '' },
-    { icon: 'download', label: 'Export…', kbd: '' },
-    { icon: 'grid', label: 'Templates', kbd: '' },
-    { icon: 'print', label: 'Print', kbd: 'Cmd+P' },
-    { icon: 'settings', label: 'Settings', kbd: '' },
-];
-
 export const QUICK_ACTIONS = [
     { icon: 'save', label: 'Save' },
     { icon: 'refresh', label: 'Undo' },

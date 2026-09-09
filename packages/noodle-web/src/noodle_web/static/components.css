@@ -7562,11 +7562,6 @@ button.ribbon-breadcrumb-rung:hover {
     flex: 1;
 }
 
-.ribbon-file-menu-item-kbd {
-    font: 400 10.5px/1 ui-monospace, Menlo, monospace;
-    color: #7fa5b5;
-}
-
 /* -- 3. Ribbon body -- */
 .ribbon-body {
     display: flex;

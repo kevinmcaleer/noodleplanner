@@ -1,9 +1,52 @@
 /* ========================================
-   Backstage view (#943) — Office-Backstage-style shell behind Home
+   Backstage view (#943/#972) — full-screen, Office-Backstage-style shell
+   behind File
    ======================================== */
+
+/* #972: while Backstage is open, the header/ribbon and status bar hide --
+   "you have stepped out of the document" -- and the space status-bar.css
+   reserves for the fixed status bar (body{padding-bottom:36px}) is
+   reclaimed so Backstage genuinely fills the viewport. The back arrow
+   (.backstage-back-arrow) is what makes this not a trap; see backstage.js's
+   exitBackstage(). */
+body.backstage-fullscreen #ribbonShell,
+body.backstage-fullscreen .status-bar {
+    display: none !important;
+}
+
+body.backstage-fullscreen {
+    padding-bottom: 0 !important;
+}
 
 #backstage-tab.tab-content {
     overflow: auto;
+    position: relative;
+}
+
+.backstage-back-arrow {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 8px 0 0 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333);
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-back-arrow:hover,
+.backstage-back-arrow:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: none;
 }
 
 .backstage-container {
@@ -97,6 +140,48 @@
     background: var(--np-bg-hover, #f0f1f4);
     border-color: var(--np-accent, #667eea);
     outline: none;
+}
+
+/* #972: the landing view's short "start a new plan" strip (Blank + a few
+   real templates) -- distinct from .backstage-template-grid below, the full
+   browser #backstageTemplatesView opens via "More templates"/the rail's
+   Templates button. Fixed-width, non-wrapping cards so it reads as a strip
+   even at 4-5 cards, sized to sit above the fold ahead of Recent. */
+.backstage-template-strip {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+}
+
+.backstage-template-strip .backstage-template-card {
+    flex: 0 0 150px;
+}
+
+.backstage-main-header-landing {
+    justify-content: space-between;
+}
+
+.backstage-more-templates-btn {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--np-accent, #667eea);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.backstage-more-templates-btn:hover,
+.backstage-more-templates-btn:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.backstage-recent-title {
+    margin-top: 4px;
 }
 
 .backstage-template-grid {
