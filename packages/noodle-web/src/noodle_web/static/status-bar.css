@@ -43,11 +43,11 @@
 }
 
 .status-bar .project-selector-dropdown:hover {
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
 }
 
 .status-bar .project-selector-dropdown:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -85,7 +85,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 220px;
-    color: var(--np-accent, #667eea);
+    color: var(--np-accent);
 }
 
 .status-bar-local-file:empty {
@@ -168,12 +168,12 @@
 }
 
 .status-bar-btn:hover {
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
     background: var(--np-bg-hover, #f0f1f4);
 }
 
 .status-bar-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -183,10 +183,10 @@
     display: inline-block;
     margin-left: 8px;
     padding: 1px 8px;
-    border: 1px solid #d32f2f;
+    border: 1px solid var(--np-danger, #d32f2f);
     border-radius: 3px;
     background: transparent;
-    color: #d32f2f;
+    color: var(--np-danger, #d32f2f);
     font-size: 0.9em;
     line-height: 1.4;
     cursor: pointer;
@@ -194,12 +194,12 @@
 }
 
 .status-bar-fix-btn:hover {
-    background: #d32f2f;
+    background: var(--np-danger, #d32f2f);
     color: #ffffff;
 }
 
 .status-bar-fix-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
@@ -397,18 +397,18 @@ body {
 }
 
 .vh-action-btn:hover {
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
     background: var(--np-bg-hover, #f0f1f4);
 }
 
 .vh-action-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
 .vh-action-btn.vh-action-delete:hover {
-    border-color: #d32f2f;
-    color: #d32f2f;
+    border-color: var(--np-danger, #d32f2f);
+    color: var(--np-danger, #d32f2f);
 }
 
 /* Read-only banner */
@@ -417,8 +417,8 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 8px 14px;
-    background: #d32f2f;
-    border: 1px solid #b71c1c;
+    background: var(--np-danger, #d32f2f);
+    border: 1px solid var(--np-danger-hover, #b71c1c);
     border-radius: 4px;
     margin-bottom: 0;
     font-size: 0.88em;
@@ -494,7 +494,7 @@ body {
 }
 
 .status-bar-history-btn.has-actionable::after {
-    background: #d32f2f;
+    background: var(--np-danger, #d32f2f);
 }
 
 .status-bar-history-popup {
@@ -551,12 +551,12 @@ body {
 }
 
 .status-log-icon-btn:hover {
-    border-color: var(--np-accent, #667eea);
+    border-color: var(--np-accent);
     background: var(--np-bg-hover, #f0f1f4);
 }
 
 .status-log-icon-btn:focus-visible {
-    outline: 2px solid #108BB9;
+    outline: 2px solid var(--np-accent);
     outline-offset: 1px;
 }
 
