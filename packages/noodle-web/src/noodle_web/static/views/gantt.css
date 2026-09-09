@@ -1049,6 +1049,51 @@
     font-weight: bold;
 }
 
+/* Per-category highlight toggles (#1051, highlight-toggles.js). This is
+   the file actually linked for the editor overlay's syntax colours (see
+   .editor-textarea/.editor-highlight-layer above) -- static/style.css
+   duplicates the same block but isn't linked in index.html, so this copy
+   is the one that has to be kept in sync. Off state only recolours the
+   read-only overlay text back to the base editor colour (via `inherit`)
+   -- the underlying textarea and its caret are a separate, always-plain
+   element, so this can never alter text, length, or caret position. */
+body.hl-off-duration .syntax-duration,
+body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-effort,
+body.hl-off-duration .syntax-recurrence,
+body.hl-off-duration .syntax-lag-lead {
+    color: inherit;
+    font-weight: normal;
+}
+
+body.hl-off-resource .syntax-resource {
+    color: inherit;
+}
+
+body.hl-off-tag .syntax-label,
+body.hl-off-tag .syntax-bucket,
+body.hl-off-tag .syntax-product,
+body.hl-off-tag .syntax-product-group,
+body.hl-off-tag .syntax-product-external {
+    color: inherit;
+    font-weight: normal;
+    font-style: normal;
+}
+
+body.hl-off-comment .syntax-comment,
+body.hl-off-comment .syntax-line-comment {
+    color: inherit;
+    font-style: normal;
+}
+
+body.hl-off-dependency .syntax-dependency,
+body.hl-off-dependency .syntax-dep-type,
+body.hl-off-dependency .syntax-circular,
+body.hl-off-dependency .syntax-star {
+    color: inherit;
+    font-weight: normal;
+}
+
 .syntax-highlights-delimiter {
     color: #569cd6;
     font-weight: 600;

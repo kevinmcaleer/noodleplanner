@@ -197,6 +197,24 @@ Front Matter YAML
 
 See :doc:`front-matter` for the complete field reference.
 
+Syntax Highlighting
+---------------------
+
+The Plan Editor colour-codes task lines by field: durations/dates, resources,
+tags (labels, buckets, product references), comments, and dependencies each
+get their own colour, purely as an editing aid — it has no effect on the
+saved Markdown.
+
+Each category can be switched off independently from the ribbon's **Plan**
+tab, in the **Highlight** group (**Show Durations** / **Show Resources** /
+**Show Tags** / **Show Comments** / **Show Dependencies**), so you can focus
+on the field relevant to what you're doing — for example, turning everything
+off except dependencies while working through a plan's dependency chain. The
+group's **Highlight Preset** button offers a few ready-made combinations,
+including **Plain (no highlighting)**. The choice is a per-browser display
+preference — like ribbon density — never written into plan text or front
+matter.
+
 RAID Log Section
 -----------------
 

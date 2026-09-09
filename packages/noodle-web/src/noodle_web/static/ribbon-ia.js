@@ -66,6 +66,14 @@ export const TABS = [
             { name: 'Schedule', launcher: true, lg: [['gantt-chart', 'Gantt']], cols: [[['calendar', 'Calendars'], ['clock', 'Durations']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
             { name: 'Deliverables', lg: [['doc', 'Products']], cols: [[['board', 'Product Flow'], ['grid', 'Deliverables']]] },
             { name: 'Model', lg: [['bulb', 'Mind Map']], cols: [[['grid', 'Whiteboard'], ['timeline', 'Timeline']]] },
+            {
+                name: 'Highlight',
+                cols: [
+                    [['clock', 'Show Durations'], ['resources', 'Show Resources']],
+                    [['pin', 'Show Tags'], ['doc', 'Show Comments']],
+                    [['link', 'Show Dependencies'], ['pin', 'Highlight Preset', 'caret']],
+                ],
+            },
         ],
     },
     {

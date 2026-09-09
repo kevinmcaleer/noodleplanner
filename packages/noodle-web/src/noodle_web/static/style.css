@@ -2902,6 +2902,52 @@ svg.icon {
     font-weight: 600;
 }
 
+/* Per-category highlight toggles (#1051, highlight-toggles.js). Off state
+   only recolours the read-only overlay text back to the base editor
+   colour (via `inherit`, so it tracks whatever theme is active) -- the
+   underlying textarea and its caret are a separate, always-plain element,
+   so this can never alter text, length, or caret position.
+   NOTE: this file is not linked from templates/index.html -- the live
+   .syntax-* rules (and this same override block) are duplicated in
+   static/views/gantt.css, which is what the browser actually loads. Keep
+   both in sync until that pre-existing duplication is cleaned up. */
+body.hl-off-duration .syntax-duration,
+body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-effort,
+body.hl-off-duration .syntax-recurrence,
+body.hl-off-duration .syntax-lag-lead {
+    color: inherit;
+    font-weight: normal;
+}
+
+body.hl-off-resource .syntax-resource {
+    color: inherit;
+}
+
+body.hl-off-tag .syntax-label,
+body.hl-off-tag .syntax-bucket,
+body.hl-off-tag .syntax-product,
+body.hl-off-tag .syntax-product-group,
+body.hl-off-tag .syntax-product-external {
+    color: inherit;
+    font-weight: normal;
+    font-style: normal;
+}
+
+body.hl-off-comment .syntax-comment,
+body.hl-off-comment .syntax-line-comment {
+    color: inherit;
+    font-style: normal;
+}
+
+body.hl-off-dependency .syntax-dependency,
+body.hl-off-dependency .syntax-dep-type,
+body.hl-off-dependency .syntax-circular,
+body.hl-off-dependency .syntax-star {
+    color: inherit;
+    font-weight: normal;
+}
+
 .syntax-priority {
     color: #d7ba7d;
     font-weight: bold;
