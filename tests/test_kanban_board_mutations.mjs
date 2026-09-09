@@ -217,6 +217,24 @@ test('handleCardDrop() drops a phase header once its last task moves elsewhere (
   assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase Two').tasks), ['Task A', 'Task B']);
 });
 
+test('handleCardReorder() drops a phase header once its last task is dropped onto a card in another phase (#1065)', () => {
+  const { board, editor } = buildBoard('phase');
+  loadPlan(board, editor, 'Phase One\n  Task A 0%\n\nPhase Two\n  Task B 0%');
+
+  // Dropping directly on an existing card (rather than into an empty
+  // column body) reorders through handleCardReorder(), not
+  // handleCardDrop() -- the emptied-out source phase still needs pruning
+  // in that path too.
+  const taskA = board.tasks.find(t => t.name === 'Task A');
+  const taskB = board.tasks.find(t => t.name === 'Task B');
+  board.handleCardReorder(taskB.lineNumber, taskA.lineNumber, true);
+  board.parse();
+
+  assert.deepEqual(Array.from(board.phases), ['Phase One']);
+  assert.equal(board.columns.find(c => c.title === 'Phase Two'), undefined);
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase One').tasks), ['Task A', 'Task B']);
+});
+
 test('handleCardDrop() reassigns a task\'s resource (resource view)', () => {
   const { board, editor } = buildBoard('resource');
   loadPlan(board, editor, '---\nresources:\n- @kev: Kevin\n- @sam: Sam\n---\n\nTask A @kev 0%');

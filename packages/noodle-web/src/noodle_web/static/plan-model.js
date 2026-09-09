@@ -309,25 +309,6 @@
 
         moveAfter(task, target) { return this._moveBeside(task, target, true); }
 
-        // Deletes a childless task's line outright (e.g. a phase header left
-        // with nothing under it once its last task moved elsewhere). Refuses
-        // to touch a task that still has children -- this is for dropping a
-        // now-pointless header, never for discarding real work (#1055).
-        removeTask(task) {
-            if (!task || task.children.length > 0) return false;
-            const hadFinalEol = this._hasFinalLineEnding();
-            const oldPredecessor = this._predecessorOf(task);
-            const oldList = task.parent ? task.parent.children : this.roots;
-            const oldIndex = oldList.indexOf(task);
-            if (oldIndex < 0) return false;
-            oldList.splice(oldIndex, 1);
-            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
-            this._refreshTaskOrder();
-            this._normalisePhysicalLineEndings(hadFinalEol);
-            this._resolveDependencies();
-            return true;
-        }
-
         moveAsRoot(task) {
             if (!task) return false;
             const sequentialTargets = this._captureSequentialTargets();
@@ -490,6 +471,10 @@
          * Refuses to remove a task that has children -- callers should
          * outdent or remove those first, the same way a user would have to
          * clear a summary row's children before deleting it.
+         *
+         * Also used to drop a phase header left with nothing under it once
+         * its last task moved elsewhere, rather than leave a dead,
+         * permanently empty column on the board (#1055, #1065).
          */
         removeTask(task) {
             if (!task || task.children.length) return false;
