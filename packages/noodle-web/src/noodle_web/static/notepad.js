@@ -143,7 +143,24 @@
 
             row.appendChild(handle);
             row.appendChild(text);
+            row.appendChild(this._buildEstimateButton(task));
             return row;
+        }
+
+        /** Optional -- only rendered when estimating.js (#1053) is loaded,
+         * so NotepadSurface stays usable standalone without it. */
+        _buildEstimateButton(task) {
+            if (typeof EstimatingTool === 'undefined') return el('span', null);
+            const btn = el('button', 'estimate-open-btn', { type: 'button', title: 'Estimate' });
+            btn.textContent = '⏱';
+            btn.addEventListener('click', () => {
+                EstimatingTool.openEstimatePopup({
+                    getText: () => this.model.serialize(),
+                    setText: (text) => { this.options.setText ? this.options.setText(text) : null; this.refresh(); },
+                    taskName: task.name,
+                });
+            });
+            return btn;
         }
 
         _wireRowText(text, task) {

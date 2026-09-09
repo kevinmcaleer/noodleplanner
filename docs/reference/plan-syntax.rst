@@ -250,3 +250,30 @@ separator as a markdown table:
 
 This section is managed by the Comms Plan view. See
 :doc:`../how-to/communications-plan` for usage details.
+
+Estimates Section
+-------------------
+
+Three-point (optimistic / most likely / pessimistic) estimate inputs are
+recorded per task after a ``---estimates---`` separator, canonically the
+last back-matter section, as a markdown table:
+
+.. code-block:: markdown
+
+   ---estimates---
+
+   | Task   | Optimistic | Most Likely | Pessimistic | Mode     | Size |
+   |--------|------------|-------------|-------------|----------|------|
+   | Task A | 1          | 2           | 5           | duration |      |
+   | Task B |            |             |             | tshirt   | L    |
+
+Only the derived, PERT-weighted duration is written onto the task's own
+line, in the normal duration syntax (e.g. ``2d``) — the raw inputs live
+here, keyed by task name, so the estimating popup can be reopened later
+with the same values. A row's ``Mode`` is either ``duration`` (the three
+numeric fields are populated) or ``tshirt`` (``Size`` holds one of
+``XS``/``S``/``M``/``L``/``XL``, each mapped to a fixed day count).
+
+This section is managed by the estimating popup, reachable from a task's
+context menu in the Tasks view, the Task Inspector, and the Notepad
+surface (see :doc:`views`).

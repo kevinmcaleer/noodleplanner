@@ -29,7 +29,10 @@ Tasks
 
 A flat table of all tasks with columns: Task Name, Start, Finish, Duration, Resources, %, RAG.
 
-Click any row to open the Task Details panel.
+Click any row to open the Task Details panel. Each row's **⋯** menu offers
+**Estimate…**, opening the three-point estimating popup (see
+:doc:`plan-syntax`), alongside Inspect Task, Promote/Demote and the other
+row actions.
 
 Notepad
 ~~~~~~~~
@@ -41,7 +44,8 @@ task names — but it edits the exact same Markdown document as the Plan
 Editor, with no round-trip loss. A **Kanban** toggle in the toolbar switches
 to a lightweight card board over the same content, grouped by top-level
 phase (or a single "All Tasks" column for a plan with no phases yet); drag a
-card's handle to move it into another phase.
+card's handle to move it into another phase. Each row's ⏱ button opens the
+three-point estimating popup (see :doc:`plan-syntax`).
 
 Gantt
 ~~~~~~

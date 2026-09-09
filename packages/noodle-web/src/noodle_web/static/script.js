@@ -90,7 +90,7 @@ function mergeDuplicateSections(text) {
     const HIGHLIGHTS_END = '---end-highlights---';
     const sections = [HIGHLIGHTS_START, '---budget---', '---benefits---',
                       '---raid log---', '---comms---', '---lessons learned---', '---baseline---',
-                      '---whiteboard---', '---parking lot---'];
+                      '---whiteboard---', '---parking lot---', '---estimates---'];
 
     for (const marker of sections) {
         const firstIdx = text.indexOf(marker);
@@ -2665,6 +2665,22 @@ function showTaskContextMenu(event, task, taskIndex) {
         }));
     }
 
+    // Estimate (#1053) -- only for non-summary tasks, mirroring Inspect Task
+    if (!task.is_summary && typeof EstimatingTool !== 'undefined') {
+        items.push(createContextMenuItem('Estimate\u2026', '\uD83C\uDFAF', () => {
+            const editor = document.getElementById('planEditor');
+            if (!editor) return;
+            EstimatingTool.openEstimatePopup({
+                getText: () => editor.value,
+                setText: (text) => {
+                    editor.value = text;
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                },
+                taskName: task.name,
+            });
+        }));
+    }
+
     items.push(createContextMenuSeparator());
 
     // Promote (outdent)
@@ -2760,6 +2776,22 @@ function showTaskContextMenuAtPosition(event, task, taskIndex) {
     if (!task.is_summary) {
         items.push(createContextMenuItem('Inspect Task', '\uD83D\uDD0D', () => {
             openTaskInspectorByName(task.name);
+        }));
+    }
+
+    // Estimate (#1053) -- only for non-summary tasks, mirroring Inspect Task
+    if (!task.is_summary && typeof EstimatingTool !== 'undefined') {
+        items.push(createContextMenuItem('Estimate\u2026', '\uD83C\uDFAF', () => {
+            const editor = document.getElementById('planEditor');
+            if (!editor) return;
+            EstimatingTool.openEstimatePopup({
+                getText: () => editor.value,
+                setText: (text) => {
+                    editor.value = text;
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                },
+                taskName: task.name,
+            });
         }));
     }
 
@@ -15515,6 +15547,14 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     html += '  </div>';
     html += '</div>';
 
+    // --- Estimate (#1053) ---
+    html += '<div class="inspector-section">';
+    html += '  <div class="inspector-section-header"><span class="inspector-icon">🎯</span> Estimate</div>';
+    html += '  <div class="inspector-section-body">';
+    html += '    <button type="button" class="estimate-open-btn" id="inspectorEstimateBtn">Three-point estimate…</button>';
+    html += '  </div>';
+    html += '</div>';
+
     // --- Comment ---
     if (task.comment) {
         html += '<div class="inspector-section">';
@@ -15540,6 +15580,23 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     // Edit button is now in the inspector header — no inline button needed
 
     body.innerHTML = html;
+
+    const estimateBtn = document.getElementById('inspectorEstimateBtn');
+    if (estimateBtn && typeof EstimatingTool !== 'undefined') {
+        estimateBtn.addEventListener('click', () => {
+            const editor = document.getElementById('planEditor');
+            if (!editor) return;
+            EstimatingTool.openEstimatePopup({
+                getText: () => editor.value,
+                setText: (text) => {
+                    editor.value = text;
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                    openTaskInspectorByName(task.name);
+                },
+                taskName: task.name,
+            });
+        });
+    }
 }
 
 
