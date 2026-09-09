@@ -223,7 +223,7 @@ let pendingGoKey = false;
 let goKeyTimeout = null;
 
 // Navigation constants
-const PLAN_VIEWS = ['project-report', 'tasks', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
+const PLAN_VIEWS = ['project-report', 'tasks', 'notepad', 'gantt', 'kanban', 'calendar', 'milestones', 'timeline', 'mindmap', 'whiteboard', 'pbs', 'deliverables', 'product-flow', 'benefits', 'guide'];
 const TRACKING_VIEWS = ['raid', 'actions', 'highlights', 'lookahead', 'analysis', 'budget', 'evm', 'comms'];
 const RESOURCES_VIEWS = ['resources', 'timesheet', 'user-workload', 'resource-sheet', 'stakeholders'];
 const TOOLS_VIEWS = ['guide'];

@@ -1,0 +1,158 @@
+/* Simple plan entry surface (#1049) -- a plain notepad list and a
+   lightweight Kanban mode over the same plan content. Deliberately bare:
+   no syntax colouring, no front-matter, no PM-only controls. */
+
+.notepad-surface {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--np-surface, #fff);
+}
+
+.notepad-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
+}
+
+.notepad-mode-btn {
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.notepad-mode-btn.active {
+    background: var(--np-blue, #108bb9);
+    border-color: var(--np-blue, #108bb9);
+    color: #fff;
+}
+
+.notepad-body {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 24px;
+}
+
+.notepad-empty-row {
+    color: var(--np-muted, #6c757d);
+    font-style: italic;
+    padding: 12px 0;
+}
+
+/* ---- List mode ---- */
+
+.notepad-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.notepad-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-radius: 4px;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+}
+
+.notepad-row-dragging {
+    opacity: 0.5;
+}
+
+.notepad-row-drop-before {
+    border-top-color: var(--np-blue, #108bb9);
+}
+
+.notepad-row-drop-after {
+    border-bottom-color: var(--np-blue, #108bb9);
+}
+
+.notepad-drag-handle {
+    cursor: grab;
+    color: var(--np-muted, #6c757d);
+    user-select: none;
+    touch-action: none;
+    padding: 0 4px;
+}
+
+.notepad-row-text {
+    flex: 1;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    outline: none;
+}
+
+.notepad-row-text:focus {
+    background: var(--np-tint, #e6f3f9);
+}
+
+.notepad-add-row {
+    margin-top: 8px;
+    border: 1px dashed var(--np-border, #dee2e6);
+    background: transparent;
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: var(--np-muted, #6c757d);
+    cursor: pointer;
+    text-align: left;
+}
+
+/* ---- Kanban mode ---- */
+
+.notepad-kanban-board {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    overflow-x: auto;
+}
+
+.notepad-kanban-column {
+    flex: 0 0 260px;
+    background: var(--np-tint, #f8f9fa);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.notepad-kanban-column-header {
+    font-weight: 600;
+    padding: 4px 6px 10px;
+}
+
+.notepad-kanban-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 40px;
+}
+
+.notepad-kanban-card {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid var(--np-border, #dee2e6);
+    border-radius: 6px;
+    padding: 4px;
+}
+
+.notepad-kanban-column-drop-target {
+    outline: 2px dashed var(--np-blue, #108bb9);
+    outline-offset: 2px;
+}
+
+.notepad-kanban-placeholder {
+    color: var(--np-muted, #6c757d);
+    font-style: italic;
+    font-size: 13px;
+    padding: 8px 6px;
+    text-align: center;
+    border: 1px dashed var(--np-border, #dee2e6);
+    border-radius: 6px;
+}

@@ -157,3 +157,56 @@ test('reorder preserves CRLF and the absence of a final newline', () => {
     assert.equal(model.moveAfter(model.findByName('A'), model.findByName('B')), true);
     assert.equal(model.serialize(), 'Phase\r\n  B 1d\r\n  A 1d');
 });
+
+// ---- insertTaskAfter / removeTask (#1049 notepad surface) ----
+
+test('insertTaskAfter adds a sibling after the whole subtree, not before its children', () => {
+    const model = PlanModel.parse('Phase 1\n  Task A\n  Task B\nPhase 2\n');
+    const node = model.insertTaskAfter(model.findByName('Task A'), 'Task A2');
+    assert.equal(model.serialize(), 'Phase 1\n  Task A\n  Task A2\n  Task B\nPhase 2\n');
+    assert.equal(node.indent, 2);
+    assert.equal(node.parent.name, 'Phase 1');
+});
+
+test('insertTaskAfter(null, ...) seeds the first task of an empty plan', () => {
+    const model = PlanModel.parse('');
+    const node = model.insertTaskAfter(null, 'First task');
+    assert.equal(model.serialize(), 'First task');
+    assert.equal(node.indent, 0);
+    assert.equal(node.parent, null);
+});
+
+test('insertTaskAfter after a summary task with children lands after all of them', () => {
+    const model = PlanModel.parse('Phase 1\n  Task A\n    Sub A1\nPhase 2\n');
+    model.insertTaskAfter(model.findByName('Phase 1'), 'New Phase');
+    assert.equal(
+        model.serialize(),
+        'Phase 1\n  Task A\n    Sub A1\nNew Phase\nPhase 2\n'
+    );
+});
+
+test('insertTaskAfter strips embedded newlines from the name, like rename()', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n');
+    const node = model.insertTaskAfter(model.findByName('A'), 'line one\nline two');
+    assert.equal(node.name, 'line one line two');
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  line one line two\n');
+});
+
+test('removeTask deletes a leaf task and preserves surrounding structure', () => {
+    const model = PlanModel.parse('Phase 1\n  Task A\n  Task B\n');
+    assert.equal(model.removeTask(model.findByName('Task B')), true);
+    assert.equal(model.serialize(), 'Phase 1\n  Task A\n');
+});
+
+test('removeTask refuses to delete a summary task with children', () => {
+    const model = PlanModel.parse('Phase 1\n  Task A\n');
+    const before = model.serialize();
+    assert.equal(model.removeTask(model.findByName('Phase 1')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('removeTask preserves CRLF and the absence of a final newline', () => {
+    const model = PlanModel.parse('Phase\r\n  A 1d\r\n  B 1d');
+    assert.equal(model.removeTask(model.findByName('B')), true);
+    assert.equal(model.serialize(), 'Phase\r\n  A 1d');
+});

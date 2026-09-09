@@ -738,6 +738,42 @@ Object.entries(OUTPUT_VIEWS).forEach(([viewName, navTabId]) => {
     });
 });
 
+// The simple notepad entry surface (#1049) mounts once and reads/writes
+// #planEditor directly through NotepadSurface's getText/setText callbacks
+// -- no separate textarea to sync, unlike Kanban's own editor pane.
+let notepadSurfaceHandle = null;
+
+function initNotepadSurface() {
+    const root = document.getElementById('notepadSurfaceRoot');
+    const editor = document.getElementById('planEditor');
+    if (!root || !editor || typeof NotepadSurface === 'undefined') return;
+    if (!notepadSurfaceHandle) {
+        notepadSurfaceHandle = NotepadSurface.mount(root, {
+            getText: () => editor.value,
+            setText: (text) => {
+                if (editor.value === text) return;
+                editor.value = text;
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+            },
+        });
+    } else {
+        notepadSurfaceHandle.refresh();
+    }
+}
+
+NavigationController.register('notepad', {
+    activate() {
+        deactivateKanban();
+        activateTabContent('notepad');
+        updateRaidExportVisibility('notepad');
+        closeAllNavMenus();
+        setActiveNavTab('planTab');
+        updatePlanSubnav('notepad');
+        initNotepadSurface();
+    },
+    deactivate() {}
+});
+
 // Top-level tab views (not output sub-tabs)
 NavigationController.register('kanban', {
     activate() {

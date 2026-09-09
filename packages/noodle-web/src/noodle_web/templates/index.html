@@ -97,6 +97,7 @@
     <link rel="stylesheet" href="/static/components.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/gantt.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/kanban.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/notepad.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
@@ -350,7 +351,7 @@
                 <!-- Views dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="viewsDropdownBtn"
-                            data-dropdown-views="tasks,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
+                            data-dropdown-views="tasks,notepad,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
                             onclick="toggleDropdownMenu('viewsDropdownMenu', 'viewsDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="viewsDropdownMenu">
                         Views &#9662;
@@ -358,6 +359,9 @@
                     <div class="nav-menu" id="viewsDropdownMenu" role="menu" aria-label="Views">
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="tasks" onclick="switchToView('tasks'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="notepad" onclick="switchToView('notepad'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-doc"/></svg> Notepad
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="gantt" onclick="switchToView('gantt'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
@@ -1739,6 +1743,10 @@ Press Enter to render..."></textarea>
                     <div class="message" id="uploadMessage"></div>
                     <div class="output-container" id="uploadOutput" style="margin-top: 20px;"></div>
                 </div>
+            </div>
+
+            <div id="notepad-tab" class="tab-content" role="tabpanel">
+                <div id="notepadSurfaceRoot" class="notepad-surface-root"></div>
             </div>
 
             <div id="kanban-tab" class="tab-content" role="tabpanel">
@@ -4221,6 +4229,7 @@ Build
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/window-drop.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>

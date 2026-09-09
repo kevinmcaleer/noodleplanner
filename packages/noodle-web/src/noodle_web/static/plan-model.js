@@ -385,6 +385,60 @@
             }
         }
 
+        /**
+         * Insert a new task as the next sibling of `afterTask` (or as the
+         * first root task when `afterTask` is null, for an empty plan).
+         * Because siblings are stored separately from their own children,
+         * the new node always lands after `afterTask`'s whole subtree in
+         * the flattened task order, never wedged in front of its children
+         * -- the standard outliner rule ("Enter adds a sibling"; use
+         * indentTasks() afterwards to make it a child instead).
+         */
+        insertTaskAfter(afterTask, name) {
+            const text = String(name == null ? '' : name).replace(/[\r\n]+/g, ' ').trim();
+            const parent = afterTask ? afterTask.parent : null;
+            const indentText = afterTask ? afterTask.indentText : '';
+            const hadFinalEol = this._hasFinalLineEnding();
+            const eol = this._preferredEol();
+            const node = new TaskNode(this.tasks.length, { eol }, indentText, text, { name: text });
+            node.parent = parent;
+            const siblings = parent ? parent.children : this.roots;
+            const anchorIndex = afterTask ? siblings.indexOf(afterTask) : -1;
+            siblings.splice(anchorIndex + 1, 0, node);
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return node;
+        }
+
+        /**
+         * Remove a leaf task (one with no children). Returns false without
+         * changing anything for a summary task -- the caller decides
+         * whether to outdent/reparent its children first, rather than this
+         * silently discarding a subtree.
+         */
+        removeTask(task) {
+            if (!task || task.children.length) return false;
+            const siblings = task.parent ? task.parent.children : this.roots;
+            const index = siblings.indexOf(task);
+            if (index < 0) return false;
+            const hadFinalEol = this._hasFinalLineEnding();
+            siblings.splice(index, 1);
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return true;
+        }
+
+        _preferredEol() {
+            const physical = [];
+            this.leading.forEach(line => physical.push(line));
+            const collect = t => { physical.push(t); t.trailing.forEach(l => physical.push(l)); t.children.forEach(collect); };
+            this.roots.forEach(collect);
+            this.suffix.forEach(line => physical.push(line));
+            return physical.find(line => line.eol)?.eol || '\n';
+        }
+
         _hasFinalLineEnding() {
             return /(?:\r\n|\n|\r)$/.test(this.serialize());
         }

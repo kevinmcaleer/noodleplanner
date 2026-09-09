@@ -102,7 +102,7 @@ function notAvailable(label) {
 // ---------------------------------------------------------------------------
 
 const VIEW_FOR_LABEL = {
-    Tasks: 'tasks', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
+    Tasks: 'tasks', Notepad: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
     Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Benefits: 'benefits', Analysis: 'analysis',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
