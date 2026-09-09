@@ -118,6 +118,48 @@
  * wbOpenChildTask() to openTaskFormByName() (the same task-details form
  * product views open), not the read-only Task Inspector that badge click
  * used to jump to directly.
+ *
+ * Free-form notes (issue #1015, the other half of #846's checklist post-it,
+ * per #885): a note's task is looked up purely by name (see
+ * wbBuildNoteViewModel()'s own comment on this), so nothing about a
+ * whiteboard row itself ever required its task to have children -- a note
+ * for a childless task has always been a legal, if slightly odd, thing to
+ * render. What #846 never distinguished is that a childless note is a
+ * *different kind of thought* from a checklist: "a sticky thought, no
+ * checklist, no tasks underneath" per the issue, matching #885's "everything
+ * starts loose and earns structure only when it proves it deserves it."
+ * wbIsFreeformNote() is the single predicate this file uses to tell the two
+ * apart -- true iff the task has zero direct children *at all* (counting
+ * ones already drawn as noodles to their own notes, not just this note's
+ * own visible rows, since a child noodled elsewhere still means real
+ * checklist structure exists in the outline even though this note's body
+ * doesn't draw it) -- and wbUpdateNoteNode() uses it to switch a note
+ * between two renderings: checklist (unchanged from #846: child rows,
+ * progress footer) and free-form (this note's own `comment` field --
+ * task-details form's "Comment" textarea, the same single-line free-text
+ * already round-tripped through the task's own outline line by
+ * script.js's saveTask()/openTaskForm() -- shown as the note's body if set,
+ * blank otherwise; no footer). No new ---whiteboard--- column and no new
+ * "kind" of stored object: a free-form note is simply what a checklist
+ * note with zero children already was, rendered honestly instead of as an
+ * empty checklist. See this file's own note on the architectural choice in
+ * the #1015 PR description for why a second, task-less note type (a
+ * `Text` column, closer to #1018's free-floating text) was rejected.
+ *
+ * Creation defaults to free-form, per #885's "nothing is mandatory; nothing
+ * prompts for detail": both ways to make a brand-new note --
+ * wbCreateNoteAt() (canvas double-click / `n` / the toolbar's "New post-it",
+ * via whiteboard-structure.js's wbAppendTopLevelTask()) and
+ * wbCreateAndAddSummaryTask() (the Add-note picker's "+ New phase" form,
+ * via wbInsertNewSummaryTaskLine() below) -- write a bare, childless task
+ * line, so a brand-new note is free-form until the user gives it its first
+ * child (from the task form, the outline, or noodling an existing note
+ * under it), at which point it renders as a checklist automatically on the
+ * very next render pass, with no separate "convert to checklist" action
+ * anywhere. wbInsertNewSummaryTaskLine() used to also write a "New Task"
+ * placeholder child so the new line would parse as a summary task
+ * immediately; that placeholder is exactly the "forced checklist
+ * structure" #1015 asks not to impose, so it is gone.
  */
 
 // ── Configuration ───────────────────────────────────────────────────────
@@ -510,6 +552,24 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null) 
     };
 }
 
+/**
+ * Whether a note's view model should render as a free-form note (issue
+ * #1015) rather than a checklist: true iff its task has literally zero
+ * direct children of its own -- not merely zero *visible* body rows.
+ * A task whose every child has already been noodled out onto its own note
+ * (all of them in `vm.linkedChildren`, `vm.children` itself empty) still
+ * counts as a checklist: the checklist structure is real in the outline,
+ * this note's body just doesn't draw it (see wbBuildNoteViewModel()'s
+ * children/linkedChildren split). Equivalent to `vm.progress.total === 0`
+ * (wbNoteProgress() sums both groups), spelled out as its own named
+ * predicate so the rendering code in wbUpdateNoteNode() -- and any test
+ * asserting this rule -- reads as English rather than leaning on an
+ * incidental property of how progress happens to be computed.
+ */
+function wbIsFreeformNote(vm) {
+    return !!(vm && vm.progress) && vm.progress.total === 0;
+}
+
 /** wbBuildNoteViewModel() for every row, skipping orphans. */
 function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
     const names = boardNames || new Set(
@@ -843,7 +903,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbDirectChildren, wbHasChildren, wbChildCount, wbIsChildComplete,
         wbNoteProgress, wbGetInitials, wbResourceList, wbRelativeLuminance,
         wbContrastRatio, wbContrastTextColour, wbNoteZoomTier,
-        wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel,
+        wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel, wbIsFreeformNote,
         wbPalette, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
         wbResolveNoteColour,
         wbDragBoardDelta, wbClampNoteWidth, wbClampNoteHeight,
@@ -1149,7 +1209,32 @@ function wbUpdateNoteNode(entry, vm) {
     // inside a long note survives a plan-text-driven re-render.
     const savedScrollTop = refs.body.scrollTop;
     refs.body.innerHTML = '';
-    if (!vm.children.length) {
+
+    // Free-form vs. checklist (issue #1015) -- see wbIsFreeformNote() and
+    // this file's header comment. The class drives the footer's CSS-only
+    // hide (views/whiteboard.css's `.wb-note-freeform .wb-note-footer`),
+    // so "is this note free-form right now" has exactly one source of
+    // truth rather than a second condition down by the footer that could
+    // quietly drift from this one.
+    const freeform = wbIsFreeformNote(vm);
+    refs.card.classList.toggle('wb-note-freeform', freeform);
+
+    if (freeform) {
+        // A free-form note's body is its own `comment` field -- the same
+        // single-line free-text the task-details form's "Comment" textarea
+        // reads/writes for this note's own task (see this file's header
+        // comment) -- shown if the user set one, and otherwise left
+        // completely blank. Deliberately no placeholder copy here ("No
+        // subtasks yet", a nudge to add a comment, ...): per #885, nothing
+        // is mandatory and nothing prompts for detail.
+        const comment = String((vm.task && vm.task.comment) || '').trim();
+        if (comment) {
+            const text = document.createElementNS(XHTML_NS, 'div');
+            text.setAttribute('class', 'wb-note-freetext');
+            text.textContent = comment;
+            refs.body.appendChild(text);
+        }
+    } else if (!vm.children.length) {
         const empty = document.createElementNS(XHTML_NS, 'div');
         empty.setAttribute('class', 'wb-note-empty');
         empty.textContent = vm.linkedChildren.length
@@ -1173,7 +1258,11 @@ function wbUpdateNoteNode(entry, vm) {
     }
     refs.body.scrollTop = savedScrollTop;
 
-    // Footer: completed/total fraction + resource avatar chips.
+    // Footer: completed/total fraction + resource avatar chips. Populated
+    // unconditionally even for a free-form note -- CSS hides the whole
+    // footer for `.wb-note-freeform` (see the class toggled above), so
+    // there is nothing here to gate; `vm.progress` is always `0 / 0` in
+    // that case anyway (wbIsFreeformNote() is defined in terms of it).
     wbSetText(refs.progress, `${vm.progress.completed} / ${vm.progress.total}`);
     refs.avatars.innerHTML = '';
     vm.resources.slice(0, 6).forEach(resource => {
@@ -2436,7 +2525,7 @@ function wbAddAllSummaryTasks() {
 }
 
 /**
- * Insert a brand-new, top-level *summary* task named `taskName` at the end
+ * Insert a brand-new, top-level, bare task line named `taskName` at the end
  * of the plan's task outline -- i.e. after every existing outline line but
  * before the first back-matter section marker (Highlights, Budget,
  * Benefits, RAID log, Comms, Lessons learned, Baseline, Whiteboard --
@@ -2444,6 +2533,19 @@ function wbAddAllSummaryTasks() {
  * updatePlanWhiteboardText() scan for), so the new task lands inside the
  * outline itself rather than inside, or after, some other back-matter
  * section.
+ *
+ * Deliberately just the one line, no placeholder child: this used to also
+ * write a "New Task" placeholder (2-space indented) underneath, so the
+ * outline parser (engine/scheduler.js buildTasks(), which only classifies
+ * a task as a summary once it *has* a child) would treat the new line as a
+ * summary task immediately. Issue #1015 removed that -- a childless task
+ * is exactly a free-form note's natural backing (see wbIsFreeformNote()
+ * and this file's header comment), and forcing an immediate child was
+ * exactly the kind of premature structure #885 asks new notes not to
+ * impose. This now matches wbAppendTopLevelTask() (whiteboard-structure.js),
+ * the other new-note path (canvas double-click / `n` / "New post-it"): both
+ * write a bare leaf, so a note is free-form until the user gives it its
+ * first child, whichever creation path made it.
  *
  * Pure text transform -- no DOM, no commit -- so
  * wbCreateAndAddSummaryTask() below can compose it with the whiteboard-row
@@ -2465,28 +2567,13 @@ function wbInsertNewSummaryTaskLine(planText, taskName) {
     const before = text.substring(0, insertIdx).replace(/\n+$/, '');
     const after = text.substring(insertIdx);
 
-    // The parent line plus one placeholder child ("New Task", 2-space
-    // indented) -- not just a bare parent line -- because the outline
-    // parser (engine/scheduler.js buildTasks()) only ever classifies a
-    // task as a summary when it *has* a child; a childless bare line
-    // parses as an ordinary leaf task instead. This is exactly the same
-    // two-line shape KanbanBoard.addNewPhase()'s "drilling down" branch
-    // (kanban.js) already writes to make a brand-new phase register as a
-    // summary/column immediately, reused here so the task this creates is
-    // a real summary task from the moment it's created, not a leaf that
-    // only becomes one later if the user happens to add a child. The
-    // placeholder is an ordinary task like any other -- rename it,
-    // replace it, or add more children/delete it entirely from the task
-    // outline exactly as with any other task.
-    const newLines = name + '\n  New Task';
-
-    // A blank-line separator before the new lines (when there's existing
-    // outline content to separate them from) matches how top-level
+    // A blank-line separator before the new line (when there's existing
+    // outline content to separate it from) matches how top-level
     // phases/sections are conventionally spaced in a plan's outline (see
     // e.g. SAMPLE_PLAN in tests/test_whiteboard_board_membership.py) --
-    // the new phase reads as its own top-level entry, not a continuation
+    // the new task reads as its own top-level entry, not a continuation
     // of whatever came before it.
-    let result = before ? before + '\n\n' + newLines : newLines;
+    let result = before ? before + '\n\n' + name : name;
     result = after ? result + '\n\n' + after.replace(/^\n+/, '') : result + '\n';
     return result;
 }

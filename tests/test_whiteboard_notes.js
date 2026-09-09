@@ -54,6 +54,7 @@ const {
     wbBuildNoteViewModel,
     wbNoteViewModels,
     wbBuildPeekLevel,
+    wbIsFreeformNote,
     wbPalette,
     wbShadeColour,
     wbDerivedPaletteColour,
@@ -97,8 +98,14 @@ const tasks = [
     // (engine/scheduler.js buildTasks()), classified as a leaf
     // (is_summary: false) the moment it has zero nested lines -- this is
     // deliberately NOT is_summary:true, matching what a childless
-    // whiteboard-row target actually looks like in result.tasks.
-    { name: 'Empty Phase', is_summary: false, parent: null, percent: 0, resources: '' },
+    // whiteboard-row target actually looks like in result.tasks. Carries a
+    // `comment` -- the same field the task-details form's "Comment"
+    // textarea reads/writes -- so this doubles as the free-form note
+    // (issue #1015) fixture: zero children, some free text.
+    { name: 'Empty Phase', is_summary: false, parent: null, percent: 0, resources: '', comment: 'Chase the vendor for a quote.' },
+    // A second childless task with no comment at all, for the "blank
+    // free-form note" case -- no text, no placeholder, nothing.
+    { name: 'Blank Idea', is_summary: false, parent: null, percent: 0, resources: '' },
 ];
 
 // ── wbDirectChildren / wbHasChildren / wbChildCount ─────────────────────
@@ -211,6 +218,37 @@ const tasks = [
     const rows = [row, buildRow, orphanRow];
     const models = wbNoteViewModels(rows, tasks);
     assert(models.length === 2, 'wbNoteViewModels skips orphan rows and returns one model per valid row');
+}
+
+// ── wbIsFreeformNote (issue #1015 -- free-form vs. checklist note) ──────
+{
+    const emptyRow = { task: 'Empty Phase', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false };
+    const vmEmpty = wbBuildNoteViewModel(emptyRow, tasks);
+    assert(wbIsFreeformNote(vmEmpty) === true, 'a task with zero children builds a free-form view model');
+    assert(vmEmpty.task.comment === 'Chase the vendor for a quote.', 'the free-form view model carries the task\'s own comment');
+
+    const blankRow = { task: 'Blank Idea', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false };
+    const vmBlank = wbBuildNoteViewModel(blankRow, tasks);
+    assert(wbIsFreeformNote(vmBlank) === true, 'a childless task with no comment is still free-form (just blank)');
+    assert(!vmBlank.task.comment, 'no comment means nothing to show in the free-form body');
+
+    const buildRow2 = { task: 'Build', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false };
+    const vmBuild2 = wbBuildNoteViewModel(buildRow2, tasks);
+    assert(wbIsFreeformNote(vmBuild2) === false, 'a task with children is a checklist note, not free-form');
+
+    // A task all of whose children have been noodled onto their own notes
+    // (children.length === 0 but linkedChildren.length > 0) is still a
+    // checklist -- real structure exists in the outline, it just isn't
+    // drawn as rows inside *this* note. See wbIsFreeformNote()'s own doc
+    // comment for why this deliberately isn't free-form.
+    const linkedOnlyRow = { task: 'Build', x: 0, y: 0, colour: '', width: null, height: null, collapsed: false };
+    const vmLinkedOnly = wbBuildNoteViewModel(linkedOnlyRow, tasks, {}, ['widget', 'nested']);
+    assert(vmLinkedOnly.children.length === 0 && vmLinkedOnly.linkedChildren.length === 2,
+        'both of Build\'s children are treated as already on the board for this check');
+    assert(wbIsFreeformNote(vmLinkedOnly) === false,
+        'a task whose children are all shown as noodles elsewhere is still a checklist, not free-form');
+
+    assert(wbIsFreeformNote(null) === false, 'a missing view model is never treated as free-form');
 }
 
 // ── wbBuildPeekLevel (issue #850 -- task-peek popover's view-model) ─────

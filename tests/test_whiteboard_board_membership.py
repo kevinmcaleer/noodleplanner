@@ -531,7 +531,12 @@ class TestAddNotePickerCreateNew:
         focused_id = browser.execute_script("return document.activeElement.id;")
         assert focused_id == "wbAddNoteCreateInput", "opening focus lands in the create field, not a hidden search box"
 
-    def test_creating_a_new_summary_task_adds_it_to_outline_and_board(self, browser, app_server):
+    def test_creating_a_new_task_adds_it_to_outline_and_board_as_free_form(self, browser, app_server):
+        """Issue #1015: the picker's "create new" affordance used to also
+        write a placeholder child line so the new task registered as a
+        summary/checklist immediately. It no longer does -- a brand-new
+        note starts free-form (no children, no checklist), exactly like
+        double-clicking empty canvas already did before this issue."""
         open_app(browser, app_server)
         load_plan(browser, ALL_ON_BOARD_PLAN)
         switch_to_whiteboard(browser)
@@ -543,7 +548,8 @@ class TestAddNotePickerCreateNew:
         after_text = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
 
         outline = outline_only(after_text)
-        assert "Launch" in outline, "the new summary task exists in the plan's task outline"
+        assert "Launch" in outline, "the new task exists in the plan's task outline"
+        assert "New Task" not in outline, "no placeholder child is written -- the new task starts childless"
 
         # wbLastTasks (whiteboard-notes.js) is a top-level `let`, so it's
         # not reachable as window.wbLastTasks from here; re-parse the
@@ -565,11 +571,27 @@ class TestAddNotePickerCreateNew:
             after_text,
         )
         assert launch_task is not None, "the new task is present in the parsed outline"
-        assert launch_task.get("is_summary"), \
-            "the new task is classified as a summary task (it has a child line in the outline)"
+        assert not launch_task.get("is_summary"), \
+            "the new task is a childless leaf, not a summary task -- it has no forced checklist structure"
 
         assert "Launch" in rendered_note_task_names(browser), "a corresponding note is rendered on the board"
         assert after_text.count("| Launch ") == 1, "exactly one whiteboard row was written for the new task"
+
+        card_class, footer_visible = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Launch') continue;
+                const card = n.querySelector('.wb-note-card');
+                const footer = n.querySelector('.wb-note-footer');
+                return [card.className, getComputedStyle(footer).display !== 'none'];
+            }
+            return [null, null];
+            """
+        )
+        assert card_class is not None and "wb-note-freeform" in card_class, \
+            "the new note renders as free-form, not a checklist"
+        assert footer_visible is False, "the progress footer is hidden for a free-form note"
 
     def test_persistent_new_phase_toggle_available_when_entries_exist(self, browser, app_server):
         open_app(browser, app_server)

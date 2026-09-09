@@ -320,6 +320,16 @@ Whiteboard rows
 - ``Task`` names a task by name. Any task can have a row: the board
   started out showing summary tasks only, but a post-it now creates its
   own task, and a new one starts life as a leaf.
+- Whether a note renders as a plain **free-form note** (just its title
+  and, if set, its ``comment`` -- see the table above) or as a
+  **checklist** (its direct children as todo rows, with a progress
+  footer) is *not* a column here: it is derived straight from whether the
+  task named by ``Task`` currently has any children in the outline above,
+  the same rule the app already applies to distinguish a summary task
+  from a leaf. A free-form note becomes a checklist automatically the
+  moment its task gains a first child, and reverts just as automatically
+  if that child is later removed -- there is no separate flag to keep in
+  sync.
 - ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
   top-left of the board's own coordinate space (not the viewport).
 - ``Colour`` is ``#RRGGBB`` or empty; see `Note colour precedence`_ below.
