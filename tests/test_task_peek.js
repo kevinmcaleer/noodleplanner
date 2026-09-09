@@ -124,6 +124,32 @@ const subNestedLevel = { task: { name: 'Sub-Nested' }, children: [] };
     assert(tpBreadcrumbNames(levels).join(' > ') === 'Build > Nested', 'drilling in again after navigating back extends from the new current level, not the old deepest one');
 }
 
+// ── Issue #1016: no artificial depth limit ──────────────────────────────
+// tpPushLevel()/tpPopToIndex() never reference "how deep is too deep" --
+// this locks that in by pushing well past what any of the fixtures above
+// exercise (three levels) and confirming the stack, breadcrumb and
+// current-level helpers all keep working identically at level 10 as they
+// do at level 2.
+{
+    let levels = [];
+    const DEPTH = 10;
+    for (let i = 0; i < DEPTH; i++) {
+        levels = tpPushLevel(levels, { task: { name: `Gen${i}` }, children: [] });
+    }
+    assert(levels.length === DEPTH, `pushing ${DEPTH} levels in a row yields a ${DEPTH}-deep stack, not a capped one`);
+    assert(tpCurrentLevel(levels).task.name === `Gen${DEPTH - 1}`, 'the current level is still the last one pushed, however deep');
+    assert(tpBreadcrumbNames(levels).join(' > ') === Array.from({ length: DEPTH }, (_, i) => `Gen${i}`).join(' > '),
+        'the breadcrumb names every level root-to-current, however deep');
+
+    const backToMiddle = tpPopToIndex(levels, 4);
+    assert(backToMiddle.length === 5 && tpCurrentLevel(backToMiddle).task.name === 'Gen4',
+        'jumping to a mid-stack crumb works the same at depth as it does one level in');
+
+    const deeperAgain = tpPushLevel(backToMiddle, { task: { name: 'Gen4-again' }, children: [] });
+    assert(deeperAgain.length === 6 && tpCurrentLevel(deeperAgain).task.name === 'Gen4-again',
+        'drilling again after a deep pop-to-middle extends from there, not from the old deepest level');
+}
+
 if (failures > 0) {
     console.error(`\n${failures} test(s) failed.`);
     process.exit(1);
