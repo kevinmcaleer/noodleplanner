@@ -947,7 +947,27 @@ function removeSelectedFromProgramme() {
     const plural = ids.length === 1 ? '' : 's';
     if (!confirm(`Remove ${ids.length} project${plural} from ${ids.length === 1 ? 'its' : 'their'} programme?`)) return;
 
+    // Note which programmes these projects belonged to before clearing
+    // membership, so any left with no members afterwards can have their
+    // programme-owned data (#954/#735) cleaned up rather than orphaned.
+    const projectsBefore = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : listProjects();
+    const affectedSlugs = new Set();
+    ids.forEach((id) => {
+        const project = projectsBefore.find((p) => p.id === id);
+        const programme = project ? extractProjectProgramme(project.planText || '') : null;
+        if (programme) affectedSlugs.add(programme.slug);
+    });
+
     persistProgrammeMembership(ids, null, null);
+
+    if (affectedSlugs.size > 0 && typeof deleteProgrammeData === 'function') {
+        const projectsAfter = (typeof loadAllProjectsIntoCache === 'function') ? loadAllProjectsIntoCache() : listProjects();
+        const remainingSlugs = new Set(deriveProgrammes(projectsAfter).map((p) => p.slug));
+        affectedSlugs.forEach((slug) => {
+            if (!remainingSlugs.has(slug)) deleteProgrammeData(slug);
+        });
+    }
+
     if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
     renderProjectsTable();
     showNotification('Removed from programme.');
@@ -968,6 +988,19 @@ function renameProgramme(oldSlug, newName) {
 
     const memberIds = programme.projects.map(p => p.id);
     persistProgrammeMembership(memberIds, newSlug, newName);
+
+    // Carry the programme's owned data (#954/#735 -- SRO/vision/outcomes/
+    // benefit links) across to the new slug rather than orphaning it under
+    // the old one, since a rename is a relabel, not a new programme.
+    if (newSlug !== oldSlug && typeof getProgrammeData === 'function' &&
+        typeof setProgrammeData === 'function' && typeof deleteProgrammeData === 'function') {
+        const data = getProgrammeData(oldSlug);
+        if (data) {
+            setProgrammeData(newSlug, data);
+            deleteProgrammeData(oldSlug);
+        }
+    }
+
     if (typeof refreshProjectSelectors === 'function') refreshProjectSelectors();
     renderProjectsTable();
     showNotification('Programme renamed to: ' + newName);

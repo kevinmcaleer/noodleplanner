@@ -2459,20 +2459,24 @@ Build
             </div>
 
             <!-- Programme Tab (issue #953's landing view, extended by #734
-                 into the real programme overview dashboard -- SRO/vision
-                 stub, key metrics, key milestones, member projects with
-                 rolled-up RAG -- by #736 with a real escalated risks
-                 & issues rollup, by #737 with a programme-scoped
-                 dependency RAG board, and by #739 with a programme-scoped
-                 resource demand-vs-capacity view -- all populated by
-                 programme.js.) -->
+                 into the real programme overview dashboard -- key metrics,
+                 key milestones, member projects with rolled-up RAG -- by
+                 #736 with a real escalated risks & issues rollup, by #737
+                 with a programme-scoped dependency RAG board, by #739 with
+                 a programme-scoped resource demand-vs-capacity view, and
+                 by #735 (building on #954's programme-owned data store)
+                 with a real SRO/vision/outcomes editor and a benefits
+                 realisation rollup -- all populated by programme.js.) -->
             <div id="programme-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
                     <div class="programme-landing-header">
                         <h2 id="programmeViewTitle"></h2>
                         <p class="programme-landing-meta" id="programmeViewMeta"></p>
                     </div>
-                    <div id="programmeDashboardNote"></div>
+                    <div class="programme-section">
+                        <h3>SRO, Vision &amp; Outcomes</h3>
+                        <div id="programmeSroVision"></div>
+                    </div>
                     <div class="programme-stat-tiles" id="programmeStatTiles"></div>
                     <div class="programme-section">
                         <h3>Key Milestones</h3>
@@ -2489,6 +2493,10 @@ Build
                     <div class="programme-section">
                         <h3>Resourcing</h3>
                         <div id="programmeResourcing"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Benefits Realisation</h3>
+                        <div id="programmeBenefitsRealisation"></div>
                     </div>
                     <div class="programme-section">
                         <h3>Member Projects</h3>
@@ -4199,6 +4207,7 @@ Build
     <script src="/static/kanban.js?v={{ v }}"></script>
     <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
+    <script src="/static/programme-data-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
