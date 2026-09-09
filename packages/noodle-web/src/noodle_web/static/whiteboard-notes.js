@@ -54,9 +54,24 @@
  *      colour picked from any of the three views shows up in the other
  *      two). This is what the `...` menu writes.
  *   3. A palette colour derived from the task's position in `result.tasks`
- *      (wbDerivedPaletteColour(), reusing mindmap.js's MM_BRANCH_COLOURS --
- *      not a new palette) -- always defined, so a note is never left
- *      uncoloured; "clear" in the menu means "fall back to this".
+ *      (wbDerivedPaletteColour(), drawing from WB_NOTE_PASTEL_COLOURS --
+ *      the fixed pastel "post-it" palette issue #1017 introduced,
+ *      dedicated to this file and not shared with the mind map's or the
+ *      boards view's own palettes) -- always defined, so a note is never
+ *      left uncoloured; "clear" in the menu means "fall back to this".
+ *
+ * A note's colour is manual, per-note shorthand: picking a swatch has no
+ * semantic or conditional-formatting meaning, and is entirely unrelated
+ * to the boards view's rule-based conditional formatting (kanban.js/
+ * state.js's CF_PASTEL_COLOURS/CF_DARK_COLOURS, a different, rule-driven
+ * system -- see #1017). It still writes into the plan's shared `Theme:`
+ * front matter (tier 2 above), exactly as #849 did -- that storage/
+ * precedence mechanism is unchanged; only the swatches offered changed.
+ * An old colour value that doesn't match any current swatch (e.g. one
+ * picked from #849's old MM_BRANCH_COLOURS/CF_* grids, or a hand-edited
+ * hex) still renders exactly as stored -- rendering never requires a
+ * value to match a known swatch, it just won't show as "selected" in
+ * the menu until a new pick is made.
  *
  * See wbResolveNoteColour() for the implementation and
  * docs/reference/plan-format.rst's "Whiteboard rows" section for the
@@ -303,24 +318,52 @@ function wbContrastTextColour(bgHex) {
 }
 
 /**
- * The swatch palette to offer, reusing mindmap.js's MM_BRANCH_COLOURS
- * rather than inventing a second one (per the issue's explicit "do not
- * invent a third palette" instruction -- the mind map's own is already
- * the second, alongside kanban.js's Theme: values). Falls back to a
- * literal copy of the same values only for this file's own vm-sandboxed
- * unit tests (test_whiteboard_notes.js loads whiteboard-notes.js alone,
- * without mindmap.js) -- the real app always has mindmap.js loaded first
- * (see index.html's <script> order), so the fallback never runs there.
+ * A fixed pastel "post-it" palette, dedicated to whiteboard notes (issue
+ * #1017 -- supersedes #849/#840's choice of swatch source, not #849's
+ * menu/interaction pattern itself, which is unchanged). Two soft shades
+ * each of yellow, pink, green, blue and red -- genuinely pastel (high
+ * lightness, low saturation) rather than the saturated hues elsewhere in
+ * the app, so notes read like real paper stickies.
+ *
+ * Deliberately NOT mindmap.js's MM_BRANCH_COLOURS (the mind map's own
+ * branch palette) and NOT kanban.js/state.js's CF_PASTEL_COLOURS /
+ * CF_DARK_COLOURS (the boards view's rule-based *conditional formatting*
+ * swatches -- "CF" == Conditional Formatting) -- #849 borrowed both of
+ * those (see git history), which is exactly the coupling #1017 removes:
+ * a note's colour is personal shorthand picked by hand, with no
+ * relationship to the boards view's rule engine and no third system's
+ * palette silently doubling as this one's. A colour picked here still
+ * writes into the plan's `Theme:` front matter, same as #849 (see
+ * wbApplyNoteColourToPlanText() below) -- that write path, and the
+ * row-Colour -> Theme: -> derived-palette precedence built on it, is a
+ * markdown-format/storage concern this issue does not touch, only which
+ * swatches the menu *offers* changes.
+ *
+ * Contrast is verified by tests/test_whiteboard_note_colour.py's
+ * TestNoteColourContrast against the real rendered header in both
+ * themes; a swatch's raw value is never applied directly as a
+ * background (wbUpdateNoteNode() always darkens it via wbShadeColour(_,
+ * 0.3) first — see that call for why every pastel here still yields a
+ * dark, legible header fill).
+ */
+const WB_NOTE_PASTEL_COLOURS = [
+    '#FFF3B0', '#FCE38A', // yellow
+    '#FFD6E0', '#F7A8B8', // pink
+    '#CFF4D2', '#B8E6B8', // green
+    '#C7E5FF', '#A9D6F5', // blue
+    '#FFCBC1', '#FFAFA3', // red
+];
+
+/**
+ * The swatch palette to offer -- see WB_NOTE_PASTEL_COLOURS above for why
+ * this is its own fixed list rather than a reuse of some other system's
+ * palette. Also backs tier 3 of the colour precedence
+ * (wbDerivedPaletteColour() below), so a note that has never had a
+ * colour picked still gets a soft, on-brand default instead of an
+ * arbitrary saturated one.
  */
 function wbPalette() {
-    if (typeof MM_BRANCH_COLOURS !== 'undefined' && MM_BRANCH_COLOURS.length) {
-        return MM_BRANCH_COLOURS;
-    }
-    return [
-        '#4A90D9', '#D97B4A', '#5CB85C', '#D95B5B',
-        '#9B6BBF', '#3DBFA8', '#D9A84A', '#5B8FD9',
-        '#4ABF7F', '#D9534F', '#D9B84A', '#8E5BBF',
-    ];
+    return WB_NOTE_PASTEL_COLOURS;
 }
 
 /**
@@ -844,7 +887,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbNoteProgress, wbGetInitials, wbResourceList, wbRelativeLuminance,
         wbContrastRatio, wbContrastTextColour, wbNoteZoomTier,
         wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel,
-        wbPalette, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
+        wbPalette, WB_NOTE_PASTEL_COLOURS, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
         wbResolveNoteColour,
         wbDragBoardDelta, wbClampNoteWidth, wbClampNoteHeight,
         wbExceedsMoveThreshold, wbMoveTaskToEnd,
@@ -2007,13 +2050,19 @@ function wbAppendRemoveMenuSection(list, taskName) {
 }
 
 /**
- * Append this issue's entire contribution to the note menu: a "Default
- * colour" action (tier 3 of the precedence -- clears any row/Theme:
- * override) followed by the mind map's own swatch grids (Palette ==
- * MM_BRANCH_COLOURS, Pastel == CF_PASTEL_COLOURS, Dark == CF_DARK_COLOURS
- * -- see the issue's "do not invent a third palette" instruction), each
- * as a labelled <li> + a grid <li> so keyboard users can jump between
- * items with wbNoteMenuKeydown()'s Arrow/Home/End handling.
+ * Append the colour section of the note menu: a "Default colour" action
+ * (tier 3 of the precedence -- clears any row/Theme: override) followed
+ * by a single labelled swatch grid drawing from wbPalette() -- the fixed
+ * pastel "post-it" palette (WB_NOTE_PASTEL_COLOURS, issue #1017), as one
+ * labelled <li> + a grid <li> so keyboard users can jump between items
+ * with wbNoteMenuKeydown()'s Arrow/Home/End handling.
+ *
+ * #849 originally offered three grids here (a saturated "Palette" plus
+ * the boards view's own "Pastel"/"Dark" conditional-formatting swatches,
+ * CF_PASTEL_COLOURS/CF_DARK_COLOURS from kanban.js/state.js) -- #1017
+ * replaced all three with this one dedicated pastel palette, precisely
+ * so a note's colour stops borrowing another system's swatches. See
+ * WB_NOTE_PASTEL_COLOURS's own doc comment for the full rationale.
  */
 function wbAppendColourMenuSection(list, taskName) {
     const currentColour = wbCurrentNoteColour(taskName);
@@ -2052,9 +2101,7 @@ function wbAppendColourMenuSection(list, taskName) {
         list.appendChild(gridLi);
     }
 
-    addSection('Palette', wbPalette());
-    addSection('Pastel', (typeof CF_PASTEL_COLOURS !== 'undefined') ? CF_PASTEL_COLOURS : []);
-    addSection('Dark', (typeof CF_DARK_COLOURS !== 'undefined') ? CF_DARK_COLOURS : []);
+    addSection('Colour', wbPalette());
 }
 
 /**

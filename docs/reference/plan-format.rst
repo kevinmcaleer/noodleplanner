@@ -417,12 +417,23 @@ resolved in this order, highest priority first:
    write, so a colour set on any one of the three views shows up on the
    other two, and renaming the summary task carries the colour with it
    (the rename migrates the ``Theme`` key alongside the phase/task name).
-3. Otherwise, a colour derived from the task's position in the outline (the
-   same swatch palette the mind map's branch colours use). Every note
-   always has a colour by this rule -- there is no "uncoloured" state.
-   Choosing "Default colour" in the `...` menu removes both the ``Theme``
-   entry and any stray ``Colour`` column value, returning the note to this
-   derived colour.
+3. Otherwise, a colour derived from the task's position in the outline,
+   drawn from a fixed pastel "post-it" palette (soft yellows, pinks,
+   greens, blues and reds) dedicated to whiteboard notes -- not the mind
+   map's own branch palette, and not the Kanban board's rule-based
+   conditional formatting swatches. Every note always has a colour by
+   this rule -- there is no "uncoloured" state. Choosing "Default colour"
+   in the `...` menu removes both the ``Theme`` entry and any stray
+   ``Colour`` column value, returning the note to this derived colour.
+
+A note's colour is manual, per-note shorthand -- picking a swatch has no
+semantic or conditional-formatting meaning, and is unrelated to the Kanban
+board's own rule-based conditional formatting (a different, rule-driven
+colour system). A colour value already stored from before the pastel
+palette was introduced (e.g. one of the mind map's or the boards view's
+own swatches) keeps rendering exactly as stored even though it no longer
+matches any of the menu's current swatches -- it just won't show as
+"selected" until a new pick is made from the current palette.
 
 Where plan data lives
 ----------------------

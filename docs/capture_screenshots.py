@@ -365,8 +365,9 @@ def capture_how_to(driver, base_url):
     time.sleep(0.6)
     capture_full(driver, section / "wb-01-whiteboard-notes.png")
 
-    # wb-02: Note colour menu (issue #849) — open the first note's `...`
-    # menu so the Palette/Pastel/Dark swatch grid is visible.
+    # wb-02: Note colour menu (issue #849, palette replaced by #1017) —
+    # open the first note's `...` menu so the fixed pastel swatch grid
+    # is visible.
     menu_btn = driver.find_elements(By.CSS_SELECTOR, ".wb-note-menu-btn")
     if menu_btn:
         menu_btn[0].click()
