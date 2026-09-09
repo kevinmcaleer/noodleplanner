@@ -551,7 +551,9 @@
             <div id="editor-tab" class="tab-content active" role="tabpanel">
                 <div class="editor-layout">
                     <div class="editor-panel">
-                        {% include '_editor_toolbar.html' %}
+                        <!-- #1045: mini toolbar removed -- the ribbon (#ribbonShell above) now
+                             owns Undo/Redo, Indent/Outdent, Link, Task Inspector, Open/Save
+                             and Conditional Formatting. -->
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
@@ -1746,7 +1748,7 @@ Press Enter to render..."></textarea>
                 <div class="kanban-layout">
                     <!-- Collapsible Editor Panel -->
                     <div class="kanban-editor-panel collapsed" id="kanbanEditorPanel">
-                        {% include '_editor_toolbar.html' %}
+                        <!-- #1045: mini toolbar removed -- see editor-tab above -->
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="kanbanLineNumbers">1</div>
                             <div class="editor-area">

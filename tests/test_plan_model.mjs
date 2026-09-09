@@ -157,3 +157,33 @@ test('reorder preserves CRLF and the absence of a final newline', () => {
     assert.equal(model.moveAfter(model.findByName('A'), model.findByName('B')), true);
     assert.equal(model.serialize(), 'Phase\r\n  B 1d\r\n  A 1d');
 });
+
+// #911: reordering spliced a blank line -- which had separated two other
+// tasks in the original text -- into the gap the move created, instead of
+// it just disappearing along with the boundary it used to mark.
+test('reorder does not splice a stray blank line into the new gap', () => {
+    const model = PlanModel.parse('Task A\nTask B\n\nTask C\n');
+    const a = model.findByName('Task A');
+    const b = model.findByName('Task B');
+    assert.equal(model.moveAfter(a, b), true);
+    assert.equal(model.serialize(), 'Task B\nTask A\nTask C\n');
+});
+
+// #911: the moved task's *old* predecessor is left just as exposed -- its
+// blank trailing line described the boundary to the task that just left,
+// not to whatever now follows it.
+test('reorder does not leave a stray blank line at the old predecessor', () => {
+    const model = PlanModel.parse('Task A\n\nTask B\nTask C\n');
+    const b = model.findByName('Task B');
+    const a = model.findByName('Task A');
+    assert.equal(model.moveBefore(b, a), true);
+    assert.equal(model.serialize(), 'Task B\nTask A\nTask C\n');
+});
+
+test('reorder keeps a non-blank trailing comment attached to its task', () => {
+    const model = PlanModel.parse('Task A\n// keep me\nTask B\n\nTask C\n');
+    const a = model.findByName('Task A');
+    const b = model.findByName('Task B');
+    assert.equal(model.moveAfter(a, b), true);
+    assert.equal(model.serialize(), 'Task B\nTask A\n// keep me\nTask C\n');
+});
