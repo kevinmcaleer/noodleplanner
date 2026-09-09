@@ -57,6 +57,7 @@ const sandbox = {
   BENEFITS_START: '---benefits---',
   LESSONS_START: '---lessons learned---',
   WHITEBOARD_START: '---whiteboard---',
+  PARKING_LOT_START: '---parking lot---',
 };
 
 liftFunctions(sandbox, 'script.js', [

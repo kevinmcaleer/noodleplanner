@@ -74,6 +74,11 @@ from .format_converter import (
     validate_whiteboard_rows,
     generate_whiteboard_text,
     update_plan_whiteboard,
+    extract_parking_lot,
+    strip_parking_lot,
+    parse_parking_lot_markdown,
+    generate_parking_lot_text,
+    update_plan_parking_lot,
 )
 
 from .excel_importer import (
@@ -167,6 +172,11 @@ __all__ = [
     "validate_whiteboard_rows",
     "generate_whiteboard_text",
     "update_plan_whiteboard",
+    "extract_parking_lot",
+    "strip_parking_lot",
+    "parse_parking_lot_markdown",
+    "generate_parking_lot_text",
+    "update_plan_parking_lot",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",

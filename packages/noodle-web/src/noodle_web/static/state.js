@@ -168,6 +168,10 @@ const BASELINE_START = '---baseline---';
 const BENEFITS_START = '---benefits---';
 const LESSONS_START = '---lessons learned---';
 const WHITEBOARD_START = '---whiteboard---';
+// Issue #1019: the "good idea, not now" parking lot, canonically the
+// section *after* whiteboard -- see format_converter.py's matching
+// ALL_SECTION_MARKERS comment for the full canonical order.
+const PARKING_LOT_START = '---parking lot---';
 
 // Benefits state
 let benefitItems = [];
