@@ -3736,9 +3736,26 @@ function setupKanbanAutoSync() {
         let editorChangeTimeout = null;
         let isKanbanUpdating = false; // Prevent circular updates
 
-        editor.addEventListener('input', () => {
+        editor.addEventListener('input', (event) => {
             // Only auto-sync if Kanban tab is active and we're not in the middle of a Kanban update
             if (!document.getElementById('kanban-tab').classList.contains('active') || isKanbanUpdating) {
+                return;
+            }
+
+            // Real keystrokes in the editor fire a trusted 'input' event, so
+            // debounce those to avoid re-rendering the board on every
+            // character. Everything else (task form saves, imports, syncs,
+            // etc.) sets editor.value and dispatches an untrusted 'input'
+            // event -- those are discrete, one-off writes, so reflect them
+            // on the board immediately rather than waiting out the debounce
+            // (the board should always reflect what is in the markdown).
+            if (!event.isTrusted) {
+                clearTimeout(editorChangeTimeout);
+                if (kanbanBoard) {
+                    kanbanBoard.parse();
+                    kanbanBoard.render();
+                    kanbanBoard.renderBreadcrumb();
+                }
                 return;
             }
 
@@ -3757,15 +3774,5 @@ function setupKanbanAutoSync() {
         window.kanbanIsUpdating = function(value) {
             isKanbanUpdating = value;
         };
-    }
-
-    // Listen for task form saves to refresh Kanban
-    const saveButton = document.querySelector('[onclick*="saveTask"]');
-    if (saveButton) {
-        saveButton.addEventListener('click', () => {
-            if (document.getElementById('kanban-tab').classList.contains('active') && kanbanBoard) {
-                syncKanbanFromEditor();
-            }
-        });
     }
 }
