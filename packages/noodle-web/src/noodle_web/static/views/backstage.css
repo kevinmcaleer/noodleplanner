@@ -1,14 +1,63 @@
 /* ========================================
-   Backstage view (#943) — Office-Backstage-style shell behind Home
+   Backstage view (#943, full-screen shell #972) — Office-Backstage-style
+   shell behind File. Full screen while open: the ribbon and status bar are
+   hidden (body.backstage-fullscreen, toggled by backstage.js's
+   activate()/deactivate()) -- "you have stepped out of the document",
+   #903's own framing for this view. #backstageExitBtn (the mandatory
+   back arrow, top left) and Esc are the only way out.
    ======================================== */
+
+body.backstage-fullscreen #ribbonShell,
+body.backstage-fullscreen .status-bar,
+body.backstage-fullscreen #planSubnav {
+    display: none !important;
+}
+
+/* status-bar.css reserves space for the fixed status bar with
+   `body { padding-bottom: 36px; }` -- not needed once it's hidden. */
+body.backstage-fullscreen {
+    padding-bottom: 0;
+}
 
 #backstage-tab.tab-content {
     overflow: auto;
 }
 
+.backstage-topbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+    background: var(--np-surface, #ffffff);
+}
+
+.backstage-exit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--np-text, #333);
+    font-size: 1.3em;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-exit-btn:hover,
+.backstage-exit-btn:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: none;
+}
+
 .backstage-container {
     display: flex;
-    min-height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
     background: var(--np-surface, #ffffff);
 }
 
@@ -74,6 +123,40 @@
 
 .backstage-main-header .backstage-main-title {
     margin: 0;
+}
+
+.backstage-strip-header {
+    justify-content: space-between;
+}
+
+.backstage-more-templates-btn {
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--np-accent, #667eea);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.backstage-more-templates-btn:hover,
+.backstage-more-templates-btn:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.backstage-template-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    max-width: 900px;
+    margin-bottom: 36px;
+}
+
+.backstage-recent-title {
+    margin-top: 0;
 }
 
 .backstage-back-btn {

@@ -2281,12 +2281,19 @@ Build
                 </div>
             </div>
 
-            <!-- Backstage Tab (#943): Office-Backstage-style shell behind Home --
-                 file actions on the left, recent plans / template picker in the
-                 main area. Epic #903's template picker shell is #944 (this);
-                 portrait cards (#945) and seed templates (#946) plug into
-                 renderTemplateCard()/TEMPLATE_PICKER_TEMPLATES in backstage.js. -->
+            <!-- Backstage Tab (#943, full-screen shell #972): Office-Backstage-style
+                 shell behind File -- a mode change out of the document, header/ribbon/
+                 status bar hidden while it's open (see body.backstage-fullscreen in
+                 backstage.css). File actions on the left, recent plans / template
+                 picker in the main area. Card rendering here is still a plain
+                 placeholder -- #945 gives it the real portrait renderer, see
+                 renderTemplateCard() in backstage.js. -->
             <div id="backstage-tab" class="tab-content" role="tabpanel">
+                <div class="backstage-topbar">
+                    <button type="button" class="backstage-exit-btn" id="backstageExitBtn" title="Back" aria-label="Back, leave Backstage">
+                        <span aria-hidden="true">&larr;</span>
+                    </button>
+                </div>
                 <div class="backstage-container">
                     <nav class="backstage-rail" aria-label="File actions">
                         <button type="button" class="backstage-rail-btn" data-backstage-action="New plan">
@@ -2297,6 +2304,10 @@ Build
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-doc"/></svg>
                             Open…
                         </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Save">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-save"/></svg>
+                            Save
+                        </button>
                         <button type="button" class="backstage-rail-btn" data-backstage-action="Import from Excel / MS Project">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-upload"/></svg>
                             Import
@@ -2305,13 +2316,13 @@ Build
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-download"/></svg>
                             Export…
                         </button>
-                        <button type="button" class="backstage-rail-btn" id="backstageTemplatesBtn">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-grid"/></svg>
-                            Templates
-                        </button>
                         <button type="button" class="backstage-rail-btn" data-backstage-action="Print">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-print"/></svg>
                             Print
+                        </button>
+                        <button type="button" class="backstage-rail-btn" id="backstageTemplatesBtn">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-grid"/></svg>
+                            Templates
                         </button>
                         <button type="button" class="backstage-rail-btn" data-backstage-action="Settings">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-settings"/></svg>
@@ -2320,7 +2331,15 @@ Build
                     </nav>
                     <div class="backstage-main">
                         <div class="backstage-main-view" id="backstageRecentView">
-                            <h2 class="backstage-main-title">Recent</h2>
+                            <div class="backstage-main-header backstage-strip-header">
+                                <h2 class="backstage-main-title">Start a new plan</h2>
+                                <button type="button" class="backstage-more-templates-btn" id="backstageMoreTemplatesBtn">
+                                    More templates <span aria-hidden="true">&rarr;</span>
+                                </button>
+                            </div>
+                            <div class="backstage-template-strip" id="backstageTemplateStrip"></div>
+
+                            <h2 class="backstage-main-title backstage-recent-title">Recent</h2>
                             <div class="backstage-recent-empty" id="backstageRecentEmpty" style="display:none;">
                                 <p>No recent plans yet.</p>
                                 <p class="backstage-recent-empty-hint">Create a new plan or open one to get started.</p>

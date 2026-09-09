@@ -60,7 +60,6 @@ const ribbonState = {
     // `collapsed` -- see renderDisplayToggle()'s comment for how the two
     // compose.
     density: persisted.density === 'simple' ? 'simple' : 'full',
-    fileMenuOpen: false,
     morePopoverOpen: false,
     displayMenuOpen: false,
 };
@@ -313,13 +312,13 @@ function runAction(scopeId, label) {
 }
 
 // ---------------------------------------------------------------------------
-// Small popovers: the File menu and caret format-choice menus share the
-// same look (see .ribbon-file-menu), so both render through this.
+// Small popovers: caret format-choice menus (Import/Export) render as a
+// `.ribbon-file-menu` -- the same look the old File dropdown used before
+// #972 retired it in favour of File navigating straight to Backstage.
 // ---------------------------------------------------------------------------
 
 function closePopovers() {
     document.querySelectorAll('.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu').forEach((el) => el.remove());
-    ribbonState.fileMenuOpen = false;
     ribbonState.morePopoverOpen = false;
     ribbonState.displayMenuOpen = false;
 }
@@ -402,19 +401,11 @@ function renderSearchBox() {
     `;
 }
 
-function renderFileMenuItems(ia) {
-    return ia.FILE_MENU.map((f, i) => `
-        <button type="button" class="ribbon-file-menu-item" data-file-index="${i}">
-            ${icon(f.icon, 15)}
-            <span class="ribbon-file-menu-item-label">${f.label}</span>
-            ${f.kbd ? `<span class="ribbon-file-menu-item-kbd">${f.kbd}</span>` : ''}
-        </button>
-    `).join('');
-}
-
 const FILE_ACTIONS = {
-    // Opens the Backstage shell (#943) -- see backstage.js.
-    Home: () => switchToView('backstage'),
+    // Opens the full-screen Backstage shell (#943, full-screen #972) --
+    // see backstage.js's enterBackstage(), which also remembers the view
+    // to return to.
+    Home: () => (typeof enterBackstage === 'function' ? enterBackstage() : switchToView('backstage')),
     // #938-style fix: a real function (portfolio.js's showCreateProjectDialog,
     // already used by the "+ New Project" button) existed for this the whole
     // time; it just wasn't wired here.
@@ -442,11 +433,10 @@ function renderTabStrip(ia, ctxTab) {
     }
 
     return `
-        <button type="button" class="ribbon-file-btn" data-action="toggle-file">File ▾</button>
+        <button type="button" class="ribbon-file-btn" data-action="open-backstage">File</button>
         ${tabs}${ctxHtml}
         <div class="ribbon-tabstrip-spacer"></div>
         <button type="button" class="ribbon-collapse-btn" data-action="toggle-collapse" title="${ribbonState.collapsed ? 'Expand the ribbon' : 'Collapse the ribbon'}">${ribbonState.collapsed ? '▼' : '▲'}</button>
-        ${ribbonState.fileMenuOpen ? `<div class="ribbon-file-menu" id="ribbonFileMenu">${renderFileMenuItems(ia)}</div>` : ''}
     `;
 }
 
@@ -972,11 +962,9 @@ function wireEvents(shell) {
             return;
         }
 
-        if (e.target.closest('[data-action="toggle-file"]')) {
-            const wasOpen = ribbonState.fileMenuOpen;
+        if (e.target.closest('[data-action="open-backstage"]')) {
             closePopovers();
-            ribbonState.fileMenuOpen = !wasOpen;
-            refreshRibbon();
+            FILE_ACTIONS.Home();
             return;
         }
 
@@ -1048,17 +1036,6 @@ function wireEvents(shell) {
             return;
         }
 
-        const fileItem = e.target.closest('.ribbon-file-menu-item[data-file-index]');
-        if (fileItem) {
-            loadIA().then((ia) => {
-                const entry = ia.FILE_MENU[Number(fileItem.dataset.fileIndex)];
-                closePopovers();
-                (FILE_ACTIONS[entry.label] || (() => notAvailable(entry.label)))();
-                if (!OPENS_OWN_POPOVER.has(entry.label)) refreshRibbon();
-            });
-            return;
-        }
-
         const cmdBtn = e.target.closest('.ribbon-lg-btn, .ribbon-sm-btn, .ribbon-simple-btn');
         if (cmdBtn && cmdBtn.dataset.label) {
             runAction(cmdBtn.dataset.scopeId, cmdBtn.dataset.label);
@@ -1094,6 +1071,20 @@ function wireEvents(shell) {
     });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { closePopovers(); refreshRibbon(); }
+    });
+
+    // File shortcuts (#972): previously only documented as `kbd` hints on
+    // the now-retired File dropdown's rows -- never actually bound to a key
+    // handler -- so these must now work globally on their own, the same way
+    // Cmd+S already does (script.js's own Ctrl+S handler, works from
+    // anywhere including the editor). FILE_ACTIONS is the single shared
+    // action map (see its own comment); Cmd+S stays owned by script.js.
+    document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+        const label = { n: 'New plan', o: 'Open…', p: 'Print' }[e.key.toLowerCase()];
+        if (!label) return;
+        e.preventDefault();
+        FILE_ACTIONS[label]();
     });
 }
 
