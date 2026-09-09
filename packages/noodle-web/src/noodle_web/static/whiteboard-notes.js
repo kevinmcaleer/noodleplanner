@@ -134,6 +134,26 @@
  * product views open), not the read-only Task Inspector that badge click
  * used to jump to directly.
  *
+ * Nested subtasks several layers deep (issue #1016, part of #885): #850's
+ * peek above already IS the generic, multi-level mechanism -- confirmed by
+ * reading task-peek.js's tpPushLevel()/tpPopToIndex()/tpDrillInto() (a
+ * plain, uncapped stack of {task, children} levels with a breadcrumb) and
+ * wbBuildPeekLevel() (which only ever answers "does *this* task have
+ * children", for whatever task name it's asked about) before writing a
+ * single line for #1016. Neither has, or ever had, any notion of "level 0
+ * vs level 1" to remove: a child row's drill-down badge already shows
+ * whenever *that* child has its own children, at any depth, because
+ * wbBuildPeekLevel(name, wbLastTasks) is called fresh every time
+ * tpDrillInto() asks for a new level via the resolveLevel callback (see
+ * wbOpenChildPeek() below) -- it was never wired to only ever be called
+ * once. #1016 is therefore a verification-and-regression-test issue, not
+ * an implementation one: tests/test_task_peek.py's TestPeekDeepNesting
+ * drills four levels deep with no code change required, and
+ * TestPeekPlanTextRerender locks in that the breadcrumb stack survives an
+ * ordinary plan-text auto-render while several levels in (it already did,
+ * because the popover lives in document.body, decoupled from the note
+ * cards that re-render rebuilds in place -- see wbUpdateNoteNode()).
+ *
  * Free-form notes (issue #1015, the other half of #846's checklist post-it,
  * per #885): a note's task is looked up purely by name (see
  * wbBuildNoteViewModel()'s own comment on this), so nothing about a
