@@ -300,6 +300,13 @@ const SECTION_SCHEMAS = {
         },
     },
 
+    highlights: {
+        marker: '---highlights---',
+        // Not a table: entries, addressed positionally with an `expect`
+        // gate. See applyHighlightsOp and the section note above.
+        entries: true,
+    },
+
     comms: {
         marker: COMMS_START,
         // Mirrors format_converter.py's generate_comms_plan_text.
@@ -317,6 +324,184 @@ const SECTION_SCHEMAS = {
         },
     },
 };
+
+// ---------------------------------------------------------------------------
+// #1036: weekly updates (---highlights---)
+//
+// The one section that is not a table. Entries are `## <date> @<author>`
+// headings over multi-line free text, which changes two things fundamentally
+// from every other section here:
+//
+//  - **No row id.** Entries are addressed by position, so an op must carry
+//    `expect` (the "<date> @<author>" the sender last saw) exactly as #967's
+//    task ops do -- otherwise a concurrent add or delete silently shifts
+//    every later index and an op lands on the wrong entry.
+//  - **Newlines are content.** Every other field in this module is
+//    newline-collapsed, which is the whole defence against a joiner forging
+//    a section marker. Doing that here would destroy the thing being edited.
+//    Instead `sanitizeEntryContent` *neutralises* the two line shapes that
+//    carry structural meaning -- a bare section marker, and a `## ` heading
+//    -- by indenting them, so they survive as visible text but can never be
+//    re-parsed as structure.
+
+const HIGHLIGHTS_START = '---highlights---';
+const HIGHLIGHTS_END = '---end-highlights---';
+const HIGHLIGHT_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s+@(\S+)\s*$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Parse the highlights block into positional entries. JS port of
+ * format_converter.py's `_parse_highlights_section`, so a block written by
+ * the non-collab editor and one written here parse identically. */
+export function parseHighlights(text) {
+    const entries = [];
+    let current = null;
+    for (const line of String(text == null ? '' : text).split('\n')) {
+        const stripped = line.trim();
+        if (!stripped && current === null) continue;
+        if (stripped === HIGHLIGHTS_END) break;
+
+        const heading = HIGHLIGHT_HEADING.exec(stripped);
+        if (heading) {
+            if (current) { current.content = current.content.trim(); entries.push(current); }
+            current = { date: heading[1], author: heading[2], content: '' };
+            continue;
+        }
+        if (current) current.content += `${line.replace(/\s+$/, '')}\n`;
+    }
+    if (current) { current.content = current.content.trim(); entries.push(current); }
+    return entries.map((entry, index) => ({ ...entry, id: index }));
+}
+
+/** Serialise entries back into a highlights block, mirroring
+ * `generate_highlights_text`. */
+export function serializeHighlights(entries) {
+    if (!entries || entries.length === 0) return '';
+    const lines = [];
+    for (const entry of entries) {
+        lines.push(`## ${entry.date} @${entry.author}`);
+        lines.push(String(entry.content == null ? '' : entry.content).replace(/\s+$/, ''));
+        lines.push('');
+    }
+    return lines.join('\n').replace(/\s+$/, '');
+}
+
+/** Normalise entry content, or return null if any line would be re-read as
+ * structure rather than text.
+ *
+ * Indenting such a line is *not* a defence, which is worth stating plainly
+ * because it looks like one: both `_parse_highlights_section` and this
+ * module's `parseHighlights` call `.trim()` on a line before matching, and
+ * `indexOfMarkerLine` matches a marker as a line's entire *trimmed*
+ * content -- so ` ## 2026-01-01 @mallory` parses exactly like the
+ * unindented version. (Found by this file's own injection tests, which
+ * failed against a first cut that tried precisely that.)
+ *
+ * So the op is rejected instead. The alternative -- escaping or stripping
+ * the offending line -- would silently alter what someone wrote, and for a
+ * weekly update, quietly changing the words is a worse failure than
+ * refusing the edit and saying so. */
+function normaliseEntryContent(value) {
+    const text = String(value == null ? '' : value).replace(/\r\n?/g, '\n');
+    for (const line of text.split('\n')) {
+        const trimmed = line.trim();
+        if (ALL_SECTION_MARKERS.includes(trimmed) || trimmed === HIGHLIGHTS_END) return null;
+        if (HIGHLIGHT_HEADING.test(trimmed)) return null;
+    }
+    return text.trim();
+}
+
+/** An author is a single `@`-prefixed token in the heading grammar, so
+ * anything that would break that -- whitespace, a stray `@` -- is folded
+ * rather than allowed to produce an entry the parser cannot read back. */
+function sanitizeAuthor(value) {
+    const cleaned = String(value == null ? '' : value).replace(/[\r\n]+/g, ' ').replace(/^@+/, '').trim();
+    return cleaned.replace(/\s+/g, '-');
+}
+
+/** Splice a highlights block into `planText`.
+ *
+ * Highlights is the only section with a closing marker, and that needs
+ * handling explicitly: `spliceSectionInPlace` ends a section at the *next*
+ * marker line, which for this section is its own `---end-highlights---`.
+ * So the old end marker sits outside the replaced range, in the tail, and
+ * the freshly-serialised block brings another one -- leaving a duplicate
+ * behind on every single op. (Found by live verification, not by the unit
+ * tests, which asserted entry counts; `parseHighlights` stops at the first
+ * end marker, so extra trailing ones are invisible to parsing while still
+ * accumulating in the document.) Dropping any leading end marker off the
+ * tail first is what keeps exactly one. */
+function spliceHighlights(planText, entries) {
+    const body = serializeHighlights(entries);
+    const block = body ? `${body}\n${HIGHLIGHTS_END}` : '';
+    const spliced = spliceSectionInPlace(planText, HIGHLIGHTS_START, block);
+    const out = [];
+    // When the last entry goes, `block` is empty and the section is removed
+    // outright -- so there is nothing left for an end marker to close and
+    // every one of them is orphaned. Otherwise keep exactly the one this
+    // splice just wrote.
+    let keptEnd = !block;
+    for (const line of spliced.split('\n')) {
+        if (line.trim() === HIGHLIGHTS_END) {
+            if (keptEnd) continue;
+            keptEnd = true;
+        }
+        out.push(line);
+    }
+    return out.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+/** Apply an op to the highlights section (#1036). */
+function applyHighlightsOp(text, op) {
+    const entries = parseHighlights(extractSection(text, HIGHLIGHTS_START));
+
+    if (op.op === 'add_row') {
+        const fields = op.fields || {};
+        const date = String(fields.date == null ? '' : fields.date).trim();
+        if (!ISO_DATE.test(date)) return reject('invalid');
+        const author = sanitizeAuthor(fields.author);
+        if (!author) return reject('invalid');
+        const content = normaliseEntryContent(fields.content);
+        if (content === null) return reject('invalid');
+        const entry = { date, author, content };
+        return { ok: true, text: spliceHighlights(text, entries.concat([entry])), previous: null };
+    }
+
+    const index = Number(op.row_id);
+    const entry = entries[index];
+    if (!entry) return reject('unknown_row');
+    // Positional ids: `expect` is what stops an op landing on whoever moved
+    // into this slot after a concurrent add or delete.
+    if (typeof op.expect === 'string' && `${entry.date} @${entry.author}` !== op.expect) {
+        return reject('stale');
+    }
+
+    if (op.op === 'delete_row') {
+        const next = entries.slice(0, index).concat(entries.slice(index + 1));
+        return { ok: true, text: spliceHighlights(text, next), previous: entry };
+    }
+
+    const fields = op.fields || {};
+    const merged = { ...entry };
+    if ('date' in fields) {
+        const date = String(fields.date == null ? '' : fields.date).trim();
+        if (!ISO_DATE.test(date)) return reject('invalid');
+        merged.date = date;
+    }
+    if ('author' in fields) {
+        const author = sanitizeAuthor(fields.author);
+        if (!author) return reject('invalid');
+        merged.author = author;
+    }
+    if ('content' in fields) {
+        const content = normaliseEntryContent(fields.content);
+        if (content === null) return reject('invalid');
+        merged.content = content;
+    }
+
+    const next = entries.slice();
+    next[index] = merged;
+    return { ok: true, text: spliceHighlights(text, next), previous: entry };
+}
 
 /** Parse a generic id-keyed pipe table into row objects, using `schema`'s
  * aliases to map however the table's headers happen to be worded onto the
@@ -654,6 +839,16 @@ export function buildSectionSnapshot(planText, rev, section) {
     const schema = SECTION_SCHEMAS[section];
     if (!schema) return null;
     if (schema.bespoke) return buildRaidSnapshot(planText, rev);
+    if (schema.entries) {
+        return {
+            type: 'backmatter_snapshot',
+            section,
+            rev,
+            items: parseHighlights(
+                extractSection(String(planText == null ? '' : planText), schema.marker),
+            ),
+        };
+    }
     return {
         type: 'backmatter_snapshot',
         section,
@@ -835,6 +1030,7 @@ export function applyBackmatterOp(planText, op) {
 
     const text = String(planText == null ? '' : planText);
     const schema = SECTION_SCHEMAS[op.section];
+    if (schema.entries) return applyHighlightsOp(text, op);
     if (!schema.bespoke) return applySectionOp(text, op, schema);
 
     const items = parseRaidTable(extractSection(text, RAID_LOG_START));
