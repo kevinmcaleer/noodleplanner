@@ -362,7 +362,7 @@
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="notepad" onclick="switchToView('notepad'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-doc"/></svg> Notepad
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Notepad
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="gantt" onclick="switchToView('gantt'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
@@ -556,7 +556,9 @@
             <div id="editor-tab" class="tab-content active" role="tabpanel">
                 <div class="editor-layout">
                     <div class="editor-panel">
-                        {% include '_editor_toolbar.html' %}
+                        <!-- #1045: mini toolbar removed -- the ribbon (#ribbonShell above) now
+                             owns Undo/Redo, Indent/Outdent, Link, Task Inspector, Open/Save
+                             and Conditional Formatting. -->
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
@@ -1048,6 +1050,14 @@ Press Enter to render..."></textarea>
                                     </table>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Notepad View (#1049): a plain notepad-style list surface --
+                             no front matter, no syntax, no jargon on screen. Populated
+                             by notepad.js's activateNotepadView(), called from
+                             switchOutputTab() in nav.js. -->
+                        <div id="notepad-view" class="output-tab-content">
+                            <div id="notepadContainer"></div>
                         </div>
 
                         <!-- Resources View -->
@@ -1752,16 +1762,12 @@ Press Enter to render..."></textarea>
                 </div>
             </div>
 
-            <div id="notepad-tab" class="tab-content" role="tabpanel">
-                <div id="notepadSurfaceRoot" class="notepad-surface-root"></div>
-            </div>
-
             <div id="kanban-tab" class="tab-content" role="tabpanel">
                 <div class="message" id="kanbanMessage"></div>
                 <div class="kanban-layout">
                     <!-- Collapsible Editor Panel -->
                     <div class="kanban-editor-panel collapsed" id="kanbanEditorPanel">
-                        {% include '_editor_toolbar.html' %}
+                        <!-- #1045: mini toolbar removed -- see editor-tab above -->
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="kanbanLineNumbers">1</div>
                             <div class="editor-area">
@@ -4236,7 +4242,6 @@ Build
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
-    <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/estimating.js?v={{ v }}"></script>
     <script src="/static/highlight-toggles.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
@@ -4249,6 +4254,7 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
     <script src="/static/programme-data-store.js?v={{ v }}"></script>

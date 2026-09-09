@@ -47,6 +47,11 @@ phase (or a single "All Tasks" column for a plan with no phases yet); drag a
 card's handle to move it into another phase. Each row's ⏱ button opens the
 three-point estimating popup (see :doc:`plan-syntax`).
 
+Notepad
+~~~~~~~~
+
+A plain notepad-style list: type a line, press Enter, get a task; ``Tab``/``Shift+Tab`` build the outline; drag to reorder. No front matter, no syntax, no jargon on screen, but it edits the same document as every other view. A **Board view** button switches to the Kanban board — the two are different lenses over the same plan text, so a change in one shows up in the other immediately. See :doc:`../how-to/use-the-notepad`.
+
 Gantt
 ~~~~~~
 
