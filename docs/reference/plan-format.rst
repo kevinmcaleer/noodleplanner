@@ -308,7 +308,7 @@ position, so extra or reordered columns are tolerated), except highlights.
        rules.
    * - ``---parking lot---``
      - Table: ``ID | Text | Date Parked``. The "good idea, not now"
-       holding pen (issue #1019, part of #885): a whiteboard note's `...`
+       holding pen (issue #1019, part of #885): a whiteboard note's ``...``
        menu offers "Send to parking lot", which deletes the note's task
        (and any subtasks) from the outline the same way "Delete task"
        does, but keeps its text here instead of discarding it. ``Text``
