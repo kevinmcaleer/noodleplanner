@@ -83,6 +83,7 @@ function getLiveState() {
         // top-level `let` in a classic script, so it's readable here as a
         // shared global, same as NavigationController/EditorUndoManager above.
         themeChoice: (typeof currentThemeChoice !== 'undefined') ? currentThemeChoice : 'light',
+        highlightToggles: (typeof HighlightToggles !== 'undefined') ? HighlightToggles.getState() : null,
     };
 }
 
@@ -153,6 +154,24 @@ const GANTT_SCALES = ['days', 'weeks', 'months', 'quarters', 'years'].map((scale
 const KANBAN_GROUP_MODES = ['phase', 'resource', 'progress', 'label', 'bucket'].map((mode) => ({
     label: mode.charAt(0).toUpperCase() + mode.slice(1),
     run: () => switchKanbanView(mode),
+}));
+// Stage presets for the per-category highlight toggles (#1051), keyed to
+// HighlightToggles.PRESETS. 'All' / 'Plain' are the always-on / no-
+// highlighting bookends the issue requires; the rest are the DADESRC-stage
+// presets (#783 D) the wizard shell (#1054) will later apply automatically.
+const HIGHLIGHT_PRESETS = [
+    { label: 'All', preset: 'all' },
+    { label: 'Plain (no highlighting)', preset: 'plain' },
+    { label: 'Design', preset: 'design' },
+    { label: 'Add Tasks', preset: 'add-tasks' },
+    { label: 'Dependencies', preset: 'dependencies' },
+    { label: 'Estimating', preset: 'estimating' },
+    { label: 'Scheduling', preset: 'scheduling' },
+    { label: 'Risks', preset: 'risks' },
+    { label: 'Comms', preset: 'comms' },
+].map(({ label, preset }) => ({
+    label,
+    run: () => { if (typeof HighlightToggles !== 'undefined') HighlightToggles.applyPreset(preset); },
 }));
 
 /** Navigate to the portfolio view's `name` sub-view (portfolio.js's own
@@ -247,6 +266,21 @@ const LABEL_ACTIONS = {
     Settings: () => openSettingsPanel(),
     Undo: () => EditorUndoManager.undo(),
 
+    // Per-category syntax highlight toggles (#1051) -- see
+    // highlight-toggles.js's own header comment for why flipping these can
+    // never touch the editor's actual text or caret.
+    'Show Durations': () => HighlightToggles.toggleCategory('duration'),
+    'Show Resources': () => HighlightToggles.toggleCategory('resource'),
+    'Show Tags': () => HighlightToggles.toggleCategory('tag'),
+    'Show Comments': () => HighlightToggles.toggleCategory('comment'),
+    'Show Dependencies': () => HighlightToggles.toggleCategory('dependency'),
+    'Highlight Preset': () => openFormatMenu(HIGHLIGHT_PRESETS, 'Highlight Preset'),
+
+    // The DADESRC guided flow shell (#1054): a persistent bar the shell
+    // injects itself, not a ribbon popover, so nothing here needs
+    // OPENS_OWN_POPOVER treatment.
+    'Guided Plan': () => { if (typeof PlanWizard !== 'undefined') PlanWizard.open(); },
+
     // Gantt toggles -- real checkboxes in the (hidden-when-inactive) gantt
     // view, flipped via a real 'change' event so views-gantt.js's own
     // addEventListener('change', ...) wiring does the actual work.
@@ -299,7 +333,7 @@ function resolveAction(scopeId, label) {
  * refreshRibbon() replaces .ribbon-tabstrip's innerHTML wholesale, which
  * would destroy that popover the instant it opened, so these must skip
  * the post-action refresh rather than re-render over their own menu. */
-const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month']);
+const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month', 'Highlight Preset']);
 
 function runAction(scopeId, label) {
     const action = resolveAction(scopeId, label);
@@ -502,6 +536,11 @@ function isButtonActive(scopeId, label, live) {
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (label === 'System Theme') return live.themeChoice === 'system';
+    if (label === 'Show Durations') return !!live.highlightToggles?.duration;
+    if (label === 'Show Resources') return !!live.highlightToggles?.resource;
+    if (label === 'Show Tags') return !!live.highlightToggles?.tag;
+    if (label === 'Show Comments') return !!live.highlightToggles?.comment;
+    if (label === 'Show Dependencies') return !!live.highlightToggles?.dependency;
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
         if (label === 'Resource') return live.kanbanViewMode === 'resource';

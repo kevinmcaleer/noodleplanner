@@ -1,0 +1,164 @@
+/* DADESRC stage wizard shell (#1054). A floating panel, not a modal --
+   it overlays the current view without blocking interaction with it.
+
+   Classes are prefixed plan-wizard- throughout: the Excel import wizard
+   already owns .wizard-step / .wizard-steps / .wizard-panel etc.
+   (components.css), so reusing those names would collide with its
+   existing markup and styling. */
+
+.plan-wizard-panel {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    max-height: min(70vh, 520px);
+    background: var(--np-surface, #fff);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    z-index: 1800;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.plan-wizard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
+    cursor: default;
+}
+
+.plan-wizard-close {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--np-muted, #6c757d);
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.plan-wizard-steps {
+    display: flex;
+    overflow-x: auto;
+    gap: 2px;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
+}
+
+.plan-wizard-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 4px 6px;
+    min-width: 56px;
+    flex: 1 0 auto;
+    /* Touch target per docs/how-to/use-touch-controls.rst's 44px convention. */
+    min-height: 44px;
+}
+
+.plan-wizard-step-bubble {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    border: 2px solid var(--np-border, #dee2e6);
+    color: var(--np-muted, #6c757d);
+}
+
+.plan-wizard-step.current .plan-wizard-step-bubble {
+    border-color: var(--np-blue, #108bb9);
+    background: var(--np-blue, #108bb9);
+    color: #fff;
+}
+
+.plan-wizard-step.visited .plan-wizard-step-bubble {
+    border-color: var(--np-green, #2e9e5b);
+    background: var(--np-green, #2e9e5b);
+    color: #fff;
+}
+
+.plan-wizard-step.skipped .plan-wizard-step-bubble {
+    border-color: var(--np-border, #dee2e6);
+    color: var(--np-muted, #6c757d);
+}
+
+.plan-wizard-step-label {
+    font-size: 10px;
+    color: var(--np-muted, #6c757d);
+    white-space: nowrap;
+}
+
+.plan-wizard-step.current .plan-wizard-step-label {
+    color: inherit;
+    font-weight: 600;
+}
+
+.plan-wizard-description {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--np-muted, #6c757d);
+    overflow-y: auto;
+}
+
+.plan-wizard-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--np-border, #dee2e6);
+}
+
+.plan-wizard-back-btn,
+.plan-wizard-skip-btn,
+.plan-wizard-next-btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    min-height: 40px;
+}
+
+.plan-wizard-back-btn {
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+}
+
+.plan-wizard-back-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.plan-wizard-skip-btn {
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    margin-right: auto;
+}
+
+.plan-wizard-next-btn {
+    border: 1px solid var(--np-blue, #108bb9);
+    background: var(--np-blue, #108bb9);
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .plan-wizard-panel {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+    }
+}

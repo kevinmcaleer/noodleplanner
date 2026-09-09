@@ -19,6 +19,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/use-touch-controls
    how-to/use-the-gantt-view
    how-to/use-the-notepad
+   how-to/use-plan-cards
    how-to/use-the-kanban-board
    how-to/use-the-raid-log
    how-to/manage-resources
@@ -41,6 +42,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/product-planning
    how-to/communications-plan
    how-to/run-a-planning-session
+   how-to/use-the-guided-plan-wizard
 
 .. toctree::
    :maxdepth: 2

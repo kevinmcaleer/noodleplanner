@@ -271,6 +271,27 @@
             input.setAttribute('aria-label', rowState.isDraft ? 'New task' : rowState.task.name);
             row.appendChild(input);
 
+            // Estimate button (#1053) -- optional, only rendered when
+            // estimating.js is loaded, so this surface stays usable
+            // standalone without it (same generic-seam principle as
+            // getText/setText above).
+            if (!rowState.isDraft && typeof EstimatingTool !== 'undefined') {
+                const estimateBtn = document.createElement('button');
+                estimateBtn.type = 'button';
+                estimateBtn.className = 'estimate-open-btn notepad-estimate-btn';
+                estimateBtn.title = 'Estimate';
+                estimateBtn.textContent = '⏱';
+                const taskName = rowState.task.name;
+                estimateBtn.addEventListener('click', () => {
+                    EstimatingTool.openEstimatePopup({
+                        getText,
+                        setText: (text) => { setText(text); onChange(text); render(); },
+                        taskName,
+                    });
+                });
+                row.appendChild(estimateBtn);
+            }
+
             input.addEventListener('keydown', event => {
                 if (event.key === 'Enter') {
                     event.preventDefault();

@@ -1,0 +1,164 @@
+/* Reusable plan cards popup (#1050). */
+
+.card-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-popup {
+    background: var(--np-surface, #fff);
+    border-radius: 10px;
+    width: 460px;
+    max-width: 92vw;
+    max-height: 80vh;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
+}
+
+.card-popup-close {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--np-muted, #6c757d);
+}
+
+.card-popup-body {
+    padding: 14px 16px;
+    overflow-y: auto;
+}
+
+.card-save-section {
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
+}
+
+.card-save-label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--np-muted, #6c757d);
+}
+
+.card-save-row {
+    display: flex;
+    gap: 8px;
+}
+
+.card-save-row input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--np-border, #dee2e6);
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.card-save-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--np-blue, #108bb9);
+    background: var(--np-blue, #108bb9);
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.card-list-heading {
+    font-size: 13px;
+    color: var(--np-muted, #6c757d);
+    margin-bottom: 8px;
+}
+
+.card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.card-list-empty {
+    font-size: 13px;
+    color: var(--np-muted, #6c757d);
+    padding: 8px 0;
+}
+
+.card-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--np-border, #dee2e6);
+    border-radius: 8px;
+}
+
+.card-list-name {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.card-list-meta {
+    font-size: 12px;
+    color: var(--np-muted, #6c757d);
+}
+
+.card-list-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.card-insert-tasks-btn,
+.card-insert-text-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.card-delete-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--np-muted, #6c757d);
+    padding: 4px;
+}
+
+.card-popup-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid var(--np-border, #dee2e6);
+}
+
+.card-popup-cancel {
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--np-border, #dee2e6);
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+}

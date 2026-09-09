@@ -19,6 +19,9 @@ from noodle_core import (
     update_plan_baseline,
     extract_budget,
     strip_budget,
+    extract_estimates,
+    strip_estimates,
+    parse_estimates_markdown,
     extract_benefits,
     strip_benefits,
     extract_comms_plan,
@@ -1866,6 +1869,161 @@ Phase 1
         assert '---budget---' not in result
         assert 'Dev work' not in result
         assert 'Task 1' in result
+
+
+class TestEstimatesSection:
+    """Tests for the three-point (PERT) estimates back-matter section (#1053)."""
+
+    def test_extract_estimates_returns_empty_when_absent(self):
+        assert extract_estimates('Phase 1\n  Task A 3d\n') == ''
+
+    def test_extract_estimates_stops_at_next_marker(self):
+        text = """Phase 1
+  Task A 3d
+
+---estimates---
+| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+
+---raid log---
+| ID | Type | Title |
+|----|------|-------|
+| 1  | Risk | Test  |"""
+        section = extract_estimates(text)
+        assert 'Task A' in section
+        assert 'Optimistic' in section
+        assert '---raid log---' not in section
+        assert 'Risk' not in section
+
+    def test_strip_estimates_removes_the_block_and_preserves_the_rest(self):
+        text = """Phase 1
+  Task A 3d
+
+---estimates---
+| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+
+---raid log---
+| ID | Type | Title |
+|----|------|-------|
+| 1  | Risk | Test  |"""
+        result = strip_estimates(text)
+        assert '---estimates---' not in result
+        assert 'Optimistic' not in result
+        assert '---raid log---' in result
+        assert 'Risk' in result
+        assert 'Task A' in result
+
+    def test_estimates_not_parsed_as_tasks(self):
+        """convert_plan_format_to_standard must strip estimates before task
+        parsing, or the table rows leak into the schedule as phantom
+        tasks (#1053's "must not confuse the scheduler" requirement)."""
+        text = """Phase 1
+  Task A 3d
+
+---estimates---
+| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---estimates---' not in result
+        assert 'Optimistic' not in result
+        assert 'Task A' in result
+        # Only one occurrence of "Task A" -- the real task line, not a
+        # second one leaking in from the estimates table row.
+        assert result.count('Task A') == 1
+
+    def test_estimates_with_raid_log_after(self):
+        """Estimates should be stripped but a following section's own
+        marker must survive for its own stripper (#978 adjacency class)."""
+        text = """Phase 1
+  Task A 3d
+
+---estimates---
+| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+
+---raid log---
+| ID | Type | Title |
+|----|------|-------|
+| 1  | Risk | Test  |"""
+        result = convert_plan_format_to_standard(text)
+        assert '---estimates---' not in result
+        assert 'Optimistic' not in result
+        assert '---raid log---' not in result  # RAID is also stripped by convert_plan_format_to_standard
+        assert 'Task A' in result
+
+    def test_estimates_out_of_canonical_order_before_budget(self):
+        """#978 class: estimates appearing *before* another section in the
+        actual text (not the canonical order) must not swallow it."""
+        text = """Phase 1
+  Task A 3d
+
+---estimates---
+| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+
+---budget---
+| ID | Description | Estimate |
+|----|-------------|----------|
+| 1  | Dev work    | 5000     |"""
+        stripped = strip_estimates(text)
+        assert '---estimates---' not in stripped
+        assert 'Optimistic' not in stripped
+        assert '---budget---' in stripped
+        assert 'Dev work' in stripped
+
+    def test_parse_estimates_markdown_basic(self):
+        text = """| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+| Task B | | | | tshirt | M |"""
+        records = parse_estimates_markdown(text)
+        assert len(records) == 2
+        assert records[0] == {
+            'task': 'Task A', 'optimistic': '1d', 'most_likely': '2d',
+            'pessimistic': '5d', 'mode': 'duration', 'size': '',
+        }
+        assert records[1]['task'] == 'Task B'
+        assert records[1]['mode'] == 'tshirt'
+        assert records[1]['size'] == 'M'
+
+    def test_parse_estimates_markdown_empty_without_table(self):
+        assert parse_estimates_markdown('no table here') == []
+
+    def test_parse_estimates_markdown_skips_commented_row(self):
+        text = """| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+// | Task B | 1d | 2d | 5d | duration | |"""
+        records = parse_estimates_markdown(text)
+        names = [r['task'] for r in records]
+        assert 'Task A' in names
+        assert 'Task B' not in names
+
+    def test_parse_estimates_markdown_rejects_unknown_mode(self):
+        text = """| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | nonsense | |"""
+        records = parse_estimates_markdown(text)
+        assert records[0]['mode'] == 'duration'
+
+    def test_strip_then_extract_leaves_no_trace_of_the_section(self):
+        text = """Phase 1
+  Task A 3d
+
+---estimates---
+| Task | Optimistic | Most Likely | Pessimistic | Mode | Size |
+|------|------------|-------------|-------------|------|------|
+| Task A | 1d | 2d | 5d | duration | |
+"""
+        stripped = strip_estimates(text)
+        assert extract_estimates(stripped) == ''
+        assert parse_estimates_markdown(extract_estimates(stripped)) == []
 
 
 class TestParseBenefitsMarkdown:

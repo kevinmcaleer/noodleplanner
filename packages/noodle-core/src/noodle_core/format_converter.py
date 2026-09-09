@@ -13,13 +13,18 @@ BASELINE_START = '---baseline---'
 LESSONS_START = '---lessons learned---'
 WHITEBOARD_START = '---whiteboard---'
 PARKING_LOT_START = '---parking lot---'
+# Three-point (PERT) estimate inputs per task (#1053). Canonically written
+# last -- see the ordering note below -- since it has no relationship to
+# any other section's content and there is no reason for another section
+# to need to know where it ends.
+ESTIMATES_START = '---estimates---'
 
 # Every back-matter section marker. The canonical write order (see the
 # update_plan_* functions below, e.g. update_plan_highlights) puts these
 # in the order: highlights, budget, benefits, raid log, comms, lessons
-# learned, baseline, whiteboard, parking lot. Nothing enforces that order in
-# hand-edited or AI-chat-edited plan text, though, so any function that
-# finds "the next section marker"
+# learned, baseline, whiteboard, parking lot, estimates. Nothing enforces
+# that order in hand-edited or AI-chat-edited plan text, though, so any
+# function that finds "the next section marker"
 # after a given section must scan for *every other* marker here and take
 # whichever occurs earliest -- not just the ones that are supposed to come
 # later in canonical order. Otherwise a section that ends up out of its
@@ -28,7 +33,7 @@ PARKING_LOT_START = '---parking lot---'
 ALL_SECTION_MARKERS = (
     HIGHLIGHTS_START, HIGHLIGHTS_END, BUDGET_START, BENEFITS_START,
     RAID_LOG_START, COMMS_START, LESSONS_START, BASELINE_START,
-    WHITEBOARD_START, PARKING_LOT_START,
+    WHITEBOARD_START, PARKING_LOT_START, ESTIMATES_START,
 )
 
 
@@ -133,6 +138,7 @@ def convert_plan_format_to_standard(text: str) -> str:
     text = strip_baseline(text)
     text = strip_whiteboard(text)
     text = strip_parking_lot(text)
+    text = strip_estimates(text)
     lines = text.split('\n')
     output_lines = []
     in_frontmatter = False
@@ -609,6 +615,131 @@ def parse_budget_markdown(text: str) -> list:
         })
 
     return items
+
+
+def extract_estimates(text: str) -> str:
+    """Extract the three-point estimates section text from plan text (#1053).
+
+    Returns the raw text between ``---estimates---`` and whichever other
+    section marker occurs next in the actual text, or EOF. Returns an
+    empty string if no estimates section is present.
+    """
+    start_idx = text.find(ESTIMATES_START)
+    if start_idx == -1:
+        return ''
+
+    after_start = start_idx + len(ESTIMATES_START)
+    end_idx = _next_marker_idx(text, after_start, exclude=(ESTIMATES_START,))
+
+    return text[after_start:end_idx].strip()
+
+
+def strip_estimates(text: str) -> str:
+    """Remove the estimates section from plan text (#1053).
+
+    Returns the plan text without the ``---estimates---`` block. This is
+    what keeps a task's recorded three-point inputs from leaking into the
+    task outline the scheduler parses -- see convert_plan_format_to_standard().
+    Preserves whatever other section actually follows the estimates
+    section in the text, regardless of canonical order.
+    """
+    start_idx = text.find(ESTIMATES_START)
+    if start_idx == -1:
+        return text
+
+    before = _strip_trailing_bare_separator(text[:start_idx])
+    end_idx = _next_marker_idx(text, start_idx, exclude=(ESTIMATES_START,))
+    if end_idx < len(text):
+        return before + '\n\n' + text[end_idx:]
+
+    return before
+
+
+def parse_estimates_markdown(text: str) -> list:
+    """Parse a three-point estimates markdown table into a list of records.
+
+    Args:
+        text: Markdown text containing an estimates table (columns: Task,
+            Optimistic, Most Likely, Pessimistic, Mode, Size)
+
+    Returns:
+        List of dicts with keys: task, optimistic, most_likely,
+        pessimistic, mode ('duration' or 'tshirt'), size (t-shirt size
+        letter, only meaningful when mode is 'tshirt')
+    """
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+    header_index = -1
+    for i, line in enumerate(lines):
+        lower = line.lower()
+        if '|' in lower and 'task' in lower and 'optimistic' in lower:
+            header_index = i
+            break
+
+    if header_index == -1:
+        return []
+
+    def parse_row(line):
+        parts = line.split('|')
+        cells = []
+        for i, p in enumerate(parts):
+            stripped = p.strip()
+            if i == 0 and not stripped:
+                continue
+            if i == len(parts) - 1 and not stripped:
+                continue
+            cells.append(stripped)
+        return cells
+
+    headers = [h.lower() for h in parse_row(lines[header_index])]
+
+    aliases = {
+        'task': 'task', 'optimistic': 'optimistic', 'likely': 'most_likely',
+        'pessimistic': 'pessimistic', 'mode': 'mode', 'size': 'size',
+    }
+
+    col_map = {}
+    for idx, h in enumerate(headers):
+        for alias, field in aliases.items():
+            if alias in h:
+                col_map[field] = idx
+                break
+
+    records = []
+    for i in range(header_index + 1, len(lines)):
+        line = lines[i]
+        if '|' not in line:
+            continue
+        if all(c in '-| ' for c in line):
+            continue
+        if line.lstrip().startswith('//'):
+            continue
+
+        cells = parse_row(line)
+        if not cells:
+            continue
+
+        def get_cell(field, default=''):
+            idx = col_map.get(field)
+            if idx is not None and idx < len(cells):
+                return cells[idx].replace('\\|', '|')
+            return default
+
+        task_name = get_cell('task', '')
+        if not task_name:
+            continue
+
+        mode = get_cell('mode', 'duration')
+        records.append({
+            'task': task_name,
+            'optimistic': get_cell('optimistic', ''),
+            'most_likely': get_cell('most_likely', ''),
+            'pessimistic': get_cell('pessimistic', ''),
+            'mode': mode if mode in ('duration', 'tshirt') else 'duration',
+            'size': get_cell('size', ''),
+        })
+
+    return records
 
 
 def parse_raid_markdown(text: str) -> list:

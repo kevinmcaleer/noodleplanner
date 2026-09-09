@@ -172,6 +172,10 @@ const WHITEBOARD_START = '---whiteboard---';
 // section *after* whiteboard -- see format_converter.py's matching
 // ALL_SECTION_MARKERS comment for the full canonical order.
 const PARKING_LOT_START = '---parking lot---';
+// Issue #1053: three-point (PERT) estimate inputs per task, canonically
+// the last back-matter section -- see format_converter.py's matching
+// ALL_SECTION_MARKERS comment.
+const ESTIMATES_START = '---estimates---';
 
 // Benefits state
 let benefitItems = [];

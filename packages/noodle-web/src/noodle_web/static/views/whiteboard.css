@@ -1329,7 +1329,9 @@ body.wb-linking * {
     stroke: #ffffff;
 }
 
-/* The rubber band that follows the pointer mid-drag. */
+/* The rubber band that follows the pointer mid-drag. Dependency mode
+   (#1052) recolours it to match the dependency noodle's own colour, so
+   the drag itself previews which kind of link will land. */
 .wb-noodle-ghost {
     stroke: var(--np-green, #1c9e41);
     stroke-width: 2.5;
@@ -1337,6 +1339,91 @@ body.wb-linking * {
     stroke-linecap: round;
     vector-effect: non-scaling-stroke;
     pointer-events: none;
+}
+
+body.wb-dependency-mode .wb-noodle-ghost {
+    stroke: var(--np-purple, #9b59b6);
+}
+
+/* ── Dependency noodles (#1052) ──────────────────────────────────────
+   A second, distinct kind of noodle: dashed and purple rather than the
+   hierarchy noodle's solid blue, so a board with both never reads as one
+   thing. Same geometry helpers as the hierarchy noodle (see
+   whiteboard-dep-noodles.js), different meaning and different look. */
+.wb-dep-noodle-path {
+    stroke: var(--np-purple, #9b59b6);
+    stroke-width: 2.5;
+    stroke-dasharray: 6 5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.75;
+    transition: opacity 0.12s ease, stroke-width 0.12s ease;
+}
+
+.wb-dep-noodle-arrow {
+    fill: var(--np-purple, #9b59b6);
+    opacity: 0.75;
+}
+
+.wb-dep-noodle-hit {
+    cursor: pointer;
+}
+
+.wb-dep-noodle:hover .wb-dep-noodle-path {
+    opacity: 1;
+    stroke-width: 3.5;
+}
+
+.wb-dep-noodle:hover .wb-dep-noodle-arrow {
+    opacity: 1;
+}
+
+.wb-dep-noodle.selected .wb-dep-noodle-path {
+    opacity: 1;
+    stroke-width: 4;
+    stroke: var(--np-orange, #ff7b01);
+}
+
+.wb-dep-noodle.selected .wb-dep-noodle-arrow {
+    opacity: 1;
+    fill: var(--np-orange, #ff7b01);
+}
+
+.wb-dep-noodle-cut {
+    display: none;
+    cursor: pointer;
+}
+
+.wb-dep-noodle.selected .wb-dep-noodle-cut {
+    display: block;
+}
+
+.wb-dep-noodle-cut-bg {
+    fill: var(--np-surface, #ffffff);
+    stroke: var(--np-orange, #ff7b01);
+    stroke-width: 2;
+}
+
+.wb-dep-noodle-cut-mark {
+    stroke: var(--np-orange, #ff7b01);
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+}
+
+.wb-dep-noodle-cut:hover .wb-dep-noodle-cut-bg {
+    fill: var(--np-orange, #ff7b01);
+}
+
+.wb-dep-noodle-cut:hover .wb-dep-noodle-cut-mark {
+    stroke: #ffffff;
+}
+
+/* ── Link mode toggle (#1052) ────────────────────────────────────────── */
+.wb-link-mode-btn.active {
+    background: var(--np-purple, #9b59b6);
+    border-color: var(--np-purple, #9b59b6);
+    color: #ffffff;
 }
 
 /* ── Transient canvas message ────────────────────────────────────────

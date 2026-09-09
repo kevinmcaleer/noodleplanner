@@ -98,6 +98,9 @@
     <link rel="stylesheet" href="/static/views/gantt.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/kanban.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/notepad.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/estimating.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/cards.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/plan-wizard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
@@ -1416,8 +1419,14 @@ Press Enter to render..."></textarea>
                                             <span>Parking lot</span>
                                         </button>
                                     </div>
+                                    <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn wb-link-mode-btn" id="whiteboardLinkModeBtn" onclick="wbToggleLinkMode()" title="Dragging a noodle handle makes a subtask (Hierarchy) or a dependency (Dependency) -- click to switch" aria-label="Link mode: Hierarchy. Click to switch to Dependency mode." aria-pressed="false">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v12a3 3 0 003 3h6"/><path d="M12 15l3 3-3 3"/></svg>
+                                            <span id="whiteboardLinkModeLabel">Hierarchy</span>
+                                        </button>
+                                    </div>
                                     <div class="wb-toolbar-hint">
-                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
+                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask (or, in Dependency mode, a dependency) &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
                                     </div>
                                 </div>
                                 <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas. Pan, zoom, and double-click empty space to add a post-it.">
@@ -4235,6 +4244,10 @@ Build
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/estimating.js?v={{ v }}"></script>
+    <script src="/static/cards.js?v={{ v }}"></script>
+    <script src="/static/highlight-toggles.js?v={{ v }}"></script>
+    <script src="/static/plan-wizard.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/window-drop.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>
@@ -4272,6 +4285,7 @@ Build
     <script src="/static/whiteboard-structure.js?v={{ v }}"></script>
     <script src="/static/whiteboard-notes.js?v={{ v }}"></script>
     <script src="/static/whiteboard-noodles.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-dep-noodles.js?v={{ v }}"></script>
     <script src="/static/whiteboard-outline.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/lessons.js?v={{ v }}"></script>
