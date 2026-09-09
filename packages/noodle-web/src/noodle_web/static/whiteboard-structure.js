@@ -7,9 +7,11 @@
  * authoring the outline *from* the board:
  *
  *   - dropping a new post-it appends a brand-new top-level task
- *     (wbAppendTopLevelTask()), and
+ *     (wbAppendTopLevelTask()),
  *   - dragging a noodle from note A to note B re-parents B's whole
- *     subtree underneath A (wbReparentTaskInPlanText()).
+ *     subtree underneath A (wbReparentTaskInPlanText()), and
+ *   - "promoting" a free-form note (issue #1020) appends one brand-new
+ *     child task under it (wbAppendChildTask()).
  *
  * Storage decision: a noodle has *no storage of its own*. A noodle from A
  * to B means exactly "B is indented under A in the plan outline", so the
@@ -318,6 +320,42 @@ function wbAppendTopLevelTask(planText, name) {
         lines.splice(insertAt + 1, 1);
     }
 
+    return lines.join('\n');
+}
+
+/**
+ * Append `name` as a brand-new task, last child of `parentName`, in the
+ * outline -- the write behind issue #1020's "promote to task": turning a
+ * free-form note's own loose comment text into a real child task is
+ * exactly what flips wbIsFreeformNote() (whiteboard-notes.js) to false and
+ * makes the note render as a checklist on the very next render pass, per
+ * #1015's already-landed free-form/checklist split -- so this only ever
+ * needs to add the one line, not build a second rendering path.
+ *
+ * Insertion point and target indent mirror wbReparentTaskInPlanText()'s
+ * own "last child" placement below (wbSubtreeEndIndex() + one
+ * WB_INDENT_UNIT deeper than the parent), so a promoted note's new child
+ * lands exactly where dragging a noodle onto it would have put an
+ * existing task.
+ *
+ * Returns `planText` unchanged if `name` is empty or `parentName` can't be
+ * found in the outline -- the caller (wbPromoteFreeformNote(),
+ * whiteboard-notes.js) treats either as a no-op, not an error.
+ */
+function wbAppendChildTask(planText, parentName, name) {
+    const clean = String(name || '').trim();
+    const text = String(planText == null ? '' : planText);
+    if (!clean) return text;
+
+    const parsed = wbParseOutline(text);
+    const parentPos = wbFindOutlineIndex(parsed.entries, parentName);
+    if (parentPos === -1) return text;
+
+    const insertAt = wbSubtreeEndIndex(parsed, parentPos) + 1;
+    const targetIndent = parsed.entries[parentPos].indent + WB_INDENT_UNIT.length;
+
+    const lines = parsed.lines.slice();
+    lines.splice(insertAt, 0, wbSetLineIndent(clean, targetIndent));
     return lines.join('\n');
 }
 

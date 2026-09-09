@@ -40,6 +40,8 @@ If you also want a line or two of detail, open **Open task details** on the note
 
 The moment you give the note its *first* subtask — indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step and no way to switch back short of removing every subtask again.
 
+**Promote to task** on a free-form note's ``...`` menu is a shortcut for exactly that first-subtask step: it turns the note's own **Comment** text into a real subtask underneath it, and the note switches to a checklist right away. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
+
 Rename a Note
 ---------------
 

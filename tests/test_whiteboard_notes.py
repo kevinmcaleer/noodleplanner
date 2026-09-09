@@ -702,3 +702,255 @@ class TestReRenderPreservesViewport:
             """
         )
         assert after == before, "re-rendering notes after a plan edit must not reset pan/zoom"
+
+
+def bare_line_for(plan_text, task_name):
+    """The single markdown line whose *entire* trimmed content is exactly
+    `task_name` -- what wbAppendChildTask() writes for a promoted child
+    (no duration/resources/comment tokens, just the indented name), unlike
+    line_for_task() above which matches a name that's merely the first
+    token on an otherwise-decorated line."""
+    for line in plan_text.split("\n"):
+        if line.strip() == task_name:
+            return line
+    return None
+
+
+class TestPromoteToTask:
+    """Issue #1020, part of #885: promoting a free-form note's own loose
+    `comment` text into a real child task.
+
+    Per #1015's already-landed free-form/checklist split, a free-form
+    note's own task already exists in the outline -- there is no "create a
+    task that didn't exist before" step. Promotion's entire job is turning
+    the note's loose comment into one real child task
+    (wbAppendChildTask(), whiteboard-structure.js), which is exactly what
+    flips wbIsFreeformNote() to false and switches the note to checklist
+    rendering on the very next render pass -- see
+    wbPromoteFreeformNote()'s own doc comment in whiteboard-notes.js for
+    the full reasoning. Exercised here by calling wbPromoteFreeformNote()
+    directly (same pattern test_whiteboard_note_colour.py's
+    TestNoteColourRename uses for kanbanBoard.renamePhase()) plus one test
+    that drives the real `...` menu item end to end.
+    """
+
+    def test_promoting_creates_a_child_task_named_from_the_comment(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = get_note(browser, "Empty Phase")
+        assert before is not None and "wb-note-freeform" in before["html"]
+
+        promoted = browser.execute_script("return wbPromoteFreeformNote('Empty Phase');")
+        assert promoted is True
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        plan_text = get_plan_text(browser)
+        child_line = bare_line_for(plan_text, "Chase the vendor for a quote.")
+        assert child_line is not None, "the comment text becomes a real outline line"
+
+        parent_line = line_for_task(plan_text, "Empty Phase")
+        parent_indent = len(parent_line) - len(parent_line.lstrip(" "))
+        child_indent = len(child_line) - len(child_line.lstrip(" "))
+        assert child_indent == parent_indent + 2, \
+            "the promoted child is indented one outline level under its parent"
+
+    def test_promoted_note_renders_as_checklist(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        browser.execute_script("wbPromoteFreeformNote('Empty Phase');")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        after = get_note(browser, "Empty Phase")
+        assert after is not None
+        assert "wb-note-freeform" not in after["html"], \
+            "the note is no longer free-form once promotion gives it a child"
+        assert "Chase the vendor for a quote." in after["html"], \
+            "the new child renders as a checklist row, reusing #1015's existing rendering"
+
+        footer_visible = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Empty Phase') continue;
+                const footer = n.querySelector('.wb-note-footer');
+                return getComputedStyle(footer).display !== 'none';
+            }
+            return null;
+            """
+        )
+        assert footer_visible is True, "the progress footer appears once the note has a checklist"
+
+    def test_promoting_a_blank_note_prompts_for_a_name(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = get_note(browser, "Loose Idea")
+        assert before is not None and "wb-note-freeform" in before["html"]
+
+        browser.execute_script("window.prompt = function() { return 'First step'; };")
+        promoted = browser.execute_script("return wbPromoteFreeformNote('Loose Idea');")
+        assert promoted is True
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        plan_text = get_plan_text(browser)
+        assert bare_line_for(plan_text, "First step") is not None, \
+            "the typed prompt answer becomes the new child task's name"
+
+        after = get_note(browser, "Loose Idea")
+        assert "wb-note-freeform" not in after["html"]
+
+    def test_promoting_a_blank_note_cancelled_prompt_is_a_no_op(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = wait_for_stable_plan_text(browser)
+
+        browser.execute_script("window.prompt = function() { return null; };")
+        promoted = browser.execute_script("return wbPromoteFreeformNote('Loose Idea');")
+        assert promoted is False, "a cancelled prompt must not create a garbage task"
+
+        after = get_plan_text(browser)
+        assert after == before, "a cancelled promotion writes nothing to the plan"
+
+        still_freeform = get_note(browser, "Loose Idea")
+        assert still_freeform is not None and "wb-note-freeform" in still_freeform["html"]
+
+    def test_promoting_a_blank_note_blank_prompt_answer_is_a_no_op(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = wait_for_stable_plan_text(browser)
+
+        browser.execute_script("window.prompt = function() { return '   '; };")
+        promoted = browser.execute_script("return wbPromoteFreeformNote('Loose Idea');")
+        assert promoted is False, "a whitespace-only prompt answer must not create a garbage task"
+
+        after = get_plan_text(browser)
+        assert after == before
+
+    def test_promoting_a_checklist_note_is_a_no_op(self, browser, app_server):
+        """Discovery already has children (issue #1015's checklist case) --
+        promoting it makes no sense (there's no free-form comment to
+        materialise) and must not touch the plan."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = wait_for_stable_plan_text(browser)
+        promoted = browser.execute_script("return wbPromoteFreeformNote('Discovery');")
+        assert promoted is False
+
+        after = get_plan_text(browser)
+        assert after == before
+
+    def test_promotion_is_a_single_undo_step(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        # Same rationale as TestChecklistTicking.test_ticking_is_a_single_undo_step
+        # above for checking one specific side effect rather than whole-plan-text
+        # equality across the undo (status-bar.js's RAG front-matter sync can
+        # land its own, separately-undoable write at any point).
+        before = wait_for_stable_plan_text(browser)
+        assert bare_line_for(before, "Chase the vendor for a quote.") is None
+
+        browser.execute_script("wbPromoteFreeformNote('Empty Phase');")
+        promoted_text = wait_for_stable_plan_text(browser)
+        assert bare_line_for(promoted_text, "Chase the vendor for a quote.") is not None
+        assert promoted_text != before
+
+        browser.execute_script("EditorUndoManager.undo();")
+        time.sleep(0.3)
+        after_one_undo = get_plan_text(browser)
+        assert bare_line_for(after_one_undo, "Chase the vendor for a quote.") is None, \
+            "a single undo must fully reverse the promotion -- both the new child line and the commit"
+
+    def test_menu_item_promotes_a_free_form_note_and_is_absent_for_a_checklist(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+        # This is the only test in the module that drives a real Selenium
+        # click rather than calling wbPromoteFreeformNote() via
+        # execute_script -- a click requires its target to actually be
+        # inside the viewport, on top of the floating "PLAN STRUCTURE"
+        # panel rather than under it (see whiteboardZoomFit()'s own comment
+        # on that panel covering part of the canvas). The saved viewport is
+        # per-project and persists in localStorage across this module's
+        # page reloads (see whiteboard.js's wbScheduleSaveViewport()), so a
+        # pan/zoom left over from an earlier test in this file -- or an
+        # earlier pytest run against the same browser profile -- can start
+        # this test with a note positioned off-screen or behind that panel.
+        # Frame to the actual notes rather than depend on execution order.
+        browser.execute_script("whiteboardZoomFit();")
+        time.sleep(0.3)
+
+        def menu_btn_for(task_name):
+            return browser.execute_script(
+                """
+                const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+                for (const n of notes) {
+                    if (n.dataset.wbTask === arguments[0]) return n.querySelector('.wb-note-menu-btn');
+                }
+                return null;
+                """,
+                task_name,
+            )
+
+        def open_menu(task_name):
+            btn = menu_btn_for(task_name)
+            assert btn is not None, f"no note (or no menu button) found for {task_name}"
+            btn.click()
+            WebDriverWait(browser, 3).until(EC.presence_of_element_located((By.ID, "wbNoteMenu")))
+            return browser.find_element(By.ID, "wbNoteMenu")
+
+        menu = open_menu("Discovery")
+        assert menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-promote") == [], \
+            "a checklist note (already has children) must not offer 'Promote to task'"
+        browser.execute_script("document.body.click();")
+        time.sleep(0.2)
+
+        open_menu("Empty Phase")
+        promote_btn = WebDriverWait(browser, 3).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#wbNoteMenu .wb-note-menu-promote"))
+        )
+        assert promote_btn.text.strip() == "Promote to task"
+        promote_btn.click()
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        plan_text = get_plan_text(browser)
+        assert bare_line_for(plan_text, "Chase the vendor for a quote.") is not None, \
+            "clicking the real menu item performs the promotion, not just wbPromoteFreeformNote() in isolation"
+
+    def test_promoted_child_round_trips(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        browser.execute_script("wbPromoteFreeformNote('Empty Phase');")
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+        committed = get_plan_text(browser)
+
+        # Reload the exact committed text as a fresh plan and confirm it
+        # parses back identically -- the promoted child survives a full
+        # parse/reload cycle like any other outline task.
+        editor = browser.find_element(By.ID, "planEditor")
+        browser.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+            editor,
+            committed,
+        )
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+        reloaded = get_plan_text(browser)
+        assert bare_line_for(reloaded, "Chase the vendor for a quote.") is not None
+
+        note = get_note(browser, "Empty Phase")
+        assert note is not None and "wb-note-freeform" not in note["html"]

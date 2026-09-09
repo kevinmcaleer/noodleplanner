@@ -196,6 +196,27 @@
  * immediately; that placeholder is exactly the "forced checklist
  * structure" #1015 asks not to impose, so it is gone.
  *
+ * Promote to task (issue #1020, part of #885, building on #1015 above): a
+ * free-form note's own task is *already* a real outline task per #1015 --
+ * there is no "create a task that didn't exist before" step. What a
+ * free-form note is missing is structure, so "promote to task" here means
+ * turning its loose `comment` text into one real child task
+ * (wbPromoteFreeformNote(), reached from the note `...` menu's "Promote to
+ * task" item -- wbAppendPromoteMenuSection() -- shown only when
+ * wbIsFreeformNote() is true). Adding that child is exactly what flips
+ * wbIsFreeformNote() to false and switches the note to checklist rendering
+ * on the very next render pass -- no new rendering path needed, reusing
+ * #1015's split as-is. The child line itself is written by
+ * whiteboard-structure.js's wbAppendChildTask() (last child, same
+ * insertion point wbReparentTaskInPlanText() uses for a noodle drop), and
+ * named via wbSanitiseChildTaskName() + wbUniqueTaskName() so a long,
+ * multi-line, or quote-containing comment can't corrupt the outline the
+ * way #1006 found collab-ops.js's untrusted rename/add_task input could.
+ * A blank free-form note (no comment to promote) falls back to a
+ * `prompt()`, same "cancelled or blank -> silent no-op" shape as
+ * kanban.js's addNewPhase(). One wbCommitMarkdown() call either way, so
+ * promotion is a single undo step like every other whiteboard mutation.
+ *
  * Free-floating text objects (issue #1018, part of #885): a second, wholly
  * separate canvas object type living alongside post-it notes -- bare text
  * at a position, no card, no border, no background, not backed by a task
@@ -687,6 +708,50 @@ function wbIsFreeformNote(vm) {
     return !!(vm && vm.progress) && vm.progress.total === 0;
 }
 
+/** Cap length for a task name built from free text (issue #1020's
+ * "promote to task" -- see wbSanitiseChildTaskName() below): long enough
+ * to stay legible as a single outline line, short enough that promoting a
+ * whole paragraph of comment text doesn't produce one unreadable task. */
+const WB_PROMOTED_TASK_NAME_MAX = 80;
+
+/**
+ * Turn arbitrary free text -- a free-form note's own `comment`, or
+ * whatever the user types into the "name this task" prompt when there is
+ * no comment to promote (see wbPromoteFreeformNote() below) -- into a
+ * single valid outline task name:
+ *
+ *   - embedded newlines collapsed to a space, the same defence #1006
+ *     applied to collab-ops.js's add_task/rename ops: `comment` is a
+ *     <textarea> value (task-details form's "Comment" field) and can
+ *     already contain them, and an unescaped newline surviving into a
+ *     spliced-in outline line would split it into extra physical lines
+ *     that could be mistaken for structure -- or, worse, a back-matter
+ *     marker -- on the plan's next parse;
+ *   - double quotes replaced with single quotes, since `"` is both the
+ *     outline's own comment delimiter and the one character
+ *     parseFromLine()'s (script.js) name regex treats as a hard
+ *     terminator -- a literal `"` surviving into the name would silently
+ *     truncate it on the next parse;
+ *   - whitespace runs collapsed to one space and trimmed, matching
+ *     wbBeginTitleEdit()'s own typed-name normalisation;
+ *   - capped to WB_PROMOTED_TASK_NAME_MAX characters (an ellipsis marks
+ *     the cut).
+ *
+ * Returns '' for text that sanitises down to nothing (blank/whitespace
+ * comment), which wbPromoteFreeformNote() treats as "nothing to promote".
+ */
+function wbSanitiseChildTaskName(text) {
+    let name = String(text || '')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/"/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (name.length > WB_PROMOTED_TASK_NAME_MAX) {
+        name = name.slice(0, WB_PROMOTED_TASK_NAME_MAX).trim() + '…';
+    }
+    return name;
+}
+
 /** wbBuildNoteViewModel() for every row, skipping orphans. */
 function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
     const names = boardNames || new Set(
@@ -1032,6 +1097,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbNoteProgress, wbGetInitials, wbResourceList, wbRelativeLuminance,
         wbContrastRatio, wbContrastTextColour, wbNoteZoomTier,
         wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel, wbIsFreeformNote,
+        wbSanitiseChildTaskName,
         wbPalette, WB_NOTE_PASTEL_COLOURS, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
         wbResolveNoteColour,
         wbDragBoardDelta, wbClampNoteWidth, wbClampNoteHeight,
@@ -2550,6 +2616,7 @@ function wbBuildNoteMenu(taskName) {
 
     wbAppendColourMenuSection(list, taskName);
     wbAppendStructureMenuSection(list, taskName);
+    wbAppendPromoteMenuSection(list, taskName);
     wbAppendOpenTaskMenuSection(list, taskName);
     wbAppendParkMenuSection(list, taskName);
     wbAppendRemoveMenuSection(list, taskName);
@@ -2615,6 +2682,34 @@ function wbAppendStructureMenuSection(list, taskName) {
     });
     unlinkLi.appendChild(unlinkBtn);
     list.appendChild(unlinkLi);
+}
+
+/**
+ * Append issue #1020's entire contribution to the note menu: a single
+ * "Promote to task" action, shown only for a free-form note (checked via
+ * wbHasChildren() directly rather than building a full view model just for
+ * this -- equivalent to wbIsFreeformNote(), see that predicate's own doc
+ * comment) -- a note that already has a child is already a checklist, and
+ * offering to "promote" it a second time would be a confusing no-op.
+ */
+function wbAppendPromoteMenuSection(list, taskName) {
+    if (wbHasChildren(wbLastTasks, taskName)) return;
+
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-promote';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Promote to task';
+    btn.title = "Turn this note's comment into a real child task";
+    btn.setAttribute('aria-label', `Promote ${taskName} to a task`);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbPromoteFreeformNote(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
 }
 
 /**
@@ -4031,6 +4126,63 @@ function wbUnlinkNoteFromParent(taskName) {
     if (!task || !task.parent) return false;
     if (typeof wbCutNoodle !== 'function') return false;
     return wbCutNoodle(task.parent, taskName);
+}
+
+/**
+ * "Promote to task" (issue #1020, part of #885): turn a free-form note's
+ * loose `comment` text into a real child task, in one commit. Per #1015's
+ * already-landed free-form/checklist split, a note's own task is already a
+ * real outline task -- what a free-form note is missing is *structure*, so
+ * promotion's whole job is materialising the comment as a genuine child
+ * task line (wbAppendChildTask(), whiteboard-structure.js), which is
+ * exactly what flips wbIsFreeformNote() to false and switches the note to
+ * checklist rendering on the very next render pass. No new rendering code
+ * needed here -- see this file's header comment on #1015 for why.
+ *
+ * Source text is the task's own comment if it has one; otherwise (a
+ * genuinely blank free-form note) a `prompt()` asks for a name, matching
+ * this file's own prompt() convention elsewhere (see kanban.js's
+ * addNewPhase() for the same "cancelled or blank -> silent no-op" shape).
+ * Either way the text is run through wbSanitiseChildTaskName() (embedded
+ * newlines/quotes stripped, length-capped) and, since outline task names
+ * are expected to be unique (wbRenameNoteTask() above refuses a clash for
+ * the same reason), disambiguated against every existing task name via
+ * wbUniqueTaskName() before being written.
+ *
+ * Only ever called for a free-form note (the menu item that calls this is
+ * itself only shown when wbIsFreeformNote() is true -- see
+ * wbAppendPromoteMenuSection() below), but re-checked here too since this
+ * is also the function tests exercise directly.
+ */
+function wbPromoteFreeformNote(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof wbAppendChildTask !== 'function' || typeof wbUniqueTaskName !== 'function' ||
+        typeof wbOutlineTaskNames !== 'function') {
+        return false;
+    }
+
+    const task = (wbLastTasks || []).find(t => t && t.name === taskName);
+    if (!task || wbHasChildren(wbLastTasks, taskName)) return false;
+
+    let source = String(task.comment || '').trim();
+    if (!source) {
+        const typed = (typeof prompt === 'function')
+            ? prompt(`Name the first task under "${taskName}":`, '')
+            : null;
+        if (typed == null) return false; // cancelled
+        source = typed.trim();
+        if (!source) return false;
+    }
+
+    const childName = wbSanitiseChildTaskName(source);
+    if (!childName) return false;
+
+    const planText = editor.value;
+    const uniqueChildName = wbUniqueTaskName(wbOutlineTaskNames(planText), childName);
+
+    const nextText = wbAppendChildTask(planText, taskName, uniqueChildName);
+    return wbCommitMarkdown(nextText);
 }
 
 /**

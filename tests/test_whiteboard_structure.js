@@ -46,10 +46,12 @@ const {
     wbOutlineRegion,
     wbParseOutline,
     wbSubtreeEndIndex,
+    wbFindOutlineIndex,
     wbUniqueTaskName,
     wbCanLinkNotes,
     wbDescendantNames,
     wbAppendTopLevelTask,
+    wbAppendChildTask,
     wbReparentTaskInPlanText,
     wbRenameTaskInPlanText,
     wbDeleteTaskFromPlanText,
@@ -151,6 +153,25 @@ assertEqual(wbParseOutline(appended).entries.length, 8, 'appended task is parsea
 assertEqual(wbAppendTopLevelTask('Alpha\n  Beta', 'Gamma'), 'Alpha\n  Beta\nGamma',
     'append works on a bare outline');
 assertEqual(wbAppendTopLevelTask('', 'Alpha'), 'Alpha', 'append works on an empty plan');
+
+// ── Append a new child task (issue #1020, "promote to task") ───────────
+
+const withChild = wbAppendChildTask(PLAN, 'Discovery', 'New idea');
+const withChildLines = withChild.split('\n');
+assert(withChildLines.includes('  New idea'), 'new child indented one level under its parent');
+assertEqual(wbFindOutlineIndex(wbParseOutline(withChild).entries, 'New idea'),
+    wbFindOutlineIndex(wbParseOutline(withChild).entries, 'Interviews') + 1,
+    "new child lands right after the parent's existing last child");
+assert(withChild.includes('| Discovery | 120 | 80 |'), 'append leaves the whiteboard section intact');
+assertEqual(wbParseOutline(withChild).entries.length, 8, 'appended child is parseable as a task');
+
+const childOfLeaf = wbAppendChildTask(PLAN, 'Wireframes', 'Grandchild');
+const childOfLeafLines = childOfLeaf.split('\n');
+assert(childOfLeafLines.includes('      Grandchild'), 'a leaf with no children yet gets one, indented one deeper');
+
+assertEqual(wbAppendChildTask(PLAN, 'Discovery', '   '), PLAN, 'appending a blank name is a no-op');
+assertEqual(wbAppendChildTask(PLAN, 'Does Not Exist', 'New idea'), PLAN,
+    'appending under an unknown parent is a no-op');
 
 // ── Re-parent: draw a noodle ────────────────────────────────────────────
 
