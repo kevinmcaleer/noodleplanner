@@ -123,6 +123,20 @@
             width: auto; padding: 2px 8px; border-radius: 6px;
             background: transparent; border: 1px solid var(--border); color: var(--muted);
         }
+
+        /* #1036: the generic section rows use <input> for their extra
+           fields where RAID uses <select>. This page sets `input { width:
+           100% }` globally, so without an override two of them expand and
+           squeeze the flex:1 title to zero width -- the row renders looking
+           like the title is missing entirely. */
+        .section-row-input {
+            width: auto;
+            max-width: 110px;
+            flex: 0 0 auto;
+            margin-bottom: 0;
+            border: 1px solid var(--border); border-radius: 6px; background: transparent;
+            color: var(--text); font-size: 0.8rem; padding: 3px 4px;
+        }
     </style>
 </head>
 <body>
@@ -160,6 +174,22 @@
             <div class="row">
                 <input id="newRaidTitle" placeholder="Add a risk, action, issue or decision">
                 <button type="button" id="addRaidBtn">Add</button>
+            </div>
+
+            <!-- #1036: the other editable back-matter sections, driven by
+                 the same host-authoritative op model as the RAID log. -->
+            <h2 class="section-heading">Benefits</h2>
+            <div id="benefitsRows"></div>
+            <div class="row">
+                <input id="newBenefitsTitle" placeholder="Add a benefit">
+                <button type="button" id="addBenefitsBtn">Add</button>
+            </div>
+
+            <h2 class="section-heading">Comms plan</h2>
+            <div id="commsRows"></div>
+            <div class="row">
+                <input id="newCommsTitle" placeholder="Add a comms activity">
+                <button type="button" id="addCommsBtn">Add</button>
             </div>
 
             <div id="relayLog"></div>
@@ -313,6 +343,117 @@
                 sessionKey, JSON.stringify({ type: 'backmatter_op', section: 'raid', rev: raidRev, ...op }), sessionId
             );
             socket.send(envelope);
+        }
+
+        // ---- #1036: benefits and comms ----------------------------------
+        //
+        // Same intent-and-snapshot pattern as RAID above, but driven by a
+        // small per-section description rather than a hand-written renderer
+        // each: these two are structurally identical id-keyed tables, so a
+        // third would be a row in this object, not another block of code.
+        const SECTION_UI = {
+            benefits: {
+                heading: 'Benefits',
+                placeholder: 'Add a benefit',
+                // The first column is what a person actually scans for.
+                titleField: 'title',
+                extraFields: ['status'],
+            },
+            comms: {
+                heading: 'Comms plan',
+                placeholder: 'Add a comms activity',
+                titleField: 'activity',
+                extraFields: ['audience', 'channel'],
+            },
+        };
+
+        const sectionState = {};
+        for (const name of Object.keys(SECTION_UI)) sectionState[name] = { rows: [], rev: 0 };
+
+        async function sendSectionOp(section, op) {
+            if (!socket || socket.readyState !== WebSocket.OPEN || !sessionKey) return;
+            const { encryptMessage } = await loadCollabCrypto();
+            const envelope = await encryptMessage(
+                sessionKey,
+                JSON.stringify({
+                    type: 'backmatter_op', section, rev: sectionState[section].rev, ...op,
+                }),
+                sessionId
+            );
+            socket.send(envelope);
+        }
+
+        /** Render one back-matter section's snapshot. Rebuilt wholesale for
+         * the same reason the plan and RAID renderers are: the host owns the
+         * document, so there is no local state worth preserving. */
+        function renderSectionSnapshot(snapshot) {
+            const section = snapshot.section;
+            const config = SECTION_UI[section];
+            if (!config) return;
+
+            sectionState[section].rows = Array.isArray(snapshot.items) ? snapshot.items : [];
+            sectionState[section].rev = snapshot.rev;
+            if (snapshot.notice) showPlanNotice(snapshot.notice);
+
+            const container = document.getElementById(`${section}Rows`);
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (sectionState[section].rows.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'plan-empty';
+                empty.textContent = 'Nothing here yet.';
+                container.appendChild(empty);
+                return;
+            }
+
+            for (const row of sectionState[section].rows) {
+                const el = document.createElement('div');
+                el.className = 'raid-row';
+
+                const title = document.createElement('span');
+                title.className = 'raid-row-title';
+                title.textContent = row[config.titleField] || '';
+                title.contentEditable = 'true';
+                title.spellcheck = false;
+                title.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
+                    if (event.key === 'Escape') { title.textContent = row[config.titleField] || ''; title.blur(); }
+                });
+                title.addEventListener('blur', () => {
+                    const value = title.textContent.trim();
+                    if (value === (row[config.titleField] || '')) return;
+                    sendSectionOp(section, {
+                        op: 'edit_row', row_id: row.id, fields: { [config.titleField]: value },
+                    });
+                });
+                el.appendChild(title);
+
+                for (const field of config.extraFields) {
+                    const input = document.createElement('input');
+                    input.className = 'section-row-input';
+                    input.value = row[field] || '';
+                    input.placeholder = field;
+                    input.addEventListener('change', () => {
+                        sendSectionOp(section, {
+                            op: 'edit_row', row_id: row.id, fields: { [field]: input.value },
+                        });
+                    });
+                    el.appendChild(input);
+                }
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'raid-row-delete';
+                remove.textContent = '×';
+                remove.title = 'Delete';
+                remove.addEventListener('click', () => {
+                    sendSectionOp(section, { op: 'delete_row', row_id: row.id });
+                });
+                el.appendChild(remove);
+
+                container.appendChild(el);
+            }
         }
 
         /** Render the host's RAID snapshot. Rebuilt wholesale each time, for
@@ -545,6 +686,13 @@
                             renderRaidSnapshot(parsed);
                             return;
                         }
+                        if (parsed && parsed.type === 'backmatter_snapshot') {
+                            // #1036: benefits and comms. One frame type
+                            // carrying the section name, so a fourth
+                            // section needs no new frame type here.
+                            renderSectionSnapshot(parsed);
+                            return;
+                        }
                         if (parsed && parsed.type === 'backmatter_op_rejected') {
                             // #969: the RAID counterpart of plan_op_rejected
                             // above -- 'unknown_row' means someone else
@@ -660,6 +808,26 @@
         document.getElementById('newRaidTitle').addEventListener('keydown', (event) => {
             if (event.key === 'Enter') { event.preventDefault(); submitNewRaidRow(); }
         });
+
+        // #1036: the same "add a row" wiring for benefits and comms, driven
+        // by SECTION_UI so a fourth section needs no new handler.
+        for (const [section, config] of Object.entries(SECTION_UI)) {
+            const capital = section.charAt(0).toUpperCase() + section.slice(1);
+            const input = document.getElementById(`new${capital}Title`);
+            const button = document.getElementById(`add${capital}Btn`);
+            if (!input || !button) continue;
+
+            const submit = () => {
+                const value = input.value.trim();
+                if (!value) return;
+                sendSectionOp(section, { op: 'add_row', fields: { [config.titleField]: value } });
+                input.value = '';
+            };
+            button.addEventListener('click', submit);
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') { event.preventDefault(); submit(); }
+            });
+        }
 
         document.getElementById('relaySend').addEventListener('click', async () => {
             const input = document.getElementById('relayInput');

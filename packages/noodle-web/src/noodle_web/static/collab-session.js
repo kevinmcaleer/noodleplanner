@@ -346,10 +346,10 @@ async function sendCollabMessageTo(joinerId, plaintext) {
  * single full-snapshot source of truth, over a diff protocol that would
  * have to reconcile two content types instead of one. `raidNotice` is the
  * RAID counterpart of `notice` -- see describeBackmatterConflict. */
-async function broadcastCollabPlan(notice, raidNotice) {
+async function broadcastCollabPlan(notice, raidNotice, sectionNotice) {
     if (collabSessionKeys.size === 0) return 0;
     const { buildPlanSnapshot } = await loadCollabOps();
-    const { buildRaidSnapshot } = await loadCollabBackmatterOps();
+    const { buildRaidSnapshot, buildSectionSnapshot, EDITABLE_SECTIONS } = await loadCollabBackmatterOps();
     const editor = collabEditor();
     if (!editor) return 0;
     const snapshot = buildPlanSnapshot(editor.value, collabPlanRev);
@@ -358,6 +358,19 @@ async function broadcastCollabPlan(notice, raidNotice) {
     if (raidNotice) raidSnapshot.notice = raidNotice;
     let sent = await sendCollabMessage(JSON.stringify(snapshot));
     sent += await sendCollabMessage(JSON.stringify(raidSnapshot));
+
+    // #1036: the other editable back-matter sections travel the same way,
+    // one `backmatter_snapshot` each. RAID keeps its own frame type for
+    // compatibility with the joiner #969 already shipped.
+    for (const section of EDITABLE_SECTIONS) {
+        if (section === 'raid') continue;
+        const sectionSnapshot = buildSectionSnapshot(editor.value, collabPlanRev, section);
+        if (!sectionSnapshot) continue;
+        if (sectionNotice && sectionNotice.section === section) {
+            sectionSnapshot.notice = sectionNotice.text;
+        }
+        sent += await sendCollabMessage(JSON.stringify(sectionSnapshot));
+    }
     return sent;
 }
 
@@ -462,8 +475,17 @@ async function applyCollabBackmatterOp(joinerId, op) {
     // next real save, and it deserves no less protection than a task edit.
     scheduleCollabAutosave();
     const editor_name = collabJoinerNames.get(joinerId);
-    const raced = collabBackmatterConflicts.record(String(op.row_id), editor_name);
-    await broadcastCollabPlan(null, raced ? describeBackmatterConflict(op, result.previous, editor_name) : null);
+    // #1036: the tracker is keyed by section *and* row, so row 1 of the
+    // comms plan and row 1 of the RAID log are not mistaken for the same
+    // thing -- the mistake the separate task/RAID trackers already exist
+    // to avoid, now that there is more than one row-based section.
+    const raced = collabBackmatterConflicts.record(`${op.section}:${op.row_id}`, editor_name);
+    const notice = raced ? describeBackmatterConflict(op, result.previous, editor_name) : null;
+    if (op.section === 'raid') {
+        await broadcastCollabPlan(null, notice, null);
+    } else {
+        await broadcastCollabPlan(null, null, notice ? { section: op.section, text: notice } : null);
+    }
 }
 
 /** Push the host's own typing out to joiners (#967).
@@ -541,11 +563,22 @@ async function handleCollabMessage(raw) {
         // have something to edit without waiting for someone else to make
         // the next change. #969: the RAID log rides along the same way.
         const { buildPlanSnapshot } = await loadCollabOps();
-        const { buildRaidSnapshot } = await loadCollabBackmatterOps();
+        const {
+            buildRaidSnapshot, buildSectionSnapshot, EDITABLE_SECTIONS,
+        } = await loadCollabBackmatterOps();
         const editor = collabEditor();
         if (editor) {
             await sendCollabMessageTo(joinerId, JSON.stringify(buildPlanSnapshot(editor.value, collabPlanRev)));
             await sendCollabMessageTo(joinerId, JSON.stringify(buildRaidSnapshot(editor.value, collabPlanRev)));
+            // #1036: and the rest of the editable back matter, so a joiner
+            // arrives with every section they can edit already populated.
+            for (const section of EDITABLE_SECTIONS) {
+                if (section === 'raid') continue;
+                const snapshot = buildSectionSnapshot(editor.value, collabPlanRev, section);
+                if (snapshot) {
+                    await sendCollabMessageTo(joinerId, JSON.stringify(snapshot));
+                }
+            }
         }
         return;
     }
