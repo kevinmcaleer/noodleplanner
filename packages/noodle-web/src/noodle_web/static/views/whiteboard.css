@@ -388,7 +388,8 @@
 
 .wb-note-menu-default,
 .wb-note-menu-open-task,
-.wb-note-menu-action {
+.wb-note-menu-action,
+.wb-note-menu-promote {
     display: block;
     width: 100%;
     text-align: left;
@@ -406,7 +407,9 @@
 .wb-note-menu-open-task:hover,
 .wb-note-menu-open-task:focus-visible,
 .wb-note-menu-action:hover,
-.wb-note-menu-action:focus-visible {
+.wb-note-menu-action:focus-visible,
+.wb-note-menu-promote:hover,
+.wb-note-menu-promote:focus-visible {
     background: var(--np-bg-hover, #f0f1f4);
     outline: 2px solid var(--np-accent, #667eea);
     outline-offset: 1px;

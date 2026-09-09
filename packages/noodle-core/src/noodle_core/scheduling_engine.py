@@ -762,8 +762,24 @@ def natural_language_to_yaml(text, project_name="Project"):
         # Extract task name (everything before metadata)
         if has_details:
             # Find where metadata starts
+            #
+            # '"' is one of these boundary characters (matching
+            # metadata.py's DESCRIPTION-equivalent quoted-comment
+            # extraction, which already stops there) -- found while
+            # implementing issue #1020: this list used to omit it, so a
+            # line whose only metadata was a quoted comment (e.g.
+            # `Phase "note"`) kept the whole line, quotes and all, as its
+            # tree-level name. That was invisible for a *leaf* task
+            # (extract_metadata() below independently derives a clean
+            # description from task_str), but a *summary* task's
+            # description is this value directly (see the
+            # `'description': true_name` build below) with no such
+            # rescue -- so a task with an inline comment lost its clean
+            # name, and anything keyed on the task name (e.g. a
+            # whiteboard row) silently orphaned the moment it gained a
+            # child.
             metadata_start = len(stripped)
-            for char in ['@', '#', '!', '$', '[']:
+            for char in ['@', '#', '!', '$', '[', '"']:
                 pos = stripped.find(char)
                 if pos > 0:
                     metadata_start = min(metadata_start, pos)

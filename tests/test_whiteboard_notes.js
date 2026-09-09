@@ -55,6 +55,7 @@ const {
     wbNoteViewModels,
     wbBuildPeekLevel,
     wbIsFreeformNote,
+    wbSanitiseChildTaskName,
     wbPalette,
     wbShadeColour,
     wbDerivedPaletteColour,
@@ -249,6 +250,27 @@ const tasks = [
         'a task whose children are all shown as noodles elsewhere is still a checklist, not free-form');
 
     assert(wbIsFreeformNote(null) === false, 'a missing view model is never treated as free-form');
+}
+
+// ── wbSanitiseChildTaskName (issue #1020 -- "promote to task") ──────────
+{
+    assert(wbSanitiseChildTaskName('Chase the vendor for a quote.') === 'Chase the vendor for a quote.',
+        'ordinary comment text passes through unchanged');
+    assert(wbSanitiseChildTaskName('  Needs   sign-off   ') === 'Needs sign-off',
+        'whitespace runs collapse to one space and the ends are trimmed');
+    assert(wbSanitiseChildTaskName('Line one\nLine two\r\nLine three') === 'Line one Line two Line three',
+        'embedded newlines collapse to a space, same defence as #1006\'s newline-injection fix');
+    assert(wbSanitiseChildTaskName('Say "hello" to the vendor') === "Say 'hello' to the vendor",
+        'double quotes -- the outline\'s own comment delimiter -- become single quotes');
+    assert(wbSanitiseChildTaskName('   ') === '', 'whitespace-only text sanitises to nothing');
+    assert(wbSanitiseChildTaskName('') === '', 'empty text sanitises to nothing');
+    assert(wbSanitiseChildTaskName(null) === '', 'null text sanitises to nothing');
+
+    const long = 'x'.repeat(120);
+    const sanitisedLong = wbSanitiseChildTaskName(long);
+    assert(sanitisedLong.length === 81, 'a long comment is capped to 80 characters plus an ellipsis');
+    assert(sanitisedLong.endsWith('…'), 'a truncated name ends with an ellipsis marking the cut');
+    assert(sanitisedLong.startsWith('x'.repeat(80)), 'a truncated name keeps its first 80 characters intact');
 }
 
 // ── wbBuildPeekLevel (issue #850 -- task-peek popover's view-model) ─────

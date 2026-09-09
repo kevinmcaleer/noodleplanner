@@ -51,12 +51,25 @@ function hasDetails(stripped) {
   );
 }
 
-/** The task name: everything before the first metadata token. */
+/** The task name: everything before the first metadata token.
+ *
+ * `"` is one of these boundary characters (matching tokeniser.js's own
+ * DESCRIPTION regex, which already stops there) -- found while
+ * implementing issue #1020: this list used to omit it, so a line whose
+ * only metadata was a quoted comment (e.g. `Phase "note"`) kept the whole
+ * line, quotes and all, as its tree-level `name`. That was invisible for a
+ * *leaf* task (taskToData() below prefers extractMetadata()'s own,
+ * already-correctly-quote-stopped `description` over this raw `name`), but
+ * a *summary* task's `description` is this function's output directly
+ * (`description: child.name` in buildTasks() below) with no such rescue --
+ * so a task with an inline comment lost its clean name, and any whiteboard
+ * row keyed on it (or anything else keyed on the task name) silently
+ * orphaned, the moment it gained a child. */
 function taskNameOf(stripped) {
   if (!hasDetails(stripped)) return stripped.replace(/^\*+/, "");
 
   let metadataStart = stripped.length;
-  for (const ch of ["@", "#", "!", "$", "["]) {
+  for (const ch of ["@", "#", "!", "$", "[", '"']) {
     const pos = stripped.indexOf(ch);
     if (pos > 0) metadataStart = Math.min(metadataStart, pos);
   }
