@@ -965,3 +965,97 @@ class TestMultiJoinerRouting:
 
         assert secret not in caplog.text
         assert info["session_id"] not in caplog.text
+
+
+class TestJoinerPrivilegeBoundary:
+    """#971 security review: the host-only control messages must be exactly
+    that.
+
+    `end_session` (#965), `kick` (#966) and the `to_joiner` addressing
+    envelope (#967) are all interpreted in `_relay_as_host`, which only runs
+    on the host's socket -- a joiner's frames go through `_relay_as_joiner`,
+    which relays them opaquely. These tests prove that boundary holds rather
+    than inferring it from where the code happens to sit, because a joiner
+    is an untrusted remote party who knows only a six-digit code, and the
+    cost of getting this wrong is one of them ending everyone's session or
+    removing a colleague.
+    """
+
+    @staticmethod
+    def _join(client, info, host_ws, display_name):
+        joiner_ws = client.websocket_connect(f"/ws/session/{info['session_id']}").__enter__()
+        joiner_ws.send_text(json.dumps({
+            "type": "join", "code": info["join_code"], "display_name": display_name,
+        }))
+        joiner_ws.receive_text()  # ack
+        snapshot = json.loads(host_ws.receive_text())["joiners"]
+        return joiner_ws, next(j["id"] for j in snapshot if j["display_name"] == display_name)
+
+    def test_a_joiner_cannot_end_the_session(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            joiner_ws, _ = self._join(client, info, host_ws, "Mallory")
+
+            joiner_ws.send_text(json.dumps({"type": "end_session"}))
+
+            # Relayed to the host as ordinary opaque content, not acted on.
+            wrapper = json.loads(host_ws.receive_text())
+            assert wrapper["type"] == "from_joiner"
+            assert json.loads(wrapper["frame"])["type"] == "end_session"
+
+            # The session is still live and still relaying.
+            assert collab_sessions.get_session(info["session_id"]) is not None
+            host_ws.send_text("still-here")
+            assert joiner_ws.receive_text() == "still-here"
+
+            joiner_ws.__exit__(None, None, None)
+            host_ws.receive_text()  # presence after the disconnect
+
+    def test_a_joiner_cannot_kick_another_joiner(self, client):
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            mallory_ws, _ = self._join(client, info, host_ws, "Mallory")
+
+            mallory_ws.send_text(json.dumps({"type": "kick", "joiner_id": alice_id}))
+            host_ws.receive_text()  # relayed as opaque content only
+
+            # Alice is untouched: still in the session and still receiving.
+            assert len(collab_sessions.get_session(info["session_id"]).joiners) == 2
+            host_ws.send_text("alice-is-still-here")
+            assert alice_ws.receive_text() == "alice-is-still-here"
+            assert mallory_ws.receive_text() == "alice-is-still-here"
+
+            mallory_ws.__exit__(None, None, None)
+            host_ws.receive_text()
+            alice_ws.__exit__(None, None, None)
+            host_ws.receive_text()
+
+    def test_a_joiner_cannot_address_a_frame_at_another_joiner(self, client):
+        """#967's `to_joiner` envelope is a host privilege. A joiner sending
+        one must not become a way to speak to another joiner directly --
+        that would bypass the host entirely, and the host is the only party
+        the security model gives that reach."""
+        info = _start_session(client)
+        with client.websocket_connect(f"/ws/session/{info['session_id']}?token={info['host_token']}") as host_ws:
+            alice_ws, alice_id = self._join(client, info, host_ws, "Alice")
+            mallory_ws, _ = self._join(client, info, host_ws, "Mallory")
+
+            mallory_ws.send_text(json.dumps({
+                "type": "to_joiner", "joiner_id": alice_id, "frame": "direct-to-alice",
+            }))
+            # It reached the host as content, wrapped like anything else.
+            wrapper = json.loads(host_ws.receive_text())
+            assert wrapper["type"] == "from_joiner"
+            assert "direct-to-alice" in wrapper["frame"]
+
+            # Alice never got it: a host broadcast is the first thing she
+            # reads, which it could not be if the forged frame had arrived.
+            host_ws.send_text("from-the-host")
+            assert alice_ws.receive_text() == "from-the-host"
+            assert mallory_ws.receive_text() == "from-the-host"
+
+            mallory_ws.__exit__(None, None, None)
+            host_ws.receive_text()
+            alice_ws.__exit__(None, None, None)
+            host_ws.receive_text()
