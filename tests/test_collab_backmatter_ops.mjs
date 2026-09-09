@@ -32,6 +32,8 @@ const {
     applyBackmatterOp,
     describeBackmatterConflict,
     isBackmatterOp,
+    buildSectionSnapshot,
+    EDITABLE_SECTIONS,
 } = await import('../packages/noodle-web/src/noodle_web/static/collab-backmatter-ops.js');
 
 function op(fields) {
@@ -278,7 +280,9 @@ test('malformed ops are rejected rather than throwing', () => {
         'not an object',
         {},
         { type: 'backmatter_op', section: 'raid' },
-        { type: 'backmatter_op', section: 'comms', op: 'add_row', fields: {} },
+        // #1036 made comms a real section, so an unsupported one is now
+        // weekly updates rather than comms.
+        { type: 'backmatter_op', section: 'highlights', op: 'add_row', fields: {} },
         { type: 'backmatter_op', section: 'raid', op: 'drop_database' },
         { type: 'plan_op', section: 'raid', op: 'add_row', fields: {} },
         op({ op: 'edit_row', row_id: 1, fields: { type: 'not_a_real_type' } }),
@@ -295,8 +299,13 @@ test('isBackmatterOp accepts only the three real RAID row ops', () => {
         assert.equal(isBackmatterOp(op({ op: kind })), true);
     }
     assert.equal(isBackmatterOp(op({ op: 'reformat_everything' })), false);
-    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'benefits', op: 'add_row' }), false);
     assert.equal(isBackmatterOp({ type: 'plan_op', op: 'add_row' }), false);
+    // #1036 added benefits and comms; weekly updates (---highlights---) is
+    // still not a supported section, and must still be refused.
+    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'benefits', op: 'add_row' }), true);
+    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'comms', op: 'add_row' }), true);
+    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'highlights', op: 'add_row' }), false);
+    assert.equal(isBackmatterOp({ type: 'backmatter_op', section: 'budget', op: 'add_row' }), false);
 });
 
 test('an unchanged RAID log round-trips byte for byte', () => {
@@ -304,4 +313,187 @@ test('an unchanged RAID log round-trips byte for byte', () => {
     assert.equal(rejected.ok, false);
     const applied = applyBackmatterOp(PLAN, op({ op: 'edit_row', row_id: 1, fields: { status: RAID_ITEMS[0].status } }));
     assert.equal(applied.text, PLAN, 'setting a field to the value it already had changes nothing');
+});
+
+// ===========================================================================
+// #1036: benefits and comms
+//
+// Both are id-keyed pipe tables, structurally the same as the RAID log, so
+// they share its machinery. These tests exercise them through the same
+// public op surface a joiner uses, and re-run the injection class that
+// #1006 found in the task ops -- generalising an op protocol to more content
+// is exactly the work that produced that hole.
+// ===========================================================================
+
+const SECTIONED_PLAN = [
+    'Phase 1',
+    '  Design API 50%',
+    '',
+    '---benefits---',
+    '# Benefits Map',
+    '',
+    '| ID | Type | Title | Description | Status |',
+    '|----|------|-------|-------------|--------|',
+    '| 1  | Cash | Lower hosting spend | Move off the old cluster | open |',
+    '',
+    '---raid log---',
+    '',
+    '| ID | Type | Title | Description | Owner | Status |',
+    '|----|------|-------|-------------|-------|--------|',
+    '| 1  | risk | Vendor delay | Kit may slip | Dana | open |',
+    '',
+    '---comms---',
+    '',
+    '| ID | Activity | Audience | Content | Frequency | Channel | Owner | Status |',
+    '|----|----------|----------|---------|-----------|---------|-------|--------|',
+    '| 1  | Standup  | Team     | Progress | Daily    | Slack   | Dana  | active |',
+    '',
+].join('\n');
+
+function sectionOp(section, fields) {
+    return { type: 'backmatter_op', section, ...fields };
+}
+
+test('#1036: benefits and comms are editable sections, weekly updates is not', () => {
+    assert.deepEqual(EDITABLE_SECTIONS.slice().sort(), ['benefits', 'comms', 'raid']);
+});
+
+test('#1036: a benefits snapshot reads the rows the host has', () => {
+    const snapshot = buildSectionSnapshot(SECTIONED_PLAN, 4, 'benefits');
+    assert.equal(snapshot.type, 'backmatter_snapshot');
+    assert.equal(snapshot.section, 'benefits');
+    assert.equal(snapshot.rev, 4);
+    assert.equal(snapshot.items.length, 1);
+    assert.equal(snapshot.items[0].title, 'Lower hosting spend');
+    assert.equal(snapshot.items[0].status, 'open');
+});
+
+test('#1036: a comms snapshot reads the rows the host has', () => {
+    const snapshot = buildSectionSnapshot(SECTIONED_PLAN, 1, 'comms');
+    assert.equal(snapshot.section, 'comms');
+    assert.equal(snapshot.items[0].activity, 'Standup');
+    assert.equal(snapshot.items[0].channel, 'Slack');
+});
+
+test('#1036: editing a benefits row leaves every other section untouched', () => {
+    const result = applyBackmatterOp(SECTIONED_PLAN, sectionOp('benefits', {
+        op: 'edit_row', row_id: 1, fields: { status: 'realised' },
+    }));
+    assert.equal(result.ok, true);
+    assert.equal(buildSectionSnapshot(result.text, 1, 'benefits').items[0].status, 'realised');
+    // The RAID and comms sections must be exactly as they were -- editing
+    // one section must never rewrite a neighbour.
+    assert.deepEqual(buildRaidSnapshot(result.text, 1).items, buildRaidSnapshot(SECTIONED_PLAN, 1).items);
+    assert.deepEqual(
+        buildSectionSnapshot(result.text, 1, 'comms').items,
+        buildSectionSnapshot(SECTIONED_PLAN, 1, 'comms').items,
+    );
+    // And the task outline above the back matter is untouched.
+    assert.ok(result.text.startsWith('Phase 1\n  Design API 50%'));
+});
+
+test('#1036: adding and deleting a comms row', () => {
+    const added = applyBackmatterOp(SECTIONED_PLAN, sectionOp('comms', {
+        op: 'add_row', fields: { activity: 'Steering update', audience: 'Sponsors', channel: 'Email' },
+    }));
+    assert.equal(added.ok, true);
+    const items = buildSectionSnapshot(added.text, 1, 'comms').items;
+    assert.equal(items.length, 2);
+    assert.equal(items[1].activity, 'Steering update');
+    assert.equal(items[1].id, 2, 'a new row takes the next unused id');
+
+    const deleted = applyBackmatterOp(added.text, sectionOp('comms', { op: 'delete_row', row_id: 1 }));
+    assert.equal(deleted.ok, true);
+    const left = buildSectionSnapshot(deleted.text, 1, 'comms').items;
+    assert.equal(left.length, 1);
+    assert.equal(left[0].activity, 'Steering update');
+});
+
+test('#1036: an op naming a row that does not exist is rejected', () => {
+    for (const section of ['benefits', 'comms']) {
+        const result = applyBackmatterOp(SECTIONED_PLAN, sectionOp(section, {
+            op: 'edit_row', row_id: 99, fields: { status: 'x' },
+        }));
+        assert.equal(result.ok, false);
+        assert.equal(result.reason, 'unknown_row');
+    }
+});
+
+test('#1036: contribution_percent is clamped, not trusted', () => {
+    const over = applyBackmatterOp(SECTIONED_PLAN, sectionOp('benefits', {
+        op: 'edit_row', row_id: 1, fields: { contribution_percent: 5000 },
+    }));
+    assert.equal(buildSectionSnapshot(over.text, 1, 'benefits').items[0].contribution_percent, 100);
+
+    const under = applyBackmatterOp(SECTIONED_PLAN, sectionOp('benefits', {
+        op: 'edit_row', row_id: 1, fields: { contribution_percent: -20 },
+    }));
+    assert.equal(buildSectionSnapshot(under.text, 1, 'benefits').items[0].contribution_percent, 0);
+
+    const nonsense = applyBackmatterOp(SECTIONED_PLAN, sectionOp('benefits', {
+        op: 'edit_row', row_id: 1, fields: { contribution_percent: 'lots' },
+    }));
+    assert.equal(nonsense.ok, false);
+});
+
+// -- the #1006 injection class, re-run per section -------------------------
+
+test('#1036: an embedded newline cannot forge a section marker', () => {
+    for (const section of ['benefits', 'comms']) {
+        const field = section === 'benefits' ? 'title' : 'activity';
+        const result = applyBackmatterOp(SECTIONED_PLAN, sectionOp(section, {
+            op: 'edit_row', row_id: 1, fields: { [field]: 'Innocent\n---raid log---\n| 9 | risk | Forged |' },
+        }));
+        assert.equal(result.ok, true);
+        // No new physical line anywhere is a bare section marker beyond the
+        // one the plan legitimately has.
+        const markerLines = result.text.split('\n').filter((l) => l.trim() === '---raid log---');
+        assert.equal(markerLines.length, 1, `${section}: forged a second RAID marker`);
+        // And the real RAID log still has exactly its own row.
+        const raid = buildRaidSnapshot(result.text, 1).items;
+        assert.equal(raid.length, 1);
+        assert.equal(raid[0].title, 'Vendor delay');
+    }
+});
+
+test('#1036: an embedded pipe cannot split a row into extra columns', () => {
+    const result = applyBackmatterOp(SECTIONED_PLAN, sectionOp('comms', {
+        op: 'edit_row', row_id: 1, fields: { activity: 'Standup | Injected | Cells' },
+    }));
+    assert.equal(result.ok, true);
+    const items = buildSectionSnapshot(result.text, 1, 'comms').items;
+    assert.equal(items.length, 1, 'still one row');
+    assert.equal(items[0].activity, 'Standup | Injected | Cells', 'the pipes survive as literal text');
+    assert.equal(items[0].audience, 'Team', 'and the next column is not displaced');
+});
+
+test('#1036: a carriage return is collapsed like a newline', () => {
+    const result = applyBackmatterOp(SECTIONED_PLAN, sectionOp('benefits', {
+        op: 'edit_row', row_id: 1, fields: { title: 'Before\r---comms---\rAfter' },
+    }));
+    assert.equal(result.ok, true);
+    assert.equal(result.text.split('\n').filter((l) => l.trim() === '---comms---').length, 1);
+});
+
+test('#1036: a section absent from the plan is created rather than lost', () => {
+    const bare = 'Phase 1\n  Design API 50%\n';
+    const result = applyBackmatterOp(bare, sectionOp('comms', {
+        op: 'add_row', fields: { activity: 'Kickoff', audience: 'All' },
+    }));
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('---comms---'));
+    assert.equal(buildSectionSnapshot(result.text, 1, 'comms').items[0].activity, 'Kickoff');
+    assert.ok(result.text.startsWith('Phase 1'), 'the outline is still first');
+});
+
+test('#1036: setting a field to what it already was changes nothing', () => {
+    const applied = applyBackmatterOp(SECTIONED_PLAN, sectionOp('comms', {
+        op: 'edit_row', row_id: 1, fields: { activity: 'Standup' },
+    }));
+    assert.equal(applied.ok, true);
+    assert.equal(
+        buildSectionSnapshot(applied.text, 1, 'comms').items[0].activity, 'Standup',
+    );
+    // Neighbouring sections still parse identically.
+    assert.deepEqual(buildRaidSnapshot(applied.text, 1).items, buildRaidSnapshot(SECTIONED_PLAN, 1).items);
 });

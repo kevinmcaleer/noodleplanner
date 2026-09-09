@@ -226,6 +226,199 @@ const VALID_RAID_TYPES = new Set(['risk', 'action', 'issue', 'decision', 'depend
 const VALID_RAID_STATUSES = new Set(['open', 'closed', 'transferred']);
 const VALID_ESCALATION_LEVELS = new Set(['project', 'programme', 'board']);
 
+// ---------------------------------------------------------------------------
+// #1036: the other two table sections
+//
+// #969 shipped RAID only and said so plainly -- benefits, comms and weekly
+// updates were "left to a follow-up issue rather than claimed here", which
+// #971's acceptance sweep turned into #1036. Benefits and comms are added
+// here because they are structurally the *same thing* as RAID: a pipe table
+// whose rows carry an `id` column, so they inherit RAID's stable-row-id
+// property and need no `expect` staleness gate (see the row-identity note
+// above).
+//
+// Weekly updates (`---highlights---`) are deliberately still not here. They
+// are not a table at all -- `## <date> @<author>` headings followed by
+// multi-line free text -- so they have no row id to address, and their
+// content legitimately contains newlines, which means the newline-collapsing
+// defence every field below relies on would destroy real content rather than
+// protect it. Generalising breadth-first is what produced #1006; that section
+// gets its own pass.
+//
+// Each schema below is the single place a section differs. Everything else
+// -- parsing, serialising, splicing, op dispatch, conflict reporting -- is
+// shared, so a fourth section is a schema plus its tests, not a fourth copy
+// of the machinery.
+
+const BENEFITS_START = '---benefits---';
+
+/** Column aliases, in declaration order: each table header takes the first
+ * alias that matches it, exactly as the RAID parser does. */
+const SECTION_SCHEMAS = {
+    raid: {
+        marker: RAID_LOG_START,
+        headers: RAID_HEADERS,
+        // RAID keeps its bespoke parse/serialise pair: it carries the
+        // conditional Escalated/Escalation Level columns (#736) and the
+        // title/description fallback, neither of which generalises.
+        bespoke: true,
+    },
+
+    benefits: {
+        marker: BENEFITS_START,
+        // Mirrors static/benefits.js's generateBenefitsMarkdown, which is
+        // the canonical writer for this section, and
+        // format_converter.py's parse_benefits_markdown on the read side.
+        headers: [
+            'ID', 'Type', 'Title', 'Description', 'Objective Type', 'Target Value',
+            'Current Value', 'Target Date', 'Measurement', 'Linked To',
+            'Contribution %', 'Status', 'Last Updated',
+        ],
+        fields: [
+            'type', 'title', 'description', 'objective_type', 'target_value',
+            'current_value', 'target_date', 'measurement_method', 'linked_to',
+            'contribution_percent', 'status', 'last_updated',
+        ],
+        aliases: [
+            ['objective type', 'objective_type'], ['target value', 'target_value'],
+            ['current value', 'current_value'], ['target date', 'target_date'],
+            ['measurement', 'measurement_method'], ['linked to', 'linked_to'],
+            ['contribution', 'contribution_percent'], ['last updated', 'last_updated'],
+            ['type', 'type'], ['title', 'title'], ['description', 'description'],
+            ['status', 'status'],
+        ],
+        // Every benefits field is free text except the percentage. The
+        // parser accepts any string for `type` and `status` (a benefits
+        // taxonomy is a user's own vocabulary, unlike RAID's fixed five),
+        // so validating them to an enum here would reject plans the
+        // non-collab editor happily produces.
+        numeric: { contribution_percent: { min: 0, max: 100 } },
+        defaults: {
+            type: '', title: '', description: '', objective_type: '', target_value: '',
+            current_value: '', target_date: '', measurement_method: '', linked_to: '',
+            contribution_percent: 0, status: '', last_updated: '',
+        },
+    },
+
+    comms: {
+        marker: COMMS_START,
+        // Mirrors format_converter.py's generate_comms_plan_text.
+        headers: ['ID', 'Activity', 'Audience', 'Content', 'Frequency', 'Channel', 'Owner', 'Status'],
+        fields: ['activity', 'audience', 'content', 'frequency', 'channel', 'owner', 'status'],
+        aliases: [
+            ['activity', 'activity'], ['audience', 'audience'], ['content', 'content'],
+            ['frequency', 'frequency'], ['channel', 'channel'], ['owner', 'owner'],
+            ['status', 'status'],
+        ],
+        numeric: {},
+        defaults: {
+            activity: '', audience: '', content: '', frequency: '',
+            channel: '', owner: '', status: '',
+        },
+    },
+};
+
+/** Parse a generic id-keyed pipe table into row objects, using `schema`'s
+ * aliases to map however the table's headers happen to be worded onto the
+ * canonical field names. Rows without a usable id are skipped rather than
+ * renumbered: an id is a joiner's only handle on a row, so inventing one
+ * would let a later op address a row the sender never saw. */
+function parseTable(text, schema) {
+    const lines = String(text == null ? '' : text)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+    let headerIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+        const lower = lines[i].toLowerCase();
+        if (lower.includes('|') && schema.aliases.some(([alias]) => lower.includes(alias))) {
+            headerIndex = i;
+            break;
+        }
+    }
+    if (headerIndex === -1) return [];
+
+    const headers = splitRow(lines[headerIndex]).map((h) => h.toLowerCase());
+    const colMap = {};
+    headers.forEach((header, idx) => {
+        if (header.includes('id') && !('id' in colMap) && header.length <= 4) colMap.id = idx;
+        for (const [alias, field] of schema.aliases) {
+            if (header.includes(alias) && !(field in colMap)) { colMap[field] = idx; break; }
+        }
+    });
+
+    const items = [];
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.includes('|')) continue;
+        if (/^\|?[\s|:-]+\|?$/.test(line)) continue; // separator row
+        const cells = splitRow(line);
+        if (cells.length === 0) continue;
+
+        const cell = (field) => {
+            const idx = colMap[field];
+            return idx === undefined || idx >= cells.length ? '' : unescapeCell(cells[idx]);
+        };
+
+        const rawId = cell('id');
+        const id = Number.parseInt(rawId, 10);
+        if (!Number.isFinite(id)) continue;
+
+        const row = { id };
+        for (const field of schema.fields) row[field] = cell(field);
+        for (const field of Object.keys(schema.numeric)) {
+            const num = Number(row[field]);
+            row[field] = Number.isFinite(num) ? num : schema.defaults[field];
+        }
+        items.push(row);
+    }
+    return items;
+}
+
+/** Serialise rows back into a padded markdown table, escaping every cell
+ * the same way RAID's serialiser does. */
+function serializeTable(items, schema) {
+    if (!items || items.length === 0) return '';
+    const rows = items.map((item) => [escapeCell(item.id)].concat(
+        schema.fields.map((field) => escapeCell(item[field])),
+    ));
+    const widths = schema.headers.map((h) => h.length);
+    rows.forEach((row) => row.forEach((c, i) => { widths[i] = Math.max(widths[i], c.length); }));
+
+    const pad = (str, width) => str + ' '.repeat(Math.max(0, width - str.length));
+    const formatRow = (cells) => '| ' + cells.map((c, i) => pad(c, widths[i])).join(' | ') + ' |';
+    const separator = '|' + widths.map((w) => '-'.repeat(w + 2)).join('|') + '|';
+    return [formatRow(schema.headers), separator, ...rows.map(formatRow)].join('\n');
+}
+
+/** Replace one section's table in `planText`, leaving every other section
+ * byte-for-byte where it already is. Unlike spliceRaidSection (which
+ * rebuilds the tail in canonical order, as format_converter.py does), this
+ * edits in place -- the section being replaced is the only thing that
+ * moves, so a plan whose sections are in an unusual order keeps it. */
+function spliceSectionInPlace(planText, marker, body) {
+    const text = String(planText == null ? '' : planText);
+    const start = indexOfMarkerLine(text, marker, 0);
+
+    if (start === -1) {
+        if (!body) return text;
+        return text.replace(/\n+$/, '') + '\n\n' + marker + '\n' + body;
+    }
+
+    const afterMarker = start + marker.length;
+    let end = text.length;
+    for (const other of ALL_SECTION_MARKERS) {
+        const idx = indexOfMarkerLine(text, other, afterMarker);
+        if (idx !== -1 && idx < end) end = idx;
+    }
+
+    const head = text.slice(0, start).replace(/\n+$/, '');
+    const tail = text.slice(end).replace(/^\n+/, '');
+    const rebuilt = body ? `${head}\n\n${marker}\n${body}` : head;
+    return tail ? `${rebuilt.replace(/\n+$/, '')}\n\n${tail}` : rebuilt;
+}
+
 /** Split one markdown table row into cells on unescaped `|`, matching
  * format_converter.py's parse_row (regex-split on `|` not preceded by
  * `\`, then drop the leading/trailing empty cells the outer pipes leave
@@ -452,6 +645,25 @@ export function buildRaidSnapshot(planText, rev) {
     };
 }
 
+/** Snapshot for any editable back-matter section (#1036). RAID keeps
+ * `buildRaidSnapshot` and its `raid_snapshot` frame type for compatibility
+ * with the joiner already shipped in #969; the generic sections use one
+ * `backmatter_snapshot` type carrying the section name, so adding a
+ * section needs no new frame type. */
+export function buildSectionSnapshot(planText, rev, section) {
+    const schema = SECTION_SCHEMAS[section];
+    if (!schema) return null;
+    if (schema.bespoke) return buildRaidSnapshot(planText, rev);
+    return {
+        type: 'backmatter_snapshot',
+        section,
+        rev,
+        items: parseTable(
+            extractSection(String(planText == null ? '' : planText), schema.marker), schema,
+        ),
+    };
+}
+
 const VALID_BACKMATTER_OPS = new Set(['add_row', 'edit_row', 'delete_row']);
 const VALID_ROW_FIELDS = new Set([
     'type', 'title', 'description', 'raised_by', 'owner', 'mitigation_actions',
@@ -469,9 +681,15 @@ export function isBackmatterOp(value) {
     return Boolean(value)
         && typeof value === 'object'
         && value.type === 'backmatter_op'
-        && value.section === 'raid'
+        && typeof value.section === 'string'
+        && Object.prototype.hasOwnProperty.call(SECTION_SCHEMAS, value.section)
         && VALID_BACKMATTER_OPS.has(value.op);
 }
+
+/** The sections a joiner may edit live. Exported so the joiner UI and its
+ * tests agree with this module about what exists, rather than each keeping
+ * its own list that can drift. */
+export const EDITABLE_SECTIONS = Object.keys(SECTION_SCHEMAS);
 
 function reject(reason) {
     return { ok: false, reason };
@@ -546,10 +764,79 @@ function mergeFields(row, fields) {
  * describeBackmatterConflict) or `{ok: false, reason}` for
  * `invalid` / `unknown_row`.
  */
+/** Merge untrusted `fields` into a generic table row (#1036).
+ *
+ * Free text is newline-collapsed and pipe-escaped on serialise, exactly as
+ * RAID's does -- these sections carry the same injection risk, since a
+ * joiner-supplied cell is spliced into a pipe- and line-delimited table.
+ * Numeric fields are clamped rather than rejected so a slider that
+ * overshoots does not bounce the whole op. */
+function mergeSectionFields(row, fields, schema) {
+    const next = { ...row };
+    for (const key of Object.keys(fields || {})) {
+        if (!schema.fields.includes(key)) continue;
+        if (key in schema.numeric) {
+            const num = Number(fields[key]);
+            if (!Number.isFinite(num)) return null;
+            const { min, max } = schema.numeric[key];
+            next[key] = Math.max(min, Math.min(max, Math.round(num)));
+            continue;
+        }
+        next[key] = sanitizeText(fields[key]);
+    }
+    return next;
+}
+
+/** Apply an op to one of the generic id-keyed table sections (#1036). */
+function applySectionOp(text, op, schema) {
+    const body = extractSection(text, schema.marker);
+    const items = parseTable(body, schema);
+
+    if (op.op === 'add_row') {
+        const merged = mergeSectionFields({ ...schema.defaults }, op.fields, schema);
+        if (!merged) return reject('invalid');
+        merged.id = items.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+        return {
+            ok: true,
+            text: spliceSectionInPlace(text, schema.marker, serializeTable(items.concat([merged]), schema)),
+            previous: null,
+        };
+    }
+
+    const rowId = Number(op.row_id);
+    const index = items.findIndex((item) => item.id === rowId);
+    if (index === -1) return reject('unknown_row');
+
+    if (op.op === 'delete_row') {
+        const previous = items[index];
+        const nextItems = items.slice(0, index).concat(items.slice(index + 1));
+        return {
+            ok: true,
+            text: spliceSectionInPlace(text, schema.marker, serializeTable(nextItems, schema)),
+            previous,
+        };
+    }
+
+    const previous = items[index];
+    const merged = mergeSectionFields(previous, op.fields, schema);
+    if (!merged) return reject('invalid');
+    merged.id = previous.id;
+    const nextItems = items.slice();
+    nextItems[index] = merged;
+    return {
+        ok: true,
+        text: spliceSectionInPlace(text, schema.marker, serializeTable(nextItems, schema)),
+        previous,
+    };
+}
+
 export function applyBackmatterOp(planText, op) {
     if (!isBackmatterOp(op)) return reject('invalid');
 
     const text = String(planText == null ? '' : planText);
+    const schema = SECTION_SCHEMAS[op.section];
+    if (!schema.bespoke) return applySectionOp(text, op, schema);
+
     const items = parseRaidTable(extractSection(text, RAID_LOG_START));
 
     if (op.op === 'add_row') {
