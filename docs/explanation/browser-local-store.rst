@@ -271,3 +271,11 @@ Browser quotas are not something a Node test can measure. Current Chrome,
 Firefox and Safari allow an origin at least hundreds of megabytes of
 IndexedDB storage, growing with free disk; the Storage tab shows the
 browser's own estimate for this site through ``navigator.storage.estimate()``.
+
+Related
+--------
+
+- :doc:`browser-first-architecture` — the programme-level view: the route
+  inventory, the JS-native vs Pyodide decision, and the end-state
+- Issue #794 — the port
+- Issue #788 — the browser-first programme this is part of

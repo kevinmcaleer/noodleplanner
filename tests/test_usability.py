@@ -251,6 +251,86 @@ class TestTabNavigation:
         assert is_visible, "Tools menu did not open"
 
 
+class TestBackstageFullScreen:
+    """#972: Backstage is a full-screen mode with a single exit route --
+    the ribbon/status bar hide while it's open, and the back arrow / Esc
+    is the only way out, returning to whatever view was active on entry.
+    """
+
+    def _ribbon_is_hidden(self, browser):
+        return browser.execute_script(
+            "var el = document.getElementById('ribbonShell');"
+            "return !el || window.getComputedStyle(el).display === 'none';"
+        )
+
+    def test_file_button_opens_fullscreen_backstage(self, browser, app_server):
+        """Clicking the ribbon's File button navigates straight into a
+        full-screen Backstage -- no dropdown, ribbon/status bar hidden."""
+        browser.get(app_server)
+        time.sleep(0.3)
+
+        file_btn = browser.find_element(By.CSS_SELECTOR, '[data-action="open-backstage"]')
+        file_btn.click()
+        time.sleep(0.3)
+
+        backstage_tab = browser.find_element(By.ID, "backstage-tab")
+        assert "active" in backstage_tab.get_attribute("class"), \
+            "Backstage tab content not active after clicking File"
+
+        is_fullscreen = browser.execute_script(
+            "return document.body.classList.contains('backstage-fullscreen')"
+        )
+        assert is_fullscreen, "body did not gain backstage-fullscreen on entry"
+        assert self._ribbon_is_hidden(browser), "Ribbon still visible in full-screen Backstage"
+
+        # No File dropdown should exist anymore (#972 retired it).
+        assert browser.execute_script(
+            "return document.querySelectorAll('.ribbon-file-menu-item[data-file-index]').length"
+        ) == 0
+
+    def test_back_arrow_exits_to_previous_view_and_restores_chrome(self, browser, app_server):
+        """The back arrow returns to the view that was active on entry and
+        un-hides the ribbon/status bar."""
+        browser.get(app_server)
+        time.sleep(0.3)
+        # Start from the editor (Plan) view, then enter Backstage.
+        browser.execute_script("switchToView('editor');")
+        time.sleep(0.2)
+        browser.execute_script("switchToView('backstage');")
+        time.sleep(0.3)
+
+        back_btn = browser.find_element(By.ID, "backstageBackBtn")
+        back_btn.click()
+        time.sleep(0.3)
+
+        editor_tab = browser.find_element(By.ID, "editor-tab")
+        assert "active" in editor_tab.get_attribute("class"), \
+            "Back arrow did not restore the editor view"
+
+        is_fullscreen = browser.execute_script(
+            "return document.body.classList.contains('backstage-fullscreen')"
+        )
+        assert not is_fullscreen, "backstage-fullscreen not cleared after exiting"
+        assert not self._ribbon_is_hidden(browser), "Ribbon still hidden after exiting Backstage"
+
+    def test_escape_key_exits_backstage(self, browser, app_server):
+        """Esc is the same exit route as the back arrow."""
+        browser.get(app_server)
+        time.sleep(0.3)
+        browser.execute_script("switchToView('portfolio');")
+        time.sleep(0.2)
+        browser.execute_script("switchToView('backstage');")
+        time.sleep(0.3)
+
+        body = browser.find_element(By.TAG_NAME, "body")
+        body.send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
+
+        backstage_tab = browser.find_element(By.ID, "backstage-tab")
+        assert "active" not in backstage_tab.get_attribute("class"), \
+            "Esc did not exit Backstage"
+
+
 class TestEditorInput:
     """Verify the plan editor accepts user input and reflects changes."""
 

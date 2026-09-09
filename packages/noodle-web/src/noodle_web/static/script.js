@@ -448,6 +448,11 @@ async function handleBoardFileUpload(file) {
 const NavigationController = (() => {
     const registry = {};
     let currentView = null;
+    // The view that was active immediately before the current one -- set the
+    // instant a navigation begins (before currentView is overwritten), so a
+    // view like Backstage (#972) can record "what to return to" from inside
+    // its own activate() hook, which by then only sees the new currentView.
+    let previousView = null;
     let transitioning = false;
 
     // Duration must match the CSS animation duration for np-context-fade-out/in
@@ -527,6 +532,7 @@ const NavigationController = (() => {
         if (currentView && registry[currentView] && registry[currentView].deactivate) {
             registry[currentView].deactivate();
         }
+        previousView = currentView;
         currentView = viewName;
         registry[viewName].activate();
     }
@@ -559,6 +565,7 @@ const NavigationController = (() => {
             if (currentView && registry[currentView] && registry[currentView].deactivate) {
                 registry[currentView].deactivate();
             }
+            previousView = currentView;
             currentView = viewName;
             registry[viewName].activate();
 
@@ -581,6 +588,10 @@ const NavigationController = (() => {
         return currentView;
     }
 
+    function getPreviousView() {
+        return previousView;
+    }
+
     function getRegistry() {
         return registry;
     }
@@ -589,7 +600,7 @@ const NavigationController = (() => {
         return transitioning;
     }
 
-    return { register, navigateTo, getCurrentView, getRegistry, isTransitioning };
+    return { register, navigateTo, getCurrentView, getPreviousView, getRegistry, isTransitioning };
 })();
 
 // Shared helper: set a single nav tab as active, clearing all others (NAV-3)

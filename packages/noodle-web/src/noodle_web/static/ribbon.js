@@ -60,7 +60,6 @@ const ribbonState = {
     // `collapsed` -- see renderDisplayToggle()'s comment for how the two
     // compose.
     density: persisted.density === 'simple' ? 'simple' : 'full',
-    fileMenuOpen: false,
     morePopoverOpen: false,
     displayMenuOpen: false,
 };
@@ -313,13 +312,13 @@ function runAction(scopeId, label) {
 }
 
 // ---------------------------------------------------------------------------
-// Small popovers: the File menu and caret format-choice menus share the
-// same look (see .ribbon-file-menu), so both render through this.
+// Small popovers: caret format-choice menus (Import/Export) render as a
+// `.ribbon-file-menu` -- a name kept from #972 retiring the File dropdown
+// that originally introduced the look; only that one caller remains.
 // ---------------------------------------------------------------------------
 
 function closePopovers() {
     document.querySelectorAll('.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu').forEach((el) => el.remove());
-    ribbonState.fileMenuOpen = false;
     ribbonState.morePopoverOpen = false;
     ribbonState.displayMenuOpen = false;
 }
@@ -402,16 +401,6 @@ function renderSearchBox() {
     `;
 }
 
-function renderFileMenuItems(ia) {
-    return ia.FILE_MENU.map((f, i) => `
-        <button type="button" class="ribbon-file-menu-item" data-file-index="${i}">
-            ${icon(f.icon, 15)}
-            <span class="ribbon-file-menu-item-label">${f.label}</span>
-            ${f.kbd ? `<span class="ribbon-file-menu-item-kbd">${f.kbd}</span>` : ''}
-        </button>
-    `).join('');
-}
-
 const FILE_ACTIONS = {
     // Opens the Backstage shell (#943) -- see backstage.js.
     Home: () => switchToView('backstage'),
@@ -442,11 +431,10 @@ function renderTabStrip(ia, ctxTab) {
     }
 
     return `
-        <button type="button" class="ribbon-file-btn" data-action="toggle-file">File ▾</button>
+        <button type="button" class="ribbon-file-btn" data-action="open-backstage" title="Home" aria-label="Home">File</button>
         ${tabs}${ctxHtml}
         <div class="ribbon-tabstrip-spacer"></div>
         <button type="button" class="ribbon-collapse-btn" data-action="toggle-collapse" title="${ribbonState.collapsed ? 'Expand the ribbon' : 'Collapse the ribbon'}">${ribbonState.collapsed ? '▼' : '▲'}</button>
-        ${ribbonState.fileMenuOpen ? `<div class="ribbon-file-menu" id="ribbonFileMenu">${renderFileMenuItems(ia)}</div>` : ''}
     `;
 }
 
@@ -972,11 +960,11 @@ function wireEvents(shell) {
             return;
         }
 
-        if (e.target.closest('[data-action="toggle-file"]')) {
-            const wasOpen = ribbonState.fileMenuOpen;
-            closePopovers();
-            ribbonState.fileMenuOpen = !wasOpen;
-            refreshRibbon();
+        // #972: `File` is a straight navigation into Backstage (Office's own
+        // "File" tab behaviour), not a dropdown toggle -- see the retired
+        // ribbon-file-menu markup this replaced, and FILE_ACTIONS.Home above.
+        if (e.target.closest('[data-action="open-backstage"]')) {
+            switchToView('backstage');
             return;
         }
 
@@ -1048,17 +1036,6 @@ function wireEvents(shell) {
             return;
         }
 
-        const fileItem = e.target.closest('.ribbon-file-menu-item[data-file-index]');
-        if (fileItem) {
-            loadIA().then((ia) => {
-                const entry = ia.FILE_MENU[Number(fileItem.dataset.fileIndex)];
-                closePopovers();
-                (FILE_ACTIONS[entry.label] || (() => notAvailable(entry.label)))();
-                if (!OPENS_OWN_POPOVER.has(entry.label)) refreshRibbon();
-            });
-            return;
-        }
-
         const cmdBtn = e.target.closest('.ribbon-lg-btn, .ribbon-sm-btn, .ribbon-simple-btn');
         if (cmdBtn && cmdBtn.dataset.label) {
             runAction(cmdBtn.dataset.scopeId, cmdBtn.dataset.label);
@@ -1094,6 +1071,21 @@ function wireEvents(shell) {
     });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { closePopovers(); refreshRibbon(); }
+    });
+
+    // #972: New/Open/Print must keep working as real, global keyboard
+    // shortcuts once the File dropdown (their only previous home, as
+    // decorative `kbd` hints -- they were never actually bound to a
+    // listener) is retired. Cmd/Ctrl+S already works from anywhere via its
+    // own listener in script.js; these three go through the same
+    // FILE_ACTIONS map the rail/File button use, so there is exactly one
+    // place each command lives.
+    document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+        const key = e.key.toLowerCase();
+        if (key === 'n') { e.preventDefault(); FILE_ACTIONS['New plan'](); }
+        else if (key === 'o') { e.preventDefault(); FILE_ACTIONS['Open…'](); }
+        else if (key === 'p') { e.preventDefault(); FILE_ACTIONS['Print'](); }
     });
 }
 
