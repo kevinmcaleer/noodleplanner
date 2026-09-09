@@ -126,15 +126,15 @@ This popover is deliberately lightweight — just name, assignee and completion.
 Colour a Note
 ---------------
 
-Click the ``...`` menu in a note's top-right corner. The menu opens a swatch grid — Palette, Pastel and Dark rows, plus a **Default colour** option at the top to clear any colour you have set.
+Click the ``...`` menu in a note's top-right corner. The menu opens a swatch grid of soft pastel colours — two shades each of yellow, pink, green, blue and red — plus a **Default colour** option at the top to clear any colour you have set. This is purely a personal, manual choice: it carries no meaning of its own and has nothing to do with the Kanban board's rule-based conditional formatting.
 
 .. figure:: /_static/img/how-to/wb-02-note-colour-menu.png
-   :alt: A note's "..." menu open, showing the Default colour option and Palette/Pastel/Dark colour swatch grids
+   :alt: A note's "..." menu open, showing the Default colour option and a grid of pastel colour swatches
    :width: 100%
 
    The note colour menu, opened from a note's ``...`` button.
 
-A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic palette colour NoodlePlanner assigns every task, based on its place in the outline.
+A colour you pick here is the same colour the Kanban board's column header and the mind map's branch use for that task — set it on any one of the three views and it shows up on the other two. Pick **Default colour** to go back to the automatic pastel colour NoodlePlanner assigns every task, based on its place in the outline.
 
 Remove a Note from the Board
 -------------------------------

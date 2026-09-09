@@ -388,10 +388,10 @@ class TestNoteColourPrecedenceAndPersistence:
         switch_to_whiteboard(browser)
 
         before = note_header_style(browser, "Build")
-        pick_swatch(browser, "Build", "#D95B5B")
+        pick_swatch(browser, "Build", "#FFAFA3")
         after = note_header_style(browser, "Build")
 
-        assert after["accent"].upper() == "#D95B5B", \
+        assert after["accent"].upper() == "#FFAFA3", \
             "the accent bar takes the raw swatch colour right away, before the debounced commit lands"
         assert after["background"] != before["background"]
 
@@ -400,10 +400,10 @@ class TestNoteColourPrecedenceAndPersistence:
         load_plan(browser, SAMPLE_PLAN)
         switch_to_whiteboard(browser)
 
-        pick_swatch(browser, "Build", "#D95B5B")
+        pick_swatch(browser, "Build", "#FFAFA3")
         after = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
 
-        assert "- Build: #D95B5B" in after, after
+        assert "- Build: #FFAFA3" in after, after
         assert "- Discovery: #4A90D9" in after, "an unrelated Theme: entry must survive untouched"
 
     def test_clearing_returns_to_derived_palette_and_leaves_no_residue(self, browser, app_server):
@@ -411,13 +411,13 @@ class TestNoteColourPrecedenceAndPersistence:
         load_plan(browser, SAMPLE_PLAN)
         switch_to_whiteboard(browser)
 
-        pick_swatch(browser, "Build", "#D95B5B")
+        pick_swatch(browser, "Build", "#FFAFA3")
         wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
 
         pick_default(browser, "Build")
         after = wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
 
-        assert "Build: #D95B5B" not in after
+        assert "Build: #FFAFA3" not in after
         assert "- Build:" not in after, "clearing must remove the Theme: entry, not blank it"
 
         style = note_header_style(browser, "Build")
@@ -481,16 +481,17 @@ class TestNoteColourRename:
 class TestNoteColourContrast:
     """Programmatic WCAG AA contrast checks against the *real* rendered
     header, in both themes, for every swatch the menu offers -- not an
-    eyeballed screenshot."""
+    eyeballed screenshot.
+
+    Issue #1017 replaced the three swatch grids #849 offered (a saturated
+    "Palette" plus the boards view's own "Pastel"/"Dark" conditional-
+    formatting swatches) with a single fixed pastel palette dedicated to
+    whiteboard notes -- wbPalette() alone is now the complete swatch list
+    the menu offers, so that's the only source this test needs.
+    """
 
     def _swatch_hexes(self, driver):
-        return driver.execute_script(
-            """
-            return wbPalette()
-                .concat(typeof CF_PASTEL_COLOURS !== 'undefined' ? CF_PASTEL_COLOURS : [])
-                .concat(typeof CF_DARK_COLOURS !== 'undefined' ? CF_DARK_COLOURS : []);
-            """
-        )
+        return driver.execute_script("return wbPalette();")
 
     def _assert_all_swatches_meet_aa(self, driver, task_name):
         for colour in self._swatch_hexes(driver):
@@ -519,3 +520,98 @@ class TestNoteColourContrast:
         browser.execute_script("document.documentElement.setAttribute('data-theme', 'dark');")
 
         self._assert_all_swatches_meet_aa(browser, "Build")
+
+
+class TestFixedPastelPalette:
+    """Issue #1017: the menu offers exactly one fixed pastel palette --
+    not #849's three grids (a saturated "Palette" plus the boards view's
+    own "Pastel"/"Dark" conditional-formatting swatches)."""
+
+    def test_menu_offers_only_the_fixed_pastel_palette(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        menu = open_menu(browser, "Discovery")
+        swatch_titles = [
+            s.get_attribute("title")
+            for s in menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-swatch")
+        ]
+        expected = browser.execute_script("return wbPalette();")
+
+        assert sorted(t.upper() for t in swatch_titles) == sorted(c.upper() for c in expected), (
+            "the menu's swatches must be exactly wbPalette() -- no leftover "
+            "conditional-formatting or mind-map colours"
+        )
+        assert len(menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-grid")) == 1, \
+            "a single pastel grid replaces #849's three (Palette/Pastel/Dark) grids"
+
+    def test_palette_is_pastel_not_saturated(self, browser, app_server):
+        # A crude but effective "is this actually pastel" check: every
+        # swatch must be high-lightness (HSL L well above 50%), unlike the
+        # old saturated MM_BRANCH_COLOURS palette (e.g. #4A90D9).
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        lightness_values = browser.execute_script(
+            """
+            return wbPalette().map(function(hex) {
+                const r = parseInt(hex.slice(1, 3), 16) / 255;
+                const g = parseInt(hex.slice(3, 5), 16) / 255;
+                const b = parseInt(hex.slice(5, 7), 16) / 255;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                return (max + min) / 2;
+            });
+            """
+        )
+        assert all(l >= 0.75 for l in lightness_values), (
+            f"every swatch should read as genuinely pastel (high lightness), got {lightness_values}"
+        )
+
+
+class TestNoteColourBackwardCompatibility:
+    """Issue #1017's explicit backward-compatibility requirement: a colour
+    value set before the fixed pastel palette existed (e.g. a Theme: entry
+    picked from #849's old MM_BRANCH_COLOURS/CF_* grids, or a hand-edited
+    hex in the row's own Colour column) must keep rendering with SOME
+    colour rather than breaking, even though it no longer matches any
+    swatch the menu currently offers."""
+
+    def test_old_theme_colour_outside_the_new_palette_still_renders(self, browser, app_server):
+        # SAMPLE_PLAN's `Theme:\n- Discovery: #4A90D9` is exactly this case:
+        # a saturated colour that predates #1017's pastel palette.
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        style = note_header_style(browser, "Discovery")
+        assert style["accent"].upper() == "#4A90D9", \
+            "an old, non-pastel Theme: colour must still render as-is, not be remapped or dropped"
+        assert style["background"], "the header must still get a real (shaded) background colour"
+
+        # Opening the menu on this note must not error, and since #4A90D9
+        # isn't one of the new swatches, none should show as selected.
+        menu = open_menu(browser, "Discovery")
+        selected = menu.find_elements(By.CSS_SELECTOR, ".wb-note-menu-swatch.selected")
+        assert selected == [], \
+            "an old colour outside the new palette must not falsely match one of its swatches"
+
+    def test_hand_set_row_colour_outside_the_new_palette_still_renders(self, browser, app_server):
+        # A hand-edited whiteboard-row Colour is tier 1 of the precedence
+        # and always wins; it can be any hex, old palette or new.
+        plan = SAMPLE_PLAN.replace(
+            "| Build     | 480 | 80 |        | 280   | 260    | no        |",
+            "| Build     | 480 | 80 | #123456 | 280   | 260    | no        |",
+        )
+        open_app(browser, app_server)
+        load_plan(browser, plan)
+        switch_to_whiteboard(browser)
+
+        style = note_header_style(browser, "Build")
+        assert style["accent"].upper() == "#123456"
+        bg_hex = rgb_to_hex(style["background"])
+        text_hex = rgb_to_hex(style["color"])
+        ratio = contrast_ratio(browser, bg_hex, text_hex)
+        assert ratio >= 4.5, \
+            "even an arbitrary hand-set colour must still get a legible header via wbShadeColour()/wbContrastTextColour()"

@@ -258,6 +258,16 @@ const tasks = [
     const palette = wbPalette();
     assert(Array.isArray(palette) && palette.length > 0, 'wbPalette() returns a non-empty swatch list');
 
+    // Issue #1017: wbPalette() is a fixed pastel "post-it" palette dedicated
+    // to whiteboard notes -- no longer mindmap.js's MM_BRANCH_COLOURS (this
+    // sandbox never loads mindmap.js, so a residual dependency on it would
+    // throw a ReferenceError or yield an empty list rather than pass above),
+    // and no longer the boards view's own CF_PASTEL_COLOURS/CF_DARK_COLOURS
+    // conditional-formatting swatches.
+    assert(palette.length === 10, 'wbPalette() offers ten dedicated pastel swatches (two shades each of yellow/pink/green/blue/red)');
+    assert(palette.every(c => /^#[0-9A-Fa-f]{6}$/.test(c)), 'every palette entry is a valid #RRGGBB colour');
+    assert(wbPalette() === palette, 'wbPalette() returns the same fixed list on every call, not a fresh copy');
+
     // wbShadeColour: factor < 1 darkens, factor > 1 blends towards white.
     assert(wbShadeColour('#808080', 0.5) === '#404040', 'factor 0.5 halves each channel');
     assert(wbShadeColour('#000000', 1.5) === '#808080', 'factor 1.5 blends black half-way to white');
