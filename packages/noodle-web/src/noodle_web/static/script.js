@@ -701,6 +701,7 @@ function deactivateKanban() {
 const OUTPUT_VIEWS = {
     'project-report': 'planTab',
     'tasks': 'planTab',
+    'notepad': 'planTab',
     'gantt': 'planTab',
     'calendar': 'planTab',
     'timeline': 'planTab',

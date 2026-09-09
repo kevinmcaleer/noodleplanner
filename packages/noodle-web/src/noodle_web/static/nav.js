@@ -524,6 +524,16 @@ function switchOutputTab(tabName) {
         }, 50);
     }
 
+    // If switching to the notepad list view, (re)build the surface from the
+    // current editor text after layout is ready. Mirrors whiteboard/mindmap
+    // below: those also defer their own init to a setTimeout so the newly-
+    // shown container has real layout before anything measures it.
+    if (tabName === 'notepad' && typeof activateNotepadView === 'function') {
+        setTimeout(() => {
+            activateNotepadView();
+        }, 50);
+    }
+
     // If switching to project report view, re-render the report timeline
     if (tabName === 'project-report' && timelineTasks.length > 0) {
         setTimeout(() => {

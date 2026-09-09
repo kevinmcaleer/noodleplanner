@@ -1,0 +1,154 @@
+/* ========================================
+   Notepad List View (#1049)
+   A plain notepad-style plan-entry surface -- no front matter, no syntax
+   colouring, no PM-only controls. See static/notepad.js.
+   ======================================== */
+
+.notepad-surface {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+.notepad-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
+}
+
+.notepad-hint {
+    font-size: 13px;
+    color: var(--np-text-secondary, #666);
+}
+
+.notepad-kanban-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-surface, #ffffff);
+    color: var(--np-text, #333);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
+                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.notepad-kanban-btn:hover {
+    background: var(--np-bg-hover, #f0f1f4);
+    border-color: var(--np-accent, #667eea);
+}
+
+.notepad-rows {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.notepad-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    border-radius: 4px;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.notepad-row:hover {
+    background: var(--np-bg-hover, #f0f1f4);
+}
+
+.notepad-drag-handle {
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--np-text-muted, #999);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+    /* A comfortably large touch target beyond the visible glyph. */
+    padding: 8px 4px;
+    margin: -8px -4px;
+}
+
+.notepad-row:hover .notepad-drag-handle,
+.notepad-row:focus-within .notepad-drag-handle {
+    opacity: 1;
+}
+
+.notepad-drag-handle--hidden {
+    visibility: hidden;
+}
+
+.notepad-drag-handle:active {
+    cursor: grabbing;
+}
+
+.notepad-bullet {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--np-text-muted, #999);
+}
+
+.notepad-row--draft .notepad-bullet {
+    background: transparent;
+    border: 1px solid var(--np-text-muted, #999);
+}
+
+.notepad-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--np-text, #333);
+    font-size: 15px;
+    font-family: inherit;
+    padding: 6px 4px;
+    border-radius: 4px;
+}
+
+.notepad-input:focus {
+    outline: 2px solid var(--np-accent, #667eea);
+    outline-offset: -1px;
+    background: var(--np-surface, #ffffff);
+}
+
+.notepad-row--draft .notepad-input::placeholder {
+    color: var(--np-text-muted, #999);
+}
+
+.notepad-dragging {
+    opacity: 0.5;
+}
+
+.notepad-drop-before {
+    box-shadow: inset 0 2px 0 0 var(--np-accent, #667eea);
+}
+
+.notepad-drop-after {
+    box-shadow: inset 0 -2px 0 0 var(--np-accent, #667eea);
+}
+
+@media (max-width: 640px) {
+    .notepad-surface {
+        padding: 16px 8px 32px;
+    }
+
+    /* Touch users have no hover state -- the handle needs to be visible
+       (and its target large) all the time, not revealed on hover. */
+    .notepad-drag-handle {
+        opacity: 1;
+    }
+}

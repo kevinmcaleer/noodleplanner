@@ -409,6 +409,77 @@
             last.eol = hadFinalEol ? (last.eol || preferred) : '';
         }
 
+        /**
+         * Insert a new task as a sibling immediately after `afterTask` (or as
+         * the last root task when `afterTask` is null), at the given indent
+         * depth (a `task.indent` value, i.e. spaces not outline levels).
+         * The counterpart writers (notepad list surface, #1049; the "+ Add
+         * Task" row helpers) create tasks this way instead of splicing raw
+         * text, so a freshly-typed task gets exactly the same TaskNode
+         * shape -- metadata, dependants, physical-line bookkeeping -- as one
+         * parsed from a file.
+         */
+        insertTaskAfter(afterTask, indent, name) {
+            const hadFinalEol = this._hasFinalLineEnding();
+            indent = Math.max(0, indent);
+            const indentText = ' '.repeat(indent);
+            const content = String(name || '').replace(/[\r\n]+/g, ' ').trim();
+            const physical = { text: indentText + content, eol: '' };
+            const node = new TaskNode(this.tasks.length, physical, indentText, content, taskMetadata(content));
+
+            if (!afterTask) {
+                node.parent = null;
+                this.roots.push(node);
+            } else if (indent > afterTask.indent) {
+                // Deeper than the anchor: nest as its last child.
+                node.parent = afterTask;
+                afterTask.children.push(node);
+            } else {
+                // Same depth or shallower: walk up to the ancestor-or-self of
+                // afterTask that sits at (or just above) the requested depth,
+                // and insert as its next sibling. Descendants of that
+                // ancestor live in its own nested children array rather than
+                // this list, so the new node lands after its whole subtree.
+                let boundary = afterTask;
+                while (boundary.parent && boundary.parent.indent >= indent) boundary = boundary.parent;
+                node.parent = boundary.parent;
+                const list = boundary.parent ? boundary.parent.children : this.roots;
+                list.splice(list.indexOf(boundary) + 1, 0, node);
+            }
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return node;
+        }
+
+        /**
+         * Remove a leaf task (one with no children) from the document.  Any
+         * blank/comment lines trailing it are folded onto the previous
+         * physical line so deleting a task never silently drops content.
+         * Refuses to remove a task that has children -- callers should
+         * outdent or remove those first, the same way a user would have to
+         * clear a summary row's children before deleting it.
+         */
+        removeTask(task) {
+            if (!task || task.children.length) return false;
+            const list = task.parent ? task.parent.children : this.roots;
+            const index = list.indexOf(task);
+            if (index < 0) return false;
+            const hadFinalEol = this._hasFinalLineEnding();
+            const order = this.tasks;
+            const position = order.indexOf(task);
+            list.splice(index, 1);
+            if (task.trailing.length) {
+                const previous = order[position - 1];
+                if (previous) previous.trailing.push(...task.trailing);
+                else this.leading.push(...task.trailing);
+            }
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return true;
+        }
+
         indentTasks(tasks) {
             const selected = new Set(tasks);
             const roots = tasks.filter(task => {
