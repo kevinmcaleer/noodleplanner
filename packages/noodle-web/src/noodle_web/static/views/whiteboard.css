@@ -457,6 +457,29 @@
     display: none;
 }
 
+/* Free-form note (issue #1015): a task with zero children has no checklist
+   to summarise, so its progress/avatar footer is hidden -- unlike
+   title-only above (a zoom/collapse state that hides the body too), this
+   is driven purely by the underlying task's own structure and applies at
+   any zoom level; the body stays visible so the note's own comment text
+   (see .wb-note-freetext below) still shows. */
+.wb-note-freeform .wb-note-footer {
+    display: none;
+}
+
+/* A free-form note's body text -- its task's own `comment` field, the
+   same free text the task-details form's "Comment" field reads/writes.
+   Left unstyled-empty (no placeholder) when there is no comment, per
+   #885's "nothing prompts for detail". */
+.wb-note-freetext {
+    padding: 8px 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--np-text, #333333);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
 /* Resize handle (issue #848): a small grip in the note's bottom-right
    corner. Sized generously on touch (via the `pointer: coarse` rule
    further down) since it's the one drag target that has no long-press

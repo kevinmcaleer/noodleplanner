@@ -61,7 +61,8 @@ Phase 1
     Nested
       Sub A 1d
       Sub B 1d
-  Empty Phase
+  Empty Phase "Chase the vendor for a quote."
+  Loose Idea
 
 ---whiteboard---
 | Task        | X   | Y  | Colour  | Width | Height | Collapsed |
@@ -69,6 +70,7 @@ Phase 1
 | Discovery   | 120 | 80 | #4A90D9 | 280   | 240    | no        |
 | Build       | 480 | 80 |         | 280   | 260    | no        |
 | Empty Phase | 120 | 400 |        | 240   | 180    | no        |
+| Loose Idea  | 480 | 400 |        | 240   | 180    | no        |
 """
 
 
@@ -315,14 +317,118 @@ class TestNoteRendering:
         )
         assert badge_text is not None and "2" in badge_text
 
-    def test_empty_summary_renders_empty_state(self, browser, app_server):
+    def test_empty_task_renders_as_free_form_note(self, browser, app_server):
+        """Issue #1015: a task with no children at all is a free-form
+        note, not an empty checklist -- it shows its own comment text
+        (here: 'Chase the vendor for a quote.', set on the 'Empty Phase'
+        line in SAMPLE_PLAN) and neither the old checklist empty-state
+        copy nor a progress footer."""
         open_app(browser, app_server)
         load_sample_plan(browser)
         switch_to_whiteboard(browser)
 
         note = get_note(browser, "Empty Phase")
         assert note is not None
-        assert "wb-note-empty" in note["html"]
+        assert "wb-note-freeform" in note["html"], "a childless task renders with the free-form class"
+        assert "Chase the vendor for a quote." in note["html"], "the task's own comment shows as the note's body text"
+        assert "wb-note-empty" not in note["html"], \
+            "the old checklist-specific 'No subtasks yet' placeholder must not appear on a free-form note"
+
+        footer_visible = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Empty Phase') continue;
+                const footer = n.querySelector('.wb-note-footer');
+                return getComputedStyle(footer).display !== 'none';
+            }
+            return null;
+            """
+        )
+        assert footer_visible is False, "the progress footer is not rendered for a free-form note"
+
+    def test_note_gains_checklist_rendering_when_first_child_is_added(self, browser, app_server):
+        """Issue #1015: a free-form note switches to checklist rendering
+        (child rows, progress footer) the instant its task gains a first
+        child -- no separate 'convert to checklist' action anywhere.
+
+        Uses 'Loose Idea' (no comment) rather than 'Empty Phase': giving a
+        *summary* task both an inline comment token and a child at once
+        hits a pre-existing, unrelated outline-parser quirk (the comment
+        stays glued onto `.name` instead of being split into `.comment`)
+        that has nothing to do with free-form rendering -- keeping the two
+        fixtures separate avoids that quirk rather than working around it
+        here."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        before = get_note(browser, "Loose Idea")
+        assert before is not None and "wb-note-freeform" in before["html"]
+
+        plan_text = get_plan_text(browser)
+        # Give "Loose Idea" its first child, indented one level under it,
+        # exactly like a user typing directly into the outline would.
+        updated = plan_text.replace(
+            '  Loose Idea',
+            '  Loose Idea\n    First subtask',
+        )
+        assert updated != plan_text, "the replacement must actually match SAMPLE_PLAN's own text"
+        editor = browser.find_element(By.ID, "planEditor")
+        browser.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+            editor,
+            updated,
+        )
+        wait_for_stable_plan_text(browser, timeout=5.0, quiet=1.0)
+
+        after = get_note(browser, "Loose Idea")
+        assert after is not None
+        assert "wb-note-freeform" not in after["html"], "the note is no longer free-form once it has a child"
+        assert "First subtask" in after["html"], "the new child renders as a checklist row"
+
+        footer_visible = browser.execute_script(
+            """
+            const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+            for (const n of notes) {
+                if (n.dataset.wbTask !== 'Loose Idea') continue;
+                const footer = n.querySelector('.wb-note-footer');
+                return getComputedStyle(footer).display !== 'none';
+            }
+            return null;
+            """
+        )
+        assert footer_visible is True, "the progress footer appears once the note has a checklist"
+
+    def test_existing_checklist_notes_are_unaffected(self, browser, app_server):
+        """Issue #1015: notes that already have children (Discovery,
+        Build -- both present in SAMPLE_PLAN with subtasks) must keep
+        rendering exactly as the #846 checklist post-it always has."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        for task_name in ("Discovery", "Build"):
+            note = get_note(browser, task_name)
+            assert note is not None
+            assert "wb-note-freeform" not in note["html"], \
+                f"{task_name} has children and must not render as free-form"
+            assert "wb-note-row" in note["html"], f"{task_name} still shows its checklist rows"
+
+            footer_visible = browser.execute_script(
+                """
+                const notes = document.querySelectorAll('#whiteboardContainer .wb-note');
+                for (const n of notes) {
+                    if (n.dataset.wbTask !== arguments[0]) continue;
+                    const footer = n.querySelector('.wb-note-footer');
+                    return getComputedStyle(footer).display !== 'none';
+                }
+                return null;
+                """,
+                task_name,
+            )
+            assert footer_visible is True, f"{task_name}'s progress footer is still shown"
 
     def test_progress_footer_matches_direct_children(self, browser, app_server):
         open_app(browser, app_server)
@@ -361,6 +467,27 @@ class TestNoteRendering:
             """
         )
         assert has_badge is True
+
+    def test_free_form_note_round_trips_through_whiteboard_section(self, browser, app_server):
+        """Issue #1015's own acceptance criterion: a free-form note's row
+        persists to and loads from ---whiteboard--- like any other note.
+        Nothing about the table's columns changed for this issue (whether
+        a note renders free-form or as a checklist is derived from the
+        outline, not stored as a column here -- see plan-format.rst's
+        'Whiteboard rows' section), so simply rendering a free-form note
+        must not rewrite the plan text at all."""
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        before = get_plan_text(browser)
+
+        switch_to_whiteboard(browser)
+        note = get_note(browser, "Empty Phase")
+        assert note is not None and "wb-note-freeform" in note["html"]
+        assert note["x"] == "120" and note["y"] == "400", \
+            "the free-form note's stored X/Y round-tripped through the whiteboard table unchanged"
+
+        after = get_plan_text(browser)
+        assert after == before, "merely rendering a free-form note must not write anything to the plan"
 
 
 class TestChecklistTicking:

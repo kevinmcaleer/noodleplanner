@@ -272,31 +272,31 @@ const tasks = [
 }
 
 // ── wbInsertNewSummaryTaskLine: the picker's "create new" outline edit
-// (issue #980) -- a pure text transform, no DOM, so it's covered here
-// rather than only in the Selenium suite. ────────────────────────────
+// (issue #980, reworked by #1015) -- a pure text transform, no DOM, so
+// it's covered here rather than only in the Selenium suite. ─────────
 {
-    // No back-matter at all: the new phase (its own line, plus a
-    // placeholder child line so the outline parser -- engine/scheduler.js
-    // buildTasks() -- classifies it as a summary task immediately rather
-    // than a leaf) lands at the very end.
+    // No back-matter at all: the new task is a single bare line at the
+    // very end -- no placeholder child. Issue #1015: a brand-new note
+    // starts free-form (see wbIsFreeformNote() in whiteboard-notes.js),
+    // so nothing here forces it into checklist shape immediately the way
+    // the old "New Task" placeholder child used to.
     const plain = 'Phase 1\n  Discovery\n    Research @sam 2d\n';
     const plainResult = wbInsertNewSummaryTaskLine(plain, 'Launch');
-    assert(plainResult.endsWith('Launch\n  New Task\n'), 'appends the new phase + placeholder child at the end of a plan with no back matter');
-    assert(plainResult.startsWith('Phase 1\n  Discovery\n    Research @sam 2d\n\nLaunch\n  New Task'),
+    assert(plainResult.endsWith('Launch\n'), 'appends just the new bare task line at the end of a plan with no back matter');
+    assert(plainResult.startsWith('Phase 1\n  Discovery\n    Research @sam 2d\n\nLaunch'),
         'the existing outline is left otherwise untouched');
+    assert(!plainResult.includes('New Task'), 'no placeholder child is written -- the new task starts as a childless, free-form note');
 
-    // A whiteboard section already exists: the new lines must land in the
+    // A whiteboard section already exists: the new line must land in the
     // outline, *before* ---whiteboard---, not inside or after it.
     const withBoard = 'Phase 1\n  Discovery\n\n---whiteboard---\n| Task | X | Y |\n|------|---|---|\n| Discovery | 10 | 20 |\n';
     const withBoardResult = wbInsertNewSummaryTaskLine(withBoard, 'Launch');
     const boardMarkerIdx = withBoardResult.indexOf('---whiteboard---');
     const launchIdx = withBoardResult.indexOf('Launch');
-    const childIdx = withBoardResult.indexOf('  New Task');
-    assert(launchIdx !== -1 && launchIdx < boardMarkerIdx, 'the new phase line lands before ---whiteboard---, not inside/after it');
-    assert(childIdx !== -1 && childIdx < boardMarkerIdx, 'its placeholder child line lands before ---whiteboard--- too');
+    assert(launchIdx !== -1 && launchIdx < boardMarkerIdx, 'the new task line lands before ---whiteboard---, not inside/after it');
     assert(withBoardResult.includes('| Discovery | 10 | 20 |'), 'the existing whiteboard section survives untouched');
 
-    // Multiple back-matter sections: the new lines must land before the
+    // Multiple back-matter sections: the new line must land before the
     // *first* one encountered (earliest in the text), matching
     // extractWhiteboardFromPlanText()'s own marker scan.
     const withMany = 'Phase 1\n  Discovery\n\n---budget---\nsome budget text\n\n---whiteboard---\n| Task | X | Y |\n|------|---|---|\n';

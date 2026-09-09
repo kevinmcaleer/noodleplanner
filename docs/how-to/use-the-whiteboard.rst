@@ -31,6 +31,15 @@ The note appears with its title already selected, so just type the name and pres
 
    A post-it is a real task, straight away. It starts at the top level of your plan and shows up everywhere else — the Tasks table, the Gantt chart, the outline — immediately. Nothing needs to be "promoted" later.
 
+Free-form Notes
+------------------
+
+A brand-new post-it starts as a **free-form note**: just a title, with no checklist, dates or subtasks forced onto it. That is the whole point — the fastest way to get a thought onto the board is to type it and stop.
+
+If you also want a line or two of detail, open **Open task details** on the note's ``...`` menu and fill in **Comment**. It shows up in the note's body.
+
+The moment you give the note its *first* subtask — indenting a task under it in the outline, adding one from the task form, or noodling an existing note underneath it — the note switches to a checklist automatically (see `Tick Off a Todo`_ below). There is no separate "add a checklist" step and no way to switch back short of removing every subtask again.
+
 Rename a Note
 ---------------
 
@@ -106,7 +115,7 @@ Both moving and resizing save once you release, as a single undo step — nothin
 Tick Off a Todo
 -----------------
 
-A note lists its subtasks as a checklist. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
+Once a note has at least one subtask, it lists them as a checklist with a progress footer (``2 / 5``) — this is what a `Free-form Notes`_ note turns into the moment it earns its first subtask. Click a checkbox to mark one complete or incomplete. This is the same completion state shown everywhere else in NoodlePlanner (the Kanban board, Tasks table, and so on) — ticking it here updates the task itself, not just the note.
 
 A subtask that has a post-it of its own is **not** listed in the checklist; it is the noodle leaving that note instead. That way one relationship is only ever shown once. If a note has both kinds, a quiet ``+ N linked notes`` line at the bottom of the list says so.
 
