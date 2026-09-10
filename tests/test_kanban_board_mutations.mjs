@@ -147,6 +147,13 @@ test('addNewCard() in resource view tags the new task with that column\'s resour
   assert.match(editor.value, /New Task @kev/);
 });
 
+test('addNewCard() in bucket view tags the new task with that bucket', () => {
+  const { board, editor } = buildBoard('bucket');
+  loadPlan(board, editor, '---\nbuckets: [Backlog]\n---\n\nTask A 0%');
+  board.addNewCard(board.columns.find(column => column.title === 'Backlog'));
+  assert.match(editor.value, /New Task \{Backlog\}/);
+});
+
 test('addNewPhase() adds a new root-level phase column (stubbing the window.prompt() it uses for the name)', () => {
   const { board, editor } = buildBoard('phase', { promptValue: 'Phase Three' });
   loadPlan(board, editor, 'Phase One\n  Task A 0%');
@@ -334,6 +341,25 @@ test('renameTask() changes only the name, preserving every other token on the li
   assert.equal(renamed.comment, 'note');
 });
 
+test('phase, label, and bucket column renames update model nodes and declarations', () => {
+  const phase = buildBoard('phase', { promptValue: 'Renamed Phase' });
+  loadPlan(phase.board, phase.editor, 'Old Phase\n  Task A 0%');
+  phase.board.renamePhase('Old Phase');
+  assert.match(phase.editor.value, /^Renamed Phase/m);
+
+  const label = buildBoard('label', { promptValue: 'new-label' });
+  loadPlan(label.board, label.editor, '---\nlabels: [old-label]\n---\n\nTask A #old-label 0%');
+  label.board.renameLabel('old-label');
+  assert.match(label.editor.value, /labels: \[new-label\]/);
+  assert.match(label.editor.value, /#new-label/);
+
+  const bucket = buildBoard('bucket');
+  loadPlan(bucket.board, bucket.editor, '---\nbuckets: [Old Bucket]\n---\n\nTask A \{Old Bucket\} 0%');
+  bucket.board.renameBucket('Old Bucket', 'New Bucket');
+  assert.match(bucket.editor.value, /buckets: \[New Bucket\]/);
+  assert.match(bucket.editor.value, /\{New Bucket\}/);
+});
+
 // ---------------------------------------------------------------------------
 // Removing columns and cards
 // ---------------------------------------------------------------------------
@@ -435,4 +461,135 @@ test('bucket view groups tasks by {bucket}, including a declared-but-unused buck
   assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Backlog').tasks), ['Task A']);
   assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Doing').tasks), ['Task B']);
   assert.deepEqual(namesOf(board.columns.find(c => c.title === 'No Bucket').tasks), ['Task C']);
+});
+
+test('column ordering is structural, declared, or fixed rather than alphabetical', () => {
+  const plan = [
+    '---',
+    'resources:',
+    '- @zoe: Zoe',
+    '- @amy: Amy',
+    'labels: [zeta, alpha]',
+    'buckets: [Waiting, Active]',
+    '---',
+    '',
+    'Second Phase',
+    '  Zed @zoe #zeta {Active} 0%',
+    'First Phase',
+    '  Able @amy #alpha {Waiting} 100%',
+  ].join('\n');
+  const expected = {
+    phase: ['Second Phase', 'First Phase'],
+    resource: ['Zoe', 'Amy', 'Unassigned'],
+    progress: ['Not Started', 'In Progress', 'Complete'],
+    label: ['zeta', 'alpha', 'Unlabeled'],
+    bucket: ['Waiting', 'Active', 'No Bucket'],
+  };
+  for (const mode of Object.keys(expected)) {
+    const { board, editor } = buildBoard(mode);
+    loadPlan(board, editor, plan);
+    assert.deepEqual(Array.from(board.columns, column => column.title), expected[mode], mode);
+  }
+});
+
+test('multi-resource and multi-label tasks appear in every matching column; a drop replaces the whole grouping value', () => {
+  const plan = [
+    '---',
+    'resources:',
+    '- @kev: Kevin',
+    '- @sam: Sam',
+    '- @lee: Lee',
+    'labels: [api, ui, docs]',
+    '---',
+    '',
+    'Task A @kev @sam #api #ui 0%',
+  ].join('\n');
+
+  const resource = buildBoard('resource');
+  loadPlan(resource.board, resource.editor, plan);
+  const resourceTask = resource.board.tasks[0];
+  assert.deepEqual(namesOf(resource.board.columns.find(c => c.title === 'Kevin').tasks), ['Task A']);
+  assert.deepEqual(namesOf(resource.board.columns.find(c => c.title === 'Sam').tasks), ['Task A']);
+  resource.board.handleCardDrop(resourceTask.lineNumber,
+    resource.board.columns.find(c => c.title === 'Lee'));
+  assert.deepEqual(Array.from(resource.board.tasks[0].resourceShortnames), ['lee']);
+
+  const label = buildBoard('label');
+  loadPlan(label.board, label.editor, plan);
+  const labelTask = label.board.tasks[0];
+  assert.deepEqual(namesOf(label.board.columns.find(c => c.title === 'api').tasks), ['Task A']);
+  assert.deepEqual(namesOf(label.board.columns.find(c => c.title === 'ui').tasks), ['Task A']);
+  label.board.handleCardDrop(labelTask.lineNumber,
+    label.board.columns.find(c => c.title === 'docs'));
+  assert.deepEqual(Array.from(label.board.tasks[0].labelsArray), ['docs']);
+});
+
+test('progress boundaries put 0 in Not Started, 25/50/75 in In Progress, and 100 in Complete', () => {
+  const { board, editor } = buildBoard('progress');
+  loadPlan(board, editor, 'Zero 0%\nQuarter 25%\nHalf 50%\nThree Quarters 75%\nDone 100%');
+  assert.deepEqual(namesOf(board.columns.find(c => c.id === 'not_started').tasks), ['Zero']);
+  assert.deepEqual(namesOf(board.columns.find(c => c.id === 'in_progress').tasks),
+    ['Half', 'Quarter', 'Three Quarters']);
+  assert.deepEqual(namesOf(board.columns.find(c => c.id === 'complete').tasks), ['Done']);
+});
+
+test('only tasks at the current board depth become cards; nested children appear after drill-down', () => {
+  const { board, editor } = buildBoard('phase');
+  loadPlan(board, editor, 'Phase\n  Summary 0%\n    Child 0%\n      Grandchild 0%\n  Sibling 0%');
+  assert.deepEqual(namesOf(board.columns[0].tasks), ['Sibling', 'Summary']);
+  assert.ok(!board.columns[0].tasks.some(task => task.name === 'Child'));
+
+  board.currentParentTask = board.tasks.find(task => task.name === 'Summary');
+  board.groupTasksByViewMode();
+  const childColumn = board.columns.find(column => column.title === 'Summary');
+  assert.deepEqual(namesOf(childColumn.tasks), ['Child']);
+});
+
+test('priority sorting and hide-completed semantics are consistent in every view', () => {
+  const plan = 'Phase\n  Low ! 0%\n  Urgent !!! 0%\n  Done !! 100%';
+  for (const mode of ['phase', 'resource', 'progress', 'label', 'bucket']) {
+    const { board, editor } = buildBoard(mode);
+    board.sortByPriority = true;
+    board.hideCompleted = true;
+    loadPlan(board, editor, plan);
+    for (const column of board.columns) {
+      const visible = column.tasks.filter(task => board.getProgressStatus(task.percent) !== 'complete');
+      const priorities = Array.from(visible, task => task.priority);
+      assert.deepEqual(priorities, [...priorities].sort((a, b) =>
+        ({ Urgent: 0, Important: 1, Medium: 2, Low: 3 }[a] ?? 3) -
+        ({ Urgent: 0, Important: 1, Medium: 2, Low: 3 }[b] ?? 3)), mode);
+      assert.equal(board.isColumnEmptyAfterFilter(column), visible.length === 0, mode);
+    }
+  }
+});
+
+test('a stale rendered card resolves to its model node after the plan gains an earlier line', () => {
+  for (const mode of ['phase', 'resource', 'progress', 'label', 'bucket']) {
+    const { board, editor } = buildBoard(mode);
+    const frontMatter = mode === 'resource'
+      ? '---\nresources:\n- @kev: Kevin\n- @sam: Sam\n---\n\n'
+      : mode === 'label'
+        ? '---\nlabels: [old, new]\n---\n\n'
+        : mode === 'bucket'
+          ? '---\nbuckets: [Old, New]\n---\n\n'
+          : '';
+    const token = mode === 'resource' ? '@kev' : mode === 'label' ? '#old' : mode === 'bucket' ? '{Old}' : '0%';
+    loadPlan(board, editor, `${frontMatter}Phase\n  Target ${token}\n  Other 0%`);
+    const staleTask = board.tasks.find(task => task.name === 'Target');
+    editor.value = editor.value.replace('Phase\n', 'Inserted Phase\n  Inserted 0%\nPhase\n');
+    const targetColumn = mode === 'phase'
+      ? board.columns.find(column => column.title === 'Phase')
+      : mode === 'resource'
+        ? board.columns.find(column => column.title === 'Sam')
+        : mode === 'progress'
+          ? board.columns.find(column => column.id === 'complete')
+          : mode === 'label'
+            ? board.columns.find(column => column.title === 'new')
+            : board.columns.find(column => column.title === 'New');
+    if (mode === 'phase') board.renameTask(staleTask, 'Renamed Target');
+    else board.handleCardDrop(staleTask.lineNumber, targetColumn);
+    assert.match(editor.value, /Inserted 0%/);
+    assert.match(editor.value, mode === 'phase' ? /Renamed Target/ : /Target/);
+    assert.match(editor.value, /Other 0%/);
+  }
 });

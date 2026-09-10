@@ -95,4 +95,5 @@ Related
 --------
 
 - :doc:`../reference/views` — overview of all views
+- :doc:`../explanation/board-as-a-plan-lens` — how grouping and Board write-back map to canonical plan data
 - :doc:`../explanation/rag-status` — understanding RAG status
