@@ -177,8 +177,10 @@ function mergeDuplicateSections(text) {
 /**
  * Update the plan editor value while preserving cursor position and scroll state.
  * Use this whenever programmatically changing editor.value to prevent cursor drift.
- * The cursor position is clamped to the new content length and adjusted so it stays
- * on the same logical line when content before the cursor changes length.
+ * Positions in text that survived the rewrite are followed to their new offsets.
+ * This matters when an automatic rewrite prepends front matter: restoring the old
+ * line number would put the caret inside YAML instead of after the task the user
+ * just typed (#1082).
  */
 function setEditorValuePreservingCursor(editor, newValue) {
     if (!editor) return;
@@ -192,30 +194,38 @@ function setEditorValuePreservingCursor(editor, newValue) {
     const prevScrollTop = editor.scrollTop;
     const prevScrollLeft = editor.scrollLeft;
 
-    // Determine which line the cursor was on and the offset within that line
-    const textBeforeCursor = oldValue.substring(0, prevStart);
-    const lineIndex = textBeforeCursor.split('\n').length - 1;
-    const lastNewline = textBeforeCursor.lastIndexOf('\n');
-    const colOffset = prevStart - (lastNewline + 1);
+    // Find the unchanged prefix and suffix. A position in either can be mapped
+    // exactly; a position inside the replaced middle is clamped to the closest
+    // corresponding offset in the new middle.
+    let prefixLength = 0;
+    const maxPrefix = Math.min(oldValue.length, newValue.length);
+    while (prefixLength < maxPrefix && oldValue[prefixLength] === newValue[prefixLength]) {
+        prefixLength++;
+    }
+
+    let suffixLength = 0;
+    const maxSuffix = Math.min(
+        oldValue.length - prefixLength,
+        newValue.length - prefixLength
+    );
+    while (suffixLength < maxSuffix &&
+           oldValue[oldValue.length - 1 - suffixLength] === newValue[newValue.length - 1 - suffixLength]) {
+        suffixLength++;
+    }
+
+    const oldSuffixStart = oldValue.length - suffixLength;
+    const newSuffixStart = newValue.length - suffixLength;
+    const newMiddleLength = newSuffixStart - prefixLength;
+    const mapPosition = (position) => {
+        if (position < prefixLength) return position;
+        if (position >= oldSuffixStart) return newSuffixStart + (position - oldSuffixStart);
+        return prefixLength + Math.min(position - prefixLength, newMiddleLength);
+    };
 
     // Apply new value
     editor.value = newValue;
 
-    // Try to restore cursor to the same line and column
-    const newLines = newValue.split('\n');
-    const targetLine = Math.min(lineIndex, newLines.length - 1);
-    let newPos = 0;
-    for (let i = 0; i < targetLine; i++) {
-        newPos += newLines[i].length + 1; // +1 for newline
-    }
-    newPos += Math.min(colOffset, newLines[targetLine].length);
-
-    // Clamp to content length
-    newPos = Math.min(newPos, newValue.length);
-    const selLen = prevEnd - prevStart;
-    const newEnd = Math.min(newPos + selLen, newValue.length);
-
-    editor.setSelectionRange(newPos, newEnd);
+    editor.setSelectionRange(mapPosition(prevStart), mapPosition(prevEnd));
 
     // Restore scroll position (use requestAnimationFrame to ensure it takes effect after browser layout)
     requestAnimationFrame(() => {

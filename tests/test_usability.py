@@ -640,6 +640,48 @@ class TestKanbanReliability:
         assert result["inputEvents"] == 1
         assert "Phase Two\n  Task B 0%\n  Task A 0%" in result["text"]
 
+    def test_drag_to_add_phase_creates_column_and_moves_card(
+        self, browser, app_server
+    ):
+        """Issue #1070: the right-edge Add Phase tile is a drop target."""
+        self._load_plan(browser, app_server)
+        result = browser.execute_script(
+            """
+            switchPlanSubnavToBoard();
+            window.prompt = () => 'Phase Three';
+            const editor = document.getElementById('planEditor');
+            let inputEvents = 0;
+            editor.addEventListener('input', () => inputEvents++);
+            const source = document.querySelector('.kanban-card[data-task-name="Task A"]');
+            const target = document.querySelector('[data-drop-target="new-column"]');
+            const transfer = new DataTransfer();
+            source.dispatchEvent(new DragEvent('dragstart', {
+                bubbles: true, cancelable: true, dataTransfer: transfer
+            }));
+            target.dispatchEvent(new DragEvent('dragover', {
+                bubbles: true, cancelable: true, dataTransfer: transfer
+            }));
+            const highlighted = target.classList.contains('drag-over');
+            target.dispatchEvent(new DragEvent('drop', {
+                bubbles: true, cancelable: true, dataTransfer: transfer
+            }));
+            source.dispatchEvent(new DragEvent('dragend', {
+                bubbles: true, dataTransfer: transfer
+            }));
+            return {
+                text: editor.value,
+                inputEvents,
+                highlighted,
+                columns: Array.from(document.querySelectorAll('.kanban-column-title'))
+                    .map(element => element.textContent)
+            };
+            """
+        )
+        assert result["highlighted"] is True
+        assert result["inputEvents"] == 1
+        assert "Phase Three\n  Task A 0%" in result["text"]
+        assert "Phase Three" in result["columns"]
+
     def test_keyboard_move_and_preferences_survive_reload(
         self, browser, app_server
     ):
