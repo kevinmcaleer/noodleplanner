@@ -551,6 +551,7 @@ function renderLessonsTable() {
                 <td>${escapeHtml(item.date)}</td>
                 <td>
                     <button class="raid-action-btn" onclick="openLessonsForm(${item.id})" title="Edit">&#9998;&#65039;</button>
+                    <button class="raid-action-btn" onclick="SectionFolding.jumpToBackMatterSection('---lessons learned---', ${item.id}, 'tasks')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>
                     <button class="raid-action-btn delete" onclick="deleteLessonsItem(${item.id})" title="Delete">&#128465;&#65039;</button>
                 </td>
             `;
