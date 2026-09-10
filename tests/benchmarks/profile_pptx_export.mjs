@@ -258,7 +258,9 @@ function report(runs, args) {
 
   const rows = [
     ["/api/parse round trips (parallel, wall clock)", run.parseWall,
-      `${parse.n} requests for ${args.projects} projects — every plan is parsed twice, mean ${ms(parse.mean)} each`],
+      `${parse.n} requests for ${args.projects} projects` +
+        (parse.n > args.projects ? " — every plan is parsed twice" : "") +
+        `, mean ${ms(parse.mean)} each`],
     ["Per-project data assembly", assembly.total, `${assembly.n} calls, mean ${ms(assembly.mean)}`],
     ["html2canvas: per-project timelines (one call each)", perProject.total,
       perProject.n ? `${perProject.n} captures, mean ${ms(perProject.mean)}` : "not used on this revision"],
