@@ -951,6 +951,9 @@ function renderGanttRows() {
 
             // Render baseline bar if baseline is visible
             renderBaselineBar(barRow, task, minDate);
+
+            // Render deadline slippage marker if a deadline is set (#877)
+            renderDeadlineMarker(barRow, task, minDate);
         }
 
         ganttInfoBody.appendChild(infoRow);
@@ -1017,6 +1020,34 @@ function renderBaselineBar(barRow, task, minDate) {
         blBar.title = `Baseline: ${task.name}\n${baselineItem.start} to ${baselineItem.finish}\nDuration: ${baselineItem.duration || blCalendarDays + 'd'}`;
         barRow.appendChild(blBar);
     }
+}
+
+/**
+ * Render a deadline marker: a downward red arrow at the task's deadline
+ * date, independent of its bar/diamond position. A deadline never moves
+ * the schedule (#877) -- this only marks where it sits on the timeline.
+ */
+function renderDeadlineMarker(barRow, task, minDate) {
+    if (!task.deadline) return;
+
+    const deadlineDate = parseLocalDate(task.deadline);
+    if (!deadlineDate) return;
+    deadlineDate.setHours(0, 0, 0, 0);
+
+    let daysFromStart = 0;
+    const tempDate = new Date(minDate);
+    tempDate.setHours(0, 0, 0, 0);
+    while (tempDate < deadlineDate) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        daysFromStart++;
+    }
+
+    const marker = document.createElement('div');
+    marker.className = 'gantt-deadline-marker';
+    marker.style.left = (daysFromStart * ganttPixelsPerDay) + 'px';
+    marker.title = `Deadline: ${task.deadline}` +
+        (task.rag && ragStatusToColour(task.rag) === 'red' ? ' (missed)' : '');
+    barRow.appendChild(marker);
 }
 
 function setupBarClickToOpenTask(element, task) {

@@ -68,6 +68,11 @@ has since rewritten what you touched.
   ```
 
   Pure-JS changes tested with `node --test` are unaffected.
+- **Add `-m "not usability"` for a fast run.** The 238 Selenium tests are the
+  whole cost of the suite: ~18 minutes with them, under 20 seconds without.
+  They skip anyway wherever no browser is reachable, so deselecting them
+  explicitly costs nothing locally and makes the run usable as a quick check.
+  CI runs them in their own non-blocking `pytest (usability)` job.
 - **`git add -A` stages the `node_modules` symlink.** `.gitignore` has
   `node_modules/` with a trailing slash, which does not match a symlink of that
   name. Check `git status --short` for an `A node_modules` line before

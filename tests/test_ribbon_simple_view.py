@@ -62,6 +62,7 @@ except ImportError:
     HAS_APP = False
 
 pytestmark = [
+    pytest.mark.usability,
     pytest.mark.skipif(not HAS_SELENIUM, reason="selenium not installed"),
     pytest.mark.skipif(not HAS_APP, reason="noodle_web not importable"),
 ]
@@ -130,13 +131,28 @@ def _create_chrome_driver():
         "/usr/bin/chromedriver",
         "/opt/node22/bin/chromedriver",
     ]
+    last_error = None
+    found_local_driver = False
     for drv_path in driver_candidates:
         if os.path.exists(drv_path):
+            found_local_driver = True
             try:
                 service = ChromeService(drv_path)
                 return webdriver.Chrome(service=service, options=options)
-            except WebDriverException:
+            except WebDriverException as exc:
+                last_error = exc
                 continue
+
+    if found_local_driver:
+        # A local chromedriver exists but couldn't drive the detected Chrome
+        # binary -- most likely version skew between this sandbox's pinned
+        # Playwright Chromium build and the globally-installed chromedriver
+        # npm package, which drifts independently. Falling through to
+        # Selenium's own discovery below would just make Selenium Manager
+        # hit the network trying to find/download a matching driver, which
+        # can hang for a long time on a restricted network instead of
+        # failing fast -- skip now rather than risk that.
+        pytest.skip(f"local chromedriver incompatible with detected Chrome: {last_error}")
 
     try:
         return webdriver.Chrome(options=options)

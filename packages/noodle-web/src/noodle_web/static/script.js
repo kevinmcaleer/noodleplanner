@@ -2402,6 +2402,7 @@ function openTaskForm(lineNumber) {
         if (backendTask) {
             task.startDate = backendTask.start || task.startDate;
             task.finishDate = backendTask.finish || task.finishDate;
+            task.deadline = backendTask.deadline || task.deadline;
             if (backendTask.duration_days) {
                 task.duration = String(backendTask.duration_days);
             }
@@ -2435,6 +2436,12 @@ function openTaskForm(lineNumber) {
         startDateField.style.fontStyle = userSetStartDate ? 'normal' : 'italic';
         finishDateField.style.fontStyle = userSetFinishDate ? 'normal' : 'italic';
         durationField.style.fontStyle = userSetDuration ? 'normal' : 'italic';
+
+        // Deadline is never auto-calculated -- it's exactly what's in the
+        // markdown, or blank.
+        const deadlineField = document.getElementById('taskDeadline');
+        deadlineField.value = task.deadline || '';
+        deadlineField.style.fontStyle = 'normal';
 
         document.getElementById('taskPercent').value = task.percent || '';
 
@@ -3748,6 +3755,14 @@ function onDateChange(field) {
     updateRagDisplay();
 }
 
+// Called when the deadline field changes. A deadline never drives
+// scheduling -- it does not touch start/finish/duration, only the RAG
+// slippage flag, so this just persists the field and refreshes that.
+function onDeadlineChange() {
+    saveTask();
+    updateRagDisplay();
+}
+
 // Called when duration field changes - recalculate finish date
 function onDurationChange() {
     const startDateField = document.getElementById('taskStartDate');
@@ -3793,6 +3808,8 @@ function updateRagDisplay() {
     const percent = parseInt(document.getElementById('taskPercent').value) || 0;
     const startDateStr = document.getElementById('taskStartDate').value;
     const finishDateStr = document.getElementById('taskFinishDate').value;
+    const deadlineField = document.getElementById('taskDeadline');
+    const deadlineStr = deadlineField ? deadlineField.value : '';
     const ragDisplay = document.getElementById('ragDisplay');
     const ragReasoning = document.getElementById('ragReasoning');
 
@@ -3809,6 +3826,21 @@ function updateRagDisplay() {
         bgColor = '#1976d2';
         textColor = 'white';
         reasoning = 'Task is complete';
+    }
+    // Red: deadline slippage (#877). A deadline is a fixed marker, distinct
+    // from the on-track/behind-schedule comparison below and from the
+    // start/finish dates, which it never moves. Checked next so this
+    // preview agrees with calculate_rag_status.
+    else if (deadlineStr && (
+        new Date(deadlineStr) < today ||
+        (finishDateStr && new Date(finishDateStr) > new Date(deadlineStr))
+    )) {
+        ragStatus = 'Task Overdue';
+        bgColor = '#f44336';
+        textColor = 'white';
+        reasoning = new Date(deadlineStr) < today
+            ? 'Deadline has passed and the task is not complete'
+            : 'Not on track to complete by the deadline';
     }
     // Green: Task hasn't started yet (start date is in the future)
     else if (startDateStr && new Date(startDateStr) > today) {
@@ -4235,6 +4267,8 @@ function saveTask() {
     const duration = document.getElementById('taskDuration').value.trim();
     const startDate = document.getElementById('taskStartDate').value.trim();
     const finishDate = document.getElementById('taskFinishDate').value.trim();
+    const deadlineField = document.getElementById('taskDeadline');
+    const deadline = deadlineField ? deadlineField.value.trim() : '';
     const percent = document.getElementById('taskPercent').value.trim();
     const resources = document.getElementById('taskResources').value.trim();
     const comment = document.getElementById('taskComment').value.trim();
@@ -4356,6 +4390,9 @@ function saveTask() {
     // Add dates (ISO format) - only if user explicitly set them
     if (startDate && userSetStartDate) newLine += ' ' + startDate;
     if (finishDate && userSetFinishDate) newLine += ' ' + finishDate;
+
+    // Add deadline (D-prefixed, never auto-calculated -- see #877)
+    if (deadline) newLine += ' D' + deadline;
 
     // Add priority marker
     const prioritySelect = document.getElementById('taskPriority');
@@ -4827,6 +4864,7 @@ function parseTaskLine(line, lineNum) {
         duration: values.duration,
         startDate: values.startDate,
         finishDate: values.finishDate,
+        deadline: values.deadline,
         percent: values.percent,
         resources: values.resources.join(', '),
         comment: values.comment,
@@ -15406,6 +15444,7 @@ function calculateInspectorRag(task) {
     const percent = parseInt(task.percent) || 0;
     const startDateStr = task.startDate;
     const finishDateStr = task.finishDate;
+    const deadlineStr = task.deadline;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -15416,6 +15455,18 @@ function calculateInspectorRag(task) {
         status = 'Complete';
         bgClass = 'rag-blue';
         reasoning = 'This task is complete. No further action needed.';
+    } else if (deadlineStr && (
+        new Date(deadlineStr) < today ||
+        (finishDateStr && new Date(finishDateStr) > new Date(deadlineStr))
+    )) {
+        // Red: deadline slippage (#877). A fixed marker, independent of the
+        // on-track/behind-schedule reasoning below. Mirrors
+        // exporters.calculate_rag_status in noodle_core.
+        status = 'Task Overdue';
+        bgClass = 'rag-red';
+        reasoning = new Date(deadlineStr) < today
+            ? 'This task has a deadline of ' + formatInspectorDate(deadlineStr) + ', which has passed, and the task is not complete.'
+            : 'This task is not on track to complete by its deadline of ' + formatInspectorDate(deadlineStr) + '.';
     } else if (startDateStr && new Date(startDateStr) > today) {
         status = 'Not Started';
         bgClass = 'rag-green';
@@ -15658,6 +15709,12 @@ function renderTaskInspector(task, ragInfo, depDetails, hints, lineNumber) {
     html += '        <div class="inspector-field-label">Finish Date</div>';
     html += '        <div class="inspector-field-value">' + formatInspectorDate(task.finishDate) + '</div>';
     html += '      </div>';
+    if (task.deadline) {
+        html += '      <div class="inspector-field">';
+        html += '        <div class="inspector-field-label">Deadline</div>';
+        html += '        <div class="inspector-field-value">' + formatInspectorDate(task.deadline) + '</div>';
+        html += '      </div>';
+    }
     html += '      <div class="inspector-field">';
     html += '        <div class="inspector-field-label">Duration</div>';
     html += '        <div class="inspector-field-value">' + escapeHtml(durationText) + '</div>';

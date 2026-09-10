@@ -593,6 +593,17 @@ export function calculateRagStatus(task, currentDay) {
 
   if (percent === 100) return "Complete";
 
+  // Red: deadline slippage (#877). A deadline is a fixed marker, distinct
+  // from the on-track/behind-schedule comparison below and from
+  // task.start/finish, which it never moves. Mirrors
+  // exporters.calculate_rag_status in noodle_core.
+  if (task.deadline) {
+    const deadlineDay = dayOf(task.deadline);
+    if (deadlineDay !== null && (deadlineDay < currentDay || (task.finish !== undefined && task.finish > deadlineDay))) {
+      return "Task Overdue";
+    }
+  }
+
   if (task.start === undefined || task.finish === undefined) {
     if (!hasPercent || percent === 0) return "Task Overdue";
     if (percent < 50) return "Task Overdue";
@@ -638,6 +649,7 @@ function taskToData(task, idx, resourceMap, currentDay) {
     resources,
     percent: task.percent ?? "",
     rag: task.summary ? "" : calculateRagStatus(task, currentDay),
+    deadline: task.deadline || "",
     comment: task.comment || "",
     priority: task.priority || "Low",
     bucket: task.bucket || "",
