@@ -77,7 +77,17 @@ server. The report deck is a four-quadrant slide (milestones, up next, latest
 highlight, risks and issues) plus a dedicated highlight slide; the portfolio
 deck adds an overview table and a combined risks slide before one slide per
 project. Captured timeline images are embedded. The browser and Python decks
-are compared slide by slide in ``tests/test_pptx_browser_export.mjs``.
+are compared slide by slide in ``tests/test_pptx_browser_export.mjs``, and the
+portfolio deck is pinned against a committed reference — slide text, fill
+colours, shape geometry and table shape — in
+``tests/test_portfolio_deck_reference.mjs``.
+
+The timeline images are rasterised from the live page with html2canvas, which
+clones the whole document and re-resolves every stylesheet on each call. That
+fixed cost dominates the export, so every project's timeline is laid out in one
+offscreen container, rasterised in a **single** call, and cropped apart
+afterwards (issue #778). ``tests/test_portfolio_timeline_capture.mjs`` checks
+the crops are byte-identical to capturing each project on its own.
 
 PDF
 ~~~~
@@ -194,3 +204,15 @@ A multi-slide portfolio report:
 - Access: **Portfolio** → ``...`` menu → **Export Report**
 - Slide 1: Portfolio overview (project table, timeline, summary counts)
 - Subsequent slides: One report slide per project (header, timeline, milestones, risks, highlights)
+
+A progress toast tracks the export while it runs. The deck is assembled and
+zipped in a Web Worker, so the page stays responsive for that part; the
+timeline captures need a live DOM and so still run on the main thread.
+
+To profile the export on a realistic portfolio::
+
+   uv run uvicorn noodle_web.app:app --host 127.0.0.1 --port 8007 &
+   node tests/benchmarks/profile_pptx_export.mjs --projects 10 --runs 3
+
+That builds a ten-project fixture, drives a real headless browser through the
+real export, and prints a per-stage wall-clock breakdown.
