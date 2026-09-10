@@ -217,3 +217,64 @@ test('a plan with no front matter offers to add one', () => {
     const { container } = buildPanel(text);
     assert.ok(container.querySelector('.fm-add-frontmatter-btn'));
 });
+
+function calendarListRow(container) {
+    return container.querySelectorAll('.fm-row').find(r => {
+        const label = r.querySelector('.fm-row-key');
+        return label && label.textContent === 'Calendars';
+    });
+}
+
+function calendarSelectRow(container) {
+    return container.querySelectorAll('.fm-row').find(r => {
+        const label = r.querySelector('.fm-row-key');
+        return label && label.textContent === 'Active Calendar';
+    });
+}
+
+test('the calendars field renders one text row per calendar, editable', async () => {
+    const text = '---\ncalendars:\n- Standard: Mon-Fri\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { editor, container } = buildPanel(text);
+    const row = calendarListRow(container);
+    const entries = row.querySelectorAll('.fm-list-entry');
+    assert.equal(entries.length, 2);
+
+    const gulfPattern = entries[1].querySelectorAll('input')[1];
+    gulfPattern.value = 'Sun-Wed';
+    gulfPattern.dispatchEvent({ type: 'input' });
+    await wait(500);
+    assert.match(editor.value, /- Gulf: Sun-Wed/);
+});
+
+test('the active-calendar field is a select offering Standard plus every declared calendar', () => {
+    const text = '---\ncalendar: Gulf\ncalendars:\n- Standard: Mon-Fri\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { container } = buildPanel(text);
+    const row = calendarSelectRow(container);
+    const select = row.querySelector('select');
+    assert.ok(select, 'expected a <select> widget for the active calendar');
+    const optionTexts = select.children.map(o => o.textContent);
+    assert.deepEqual(optionTexts, ['(unset — Standard)', 'Standard', 'Gulf']);
+    assert.equal(select.value, 'Gulf');
+});
+
+test('the active-calendar select still offers Standard when no calendars: block exists', () => {
+    // The "Active Calendar" row itself only appears once its key is present
+    // in the text (same rule as every other schema key -- absent keys are
+    // added via the "+ Add key" control, not shown pre-emptively).
+    const text = '---\ntitle: No Calendars\ncalendar:\n---\nPhase\n  Task 1d\n';
+    const { container } = buildPanel(text);
+    const row = calendarSelectRow(container);
+    const select = row.querySelector('select');
+    assert.deepEqual(select.children.map(o => o.textContent), ['(unset — Standard)', 'Standard']);
+});
+
+test('choosing an active calendar commits the calendar: key', async () => {
+    const text = '---\ncalendar:\ncalendars:\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { editor, container } = buildPanel(text);
+    const row = calendarSelectRow(container);
+    const select = row.querySelector('select');
+    select.value = 'Gulf';
+    select.dispatchEvent({ type: 'change' });
+    await wait(0);
+    assert.match(editor.value, /^calendar: Gulf$/m);
+});

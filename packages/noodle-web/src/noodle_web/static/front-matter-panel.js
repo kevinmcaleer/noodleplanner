@@ -161,7 +161,7 @@ const FrontMatterPanel = (function () {
         addKey(keyName, kind) {
             const id = this.nextRowId();
             let row;
-            if (kind === 'resource-list' || kind === 'dependency-list' || kind === 'date-list') {
+            if (kind === 'resource-list' || kind === 'dependency-list' || kind === 'date-list' || kind === 'calendar-list') {
                 row = NoodleFrontMatter.newBlockRow(id, keyName, []);
             } else {
                 row = NoodleFrontMatter.newKvRow(id, keyName, '');
@@ -372,10 +372,43 @@ const FrontMatterPanel = (function () {
         _renderWidget(row, schema) {
             const kind = schema ? schema.kind : (row.kind === 'block' ? 'block-raw' : 'text');
             if (row.kind === 'kv' && kind === 'select') return this._renderSelectWidget(row, schema);
+            if (row.kind === 'kv' && kind === 'calendar-select') return this._renderCalendarSelectWidget(row);
             if (row.kind === 'kv' && kind === 'flow-list') return this._renderFlowListWidget(row);
             if (row.kind === 'kv') return this._renderTextWidget(row);
             if (row.kind === 'block' && NoodleFrontMatter.LIST_KINDS[kind]) return this._renderListWidget(row, NoodleFrontMatter.LIST_KINDS[kind], kind);
             return this._renderBlockRawWidget(row);
+        }
+
+        // The set of declared calendar names, read from the `calendars:`
+        // block row if present -- Standard always counts, even undeclared,
+        // since that is the implicit default every plan schedules against.
+        _declaredCalendarNames() {
+            const calendarsRow = this.rows.find(r => r.kind === 'block' && r.key === 'calendars');
+            const names = new Set(['Standard']);
+            if (calendarsRow) {
+                const sourceLines = (calendarsRow.dirty && calendarsRow.childTexts)
+                    ? this._childTextsAsLines(calendarsRow) : calendarsRow.children;
+                for (const entry of NoodleFrontMatter.CalendarList.parse(sourceLines)) {
+                    if (entry.name) names.add(entry.name);
+                }
+            }
+            return Array.from(names);
+        }
+
+        _renderCalendarSelectWidget(row) {
+            const options = this._declaredCalendarNames();
+            if (row.value && !options.includes(row.value)) options.push(row.value);
+            const select = el('select', { className: 'fm-value-select' }, [
+                el('option', { value: '', text: '(unset — Standard)' }),
+                ...options.map(o => el('option', { value: o, text: o })),
+            ]);
+            select.value = row.value || '';
+            select.addEventListener('change', () => {
+                NoodleFrontMatter.setScalarValue(row, select.value);
+                this.commit();
+                this.updateSummary();
+            });
+            return select;
         }
 
         _renderTextWidget(row) {
@@ -447,9 +480,11 @@ const FrontMatterPanel = (function () {
             const wrap = el('div', { className: 'fm-list-widget' });
             const fields = kindName === 'resource-list' ? ['shortName', 'description']
                 : kindName === 'dependency-list' ? ['from', 'task', 'to_task', 'type', 'lag']
+                : kindName === 'calendar-list' ? ['name', 'pattern', 'hours', 'exceptions']
                 : ['name', 'start', 'finish'];
             const labels = kindName === 'resource-list' ? { shortName: '@shortname', description: 'Description' }
                 : kindName === 'dependency-list' ? { from: 'From project', task: 'Source task', to_task: 'This task', type: 'Type', lag: 'Lag (days)' }
+                : kindName === 'calendar-list' ? { name: 'Name', pattern: 'Week pattern (Mon-Fri)', hours: 'Hours (HH:MM-HH:MM)', exceptions: 'Exceptions (Name: date[:date], …)' }
                 : { name: 'Name', start: 'Start (YYYY-MM-DD)', finish: 'Finish (optional)' };
 
             const commitEntries = () => {

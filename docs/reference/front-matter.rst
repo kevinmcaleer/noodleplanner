@@ -35,9 +35,11 @@ Expanded, the panel offers two interchangeable views:
   Known keys (``title``, ``status``, ``Resources``, ``dependencies``, …)
   get a purpose-built widget — a dropdown for ``status``/``theme``, a tag
   editor for ``labels``, repeatable entry rows for ``Resources``,
-  ``dependencies`` and ``non-working-days``. Unrecognised keys still get a
-  plain text row so nothing is ever hidden or silently dropped. Rows can be
-  added, removed, and reordered with the ↑/↓ buttons.
+  ``dependencies``, ``non-working-days`` and ``calendars``, and a dropdown
+  for ``calendar`` that lists whichever calendars are currently declared.
+  Unrecognised keys still get a plain text row so nothing is ever hidden or
+  silently dropped. Rows can be added, removed, and reordered with the
+  ↑/↓ buttons.
 - **Raw** — the front matter exactly as YAML text, for anyone who would
   rather type it directly.
 
@@ -210,4 +212,4 @@ The active calendar's week pattern, hours and exceptions govern scheduling every
 
 .. note::
 
-   A UI for managing calendars (#1135) is tracked separately as part of the Calendars epic (#1047) -- for now, calendars and resource assignments are hand-edited front matter. The scheduling engine's day-granular duration model does not yet consume a calendar's optional ``hours`` window when computing dates -- it is parsed and available on the ``Calendar`` object for a future UI/export to read, but every duration is still whole working days.
+   Calendars can be created, edited, deleted, and selected as active from the Front matter panel's **Calendars** and **Active Calendar** rows (issue #1135) -- see "Editing front matter" above. A resource's ``calendar <Name>`` assignment is currently hand-edited on its ``Resources:`` line rather than through a widget. The scheduling engine's day-granular duration model does not yet consume a calendar's optional ``hours`` window when computing dates -- it is parsed and available on the ``Calendar`` object for a future export to read, but every duration is still whole working days.
