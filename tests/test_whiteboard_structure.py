@@ -752,6 +752,13 @@ def test_outline_collapse_hides_children_and_persists(app_server, browser):
     # Collapse is view state: it must never reach the plan file.
     assert "collapsed" not in get_plan_text(browser).lower().split("---whiteboard---")[0]
 
+    # Restore the expanded state: this suite's `browser` fixture is
+    # module-scoped and localStorage survives every later test's page
+    # navigation (it is keyed by project, not by page load), so leaving
+    # Discovery collapsed here would silently hide its children from every
+    # outline_rows() assertion for the rest of this file.
+    browser.execute_script("wbOutlineExpandAll();")
+
 
 def test_outline_search_keeps_matches_and_their_ancestors(app_server, browser):
     open_app(browser, app_server)
