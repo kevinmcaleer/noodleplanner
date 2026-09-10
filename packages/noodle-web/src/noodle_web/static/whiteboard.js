@@ -462,9 +462,11 @@ function wbHandleMouseDown(e) {
     if (e.button !== 0) return;
     if (e.target === wbSvg || e.target === wbGroup || (e.target.closest && e.target.closest('.wb-grid'))) {
         // A press on bare canvas dismisses any selected noodle, the same
-        // way clicking away from a note closes its `...` menu.
+        // way clicking away from a note closes its `...` menu -- and
+        // (issue #1109) deselects any selected note too.
         if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
         if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
+        if (typeof wbClearNoteSelection === 'function') wbClearNoteSelection();
         wbIsDragging = true;
         wbDragStartX = e.clientX;
         wbDragStartY = e.clientY;
