@@ -24,10 +24,18 @@
     overflow: hidden;
     cursor: grab;
     position: relative;
+    /* Dot-grid canvas backdrop: dots stay subtle and legible on either
+       theme's background rather than assuming a dark canvas. */
     background:
-        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.08) 1px, transparent 0);
     background-size: 24px 24px;
     touch-action: none;
+}
+
+[data-theme="dark"] .pbs-canvas-wrapper {
+    background:
+        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0);
+    background-size: 24px 24px;
 }
 
 .pbs-canvas-wrapper:active {
@@ -111,6 +119,62 @@
     stroke-width: 3;
 }
 
+.pf-arrow-associative {
+    /* Issue #985: line style carries type (solid = dependency, dashed =
+       associative); colour stays whatever the caller picked, expressive
+       rather than semantic -- this only softens it a touch so a dashed
+       [relates: ...] link doesn't compete visually with real dependencies. */
+    opacity: 0.75;
+}
+
+/* Issue #984: a task missing an estimate, an owner, or any connection
+   wobbles gently until completed -- motion that means something (see
+   noodle-layout.js's header), stops as soon as the task settles, and is
+   skipped entirely under prefers-reduced-motion (handled in JS by never
+   adding this class there). --pf-restless-amplitude is set per node from
+   the layout engine's reported amplitude. */
+.pf-restless {
+    animation: pf-restless-wobble 2.6s ease-in-out infinite;
+}
+
+@keyframes pf-restless-wobble {
+    0%, 100% { transform: translateY(calc(var(--pf-restless-amplitude, 2px) * -1)); }
+    50% { transform: translateY(var(--pf-restless-amplitude, 2px)); }
+}
+
+/* Issue #986: semantic zoom -- a collapsed node's "N links" badge
+   (inherited dependency summarisation) and its buried-detail marker. */
+.pf-badge {
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.pf-buried-detail-marker {
+    fill: #ffd641;
+    stroke: var(--np-dark-blue, #02384d);
+    stroke-width: 1;
+    animation: pf-orphan-pulse 2s ease-in-out infinite;
+}
+
+/* Expand/collapse animation (#986 scope) -- a short scale+fade on whatever
+   just toggled, so the eye can track the change instead of the diagram
+   silently jumping to a new shape. Applied by pfToggleGroup() to the node
+   group that was clicked, before the next render replaces it. */
+.pf-node.pf-zoom-transition {
+    animation: pf-zoom-toggle 0.22s ease-out;
+    transform-origin: center;
+}
+
+@keyframes pf-zoom-toggle {
+    0% { opacity: 0.35; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pf-node.pf-zoom-transition {
+        animation: none;
+    }
+}
+
 .pbs-add-btn:hover {
     opacity: 1;
 }
@@ -120,11 +184,11 @@
 }
 
 .pbs-add-btn:hover circle {
-    fill: #3a7bc8;
+    fill: var(--np-accent-hover);
 }
 
 .pbs-delete-btn:hover circle {
-    fill: #b83838;
+    fill: var(--np-danger-hover);
 }
 
 .pbs-toolbar {
@@ -132,14 +196,14 @@
     align-items: center;
     gap: 4px;
     padding: 6px 12px;
-    background: var(--surface-secondary, #1e1e2e);
-    border-bottom: 1px solid var(--border-color, #333);
+    background: var(--np-surface-alt);
+    border-bottom: 1px solid var(--np-border);
 }
 
 .pbs-toolbar-btn {
     background: none;
     border: 1px solid transparent;
-    color: var(--text-secondary, #aaa);
+    color: var(--np-text-muted);
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 4px;
@@ -149,14 +213,14 @@
 }
 
 .pbs-toolbar-btn:hover {
-    background: var(--surface-hover, #2a2a3e);
-    color: var(--text-primary, #fff);
+    background: var(--np-bg-hover);
+    color: var(--np-text);
 }
 
 .pbs-toolbar-btn.active {
-    background: var(--surface-hover, #2a2a3e);
-    color: var(--text-primary, #fff);
-    border-color: var(--accent, #e8833a);
+    background: var(--np-bg-hover);
+    color: var(--np-text);
+    border-color: var(--np-accent);
 }
 
 /* ── Deliverables Matrix ─────────────────────────────────────────── */
@@ -173,19 +237,19 @@
     min-width: 100%;
     border-collapse: collapse;
     font-size: 13px;
-    border: 1px solid var(--border-color, #ddd);
+    border: 1px solid var(--np-border);
 }
 
 .deliverables-table th {
     text-align: center;
     padding: 10px 12px;
-    background: var(--surface-secondary, #1e1e2e);
-    color: var(--text-secondary, #aaa);
+    background: var(--np-surface-alt);
+    color: var(--np-text-muted);
     font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border: 1px solid var(--border-color, #ddd);
+    border: 1px solid var(--np-border);
     position: sticky;
     top: 0;
     z-index: 1;
@@ -194,28 +258,19 @@
 
 .deliverables-table td {
     padding: 5px 6px;
-    border: 1px solid var(--border-color, #ddd);
-    color: var(--text-primary, #333);
+    border: 1px solid var(--np-border);
+    color: var(--np-text);
     vertical-align: middle;
 }
 
-[data-theme="dark"] .deliverables-table {
-    border-color: #444;
-}
-
-[data-theme="dark"] .deliverables-table th,
-[data-theme="dark"] .deliverables-table td {
-    border-color: #444;
-}
-
 .deliverables-table tr:hover td {
-    background: var(--surface-hover, rgba(255,255,255,0.03));
+    background: var(--np-table-hover);
 }
 
 .deliverable-id {
     font-family: monospace;
     font-size: 12px;
-    color: var(--text-secondary, #888);
+    color: var(--np-text-muted);
     white-space: nowrap;
 }
 
@@ -226,7 +281,7 @@
 
 .deliverable-desc {
     font-size: 12px;
-    color: var(--text-secondary, #666);
+    color: var(--np-text-secondary);
     font-style: italic;
     text-align: left;
     max-width: 200px;
@@ -297,13 +352,13 @@
     -moz-appearance: none;
     appearance: none;
     outline: none;
-    color: var(--text-secondary, #999);
+    color: var(--np-text-muted);
 }
 
 .dm-role-cell select:hover,
 .dm-role-cell select:focus {
-    border-color: #ced4da;
-    background: var(--surface-primary, #fff);
+    border-color: var(--np-border);
+    background: var(--np-surface);
     -webkit-appearance: auto;
     -moz-appearance: auto;
     appearance: auto;
@@ -311,8 +366,7 @@
 
 [data-theme="dark"] .dm-role-cell select:hover,
 [data-theme="dark"] .dm-role-cell select:focus {
-    border-color: var(--border-color, #444);
-    background: var(--surface-secondary, #1e1e2e);
+    background: var(--np-surface-alt);
 }
 
 .dm-role-cell select.role-P { color: #fff; background: #4A90D9; border-radius: 4px; }
@@ -320,11 +374,11 @@
 .dm-role-cell select.role-A { color: #fff; background: #2d8a2d; border-radius: 4px; }
 
 .dm-role-cell select.role-P:hover,
-.dm-role-cell select.role-P:focus { color: #4A90D9; background: var(--surface-primary, #fff); }
+.dm-role-cell select.role-P:focus { color: #4A90D9; background: var(--np-surface); }
 .dm-role-cell select.role-R:hover,
-.dm-role-cell select.role-R:focus { color: #D94A4A; background: var(--surface-primary, #fff); }
+.dm-role-cell select.role-R:focus { color: #D94A4A; background: var(--np-surface); }
 .dm-role-cell select.role-A:hover,
-.dm-role-cell select.role-A:focus { color: #2d8a2d; background: var(--surface-primary, #fff); }
+.dm-role-cell select.role-A:focus { color: #2d8a2d; background: var(--np-surface); }
 
 /* Completed row highlight */
 .deliverables-table tr.dm-row-complete td {
@@ -344,36 +398,31 @@
 }
 
 .dm-qa-tick {
-    color: #222;
+    color: var(--np-text);
     font-size: 16px;
     font-weight: 700;
-}
-
-[data-theme="dark"] .dm-qa-tick {
-    color: #fff;
 }
 
 /* ── Role Dropdown ───────────────────────────────────────────────── */
 
 .dm-role-dropdown {
-    background: var(--surface-primary, #fff);
-    border: 1px solid var(--border-color, #ccc);
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px var(--np-shadow-strong, rgba(0,0,0,0.15));
     min-width: 140px;
     overflow: hidden;
 }
 
 [data-theme="dark"] .dm-role-dropdown {
-    background: var(--surface-secondary, #1e1e2e);
-    border-color: var(--border-color, #444);
+    background: var(--np-surface-alt);
 }
 
 .dm-role-dropdown-item {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 13px;
-    color: var(--text-primary, #333);
+    color: var(--np-text);
     transition: background 0.1s;
 }
 
@@ -459,7 +508,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 6px 10px;
-    border-bottom: 1px solid var(--border-color, #eee);
+    border-bottom: 1px solid var(--np-border-light);
     font-size: 13px;
 }
 
@@ -476,14 +525,14 @@
 
 .product-comp-pct {
     font-size: 12px;
-    color: var(--text-secondary, #888);
+    color: var(--np-text-muted);
     margin-left: 8px;
     flex-shrink: 0;
 }
 
 .product-comp-comment {
     font-size: 11px;
-    color: var(--text-secondary, #888);
+    color: var(--np-text-muted);
     font-style: italic;
     margin-left: 8px;
     flex-shrink: 1;
@@ -512,7 +561,7 @@
     padding: 2px;
     font-size: 12px;
     opacity: 0.5;
-    color: var(--text-secondary, #888);
+    color: var(--np-text-muted);
 }
 
 .product-comp-action-btn:hover {
@@ -525,31 +574,31 @@
     gap: 0;
     border-radius: 6px;
     overflow: hidden;
-    border: 1px solid var(--border-color, #ddd);
+    border: 1px solid var(--np-border);
 }
 
 .product-type-btn {
     flex: 1;
     padding: 6px 12px;
     border: none;
-    background: var(--bg-secondary, #f5f5f5);
-    color: var(--text-secondary, #666);
+    background: var(--np-surface-alt);
+    color: var(--np-text-secondary);
     font-size: 13px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
 }
 
 .product-type-btn:not(:last-child) {
-    border-right: 1px solid var(--border-color, #ddd);
+    border-right: 1px solid var(--np-border);
 }
 
 .product-type-btn:hover {
-    background: var(--bg-hover, #e8e8e8);
+    background: var(--np-bg-hover);
 }
 
 .product-type-btn.active {
-    background: var(--accent-color, #4A90D9);
-    color: #fff;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     font-weight: 600;
 }
 
@@ -572,7 +621,7 @@
     font-size: 13px;
     outline: none;
     padding: 4px 6px;
-    color: var(--text-primary, #333);
+    color: var(--np-text);
     transition: border-color 0.15s;
 }
 
@@ -584,20 +633,11 @@
 .product-comp-add input[type="text"]:focus,
 .product-comp-add input:hover,
 .product-comp-add input:focus {
-    border-color: #ced4da !important;
-}
-
-[data-theme="dark"] #productFormSection input[type="text"].form-control:hover,
-[data-theme="dark"] #productFormSection input[type="text"].form-control:focus,
-[data-theme="dark"] #productFormSection textarea.form-control:hover,
-[data-theme="dark"] #productFormSection textarea.form-control:focus,
-[data-theme="dark"] .product-comp-add input:hover,
-[data-theme="dark"] .product-comp-add input:focus {
-    border-color: var(--border-color, #444) !important;
+    border-color: var(--np-border) !important;
 }
 
 .product-comp-add input::placeholder {
-    color: var(--text-secondary, #aaa);
+    color: var(--np-text-muted);
     font-style: italic;
 }
 
@@ -633,40 +673,38 @@
     border-radius: 4px;
     font-size: 13px;
     background: transparent;
-    color: var(--text-primary, #333);
+    color: var(--np-text);
     outline: none;
     cursor: pointer;
 }
 
 .product-qa-role-select:hover,
 .product-qa-role-select:focus {
-    border-color: #ced4da !important;
-    background: var(--surface-primary, #fff);
+    border-color: var(--np-border) !important;
+    background: var(--np-surface);
 }
 
 [data-theme="dark"] .product-qa-role-select:hover,
 [data-theme="dark"] .product-qa-role-select:focus {
-    border-color: var(--border-color, #444) !important;
-    background: var(--surface-secondary, #1e1e2e);
+    background: var(--np-surface-alt);
 }
 
 /* ── Dependencies tag input ──────────────────────────────────────── */
 
 .product-deps-container {
-    border: 1px solid #ced4da;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     padding: 6px 8px;
     display: flex;
     flex-direction: column;
     gap: 6px;
     position: relative;
-    background: #fff;
+    background: var(--np-surface);
     min-height: 36px;
 }
 
 [data-theme="dark"] .product-deps-container {
-    border-color: var(--border-color, #444);
-    background: var(--surface-secondary, #1e1e2e);
+    background: var(--np-surface-alt);
 }
 
 .product-deps-tags {
@@ -715,19 +753,14 @@ input[type="text"].product-deps-input {
     font-size: 13px;
     width: 100%;
     padding: 4px 6px;
-    color: var(--text-primary, #333);
+    color: var(--np-text);
     box-sizing: border-box;
     transition: border-color 0.15s;
 }
 
 .product-deps-input:hover,
 .product-deps-input:focus {
-    border-color: #ced4da !important;
-}
-
-[data-theme="dark"] .product-deps-input:hover,
-[data-theme="dark"] .product-deps-input:focus {
-    border-color: var(--border-color, #444) !important;
+    border-color: var(--np-border) !important;
 }
 
 .product-deps-autocomplete {
@@ -735,19 +768,18 @@ input[type="text"].product-deps-input {
     left: 0;
     right: 0;
     top: 100%;
-    background: #fff;
-    border: 1px solid #ced4da;
+    background: var(--np-surface);
+    border: 1px solid var(--np-border);
     border-top: none;
     border-radius: 0 0 4px 4px;
     max-height: 150px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px var(--np-shadow, rgba(0,0,0,0.1));
 }
 
 [data-theme="dark"] .product-deps-autocomplete {
-    background: var(--surface-secondary, #1e1e2e);
-    border-color: var(--border-color, #444);
+    background: var(--np-surface-alt);
 }
 
 .product-deps-autocomplete-item {
@@ -787,10 +819,10 @@ input[type="text"].product-deps-input {
 
 .product-readonly-field {
     padding: 8px 10px;
-    background: var(--surface-secondary, #f5f5f5);
+    background: var(--np-surface-alt);
     border-radius: 4px;
     font-size: 13px;
-    color: var(--text-primary, #333);
+    color: var(--np-text);
 }
 
 [data-theme="dark"] .product-readonly-field {
@@ -801,9 +833,9 @@ input[type="text"].product-deps-input {
 /* ── Mini flow diagram in product form ────────────────────────────── */
 
 .product-flow-mini {
-    border: 1px solid #ced4da;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
-    background: #fff;
+    background: var(--np-surface);
     padding: 8px;
     display: flex;
     align-items: center;
@@ -812,8 +844,7 @@ input[type="text"].product-deps-input {
 }
 
 [data-theme="dark"] .product-flow-mini {
-    border-color: var(--border-color, #444);
-    background: var(--surface-secondary, #1e1e2e);
+    background: var(--np-surface-alt);
 }
 
 .pf-mini-node {
@@ -849,44 +880,28 @@ input[type="text"].product-deps-input {
     overflow-y: auto;
     font-size: 14px;
     line-height: 1.5;
-    color: var(--text-primary, #333);
-}
-
-[data-theme="dark"] .product-composition-list {
-    color: #ddd;
+    color: var(--np-text);
 }
 
 .product-resources-list {
-    border: 1px solid #ced4da;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     padding: 8px 10px;
     max-height: 200px;
     overflow-y: auto;
     font-size: 14px;
     line-height: 1.5;
-    color: var(--text-primary, #333);
-    background: #fff;
+    color: var(--np-text);
+    background: var(--np-surface);
 }
 
 [data-theme="dark"] .product-resources-list {
-    border-color: var(--border-color, #444);
-    background: var(--surface-secondary, #1e1e2e);
-    color: #ddd;
+    background: var(--np-surface-alt);
 }
 
 .product-composition-list > span,
 .product-resources-list > span {
-    color: #6c757d;
+    color: var(--np-text-muted);
     font-size: 14px;
     font-style: italic;
-}
-
-/* ── Dark mode overrides ─────────────────────────────────────────── */
-
-[data-theme="dark"] .deliverables-table td {
-    color: #ddd;
-}
-
-[data-theme="dark"] .deliverable-id {
-    color: #888;
 }

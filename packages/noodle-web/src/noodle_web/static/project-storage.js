@@ -146,16 +146,21 @@ function saveAllProjects(projects) {
 }
 
 /**
- * Create a new project
+ * Create a new project.
+ *
+ * `planText` seeds the plan body -- used when creating from a template
+ * (backstage.js) so the project is written once, already populated, rather
+ * than created empty and immediately saved over. Omitted means a blank plan,
+ * which is what every pre-existing caller gets.
  */
-function createProject(name) {
+function createProject(name, planText) {
     const projects = getAllProjects();
     const projectId = 'project-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
     const newProject = {
         id: projectId,
         name: name || 'Untitled Project',
-        planText: '',
+        planText: planText || '',
         createdAt: Date.now(),
         updatedAt: Date.now()
     };
@@ -207,6 +212,8 @@ function deleteProject(projectId) {
         return false;
     }
 
+    const deletedPlanText = projects[projectId].planText || '';
+
     delete projects[projectId];
 
     // If deleting current project, clear current project ID
@@ -227,6 +234,19 @@ function deleteProject(projectId) {
             localStorage.removeItem('noodle_history_' + projectId);
         } catch (e) {
             // Ignore errors if key does not exist
+        }
+    }
+
+    // If this was the last member of its programme, its programme-owned
+    // data (#954/#735 -- SRO/vision/outcomes/benefit links) shouldn't
+    // linger with no programme left to show it (see also
+    // removeSelectedFromProgramme()/renameProgramme() in
+    // portfolio-projects-table.js for the other membership-change hooks).
+    if (typeof extractProjectProgramme === 'function' && typeof deriveProgrammes === 'function' &&
+        typeof deleteProgrammeData === 'function') {
+        const programme = extractProjectProgramme(deletedPlanText);
+        if (programme && !deriveProgrammes(Object.values(projects)).some((p) => p.slug === programme.slug)) {
+            deleteProgrammeData(programme.slug);
         }
     }
 
@@ -312,6 +332,17 @@ function saveCurrentProjectState() {
     const result = saveProject(projectId, {
         planText: planText
     });
+
+    // #968: the project record now holds this content, so a collab
+    // crash-recovery snapshot for it (collab-autosave.js, via
+    // collab-session.js's clearCollabAutosaveForProject) is redundant --
+    // this fires on every save, explicit or the periodic autosave, which
+    // is deliberately broader than "explicit save only": either way the
+    // real record is now authoritative, so there is nothing left to
+    // recover that isn't already saved.
+    if (result && typeof clearCollabAutosaveForProject === 'function') {
+        clearCollabAutosaveForProject(projectId).catch(() => {});
+    }
 
     // Update version badge in status bar
     if (typeof updateVersionBadge === 'function') {

@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+from noodle_core import FrontMatterParser
 from noodle_web.plan_service import PlanService, update_front_matter_with_labels
 
 REPO = Path(__file__).resolve().parent.parent
@@ -165,5 +166,22 @@ class TestCorpusExercisesTheFormat:
         assert by_name["Decision point"]["duration_days"] == 0
         assert by_name["Kick-off workshop"]["comment"] == "Held on site"
         assert result.front_matter.get("title", "").startswith("Kitchen Sink")
+        assert result.front_matter.get("programme") == "digital-transformation"
+        assert result.front_matter.get("programme_name") == "Digital Transformation Programme"
         assert result.raid_items and result.comms_items and result.highlights
         assert result.benefits_items and result.lessons_items and result.baseline_items
+
+    def test_kitchen_sink_programme_survives_a_label_edit(self, service):
+        """Editing an unrelated field (labels:) leaves programme untouched --
+        the round-trip guarantee this issue depends on."""
+        text = (REPO / "tests" / "fixtures" / "roundtrip" / "kitchen-sink.md").read_text(encoding="utf-8")
+        edited = update_front_matter_with_labels(text, {"urgent", "dev", "review", "brand-new-tag"})
+        assert edited != text
+        assert "programme: digital-transformation" in edited
+        assert "programme_name: Digital Transformation Programme" in edited
+
+        fm_parser = FrontMatterParser(edited)
+        assert fm_parser.parse_programme() == {
+            "slug": "digital-transformation",
+            "name": "Digital Transformation Programme",
+        }

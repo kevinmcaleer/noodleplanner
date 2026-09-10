@@ -7,6 +7,8 @@ status: Amber
 theme: system
 start date: 2026-06-01
 custom_key: kept exactly as written, even though the app ignores it
+programme: digital-transformation
+programme_name: Digital Transformation Programme
 Resources:
 - @kev: Kévin McAleer, Project Manager
 - @adam: Adam Reid, Platform Architect

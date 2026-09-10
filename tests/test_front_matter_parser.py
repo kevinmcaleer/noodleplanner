@@ -2,6 +2,7 @@
 
 import pytest
 from noodle_core import FrontMatterParser
+from noodle_core.front_matter_parser import programme_name_from_slug
 
 
 PLAN_WITH_FULL_FRONT_MATTER = """\
@@ -49,6 +50,25 @@ Phase 1
 PLAN_WITH_TITLE_ONLY = """\
 ---
 title: Simple Plan
+---
+Phase 1
+  Task A 3d
+"""
+
+PLAN_WITH_PROGRAMME_SLUG_ONLY = """\
+---
+title: My Project
+programme: digital-transformation
+---
+Phase 1
+  Task A 3d
+"""
+
+PLAN_WITH_PROGRAMME_AND_NAME = """\
+---
+title: My Project
+programme: digital-transformation
+programme_name: Digital Transformation Programme
 ---
 Phase 1
   Task A 3d
@@ -151,6 +171,43 @@ class TestParseKeyValues:
         kv1 = parser.parse_key_values()
         kv2 = parser.parse_key_values()
         assert kv1 is kv2
+
+
+class TestParseProgramme:
+    def test_returns_none_without_programme_field(self):
+        parser = FrontMatterParser(PLAN_WITH_FULL_FRONT_MATTER)
+        assert parser.parse_programme() is None
+
+    def test_returns_none_without_front_matter(self):
+        parser = FrontMatterParser(PLAN_WITHOUT_FRONT_MATTER)
+        assert parser.parse_programme() is None
+
+    def test_parses_slug_and_derives_name(self):
+        parser = FrontMatterParser(PLAN_WITH_PROGRAMME_SLUG_ONLY)
+        programme = parser.parse_programme()
+        assert programme == {
+            "slug": "digital-transformation",
+            "name": "Digital Transformation",
+        }
+
+    def test_parses_slug_and_explicit_name(self):
+        parser = FrontMatterParser(PLAN_WITH_PROGRAMME_AND_NAME)
+        programme = parser.parse_programme()
+        assert programme == {
+            "slug": "digital-transformation",
+            "name": "Digital Transformation Programme",
+        }
+
+
+class TestProgrammeNameFromSlug:
+    def test_hyphens_become_spaces_title_cased(self):
+        assert programme_name_from_slug("digital-transformation") == "Digital Transformation"
+
+    def test_underscores_become_spaces_title_cased(self):
+        assert programme_name_from_slug("customer_platform_2026") == "Customer Platform 2026"
+
+    def test_single_word(self):
+        assert programme_name_from_slug("migration") == "Migration"
 
 
 class TestParseResourceMappings:

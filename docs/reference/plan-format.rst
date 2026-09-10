@@ -16,9 +16,10 @@ The canonical guarantee
 
 1. **Complete.** The ``.md`` file alone holds the whole plan: front matter,
    the task outline, and every back-matter section (highlights, RAID log,
-   communications plan, budget, benefits, lessons learned, baseline). Nothing
-   about a plan lives only in the browser's storage or in a database. See
-   `Where plan data lives`_ for the audit.
+   communications plan, budget, benefits, lessons learned, baseline,
+   whiteboard, parking lot). Nothing about a plan lives only in the
+   browser's storage or in a database. See `Where plan data lives`_ for
+   the audit.
 2. **Lossless.** Opening a plan and saving it without editing it leaves
    every byte as it was, with one narrow exception: the four front-matter
    keys the app maintains (`Keys the app maintains`_). Each of those is a
@@ -275,9 +276,14 @@ position, so extra or reordered columns are tolerated), except highlights.
        marker is optional but written by the app.
    * - ``---raid log---``
      - Table: ``ID | Type | Title | Description | Raised By | Owner |
-       Mitigation Actions | Impact | Likelihood | Score | Status``. A short
-       form ``Type | Description | Status | Score | Owner | Date`` is read
-       too. Type is ``risk`` | ``assumption`` | ``issue`` | ``dependency``.
+       Mitigation Actions | Impact | Likelihood | Score | Status | Priority
+       | Target Date``. A short form ``Type | Description | Status | Score
+       | Owner | Date`` is read too. Type is ``risk`` | ``assumption`` |
+       ``issue`` | ``dependency``. An item escalated beyond its own project
+       (project RAID view's "escalate" action) adds two more columns,
+       ``Escalated | Escalation Level`` (``project`` | ``programme`` |
+       ``board``) -- omitted entirely when nothing in the log is escalated,
+       so a plan with no escalations round-trips unchanged.
    * - ``---comms---``
      - Table: ``ID | Activity | Audience | Content | Frequency | Channel |
        Owner | Status``.
@@ -300,6 +306,17 @@ position, so extra or reordered columns are tolerated), except highlights.
        whiteboard/todo-list view's note layout (one row per note). See
        `Whiteboard rows`_ below for the columns and the orphan/duplicate
        rules.
+   * - ``---parking lot---``
+     - Table: ``ID | Text | Date Parked``. The "good idea, not now"
+       holding pen (issue #1019, part of #885): a whiteboard note's ``...``
+       menu offers "Send to parking lot", which deletes the note's task
+       (and any subtasks) from the outline the same way "Delete task"
+       does, but keeps its text here instead of discarding it. ``Text``
+       is the note's title, plus its comment (the ``!"text"`` free-form
+       body, if any) appended after an em dash. ``Date Parked`` is
+       ``YYYY-MM-DD``, the day it was sent here, or empty for a
+       hand-typed row. Canonically the last back-matter section, after
+       ``---whiteboard---``.
 
 A ``# Heading`` line directly after a marker (``# RAID Log``) is allowed
 and kept.
@@ -312,19 +329,31 @@ they are until the view edits them.
 Whiteboard rows
 ~~~~~~~~~~~~~~~~
 
-- ``Task`` names a summary task by name.
+- ``Task`` names a task by name. Any task can have a row: the board
+  started out showing summary tasks only, but a post-it now creates its
+  own task, and a new one starts life as a leaf.
+- Whether a note renders as a plain **free-form note** (just its title
+  and, if set, its ``comment`` -- see the table above) or as a
+  **checklist** (its direct children as todo rows, with a progress
+  footer) is *not* a column here: it is derived straight from whether the
+  task named by ``Task`` currently has any children in the outline above,
+  the same rule the app already applies to distinguish a summary task
+  from a leaf. A free-form note becomes a checklist automatically the
+  moment its task gains a first child, and reverts just as automatically
+  if that child is later removed -- there is no separate flag to keep in
+  sync.
 - ``X`` / ``Y`` are integer board coordinates in unzoomed CSS pixels, origin
   top-left of the board's own coordinate space (not the viewport).
 - ``Colour`` is ``#RRGGBB`` or empty; see `Note colour precedence`_ below.
 - ``Width`` / ``Height`` are optional integers; empty means the default
   note size.
 - ``Collapsed`` is ``yes`` or ``no``.
-- A row whose ``Task`` matches no summary task in the outline (for example
+- A row whose ``Task`` matches no task in the outline (for example
   because the task was renamed by hand, which looks identical to a
   delete-plus-add) is kept in the file, not rendered, and reported as a
   warning -- the same "never remove a line you do not understand" rule
   this page states elsewhere.
-- ``Task`` is matched case-insensitively against summary task names, the
+- ``Task`` is matched case-insensitively against task names, the
   same as dependency name resolution above. If two whiteboard rows name
   the same task, the later one wins; avoid duplicate names.
 - Row order doubles as stacking order: the note whose row comes *last* in
@@ -332,14 +361,92 @@ Whiteboard rows
   moves its row to the end of the table, which is how "bring to front"
   persists across a reload -- z-order is never stored as a separate field.
 
+Free-floating text objects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A **text object** (issue #1018) is bare text at a position -- a heading, a
+margin question, a section label -- with no card, no border, no
+background, and, unlike every post-it row above, no backing task at all.
+It shares this same table rather than a section of its own (every existing
+whiteboard edit rewrites the whole table from its in-memory rows, so a
+second section would be silently lost the next time an unrelated post-it
+was dragged), discriminated by three more columns that a post-it row
+leaves blank:
+
+- ``Kind`` is the literal string ``text``; blank (the default) means an
+  ordinary post-it row, exactly as before this issue.
+- ``Id`` is an opaque, app-generated identifier standing in for ``Task``'s
+  role as the row's unique key -- a text object has no task name to key
+  off. A ``Kind=text`` row with no ``Id`` is dropped, the same as a
+  post-it row with no ``Task``.
+- ``Text`` is the object's own content. Embedded pipes and newlines are
+  escaped (``\|``, ``\n``) so multi-line text survives the single-line
+  table-cell format; every other column here flattens a newline to a
+  space instead, since only this one is expected to hold real prose.
+
+A text object row leaves ``Task``, ``Colour``, ``Width``, ``Height`` and
+``Collapsed`` blank -- none of them apply to bare text (no size/collapse
+state, no task-derived title, no post-it colour). The ``Kind``/``Id``/
+``Text`` columns themselves are only written into the table at all once a
+plan has at least one text object; a plan with post-it rows only still
+round-trips through an edit as the same seven-column table it always has.
+
+Created via the toolbar's **New text** button, the ``t`` key, or double-
+clicking is reserved for a new post-it (``n``) -- a text object goes
+straight into inline edit so typing its content is part of the same
+gesture, the same handoff a new post-it's title gets. Dragging repositions
+it; there is no resize, since bare text has no fixed box to fit -- it
+grows and shrinks with its own content. Deleting one (its own small ``×``
+button) removes only its row: there is no task, and so nothing else in the
+plan to touch.
+
+Noodles are not stored
+~~~~~~~~~~~~~~~~~~~~~~~
+
+A **noodle** -- the curved line drawn between two post-its -- has no
+column, no table and no field of its own anywhere in the file. A noodle
+from note A to note B *is* the statement "B is indented under A in the
+outline", so the noodles the board draws are derived from the task
+hierarchy every time it renders.
+
+That means the two directions agree by construction:
+
+- Drag a noodle from A to B on the board and B's whole subtree is
+  re-indented under A in the outline above, keeping every token on each
+  moved line (``@resources``, durations, ``[depends ...]``, dates,
+  ``{buckets}``, ``#labels``) exactly as it was.
+- Indent a task under another by hand in the plan text and, if both have
+  a row here, a noodle appears between them.
+
+Cutting a noodle (select it, then ``Delete``, or use its ``✕`` button)
+moves the child back out to the end of the outline as a top-level task.
+It never deletes anything: the task and its own children come with it.
+
+A child task that has a row of its own is drawn as a noodle rather than
+as a checklist item inside its parent's note, so one relationship is
+never shown twice in two different shapes.
+
+Storing noodles as their own table was deliberately rejected: it would
+be a second source of truth for a relationship the outline already
+records, free to disagree with it, and it would stop a plan reading
+correctly as a plain indented list in a text editor.
+
 Adding and removing notes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The board is a curated subset of the plan's summary tasks, not every
-phase automatically. **Add note** (toolbar, or the empty-state shortcut)
-opens a picker listing every summary task not already on the board, each
+A post-it can be created from nothing: **New post-it** (toolbar), a
+double-click on empty canvas, or the ``n`` key writes a brand-new
+top-level task line into the outline *and* a row here, in one edit. The
+task is named ``New idea`` (then ``New idea 2``, and so on) until you
+type over it; double-pressing a note's header renames the task in place,
+updating this table and any ``[depends ...]`` that referenced the old
+name in the same edit.
+
+The board is otherwise a curated subset of the plan, not every phase
+automatically. **Add existing** (toolbar, or the empty-state shortcut)
+opens a picker listing every task not already on the board, each
 labelled with its own ``Phase › Sub-phase`` parent path so two same-named
-summary tasks in different phases are tellable apart; a search box
+tasks in different phases are tellable apart; a search box
 filters by name or path. Adding one or several at once writes one row per
 task, each placed in the first free space of the current view that does
 not overlap an existing note, all in a single edit to this section.
@@ -371,12 +478,23 @@ resolved in this order, highest priority first:
    write, so a colour set on any one of the three views shows up on the
    other two, and renaming the summary task carries the colour with it
    (the rename migrates the ``Theme`` key alongside the phase/task name).
-3. Otherwise, a colour derived from the task's position in the outline (the
-   same swatch palette the mind map's branch colours use). Every note
-   always has a colour by this rule -- there is no "uncoloured" state.
-   Choosing "Default colour" in the `...` menu removes both the ``Theme``
-   entry and any stray ``Colour`` column value, returning the note to this
-   derived colour.
+3. Otherwise, a colour derived from the task's position in the outline,
+   drawn from a fixed pastel "post-it" palette (soft yellows, pinks,
+   greens, blues and reds) dedicated to whiteboard notes -- not the mind
+   map's own branch palette, and not the Kanban board's rule-based
+   conditional formatting swatches. Every note always has a colour by
+   this rule -- there is no "uncoloured" state. Choosing "Default colour"
+   in the `...` menu removes both the ``Theme`` entry and any stray
+   ``Colour`` column value, returning the note to this derived colour.
+
+A note's colour is manual, per-note shorthand -- picking a swatch has no
+semantic or conditional-formatting meaning, and is unrelated to the Kanban
+board's own rule-based conditional formatting (a different, rule-driven
+colour system). A colour value already stored from before the pastel
+palette was introduced (e.g. one of the mind map's or the boards view's
+own swatches) keeps rendering exactly as stored even though it no longer
+matches any of the menu's current swatches -- it just won't show as
+"selected" until a new pick is made from the current palette.
 
 Where plan data lives
 ----------------------

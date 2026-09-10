@@ -25,6 +25,18 @@ const BRACKET_DEP = /\[depends\s*:?\s*([^\]]*)\]/i;
 const LAG_LEAD = /^(.+?)\s+([+-]\d+[dwmy])$/;
 const DEP_TYPE = /^(.+?):(FS|SS|FF|SF)$/i;
 const RECURRENCE = /\[repeats\s+([^\]]+)\]/i;
+// Noodle view (#984/#985): a manual drag is recorded as this exception --
+// a semantic corner, not raw pixels -- and an associative (non-scheduling)
+// link is recorded the same bracket-tag way `[depends]` records a real one.
+// Neither field feeds the scheduler; both are read only by noodle-layout.js
+// and noodle-edges.js.
+const PIN_TAG = /\[pin\s*:?\s*([^\]]*)\]/i;
+const RELATES_TAG = /\[relates\s*:?\s*([^\]]*)\]/i;
+const PIN_POSITIONS = new Set([
+  "top-left", "top", "top-right",
+  "left", "center", "right",
+  "bottom-left", "bottom", "bottom-right",
+]);
 const BUCKET = /\{([^}]+)\}/;
 const PRIORITY = /(?<!\w)(!!!|!!|!)(?!["'])/;
 const BANG_COMMENT = /!(?:"([^"]+)"|'([^']+)')/;
@@ -155,6 +167,20 @@ export function extractMetadata(taskStr, taskName = null) {
   // --- recurrence ---
   const recurrence = RECURRENCE.exec(line);
   if (recurrence) meta.recurrence = parseRecurrence(recurrence[1]);
+
+  // --- noodle view pin (issue #984) ---
+  const pin = PIN_TAG.exec(line);
+  if (pin) {
+    const normalised = pin[1].trim().toLowerCase().replace(/[\s_]+/g, "-");
+    if (PIN_POSITIONS.has(normalised)) meta.pin = normalised;
+  }
+
+  // --- noodle view associative link (issue #985) ---
+  const relates = RELATES_TAG.exec(line);
+  if (relates) {
+    const names = relates[1].split(",").map((s) => s.trim()).filter(Boolean);
+    if (names.length) meta.relates = names;
+  }
 
   if (taskName) meta.name = taskName;
   if (line.startsWith("*")) meta.sequential = true;

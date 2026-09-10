@@ -82,6 +82,35 @@ Phase 1
 | Build     | 480 | 80 |        | 280   | 260    | no        |
 """
 
+# Issue #1016: a chain that nests four levels below the note's own root
+# task (Nested), to prove the peek's drill-down has no artificial depth
+# cap -- it must keep going exactly as far as the outline actually nests,
+# not stop at grandchildren.
+#
+# Build
+#   Nested                        <- note's own checklist root
+#     Gen1                        <- summary, direct child of Nested
+#       Gen2 @sam 1d               <- summary, grandchild of Nested
+#         Gen3 @sam 1d             <- summary, great-grandchild of Nested
+#           Gen4 @sam 1d 100%      <- leaf, great-great-grandchild
+DEEP_NESTING_PLAN = """---
+title: Task Peek Deep Nesting Test Plan
+---
+
+Phase 1
+  Build
+    Nested
+      Gen1
+        Gen2 @sam 1d
+          Gen3 @sam 1d
+            Gen4 @sam 1d 100%
+
+---whiteboard---
+| Task  | X   | Y  | Colour | Width | Height | Collapsed |
+|-------|-----|----|--------|-------|--------|-----------|
+| Build | 480 | 80 |        | 280   | 260    | no        |
+"""
+
 
 def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -418,6 +447,123 @@ class TestPeekBreadcrumb:
         assert peek_title(browser) == "Nested", "clicking the root crumb navigates back to it"
         row_names = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-row-name")]
         assert set(row_names) == {"Sub A", "Sub B"}
+
+
+class TestPeekDeepNesting:
+    """Issue #1016 ("nested subtasks within a post-it checklist, deeper
+    than one level"). #850's peek (TestPeekBreadcrumb above) was already
+    built generically: wbBuildPeekLevel() only ever asks "does *this*
+    task have children", tpDrillInto()/tpPushLevel() only ever push one
+    more level onto a plain stack, and neither has any notion of "level
+    0" vs "level 1" -- there was never a hardcoded stop after one hop.
+    #1016 is this file's regression lock for that: it proves the exact
+    same mechanism keeps drilling as many times as the outline actually
+    nests, with no code change required to reach a fourth or fifth level.
+    """
+
+    def test_drilling_several_levels_deep_has_no_artificial_limit(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, DEEP_NESTING_PLAN)
+        switch_to_whiteboard(browser)
+
+        # Root: Nested's own direct children (opened from the note).
+        open_peek(browser, "Build", "Nested")
+        assert peek_title(browser) == "Nested"
+        row_names = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-row-name")]
+        assert row_names == ["Gen1"]
+
+        # Drill: Gen1 -> Gen2 -> Gen3, each one level deeper than #850's
+        # own single-hop coverage.
+        for child_name in ["Gen1", "Gen2", "Gen3"]:
+            badge = browser.execute_script(
+                "return arguments[0].querySelector('.wb-note-count-badge');",
+                peek_row_for(browser, child_name),
+            )
+            assert badge is not None, f"{child_name} has its own children, so it must carry a drill-down badge"
+            badge.click()
+            time.sleep(0.2)
+            assert peek_title(browser) == child_name, f"drilling into {child_name} makes it the peek's current level"
+
+        # Now four levels deep (Nested > Gen1 > Gen2 > Gen3); Gen3's own
+        # child, Gen4, is a leaf and must show no further badge.
+        crumbs = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-crumb")]
+        assert crumbs == ["Nested", "Gen1", "Gen2", "Gen3"], \
+            "the breadcrumb records the full path, all four levels deep"
+
+        gen4_row = peek_row_for(browser, "Gen4")
+        assert gen4_row is not None
+        has_badge = browser.execute_script("return !!arguments[0].querySelector('.wb-note-count-badge');", gen4_row)
+        assert has_badge is False, "Gen4 is a leaf, so its row must not carry a drill-down badge"
+
+        # Breadcrumb navigation works from any depth, not just "one level
+        # in" -- jump straight from the deepest crumb back to Gen1.
+        gen1_crumb = browser.execute_script(
+            """
+            const crumbs = Array.from(document.querySelectorAll('#taskPeekPopover .task-peek-crumb'));
+            return crumbs.find(c => c.textContent === 'Gen1');
+            """
+        )
+        gen1_crumb.click()
+        time.sleep(0.2)
+        assert peek_title(browser) == "Gen1", "clicking an earlier crumb jumps straight back to it, not just one level"
+        row_names_after = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-row-name")]
+        assert row_names_after == ["Gen2"]
+
+
+class TestPeekPlanTextRerender:
+    """Issue #1016's re-render requirement: the peek's navigation stack
+    must survive the ordinary plan-text auto-render (editor.js's 1s input
+    debounce -> renderText() -> wbRenderNotes()), not just user-driven
+    drill/back navigation. wbRenderNotes() updates each note's DOM node
+    *in place* (wbNoteNodes keeps the same node across renders -- see
+    wbUpdateNoteNode()) and never touches or closes the peek popover
+    (document.body's #taskPeekPopover, outside any note card), so this is
+    mostly a regression lock on that decoupling rather than new plumbing:
+    a stray future change coupling note re-render to the peek (e.g. an
+    over-eager "refresh everything" call) would show up here as a closed
+    popover, a reset-to-root stack, or a duplicated #taskPeekPopover.
+    """
+
+    def test_multi_level_stack_survives_a_plan_text_rerender(self, browser, app_server):
+        open_app(browser, app_server)
+        load_plan(browser, SAMPLE_PLAN)
+        switch_to_whiteboard(browser)
+
+        open_peek(browser, "Build", "Nested")
+        sub_b_badge = browser.execute_script(
+            "return arguments[0].querySelector('.wb-note-count-badge');",
+            peek_row_for(browser, "Sub B"),
+        )
+        sub_b_badge.click()
+        time.sleep(0.2)
+        assert peek_title(browser) == "Sub B"
+        crumbs_before = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-crumb")]
+        assert crumbs_before == ["Nested", "Sub B"]
+
+        # Edit the plan text elsewhere (an unrelated task, untouched by the
+        # peeked branch) and let the ordinary 1s auto-render debounce fire,
+        # exactly like a collaborator's own typing would while this peek
+        # sits open two levels deep.
+        edited = SAMPLE_PLAN.replace("Interviews @sam 2d", "Interviews @sam 2d  # rerender probe")
+        assert edited != SAMPLE_PLAN
+        editor = browser.find_element(By.ID, "planEditor")
+        browser.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+            editor,
+            edited,
+        )
+        wait_for_stable_plan_text(browser, timeout=10.0, quiet=1.5)
+        time.sleep(0.3)
+
+        popovers = browser.find_elements(By.ID, "taskPeekPopover")
+        assert len(popovers) == 1, "the re-render must not duplicate or destroy the peek popover"
+        assert peek_title(browser) == "Sub B", "the drilled-in level must still be current after the re-render"
+        crumbs_after = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-crumb")]
+        assert crumbs_after == ["Nested", "Sub B"], "the full navigation stack must survive the re-render"
+        row_names = [el.text for el in browser.find_elements(By.CSS_SELECTOR, "#taskPeekPopover .task-peek-row-name")]
+        assert set(row_names) == {"Detail One", "Detail Two"}, \
+            "the current level's own rows must still be exactly Sub B's children after the re-render"
 
 
 class TestPeekChecklistTicking:

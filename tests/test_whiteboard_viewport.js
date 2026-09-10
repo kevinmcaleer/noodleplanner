@@ -133,6 +133,22 @@ function assertClose(actual, expected, msg, eps = 1e-6) {
         // An invalid/zero zoom must never divide by zero.
         const safe = wbViewportToBoardRect(0, 0, 0, 1200, 800);
         assert(isFinite(safe.x) && isFinite(safe.width), 'a zero zoom falls back to treating it as 1 rather than producing Infinity/NaN');
+
+        // Optional screenX/screenY offset: the floating outline panel covers
+        // the left of the canvas, so wbCurrentViewportBoardRect() asks about
+        // the *visible* sub-region rather than the whole canvas -- otherwise
+        // "first free space in the viewport" could place a new note behind
+        // the panel, where the user never sees it appear.
+        const full = wbViewportToBoardRect(-100, -50, 2, 800, 600);
+        const inset = wbViewportToBoardRect(-100, -50, 2, 528, 600, 272, 0);
+        assertClose(inset.x, (272 + 100) / 2, 'a screen-x offset shifts the board rect by offset / zoom');
+        assertClose(inset.y, full.y, '...leaving y alone when only x is offset');
+        assertClose(inset.width, 528 / 2, 'the narrowed window is still scaled by zoom');
+        assert(inset.x > full.x, 'skipping the panel starts the scan to the right of the full canvas');
+
+        const vertical = wbViewportToBoardRect(0, 0, 1, 800, 500, 0, 100);
+        assertClose(vertical.y, 100, 'a screen-y offset shifts the board rect down');
+        assertClose(vertical.x, 0, '...leaving x alone when only y is offset');
     }
 
     // Per-project storage key convention (mirrors mindmap_branch_colours_<projectId>).
@@ -384,4 +400,5 @@ if (failures > 0) {
     console.error(`\n${failures} test(s) failed.`);
     process.exit(1);
 }
+
 console.log('\nAll tests passed.');

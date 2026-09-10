@@ -120,6 +120,60 @@ const timelineWidth = 100; // pixels-per-day = 1
     assertEqual(byName.level3 > byName.untagged, true, 'level-3 phase placed below untagged');
 }
 
+// ── Test 5: sub-summary stays beneath its parent even when row 0 has
+// horizontal room ───────────────────────────────────────────────────
+// B1 is a child of B (document order: nearest preceding lower level)
+// and starts after everything in row 0 has finished. Pure greedy
+// packing used to place it in row 0 next to the top-level groups;
+// it must land strictly below its parent's row instead.
+{
+    const phases = [
+        { name: 'A',  level: 1, start: '2026-01-01', finish: '2026-01-10' },
+        { name: 'B',  level: 1, start: '2026-01-12', finish: '2026-01-20' },
+        { name: 'B1', level: 2, start: '2026-01-21', finish: '2026-01-28' },
+    ];
+    const result = assignPhaseRows(phases, minDate, totalDays, timelineWidth);
+    const byName = Object.fromEntries(result.map(r => [r.phase.name, r.row]));
+    assertEqual(byName.A, 0, 'top-level A in row 0');
+    assertEqual(byName.B, 0, 'top-level B reuses row 0');
+    assertEqual(byName.B1 > byName.B, true, 'sub-summary B1 lands beneath its parent B, not in row 0');
+}
+
+// ── Test 6: children of nested parents stack beneath their own chain ─
+// C1 is a child of C; C1a is a child of C1. Each must be strictly
+// below its own parent, giving three stacked rows.
+{
+    const phases = [
+        { name: 'C',   level: 1, start: '2026-01-01', finish: '2026-02-09' },
+        { name: 'C1',  level: 2, start: '2026-01-01', finish: '2026-01-20' },
+        { name: 'C1a', level: 3, start: '2026-01-25', finish: '2026-02-04' },
+    ];
+    const result = assignPhaseRows(phases, minDate, totalDays, timelineWidth);
+    const byName = Object.fromEntries(result.map(r => [r.phase.name, r.row]));
+    assertEqual(byName.C, 0, 'parent C in row 0');
+    assertEqual(byName.C1 > byName.C, true, 'C1 beneath C');
+    // C1a starts after C1 ends, but must still sit beneath C1, not beside it.
+    assertEqual(byName.C1a > byName.C1, true, 'C1a beneath C1 despite no horizontal overlap');
+}
+
+// ── Test 7: children of a dropped parent are dropped too ───────────
+// A 7-deep fully-overlapping chain: levels 6 and 7 both exceed the
+// 5-row cap. Level 7's parent (level 6) is dropped, so level 7 must
+// not reappear in some higher row.
+{
+    const phases = Array.from({ length: 7 }, (_, i) => ({
+        name: `p${i + 1}`,
+        level: i + 1,
+        start: '2026-01-01',
+        finish: '2026-01-30',
+    }));
+    const result = assignPhaseRows(phases, minDate, totalDays, timelineWidth);
+    const names = result.map(r => r.phase.name);
+    assertEqual(result.length, MAX_MINIMAL_TIMELINE_ROWS, 'row cap still enforced at 5');
+    assertEqual(names.includes('p6'), false, 'p6 dropped by cap');
+    assertEqual(names.includes('p7'), false, 'p7 dropped because its parent was dropped');
+}
+
 if (failures > 0) {
     console.error(`\n${failures} test(s) failed.`);
     process.exit(1);

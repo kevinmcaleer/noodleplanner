@@ -164,10 +164,23 @@ function renderDetailedPhaseBlocks(container, tasks, minDate, maxDate, totalDays
 const MAX_MINIMAL_TIMELINE_ROWS = 5;
 
 function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
+    // Derive parent links from document order: a phase's parent is the
+    // nearest preceding phase with a lower level (standard outline rules).
+    // Level alone is not enough — a sub-summary must sit beneath its OWN
+    // parent's row, not merely below "some" higher-level phase, and must
+    // never be packed into a top row just because there is horizontal room.
+    const parentOf = new Map();
+    const stack = [];
+    phases.forEach(phase => {
+        const level = typeof phase.level === 'number' ? phase.level : 0;
+        while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+        if (stack.length) parentOf.set(phase, stack[stack.length - 1].phase);
+        stack.push({ phase, level });
+    });
+
     // Sort by hierarchy level first (parents before their sub-summaries),
-    // then by start date as a tiebreaker. Greedy row assignment then
-    // ensures higher-level phases occupy the top rows and child
-    // sub-summaries land below their parents.
+    // then by start date as a tiebreaker, so every parent is assigned a
+    // row before any of its children.
     const sorted = phases.map(phase => {
         const start = parseLocalDate(phase.start);
         const end = parseLocalDate(phase.finish);
@@ -177,15 +190,24 @@ function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
         return { phase, startPos, endPos, level };
     }).sort((a, b) => (a.level - b.level) || (a.startPos - b.startPos));
 
-    // Greedy row assignment: place each phase in the first row where it
-    // does not overlap. Phases that would require a row beyond the cap
-    // are dropped to keep the timeline concise.
+    // Greedy row assignment: place each phase in the first row at or
+    // below its parent's row where it does not overlap. Phases that
+    // would require a row beyond the cap are dropped, as are children
+    // whose parent was dropped.
     const rowEnds = [];
     const result = [];
+    const assignedRows = new Map();
 
     sorted.forEach(item => {
+        const parent = parentOf.get(item.phase);
+        let minRow = 0;
+        if (parent !== undefined) {
+            if (!assignedRows.has(parent)) return; // parent dropped — drop child too
+            minRow = assignedRows.get(parent) + 1; // strictly beneath its parent
+        }
+
         let assignedRow = -1;
-        for (let r = 0; r < rowEnds.length; r++) {
+        for (let r = minRow; r < rowEnds.length; r++) {
             if (item.startPos >= rowEnds[r]) {
                 assignedRow = r;
                 break;
@@ -196,10 +218,12 @@ function assignPhaseRows(phases, minDate, totalDays, timelineWidth) {
                 // No room and adding a new row would breach the cap — skip.
                 return;
             }
+            // A parent's row always exists, so rowEnds.length >= minRow here.
             assignedRow = rowEnds.length;
             rowEnds.push(0);
         }
         rowEnds[assignedRow] = item.endPos;
+        assignedRows.set(item.phase, assignedRow);
         result.push({ phase: item.phase, row: assignedRow });
     });
 

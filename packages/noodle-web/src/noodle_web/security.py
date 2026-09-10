@@ -14,7 +14,7 @@ import time
 from collections import defaultdict
 from typing import Callable
 
-from fastapi import Request, Response
+from fastapi import Request, Response, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -116,17 +116,33 @@ RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # seconds
 
 
-def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request headers or connection info."""
-    forwarded = request.headers.get("X-Forwarded-For")
+def _extract_client_ip(headers, client) -> str:
+    """Shared IP-extraction logic for both HTTP requests and WebSockets --
+    `Request.headers`/`.client` and `WebSocket.headers`/`.client` share the
+    same shape, so one implementation covers both call sites below."""
+    forwarded = headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
-    real_ip = request.headers.get("X-Real-IP")
+    real_ip = headers.get("X-Real-IP")
     if real_ip:
         return real_ip.strip()
-    if request.client:
-        return request.client.host
+    if client:
+        return client.host
     return "unknown"
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request headers or connection info."""
+    return _extract_client_ip(request.headers, request.client)
+
+
+def get_websocket_client_ip(websocket: WebSocket) -> str:
+    """Extract client IP from a WebSocket connection, same X-Forwarded-For /
+    X-Real-IP convention as `_get_client_ip()` above. Used by collab_session
+    join-attempt rate limiting (#965) -- a WebSocket handshake attempt has
+    no per-request middleware pass, so the check has to be made explicitly
+    at the point of admission rather than via RateLimitMiddleware."""
+    return _extract_client_ip(websocket.headers, websocket.client)
 
 
 def _is_rate_limited(ip: str) -> tuple[bool, int]:
@@ -154,6 +170,80 @@ def _is_rate_limited(ip: str) -> tuple[bool, int]:
 def reset_rate_limit_store() -> None:
     """Clear the rate limit store. Useful for testing."""
     _rate_limit_store.clear()
+
+
+# ---------------------------------------------------------------------------
+# Collab-session join-attempt rate limiting (#965)
+# ---------------------------------------------------------------------------
+#
+# A join attempt is a WebSocket handshake, not an HTTP request, so
+# RateLimitMiddleware above (which only runs on the HTTP request/response
+# cycle) never sees it -- collab_session_ws() in app.py calls
+# `is_join_rate_limited()` explicitly instead. Kept as a separate
+# store/threshold from the general limiter above because a join attempt is
+# a more sensitive action than ordinary request volume (each one is
+# effectively a guess at a 6-digit join_code, i.e. 1-in-1,000,000 odds per
+# guess) -- a tighter budget than RATE_LIMIT_REQUESTS/RATE_LIMIT_WINDOW, but
+# still generous enough that a dropped joiner reconnecting a few times in a
+# row (network blip, tab backgrounded) never gets caught by it.
+
+_join_rate_limit_store: dict[str, list[float]] = defaultdict(list)
+
+JOIN_RATE_LIMIT_ATTEMPTS = int(os.getenv("COLLAB_JOIN_RATE_LIMIT_ATTEMPTS", "10"))
+JOIN_RATE_LIMIT_WINDOW = int(os.getenv("COLLAB_JOIN_RATE_LIMIT_WINDOW", "60"))  # seconds
+
+
+def is_join_rate_limited(ip: str) -> tuple[bool, int]:
+    """Same sliding-window algorithm as `_is_rate_limited()` above, applied
+    to join attempts specifically.
+
+    Returns (is_limited, retry_after_seconds).
+    """
+    now = time.time()
+    window_start = now - JOIN_RATE_LIMIT_WINDOW
+
+    _join_rate_limit_store[ip] = [
+        ts for ts in _join_rate_limit_store[ip] if ts > window_start
+    ]
+
+    if len(_join_rate_limit_store[ip]) >= JOIN_RATE_LIMIT_ATTEMPTS:
+        oldest = min(_join_rate_limit_store[ip])
+        retry_after = int(oldest + JOIN_RATE_LIMIT_WINDOW - now) + 1
+        return True, max(retry_after, 1)
+
+    _join_rate_limit_store[ip].append(now)
+    return False, 0
+
+
+def forgive_join_attempt(ip: str) -> None:
+    """Un-count one join attempt from `ip` after it turned out to be a
+    legitimate, successful join (#971).
+
+    The budget above exists to throttle *guessing* at a six-digit code. A
+    join that presented the correct code is not a guess, and counting it
+    made the limiter contradict the epic's own acceptance criterion: #766
+    requires at least 10 concurrent joiners, but a team sitting in one
+    office shares a single public IP, so the eleventh colleague to join
+    within a minute was refused. That was found by the #971 load test,
+    which could not get 12 joiners onto one session.
+
+    Forgiving only successes keeps the security property exactly as it was
+    -- ten *wrong* codes in a window still locks the source out, and an
+    attacker gains nothing, since forgiveness requires already knowing the
+    code they are trying to find.
+
+    Removes the most recent timestamp rather than a specific one: under
+    concurrent joins the entries are interchangeable, and it is the count
+    that the limit is expressed in.
+    """
+    attempts = _join_rate_limit_store.get(ip)
+    if attempts:
+        attempts.pop()
+
+
+def reset_join_rate_limit_store() -> None:
+    """Clear the join-attempt rate limit store. Useful for testing."""
+    _join_rate_limit_store.clear()
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

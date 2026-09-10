@@ -91,12 +91,28 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
+    <!-- NoodlePlanner typeface. Newsreader for headings, Instrument Sans for
+         body/UI text, IBM Plex Mono for data (dates, durations, ids) -- the
+         approved Warm Paper + Marigold pairing for #998, replacing the
+         Manrope/Inter interim chosen for #1024 while the design handoff was
+         unavailable. Loaded with font-display: swap so a slow or offline
+         fetch falls straight back to the system stack in visual-system.css
+         (--np-font-heading / --np-font-ui / --np-font-data) instead of
+         blocking or flashing invisible text. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <!-- Custom CSS (modular) -->
     <link rel="stylesheet" href="/static/base.css?v={{ v }}">
     <link rel="stylesheet" href="/static/layout.css?v={{ v }}">
     <link rel="stylesheet" href="/static/components.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/gantt.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/kanban.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/notepad.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/estimating.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/cards.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/plan-wizard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/whiteboard.css?v={{ v }}">
     <link rel="stylesheet" href="/static/task-peek.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/timeline.css?v={{ v }}">
@@ -104,8 +120,15 @@
     <link rel="stylesheet" href="/static/views/evm.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/products.css?v={{ v }}">
     <link rel="stylesheet" href="/static/views/search.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/backstage.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/views/programme.css?v={{ v }}">
     <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
+    <!-- Approved #998 palette. Deliberately last: it redefines the same
+         semantic --np-* roles the stylesheets above already consume, so it
+         must win the cascade. Nothing here introduces new selectors for
+         views to depend on -- swap these values and the whole app restyles. -->
+    <link rel="stylesheet" href="/static/visual-system.css?v={{ v }}">
 
     <!-- Apply saved theme immediately to prevent flash of wrong theme -->
     <script>
@@ -293,6 +316,8 @@
         <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
         <symbol id="icon-sort" viewBox="0 0 24 24"><path d="M6 4v16M3 17l3 3 3-3M13 6h8M13 12h6M13 18h4"/></symbol>
         <symbol id="icon-print" viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H5v-6h14v6h-2M7 14h10v7H7z"/></symbol>
+        <!-- backstage (#943): Home entry in the ribbon's File dropdown -->
+        <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v11h14V10"/><path d="M9 21v-6h6v6"/></symbol>
         <symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM8 3v6h7V3M8 14h8v7H8z"/></symbol>
         <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></symbol>
         <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 4v12M8 12l4 4 4-4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></symbol>
@@ -346,7 +371,7 @@
                 <!-- Views dropdown -->
                 <div class="plan-subnav-dropdown">
                     <button class="plan-subnav-btn" id="viewsDropdownBtn"
-                            data-dropdown-views="tasks,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
+                            data-dropdown-views="tasks,notepad,gantt,kanban,calendar,milestones,timeline,mindmap,whiteboard"
                             onclick="toggleDropdownMenu('viewsDropdownMenu', 'viewsDropdownBtn', event)"
                             aria-haspopup="true" aria-expanded="false" aria-controls="viewsDropdownMenu">
                         Views &#9662;
@@ -354,6 +379,9 @@
                     <div class="nav-menu" id="viewsDropdownMenu" role="menu" aria-label="Views">
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="tasks" onclick="switchToView('tasks'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
+                        </div>
+                        <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="notepad" onclick="switchToView('notepad'); event.stopPropagation();">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Notepad
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="gantt" onclick="switchToView('gantt'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
@@ -547,7 +575,9 @@
             <div id="editor-tab" class="tab-content active" role="tabpanel">
                 <div class="editor-layout">
                     <div class="editor-panel">
-                        {% include '_editor_toolbar.html' %}
+                        <!-- #1045: mini toolbar removed -- the ribbon (#ribbonShell above) now
+                             owns Undo/Redo, Indent/Outdent, Link, Task Inspector, Open/Save
+                             and Conditional Formatting. -->
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
@@ -1041,6 +1071,14 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
+                        <!-- Notepad View (#1049): a plain notepad-style list surface --
+                             no front matter, no syntax, no jargon on screen. Populated
+                             by notepad.js's activateNotepadView(), called from
+                             switchOutputTab() in nav.js. -->
+                        <div id="notepad-view" class="output-tab-content">
+                            <div id="notepadContainer"></div>
+                        </div>
+
                         <!-- Resources View -->
                         <div id="resources-view" class="output-tab-content">
                             <div class="resources-placeholder">
@@ -1377,16 +1415,38 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-group">
-                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add note" aria-label="Add note to whiteboard">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add wb-toolbar-btn-new" id="whiteboardNewNoteBtn" onclick="wbCreateNoteInViewportCentre()" title="New post-it (creates a new task)" aria-label="New post-it, creating a new task in the plan">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11l5 5v11a0 0 0 010 0H4z"/><path d="M15 4v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="10" x2="12" y2="16"/></svg>
+                                            <span>New post-it</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardNewTextBtn" onclick="wbCreateTextObjectInViewportCentre()" title="New free-floating text (no task, no card -- just text on the canvas)" aria-label="New free-floating text object on the whiteboard">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
+                                            <span>New text</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardAddNoteBtn" onclick="wbOpenAddNotePicker()" title="Add an existing task to the board" aria-label="Add an existing task to the whiteboard">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                                            <span>Add note</span>
+                                            <span>Add existing</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardOutlineBtn" onclick="wbToggleOutlinePanel()" title="Show or hide the plan structure" aria-label="Show or hide the plan structure panel" aria-pressed="true">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M8 12h12M12 18h8"/></svg>
+                                            <span>Structure</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardParkingLotBtn" onclick="wbOpenParkingLotPanel()" title="View parked ideas -- items sent here from the board" aria-label="Open the parking lot">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                            <span>Parking lot</span>
+                                        </button>
+                                    </div>
+                                    <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn wb-link-mode-btn" id="whiteboardLinkModeBtn" onclick="wbToggleLinkMode()" title="Dragging a noodle handle makes a subtask (Hierarchy) or a dependency (Dependency) -- click to switch" aria-label="Link mode: Hierarchy. Click to switch to Dependency mode." aria-pressed="false">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v12a3 3 0 003 3h6"/><path d="M12 15l3 3-3 3"/></svg>
+                                            <span id="whiteboardLinkModeLabel">Hierarchy</span>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-hint">
-                                        Drag empty space or scroll to pan &middot; drag a note's header to move it, its corner to resize &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; Arrow keys pan &middot; +/&minus; zoom &middot; 0 resets &middot; f fits
+                                        Double-click empty space (or press <kbd>n</kbd>) for a new post-it, or press <kbd>t</kbd> for free-floating text &middot; double-click a note's header to rename &middot; drag the noodle handle onto another note to make it a subtask (or, in Dependency mode, a dependency) &middot; click a noodle to select, then <kbd>Delete</kbd> to unlink &middot; Ctrl/Cmd+scroll or pinch to zoom &middot; <kbd>f</kbd> fits
                                     </div>
                                 </div>
-                                <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas, an empty pannable and zoomable surface">
+                                <div class="wb-canvas-wrapper" id="whiteboardContainer" tabindex="0" role="application" aria-label="Whiteboard canvas. Pan, zoom, and double-click empty space to add a post-it.">
                                     <!-- SVG whiteboard rendered by JavaScript -->
                                 </div>
                             </div>
@@ -1726,7 +1786,7 @@ Press Enter to render..."></textarea>
                 <div class="kanban-layout">
                     <!-- Collapsible Editor Panel -->
                     <div class="kanban-editor-panel collapsed" id="kanbanEditorPanel">
-                        {% include '_editor_toolbar.html' %}
+                        <!-- #1045: mini toolbar removed -- see editor-tab above -->
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="kanbanLineNumbers">1</div>
                             <div class="editor-area">
@@ -2269,6 +2329,83 @@ Build
                 </div>
             </div>
 
+            <!-- Backstage Tab (#943/#972): full-screen, Office-Backstage-style
+                 shell behind File -- header/ribbon/status bar hidden while
+                 open (body.backstage-fullscreen, see backstage.css), file
+                 actions on the left, a "start a new plan" template strip +
+                 recent plans in the main area. Epic #903's template picker
+                 shell is #944 (this); portrait card rendering is #945 --
+                 renderTemplateCard() below is the seam it replaces. -->
+            <div id="backstage-tab" class="tab-content" role="tabpanel">
+                <button type="button" class="backstage-back-arrow" id="backstageBackBtn"
+                        title="Back" aria-label="Back to previous view">
+                    <span aria-hidden="true">&larr;</span>
+                </button>
+                <div class="backstage-container">
+                    <nav class="backstage-rail" aria-label="File actions">
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="New plan">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-add"/></svg>
+                            New plan
+                        </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Open…">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-doc"/></svg>
+                            Open…
+                        </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Save">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-save"/></svg>
+                            Save
+                        </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Import from Excel / MS Project">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-upload"/></svg>
+                            Import
+                        </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Export…">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-download"/></svg>
+                            Export…
+                        </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Print">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-print"/></svg>
+                            Print
+                        </button>
+                        <button type="button" class="backstage-rail-btn" id="backstageTemplatesBtn">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-grid"/></svg>
+                            Templates
+                        </button>
+                        <button type="button" class="backstage-rail-btn" data-backstage-action="Settings">
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-settings"/></svg>
+                            Settings
+                        </button>
+                    </nav>
+                    <div class="backstage-main">
+                        <div class="backstage-main-view" id="backstageRecentView">
+                            <div class="backstage-main-header backstage-main-header-landing">
+                                <h2 class="backstage-main-title">Start a new plan</h2>
+                                <button type="button" class="backstage-more-templates-btn" id="backstageMoreTemplatesBtn">
+                                    More templates <span aria-hidden="true">&rarr;</span>
+                                </button>
+                            </div>
+                            <div class="backstage-template-strip" id="backstageTemplateStrip"></div>
+
+                            <h2 class="backstage-main-title backstage-recent-title">Recent</h2>
+                            <div class="backstage-recent-empty" id="backstageRecentEmpty" style="display:none;">
+                                <p>No recent plans yet.</p>
+                                <p class="backstage-recent-empty-hint">Create a new plan or open one to get started.</p>
+                            </div>
+                            <div class="backstage-recent-list" id="backstageRecentList"></div>
+                        </div>
+                        <div class="backstage-main-view" id="backstageTemplatesView" style="display:none;">
+                            <div class="backstage-main-header">
+                                <button type="button" class="backstage-back-btn" id="backstageTemplatesBackBtn">
+                                    <span aria-hidden="true">&larr;</span> Recent
+                                </button>
+                                <h2 class="backstage-main-title">Templates</h2>
+                            </div>
+                            <div class="backstage-template-grid" id="backstageTemplateGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Portfolio Tab -->
             <div id="portfolio-tab" class="tab-content" role="tabpanel">
                 <div class="portfolio-container">
@@ -2383,6 +2520,53 @@ Build
 
                     <div id="portfolioLessonsView" class="portfolio-content portfolio-view" style="display: none;">
                         <!-- Portfolio lessons learned view will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Programme Tab (issue #953's landing view, extended by #734
+                 into the real programme overview dashboard -- key metrics,
+                 key milestones, member projects with rolled-up RAG -- by
+                 #736 with a real escalated risks & issues rollup, by #737
+                 with a programme-scoped dependency RAG board, by #739 with
+                 a programme-scoped resource demand-vs-capacity view, and
+                 by #735 (building on #954's programme-owned data store)
+                 with a real SRO/vision/outcomes editor and a benefits
+                 realisation rollup -- all populated by programme.js.) -->
+            <div id="programme-tab" class="tab-content" role="tabpanel">
+                <div class="portfolio-container">
+                    <div class="programme-landing-header">
+                        <h2 id="programmeViewTitle"></h2>
+                        <p class="programme-landing-meta" id="programmeViewMeta"></p>
+                    </div>
+                    <div class="programme-section">
+                        <h3>SRO, Vision &amp; Outcomes</h3>
+                        <div id="programmeSroVision"></div>
+                    </div>
+                    <div class="programme-stat-tiles" id="programmeStatTiles"></div>
+                    <div class="programme-section">
+                        <h3>Key Milestones</h3>
+                        <div id="programmeMilestones"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Escalated Risks &amp; Issues</h3>
+                        <div id="programmeEscalatedRisks"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Dependencies</h3>
+                        <div id="programmeDependencies"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Resourcing</h3>
+                        <div id="programmeResourcing"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Benefits Realisation</h3>
+                        <div id="programmeBenefitsRealisation"></div>
+                    </div>
+                    <div class="programme-section">
+                        <h3>Member Projects</h3>
+                        <div class="portfolio-content" id="programmeViewProjects"></div>
                     </div>
                 </div>
             </div>
@@ -2823,6 +3007,15 @@ Build
                             <label for="raidItemTargetDate">Target Date</label>
                             <input type="date" id="raidItemTargetDate" class="form-control">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="raidItemEscalation">Escalate To</label>
+                        <select id="raidItemEscalation" class="form-control">
+                            <option value="project">Project (not escalated)</option>
+                            <option value="programme">Programme</option>
+                            <option value="board">Board</option>
+                        </select>
                     </div>
 
                     <div class="form-grid-3col">
@@ -4072,8 +4265,14 @@ Build
     <script src="/static/status-bar.js?v={{ v }}"></script>
     <script src="/static/theme.js?v={{ v }}"></script>
     <script src="/static/settings.js?v={{ v }}"></script>
+    <script src="/static/breadcrumb.js?v={{ v }}"></script>
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
+    <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/estimating.js?v={{ v }}"></script>
+    <script src="/static/cards.js?v={{ v }}"></script>
+    <script src="/static/highlight-toggles.js?v={{ v }}"></script>
+    <script src="/static/plan-wizard.js?v={{ v }}"></script>
     <script src="/static/editor.js?v={{ v }}"></script>
     <script src="/static/window-drop.js?v={{ v }}"></script>
     <script src="/static/editor-sync.js?v={{ v }}"></script>
@@ -4084,8 +4283,10 @@ Build
     <script src="/static/views-tables.js?v={{ v }}"></script>
     <script src="/static/script.js?v={{ v }}"></script>
     <script src="/static/kanban.js?v={{ v }}"></script>
+    <script src="/static/notepad.js?v={{ v }}"></script>
     <script src="/static/local-file-access.js?v={{ v }}"></script>
     <script src="/static/project-store.js?v={{ v }}"></script>
+    <script src="/static/programme-data-store.js?v={{ v }}"></script>
     <script src="/static/project-storage.js?v={{ v }}"></script>
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
@@ -4095,25 +4296,70 @@ Build
     <script src="/static/portfolio-leveling.js?v={{ v }}"></script>
     <script src="/static/portfolio-timeline.js?v={{ v }}"></script>
     <script src="/static/portfolio-projects-table.js?v={{ v }}"></script>
+    <script src="/static/programme.js?v={{ v }}"></script>
     <script src="/static/portfolio-actions.js?v={{ v }}"></script>
     <script src="/static/portfolio-risks.js?v={{ v }}"></script>
     <script src="/static/portfolio-lookahead.js?v={{ v }}"></script>
     <script src="/static/portfolio-dependencies.js?v={{ v }}"></script>
     <script src="/static/portfolio-benefits.js?v={{ v }}"></script>
     <script src="/static/portfolio-lessons.js?v={{ v }}"></script>
+    <script src="/static/progress-toast.js?v={{ v }}"></script>
     <script src="/static/portfolio-report.js?v={{ v }}"></script>
     <script src="/static/mindmap.js?v={{ v }}"></script>
     <script src="/static/whiteboard.js?v={{ v }}"></script>
     <script src="/static/task-peek.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-structure.js?v={{ v }}"></script>
     <script src="/static/whiteboard-notes.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-noodles.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-dep-noodles.js?v={{ v }}"></script>
+    <script src="/static/whiteboard-outline.js?v={{ v }}"></script>
     <script src="/static/benefits.js?v={{ v }}"></script>
     <script src="/static/lessons.js?v={{ v }}"></script>
     <script src="/static/trend-report.js?v={{ v }}"></script>
+    <script src="/static/noodle-layout.js?v={{ v }}"></script>
+    <script src="/static/noodle-edges.js?v={{ v }}"></script>
+    <script src="/static/noodle-zoom.js?v={{ v }}"></script>
     <script src="/static/views-products.js?v={{ v }}"></script>
     <script src="/static/views-search.js?v={{ v }}"></script>
+    <script src="/static/backstage.js?v={{ v }}"></script>
     <script src="/static/ai-config.js?v={{ v }}"></script>
     <script src="/static/ai-chat.js?v={{ v }}"></script>
+    <script src="/static/collab-session.js?v={{ v }}"></script>
     <script src="/static/ribbon.js?v={{ v }}"></script>
+
+    <!-- Collab Session Modal (#963) -->
+    <div id="collabSessionOverlay" class="modal-overlay" onclick="if(event.target===this) closeCollabSessionModal()" role="dialog" aria-modal="true" aria-label="Planning session">
+        <div class="task-form-modal">
+            <div class="modal-header">
+                <h2><i class="bi bi-people" aria-hidden="true"></i> Planning session</h2>
+                <button class="close-btn" onclick="closeCollabSessionModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="collabSessionStatus">Starting session...</div>
+                <div id="collabSessionDetails" style="display:none;">
+                    <div class="ai-settings-field">
+                        <label for="collabSessionCode">Six-digit code</label>
+                        <input type="text" id="collabSessionCode" readonly>
+                    </div>
+                    <div class="ai-settings-field">
+                        <label for="collabSessionUrl">Holding link (share with your team)</label>
+                        <input type="text" id="collabSessionUrl" readonly onclick="this.select()">
+                    </div>
+                    <!-- #966: host presence panel -- populated by renderCollabPresence()
+                         in collab-session.js from `{"type":"presence",...}` server pushes. -->
+                    <div id="collabPresencePanel" style="display:none;">
+                        <div class="collab-presence-heading">Participants</div>
+                        <div id="collabPresenceList"></div>
+                    </div>
+                    <div id="collabSessionLog" style="max-height:120px; overflow-y:auto; font-family:ui-monospace,monospace; font-size:0.8rem;"></div>
+                    <!-- #965: host-initiated explicit end -- see collab-session.js's endCollabSession() -->
+                    <button type="button" class="btn btn-outline-danger btn-sm" style="margin-top:12px;" onclick="endCollabSession()">
+                        <i class="bi bi-stop-circle" aria-hidden="true"></i> End session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- AI Settings Modal -->
     <div id="aiSettingsOverlay" class="modal-overlay" onclick="if(event.target===this) closeAISettingsModal()" role="dialog" aria-modal="true" aria-label="AI Provider Settings">

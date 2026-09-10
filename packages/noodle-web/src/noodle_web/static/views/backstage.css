@@ -1,0 +1,337 @@
+/* ========================================
+   Backstage view (#943/#972) — full-screen, Office-Backstage-style shell
+   behind File
+   ======================================== */
+
+/* #972: while Backstage is open, the header/ribbon and status bar hide --
+   "you have stepped out of the document" -- and the space status-bar.css
+   reserves for the fixed status bar (body{padding-bottom:36px}) is
+   reclaimed so Backstage genuinely fills the viewport. The back arrow
+   (.backstage-back-arrow) is what makes this not a trap; see backstage.js's
+   exitBackstage(). */
+body.backstage-fullscreen #ribbonShell,
+body.backstage-fullscreen .status-bar {
+    display: none !important;
+}
+
+body.backstage-fullscreen {
+    padding-bottom: 0 !important;
+}
+
+#backstage-tab.tab-content {
+    overflow: auto;
+    position: relative;
+}
+
+.backstage-back-arrow {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 8px 0 0 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--np-bg-alt, #f8f9fa);
+    color: var(--np-text, #333);
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-back-arrow:hover,
+.backstage-back-arrow:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: none;
+}
+
+.backstage-container {
+    display: flex;
+    min-height: 100%;
+    background: var(--np-surface, #ffffff);
+}
+
+.backstage-rail {
+    flex: 0 0 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 24px 12px;
+    background: var(--np-bg-alt, #f8f9fa);
+    border-right: 1px solid var(--np-border, #e0e0e0);
+}
+
+.backstage-rail-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--np-text, #333);
+    font-size: 0.95em;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-rail-btn svg.icon {
+    flex: 0 0 auto;
+    color: var(--np-accent);
+    margin-right: 0;
+}
+
+.backstage-rail-btn:hover,
+.backstage-rail-btn:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    outline: none;
+}
+
+.backstage-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 28px 32px 60px;
+    overflow: auto;
+}
+
+.backstage-main-title {
+    margin: 0 0 18px;
+    font-size: 1.3em;
+    font-weight: 600;
+    color: var(--np-text, #333);
+}
+
+.backstage-main-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.backstage-main-header .backstage-main-title {
+    margin: 0;
+}
+
+.backstage-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--np-surface, #ffffff);
+    color: var(--np-text-secondary, #666);
+    font: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
+                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-back-btn:hover,
+.backstage-back-btn:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    border-color: var(--np-accent);
+    outline: none;
+}
+
+/* #972: the landing view's short "start a new plan" strip (Blank + a few
+   real templates) -- distinct from .backstage-template-grid below, the full
+   browser #backstageTemplatesView opens via "More templates"/the rail's
+   Templates button. Fixed-width, non-wrapping cards so it reads as a strip
+   even at 4-5 cards, sized to sit above the fold ahead of Recent. */
+.backstage-template-strip {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+}
+
+.backstage-template-strip .backstage-template-card {
+    flex: 0 0 150px;
+}
+
+.backstage-main-header-landing {
+    justify-content: space-between;
+}
+
+.backstage-more-templates-btn {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--np-accent);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.backstage-more-templates-btn:hover,
+.backstage-more-templates-btn:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
+.backstage-recent-title {
+    margin-top: 4px;
+}
+
+.backstage-template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    max-width: 900px;
+}
+
+.backstage-template-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    aspect-ratio: 3 / 4;
+    padding: 16px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-surface, #ffffff);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
+                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-template-card:hover,
+.backstage-template-card:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    border-color: var(--np-accent);
+    outline: none;
+}
+
+.backstage-template-card-blank {
+    border-style: dashed;
+}
+
+.backstage-template-card-icon {
+    display: flex;
+    color: var(--np-accent);
+}
+
+.backstage-template-card-name {
+    font-weight: 600;
+    color: var(--np-text, #333);
+}
+
+.backstage-recent-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--np-text-secondary, #666);
+    border: 1px dashed var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-bg-alt, #f8f9fa);
+    max-width: 480px;
+}
+
+.backstage-recent-empty p {
+    margin: 0 0 6px;
+}
+
+.backstage-recent-empty-hint {
+    font-size: 0.9em;
+    color: var(--np-text-muted, #888);
+}
+
+.backstage-recent-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    max-width: 900px;
+}
+
+.backstage-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--np-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--np-surface, #ffffff);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    transition: background var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease),
+                border-color var(--np-anim-duration-fast, 0.15s) var(--np-anim-easing, ease);
+}
+
+.backstage-recent-item:hover,
+.backstage-recent-item:focus-visible {
+    background: var(--np-bg-hover, #f0f1f4);
+    border-color: var(--np-accent);
+    outline: none;
+}
+
+.backstage-recent-item.active {
+    border-color: var(--np-accent);
+}
+
+.backstage-recent-item-icon {
+    flex: 0 0 auto;
+    display: flex;
+    color: var(--np-accent);
+}
+
+.backstage-recent-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.backstage-recent-item-name {
+    font-weight: 600;
+    color: var(--np-text, #333);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.backstage-recent-item-meta {
+    font-size: 0.85em;
+    color: var(--np-text-secondary, #666);
+}
+
+.backstage-recent-item-badge {
+    flex: 0 0 auto;
+    font-size: 0.7em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+}
+
+@media (max-width: 700px) {
+    .backstage-container { flex-direction: column; }
+    .backstage-rail {
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-right: none;
+        border-bottom: 1px solid var(--np-border, #e0e0e0);
+    }
+    .backstage-rail-btn { width: auto; }
+    .backstage-main { padding: 20px; }
+}

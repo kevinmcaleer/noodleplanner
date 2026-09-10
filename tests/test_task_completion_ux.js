@@ -53,6 +53,7 @@ function equal(actual, expected, message) {
     const sandbox = vm.createContext({ console, document: { getElementById: () => null } });
     vm.runInContext(tokenizerSource + '\nglobalThis.tokenizer = TaskLineTokenizer;', sandbox);
     vm.runInContext(extractFunction(scriptSource, 'parseTaskLine') + '\nglobalThis.parseTaskLine = parseTaskLine;', sandbox);
+    vm.runInContext(extractFunction(scriptSource, 'getIndentWidth') + '\nglobalThis.getIndentWidth = getIndentWidth;', sandbox);
     vm.runInContext(extractFunction(scriptSource, 'getTaskDescendants') + '\nglobalThis.getTaskDescendants = getTaskDescendants;', sandbox);
     const getTaskDescendants = sandbox.getTaskDescendants;
 

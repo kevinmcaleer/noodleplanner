@@ -354,17 +354,27 @@ class TestKeyboard:
         # Tab from the last zoom-toolbar button onto the canvas wrapper --
         # a real, browser-native focus change (not a scripted .focus()
         # call), so :focus-visible engages the way it would for an actual
-        # keyboard user. One extra Tab stop sits in between as of issue
-        # #847: the "Add note" toolbar button, which DOM-order sits right
-        # after the zoom controls and right before the canvas wrapper.
+        # keyboard user.
+        #
+        # Four Tab stops sit in between, in DOM order after the zoom
+        # controls and before the canvas wrapper: the two "create
+        # something from nothing" actions grouped together first --
+        # "New post-it" then "New text" (issue #1018's free-floating text
+        # object, the "no task, no card" sibling of New post-it) -- then
+        # "Add existing" (a different kind of action: add an *existing*
+        # task to the board, not create a new one), then the "Structure"
+        # toggle for the floating outline panel. Asserted by id rather
+        # than just tabbed past blindly, so this still fails loudly if the
+        # toolbar's tab order is disturbed.
         reset_btn = browser.find_element(
             By.CSS_SELECTOR, '#whiteboard-view button[title="Reset to 100%"]'
         )
         reset_btn.click()
-        ActionChains(browser).send_keys(Keys.TAB).perform()
-        time.sleep(0.1)
-        add_note_id = browser.execute_script("return document.activeElement.id;")
-        assert add_note_id == "whiteboardAddNoteBtn", f"expected the Add note button focused, got {add_note_id!r}"
+        for expected in ("whiteboardNewNoteBtn", "whiteboardNewTextBtn", "whiteboardAddNoteBtn", "whiteboardOutlineBtn"):
+            ActionChains(browser).send_keys(Keys.TAB).perform()
+            time.sleep(0.1)
+            active = browser.execute_script("return document.activeElement.id;")
+            assert active == expected, f"expected {expected} focused, got {active!r}"
         ActionChains(browser).send_keys(Keys.TAB).perform()
         time.sleep(0.2)
         active_id = browser.execute_script("return document.activeElement.id;")

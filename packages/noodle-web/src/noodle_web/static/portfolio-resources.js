@@ -729,6 +729,61 @@ if (typeof window !== 'undefined') {
     });
 }
 
+/**
+ * Count Mon-Fri working days between two dates, inclusive (issue #739).
+ * Same Mon-Fri rule computeWeeklyHeatmapData() above already walks a
+ * task's span with -- factored out here rather than duplicated inline.
+ */
+function _countWorkingDaysInclusive(start, end) {
+    if (!start || !end || start > end) return 0;
+    let count = 0;
+    const d = new Date(start);
+    while (d <= end) {
+        const dow = d.getDay();
+        if (dow >= 1 && dow <= 5) count++;
+        d.setDate(d.getDate() + 1);
+    }
+    return count;
+}
+
+/**
+ * Extend aggregateResourceDataFromParsed()'s demand figures with a
+ * capacity figure and a demand-vs-capacity comparison per resource (issue
+ * #739 -- "Programme: resourcing"). Reuses that function's output as-is
+ * rather than re-deriving resource math; capacity is the number of
+ * working days spanned by the resource's own earliest-start..latest-finish
+ * date range at one working-day of capacity per working day -- the same
+ * day-for-day assumption portfolio-leveling.js's LEVELLING_DAILY_CAPACITY
+ * constant names for its own overload detection (reused here directly
+ * when that file has been loaded; falls back to the same 1.0 default
+ * otherwise, e.g. when this function is exercised standalone in tests).
+ *
+ * Takes a `parsedProjects` list rather than reading the whole portfolio
+ * itself, so callers can scope it to any subset of projects -- the
+ * portfolio-wide Team Allocation view passes every project
+ * (renderPortfolioResources(), unchanged), and the programme dashboard
+ * passes only a programme's member projects
+ * (aggregateProgrammeResourceDemand(), programme.js).
+ *
+ * @param {Array<{project, parsedResult}>} parsedProjects
+ * @returns {Array} aggregateResourceDataFromParsed()'s per-resource shape
+ *   plus capacityDays, utilisationPercent (null when the resource has no
+ *   dated span to measure), and overCapacity.
+ */
+function aggregateResourceDemandVsCapacity(parsedProjects) {
+    const dailyCapacity = (typeof LEVELLING_DAILY_CAPACITY === 'number') ? LEVELLING_DAILY_CAPACITY : 1.0;
+    const resources = aggregateResourceDataFromParsed(parsedProjects);
+    return resources.map((r) => {
+        const capacityDays = Math.round(_countWorkingDaysInclusive(r.earliestStart, r.latestFinish) * dailyCapacity * 10) / 10;
+        const utilisationPercent = capacityDays > 0 ? Math.round((r.totalDays / capacityDays) * 100) : null;
+        return Object.assign({}, r, {
+            capacityDays,
+            utilisationPercent,
+            overCapacity: capacityDays > 0 && r.totalDays > capacityDays,
+        });
+    });
+}
+
 // Node export hook so tests/test_portfolio_resources_heatmap.js can load the
 // pure functions; a no-op in the browser.
 if (typeof module !== 'undefined' && module.exports) {
@@ -737,5 +792,6 @@ if (typeof module !== 'undefined' && module.exports) {
         computePortfolioDateRange,
         computeWeeklyHeatmapData,
         getHeatmapCellClass,
+        aggregateResourceDemandVsCapacity,
     };
 }

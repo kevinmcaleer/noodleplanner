@@ -1,7 +1,7 @@
-"""Selenium-driven browser tests for the ribbon's simple/full density mode
-(issue #955) -- a single dense row option for the ribbon body, chosen via a
-"Ribbon Display Options" dropdown, alongside the existing multi-row "full"
-rendering.
+"""Selenium-driven browser tests for the ribbon's display selector (issues
+#955, #1026, #1027) -- a combined "Just Tabs / Simple Ribbon / Full Ribbon"
+dropdown in the tab strip, replacing the old separate "collapse the ribbon"
+chevron and Full/Simple-only toggle.
 
 These exercise the real ribbon.js/ribbon-ia.js/ribbon-layout.js against a
 real running instance of the app in headless Chrome, following the same
@@ -10,25 +10,24 @@ tests/test_whiteboard_canvas.py (a background uvicorn thread on a free
 port; never the production port 8007/8102 setup used for manual
 verification).
 
-What's covered here, matching the PR's own checklist:
-  - the dropdown opens and offers both Full Ribbon / Simple Ribbon choices
-  - switching to simple mode visibly changes the rendered DOM structure
+What's covered here, matching the parent epic's (#998) own checklist:
+  - the dropdown opens and offers all three choices (Just Tabs/Simple/Full)
+  - switching to Simple Ribbon visibly changes the rendered DOM structure
     (`.ribbon-body-simple` + `.ribbon-simple-group`/`.ribbon-simple-btn`
     replace `.ribbon-group`/`.ribbon-lg-btn`/`.ribbon-sm-btn`)
   - a command that exists in full mode (e.g. Home > Views > Gantt) is
     reachable -- and does the same thing -- in simple mode too
   - dividers (a border between `.ribbon-simple-group` boxes) render
   - the choice persists across a reload
-  - dark mode renders both densities without console errors
-  - the simple ribbon's buttons and the display-options control are real,
+  - Just Tabs hides the ribbon body but keeps the selector reachable, and
+    returns to whichever expanded mode was previously selected
+  - dark mode renders every mode without console errors
+  - the simple ribbon's buttons and the display selector are real,
     keyboard-focusable <button> elements (parity with the full ribbon,
     which has never had special keyboard roving-tabindex handling either)
-
-The existing `ribbon-collapse-btn` (auto-hide the whole ribbon body) is a
-different, orthogonal concept from this density toggle -- see this test's
-`test_collapse_and_density_compose_independently` for the behavioural
-check backing that design decision (documented in ribbon.js's own comment
-on the `toggle-collapse` handler in wireEvents()).
+  - a very narrow window collapses individual simple-ribbon groups into
+    their own per-group dropdown triggers (#1026), each still exposing
+    every command in that group
 
 Usage:
     uv run pytest tests/test_ribbon_simple_view.py -x -q
@@ -101,8 +100,12 @@ def app_server():
 
 
 def _create_chrome_driver():
-    """Headless Chrome/Chromium via this sandbox's known-good chromium +
-    chromedriver paths (see repo CLAUDE.md worktree instructions)."""
+    """Headless Chrome/Chromium. Tries a handful of known-good binary/driver
+    locations across the environments this suite runs in -- a system
+    chromium+chromedriver install (Debian/Raspberry Pi CI images), then this
+    sandbox's own pre-installed Playwright Chromium build (see repo
+    CLAUDE.md / the Claude Code web sandbox's pre-installed browser), before
+    falling back to Selenium's own default discovery."""
     options = ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -110,15 +113,32 @@ def _create_chrome_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1280,900")
 
+    import glob
     import os
 
-    if os.path.exists("/usr/bin/chromium"):
-        options.binary_location = "/usr/bin/chromium"
+    binary_candidates = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        *sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")),
+    ]
+    for path in binary_candidates:
+        if os.path.exists(path):
+            options.binary_location = path
+            break
+
+    driver_candidates = [
+        "/usr/bin/chromedriver",
+        "/opt/node22/bin/chromedriver",
+    ]
+    for drv_path in driver_candidates:
+        if os.path.exists(drv_path):
+            try:
+                service = ChromeService(drv_path)
+                return webdriver.Chrome(service=service, options=options)
+            except WebDriverException:
+                continue
 
     try:
-        if os.path.exists("/usr/bin/chromedriver"):
-            service = ChromeService("/usr/bin/chromedriver")
-            return webdriver.Chrome(service=service, options=options)
         return webdriver.Chrome(options=options)
     except WebDriverException:
         pytest.skip("Chrome/chromedriver not available on this system")
@@ -151,11 +171,16 @@ def open_app(driver, base_url):
 
 
 def clear_ribbon_state(driver):
-    """Density/scope/collapsed are per-browser view state in localStorage
-    (see ribbon.js's RIBBON_STATE_KEY) -- start each test from a known
-    'full' density regardless of what an earlier test in this module left
+    """displayMode/scope are per-browser view state in localStorage (see
+    ribbon.js's RIBBON_STATE_KEY) -- start each test from a known 'full'
+    displayMode regardless of what an earlier test in this module left
     behind."""
     driver.execute_script("localStorage.removeItem('noodleplanner:ribbon-state');")
+
+
+def reset_window_size(driver):
+    driver.set_window_size(1280, 900)
+    time.sleep(0.2)
 
 
 def open_display_menu(driver):
@@ -172,9 +197,9 @@ def open_display_menu(driver):
     )
 
 
-def choose_density(driver, density):
+def choose_display_mode(driver, mode):
     open_display_menu(driver)
-    item = driver.find_element(By.CSS_SELECTOR, f'.ribbon-display-menu-item[data-density="{density}"]')
+    item = driver.find_element(By.CSS_SELECTOR, f'.ribbon-display-menu-item[data-display-mode="{mode}"]')
     item.click()
     time.sleep(0.2)
 
@@ -185,11 +210,17 @@ def is_simple(driver):
     )
 
 
+def is_collapsed(driver):
+    return driver.execute_script(
+        "return document.querySelector('.ribbon-shell').classList.contains('collapsed');"
+    )
+
+
 # ── Tests ────────────────────────────────────────────────────────────────
 
 
-class TestDisplayOptionsDropdown:
-    def test_dropdown_offers_both_choices(self, browser, app_server):
+class TestDisplaySelectorDropdown:
+    def test_dropdown_offers_all_three_choices(self, browser, app_server):
         open_app(browser, app_server)
         clear_ribbon_state(browser)
         browser.refresh()
@@ -199,10 +230,10 @@ class TestDisplayOptionsDropdown:
         menu = open_display_menu(browser)
         items = menu.find_elements(By.CSS_SELECTOR, '.ribbon-display-menu-item')
         # .text includes the leading checkmark span's content ('✓' for the
-        # currently-selected item, empty otherwise) -- strip it so both
-        # items compare on their label alone.
+        # currently-selected item, empty otherwise) -- strip it so items
+        # compare on their label alone.
         labels = sorted(i.text.replace("✓", "").strip() for i in items)
-        assert labels == ["Full Ribbon", "Simple Ribbon"]
+        assert labels == ["Full Ribbon", "Just Tabs", "Simple Ribbon"]
 
     def test_dropdown_shows_full_as_selected_by_default(self, browser, app_server):
         open_app(browser, app_server)
@@ -212,12 +243,29 @@ class TestDisplayOptionsDropdown:
         time.sleep(0.3)
 
         menu = open_display_menu(browser)
-        full_item = menu.find_element(By.CSS_SELECTOR, '.ribbon-display-menu-item[data-density="full"]')
+        full_item = menu.find_element(By.CSS_SELECTOR, '.ribbon-display-menu-item[data-display-mode="full"]')
         assert full_item.get_attribute("aria-checked") == "true"
         assert is_simple(browser) is False
+        assert is_collapsed(browser) is False
+
+    def test_toggle_shows_no_icon_just_the_caret(self, browser, app_server):
+        # #1027: "remove the icon and any button border -- just show the
+        # dropdown arrow".
+        open_app(browser, app_server)
+        clear_ribbon_state(browser)
+        browser.refresh()
+        dismiss_tour(browser)
+        time.sleep(0.3)
+
+        toggle = browser.find_element(By.CSS_SELECTOR, '.ribbon-display-toggle-btn')
+        assert not toggle.find_elements(By.CSS_SELECTOR, 'svg'), "no icon inside the toggle button"
+        border_width = browser.execute_script(
+            "return getComputedStyle(arguments[0]).borderWidth;", toggle
+        )
+        assert border_width in ("0px", ""), f"expected no visible border, got {border_width}"
 
 
-class TestDensitySwitchChangesStructure:
+class TestDisplayModeChangesStructure:
     def test_switching_to_simple_replaces_full_mode_dom(self, browser, app_server):
         open_app(browser, app_server)
         clear_ribbon_state(browser)
@@ -228,7 +276,7 @@ class TestDensitySwitchChangesStructure:
         assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-group'), "full mode starts with .ribbon-group boxes"
         assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group')
 
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
 
         assert is_simple(browser) is True
         assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group'), "simple mode renders .ribbon-simple-group rows"
@@ -240,7 +288,7 @@ class TestDensitySwitchChangesStructure:
         # comment): no room for one in a single dense row.
         assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-group-caption')
 
-        choose_density(browser, 'full')
+        choose_display_mode(browser, 'full')
         assert is_simple(browser) is False
         assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-group')
         assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group')
@@ -251,7 +299,7 @@ class TestDensitySwitchChangesStructure:
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
 
         groups = browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group')
         assert len(groups) >= 2, "Home tab has multiple groups to divide between"
@@ -268,6 +316,8 @@ class TestDensitySwitchChangesStructure:
         assert any(w not in ("0px", "") for w in border_widths[:-1]), \
             f"expected a border-right divider between groups, got {border_widths}"
 
+        choose_display_mode(browser, 'full')
+
 
 class TestNoFunctionalityLostInSimpleMode:
     def test_gantt_button_reachable_and_works_in_simple_mode(self, browser, app_server):
@@ -276,7 +326,7 @@ class TestNoFunctionalityLostInSimpleMode:
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
 
         gantt_btn = WebDriverWait(browser, 5).until(
             EC.element_to_be_clickable(
@@ -292,6 +342,8 @@ class TestNoFunctionalityLostInSimpleMode:
         )
         assert "active" in view.get_attribute("class")
 
+        choose_display_mode(browser, 'full')
+
     def test_stub_button_still_marked_as_stub_in_simple_mode(self, browser, app_server):
         # "Delete" (Home > Plan group) has no wired action -- ribbon.js
         # marks it data-stub="true" and still renders it either way; this
@@ -302,73 +354,93 @@ class TestNoFunctionalityLostInSimpleMode:
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
 
         delete_btn = browser.find_element(
             By.CSS_SELECTOR, '.ribbon-body [data-scope-id="home"][data-label="Delete"]'
         )
         assert delete_btn.get_attribute("data-stub") == "true"
 
+        choose_display_mode(browser, 'full')
+
 
 class TestPersistence:
-    def test_density_choice_persists_across_reload(self, browser, app_server):
+    def test_display_mode_persists_across_reload(self, browser, app_server):
         open_app(browser, app_server)
         clear_ribbon_state(browser)
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
         assert is_simple(browser) is True
 
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
-        assert is_simple(browser) is True, "simple density should survive a reload (localStorage)"
+        assert is_simple(browser) is True, "simple mode should survive a reload (localStorage)"
 
         stored = browser.execute_script(
             "return JSON.parse(localStorage.getItem('noodleplanner:ribbon-state') || '{}');"
         )
-        assert stored.get("density") == "simple"
+        assert stored.get("displayMode") == "simple"
 
         # Clean up: leave the browser (session-scoped) back on full for
         # whichever test module runs next.
-        choose_density(browser, 'full')
+        choose_display_mode(browser, 'full')
+
+    def test_legacy_collapsed_and_density_preference_migrates(self, browser, app_server):
+        # A browser that persisted state under the pre-#1027 shape
+        # (collapsed/density) still gets a sensible mode after this change
+        # ships -- see ribbon.js's resolveDisplayMode().
+        open_app(browser, app_server)
+        browser.execute_script(
+            "localStorage.setItem('noodleplanner:ribbon-state', "
+            "JSON.stringify({scope: 'project', collapsed: false, density: 'simple'}));"
+        )
+        browser.refresh()
+        dismiss_tour(browser)
+        time.sleep(0.3)
+        assert is_simple(browser) is True, "a legacy density:'simple' preference migrates to simple mode"
+
+        clear_ribbon_state(browser)
+        choose_display_mode(browser, 'full')
 
 
-class TestCollapseAndDensityCompose:
-    def test_collapse_and_density_compose_independently(self, browser, app_server):
+class TestJustTabsMode:
+    def test_just_tabs_hides_body_and_selector_stays_reachable(self, browser, app_server):
         open_app(browser, app_server)
         clear_ribbon_state(browser)
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
 
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
         assert is_simple(browser) is True
 
-        # Collapsing hides the whole body -- whichever density -- it does
-        # not change which density is selected. Re-find the button before
-        # each click rather than reusing one reference: refreshRibbon()
-        # recreates the tab strip (and this button with it) on every state
-        # change, so a held-over WebElement goes stale after the first click.
-        browser.find_element(By.CSS_SELECTOR, '.ribbon-collapse-btn').click()
-        time.sleep(0.2)
+        choose_display_mode(browser, 'tabs')
+        assert is_collapsed(browser) is True
 
         body_display = browser.execute_script(
             "return document.querySelector('.ribbon-body').style.display;"
         )
-        assert body_display == "none", "collapse hides the body regardless of density"
+        assert body_display == "none", "Just Tabs hides the ribbon body"
 
-        # Expand again: still simple, not reset to full.
-        browser.find_element(By.CSS_SELECTOR, '.ribbon-collapse-btn').click()
-        time.sleep(0.2)
-        assert is_simple(browser) is True, "re-expanding keeps the previously-chosen density"
+        # The selector itself must stay visible/reachable -- it lives in the
+        # tab strip, which Just Tabs never hides.
+        toggle = browser.find_element(By.CSS_SELECTOR, '.ribbon-display-toggle-btn')
+        assert toggle.is_displayed()
 
-        choose_density(browser, 'full')
+        # Returning to an expanded mode restores simple, not full -- Just
+        # Tabs doesn't reset whichever expanded mode was previously chosen.
+        choose_display_mode(browser, 'simple')
+        assert is_collapsed(browser) is False
+        assert is_simple(browser) is True, "re-expanding from Just Tabs restores the previously-chosen mode"
+
+        choose_display_mode(browser, 'full')
 
 
 class TestDarkMode:
-    def test_full_and_simple_render_cleanly_in_dark_mode(self, browser, app_server):
+    def test_every_mode_renders_cleanly_in_dark_mode(self, browser, app_server):
         open_app(browser, app_server)
         clear_ribbon_state(browser)
         browser.refresh()
@@ -381,19 +453,21 @@ class TestDarkMode:
             "return document.documentElement.getAttribute('data-theme');"
         ) == "dark"
 
-        # Full mode: the ribbon body should have a genuinely different
-        # (dark) background than a bright default, and groups should render.
+        # Full mode: groups should render.
         assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-group')
 
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
         assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group')
         assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-btn')
 
+        choose_display_mode(browser, 'tabs')
+        assert is_collapsed(browser) is True
+
         logs = browser.get_log('browser') if 'chrome' in browser.name else []
         severe = [entry for entry in logs if entry.get('level') == 'SEVERE']
-        assert severe == [], f"unexpected console errors in dark + simple mode: {severe}"
+        assert severe == [], f"unexpected console errors across dark-mode display modes: {severe}"
 
-        choose_density(browser, 'full')
+        choose_display_mode(browser, 'full')
         browser.execute_script("setThemeChoice('light');")
 
 
@@ -404,7 +478,7 @@ class TestKeyboardOperability:
         browser.refresh()
         dismiss_tour(browser)
         time.sleep(0.3)
-        choose_density(browser, 'simple')
+        choose_display_mode(browser, 'simple')
 
         toggle_btn = browser.find_element(By.CSS_SELECTOR, '.ribbon-display-toggle-btn')
         assert toggle_btn.tag_name == 'button'
@@ -420,4 +494,80 @@ class TestKeyboardOperability:
         assert simple_btn.tag_name == 'button'
         assert simple_btn.get_attribute("tabindex") != "-1"
 
-        choose_density(browser, 'full')
+        choose_display_mode(browser, 'full')
+
+
+class TestNarrowWindowGroupCollapse:
+    """#1026: once every simple-ribbon button in the row has already lost
+    its label (icon-only) and the row still doesn't fit, individual groups
+    collapse into their own small, identifiable dropdown -- never into a
+    single shared "More" catch-all."""
+
+    def test_narrow_window_collapses_individual_groups_into_their_own_dropdowns(self, browser, app_server):
+        open_app(browser, app_server)
+        clear_ribbon_state(browser)
+        browser.refresh()
+        dismiss_tour(browser)
+        time.sleep(0.3)
+        choose_display_mode(browser, 'simple')
+
+        browser.set_window_size(480, 900)
+        time.sleep(0.4)
+        # Resize fires ribbon.js's own debounced (100ms) handler.
+        time.sleep(0.3)
+
+        triggers = browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger')
+        assert triggers, "a narrow window collapses at least one simple-ribbon group into its own trigger"
+        for t in triggers:
+            assert t.is_displayed()
+            assert t.get_attribute("aria-label"), "each collapsed group's trigger has an accessible name"
+
+        # No shared "More" tile in simple mode any more (#1026) -- each
+        # collapsed group gets its own trigger instead.
+        assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-body-simple .ribbon-more')
+
+        # Every command icon that's still part of a *visible* (uncollapsed)
+        # group stays reachable -- only once a group's own trigger has been
+        # clicked does its full command set (with labels) appear.
+        first_trigger = triggers[0]
+        group_name = first_trigger.get_attribute("data-group")
+        first_trigger.click()
+        popover = WebDriverWait(browser, 5).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, '.ribbon-simple-group-popover'))
+        )
+        assert popover.find_elements(By.CSS_SELECTOR, '.ribbon-lg-btn, .ribbon-sm-btn'), \
+            f"the '{group_name}' group's popover exposes its full command set"
+
+        reset_window_size(browser)
+        choose_display_mode(browser, 'full')
+
+    def test_widening_back_restores_the_full_row(self, browser, app_server):
+        open_app(browser, app_server)
+        clear_ribbon_state(browser)
+        browser.refresh()
+        dismiss_tour(browser)
+        time.sleep(0.3)
+        choose_display_mode(browser, 'simple')
+
+        # Baseline at the fixture's normal 1280px width: the Home tab alone
+        # has more buttons than 1280px can label in full, so some are
+        # already icon-only here -- this test is about the row correctly
+        # RE-DERIVING itself after a narrow-then-wide round trip, not about
+        # reaching some absolute zero-collapsed state.
+        baseline_icon_only = len(browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-btn.icon-only'))
+        assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger'), \
+            "1280px is wide enough that no group needs to collapse yet"
+
+        browser.set_window_size(420, 900)
+        time.sleep(0.4)
+        assert browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger'), \
+            "420px is narrow enough that at least one group collapses"
+
+        reset_window_size(browser)
+        time.sleep(0.4)
+        assert not browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-group-trigger'), \
+            "widening the window back out restores every group to its full row"
+        assert len(browser.find_elements(By.CSS_SELECTOR, '.ribbon-simple-btn.icon-only')) == baseline_icon_only, \
+            "widening the window back out re-derives the same label/icon-only split as the original 1280px layout"
+
+        choose_display_mode(browser, 'full')

@@ -79,10 +79,12 @@ Testing & Launch
   Go Live 0d [depends Bug fixes]
 
 ---whiteboard---
-| Task                 | X   | Y   | Colour  | Width | Height | Collapsed |
-|----------------------|-----|-----|---------|-------|--------|-----------|
-| Discovery & Planning | 80  | 60  | #4A90D9 | 280   | 220    | no        |
-| Design               | 420 | 60  |         | 280   | 240    | no        |
+| Task                  | X   | Y   | Colour  | Width | Height | Collapsed |
+|-----------------------|-----|-----|---------|-------|--------|-----------|
+| Discovery & Planning  | 80  | 60  | #4A90D9 | 280   | 220    | no        |
+| Design                | 460 | 60  |         | 280   | 220    | no        |
+| Requirements gathering| 80  | 340 | #7FB069 | 280   | 200    | no        |
+| Wireframes            | 460 | 340 | #E58C8A | 280   | 200    | no        |
 """
 
 # A small standalone plan for wb-03 (task-peek popover, issue #850): the
@@ -127,15 +129,24 @@ def create_driver():
     options.add_argument("--window-size=1440,900")
     options.add_argument("--force-device-scale-factor=2")
 
-    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian)
-    chromium_paths = ["/usr/bin/chromium", "/usr/bin/chromium-browser"]
+    # Try system chromium/chromedriver first (e.g. Raspberry Pi / Debian),
+    # then this sandbox's own pre-installed Playwright Chromium build (the
+    # Claude Code web sandbox sets PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+    # and has no /usr/bin/chromium at all).
+    import glob
+
+    chromium_paths = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        *sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")),
+    ]
     for path in chromium_paths:
         if os.path.exists(path):
             options.binary_location = path
             break
 
     # Try system chromedriver first
-    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver"]
+    chromedriver_paths = ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver", "/opt/node22/bin/chromedriver"]
     for drv_path in chromedriver_paths:
         if os.path.exists(drv_path):
             try:
@@ -326,6 +337,10 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "gantt")
     capture_full(driver, section / "gv-01-gantt-full.png")
 
+    # np-01: Notepad list view
+    switch_to_view(driver, "notepad")
+    capture_full(driver, section / "np-01-notepad-view.png")
+
     # kb-01: Kanban board (grouped by phase — the default)
     switch_to_view(driver, "kanban")
     capture_full(driver, section / "kb-01-kanban-phase.png")
@@ -349,16 +364,23 @@ def capture_how_to(driver, base_url):
     switch_to_view(driver, "resources")
     capture_full(driver, section / "mr-01-resource-table.png")
 
-    # wb-01: Whiteboard post-it notes (issue #846) — the sample plan's
-    # ---whiteboard--- back matter puts "Discovery & Planning" and
-    # "Design" on the board; fit-to-content frames both real notes.
+    # wb-01: the whiteboard as a whole — post-it notes, the noodles that
+    # carry the plan's hierarchy, and the floating plan-structure panel.
+    #
+    # Two of the sample plan's four whiteboard rows deliberately name
+    # *child* tasks ("Requirements gathering" under "Discovery &
+    # Planning", "Wireframes" under "Design"): a noodle is only drawn when
+    # both ends have a note, so a board of nothing but top-level phases
+    # would show no noodles at all and the shot would not illustrate the
+    # feature the page is describing.
     switch_to_view(driver, "whiteboard")
     driver.execute_script("if (typeof whiteboardZoomFit === 'function') whiteboardZoomFit();")
-    time.sleep(0.4)
+    time.sleep(0.6)
     capture_full(driver, section / "wb-01-whiteboard-notes.png")
 
-    # wb-02: Note colour menu (issue #849) — open the first note's `...`
-    # menu so the Palette/Pastel/Dark swatch grid is visible.
+    # wb-02: Note colour menu (issue #849, palette replaced by #1017) —
+    # open the first note's `...` menu so the fixed pastel swatch grid
+    # is visible.
     menu_btn = driver.find_elements(By.CSS_SELECTOR, ".wb-note-menu-btn")
     if menu_btn:
         menu_btn[0].click()
@@ -368,6 +390,13 @@ def capture_how_to(driver, base_url):
             "if (typeof wbCloseNoteMenu === 'function') wbCloseNoteMenu();"
         )
         time.sleep(0.2)
+
+    # wb-04: the floating plan-structure panel on its own — the outline
+    # the noodles build up, and the way to find a note again on a busy
+    # board. Captured as an element shot so the panel's own detail (dots
+    # marking which tasks are on the board, chevrons, the search box) is
+    # legible rather than lost at full-page scale.
+    capture_element(driver, "#whiteboardOutlinePanel", section / "wb-04-plan-structure.png")
 
     # wb-03: Task-peek popover (issue #850) — drilling into a subtask
     # that has its own children opens a lightweight popover rather than

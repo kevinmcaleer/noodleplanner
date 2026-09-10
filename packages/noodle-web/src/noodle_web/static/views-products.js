@@ -1282,6 +1282,9 @@ let pfDragConnection = null;     // { sourceKey, startX, startY } during drag-co
 let pfDragLine = null;           // SVG path element for live bezier preview
 let pfSelectedArrow = null;      // { sourceKey, targetKey } of selected dependency arrow
 let pfPositionsCache = null;     // cached positions for connector lookups
+let pfDeliverableEdgesCache = null; // every real deliverable->deliverable dependency edge, collapse-independent (issue #986 badges)
+let pfDeliverablesCache = null;     // the current render's flat deliverable list, for RAG lookups by id (issue #986 buried-detail)
+let pfLastToggledGroupId = null;    // group just expanded/collapsed, so its node(s) get the #986 zoom-transition animation on this one render
 let pfPendingConnectionSource = null; // tap connector, then tap a target node
 
 const PF_NODE_W = 140;
@@ -1372,6 +1375,23 @@ function updateProductFlow(tasks, projectName) {
     const leafDeliverables = deliverables.filter(
         d => !childDeliverableParents.has(d.deliverable) && !hiddenSummaries.has(d.deliverable)
     );
+
+    // Every real deliverable->deliverable dependency edge, independent of
+    // which stages are currently collapsed -- issue #986's "N links" badge
+    // and buried-detail marker need to see across a collapse boundary, which
+    // the flow-node graph built below deliberately can't (it only ever
+    // knows about whatever's on the board right now).
+    pfDeliverableEdgesCache = [];
+    pfDeliverablesCache = deliverables;
+    for (const d of deliverables) {
+        if (!d.depends) continue;
+        for (const depName of d.depends) {
+            const depDel = deliverables.find(dt => dt.name === depName || dt.description === depName);
+            if (depDel && depDel.deliverable !== d.deliverable) {
+                pfDeliverableEdgesCache.push({ from: depDel.deliverable, to: d.deliverable });
+            }
+        }
+    }
 
     // Build the flow graph
     const nodes = {};
@@ -1476,6 +1496,7 @@ function updateProductFlow(tasks, projectName) {
     // Build dependency edges
     for (const [nodeKey, node] of Object.entries(nodes)) {
         const task = node.task;
+        node.relates = [];
         if (!task) continue;
 
         // Direct dependencies
@@ -1486,6 +1507,20 @@ function updateProductFlow(tasks, projectName) {
                     const flowKey = resolveFlowKey(depTask.deliverable);
                     if (flowKey && flowKey !== nodeKey && !node.deps.includes(flowKey))
                         node.deps.push(flowKey);
+                }
+            }
+        }
+
+        // Associative links (issue #985: `[relates: ...]`, engine/tokeniser.js's
+        // task.relates) -- non-scheduling, so they never enter node.deps or
+        // affect the layout; noodle-edges.js just draws them dashed.
+        if (task.relates) {
+            for (const relName of task.relates) {
+                const relTask = deliverables.find(dt => dt.name === relName || dt.description === relName);
+                if (relTask) {
+                    const flowKey = resolveFlowKey(relTask.deliverable);
+                    if (flowKey && flowKey !== nodeKey && !node.relates.includes(flowKey))
+                        node.relates.push(flowKey);
                 }
             }
         }
@@ -1528,6 +1563,8 @@ function updateProductFlow(tasks, projectName) {
     // Deduplicate and clean deps
     for (const [nodeKey, node] of Object.entries(nodes)) {
         node.deps = [...new Set(node.deps.map(d => resolveFlowKey(d) || d))].filter(d => d !== nodeKey);
+        node.relates = [...new Set((node.relates || []).map(d => resolveFlowKey(d) || d))]
+            .filter(d => d !== nodeKey && !node.deps.includes(d));
     }
 
     // Build topLevelSummaries for bounding box rendering (expanded stages only)
@@ -1536,188 +1573,77 @@ function updateProductFlow(tasks, projectName) {
         if (pfExpandedStages.has(id)) topLevelSummaries[id] = stage;
     }
 
-    // Assign columns via longest path from roots
-    function assignColumn(key, visited) {
-        if (visited.has(key)) return nodes[key].column;
-        visited.add(key);
-        let maxDepCol = -1;
-        for (const dep of nodes[key].deps) {
-            if (nodes[dep]) {
-                maxDepCol = Math.max(maxDepCol, assignColumn(dep, visited));
-            }
-        }
-        nodes[key].column = maxDepCol + 1;
-        return nodes[key].column;
-    }
-    const visited = new Set();
-    for (const key of Object.keys(nodes)) {
-        assignColumn(key, visited);
-    }
+    // -- Layout engine (issue #984) ------------------------------------------
+    // A seeded, spring-relaxed layout swapped in for what used to be a
+    // hand-tuned column + barycenter-ordering + average-y-nudge heuristic --
+    // see noodle-layout.js's own header for the physics this runs (taut
+    // dependency chains settle straight, loose nodes drift, pins hold, and
+    // an edit only disturbs the neighbourhood that actually changed). This
+    // file still owns the flow-graph shape (stages, diamond gates,
+    // collapse/expand) -- that's product-flow business logic, not layout --
+    // it just hands the resulting node/edge graph to the engine instead of
+    // solving coordinates itself. Every flow node (deliverable, collapsed
+    // stage, or diamond gate) becomes a task-like node keyed by its own flow
+    // key, since `deps` here already resolves to other flow keys rather
+    // than raw task names.
+    const layoutTasks = Object.entries(nodes).map(([key, node]) => ({
+        name: key,
+        depends: node.deps,
+        resources: node.task ? node.task.resources : '',
+        pin: node.task ? node.task.pin : undefined,
+        start: node.task ? node.task.start : undefined,
+        summary: false,
+    }));
 
-    // Shift independent nodes (no deps) to be one column before their
-    // earliest downstream dependent, so they sit close to what needs them
-    for (const [key, node] of Object.entries(nodes)) {
-        if (node.deps.length > 0) continue; // has upstream deps — column is correct
-
-        // Find the earliest column of anything that depends on this node
-        let minDownstreamCol = Infinity;
-        for (const [otherKey, otherNode] of Object.entries(nodes)) {
-            if (otherNode.deps.includes(key)) {
-                minDownstreamCol = Math.min(minDownstreamCol, otherNode.column);
-            }
-        }
-
-        if (minDownstreamCol !== Infinity && minDownstreamCol > 0) {
-            node.column = minDownstreamCol - 1;
-        }
-    }
-
-    // Group by column
-    const columns = {};
-    for (const [key, node] of Object.entries(nodes)) {
-        if (!columns[node.column]) columns[node.column] = [];
-        columns[node.column].push({ key, ...node });
-    }
-
-    // Barycenter ordering: sort nodes within each column to minimize
-    // vertical distance to their connected nodes
-    const maxCol = Object.keys(columns).length > 0 ? Math.max(...Object.keys(columns).map(Number)) : 0;
-
-    // Build reverse dependency map (key → list of nodes that depend on it)
-    const dependedOnBy = {};
-    for (const [key, node] of Object.entries(nodes)) {
-        for (const dep of node.deps) {
-            if (!dependedOnBy[dep]) dependedOnBy[dep] = [];
-            dependedOnBy[dep].push(key);
+    // Local disturbance on edit: a node that was already on the board seeds
+    // from where it last settled; only nodes that appeared or disappeared
+    // since the previous render count as "dirty" and are free to move the
+    // board around them -- everything else holds still. On the very first
+    // render there is no previous layout, so everything is free.
+    const previousLayout = new Map();
+    const previousKeys = new Set();
+    if (pfPositionsCache) {
+        for (const [key, pos] of Object.entries(pfPositionsCache)) {
+            previousLayout.set(key.toLowerCase(), { x: pos.x, y: pos.y });
+            previousKeys.add(key.toLowerCase());
         }
     }
-
-    // Combined barycenter: use both upstream AND downstream connections
-    // Run multiple passes for convergence
-    const rowIndex = {};
-    for (let col = 0; col <= maxCol; col++) {
-        (columns[col] || []).forEach((item, idx) => { rowIndex[item.key] = idx; });
+    let dirty;
+    if (previousKeys.size) {
+        const currentKeys = new Set(Object.keys(nodes).map(k => k.toLowerCase()));
+        dirty = new Set();
+        currentKeys.forEach(k => { if (!previousKeys.has(k)) dirty.add(k); });
+        previousKeys.forEach(k => { if (!currentKeys.has(k)) dirty.add(k); });
     }
 
-    for (let pass = 0; pass < 3; pass++) {
-        // Forward pass
-        for (let col = 0; col <= maxCol; col++) {
-            const items = columns[col] || [];
-            if (items.length <= 1) continue;
-
-            items.sort((a, b) => {
-                const aUp = a.deps.filter(d => rowIndex[d] !== undefined);
-                const aDown = (dependedOnBy[a.key] || []).filter(d => rowIndex[d] !== undefined);
-                const bUp = b.deps.filter(d => rowIndex[d] !== undefined);
-                const bDown = (dependedOnBy[b.key] || []).filter(d => rowIndex[d] !== undefined);
-
-                const aAll = [...aUp, ...aDown];
-                const bAll = [...bUp, ...bDown];
-
-                const aAvg = aAll.length > 0
-                    ? aAll.reduce((s, d) => s + rowIndex[d], 0) / aAll.length
-                    : rowIndex[a.key];
-                const bAvg = bAll.length > 0
-                    ? bAll.reduce((s, d) => s + rowIndex[d], 0) / bAll.length
-                    : rowIndex[b.key];
-
-                return aAvg - bAvg;
-            });
-
-            items.forEach((item, idx) => { rowIndex[item.key] = idx; });
-            columns[col] = items;
-        }
-
-        // Backward pass
-        for (let col = maxCol; col >= 0; col--) {
-            const items = columns[col] || [];
-            if (items.length <= 1) continue;
-
-            items.sort((a, b) => {
-                const aUp = a.deps.filter(d => rowIndex[d] !== undefined);
-                const aDown = (dependedOnBy[a.key] || []).filter(d => rowIndex[d] !== undefined);
-                const bUp = b.deps.filter(d => rowIndex[d] !== undefined);
-                const bDown = (dependedOnBy[b.key] || []).filter(d => rowIndex[d] !== undefined);
-
-                const aAll = [...aUp, ...aDown];
-                const bAll = [...bUp, ...bDown];
-
-                const aAvg = aAll.length > 0
-                    ? aAll.reduce((s, d) => s + rowIndex[d], 0) / aAll.length
-                    : rowIndex[a.key];
-                const bAvg = bAll.length > 0
-                    ? bAll.reduce((s, d) => s + rowIndex[d], 0) / bAll.length
-                    : rowIndex[b.key];
-
-                return aAvg - bAvg;
-            });
-
-            items.forEach((item, idx) => { rowIndex[item.key] = idx; });
-            columns[col] = items;
-        }
-    }
-
-    // Layout: x by column, y cumulative (diamonds get extra space for label)
+    const planTextEl = document.getElementById('planEditor');
+    const maxDistance = noodleFrontMatterNumber(planTextEl ? planTextEl.value : '', 'noodle_max_distance', 320);
     const PF_DIAMOND_EXTRA = 20;
+
+    const layoutResult = noodleComputeLayout(layoutTasks, {
+        columnWidth: PF_NODE_W + PF_H_GAP,
+        rowHeight: PF_NODE_H + PF_V_GAP + PF_DIAMOND_EXTRA,
+        maxDistance,
+        previous: previousKeys.size ? previousLayout : undefined,
+        dirty,
+    });
+
     const positions = {};
-    for (let col = 0; col <= maxCol; col++) {
-        const items = columns[col] || [];
-        let y = 40;
-        for (const item of items) {
-            positions[item.key] = {
-                x: 40 + col * (PF_NODE_W + PF_H_GAP),
-                y: y,
-                task: item.task,
-                deps: item.deps,
-                isCollapsed: item.isCollapsed || false,
-                isDiamond: item.isDiamond || false,
-                groupId: item.groupId || null
-            };
-            y += PF_NODE_H + PF_V_GAP;
-            if (item.isDiamond) y += PF_DIAMOND_EXTRA;
-        }
-    }
-
-
-    // Post-layout: adjust y positions so nodes sit at the average y of their connections
-    // This makes e.g. Test sit halfway between Build and Training Materials
-    for (let pass = 0; pass < 2; pass++) {
-        for (const [key, pos] of Object.entries(positions)) {
-            const upstream = pos.deps.map(d => positions[d]).filter(Boolean);
-            const downstream = (dependedOnBy[key] || []).map(d => positions[d]).filter(Boolean);
-            const connected = [...upstream, ...downstream];
-            if (connected.length === 0) continue;
-
-            const avgY = connected.reduce((s, p) => s + p.y, 0) / connected.length;
-
-            // Only move if it doesn't overlap with neighbours in the same column
-            const col = Math.round((pos.x - 40) / (PF_NODE_W + PF_H_GAP));
-            const sameCol = Object.values(positions).filter(p =>
-                p !== pos && Math.round((p.x - 40) / (PF_NODE_W + PF_H_GAP)) === col
-            );
-
-            let targetY = avgY;
-            // Ensure no overlap with same-column nodes
-            for (const other of sameCol) {
-                if (Math.abs(targetY - other.y) < PF_NODE_H + PF_V_GAP) {
-                    // Too close — nudge away
-                    if (targetY < other.y) {
-                        targetY = Math.min(targetY, other.y - PF_NODE_H - PF_V_GAP);
-                    } else {
-                        targetY = Math.max(targetY, other.y + PF_NODE_H + PF_V_GAP);
-                    }
-                }
-            }
-            pos.y = targetY;
-        }
-    }
-
-    // Normalize: shift all positions so minimum y is 40
-    let minY = Infinity;
-    for (const pos of Object.values(positions)) minY = Math.min(minY, pos.y);
-    if (minY < 40) {
-        const shift = 40 - minY;
-        for (const pos of Object.values(positions)) pos.y += shift;
+    for (const [key, node] of Object.entries(nodes)) {
+        const p = layoutResult.positions[key.toLowerCase()];
+        positions[key] = {
+            x: 40 + (p ? p.x : 0),
+            y: 40 + (p ? p.y - layoutResult.bounds.minY : 0),
+            task: node.task,
+            deps: node.deps,
+            relates: node.relates || [],
+            isCollapsed: node.isCollapsed || false,
+            isDiamond: node.isDiamond || false,
+            groupId: node.groupId || null,
+            childIds: node.childIds || null,
+            pinned: p ? p.pinned : false,
+            restless: p ? p.restless : 0,
+        };
     }
 
     // Render
@@ -1846,56 +1772,54 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         }
     }
 
-    // Draw dependency arrows (clickable for deletion)
+    // Draw edges (clickable for deletion) -- issue #985's port model + bezier
+    // renderer, kept strictly separate from the layout it hands off from
+    // (noodle-edges.js's header). A diamond gate's "port" is its left/right
+    // tip rather than a rectangle edge, so noodles still meet its point.
+    function pfPortRectFor(pos) {
+        if (pos.isDiamond && pos._diamondCx) {
+            return { x: pos._diamondCx - pos._diamondW, y: pos._diamondCy - PF_NODE_H / 2, width: pos._diamondW * 2, height: PF_NODE_H };
+        }
+        return { x: pos.x, y: pos.y, width: PF_NODE_W, height: PF_NODE_H };
+    }
+    function pfDrawEdge(sourceKey, targetKey, src, dst, kind) {
+        const exit = noodleEdgePorts(pfPortRectFor(src)).exit;
+        const entry = noodleEdgePorts(pfPortRectFor(dst)).entry;
+        const d = noodleEdgePathD([exit, entry]);
+        const style = noodleEdgeStyle(kind); // solid = dependency, dashed = associative
+        const strokeColour = kind === 'associative' ? '#9a9a9a' : '#E8833A';
+
+        const arrow = pbsCreateSVGElement('path', {
+            'd': d, 'fill': 'none', 'stroke': strokeColour, 'stroke-width': '2',
+            'marker-end': 'url(#pf-arrowhead)',
+            'class': 'pf-arrow' + (kind === 'associative' ? ' pf-arrow-associative' : ''),
+            'data-source': sourceKey, 'data-target': targetKey
+        });
+        if (style.dasharray) arrow.setAttribute('stroke-dasharray', style.dasharray);
+
+        // Wider invisible hit area for clicking
+        const hitArea = pbsCreateSVGElement('path', {
+            'd': d, 'fill': 'none', 'stroke': 'transparent', 'stroke-width': '12',
+            'style': 'cursor: pointer;'
+        });
+        hitArea.addEventListener('click', (e) => {
+            e.stopPropagation();
+            pfSelectArrow(sourceKey, targetKey, arrow);
+        });
+
+        pfGroup.appendChild(arrow);
+        pfGroup.appendChild(hitArea);
+    }
+
     pfSelectedArrow = null;
     for (const [key, pos] of Object.entries(positions)) {
         for (const dep of pos.deps) {
             const src = positions[dep];
-            if (!src) continue;
-
-            // Route arrows to/from diamond points (right/left tips) instead of rectangle edges
-            const srcCy = src.y + PF_NODE_H / 2;
-            const dstCy = pos.y + PF_NODE_H / 2;
-            let x1, y1, x2, y2;
-            if (src.isDiamond && src._diamondCx) {
-                x1 = src._diamondCx + src._diamondW; // right tip of diamond
-                y1 = srcCy;
-            } else {
-                x1 = src.x + PF_NODE_W;
-                y1 = srcCy;
-            }
-            if (pos.isDiamond && pos._diamondCx) {
-                x2 = pos._diamondCx - pos._diamondW; // left tip of diamond
-                y2 = dstCy;
-            } else {
-                x2 = pos.x;
-                y2 = dstCy;
-            }
-            const midX = (x1 + x2) / 2;
-            const d = `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
-
-            // Visible arrow
-            const arrow = pbsCreateSVGElement('path', {
-                'd': d, 'fill': 'none', 'stroke': '#E8833A', 'stroke-width': '2',
-                'marker-end': 'url(#pf-arrowhead)', 'class': 'pf-arrow',
-                'data-source': dep, 'data-target': key
-            });
-
-            // Wider invisible hit area for clicking
-            const hitArea = pbsCreateSVGElement('path', {
-                'd': d, 'fill': 'none', 'stroke': 'transparent', 'stroke-width': '12',
-                'style': 'cursor: pointer;'
-            });
-
-            const sourceKey = dep;
-            const targetKey = key;
-            hitArea.addEventListener('click', (e) => {
-                e.stopPropagation();
-                pfSelectArrow(sourceKey, targetKey, arrow);
-            });
-
-            pfGroup.appendChild(arrow);
-            pfGroup.appendChild(hitArea);
+            if (src) pfDrawEdge(dep, key, src, pos, 'dependency');
+        }
+        for (const rel of (pos.relates || [])) {
+            const src = positions[rel];
+            if (src) pfDrawEdge(rel, key, src, pos, 'associative');
         }
     }
 
@@ -1913,7 +1837,19 @@ function pfRender(positions, allTasks, topLevelSummaries) {
         const isCollapsedNode = !!pos.isCollapsed;
         const isDiamondNode = !!pos.isDiamond;
 
-        const g = pbsCreateSVGElement('g', { 'class': 'pf-node', 'style': 'cursor: pointer;' });
+        // Restless nodes (issue #984): a task missing an estimate, an owner,
+        // or any connection wobbles gently until completed -- a pure CSS
+        // animation, gated on the amplitude the layout engine reported and
+        // on prefers-reduced-motion, so the wobble is a calm-by-default
+        // attention cue rather than a gimmick that moves just to look busy.
+        const restlessClass = (pos.restless > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+            ? ' pf-restless' : '';
+        // #986: whatever the user just expanded/collapsed gets a short
+        // enter animation on this one render, so the eye can track the
+        // change rather than the diagram silently jumping to a new shape.
+        const zoomTransitionClass = (pfLastToggledGroupId && (key === pfLastToggledGroupId || key === '_gate_' + pfLastToggledGroupId))
+            ? ' pf-zoom-transition' : '';
+        const g = pbsCreateSVGElement('g', { 'class': 'pf-node' + restlessClass + zoomTransitionClass, 'style': 'cursor: pointer;' + (pos.restless > 0 ? ` --pf-restless-amplitude: ${(1 + pos.restless * 2).toFixed(2)}px;` : '') });
         g.dataset.key = key;
         g.addEventListener('click', (event) => {
             if (!pfPendingConnectionSource) return;
@@ -2063,6 +1999,51 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             const title = pbsCreateSVGElement('title', {});
             title.textContent = `${task.name}\nClick to expand`;
             g.appendChild(title);
+
+            // -- Semantic zoom (issue #986) --------------------------------
+            // A collapsed node visually inherits its children's external
+            // dependencies (a "N links" badge) and, if there's something
+            // worth a second look buried inside it, a subtle marker -- both
+            // computed from the real, collapse-independent deliverable
+            // graph (pfDeliverableEdgesCache), never by moving a dependency
+            // onto the summary task itself.
+            if (pos.childIds && pos.childIds.length && pfDeliverableEdgesCache) {
+                const insideKeys = new Set(pos.childIds);
+                const crossing = noodleCountCrossingEdges(pfDeliverableEdgesCache, insideKeys);
+                const badgeLabel = noodleBadgeLabel(crossing.total);
+                if (badgeLabel) {
+                    const badgeCx = pos.x + PF_NODE_W - 4;
+                    const badgeCy = pos.y - 2;
+                    const badgeW = 14 + badgeLabel.length * 5.2;
+                    g.appendChild(pbsCreateSVGElement('rect', {
+                        'x': badgeCx - badgeW / 2, 'y': badgeCy - 8, 'width': badgeW, 'height': 16,
+                        'rx': '8', 'ry': '8', 'fill': '#02384d', 'class': 'pf-badge'
+                    }));
+                    const badgeText = pbsCreateSVGElement('text', {
+                        'x': badgeCx, 'y': badgeCy + 4, 'text-anchor': 'middle',
+                        'fill': '#ffffff', 'font-size': '9', 'font-weight': 'bold',
+                        'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                    });
+                    badgeText.textContent = badgeLabel;
+                    g.appendChild(badgeText);
+                }
+
+                const hasAtRiskDescendant = pos.childIds.some((cid) => {
+                    const childDel = (pfDeliverablesCache || []).find((dd) => dd.deliverable === cid);
+                    return childDel && pbsComputeRag(childDel, allTasks || []) === 'red';
+                });
+                const buried = noodleBuriedDetail(pfDeliverableEdgesCache, insideKeys, { hasAtRiskDescendant });
+                if (buried.buried) {
+                    const marker = pbsCreateSVGElement('circle', {
+                        'cx': pos.x + 6, 'cy': pos.y - 2, 'r': '4',
+                        'class': 'pf-buried-detail-marker'
+                    });
+                    const markerTitle = pbsCreateSVGElement('title', {});
+                    markerTitle.textContent = 'Buried detail: ' + buried.reasons.join(', ');
+                    marker.appendChild(markerTitle);
+                    g.appendChild(marker);
+                }
+            }
         } else {
             // Regular node
             g.addEventListener('click', (e) => {
@@ -2220,6 +2201,10 @@ function pfRender(positions, allTasks, topLevelSummaries) {
             }
         }
     }
+
+    // The zoom-transition animation (#986) is a one-render enter effect --
+    // clear it so the *next* render doesn't replay it on an untouched node.
+    pfLastToggledGroupId = null;
 }
 
 // ── Product Flow: Drag-to-connect ─────────────────────────────────────
@@ -2461,6 +2446,7 @@ function pfToggleGroup(groupId) {
     } else {
         pfExpandedStages.add(groupId);
     }
+    pfLastToggledGroupId = groupId; // #986: animate whatever this becomes on the next render
     if (typeof lastRenderedTasks !== 'undefined' && lastRenderedTasks.length > 0) {
         updateProductFlow(lastRenderedTasks);
     }

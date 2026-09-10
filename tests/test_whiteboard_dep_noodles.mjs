@@ -1,0 +1,164 @@
+/**
+ * Whiteboard dependency noodles (#1052) -- the drag-to-connect gesture
+ * itself is covered by manual/browser verification (see the PR: creating
+ * a link, cycle refusal, deletion, and confirming hierarchy mode is
+ * unaffected), the same split test_notepad_surface.mjs and
+ * test_highlight_toggles.mjs use for their own DOM-facing pieces.
+ *
+ * This file covers the derivable/pure link-listing logic and the
+ * text-mutating commit paths (wbLinkDependency/wbCutDependencyNoodle),
+ * lifted from the real source with the same vm-sandbox technique
+ * test_kanban_board_mutations.mjs uses, so every mutation here is
+ * verified by re-parsing the editor's resulting text -- the same way the
+ * browser does after a drag or a Delete keypress.
+ *
+ * Run with: node --test tests/test_whiteboard_dep_noodles.mjs
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import vm from 'node:vm';
+
+const repo = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+const staticDir = join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static');
+
+/** Top-level `function name(` ... `\n}` declarations from a classic script. */
+function liftFunctions(sandbox, file, names) {
+    const source = readFileSync(join(staticDir, file), 'utf8');
+    for (const name of names) {
+        const start = source.indexOf(`\nfunction ${name}(`);
+        assert.notEqual(start, -1, `${name} not found in ${file}`);
+        const end = source.indexOf('\n}\n', start);
+        assert.notEqual(end, -1, `${name} in ${file} has no closing brace at column 0`);
+        vm.runInContext(source.slice(start, end + 3), sandbox);
+    }
+    return sandbox;
+}
+
+function makeEditorStub(initialValue) {
+    return {
+        value: initialValue,
+        listeners: {},
+        addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); },
+        dispatchEvent(event) { for (const fn of this.listeners[event.type] || []) fn(event); return true; },
+    };
+}
+
+function buildSandbox(planText) {
+    const planModelSrc = readFileSync(join(staticDir, 'plan-model.js'), 'utf8');
+    const tokenizerSrc = readFileSync(join(staticDir, 'task-tokenizer.js'), 'utf8');
+
+    const editor = makeEditorStub(planText);
+    const elements = { planEditor: editor };
+    const flashMessages = [];
+    const sandbox = {
+        console,
+        document: {
+            getElementById: (id) => elements[id] || null,
+            querySelector: () => null,
+            querySelectorAll: () => [],
+        },
+        module: { exports: {} },
+        wbFlashNoodleMessage: (text) => flashMessages.push(text),
+        wbClearDepNoodleSelection: () => {},
+        // Minimal stand-in for whiteboard-notes.js's real wbCommitMarkdown:
+        // writes the new text and fires 'input', skipping the cache/save
+        // side effects this test has no need to exercise.
+        wbCommitMarkdown: (nextText) => {
+            if (nextText === editor.value) return false;
+            editor.value = nextText;
+            editor.dispatchEvent({ type: 'input' });
+            return true;
+        },
+    };
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(tokenizerSrc + '\nthis.TaskLineTokenizer = TaskLineTokenizer;', sandbox);
+    vm.runInContext(planModelSrc, sandbox);
+    liftFunctions(sandbox, 'whiteboard-dep-noodles.js', [
+        'wbDepNoodleId', 'wbDepNoodleLinksFor', 'wbCanLinkDependency', 'wbLinkDependency', 'wbCutDependencyNoodle',
+    ]);
+    // whiteboard-noodles.js defines the module-level id separator these
+    // functions close over.
+    sandbox.WB_DEP_NOODLE_ID_SEP = '';
+    return { sandbox, editor, flashMessages };
+}
+
+test('wbDepNoodleId is stable and separator-safe (mirrors WB_NOODLE_ID_SEP)', () => {
+    const { sandbox } = buildSandbox('');
+    const id1 = sandbox.wbDepNoodleId('Plan a', 'b');
+    const id2 = sandbox.wbDepNoodleId('Plan', 'a b');
+    assert.notEqual(id1, id2, 'a space separator would collide these two distinct pairs');
+});
+
+test('wbDepNoodleLinksFor: only explicit (non-shorthand) dependencies with both ends on board', () => {
+    const text = 'Phase\n  A 1d\n  B 1d [depends: A]\n  *C 1d\n';
+    const { sandbox } = buildSandbox(text);
+    const model = sandbox.NoodlePlanModel.PlanModel.parse(text);
+    const rows = [{ task: 'A' }, { task: 'B' }, { task: 'C' }];
+    const links = sandbox.wbDepNoodleLinksFor(model, rows);
+    assert.equal(links.length, 1, 'the * shorthand dependency (C on B) must not render as a dependency noodle');
+    assert.equal(links[0].from, 'A');
+    assert.equal(links[0].to, 'B');
+});
+
+test('wbDepNoodleLinksFor: a dependency whose target is off-board is not drawn', () => {
+    const text = 'Phase\n  A 1d\n  B 1d [depends: A]\n';
+    const { sandbox } = buildSandbox(text);
+    const model = sandbox.NoodlePlanModel.PlanModel.parse(text);
+    const rows = [{ task: 'B' }]; // A is not on the board
+    const links = sandbox.wbDepNoodleLinksFor(model, rows);
+    // links is an Array from the vm sandbox's own realm -- spread it into
+    // this realm before comparing, since deepStrictEqual also checks
+    // [[Prototype]], which otherwise differs across realms.
+    assert.deepEqual([...links], []);
+});
+
+test('wbCanLinkDependency: ok for a fresh link, refused for a duplicate or self-link', () => {
+    const { sandbox } = buildSandbox('Phase\n  A 1d\n  B 1d\n');
+    assert.equal(sandbox.wbCanLinkDependency('A', 'B').ok, true);
+    assert.equal(sandbox.wbCanLinkDependency('A', 'A').ok, false);
+});
+
+test('wbLinkDependency writes a real [depends: ...] token and returns true', () => {
+    const { sandbox, editor } = buildSandbox('Phase\n  A 1d\n  B 1d\n');
+    assert.equal(sandbox.wbLinkDependency('A', 'B'), true);
+    assert.equal(editor.value, 'Phase\n  A 1d\n  B 1d [depends: A]\n');
+});
+
+test('wbLinkDependency refuses and flashes a message rather than silently no-op-ing on a cycle', () => {
+    const { sandbox, editor, flashMessages } = buildSandbox('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = editor.value;
+    assert.equal(sandbox.wbLinkDependency('B', 'A'), false);
+    assert.equal(editor.value, before);
+    assert.equal(flashMessages.length, 1);
+    assert.match(flashMessages[0], /circular/);
+});
+
+test('wbLinkDependency refuses a duplicate with a clear reason', () => {
+    const { sandbox, flashMessages } = buildSandbox('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    assert.equal(sandbox.wbLinkDependency('A', 'B'), false);
+    assert.match(flashMessages[0], /already depends/);
+});
+
+test('wbCutDependencyNoodle removes the dependency and returns true', () => {
+    const { sandbox, editor } = buildSandbox('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    assert.equal(sandbox.wbCutDependencyNoodle('A', 'B'), true);
+    assert.equal(editor.value, 'Phase\n  A 1d\n  B 1d\n');
+});
+
+test('wbCutDependencyNoodle on a nonexistent link is a no-op returning false', () => {
+    const { sandbox, editor } = buildSandbox('Phase\n  A 1d\n  B 1d\n');
+    const before = editor.value;
+    assert.equal(sandbox.wbCutDependencyNoodle('A', 'B'), false);
+    assert.equal(editor.value, before);
+});
+
+test('link then cut round-trips back to the original text', () => {
+    const original = 'Phase\n  A 1d\n  B 1d\n  C 1d\n';
+    const { sandbox, editor } = buildSandbox(original);
+    assert.equal(sandbox.wbLinkDependency('A', 'C'), true);
+    assert.equal(sandbox.wbCutDependencyNoodle('A', 'C'), true);
+    assert.equal(editor.value, original);
+});

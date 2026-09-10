@@ -421,3 +421,57 @@ class TestPropagateProgrammeDependencies:
             json={"dependencies": "not-a-list"},
         )
         assert resp.status_code == 422
+
+    def test_programme_scoped_extra_field_is_ignored(self, client):
+        """The programme dependency RAG board (#737) tags each dependency
+        with an internal/external `scope` field for its own display before
+        posting the same objects here; the endpoint has no `scope` field
+        and should silently ignore it rather than reject the request."""
+        today = date.today()
+        dep = {
+            "id": "dep-scoped",
+            "from_project_id": "proj-a",
+            "from_task_name": "Phase 1",
+            "to_project_id": "proj-b",
+            "to_task_name": "Phase 2",
+            "lag_days": 0,
+            "notes": "",
+            "scope": "internal",
+        }
+        projects = [
+            {
+                "project_id": "proj-a",
+                "project_name": "Project A",
+                "tasks": [
+                    {
+                        "name": "Phase 1",
+                        "start": (today - timedelta(days=20)).isoformat(),
+                        "finish": (today - timedelta(days=5)).isoformat(),
+                        "duration_days": 15,
+                        "percent": 100,
+                        "is_summary": True,
+                    }
+                ],
+            },
+            {
+                "project_id": "proj-b",
+                "project_name": "Project B",
+                "tasks": [
+                    {
+                        "name": "Phase 2",
+                        "start": (today - timedelta(days=3)).isoformat(),
+                        "finish": (today + timedelta(days=10)).isoformat(),
+                        "duration_days": 13,
+                        "percent": 20,
+                        "is_summary": True,
+                    }
+                ],
+            },
+        ]
+        resp = client.post(
+            "/api/programme-dependencies/propagate",
+            json=self._build_request([dep], projects),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["results"][0]["rag"] == "green"

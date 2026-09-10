@@ -1,6 +1,6 @@
 /**
  * Tests for the whiteboard's board-membership pure logic (issue #847):
- * "which summary tasks aren't on the board yet", "Phase › Sub-phase" path
+ * "which tasks aren't on the board yet", "Phase › Sub-phase" path
  * building for the Add-note picker, search/filter matching, rectangle
  * overlap, and first-free-space placement (including the "re-adding a
  * removed task gets a fresh position, never a stale one" acceptance
@@ -38,6 +38,25 @@ function assert(condition, msg) {
 
 const sandbox = { console };
 vm.createContext(sandbox);
+// The back-matter section markers wbInsertNewSummaryTaskLine() (issue #980)
+// scans for are ordinarily globals from state.js, a separate <script> tag
+// in the real app; this sandbox only loads whiteboard-notes.js, so they're
+// defined here with the exact same values (see state.js) before that
+// source runs. Node's vm module keeps top-level const/let bindings in the
+// context's own lexical environment across separate runInContext() calls,
+// so a later call (this file's own assertions, and whiteboard-notes.js's
+// function bodies) can still see them by plain identifier even though
+// they never become sandbox.* properties.
+vm.runInContext(`
+    const HIGHLIGHTS_START = '---highlights---';
+    const BUDGET_START = '---budget---';
+    const BENEFITS_START = '---benefits---';
+    const RAID_LOG_START = '---raid log---';
+    const COMMS_START = '---comms---';
+    const LESSONS_START = '---lessons learned---';
+    const BASELINE_START = '---baseline---';
+    const WHITEBOARD_START = '---whiteboard---';
+`, sandbox);
 vm.runInContext(source, sandbox);
 
 const {
@@ -49,6 +68,7 @@ const {
     wbRectsOverlap,
     wbFindFreeSpacePosition,
     wbBuildAddNoteRows,
+    wbInsertNewSummaryTaskLine,
 } = sandbox;
 
 // ── Fixture: a plan with two same-named summary tasks in different
@@ -74,7 +94,8 @@ const tasks = [
     // (every other view's task lookups share it too), out of scope here.
     { name: 'Discovery', is_summary: true, parent: 'Phase 2' },
 
-    // Not a summary task -- must never appear as a picker entry.
+    // A leaf. Offered by the picker like any other task (see below) but
+    // flagged isSummary: false so the picker can label it.
     { name: 'Leaf Task', is_summary: false, parent: 'Phase 2' },
 ];
 
@@ -98,8 +119,16 @@ const tasks = [
 {
     const entries = wbSummaryTaskEntries(tasks);
     const names = entries.map(e => e.name);
-    assert(!names.includes('Research') && !names.includes('Regression') && !names.includes('Leaf Task'),
-        'leaf tasks never appear as picker entries, only is_summary ones');
+    // Leaves are offered too, now that the board can create tasks: every
+    // new post-it starts as a leaf, so a picker that hid them could not
+    // re-add a note the user had just removed from the board.
+    assert(names.includes('Research') && names.includes('Regression') && names.includes('Leaf Task'),
+        'leaf tasks are offered as picker entries');
+    assert(entries.find(e => e.name === 'Leaf Task').isSummary === false,
+        'a leaf entry is flagged isSummary: false');
+    assert(entries.find(e => e.name === 'Build').isSummary === true,
+        'a summary entry is flagged isSummary: true');
+    assert(entries.length === tasks.length, 'every task is offerable');
     assert(names.filter(n => n === 'Discovery').length === 2,
         'both same-named summary tasks appear as separate entries');
 
@@ -126,7 +155,8 @@ const tasks = [
     assert(!names.includes('Discovery'), 'both same-named tasks already on the board (case-insensitive) are excluded');
     assert(names.includes('Phase 1') && names.includes('Phase 2') && names.includes('Build') && names.includes('Testing'),
         'every other summary task is still offered');
-    assert(remaining.length === tasks.filter(t => t.is_summary).length - 2,
+    assert(names.includes('Leaf Task'), 'leaf tasks are still offered');
+    assert(remaining.length === tasks.length - 2,
         'both same-named "Discovery" entries are removed for the one matching row');
 }
 
@@ -138,8 +168,14 @@ const tasks = [
     assert(wbFilterPickerEntries(entries, '   ').length === entries.length, 'a whitespace-only query matches everything');
 
     const byName = wbFilterPickerEntries(entries, 'disc');
-    assert(byName.length === 2 && byName.every(e => e.name === 'Discovery'),
+    assert(byName.filter(e => e.name === 'Discovery').length === 2,
         'search matches by name (case-insensitive, substring), including both same-named entries');
+    // "Research" sits under "Discovery", so it matches on path -- the same
+    // rule the byPath assertion below covers, just reached from a name.
+    assert(byName.some(e => e.name === 'Research'),
+        "a task whose parent path contains the query matches too");
+    assert(!byName.some(e => e.name === 'Leaf Task'),
+        'an entry matching on neither name nor path is excluded');
 
     const byPath = wbFilterPickerEntries(entries, 'phase 1');
     assert(byPath.some(e => e.name === 'Testing' && e.path === 'Phase 1 › Build'),
@@ -233,6 +269,47 @@ const tasks = [
     const readdRect = { x: readd.x, y: readd.y, width: opts.width, height: opts.height };
     const xRect = { x: xRow.x, y: xRow.y, width: opts.width, height: opts.height };
     assert(!wbRectsOverlap(readdRect, xRect, opts.gap), 're-adding must not overlap whatever now occupies the board');
+}
+
+// ── wbInsertNewSummaryTaskLine: the picker's "create new" outline edit
+// (issue #980, reworked by #1015) -- a pure text transform, no DOM, so
+// it's covered here rather than only in the Selenium suite. ─────────
+{
+    // No back-matter at all: the new task is a single bare line at the
+    // very end -- no placeholder child. Issue #1015: a brand-new note
+    // starts free-form (see wbIsFreeformNote() in whiteboard-notes.js),
+    // so nothing here forces it into checklist shape immediately the way
+    // the old "New Task" placeholder child used to.
+    const plain = 'Phase 1\n  Discovery\n    Research @sam 2d\n';
+    const plainResult = wbInsertNewSummaryTaskLine(plain, 'Launch');
+    assert(plainResult.endsWith('Launch\n'), 'appends just the new bare task line at the end of a plan with no back matter');
+    assert(plainResult.startsWith('Phase 1\n  Discovery\n    Research @sam 2d\n\nLaunch'),
+        'the existing outline is left otherwise untouched');
+    assert(!plainResult.includes('New Task'), 'no placeholder child is written -- the new task starts as a childless, free-form note');
+
+    // A whiteboard section already exists: the new line must land in the
+    // outline, *before* ---whiteboard---, not inside or after it.
+    const withBoard = 'Phase 1\n  Discovery\n\n---whiteboard---\n| Task | X | Y |\n|------|---|---|\n| Discovery | 10 | 20 |\n';
+    const withBoardResult = wbInsertNewSummaryTaskLine(withBoard, 'Launch');
+    const boardMarkerIdx = withBoardResult.indexOf('---whiteboard---');
+    const launchIdx = withBoardResult.indexOf('Launch');
+    assert(launchIdx !== -1 && launchIdx < boardMarkerIdx, 'the new task line lands before ---whiteboard---, not inside/after it');
+    assert(withBoardResult.includes('| Discovery | 10 | 20 |'), 'the existing whiteboard section survives untouched');
+
+    // Multiple back-matter sections: the new line must land before the
+    // *first* one encountered (earliest in the text), matching
+    // extractWhiteboardFromPlanText()'s own marker scan.
+    const withMany = 'Phase 1\n  Discovery\n\n---budget---\nsome budget text\n\n---whiteboard---\n| Task | X | Y |\n|------|---|---|\n';
+    const withManyResult = wbInsertNewSummaryTaskLine(withMany, 'Launch');
+    const budgetIdx = withManyResult.indexOf('---budget---');
+    const launchIdx2 = withManyResult.indexOf('Launch');
+    assert(launchIdx2 !== -1 && launchIdx2 < budgetIdx, 'the new task line lands before the earliest back-matter marker');
+
+    // A blank/whitespace-only name is a no-op (the caller -- the picker's
+    // form -- is responsible for its own "enter a name" validation; this
+    // function just refuses to write anything either way).
+    const blankResult = wbInsertNewSummaryTaskLine(plain, '   ');
+    assert(blankResult === plain, 'a blank/whitespace-only name is a no-op');
 }
 
 if (failures > 0) {

@@ -194,8 +194,16 @@ function switchToProject(projectId) {
         loadProjectIntoEditor(projectId);
     }
 
-    // Switch to Editor tab
-    switchMainTab('editor');
+    // Switch to Editor tab via NavigationController so the currently active
+    // view (e.g. Backstage) properly deactivates -- switchMainTab() only
+    // toggles .tab-content classes directly and skips that lifecycle, which
+    // left body.backstage-fullscreen (and the ribbon it hides) stuck on
+    // after opening a project from Backstage's Recents list (#1044).
+    if (typeof switchToView === 'function') {
+        switchToView('editor');
+    } else {
+        switchMainTab('editor');
+    }
 
     // Refresh project selectors and portfolio table active indicator
     if (typeof refreshProjectSelectors === 'function') {
