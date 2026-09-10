@@ -210,7 +210,7 @@ class KanbanBoard {
         document.querySelectorAll(
             '.kanban-card.dragging, .kanban-card.drop-before, .kanban-card.drop-after, ' +
             '.kanban-column.dragging-column, .kanban-column.drop-left, .kanban-column.drop-right, ' +
-            '.kanban-column-body.drag-over'
+            '.kanban-column-body.drag-over, .kanban-add-column.drag-over'
         ).forEach(element => element.classList.remove(
             'dragging', 'drop-before', 'drop-after', 'dragging-column',
             'drop-left', 'drop-right', 'drag-over'
@@ -1412,6 +1412,8 @@ class KanbanBoard {
     renderAddColumnButton() {
         const addColumnEl = document.createElement('div');
         addColumnEl.className = 'kanban-add-column';
+        const acceptsCardDrop = ['phase', 'label', 'bucket'].includes(this.viewMode);
+        if (acceptsCardDrop) addColumnEl.setAttribute('data-drop-target', 'new-column');
 
         const button = document.createElement('button');
         button.className = 'kanban-add-column-btn';
@@ -1447,6 +1449,32 @@ class KanbanBoard {
         }
 
         addColumnEl.appendChild(button);
+
+        // #1070: the creation tile is also the natural drop target at the
+        // right edge of the board.  Keep the normal click behaviour, while a
+        // card drop creates the named grouping and assigns the card to it.
+        if (acceptsCardDrop) {
+            addColumnEl.addEventListener('dragover', (event) => {
+                if (!document.querySelector('.kanban-card.dragging')) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                addColumnEl.classList.add('drag-over');
+            });
+            addColumnEl.addEventListener('dragleave', (event) => {
+                if (!addColumnEl.contains(event.relatedTarget)) {
+                    addColumnEl.classList.remove('drag-over');
+                }
+            });
+            addColumnEl.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                addColumnEl.classList.remove('drag-over');
+                const taskLineNumber = parseInt(event.dataTransfer.getData('text/plain'), 10);
+                if (!this.activeDrag?.cancelled && Number.isInteger(taskLineNumber)) {
+                    this.handleNewColumnDrop(taskLineNumber);
+                }
+            });
+        }
         return addColumnEl;
     }
 
@@ -2196,12 +2224,16 @@ class KanbanBoard {
                 .forEach(item => item.classList.remove('drop-before', 'drop-after'));
             document.querySelectorAll('.kanban-column-body.drag-over')
                 .forEach(item => item.classList.remove('drag-over'));
+            document.querySelectorAll('.kanban-add-column.drag-over')
+                .forEach(item => item.classList.remove('drag-over'));
 
             const hit = document.elementFromPoint(event.clientX, event.clientY);
             const targetCard = hit?.closest('.kanban-card');
             const targetColumn = hit?.closest('.kanban-column-body');
+            const targetNewColumn = hit?.closest('[data-drop-target="new-column"]');
             gesture.targetCard = targetCard && targetCard !== cardEl ? targetCard : null;
             gesture.targetColumn = targetColumn;
+            gesture.targetNewColumn = targetNewColumn;
 
             if (gesture.targetCard) {
                 const rect = gesture.targetCard.getBoundingClientRect();
@@ -2211,6 +2243,8 @@ class KanbanBoard {
                 );
             } else if (targetColumn) {
                 targetColumn.classList.add('drag-over');
+            } else if (targetNewColumn) {
+                targetNewColumn.classList.add('drag-over');
             }
         });
 
@@ -2222,6 +2256,8 @@ class KanbanBoard {
             document.querySelectorAll('.kanban-card.drop-before, .kanban-card.drop-after')
                 .forEach(item => item.classList.remove('drop-before', 'drop-after'));
             document.querySelectorAll('.kanban-column-body.drag-over')
+                .forEach(item => item.classList.remove('drag-over'));
+            document.querySelectorAll('.kanban-add-column.drag-over')
                 .forEach(item => item.classList.remove('drag-over'));
             if (cardEl.hasPointerCapture(event.pointerId)) {
                 cardEl.releasePointerCapture(event.pointerId);
@@ -2235,7 +2271,13 @@ class KanbanBoard {
             const wasCancelled = this.activeDrag?.cancelled;
             this.activeDrag = null;
             if (event.type === 'pointercancel' || wasCancelled ||
-                !completedGesture.dragging || !completedGesture.targetColumn) return;
+                !completedGesture.dragging) return;
+
+            if (completedGesture.targetNewColumn) {
+                this.handleNewColumnDrop(task.lineNumber);
+                return;
+            }
+            if (!completedGesture.targetColumn) return;
 
             const targetColumnIndex = parseInt(
                 completedGesture.targetColumn.dataset.columnIndex,
@@ -2397,6 +2439,78 @@ class KanbanBoard {
         }
 
         if (updated) this.commitMarkdown(lines.join('\n'));
+    }
+
+    /** Create a phase/label/bucket from the add-column drop zone and move the card. */
+    handleNewColumnDrop(taskLineNumber) {
+        const task = this.tasks.find(item => item.lineNumber === taskLineNumber);
+        const editor = document.getElementById('planEditor');
+        if (!task || !editor || !['phase', 'label', 'bucket'].includes(this.viewMode)) return false;
+
+        const promptLabel = this.viewMode === 'phase'
+            ? 'Enter new column name:'
+            : this.viewMode === 'label' ? 'Enter new label name:' : 'Bucket name:';
+        const entered = prompt(promptLabel);
+        if (!entered || !entered.trim()) return false;
+        const name = this.viewMode === 'label' ? entered.trim().toLowerCase() : entered.trim();
+
+        if (this.columns.some(column => column.title.toLowerCase() === name.toLowerCase())) return false;
+
+        if (this.viewMode === 'phase') {
+            if (typeof NoodlePlanModel === 'undefined') return false;
+            const model = NoodlePlanModel.modelForEditor(editor);
+            const taskNode = model.tasks.find(node => model.lineNumber(node) === taskLineNumber);
+            const sourceColumn = this.columns.find(column =>
+                column.tasks.some(columnTask => columnTask.lineNumber === taskLineNumber)
+            );
+            const lastColumn = this.columns[this.columns.length - 1];
+            const anchor = lastColumn?.summaryLineNumber
+                ? model.tasks.find(node => model.lineNumber(node) === lastColumn.summaryLineNumber)
+                : null;
+            if (!taskNode) return false;
+            const indent = anchor ? anchor.indent : (this.currentParentTask?.indent || 0);
+            const phaseNode = model.insertTaskAfter(anchor, indent, name);
+            const sourceSummaryNode = sourceColumn?.summaryLineNumber
+                ? model.tasks.find(node => model.lineNumber(node) === sourceColumn.summaryLineNumber)
+                : null;
+            if (!model.moveAsChild(taskNode, phaseNode, true)) return false;
+            if (sourceSummaryNode && sourceSummaryNode.children.length === 0) {
+                model.removeTask(sourceSummaryNode);
+            }
+            return this.commitMarkdown(model.serialize(), { model });
+        }
+
+        const lines = editor.value.split('\n');
+        const taskIndex = taskLineNumber - 1;
+        lines[taskIndex] = this.viewMode === 'label'
+            ? this.replaceLabelsInTaskLine(lines[taskIndex], name)
+            : this.replaceBucketInTaskLine(lines[taskIndex], name);
+        this.addFrontMatterListValue(lines, this.viewMode === 'label' ? 'labels' : 'buckets', name);
+        return this.commitMarkdown(lines.join('\n'));
+    }
+
+    /** Add one value to an inline YAML front-matter list without committing. */
+    addFrontMatterListValue(lines, key, value) {
+        let inFrontMatter = false;
+        let frontMatterEnd = -1;
+        let listLine = -1;
+        for (let index = 0; index < lines.length; index++) {
+            if (lines[index].trim() === '---') {
+                if (!inFrontMatter) inFrontMatter = true;
+                else { frontMatterEnd = index; break; }
+            } else if (inFrontMatter && new RegExp(`^${key}:\\s*\\[`).test(lines[index].trim())) {
+                listLine = index;
+            }
+        }
+        if (listLine >= 0) {
+            const match = lines[listLine].match(/^(\s*[^:]+:\s*\[)([^\]]*)(\].*)$/);
+            const existing = match[2].trim();
+            lines[listLine] = `${match[1]}${existing ? `${existing}, ` : ''}${value}${match[3]}`;
+        } else if (frontMatterEnd >= 0) {
+            lines.splice(frontMatterEnd, 0, `${key}: [${value}]`);
+        } else {
+            lines.unshift('---', `${key}: [${value}]`, '---', '');
+        }
     }
 
     /**
