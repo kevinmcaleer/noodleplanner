@@ -209,9 +209,15 @@ function detectStalledProject(frontMatter, currentCompletion, now) {
 
 /**
  * Calculate a delivery forecast date based on historical velocity.
- * Returns { forecastDate: Date|null, status: 'on-track'|'at-risk'|'no-forecast', label: string }.
+ *
+ * If the project's current RAG is green, a non-positive velocity is
+ * reported as 'On Track' rather than 'At Risk' — completion can
+ * stagnate while a project is being actively re-scoped, and an
+ * otherwise healthy project should not be flagged on the dashboard.
+ *
+ * Returns { forecastDate: Date|null, status: 'on-track'|'at-risk'|'no-forecast'|'complete', label: string }.
  */
-function calculateDeliveryForecast(projectId, currentCompletion) {
+function calculateDeliveryForecast(projectId, currentCompletion, ragStatus, now) {
     if (currentCompletion >= 100) {
         return { forecastDate: null, status: 'complete', label: 'Complete' };
     }
@@ -252,20 +258,24 @@ function calculateDeliveryForecast(projectId, currentCompletion) {
     if (daysDiff < 1) daysDiff = 1;
 
     var pctChange = newest.completion - oldest.completion;
+    var nowMs = (now && now.getTime) ? now.getTime() : Date.now();
     // Use current completion as the latest value for more accuracy
     var actualPctChange = currentCompletion - oldest.completion;
-    var actualDays = (Date.now() - oldest.date.getTime()) / (1000 * 60 * 60 * 24);
+    var actualDays = (nowMs - oldest.date.getTime()) / (1000 * 60 * 60 * 24);
     if (actualDays < 1) actualDays = 1;
 
     var velocityPerDay = actualPctChange / actualDays;
 
     if (velocityPerDay <= 0) {
+        if (ragStatus === 'green') {
+            return { forecastDate: null, status: 'on-track', label: 'On Track' };
+        }
         return { forecastDate: null, status: 'at-risk', label: 'At Risk' };
     }
 
     var remaining = 100 - currentCompletion;
     var daysToComplete = remaining / velocityPerDay;
-    var forecastDate = new Date(Date.now() + daysToComplete * 24 * 60 * 60 * 1000);
+    var forecastDate = new Date(nowMs + daysToComplete * 24 * 60 * 60 * 1000);
 
     var label = forecastDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -330,7 +340,7 @@ async function renderPortfolioStatus() {
             }).length;
 
             const stalledInfo = detectStalledProject(frontMatter, completion);
-            const forecast = calculateDeliveryForecast(project.id, completion);
+            const forecast = calculateDeliveryForecast(project.id, completion, ragStatus);
 
             return {
                 id: project.id,

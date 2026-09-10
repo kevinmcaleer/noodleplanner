@@ -39,30 +39,46 @@ function savePersistedState() {
     try {
         localStorage.setItem(RIBBON_STATE_KEY, JSON.stringify({
             scope: ribbonState.scope,
-            collapsed: ribbonState.collapsed,
-            // #955: full-vs-simple is a per-browser display preference, same
-            // category as scope/collapsed above -- never written into plan
-            // text or front matter.
-            density: ribbonState.density,
+            // #1027: a single three-way display preference -- 'tabs' (just
+            // the tab strip), 'simple' (one dense row) or 'full' (the
+            // original multi-row ribbon) -- replacing the old orthogonal
+            // `collapsed`+`density` pair (see resolveDisplayMode() below for
+            // how a persisted copy of either old shape migrates). Per-browser
+            // display preference, same category the old fields were -- never
+            // written into plan text or front matter.
+            displayMode: ribbonState.displayMode,
         }));
     } catch (error) {
         // localStorage unavailable (private mode, quota) -- state just won't persist.
     }
 }
 
+/**
+ * #1027: fold the pre-#1027 `collapsed` (boolean) + `density` ('full'|
+ * 'simple') pair into the new single `displayMode` ('tabs'|'simple'|'full').
+ * A browser that persisted state under the old shape (or nothing at all)
+ * still gets a sensible mode on first load under the new code; a value
+ * already in the new shape is trusted as-is (validated against the three
+ * known modes so unrecognised garbage falls back rather than wedging the
+ * ribbon into an unrenderable state).
+ */
+function resolveDisplayMode(persisted) {
+    if (persisted.displayMode === 'tabs' || persisted.displayMode === 'simple' || persisted.displayMode === 'full') {
+        return persisted.displayMode;
+    }
+    if (persisted.collapsed) return 'tabs';
+    if (persisted.density === 'simple') return 'simple';
+    return 'full';
+}
+
 const persisted = loadPersistedState();
 const ribbonState = {
     scope: persisted.scope || 'project',
     activeTab: 'home',
-    collapsed: !!persisted.collapsed,
-    // #955: 'full' (the original multi-row ribbon) or 'simple' (a single
-    // dense row, closer to Office's "Simplified Ribbon"). Orthogonal to
-    // `collapsed` -- see renderDisplayToggle()'s comment for how the two
-    // compose.
-    density: persisted.density === 'simple' ? 'simple' : 'full',
-    fileMenuOpen: false,
+    displayMode: resolveDisplayMode(persisted),
     morePopoverOpen: false,
     displayMenuOpen: false,
+    openGroupTrigger: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -84,6 +100,7 @@ function getLiveState() {
         // top-level `let` in a classic script, so it's readable here as a
         // shared global, same as NavigationController/EditorUndoManager above.
         themeChoice: (typeof currentThemeChoice !== 'undefined') ? currentThemeChoice : 'light',
+        highlightToggles: (typeof HighlightToggles !== 'undefined') ? HighlightToggles.getState() : null,
     };
 }
 
@@ -103,7 +120,7 @@ function notAvailable(label) {
 // ---------------------------------------------------------------------------
 
 const VIEW_FOR_LABEL = {
-    Tasks: 'tasks', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
+    Tasks: 'tasks', Notepad: 'notepad', Board: 'kanban', Gantt: 'gantt', Timeline: 'timeline', Calendar: 'calendar',
     RAID: 'raid', 'RAID Log': 'raid', Actions: 'actions', Highlights: 'highlights', Lookahead: 'lookahead',
     Lessons: 'lessons', Budget: 'budget', EVM: 'evm', Benefits: 'benefits', Analysis: 'analysis',
     Resources: 'resources', Stakeholders: 'stakeholders', Timesheet: 'timesheet', Workload: 'user-workload',
@@ -154,6 +171,24 @@ const GANTT_SCALES = ['days', 'weeks', 'months', 'quarters', 'years'].map((scale
 const KANBAN_GROUP_MODES = ['phase', 'resource', 'progress', 'label', 'bucket'].map((mode) => ({
     label: mode.charAt(0).toUpperCase() + mode.slice(1),
     run: () => switchKanbanView(mode),
+}));
+// Stage presets for the per-category highlight toggles (#1051), keyed to
+// HighlightToggles.PRESETS. 'All' / 'Plain' are the always-on / no-
+// highlighting bookends the issue requires; the rest are the DADESRC-stage
+// presets (#783 D) the wizard shell (#1054) will later apply automatically.
+const HIGHLIGHT_PRESETS = [
+    { label: 'All', preset: 'all' },
+    { label: 'Plain (no highlighting)', preset: 'plain' },
+    { label: 'Design', preset: 'design' },
+    { label: 'Add Tasks', preset: 'add-tasks' },
+    { label: 'Dependencies', preset: 'dependencies' },
+    { label: 'Estimating', preset: 'estimating' },
+    { label: 'Scheduling', preset: 'scheduling' },
+    { label: 'Risks', preset: 'risks' },
+    { label: 'Comms', preset: 'comms' },
+].map(({ label, preset }) => ({
+    label,
+    run: () => { if (typeof HighlightToggles !== 'undefined') HighlightToggles.applyPreset(preset); },
 }));
 
 /** Navigate to the portfolio view's `name` sub-view (portfolio.js's own
@@ -248,6 +283,21 @@ const LABEL_ACTIONS = {
     Settings: () => openSettingsPanel(),
     Undo: () => EditorUndoManager.undo(),
 
+    // Per-category syntax highlight toggles (#1051) -- see
+    // highlight-toggles.js's own header comment for why flipping these can
+    // never touch the editor's actual text or caret.
+    'Show Durations': () => HighlightToggles.toggleCategory('duration'),
+    'Show Resources': () => HighlightToggles.toggleCategory('resource'),
+    'Show Tags': () => HighlightToggles.toggleCategory('tag'),
+    'Show Comments': () => HighlightToggles.toggleCategory('comment'),
+    'Show Dependencies': () => HighlightToggles.toggleCategory('dependency'),
+    'Highlight Preset': () => openFormatMenu(HIGHLIGHT_PRESETS, 'Highlight Preset'),
+
+    // The DADESRC guided flow shell (#1054): a persistent bar the shell
+    // injects itself, not a ribbon popover, so nothing here needs
+    // OPENS_OWN_POPOVER treatment.
+    'Guided Plan': () => { if (typeof PlanWizard !== 'undefined') PlanWizard.open(); },
+
     // Gantt toggles -- real checkboxes in the (hidden-when-inactive) gantt
     // view, flipped via a real 'change' event so views-gantt.js's own
     // addEventListener('change', ...) wiring does the actual work.
@@ -300,7 +350,7 @@ function resolveAction(scopeId, label) {
  * refreshRibbon() replaces .ribbon-tabstrip's innerHTML wholesale, which
  * would destroy that popover the instant it opened, so these must skip
  * the post-action refresh rather than re-render over their own menu. */
-const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month']);
+const OPENS_OWN_POPOVER = new Set(['Export', 'Export…', 'Import', 'Import from Excel / MS Project', 'Group by', 'Day/Week/Month', 'Highlight Preset']);
 
 function runAction(scopeId, label) {
     const action = resolveAction(scopeId, label);
@@ -313,15 +363,16 @@ function runAction(scopeId, label) {
 }
 
 // ---------------------------------------------------------------------------
-// Small popovers: the File menu and caret format-choice menus share the
-// same look (see .ribbon-file-menu), so both render through this.
+// Small popovers: caret format-choice menus (Import/Export) render as a
+// `.ribbon-file-menu` -- a name kept from #972 retiring the File dropdown
+// that originally introduced the look; only that one caller remains.
 // ---------------------------------------------------------------------------
 
 function closePopovers() {
-    document.querySelectorAll('.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu').forEach((el) => el.remove());
-    ribbonState.fileMenuOpen = false;
+    document.querySelectorAll('.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu, .ribbon-simple-group-popover').forEach((el) => el.remove());
     ribbonState.morePopoverOpen = false;
     ribbonState.displayMenuOpen = false;
+    ribbonState.openGroupTrigger = null;
 }
 
 function openFormatMenu(formats, label) {
@@ -402,18 +453,13 @@ function renderSearchBox() {
     `;
 }
 
-function renderFileMenuItems(ia) {
-    return ia.FILE_MENU.map((f, i) => `
-        <button type="button" class="ribbon-file-menu-item" data-file-index="${i}">
-            ${icon(f.icon, 15)}
-            <span class="ribbon-file-menu-item-label">${f.label}</span>
-            ${f.kbd ? `<span class="ribbon-file-menu-item-kbd">${f.kbd}</span>` : ''}
-        </button>
-    `).join('');
-}
-
 const FILE_ACTIONS = {
-    'New plan': () => notAvailable('New plan'),
+    // Opens the Backstage shell (#943) -- see backstage.js.
+    Home: () => switchToView('backstage'),
+    // #938-style fix: a real function (portfolio.js's showCreateProjectDialog,
+    // already used by the "+ New Project" button) existed for this the whole
+    // time; it just wasn't wired here.
+    'New plan': () => showCreateProjectDialog(),
     'Open…': () => openLocalPlanFile(),
     Save: () => downloadMarkdown(),
     'Import from Excel / MS Project': () => openFormatMenu(IMPORT_FORMATS, 'Import'),
@@ -437,11 +483,10 @@ function renderTabStrip(ia, ctxTab) {
     }
 
     return `
-        <button type="button" class="ribbon-file-btn" data-action="toggle-file">File ▾</button>
+        <button type="button" class="ribbon-file-btn" data-action="open-backstage" title="Home" aria-label="Home">File</button>
         ${tabs}${ctxHtml}
         <div class="ribbon-tabstrip-spacer"></div>
-        <button type="button" class="ribbon-collapse-btn" data-action="toggle-collapse" title="${ribbonState.collapsed ? 'Expand the ribbon' : 'Collapse the ribbon'}">${ribbonState.collapsed ? '▼' : '▲'}</button>
-        ${ribbonState.fileMenuOpen ? `<div class="ribbon-file-menu" id="ribbonFileMenu">${renderFileMenuItems(ia)}</div>` : ''}
+        ${renderDisplaySelector()}
     `;
 }
 
@@ -509,6 +554,11 @@ function isButtonActive(scopeId, label, live) {
     if (label === 'Dependencies' || label === 'Deps') return live.ganttShowDependencies;
     if (label === 'Dark Mode') return live.isDark;
     if (label === 'System Theme') return live.themeChoice === 'system';
+    if (label === 'Show Durations') return !!live.highlightToggles?.duration;
+    if (label === 'Show Resources') return !!live.highlightToggles?.resource;
+    if (label === 'Show Tags') return !!live.highlightToggles?.tag;
+    if (label === 'Show Comments') return !!live.highlightToggles?.comment;
+    if (label === 'Show Dependencies') return !!live.highlightToggles?.dependency;
     if (scopeId === 'kanban') {
         if (label === 'Phase') return live.kanbanViewMode === 'phase';
         if (label === 'Resource') return live.kanbanViewMode === 'resource';
@@ -545,66 +595,97 @@ function flattenGroupButtons(group) {
     return [...(group.lg || []), ...(group.cols || []).flatMap((col) => col)];
 }
 
+/**
+ * The simple ribbon's per-group markup (#955, extended by #1026). Buttons
+ * live inside a `.ribbon-simple-group-buttons` wrapper rather than directly
+ * in the group element so applySimpleBody()'s last-resort pass (#1026) can
+ * collapse the whole group into its own `.ribbon-simple-group-trigger`
+ * dropdown chip by toggling which of the two is shown -- never by
+ * destroying and later trying to reconstruct the buttons' markup, which
+ * would have no way to restore itself correctly on a later resize wider
+ * (this function isn't re-invoked on resize; only the fit passes re-run).
+ * `hidden` on the trigger keeps it out of the accessibility tree and tab
+ * order until a group actually collapses.
+ */
 function renderSimpleGroup(scopeId, group, animate) {
     const buttons = flattenGroupButtons(group).map((b) => renderButton(scopeId, b, 'simple')).join('');
-    return `<div class="ribbon-simple-group${animate ? ' ribbon-group-tab-in' : ''}" data-group="${group.name}">${buttons}</div>`;
+    const name = escapeHtml(group.name);
+    return `<div class="ribbon-simple-group${animate ? ' ribbon-group-tab-in' : ''}" data-group="${name}">
+        <div class="ribbon-simple-group-buttons">${buttons}</div>
+        <button type="button" class="ribbon-simple-group-trigger" data-action="toggle-group-menu" data-group="${name}"
+            title="${name}" aria-label="${name}" aria-haspopup="true" aria-expanded="false" hidden>${icon('grid', 12)}<span class="ribbon-caret">▼</span></button>
+    </div>`;
 }
 
 /**
- * The "Ribbon Display Options" dropdown (#955), the control the issue asks
- * for -- Office's own name for the analogous control, though this app's
- * version only offers the two choices #955 actually asks for (Full/Simple),
- * not Office's separate auto-hide levels (that's `ribbon-collapse-btn` in
- * renderTabStrip(), a different, orthogonal control -- see its own comment
- * for exactly how the two compose).
+ * The combined ribbon display selector (#1027) -- replaces the two
+ * previously-separate controls: the tab strip's own "collapse the ribbon"
+ * chevron (▲/▼, Office's "auto-hide"/"show tabs only" concept) and the
+ * "Ribbon Display Options" Full/Simple dropdown (#955) that used to live at
+ * the ribbon body's bottom-right corner. One control, three mutually
+ * exclusive modes (`ribbonState.displayMode`): "Just Tabs" (body hidden --
+ * the old `collapsed`), "Simple Ribbon" and "Full Ribbon" (the old
+ * `density`).
  *
- * Placement: rendered as part of the ribbon BODY (not the tab strip), and
- * pinned to the body's bottom-right corner via CSS (`.ribbon-display-toggle`
- * -- order + margin-left:auto + align-self:flex-end). #955 literally says
- * "bottom right of the ribbon"; since the ribbon's three stacked bars put
- * the body at the bottom, that reads most naturally as the bottom-right
- * corner of the body, not the tab strip's already-occupied right-side slot
- * (File/tabs on the left, the collapse chevron on the right) where real
- * Office actually puts its Classic/Simplified toggle. Both readings are
- * defensible; this one follows the issue's literal wording.
+ * Placement: the tab strip, in the collapse button's old slot -- not the
+ * body's bottom-right corner #955 originally put the Full/Simple toggle in.
+ * That corner lives inside `.ribbon-body`, which "Just Tabs" mode hides
+ * entirely (`display: none`); the issue is explicit that the selector must
+ * "keep the selector reachable so the user can return to either expanded
+ * mode", so a control that vanishes exactly when its own "Just Tabs" choice
+ * is active would defeat that requirement. The tab strip is the one bar that
+ * stays visible in all three modes.
+ *
+ * "Remove the icon and any button border -- just show the dropdown arrow":
+ * no icon, and `.ribbon-display-toggle-btn` in components.css drops the
+ * border/background a plain caret would otherwise sit inside.
  */
-function renderDisplayToggle() {
+function renderDisplaySelector() {
     return `
         <div class="ribbon-display-toggle">
             <button type="button" class="ribbon-display-toggle-btn" data-action="toggle-display-menu"
                 title="Ribbon Display Options" aria-label="Ribbon Display Options" aria-haspopup="true" aria-expanded="${ribbonState.displayMenuOpen}">
-                ${icon('grid', 12)}<span class="ribbon-caret">▼</span>
+                <span class="ribbon-caret">▼</span>
             </button>
         </div>
     `;
 }
 
+const DISPLAY_MODES = [
+    { mode: 'tabs', label: 'Just Tabs' },
+    { mode: 'simple', label: 'Simple Ribbon' },
+    { mode: 'full', label: 'Full Ribbon' },
+];
+
 function displayMenuItemsHtml() {
-    const isSimple = ribbonState.density === 'simple';
-    return `
-        <button type="button" class="ribbon-display-menu-item${!isSimple ? ' selected' : ''}" data-density="full" role="menuitemradio" aria-checked="${!isSimple}">
-            <span class="ribbon-display-menu-item-check">${!isSimple ? '✓' : ''}</span>Full Ribbon
-        </button>
-        <button type="button" class="ribbon-display-menu-item${isSimple ? ' selected' : ''}" data-density="simple" role="menuitemradio" aria-checked="${isSimple}">
-            <span class="ribbon-display-menu-item-check">${isSimple ? '✓' : ''}</span>Simple Ribbon
-        </button>
-    `;
+    return DISPLAY_MODES.map(({ mode, label }) => {
+        const selected = ribbonState.displayMode === mode;
+        return `
+        <button type="button" class="ribbon-display-menu-item${selected ? ' selected' : ''}" data-display-mode="${mode}" role="menuitemradio" aria-checked="${selected}">
+            <span class="ribbon-display-menu-item-check">${selected ? '✓' : ''}</span>${label}
+        </button>`;
+    }).join('');
 }
 
 /**
- * The "Ribbon Display Options" menu's actual popover (#955) -- appended to
- * `.ribbon-shell`, like renderMorePopover()'s `.ribbon-more-popover`,
- * rather than nested inside renderDisplayToggle()'s own markup.
+ * The display-selector menu's actual popover (#1027, formerly #955's
+ * Full/Simple-only version) -- appended to `.ribbon-shell`, like
+ * renderMorePopover()'s `.ribbon-more-popover`, rather than nested inside
+ * renderDisplaySelector()'s own markup.
  *
  * Why: `.ribbon-body` has `overflow: hidden` (needed so a group that's
  * about to be pushed into "More" never visibly pokes out before
  * applyOverflow()/applySimpleBody() run on the next frame), which would
- * silently clip a popover nested inside it -- especially in simple
- * density's much shorter body, where the menu has nowhere near enough
- * headroom. Positioning it from the toggle button's real, measured rect
- * (same technique renderMorePopover() uses for its own "just under the
- * body" offset) keeps it correctly placed regardless of density or window
- * size, without being clipped by an ancestor it doesn't need to live inside.
+ * silently clip a popover nested inside it. Positioning it from the toggle
+ * button's real, measured rect (same technique renderMorePopover() uses)
+ * keeps it correctly placed regardless of mode or window size, without being
+ * clipped by an ancestor it doesn't need to live inside.
+ *
+ * Opens downward from the button's bottom edge, right-aligned to it: since
+ * #1027 moved the trigger into the tab strip (near the top of the shell --
+ * see renderDisplaySelector()'s comment for why), a menu that opened upward
+ * from the old body-bottom placement would now push itself off the top of
+ * the page.
  */
 function renderDisplayMenu() {
     const shell = document.querySelector('.ribbon-shell');
@@ -619,7 +700,7 @@ function renderDisplayMenu() {
     const btnRect = toggleBtn.getBoundingClientRect();
     const shellRect = shell.getBoundingClientRect();
     menu.style.right = `${Math.round(shellRect.right - btnRect.right)}px`;
-    menu.style.bottom = `${Math.round(shellRect.bottom - btnRect.top)}px`;
+    menu.style.top = `${Math.round(btnRect.bottom - shellRect.top)}px`;
     shell.appendChild(menu);
 }
 
@@ -637,28 +718,14 @@ function activeTabData(ia, ctxTab) {
 
 function renderRibbonBody(ia, ctxTab, animate) {
     const tab = activeTabData(ia, ctxTab);
-    const groupsHtml = ribbonState.density === 'simple'
+    return ribbonState.displayMode === 'simple'
         ? tab.groups.map((g) => renderSimpleGroup(tab.id, g, animate)).join('')
         : tab.groups.map((g) => renderGroup(tab.id, g, animate)).join('');
-    // The display-options dropdown renders in every density (and in both
-    // scopes/tabs) so it's always reachable -- see renderDisplayToggle()'s
-    // comment for why it lives here rather than the tab strip.
-    return groupsHtml + renderDisplayToggle();
 }
 
 // ---------------------------------------------------------------------------
 // Overflow ("» More")
 // ---------------------------------------------------------------------------
-
-// The display-options dropdown (renderDisplayToggle()) is always present
-// once the body renders at all, in both densities -- its reserved width
-// must always come out of the fit budget, unlike MORE_WIDTH/
-// SIMPLE_MORE_WIDTH below, which only apply when a "More" tile actually
-// appears. Kept a little generous versus the button's real measured width
-// (see `.ribbon-display-toggle` in components.css) since a few px of extra
-// whitespace before it is harmless, but it clipping under the body's
-// overflow:hidden is not.
-const DISPLAY_TOGGLE_WIDTH = 40;
 
 function applyOverflow() {
     const body = document.querySelector('.ribbon-body');
@@ -668,7 +735,10 @@ function applyOverflow() {
     const groups = Array.from(body.querySelectorAll(':scope > .ribbon-group'));
     if (groups.length === 0) return;
 
-    const containerWidth = body.clientWidth - DISPLAY_TOGGLE_WIDTH;
+    // #1027 moved the display-selector out of `.ribbon-body` and into the
+    // tab strip, so the fit budget no longer needs to reserve width for it
+    // here -- the full measured body width is available to the groups.
+    const containerWidth = body.clientWidth;
     const widths = groups.map((el) => el.getBoundingClientRect().width);
     const MORE_WIDTH = 74;
     const { fitGroups } = ribbonLayoutModule;
@@ -691,68 +761,82 @@ function applyOverflow() {
 }
 
 /**
- * The simple ribbon's overflow (#955). Two passes, each reusing a pure
- * ribbon-layout.js function against real measured DOM widths, same split
- * as the full ribbon's applyOverflow() above:
+ * The simple ribbon's responsive fallback (#955, extended by #1026). Two
+ * passes, each reusing a pure ribbon-layout.js function against real
+ * measured DOM widths:
  *
  *   1. fitLabels() -- shrink labels left-to-right until the whole row (every
- *      button, across every group) fits at full text, or everything left
- *      of the point it stopped fitting is icon-only. This is the common
- *      case: a single dense row usually resolves itself by losing labels
- *      long before whole subsections need to disappear.
- *   2. fitGroups() -- the SAME group-level "More" mechanism the full ribbon
- *      uses (adapted: measuring `.ribbon-simple-group` boxes instead of
- *      `.ribbon-group` ones, and a smaller MORE tile width to match the
- *      simple row's own compact "More" button). Only needed as a last
- *      resort -- a very narrow window, or a tab with many subsections --
- *      once even all-icon-only still doesn't fit.
+ *      button, across every group) fits at full text, or everything left of
+ *      the point it stopped fitting is icon-only. This is the common case:
+ *      a single dense row usually resolves itself by losing labels long
+ *      before whole subsections need to disappear -- and every command's
+ *      icon stays visible either way; only its label is ever at risk.
+ *   2. fitSimpleGroups() -- only once every label is already gone and the
+ *      row *still* doesn't fit does a group collapse, and then into its own
+ *      small, identifiable `.ribbon-simple-group-trigger` dropdown -- never
+ *      into one shared "More" catch-all the way the full ribbon's own
+ *      applyOverflow() does (see fitSimpleGroups()'s own comment in
+ *      ribbon-layout.js for why that needed a different fit algorithm, not
+ *      just fitGroups() reused with different constants). Only needed as a
+ *      last resort -- a very narrow window, or a tab with many subsections.
+ *
+ * Idempotent and always re-derived from the DOM's current widths, not from
+ * what a previous call decided -- both passes reset every group/button back
+ * to its full, uncollapsed state before re-measuring (mirroring
+ * applyOverflow()'s own stale-`.ribbon-more` cleanup), so a window resized
+ * back wider correctly restores labels and groups a narrower pass
+ * previously collapsed, whether this run started from this function's own
+ * previous output or from a fresh renderRibbonBody() render.
  */
 const SIMPLE_ICON_ONLY_WIDTH = 28; // matches `.ribbon-simple-btn.icon-only`'s fixed CSS width
-const SIMPLE_MORE_WIDTH = 34; // matches `.ribbon-body-simple .ribbon-more`'s fixed CSS width
+const SIMPLE_GROUP_TRIGGER_WIDTH = 32; // matches `.ribbon-simple-group-trigger`'s fixed CSS width
 
 function applySimpleBody() {
     const body = document.querySelector('.ribbon-body');
     if (!body) return;
-    body.querySelectorAll('.ribbon-more').forEach((el) => el.remove());
 
     const groups = Array.from(body.querySelectorAll(':scope > .ribbon-simple-group'));
-    groups.forEach((g) => { g.style.display = ''; });
+    groups.forEach((g) => {
+        g.classList.remove('ribbon-simple-group-collapsed');
+        const buttonsWrap = g.querySelector(':scope > .ribbon-simple-group-buttons');
+        const trigger = g.querySelector(':scope > .ribbon-simple-group-trigger');
+        if (buttonsWrap) buttonsWrap.style.display = '';
+        if (trigger) { trigger.hidden = true; trigger.setAttribute('aria-expanded', 'false'); }
+    });
     const buttons = Array.from(body.querySelectorAll('.ribbon-simple-btn'));
     buttons.forEach((b) => b.classList.remove('icon-only'));
     if (groups.length === 0) return;
 
-    const { fitLabels, fitGroups } = ribbonLayoutModule;
-    const containerWidth = body.clientWidth - DISPLAY_TOGGLE_WIDTH;
+    const { fitLabels, fitSimpleGroups } = ribbonLayoutModule;
+    // #1027 moved the display-selector out of `.ribbon-body` and into the
+    // tab strip, so the fit budget no longer needs to reserve width for it.
+    const containerWidth = body.clientWidth;
 
     // Pass 1: per-button text-fit, densest pass first.
     const items = buttons.map((b) => ({ iconWidth: SIMPLE_ICON_ONLY_WIDTH, fullWidth: b.getBoundingClientRect().width }));
     const showLabel = fitLabels(items, containerWidth);
     buttons.forEach((b, i) => { if (!showLabel[i]) b.classList.add('icon-only'); });
 
-    // Pass 2: fall back to "More" only if the row still doesn't fit once
-    // every label is already gone.
+    // Pass 2: each group's width, now that pass 1 has settled every
+    // button's label/icon-only state, decides which groups (if any) must
+    // collapse into their own trigger.
     const widths = groups.map((el) => el.getBoundingClientRect().width);
-    const { overflow } = fitGroups(widths, containerWidth, SIMPLE_MORE_WIDTH);
-    if (overflow.length === 0) return;
-
-    overflow.forEach((i) => { groups[i].style.display = 'none'; });
-
-    const more = document.createElement('div');
-    more.className = 'ribbon-more';
-    const names = overflow.map((i) => groups[i].dataset.group).join(', ');
-    more.innerHTML = `
-        <button type="button" class="ribbon-more-btn" data-action="toggle-more" title="${names}" aria-label="More: ${names}">
-            <span class="ribbon-more-chevron">»</span>
-        </button>
-    `;
-    body.appendChild(more);
+    const { collapsed } = fitSimpleGroups(widths, containerWidth, SIMPLE_GROUP_TRIGGER_WIDTH);
+    collapsed.forEach((i) => {
+        const g = groups[i];
+        g.classList.add('ribbon-simple-group-collapsed');
+        const buttonsWrap = g.querySelector(':scope > .ribbon-simple-group-buttons');
+        const trigger = g.querySelector(':scope > .ribbon-simple-group-trigger');
+        if (buttonsWrap) buttonsWrap.style.display = 'none';
+        if (trigger) trigger.hidden = false;
+    });
 }
 
 /** Runs whichever density's overflow pass applies -- see applyOverflow()/
  * applySimpleBody()'s own comments. Shared by refreshRibbon() and the
- * window resize handler so both densities stay correctly fitted. */
+ * window resize handler so both modes stay correctly fitted. */
 function applyBodyLayout() {
-    if (ribbonState.density === 'simple') applySimpleBody();
+    if (ribbonState.displayMode === 'simple') applySimpleBody();
     else applyOverflow();
 }
 
@@ -762,18 +846,17 @@ async function loadLayout() {
     return ribbonLayoutModule;
 }
 
+/** The full ribbon's shared "More" flyout (#833). Simple mode has its own,
+ * separate per-group popover (renderGroupPopover(), #1026) since #1026
+ * replaced its group-level fallback with individual dropdowns rather than
+ * one shared catch-all -- this is reached only via applyOverflow()'s
+ * `.ribbon-more-btn`, which simple mode no longer ever renders. */
 function renderMorePopover(ia, ctxTab) {
     closePopovers();
     const tab = activeTabData(ia, ctxTab);
     const body = document.querySelector('.ribbon-body');
-    // #955: simple mode's overflowed subsections are `.ribbon-simple-group`
-    // boxes, not `.ribbon-group` ones -- but the popover itself always shows
-    // the full-style rendering (renderGroup(), not renderSimpleGroup()) even
-    // in simple mode: there's plenty of room in a flyout, so there's no
-    // reason to also cram the popover's contents into the dense layout.
-    const groupSelector = ribbonState.density === 'simple' ? '.ribbon-simple-group' : '.ribbon-group';
     const hiddenGroups = tab.groups.filter((g) => {
-        const el = body.querySelector(`${groupSelector}[data-group="${CSS.escape(g.name)}"]`);
+        const el = body.querySelector(`.ribbon-group[data-group="${CSS.escape(g.name)}"]`);
         return el && el.style.display === 'none';
     });
     const popover = document.createElement('div');
@@ -781,15 +864,51 @@ function renderMorePopover(ia, ctxTab) {
     popover.innerHTML = hiddenGroups.map((g) => renderGroup(tab.id, g, false)).join('');
     const shell = document.querySelector('.ribbon-shell');
     if (shell && body) {
-        // Simple density's body is much shorter than full density's fixed
-        // 98px (see .ribbon-body-simple), so its "just under the body"
-        // position differs too -- measure the real, current bottom of the
-        // body rather than hardcoding a second magic offset alongside the
-        // CSS `top: 137px` fallback (used only until this runs).
         const top = body.getBoundingClientRect().bottom - shell.getBoundingClientRect().top;
         popover.style.top = `${Math.round(top)}px`;
     }
     shell?.appendChild(popover);
+}
+
+/**
+ * #1026: a single collapsed simple-ribbon group's own dropdown -- unlike
+ * renderMorePopover() above (which can gather several hidden full-style
+ * groups into one flyout), this always renders exactly the one group behind
+ * the trigger that was clicked, in the full-style rendering (renderGroup(),
+ * not renderSimpleGroup()) since there's plenty of room in a flyout and no
+ * reason to cram its contents into the dense simple layout. Appended to
+ * `.ribbon-shell` and positioned from the trigger's own measured rect for
+ * the same reason renderDisplayMenu()/renderMorePopover() are: `.ribbon-body`
+ * clips anything nested inside it via `overflow: hidden`.
+ */
+function renderGroupPopover(ia, ctxTab, groupName, triggerEl) {
+    closePopovers();
+    const tab = activeTabData(ia, ctxTab);
+    const group = tab.groups.find((g) => g.name === groupName);
+    if (!group) return;
+
+    const popover = document.createElement('div');
+    popover.className = 'ribbon-simple-group-popover';
+    popover.setAttribute('role', 'menu');
+    popover.setAttribute('aria-label', groupName);
+    popover.innerHTML = renderGroup(tab.id, group, false);
+
+    const shell = document.querySelector('.ribbon-shell');
+    if (shell && triggerEl) {
+        const btnRect = triggerEl.getBoundingClientRect();
+        const shellRect = shell.getBoundingClientRect();
+        // Right-align to the trigger, but never let the popover's right edge
+        // run past the shell's -- fitSimpleGroups() only ever collapses
+        // groups starting from the left, so the last (rightmost) trigger can
+        // sit close enough to the shell's own right edge that a naive
+        // right-align to the *trigger* would push the popover off-screen.
+        const rightOffset = Math.max(0, Math.round(shellRect.right - btnRect.right));
+        popover.style.right = `${rightOffset}px`;
+        popover.style.top = `${Math.round(btnRect.bottom - shellRect.top)}px`;
+    }
+    shell?.appendChild(popover);
+    ribbonState.openGroupTrigger = groupName;
+    if (triggerEl) triggerEl.setAttribute('aria-expanded', 'true');
 }
 
 // ---------------------------------------------------------------------------
@@ -802,12 +921,34 @@ async function refreshRibbon() {
     const ia = await loadIA();
     await loadLayout();
     const live = getLiveState();
+
+    // Issue #908/#932: the ribbon's scope always follows wherever the user
+    // has actually landed, derived from the live view rather than trusted
+    // to whichever call site last remembered to call setRibbonScope() --
+    // see ribbon-ia.js's scopeForView() for why that mattered in practice
+    // (opening a project straight from the portfolio table used to leave
+    // stale portfolio-scope tabs showing). A scope that changes this way
+    // gets the same tab-switch animation an explicit setRibbonScope() call
+    // triggers, so landing at a new altitude reads as a real transition.
+    const derivedScope = ia.scopeForView(live.view);
+    if (derivedScope !== ribbonState.scope) {
+        ribbonState.scope = derivedScope;
+        ribbonState.animateTabSwitch = true;
+    }
+
     const ctxTab = ia.contextualTabFor(live.view);
     const scopeTabs = activeScopeTabs(ia);
 
-    if (ctxTab && ribbonState.activeTab !== '__ctx' && ribbonState.lastView !== live.view) {
-        ribbonState.activeTab = '__ctx';
-    } else if (!ctxTab && ribbonState.activeTab === '__ctx') {
+    // #1003: navigating to a view with a contextual tab (e.g. Gantt, Board)
+    // used to steal focus by auto-switching the ribbon to that tab, even
+    // when the user clicked a button elsewhere (Home's "Gantt" tile, a
+    // breadcrumb, etc.) rather than the tab itself. The contextual tab is
+    // still shown in the strip (renderTabStrip()'s ctxHtml, below) so it's
+    // one click away -- it just no longer steals the currently active tab.
+    // Only fall back away from '__ctx' when its view is no longer current,
+    // so a user who *did* explicitly select the contextual tab isn't
+    // bounced off it by every subsequent refresh.
+    if (!ctxTab && ribbonState.activeTab === '__ctx') {
         ribbonState.activeTab = ribbonState.previousTab || scopeTabs[0].id;
     }
     // The active tab id may not exist in the current scope's tab set --
@@ -819,7 +960,6 @@ async function refreshRibbon() {
         ribbonState.activeTab = scopeTabs[0].id;
     }
     if (ctxTab) ribbonState.previousTab = ribbonState.activeTab === '__ctx' ? ribbonState.previousTab : ribbonState.activeTab;
-    ribbonState.lastView = live.view;
 
     const animate = ribbonState.animateTabSwitch;
     ribbonState.animateTabSwitch = false;
@@ -831,30 +971,84 @@ async function refreshRibbon() {
     if (titleEl) titleEl.innerHTML = renderTitleBar(ia, live);
     if (tabstripEl) tabstripEl.innerHTML = renderTabStrip(ia, ctxTab);
     if (bodyEl) {
-        bodyEl.classList.toggle('ribbon-body-simple', ribbonState.density === 'simple');
+        bodyEl.classList.toggle('ribbon-body-simple', ribbonState.displayMode === 'simple');
         bodyEl.style.background = (ribbonState.activeTab === '__ctx' && ctxTab) ? ctxTab.tint : '';
         bodyEl.innerHTML = renderRibbonBody(ia, ctxTab, animate);
     }
 
-    shell.classList.toggle('collapsed', ribbonState.collapsed);
-    if (bodyEl) bodyEl.style.display = ribbonState.collapsed ? 'none' : '';
+    const collapsed = ribbonState.displayMode === 'tabs';
+    shell.classList.toggle('collapsed', collapsed);
+    if (bodyEl) bodyEl.style.display = collapsed ? 'none' : '';
 
     updateDocTitleAndAvatar();
-    if (!ribbonState.collapsed) requestAnimationFrame(applyBodyLayout);
+    if (!collapsed) requestAnimationFrame(applyBodyLayout);
 }
 
 function updateDocTitleAndAvatar() {
     const titleEl = document.getElementById('ribbonDocTitle');
-    if (titleEl) {
-        const projectTitleEl = document.getElementById('projectBreadcrumbName');
-        titleEl.textContent = (projectTitleEl && projectTitleEl.textContent.trim()) || 'Untitled plan';
-    }
+    if (titleEl) titleEl.innerHTML = renderBreadcrumb();
     const avatarEl = document.getElementById('ribbonAvatar');
     if (avatarEl) avatarEl.textContent = '';
 }
 
+/**
+ * Render the ribbon title bar's breadcrumb -- Portfolio › <Programme> ›
+ * <Project> (issue #953), replacing the plain project-name label this used
+ * to show. Rungs are computed by nav.js's computeBreadcrumbRungs() (pure
+ * data, unit-tested separately); this just turns them into the clickable
+ * buttons every other piece of ribbon chrome uses. See wireEvents() for the
+ * click handling (.ribbon-breadcrumb-rung).
+ */
+function renderBreadcrumb() {
+    const view = (typeof NavigationController !== 'undefined') ? NavigationController.getCurrentView() : null;
+    const params = { view: view };
+    if (view === 'programme') {
+        params.programme = (typeof getCurrentPortfolioProgramme === 'function') ? getCurrentPortfolioProgramme() : null;
+    } else {
+        params.project = (typeof getActiveProjectForBreadcrumb === 'function') ? getActiveProjectForBreadcrumb() : null;
+    }
+
+    const rungs = (typeof computeBreadcrumbRungs === 'function') ? computeBreadcrumbRungs(params) : [];
+    if (rungs.length === 0) return 'Untitled plan';
+
+    return rungs.map((rung, i) => {
+        const sep = i > 0 ? '<span class="ribbon-breadcrumb-sep">&rsaquo;</span>' : '';
+        const label = escapeHtml(rung.label);
+        if (rung.active) {
+            return `${sep}<span class="ribbon-breadcrumb-rung active">${label}</span>`;
+        }
+        return `${sep}<button type="button" class="ribbon-breadcrumb-rung" data-rung-kind="${rung.kind}" data-rung-slug="${escapeHtml(rung.slug || '')}">${label}</button>`;
+    }).join('');
+}
+
+/**
+ * Set the ribbon's scope pill/tab-set without necessarily navigating
+ * anywhere (issue #953) -- used by navigation helpers elsewhere (e.g.
+ * programme.js's openProgramme()) that already know which altitude
+ * they're landing on.
+ */
+function setRibbonScope(scopeId) {
+    if (scopeId === ribbonState.scope) return;
+    ribbonState.scope = scopeId;
+    ribbonState.animateTabSwitch = true;
+    savePersistedState();
+}
+
 function wireEvents(shell) {
     shell.addEventListener('click', (e) => {
+        const rungBtn = e.target.closest('.ribbon-breadcrumb-rung[data-rung-kind]');
+        if (rungBtn) {
+            const kind = rungBtn.dataset.rungKind;
+            if (kind === 'portfolio') {
+                setRibbonScope('portfolio');
+                switchToView('portfolio');
+            } else if (kind === 'programme' && typeof openProgramme === 'function') {
+                openProgramme(rungBtn.dataset.rungSlug);
+            }
+            refreshRibbon();
+            return;
+        }
+
         const scopeBtn = e.target.closest('.ribbon-scope-btn');
         if (scopeBtn) {
             const scopeId = scopeBtn.dataset.scope;
@@ -865,6 +1059,7 @@ function wireEvents(shell) {
             }
             if (scopeId === 'portfolio') switchToView('portfolio');
             else if (scopeId === 'project') switchToView('editor');
+            else if (typeof getCurrentPortfolioProgramme === 'function' && getCurrentPortfolioProgramme()) switchToView('programme');
             else notAvailable('Programme');
             refreshRibbon();
             return;
@@ -878,6 +1073,7 @@ function wireEvents(shell) {
             else if (label === 'New task') addNewTaskViaShortcut();
             else if (label === 'Print') window.print();
             else if (label === 'AI Chat') { if (typeof onAIButtonClick === 'function') onAIButtonClick(); }
+            else if (label === 'Start planning session') { if (typeof startCollabSession === 'function') startCollabSession(); }
             refreshRibbon();
             return;
         }
@@ -891,48 +1087,38 @@ function wireEvents(shell) {
             return;
         }
 
-        if (e.target.closest('[data-action="toggle-file"]')) {
-            const wasOpen = ribbonState.fileMenuOpen;
-            closePopovers();
-            ribbonState.fileMenuOpen = !wasOpen;
-            refreshRibbon();
+        // #972: `File` is a straight navigation into Backstage (Office's own
+        // "File" tab behaviour), not a dropdown toggle -- see the retired
+        // ribbon-file-menu markup this replaced, and FILE_ACTIONS.Home above.
+        if (e.target.closest('[data-action="open-backstage"]')) {
+            switchToView('backstage');
             return;
         }
 
-        // `toggle-collapse` (▲/▼, in the tab strip) is Office's "auto-hide"/
-        // "show tabs only" concept: it hides the whole body (whichever
-        // density) leaving just the tab strip -- a visibility toggle, not a
-        // density change. `toggle-display-menu` below (#955) is a different,
-        // orthogonal axis: it swaps *how* the still-visible body renders
-        // (full multi-row groups vs. one dense row). The two compose freely
-        // -- collapsed hides a simple body exactly the same way it hides a
-        // full one, and re-expanding shows whichever density was last
-        // chosen -- rather than "simple" being a third state of collapse.
-        if (e.target.closest('[data-action="toggle-collapse"]')) {
-            ribbonState.collapsed = !ribbonState.collapsed;
-            savePersistedState();
-            refreshRibbon();
-            return;
-        }
-
+        // #1027: `toggle-display-menu` opens the combined display selector
+        // (renderDisplaySelector(), in the tab strip) -- its menu offers all
+        // three modes (Just Tabs/Simple/Full), replacing the old separate
+        // `toggle-collapse` chevron entirely.
         if (e.target.closest('[data-action="toggle-display-menu"]')) {
             const wasOpen = ribbonState.displayMenuOpen;
             closePopovers();
             ribbonState.displayMenuOpen = !wasOpen;
             // renderDisplayMenu() (a real popover appended to .ribbon-shell,
-            // not part of the body's own innerHTML -- see its own comment on
-            // why) only needs to run when opening; refreshRibbon() alone
-            // already re-renders the toggle button's aria-expanded either way.
+            // not part of the tab strip's own innerHTML -- see its own
+            // comment on why) only needs to run when opening; refreshRibbon()
+            // alone already re-renders the toggle button's aria-expanded
+            // either way.
             //
-            // The extra requestAnimationFrame here matters in simple density:
+            // The extra requestAnimationFrame here matters in simple mode:
             // refreshRibbon() ends by scheduling applyBodyLayout() (which
-            // runs applySimpleBody()'s label-shrink/overflow pass) on the
-            // NEXT animation frame, not synchronously -- so measuring the
-            // toggle button's position any earlier (e.g. straight off
-            // refreshRibbon()'s own promise) can catch the row still in its
-            // pre-fit, full-label width, which can push a `margin-left:auto`
-            // toggle button far outside the viewport before the fit pass
-            // pulls it back in. Queuing this rAF from inside refreshRibbon()'s
+            // runs applySimpleBody()'s label-shrink/group-collapse pass) on
+            // the NEXT animation frame, not synchronously. The toggle button
+            // itself lives in the tab strip now (#1027), whose own layout
+            // doesn't depend on that fit pass -- but the display MENU's
+            // possible width still reacts to which mode ends up selected, so
+            // this stays deferred a frame for the same "measure after things
+            // have settled" safety applyOverflow()/applySimpleBody() callers
+            // rely on elsewhere. Queuing this rAF from inside refreshRibbon()'s
             // .then() (a microtask, so still before the next paint) lands it
             // in the SAME upcoming frame as applyBodyLayout()'s own rAF, and
             // requestAnimationFrame runs same-frame callbacks in request
@@ -944,9 +1130,10 @@ function wireEvents(shell) {
             return;
         }
 
-        const densityBtn = e.target.closest('.ribbon-display-menu-item');
-        if (densityBtn) {
-            const next = densityBtn.dataset.density === 'simple' ? 'simple' : 'full';
+        const displayModeBtn = e.target.closest('.ribbon-display-menu-item');
+        if (displayModeBtn) {
+            const next = displayModeBtn.dataset.displayMode;
+            const isValidMode = DISPLAY_MODES.some((m) => m.mode === next);
             // closePopovers() (not just setting the flag) is what actually
             // removes the .ribbon-display-menu DOM node -- it's a sibling of
             // the body appended straight to .ribbon-shell (see
@@ -954,27 +1141,28 @@ function wireEvents(shell) {
             // which only re-renders the titlebar/tabstrip/body, would leave
             // a stale popover behind.
             closePopovers();
-            if (next !== ribbonState.density) {
-                ribbonState.density = next;
+            if (isValidMode && next !== ribbonState.displayMode) {
+                ribbonState.displayMode = next;
                 savePersistedState();
             }
             refreshRibbon();
             return;
         }
 
-        if (e.target.closest('[data-action="toggle-more"]')) {
-            loadIA().then((ia) => renderMorePopover(ia, ia.contextualTabFor(getLiveState().view)));
+        // #1026: a collapsed simple-ribbon group's own dropdown trigger.
+        const groupTriggerBtn = e.target.closest('.ribbon-simple-group-trigger');
+        if (groupTriggerBtn) {
+            const groupName = groupTriggerBtn.dataset.group;
+            const wasOpenForThisGroup = ribbonState.openGroupTrigger === groupName;
+            closePopovers();
+            if (!wasOpenForThisGroup) {
+                loadIA().then((ia) => renderGroupPopover(ia, ia.contextualTabFor(getLiveState().view), groupName, groupTriggerBtn));
+            }
             return;
         }
 
-        const fileItem = e.target.closest('.ribbon-file-menu-item[data-file-index]');
-        if (fileItem) {
-            loadIA().then((ia) => {
-                const entry = ia.FILE_MENU[Number(fileItem.dataset.fileIndex)];
-                closePopovers();
-                (FILE_ACTIONS[entry.label] || (() => notAvailable(entry.label)))();
-                if (!OPENS_OWN_POPOVER.has(entry.label)) refreshRibbon();
-            });
+        if (e.target.closest('[data-action="toggle-more"]')) {
+            loadIA().then((ia) => renderMorePopover(ia, ia.contextualTabFor(getLiveState().view)));
             return;
         }
 
@@ -1013,6 +1201,21 @@ function wireEvents(shell) {
     });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { closePopovers(); refreshRibbon(); }
+    });
+
+    // #972: New/Open/Print must keep working as real, global keyboard
+    // shortcuts once the File dropdown (their only previous home, as
+    // decorative `kbd` hints -- they were never actually bound to a
+    // listener) is retired. Cmd/Ctrl+S already works from anywhere via its
+    // own listener in script.js; these three go through the same
+    // FILE_ACTIONS map the rail/File button use, so there is exactly one
+    // place each command lives.
+    document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+        const key = e.key.toLowerCase();
+        if (key === 'n') { e.preventDefault(); FILE_ACTIONS['New plan'](); }
+        else if (key === 'o') { e.preventDefault(); FILE_ACTIONS['Open…'](); }
+        else if (key === 'p') { e.preventDefault(); FILE_ACTIONS['Print'](); }
     });
 }
 
@@ -1117,7 +1320,7 @@ function initRibbon() {
     let resizeTimer = null;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => { if (!ribbonState.collapsed) applyBodyLayout(); }, 100);
+        resizeTimer = setTimeout(() => { if (ribbonState.displayMode !== 'tabs') applyBodyLayout(); }, 100);
     });
 }
 

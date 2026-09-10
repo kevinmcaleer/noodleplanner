@@ -62,8 +62,8 @@ svg.icon {
     left: 0;
     top: 100%;
     margin-top: 5px;
-    background: white;
-    border: 1px solid #e0e0e0;
+    background: var(--np-surface, white);
+    border: 1px solid var(--np-border, #e0e0e0);
     border-radius: 5px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 180px;
@@ -77,11 +77,11 @@ svg.icon {
 .nav-menu-item {
     padding: 10px 15px;
     cursor: pointer;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #333;
+    color: var(--np-text, #333);
     white-space: nowrap;
     min-height: 44px;
 }
@@ -91,7 +91,7 @@ svg.icon {
 }
 
 .nav-menu-item:hover {
-    background: #f8f9ff;
+    background: var(--np-accent-soft, #f8f9ff);
 }
 
 .tab-content {
@@ -163,7 +163,7 @@ svg.icon {
     min-width: 200px;
     max-width: 70%;
     overflow: hidden;
-    background: #1e1e1e;
+    background: var(--np-editor-bg, #1e1e1e);
     transition: width 0.3s ease;
 }
 
@@ -179,7 +179,7 @@ svg.icon {
 
 /* Drag and drop styling for editor panel */
 .editor-panel.drag-over {
-    border: 3px dashed #108BB9;
+    border: 3px dashed var(--np-accent);
     background: rgba(16, 139, 185, 0.1);
 }
 
@@ -189,7 +189,7 @@ svg.icon {
 
 /* Drag and drop styling for kanban editor panel */
 .kanban-editor-panel.drag-over {
-    border: 3px dashed #108BB9;
+    border: 3px dashed var(--np-accent);
     background: rgba(16, 139, 185, 0.1);
 }
 
@@ -199,7 +199,7 @@ svg.icon {
 
 .editor-splitter {
     width: 8px;
-    background: #dee2e6;
+    background: var(--np-splitter-bg, #dee2e6);
     cursor: col-resize;
     position: relative;
     flex-shrink: 0;
@@ -210,7 +210,7 @@ svg.icon {
 }
 
 .editor-splitter:hover {
-    background: #c0c4c8;
+    background: var(--np-splitter-hover, #c0c4c8);
 }
 
 .editor-splitter.collapsed {
@@ -234,12 +234,12 @@ svg.icon {
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #999;
+    background: var(--np-splitter-dot, #999);
     transition: background 0.2s ease;
 }
 
 .editor-splitter:hover .splitter-grip-dot {
-    background: #666;
+    background: var(--np-text-secondary, #666);
 }
 
 .editor-splitter.collapsed .splitter-grip {
@@ -252,7 +252,7 @@ svg.icon {
     flex: 1;
     min-width: 200px;
     overflow: hidden;
-    background: white;
+    background: var(--np-surface, white);
 }
 
 /* Plan Sub-Navigation Bar */
@@ -261,8 +261,8 @@ svg.icon {
     align-items: center;
     gap: 2px;
     padding: 4px 12px;
-    background: #f0f1f4;
-    border-bottom: 1px solid #e0e0e0;
+    background: var(--np-subnav-bg, #f0f1f4);
+    border-bottom: 1px solid var(--np-border, #e0e0e0);
     flex-shrink: 0;
 }
 
@@ -277,7 +277,7 @@ svg.icon {
     padding: 5px 12px;
     border: none;
     background: transparent;
-    color: #666;
+    color: var(--np-text-secondary, #666);
     font-size: 0.85em;
     cursor: pointer;
     border-radius: 4px;
@@ -287,13 +287,13 @@ svg.icon {
 }
 
 .plan-subnav-btn:hover {
-    background: #e2e3e8;
-    color: #333;
+    background: var(--np-subnav-hover, #e2e3e8);
+    color: var(--np-text, #333);
 }
 
 .plan-subnav-btn.active {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
 }
 
 .plan-subnav-btn.active svg.icon {
@@ -341,11 +341,11 @@ svg.icon {
 
 /* Active state for dropdown menu items (current view indicator) */
 .nav-menu-item.active {
-    background: #e8f0fe;
+    background: var(--np-accent-soft, #e8f0fe);
     font-weight: 600;
-    color: #108BB9;
+    color: var(--np-accent);
 }
 
 .nav-menu-item.active:hover {
-    background: #d4e5fc;
+    background: var(--np-bg-hover, #d4e5fc);
 }

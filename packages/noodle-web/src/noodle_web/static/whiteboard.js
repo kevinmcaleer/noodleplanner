@@ -210,15 +210,20 @@ function wbCanvasCenter() {
  * point `-pan / zoom`, and a screenWidth/screenHeight window maps to a
  * `screenWidth/zoom` x `screenHeight/zoom` board-space window.
  *
+ * `screenX`/`screenY` (default 0, 0) offset that window's top-left within
+ * canvas-relative screen space, so a caller can ask about a *sub*-region
+ * of the canvas -- which is what wbCurrentViewportBoardRect() does to skip
+ * the strip hidden behind the floating outline panel.
+ *
  * Pure (no DOM) so it's unit-testable directly -- see
  * wbCurrentViewportBoardRect() below for the live-state wrapper issue
  * #847's Add-note flow (whiteboard-notes.js) actually calls.
  */
-function wbViewportToBoardRect(panX, panY, zoom, screenWidth, screenHeight) {
+function wbViewportToBoardRect(panX, panY, zoom, screenWidth, screenHeight, screenX = 0, screenY = 0) {
     const z = (typeof zoom === 'number' && zoom > 0) ? zoom : 1;
     return {
-        x: -panX / z,
-        y: -panY / z,
+        x: (screenX - panX) / z,
+        y: (screenY - panY) / z,
         width: screenWidth / z,
         height: screenHeight / z,
     };
@@ -234,8 +239,56 @@ function wbViewportToBoardRect(panX, panY, zoom, screenWidth, screenHeight) {
  */
 function wbCurrentViewportBoardRect() {
     if (!wbSvg) return { x: 0, y: 0, width: 1200, height: 800 };
-    const rect = wbSvg.getBoundingClientRect();
-    return wbViewportToBoardRect(wbPanX, wbPanY, wbZoom, rect.width, rect.height);
+    // The *visible* canvas, not the full one: the floating outline panel
+    // covers part of it (see wbVisibleCanvasRect()), and a note placed in
+    // the "first free space in the viewport" would otherwise be free to
+    // land behind the panel, where the user never sees it appear.
+    const visible = wbVisibleCanvasRect();
+    return wbViewportToBoardRect(
+        wbPanX, wbPanY, wbZoom, visible.width, visible.height, visible.x, visible.y);
+}
+
+/**
+ * The part of the canvas that isn't hidden behind a floating overlay --
+ * currently just the outline panel (whiteboard-outline.js), which sits
+ * over the left edge. Returned in canvas-relative screen space.
+ *
+ * Anything that frames content ("fit to content", "show me this note")
+ * has to aim at *this* rectangle rather than the full canvas, or it
+ * centres the board underneath the panel and the thing the user asked to
+ * see ends up behind it. Measured from the live element rather than the
+ * CSS constant so the narrow-viewport layout, where the panel becomes a
+ * top overlay instead of a left column, is handled by the same code.
+ */
+function wbVisibleCanvasRect() {
+    const full = wbSvg
+        ? wbSvg.getBoundingClientRect()
+        : { left: 0, top: 0, width: 0, height: 0 };
+    const rect = { x: 0, y: 0, width: full.width, height: full.height };
+
+    const panel = document.getElementById('whiteboardOutlinePanel');
+    if (!panel || panel.classList.contains('hidden')) return rect;
+
+    const p = panel.getBoundingClientRect();
+    if (!p.width || !p.height) return rect;
+
+    // A panel that spans most of the canvas height is a left column; one
+    // that only takes the top is the narrow-viewport overlay.
+    const gap = 12;
+    if (p.height > full.height * 0.6) {
+        const inset = Math.max(0, p.right - full.left) + gap;
+        if (inset < full.width * 0.75) {
+            rect.x = inset;
+            rect.width = full.width - inset;
+        }
+    } else {
+        const inset = Math.max(0, p.bottom - full.top) + gap;
+        if (inset < full.height * 0.75) {
+            rect.y = inset;
+            rect.height = full.height - inset;
+        }
+    }
+    return rect;
 }
 
 /**
@@ -272,9 +325,9 @@ function whiteboardZoomOut() {
  */
 function whiteboardZoomReset() {
     wbZoom = 1;
-    const c = wbCanvasCenter();
-    wbPanX = c.x;
-    wbPanY = c.y;
+    const visible = wbVisibleCanvasRect();
+    wbPanX = visible.x + visible.width / 2;
+    wbPanY = visible.y + visible.height / 2;
     wbApplyTransform(true);
     wbUpdateZoomLabel();
     wbUpdateZoomButtons();
@@ -310,21 +363,77 @@ function whiteboardZoomFit() {
         return;
     }
 
-    const svgRect = wbSvg.getBoundingClientRect();
+    // Frame into the canvas the user can actually see -- the floating
+    // outline panel covers part of it (see wbVisibleCanvasRect()), and
+    // fitting to the full canvas would centre the board behind it.
+    const visible = wbVisibleCanvasRect();
     const padding = 80;
     const boardW = Math.max(1, maxX - minX + padding * 2);
     const boardH = Math.max(1, maxY - minY + padding * 2);
     const centreX = (minX + maxX) / 2;
     const centreY = (minY + maxY) / 2;
 
-    wbZoom = wbClampZoom(Math.min(svgRect.width / boardW, svgRect.height / boardH));
-    wbPanX = svgRect.width / 2 - centreX * wbZoom;
-    wbPanY = svgRect.height / 2 - centreY * wbZoom;
+    wbZoom = wbClampZoom(Math.min(visible.width / boardW, visible.height / boardH));
+    wbPanX = visible.x + visible.width / 2 - centreX * wbZoom;
+    wbPanY = visible.y + visible.height / 2 - centreY * wbZoom;
 
     wbApplyTransform(true);
     wbUpdateZoomLabel();
     wbUpdateZoomButtons();
     wbScheduleSaveViewport();
+}
+
+/**
+ * Pan (and, if the board is zoomed far out, zoom in) so the note for
+ * `taskName` sits in the middle of the canvas, then flash it. This is what
+ * the floating outline panel calls when a row is clicked -- the "find my
+ * note again" half of the outline's job (see whiteboard-outline.js).
+ *
+ * Zoom is only ever raised, never lowered: someone who has deliberately
+ * zoomed in to read a note should not be yanked back out just because they
+ * clicked a different row in the outline.
+ */
+function whiteboardFocusNote(taskName) {
+    if (!wbSvg || typeof wbNoteNodes === 'undefined' || !wbNoteNodes) return false;
+    const entry = wbNoteNodes.get(taskName);
+    if (!entry || !entry.fo) return false;
+
+    const fo = entry.fo;
+    const x = parseFloat(fo.getAttribute('x') || '0');
+    const y = parseFloat(fo.getAttribute('y') || '0');
+    const w = parseFloat(fo.getAttribute('width') || '0');
+    const h = parseFloat(fo.getAttribute('height') || '0');
+
+    // Centre it in the *visible* canvas -- panning a note to the middle of
+    // the full canvas would park it behind the very panel that was just
+    // clicked to find it.
+    const visible = wbVisibleCanvasRect();
+    const padding = (typeof WB_OUTLINE_FOCUS_PADDING === 'number') ? WB_OUTLINE_FOCUS_PADDING : 60;
+    const fitZoom = wbClampZoom(Math.min(
+        visible.width / Math.max(1, w + padding * 2),
+        visible.height / Math.max(1, h + padding * 2)
+    ));
+    if (fitZoom > wbZoom) wbZoom = fitZoom;
+
+    wbPanX = visible.x + visible.width / 2 - (x + w / 2) * wbZoom;
+    wbPanY = visible.y + visible.height / 2 - (y + h / 2) * wbZoom;
+
+    wbApplyTransform(true);
+    wbUpdateZoomLabel();
+    wbUpdateZoomButtons();
+    wbScheduleSaveViewport();
+
+    // Flash the note itself so it is obvious which one was found, even on
+    // a board where several notes look alike.
+    const card = entry.refs && entry.refs.card;
+    if (card) {
+        card.classList.remove('wb-note-flash');
+        // Force a reflow so re-adding the class restarts the animation.
+        void card.offsetWidth;
+        card.classList.add('wb-note-flash');
+        setTimeout(() => card.classList.remove('wb-note-flash'), 1400);
+    }
+    return true;
 }
 
 // ── Wheel / mouse / touch handlers ──────────────────────────────────────
@@ -352,6 +461,10 @@ function wbHandleWheel(e) {
 function wbHandleMouseDown(e) {
     if (e.button !== 0) return;
     if (e.target === wbSvg || e.target === wbGroup || (e.target.closest && e.target.closest('.wb-grid'))) {
+        // A press on bare canvas dismisses any selected noodle, the same
+        // way clicking away from a note closes its `...` menu.
+        if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
+        if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
         wbIsDragging = true;
         wbDragStartX = e.clientX;
         wbDragStartY = e.clientY;
@@ -441,9 +554,56 @@ function wbHandleTouchEnd(e) {
     }
 }
 
+/**
+ * Double-clicking bare canvas drops a new post-it there -- the fastest
+ * path from "I have a thought" to "it is in the plan", and the reason the
+ * board can now author structure rather than only display it. Ignored on
+ * anything that isn't empty canvas, so double-clicking a note's title
+ * still means "rename".
+ */
+function wbHandleCanvasDoubleClick(e) {
+    if (!(e.target === wbSvg || e.target === wbGroup ||
+          (e.target.closest && e.target.closest('.wb-grid')))) return;
+    if (typeof wbCreateNoteAtClientPoint !== 'function') return;
+    e.preventDefault();
+    wbCreateNoteAtClientPoint(e.clientX, e.clientY);
+}
+
 // ── Keyboard ─────────────────────────────────────────────────────────────
 
 function wbHandleKeydown(e) {
+    // Never steal keys from a field the user is typing in -- the outline
+    // panel's search box and a note's inline title editor both live inside
+    // this container, so "f" must type an f rather than fitting the board.
+    const target = e.target;
+    if (target && (target.isContentEditable ||
+                   /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || ''))) {
+        return;
+    }
+
+    // Noodle editing keys, before the pan/zoom set: a selected noodle owns
+    // Delete/Backspace and Escape while it is selected.
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (typeof wbCutSelectedNoodle === 'function' && wbCutSelectedNoodle()) { e.preventDefault(); return; }
+        if (typeof wbCutSelectedDependencyNoodle === 'function' && wbCutSelectedDependencyNoodle()) { e.preventDefault(); return; }
+    }
+    if (e.key === 'Escape') {
+        if (typeof wbClearNoodleSelection === 'function') wbClearNoodleSelection();
+        if (typeof wbClearDepNoodleSelection === 'function') wbClearDepNoodleSelection();
+    }
+    if ((e.key === 'n' || e.key === 'N') && typeof wbCreateNoteInViewportCentre === 'function') {
+        e.preventDefault();
+        wbCreateNoteInViewportCentre();
+        return;
+    }
+    // Issue #1018: a free-floating text object -- the "no task, no card"
+    // sibling of `n`'s post-it, same viewport-centre placement.
+    if ((e.key === 't' || e.key === 'T') && typeof wbCreateTextObjectInViewportCentre === 'function') {
+        e.preventDefault();
+        wbCreateTextObjectInViewportCentre();
+        return;
+    }
+
     switch (e.key) {
         case 'ArrowUp':
             e.preventDefault();
@@ -547,6 +707,7 @@ function initWhiteboard() {
 
         wbSvg.addEventListener('wheel', wbHandleWheel, { passive: false });
         wbSvg.addEventListener('mousedown', wbHandleMouseDown);
+        wbSvg.addEventListener('dblclick', wbHandleCanvasDoubleClick);
         window.addEventListener('mousemove', wbHandleMouseMove);
         window.addEventListener('mouseup', wbHandleMouseUp);
 
@@ -561,8 +722,11 @@ function initWhiteboard() {
 
     // Render notes (issue #846) before any fit-to-content below runs, so
     // a first-ever open computes its bounding box against the real notes
-    // rather than an empty board.
+    // rather than an empty board. wbRenderNotes() draws the noodles and
+    // refreshes the floating outline panel as part of the same pass, so
+    // all three stay in step by construction.
     if (typeof wbRenderNotes === 'function') wbRenderNotes();
+    if (typeof wbUpdateOutlineToolbarButton === 'function') wbUpdateOutlineToolbarButton();
 
     container.setAttribute('tabindex', '0');
     if (!container.dataset.wbKeydownBound) {

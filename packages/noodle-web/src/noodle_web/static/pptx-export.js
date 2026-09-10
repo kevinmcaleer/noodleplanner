@@ -526,22 +526,36 @@ export function addPortfolioRiskSlides(pptx, portfolioData, risks) {
 /**
  * The portfolio deck: an overview slide, a risks slide, then one report slide
  * per project (export_portfolio_to_powerpoint).
+ *
+ * @param {object} portfolioData
+ * @param {Array} projectReports
+ * @param {(done: number, total: number, label: string) => void} [onProgress]
+ *   Called after each slide is added, so a caller (e.g. a Web Worker) can
+ *   report build progress back without needing to know the deck's internals.
  */
-export function buildPortfolioDeck(portfolioData, projectReports) {
+export function buildPortfolioDeck(portfolioData, projectReports, onProgress) {
+  const reports = projectReports || [];
+  const total = 2 + reports.length; // overview + risks + one per project
+  let done = 0;
+  const report = (label) => { if (onProgress) onProgress(++done, total, label); };
+
   const pptx = newPresentation();
   addPortfolioOverviewSlide(pptx, portfolioData);
+  report("Portfolio overview");
 
   // Every project's open risks, tagged with the project they came from
   const risks = [];
-  for (const report of projectReports || []) {
-    for (const item of report.risks_issues || []) {
-      risks.push({ ...item, project: report.project_name || "" });
+  for (const r of reports) {
+    for (const item of r.risks_issues || []) {
+      risks.push({ ...item, project: r.project_name || "" });
     }
   }
   addPortfolioRiskSlides(pptx, portfolioData, risks);
+  report("Risks & issues");
 
-  for (const report of projectReports || []) {
-    addReportSlide(pptx, report, false);
+  for (const r of reports) {
+    addReportSlide(pptx, r, false);
+    report(r.project_name || "Project");
   }
   return pptx;
 }

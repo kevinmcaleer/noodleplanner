@@ -33,17 +33,6 @@ export const SCOPES = [
     { id: 'portfolio', label: 'Portfolio', icon: 'chart', blurb: 'Investment level: weighting, gates, benefits roll-up, heat maps, assurance.' },
 ];
 
-export const FILE_MENU = [
-    { icon: 'add', label: 'New plan', kbd: 'Cmd+N' },
-    { icon: 'doc', label: 'Open…', kbd: 'Cmd+O' },
-    { icon: 'save', label: 'Save', kbd: 'Cmd+S' },
-    { icon: 'upload', label: 'Import from Excel / MS Project', kbd: '' },
-    { icon: 'download', label: 'Export…', kbd: '' },
-    { icon: 'grid', label: 'Templates', kbd: '' },
-    { icon: 'print', label: 'Print', kbd: 'Cmd+P' },
-    { icon: 'settings', label: 'Settings', kbd: '' },
-];
-
 export const QUICK_ACTIONS = [
     { icon: 'save', label: 'Save' },
     { icon: 'refresh', label: 'Undo' },
@@ -53,6 +42,11 @@ export const QUICK_ACTIONS = [
     // how prominently the old top nav placed its AI toggle button (#909
     // ribbon-parity follow-up).
     { icon: 'robot', label: 'AI Chat' },
+    // #963: the foundational trigger for a live planning session (#766).
+    // Title-bar quick action rather than a tab button -- it isn't scoped to
+    // any one view, and starting a session is meant to be reachable no
+    // matter what the PM is currently looking at.
+    { icon: 'people', label: 'Start planning session' },
 ];
 
 export const TABS = [
@@ -60,7 +54,7 @@ export const TABS = [
         id: 'home', label: 'Home',
         groups: [
             { name: 'Plan', launcher: true, lg: [['project-report', 'Dashboard'], ['task-list', 'New Task'], ['milestones', 'Milestone']], cols: [[['indent', 'Indent'], ['outdent', 'Outdent']], [['delete', 'Delete'], ['doc', 'Details']]] },
-            { name: 'Views', lg: [['gantt-chart', 'Gantt'], ['board', 'Board']], cols: [[['timeline', 'Timeline'], ['calendar', 'Calendar']], [['task-list', 'Tasks'], ['grid', 'Sheet']]] },
+            { name: 'Views', lg: [['gantt-chart', 'Gantt'], ['board', 'Board'], ['task-list', 'Notepad']], cols: [[['timeline', 'Timeline'], ['calendar', 'Calendar']], [['task-list', 'Tasks'], ['grid', 'Sheet']]] },
             { name: 'Track', launcher: true, lg: [['raid-log', 'RAID']], cols: [[['check', 'Actions'], ['highlights', 'Highlights']], [['search', 'Lookahead'], ['warn', 'Escalations']]] },
             { name: 'Report', launcher: true, cols: [[['download', 'Export', 'caret'], ['print', 'Print']], [['save', 'Save'], ['upload', 'Import', 'caret']]] },
         ],
@@ -72,6 +66,15 @@ export const TABS = [
             { name: 'Schedule', launcher: true, lg: [['gantt-chart', 'Gantt']], cols: [[['calendar', 'Calendars'], ['clock', 'Durations']], [['target', 'Critical Path'], ['clock', 'Baseline']]] },
             { name: 'Deliverables', lg: [['doc', 'Products']], cols: [[['board', 'Product Flow'], ['grid', 'Deliverables']]] },
             { name: 'Model', lg: [['bulb', 'Mind Map']], cols: [[['grid', 'Whiteboard'], ['timeline', 'Timeline']]] },
+            {
+                name: 'Highlight',
+                cols: [
+                    [['clock', 'Show Durations'], ['resources', 'Show Resources']],
+                    [['pin', 'Show Tags'], ['doc', 'Show Comments']],
+                    [['link', 'Show Dependencies'], ['pin', 'Highlight Preset', 'caret']],
+                ],
+            },
+            { name: 'Wizard', lg: [['bulb', 'Guided Plan']] },
         ],
     },
     {
@@ -133,7 +136,12 @@ export const PORTFOLIO_TABS = [
     {
         id: 'pf-home', label: 'Home',
         groups: [
-            { name: 'Projects', launcher: true, lg: [['portfolio', 'Projects'], ['add', 'New Project']], cols: [[['upload', 'Import Project'], ['project-report', 'Status']]] },
+            // Status (the portfolio roll-up -- every project's RAG/completion
+            // in one table) leads as the first, large icon on Home, the same
+            // "Dashboard first" placement fix #909 made for project scope
+            // (issue #933: "Home should lead with the portfolio roll-up as
+            // its front door").
+            { name: 'Portfolio', launcher: true, lg: [['project-report', 'Status'], ['portfolio', 'Projects']], cols: [[['add', 'New Project'], ['upload', 'Import Project']]] },
             { name: 'Report', lg: [['download', 'Export Report']], cols: [[['task-list', 'Actions']]] },
         ],
     },
@@ -181,6 +189,25 @@ export function tabsForScope(scopeId) {
     if (scopeId === 'portfolio') return PORTFOLIO_TABS;
     if (scopeId === 'programme') return PROGRAMME_TABS;
     return TABS;
+}
+
+/**
+ * The ribbon scope a given NavigationController view id belongs at --
+ * issue #908/#932's "the ribbon below is level-aware: its tabs are
+ * contextual to wherever you've landed". This is the single source of
+ * truth ribbon.js's refreshRibbon() derives ribbonState.scope from on
+ * every render, rather than relying only on call sites remembering to
+ * call setRibbonScope() -- a path that opened a project without going
+ * through one of those call sites (e.g. straight from the portfolio
+ * projects table) used to leave the ribbon showing the wrong altitude's
+ * tabs until something else happened to change scope. Mirrors
+ * NavigationController's own contextOf() in script.js, which the same
+ * issue's transition-fade logic keys off of.
+ */
+export function scopeForView(view) {
+    if (view === 'portfolio' || view === 'backstage') return 'portfolio';
+    if (view === 'programme') return 'programme';
+    return 'project';
 }
 
 export const CONTEXTUAL_TABS = [

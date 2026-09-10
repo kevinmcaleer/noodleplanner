@@ -17,7 +17,7 @@
 .gantt-title {
     font-size: 1.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 0;
 }
 
@@ -42,12 +42,12 @@
 
 .gantt-scale-selector label {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .gantt-scale-selector select {
     padding: 6px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     border-radius: 4px;
     background: white;
     color: #2c3e50;
@@ -62,8 +62,8 @@
 
 .gantt-scale-selector select:focus {
     outline: none;
-    border-color: #764ba2;
-    box-shadow: 0 0 0 3px rgba(118, 75, 162, 0.1);
+    border-color: var(--np-accent-hover);
+    box-shadow: 0 0 0 3px rgba(16, 139, 185, 0.15);
 }
 
 .gantt-toolbar-controls {
@@ -179,11 +179,11 @@
 }
 
 .gantt-splitter:hover {
-    background: #667eea;
+    background: var(--np-accent);
 }
 
 .gantt-splitter:active {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .gantt-info-table {
@@ -193,8 +193,8 @@
 }
 
 .gantt-info-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--np-accent-gradient);
+    color: var(--np-on-accent);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -210,7 +210,7 @@
 
 .gantt-info-table td {
     padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     white-space: nowrap;
     cursor: default;
     height: 40px;
@@ -260,14 +260,14 @@
 .gantt-info-table td.editing input {
     width: 100%;
     padding: 8px 12px;
-    border: 2px solid #667eea;
+    border: 2px solid var(--np-accent);
     outline: none;
     font-family: inherit;
     font-size: inherit;
 }
 
 .gantt-info-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .gantt-info-table tr.selected {
@@ -290,7 +290,7 @@
 }
 
 .gantt-disclosure-triangle:hover {
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .gantt-chart-side {
@@ -302,19 +302,19 @@
 .gantt-header {
     display: flex;
     flex-wrap: wrap;
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
+    background: var(--np-paper);
+    border-bottom: 2px solid var(--np-border);
     position: sticky;
     top: 0;
     z-index: 5;
 }
 
 .gantt-month {
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid var(--np-border);
     padding: 6px 2px;
     text-align: center;
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 0.7em;
     box-sizing: border-box;
     overflow: hidden;
@@ -333,11 +333,11 @@
 .gantt-month-row {
     display: flex;
     width: 100%;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .gantt-month-label {
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid var(--np-border);
     padding: 4px 2px;
     text-align: center;
     font-weight: 600;
@@ -374,12 +374,12 @@
 .gantt-bar-row {
     height: 40px;
     position: relative;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-hairline);
     box-sizing: border-box;
 }
 
 .gantt-bar-row:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .gantt-bar {
@@ -441,7 +441,7 @@
 }
 
 .gantt-phase-bar {
-    background: #333;
+    background: var(--np-sunken);
     height: 6px;
     top: 17px;
     border-radius: 0;
@@ -454,7 +454,7 @@
     position: absolute;
     width: 3px;
     height: 16px;
-    background: #333;
+    background: var(--np-sunken);
     top: -5px;
 }
 
@@ -641,7 +641,7 @@
 }
 
 .milestones-table td.baseline-col {
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .baseline-late {
@@ -655,7 +655,7 @@
 }
 
 .baseline-ontrack {
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .baseline-new {
@@ -718,7 +718,7 @@
     position: absolute;
     top: 0;
     height: 100%;
-    border-right: 1px solid #f0f0f0;
+    border-right: 1px solid var(--np-hairline);
     box-sizing: border-box;
 }
 
@@ -731,17 +731,17 @@
 }
 
 .resizer:hover {
-    background: #667eea;
+    background: var(--np-accent);
 }
 
 .resizer:active {
-    background: #764ba2;
+    background: var(--np-accent-hover);
 }
 
 .panel-header {
     font-weight: 600;
     padding: 10px 15px;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
     background: white;
     flex-shrink: 0;
@@ -792,7 +792,7 @@
 }
 
 .toolbar-btn:active {
-    background: #2a2a2a;
+    background: var(--np-surface-alt);
 }
 
 .toolbar-separator {
@@ -821,16 +821,16 @@
 
 .editor-toolbar .project-selector-dropdown:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 /* Project selector dropdown — portfolio header (light theme) */
 .portfolio-header .project-selector-dropdown {
     padding: 5px 10px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.85em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -839,12 +839,12 @@
 
 .portfolio-header .project-selector-dropdown:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-header .project-selector-label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
     margin-right: 6px;
     white-space: nowrap;
     font-size: 0.85em;
@@ -857,8 +857,8 @@
 }
 
 .save-btn {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     border: none;
     padding: 6px 12px;
     border-radius: 4px;
@@ -871,11 +871,11 @@
 }
 
 .save-btn:hover {
-    background: #5568d3;
+    background: var(--np-accent-hover, #5568d3);
 }
 
 .upload-area {
-    border: 3px dashed #667eea;
+    border: 3px dashed var(--np-accent);
     border-radius: 10px;
     padding: 40px;
     text-align: center;
@@ -887,7 +887,7 @@
 .upload-area:hover,
 .upload-area.dragover {
     background: #e8ebff;
-    border-color: #764ba2;
+    border-color: var(--np-accent-hover);
 }
 
 .upload-icon {
@@ -898,7 +898,7 @@
 .editor-wrapper {
     display: flex;
     flex: 1;
-    background: #1e1e1e;
+    background: var(--np-editor-bg, #1e1e1e);
     overflow: hidden;
     min-height: 0;
     position: relative;
@@ -963,7 +963,7 @@
 }
 
 .editor-textarea::selection {
-    background: rgba(102, 126, 234, 0.5);
+    background: rgba(16, 139, 185, 0.5);
     color: transparent;
 }
 
@@ -1049,6 +1049,51 @@
     font-weight: bold;
 }
 
+/* Per-category highlight toggles (#1051, highlight-toggles.js). This is
+   the file actually linked for the editor overlay's syntax colours (see
+   .editor-textarea/.editor-highlight-layer above) -- static/style.css
+   duplicates the same block but isn't linked in index.html, so this copy
+   is the one that has to be kept in sync. Off state only recolours the
+   read-only overlay text back to the base editor colour (via `inherit`)
+   -- the underlying textarea and its caret are a separate, always-plain
+   element, so this can never alter text, length, or caret position. */
+body.hl-off-duration .syntax-duration,
+body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-effort,
+body.hl-off-duration .syntax-recurrence,
+body.hl-off-duration .syntax-lag-lead {
+    color: inherit;
+    font-weight: normal;
+}
+
+body.hl-off-resource .syntax-resource {
+    color: inherit;
+}
+
+body.hl-off-tag .syntax-label,
+body.hl-off-tag .syntax-bucket,
+body.hl-off-tag .syntax-product,
+body.hl-off-tag .syntax-product-group,
+body.hl-off-tag .syntax-product-external {
+    color: inherit;
+    font-weight: normal;
+    font-style: normal;
+}
+
+body.hl-off-comment .syntax-comment,
+body.hl-off-comment .syntax-line-comment {
+    color: inherit;
+    font-style: normal;
+}
+
+body.hl-off-dependency .syntax-dependency,
+body.hl-off-dependency .syntax-dep-type,
+body.hl-off-dependency .syntax-circular,
+body.hl-off-dependency .syntax-star {
+    color: inherit;
+    font-weight: normal;
+}
+
 .syntax-highlights-delimiter {
     color: #569cd6;
     font-weight: 600;
@@ -1094,7 +1139,7 @@
     transform: translateY(-50%);
     width: 8px;
     height: 8px;
-    background: #108BB9;
+    background: var(--np-accent);
     border-radius: 50%;
     box-shadow: 0 0 4px rgba(16, 139, 185, 0.5);
 }
@@ -1143,7 +1188,7 @@
 
 .line-number.manually-scheduled:hover .pin-icon::before,
 .line-number.manually-scheduled:hover .pin-icon::after {
-    background: #fff;
+    background: var(--np-surface);
 }
 
 textarea {
@@ -1166,8 +1211,8 @@ textarea {
 }
 
 #planEditor {
-    background: #1e1e1e;
-    color: #d4d4d4;
+    background: var(--np-editor-bg, #1e1e1e);
+    color: var(--np-editor-tip-text, #d4d4d4);
 }
 
 textarea:focus:not(:focus-visible) {
@@ -1175,7 +1220,7 @@ textarea:focus:not(:focus-visible) {
 }
 
 textarea::placeholder {
-    color: #666;
+    color: var(--np-body);
 }
 
 textarea {
@@ -1188,7 +1233,7 @@ textarea:hover {
 
 .output-container {
     background: white;
-    color: #333;
+    color: var(--np-ink);
     padding: 15px;
     flex: 1;
     overflow: auto;
@@ -1202,7 +1247,7 @@ textarea:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #999;
+    color: var(--np-faint);
     font-style: italic;
 }
 
@@ -1224,13 +1269,13 @@ textarea:hover {
 
 .welcome-screen h2 {
     font-size: 2em;
-    color: #333;
+    color: var(--np-ink);
     margin-bottom: 5px;
     margin-top: 0;
 }
 
 .welcome-screen p {
-    color: #666;
+    color: var(--np-body);
     font-size: 1.1em;
     margin: 5px 0;
 }
@@ -1245,19 +1290,19 @@ textarea:hover {
 .welcome-screen li {
     padding: 5px 0;
     font-size: 1.1em;
-    color: #555;
+    color: var(--np-body);
 }
 
 .welcome-hint {
     margin-top: 15px;
     font-size: 0.95em;
-    color: #999;
+    color: var(--np-faint);
     font-style: normal;
 }
 
 .welcome-hint kbd {
     background: #f4f4f4;
-    border: 1px solid #ccc;
+    border: 1px solid var(--np-border-strong);
     border-radius: 3px;
     padding: 2px 6px;
     font-family: monospace;
@@ -1279,19 +1324,19 @@ textarea:hover {
 label {
     font-weight: 600;
     margin-bottom: 5px;
-    color: #555;
+    color: var(--np-body);
 }
 
 input[type="text"] {
     padding: 10px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 5px;
     font-size: 14px;
 }
 
 input[type="text"]:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 input[type="text"]:focus-visible {
@@ -1313,8 +1358,8 @@ input[type="checkbox"] {
 }
 
 .btn {
-    background: linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%);
-    color: white;
+    background: var(--np-accent-gradient, linear-gradient(135deg, #108BB9 0%, #4B9C4C 100%));
+    color: var(--np-on-accent);
     padding: 15px 30px;
     border: none;
     border-radius: 5px;
@@ -1327,7 +1372,7 @@ input[type="checkbox"] {
 
 .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 5px 15px rgba(16, 139, 185, 0.4);
 }
 
 .btn:active {
@@ -1366,7 +1411,7 @@ input[type="checkbox"] {
 }
 
 .syntax-guide {
-    background: #f8f9fa;
+    background: var(--np-paper);
     padding: 40px;
     width: 100%;
     box-sizing: border-box;
@@ -1374,7 +1419,7 @@ input[type="checkbox"] {
 
 .syntax-guide h3 {
     margin: 20px 0 15px 0;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .syntax-guide code {
@@ -1394,8 +1439,8 @@ input[type="checkbox"] {
 }
 
 .syntax-guide pre {
-    background: #1e1e1e;
-    color: #d4d4d4;
+    background: var(--np-editor-bg, #1e1e1e);
+    color: var(--np-editor-tip-text, #d4d4d4);
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
@@ -1405,7 +1450,7 @@ input[type="checkbox"] {
 .spinner {
     display: none;
     border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
+    border-top: 4px solid var(--np-accent);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -1439,9 +1484,9 @@ input[type="checkbox"] {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 1.5px solid #667eea;
+    border: 1.5px solid var(--np-accent);
     background: white;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 14px;
     line-height: 16px;
     text-align: center;
@@ -1453,8 +1498,8 @@ input[type="checkbox"] {
 }
 
 .task-row-add-btn:hover {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     transform: translateX(-50%) scale(1.15);
 }
 
@@ -1501,7 +1546,7 @@ input[type="checkbox"] {
 }
 
 .task-drag-handle:hover {
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .task-drag-handle:active {
@@ -1522,10 +1567,10 @@ input[type="checkbox"] {
 
 .gantt-info-table tbody tr.drag-over-above,
 .tasks-table tbody tr.drag-over-above {
-    border-top: 2px solid #667eea;
+    border-top: 2px solid var(--np-accent);
 }
 
 .gantt-info-table tbody tr.drag-over-below,
 .tasks-table tbody tr.drag-over-below {
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--np-accent);
 }

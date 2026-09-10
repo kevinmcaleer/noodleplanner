@@ -1,0 +1,370 @@
+/* #998 — Warm Paper + Marigold. Source: design/ui-998/visual-system-handoff.md.
+   This stylesheet follows legacy view CSS so shared semantic roles win. */
+:root {
+    --np-paper: #FAF8F4;
+    --np-surface: #FFFDF9;
+    --np-surface-alt: #F3EEE5;
+    --np-sunken: #EFE9DE;
+    --np-selected: #E5DCCD;
+    --np-border: #E3DDD3;
+    --np-border-strong: #DED9D0;
+    --np-hairline: #EFE9DE;
+    --np-hairline-warm: #E7E2D9;
+    --np-accent: #EDB52A;
+    --np-accent-hover: #D9A31C;
+    --np-accent-tint: #FBEFCE;
+    --np-accent-ink: #8A6205;
+    --np-sage: #6B7A5E;
+    --np-sage-tint: #E7EDE2;
+    --np-sage-ink: #4E5C43;
+    --np-danger-tint: #F6E3E0;
+    --np-danger-ink: #8C3A2C;
+    --np-ink: #23201C;
+    --np-ink-hover: #3A352E;
+    --np-body: #5C5850;
+    --np-muted: #635E55;
+    --np-faint: #736C60;
+    --np-on-accent: #23201C;
+    --np-font-heading: 'Newsreader', Georgia, serif;
+    --np-font-ui: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --np-font-data: 'IBM Plex Mono', 'DejaVu Sans Mono', monospace;
+    --np-radius-control: 9px;
+    --np-radius-card: 11px;
+    --np-radius-panel: 14px;
+    --np-floating-shadow: 0 1px 2px rgba(35,32,28,.04), 0 18px 40px -24px rgba(35,32,28,.22);
+}
+/* The handoff specifies light colours; these warm dark counterparts preserve
+   semantic roles and ink-on-marigold buttons without purple/blue surfaces. */
+[data-theme="dark"] {
+    --np-paper: #201E1A;
+    --np-surface: #292620;
+    --np-surface-alt: #312D26;
+    --np-sunken: #39342C;
+    --np-selected: #484033;
+    --np-border: #51493D;
+    --np-border-strong: #6A6050;
+    --np-hairline: #3E382F;
+    --np-hairline-warm: #494135;
+    --np-accent: #EDB52A;
+    --np-accent-hover: #F3C754;
+    --np-accent-tint: #453A20;
+    --np-accent-ink: #F3C754;
+    --np-sage: #A9BC98;
+    --np-sage-tint: #303B2A;
+    --np-sage-ink: #C5D8B5;
+    --np-danger-tint: #4B2D27;
+    --np-danger-ink: #F4B7AA;
+    --np-ink: #FAF8F4;
+    --np-ink-hover: #E5DCCD;
+    --np-body: #D4CCBF;
+    --np-muted: #C0B6A6;
+    --np-faint: #B8AD9B;
+    --np-floating-shadow: 0 1px 2px #0003, 0 18px 40px -24px #0009;
+}
+/* Bridge existing semantic consumers, including chart/table surface tokens. */
+:root, [data-theme="dark"] {
+    --np-bg: var(--np-paper);
+    --np-bg-alt: var(--np-surface-alt);
+    --np-bg-hover: var(--np-sunken);
+    --np-border-light: var(--np-hairline);
+    --np-text: var(--np-ink);
+    --np-text-secondary: var(--np-body);
+    --np-text-muted: var(--np-muted);
+    --np-accent-gradient: var(--np-accent);
+    --np-input-bg: var(--np-paper);
+    --np-input-border: var(--np-border-strong);
+    --np-modal-bg: var(--np-surface);
+    --np-subnav-bg: var(--np-surface-alt);
+    --np-subnav-hover: var(--np-sunken);
+    --np-table-stripe: var(--np-paper);
+    --np-table-hover: var(--np-sunken);
+    --np-summary-row: var(--np-surface-alt);
+    --np-summary-row-hover: var(--np-selected);
+    --np-code-bg: var(--np-sunken);
+    --np-badge-bg: var(--np-sunken);
+    --np-splitter-bg: var(--np-border);
+    --np-splitter-hover: var(--np-selected);
+    --np-splitter-dot: var(--np-faint);
+    --np-scrollbar-thumb: var(--np-border-strong);
+    --np-scrollbar-track: var(--np-paper);
+    --bg-primary: var(--np-surface);
+    --bg-secondary: var(--np-surface-alt);
+    --text-primary: var(--np-ink);
+    --text-secondary: var(--np-body);
+    --border-color: var(--np-border);
+    --evm-bg: var(--np-paper);
+    --evm-card-bg: var(--np-surface);
+    --evm-card-border: var(--np-border);
+    --evm-chart-bg: var(--np-surface);
+    --evm-text-primary: var(--np-ink);
+    --evm-text-secondary: var(--np-body);
+    --evm-text-muted: var(--np-muted);
+    --evm-table-header-bg: var(--np-surface-alt);
+    --evm-table-border: var(--np-border);
+    --evm-axis-label: var(--np-faint);
+}
+:root body, button, input, select, textarea { font-family: var(--np-font-ui); }
+:root body { background: var(--np-paper); color: var(--np-ink); }
+h1, h2, h3, .modal-title, .ribbon-doc-title { font-family: var(--np-font-heading); font-weight: 400; }
+/* Ink is set separately, and NOT on headings that sit on a surface this
+   stylesheet doesn't control. A whiteboard note's title is an <h3> inside a
+   header whose background is the note's own colour -- picked by the user, or
+   derived from the task's place in the outline -- so whiteboard-notes.js
+   computes a real WCAG-contrasting text colour for it (wbContrastTextColour())
+   and sets it on the header for the title to inherit. Painting --np-ink over
+   that put near-black on a dark navy note header: 1.12:1, invisible. Any
+   future component that colours its own header the same way belongs in this
+   :not() list too. */
+:is(h1, h2, h3, .modal-title, .ribbon-doc-title):not(.wb-note-title) { color: var(--np-ink); }
+h1 { font-size: 30px; line-height: 1.15; letter-spacing: -.01em; }
+h2, .modal-title { font-size: 22px; line-height: 1.2; }
+code, pre, .task-id, .task-duration, .task-date { font-family: var(--np-font-data); }
+button, input, select, textarea { max-width: 100%; }
+input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px var(--np-accent-tint);
+}
+:root body :is(.modal-content, .modal-dialog-content, .dialog-content, .settings-panel, .task-peek, .card) {
+    background: var(--np-surface);
+    color: var(--np-ink);
+    border-color: var(--np-border);
+    border-radius: var(--np-radius-panel);
+}
+:root body :is(.modal-content, .dialog-content) { box-shadow: var(--np-floating-shadow); max-height: calc(100dvh - 32px); overflow-y: auto; }
+:root body :is(.modal-header, .modal-footer, .card-header) { background: var(--np-surface-alt); color: var(--np-ink); border-color: var(--np-border); }
+:root body :is(.form-control, .form-select, input[type="text"], input[type="search"], input[type="number"]) {
+    color: var(--np-ink); background: var(--np-paper); border: 1px solid var(--np-border-strong); border-radius: var(--np-radius-control);
+}
+:root body .btn-primary { background: var(--np-accent); color: var(--np-on-accent); border-color: var(--np-accent); }
+:root body .btn-primary:hover { background: var(--np-accent-hover); color: var(--np-on-accent); border-color: var(--np-accent-hover); }
+:root body .btn-secondary { background: var(--np-surface); color: var(--np-body); border-color: var(--np-border-strong); }
+:root body .btn-secondary:hover { background: var(--np-surface-alt); color: var(--np-ink); }
+:root body .ribbon-shell, :root body .ribbon-titlebar, :root body .ribbon-tabstrip, :root body .ribbon-body {
+    background: var(--np-surface); color: var(--np-ink); border-color: var(--np-border);
+}
+:root body .ribbon-titlebar { background: var(--np-surface-alt); }
+:root body .ribbon-shell :is(button, a) { color: var(--np-body); }
+:root body .ribbon-shell :is(button, a):hover { background: var(--np-sunken); color: var(--np-ink); }
+:root body .ribbon-tab-btn.active { color: var(--np-ink); border-bottom-color: var(--np-accent); background: transparent; }
+:root body .ribbon-shell :is(.ribbon-file-menu, .ribbon-more-popover, .ribbon-display-menu) {
+    background: var(--np-surface); color: var(--np-ink); border-color: var(--np-border); border-radius: var(--np-radius-panel); box-shadow: var(--np-floating-shadow);
+}
+:root body .ribbon-simple-group, :root body .ribbon-group { border-color: var(--np-border); }
+:root body .ribbon-display-toggle-btn { border: 0; }
+:root body .ribbon-simple-btn.active, :root body .ribbon-scope-btn.active { color: var(--np-ink); background: var(--np-selected); }
+:root body .ribbon-search-input { background: var(--np-paper); color: var(--np-ink); border-color: var(--np-border-strong); }
+/* Shared presentation surfaces use the same quiet hierarchy as the handoff. */
+:root body .ribbon-file-btn { background: var(--np-accent); color: var(--np-on-accent); }
+:root body .ribbon-file-btn:hover { background: var(--np-accent-hover); color: var(--np-on-accent); }
+:root body .ribbon-avatar { background: var(--np-selected); color: var(--np-ink); }
+:root body .ribbon-search-wrap, :root body .ribbon-search-input::placeholder,
+:root body .ribbon-group-caption, :root body .ribbon-more-caption { color: var(--np-faint); }
+:root body .ribbon-banner { background: transparent; border: 0; padding: 0; white-space: normal; color: var(--np-ink); }
+:root body .ribbon-banner::after { display: none; }
+:root body .project-report-title { font-family: var(--np-font-heading); font-size: 30px; font-weight: 400; line-height: 1.15; }
+:root body :is(.milestones-table, .resources-table, .resource-sheet-table, .timesheet-table,
+    .raid-table, .lookahead-table, .user-workload-table, .actions-table,
+    .stakeholders-table, .budget-table, .portfolio-benefits-table) {
+    font-family: var(--np-font-ui);
+    color: var(--np-ink);
+}
+:root body :is(.milestones-table, .resources-table, .resource-sheet-table, .timesheet-table,
+    .raid-table, .lookahead-table, .user-workload-table, .actions-table,
+    .stakeholders-table, .budget-table, .portfolio-benefits-table) :is(thead, th) {
+    background: var(--np-surface-alt); color: var(--np-faint); border-color: var(--np-hairline);
+    font-weight: 500; font-size: 11px; letter-spacing: .04em;
+}
+:root body .project-report-header { border-color: var(--np-hairline-warm); }
+:root body .project-report-details { font-size: 12.5px; color: var(--np-muted); }
+:root body .project-report-detail { min-width: 0; flex-wrap: wrap; }
+:root body .ribbon-doc-title { min-width: 0; }
+:root body .lookahead-section-title.overdue { color: var(--np-danger-ink); }
+:root body .lookahead-section-title.upcoming { color: var(--np-accent-ink); }
+:root body .ai-chat-header { background: var(--np-surface-alt); color: var(--np-ink); }
+:root body .ai-chat-header button { color: var(--np-body); }
+:root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
+:root body .close-btn { color: var(--np-body); flex-shrink: 0; }
+:root body .close-btn:hover { background: var(--np-sunken); color: var(--np-ink); }
+:root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
+:root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }
+:root body .timeline-donut-row { flex-wrap: wrap; }
+:root body .timeline-donut-timeline { flex-basis: 360px; overflow: hidden; }
+:root body .timeline-donut-chart { flex-basis: 220px; }
+:root body .quad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:root body .quad-cell { border-radius: 11px; border-color: var(--np-hairline-warm); box-shadow: none; }
+:root body .quad-cell h3 { font-family: var(--np-font-heading); font-weight: 400; color: var(--np-ink); }
+:root body .calendar-grid { background: var(--np-border); border-color: var(--np-border); grid-template-columns: repeat(7, minmax(0, 1fr)); }
+:root body .calendar-day-header { background: var(--np-surface-alt); color: var(--np-faint); }
+:root body .calendar-day-cell { background: var(--np-surface); min-width: 0; }
+:root body .calendar-day-cell:hover { background: var(--np-sunken); }
+:root body .calendar-day-cell.calendar-other-month { background: var(--np-paper); opacity: .7; }
+:root body .calendar-day-cell.calendar-today { background: var(--np-accent-tint); border-color: var(--np-accent); }
+:root body .calendar-day-number { color: var(--np-body); font-family: var(--np-font-data); }
+@media (max-width: 700px) {
+    :root body .quad-grid { grid-template-columns: minmax(0, 1fr); }
+    :root body .project-report-content { padding: 16px; }
+    :root body .modal-header, :root body .modal-body { padding: 16px; }
+}
+:root body .ribbon-display-toggle-btn .ribbon-caret { font-size: 12px; color: var(--np-faint); }
+:root body :is(.highlight-date, .inspector-dep-date, .deliverable-dates) { font-family: var(--np-font-data); font-size: 12px; }
+:root body .templates-header { background: var(--np-surface-alt); color: var(--np-ink); }
+:root body .templates-hero h1 { font-family: var(--np-font-heading); font-weight: 300; }
+/* Keep navigation and quick commands reachable when the body is compact. */
+@media (max-width: 900px) {
+    :root body .ribbon-titlebar { height: auto; min-height: 38px; flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
+    :root body .ribbon-scope-btn { padding-inline: 7px; }
+    :root body .ribbon-titlebar-sep, :root body .ribbon-titlebar-spacer { display: none; }
+    :root body .ribbon-quick-actions { flex-shrink: 0; }
+    :root body .ribbon-doc-title { flex: 1 1 100px; }
+    :root body .ribbon-search-wrap { flex: 1 1 140px; }
+    :root body .ribbon-tabstrip { height: auto; min-height: 34px; flex-wrap: wrap; }
+    :root body .ribbon-tab-btn { padding-inline: 10px; }
+    :root body .ribbon-tab-btn.contextual { margin-left: 0; }
+}
+@media (max-width: 700px) {
+    :root body .ribbon-body:not(.ribbon-body-simple) { height: auto; min-height: 98px; flex-wrap: wrap; }
+    :root body .ribbon-group { max-width: 100%; overflow-x: auto; min-height: 98px; }
+}
+:root body .ribbon-breadcrumb-rung.active { color: var(--np-ink); }
+:root body .ribbon-breadcrumb-sep { color: var(--np-faint); }
+:root body { font-size: 13.5px; line-height: 1.6; }
+:root body :is(.ribbon-tab-btn, .ribbon-simple-btn, .ribbon-display-menu-item) { font-size: 13.5px; }
+:root body :is(.ribbon-lg-btn, .ribbon-sm-btn) { font-size: 13px; }
+:root body :is(.milestones-placeholder, .timeline-placeholder, .gantt-placeholder,
+    .resources-placeholder, .placeholder-view) h3 { font-family: var(--np-font-heading); font-size: 32px; font-weight: 300; color: var(--np-ink); line-height: 1.1; }
+:root body :is(.report-rag-badge, .raid-status-badge, .actions-status-badge) { border-radius: 6px; font-size: 11.5px; font-weight: 500; }
+:root body .report-rag-badge.rag-red { background: var(--np-danger-tint); color: var(--np-danger-ink); }
+:root body .report-rag-badge.rag-amber { background: var(--np-accent-tint); color: var(--np-accent-ink); }
+:root body .report-rag-badge.rag-green { background: var(--np-sage-tint); color: var(--np-sage-ink); }
+/* Faint is for paper; the darker meta ink keeps small text AA on sidebar fills. */
+:root body .calendar-day-header,
+:root body .ribbon-search-wrap, :root body .ribbon-search-input::placeholder,
+:root body :is(.milestones-table, .resources-table, .resource-sheet-table, .timesheet-table,
+    .raid-table, .lookahead-table, .user-workload-table, .actions-table,
+    .stakeholders-table, .budget-table, .portfolio-benefits-table) :is(thead, th) { color: var(--np-muted); }
+:root body select { background-color: var(--np-paper); color: var(--np-ink); border-color: var(--np-border-strong); border-radius: 9px; }
+:root body :is(.btn-primary, .btn-secondary, .btn-danger, .toolbar-btn) { border-radius: 9px; }
+:root body .ns-col-header.ns-selected-col,
+:root body .ns-row-num.ns-selected-row { background: var(--np-selected); color: var(--np-ink); }
+:root, [data-theme="dark"] {
+    --np-editor-bg: #201E1A;
+    --np-editor-tip-bg: #312D26;
+    --np-editor-tip-text: #D4CCBF;
+}
+:root body :is(h1, h2, h3):not(.wb-note-title) { color: var(--np-ink); }
+:root body .donut-legend-item { color: var(--np-body); }
+:root body :is(.quad-maximise-btn, .embedded-timeline-maximise) { background: var(--np-surface-alt); color: var(--np-body); border-color: var(--np-border-strong); }
+:root body :is(.evm-kpi-value, .stat-value, .programme-stat-value) {
+    font-family: var(--np-font-heading); font-size: 26px; font-weight: 400; line-height: 1.1;
+}
+
+/* ---------------------------------------------------------------------
+   Text on the accent.
+
+   The previous accent was a mid blue, so white text on it was legible and
+   ~50 rules across the app hardcode `color: #fff` next to (or apart from)
+   an accent background. Marigold is a *light* accent: white on it measures
+   1.87:1, and inherited body text 1.17:1 -- both far below WCAG AA.
+
+   Every selector below is one this stylesheet's own palette paints with
+   var(--np-accent), so each is pinned to var(--np-on-accent) (near-black in
+   both themes, because the accent stays light in both). Generated from the
+   accent-background rules in the loaded stylesheets; regenerate if a new
+   accent surface is added.
+
+   `:root:root` is a deliberate specificity bump, not a typo. Broad chrome
+   rules in this same file are more specific than their own per-component
+   ones -- `.ribbon-shell :is(button, a)` (0,2,2) outranks
+   `.ribbon-file-btn` (0,2,1) -- so a plain `:root body :is(...)` list
+   loses to them and the text stays illegible. Doubling `:root` lifts this
+   to (0,3,1) so legibility on the accent wins wherever it applies, without
+   reaching for !important.
+   --------------------------------------------------------------------- */
+:root:root body :is(
+    .task-peek-open-details-btn:focus-visible,
+    .ai-agent-chip.active,
+    .ai-agent-chip.active:hover,
+    .ai-chat-bubble.user,
+    .ai-chat-send-btn,
+    .ai-chat-send-btn:hover,
+    .ai-chat-setup-btn,
+    .ai-chat-setup-btn:hover,
+    .plan-subnav-btn.active,
+    .resources-table thead,
+    [data-theme="dark"] .btn-outline-primary:hover,
+    [data-theme="dark"] .task-row-add-btn:hover,
+    [data-theme="dark"] .budget-view-toggle.active,
+    .milestones-table thead,
+    .resource-sheet-table thead,
+    .resource-sheet-task-col,
+    .timesheet-table thead,
+    .timesheet-table th.timesheet-resource-col,
+    .detail-pane-header,
+    .inspector-open-task-btn,
+    .modal-header,
+    .btn-primary,
+    .add-item-link:hover .add-icon,
+    .export-btn,
+    .export-btn:hover,
+    .tour-actions .btn-primary,
+    .drill-down-btn,
+    .fix-it-btn,
+    .raid-toolbar .btn-primary,
+    .raid-toolbar .btn-primary:hover,
+    .raid-toolbar .btn-secondary:hover,
+    .raid-table thead,
+    .wizard-step.active .wizard-step-number,
+    .lookahead-table thead,
+    .user-workload-header,
+    .category-link.active,
+    .template-category,
+    .template-use-btn,
+    .template-use-btn:hover,
+    .calendar-add-btn,
+    .actions-table thead,
+    .actions-action-btn,
+    .actions-action-btn:hover,
+    #mindmap-view .mindmap-placeholder .mindmap-toolbar-btn,
+    .ben-view-btn--active,
+    .stakeholders-table thead,
+    .budget-view-toggle:hover,
+    .budget-view-toggle.active,
+    .budget-table thead,
+    .levelling-buttons .btn-primary,
+    .levelling-buttons .btn-primary:hover,
+    .skip-to-content,
+    .wb-note-count-badge:focus-visible,
+    .wb-empty-state-btn-primary,
+    .wb-empty-state-btn-primary:focus-visible,
+    .wb-add-note-create-btn,
+    .wb-add-note-create-btn:hover,
+    .wb-add-note-submit,
+    .wb-add-note-submit:hover:not(:disabled),
+    .backstage-recent-item-badge,
+    .splitter-arrow,
+    .product-type-btn.active,
+    .portfolio-active-badge,
+    .btn-primary:hover,
+    .progress-bar,
+    .project-count-badge,
+    .btn-small,
+    .btn-small:hover,
+    .assignments-table th,
+    .programme-badge:hover,
+    .new-risk-btn,
+    .new-risk-btn:hover,
+    .gantt-splitter:hover,
+    .gantt-splitter:active,
+    .gantt-info-table thead,
+    .resizer:hover,
+    .resizer:active,
+    .save-btn,
+    .save-btn:hover,
+    .line-number.active::before,
+    .btn,
+    .task-row-add-btn:hover,
+    .ribbon-file-btn,
+    .ribbon-file-btn:hover
+) { color: var(--np-on-accent); }

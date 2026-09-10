@@ -18,6 +18,8 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/install-as-an-app
    how-to/use-touch-controls
    how-to/use-the-gantt-view
+   how-to/use-the-notepad
+   how-to/use-plan-cards
    how-to/use-the-kanban-board
    how-to/use-the-raid-log
    how-to/manage-resources
@@ -39,6 +41,8 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    how-to/import-from-ms-project
    how-to/product-planning
    how-to/communications-plan
+   how-to/run-a-planning-session
+   how-to/use-the-guided-plan-wizard
 
 .. toctree::
    :maxdepth: 2
@@ -57,6 +61,8 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
 
    explanation/rag-status
    explanation/scheduling-engine
+   explanation/browser-first-architecture
+   explanation/board-as-a-plan-lens
    explanation/two-scheduling-engines
    explanation/browser-local-store
    explanation/whiteboard-layout-vs-viewport

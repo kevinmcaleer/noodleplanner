@@ -10,7 +10,7 @@
     min-height: 0;
     overflow: hidden;
     padding: 10px 12px;
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-header {
@@ -58,17 +58,17 @@
     height: 32px;
     padding: 0;
     background: transparent;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
-    color: #6c757d;
+    color: var(--np-muted);
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .portfolio-more-btn:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-color: #adb5bd;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .portfolio-more-menu {
@@ -78,7 +78,7 @@
     top: 100%;
     margin-top: 4px;
     background: white;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     min-width: 180px;
@@ -98,7 +98,7 @@
     padding: 10px 14px;
     background: none;
     border: none;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.9em;
     cursor: pointer;
     transition: background 0.15s;
@@ -111,7 +111,7 @@
 
 .portfolio-more-menu-item svg {
     flex-shrink: 0;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .portfolio-content {
@@ -128,7 +128,7 @@
 }
 
 .portfolio-empty-state h3 {
-    color: #667eea;
+    color: var(--np-accent);
     margin-bottom: 15px;
     font-size: 1.5em;
 }
@@ -159,8 +159,8 @@
 }
 
 .portfolio-project-card.active {
-    border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    border-color: var(--np-accent);
+    box-shadow: 0 4px 12px rgba(16, 139, 185, 0.3);
 }
 
 .portfolio-project-header {
@@ -169,18 +169,18 @@
     align-items: center;
     margin-bottom: 15px;
     padding-bottom: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-project-header h3 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.3em;
 }
 
 .portfolio-active-badge {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     padding: 4px 12px;
     border-radius: 12px;
     font-size: 0.8em;
@@ -192,7 +192,7 @@
 }
 
 .portfolio-meta-item {
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.9em;
     margin-bottom: 5px;
 }
@@ -210,8 +210,8 @@
 
 /* Button styles (if not already defined) */
 .btn-primary {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     border: none;
     padding: 10px 20px;
     border-radius: 6px;
@@ -222,9 +222,9 @@
 }
 
 .btn-primary:hover {
-    background: #5568d3;
+    background: var(--np-accent-hover, #5568d3);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 2px 8px rgba(16, 139, 185, 0.4);
 }
 
 .btn-secondary {
@@ -277,7 +277,7 @@
     border: none;
     border-bottom: 2px solid transparent;
     border-radius: 0;
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.85em;
     font-weight: 500;
     cursor: pointer;
@@ -286,13 +286,13 @@
 }
 
 .portfolio-subnav-btn:hover {
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.06);
+    color: var(--np-accent);
+    background: rgba(16, 139, 185, 0.08);
 }
 
 .portfolio-subnav-btn.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
+    color: var(--np-accent);
+    border-bottom-color: var(--np-accent);
     font-weight: 600;
 }
 
@@ -310,7 +310,7 @@
 
 .portfolio-status-header h2 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.8em;
 }
 
@@ -322,15 +322,15 @@
 
 .portfolio-status-filters label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .portfolio-status-filters select {
     padding: 8px 15px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -338,7 +338,7 @@
 
 .portfolio-status-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-status-table-wrapper {
@@ -354,15 +354,15 @@
 }
 
 .portfolio-status-table thead {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-status-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
-    color: #333;
-    border-bottom: 2px solid #e0e0e0;
+    color: var(--np-ink);
+    border-bottom: 2px solid var(--np-border);
     cursor: pointer;
     user-select: none;
     transition: background 0.2s;
@@ -374,7 +374,7 @@
 
 .portfolio-status-table td {
     padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-status-table tbody tr {
@@ -383,7 +383,7 @@
 }
 
 .portfolio-status-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-status-table tbody tr:last-child td {
@@ -392,7 +392,7 @@
 
 .project-name {
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
 }
 
 /* RAG Badges */
@@ -413,7 +413,7 @@
 
 .rag-badge.rag-amber {
     background: #ffc107;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .rag-badge.rag-green {
@@ -437,7 +437,7 @@
 
 .status-badge.status-amber {
     background: #ffc107;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .status-badge.status-green {
@@ -457,7 +457,7 @@
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: var(--np-accent-gradient);
     border-radius: 12px;
     transition: width 0.3s ease;
 }
@@ -469,7 +469,7 @@
     transform: translate(-50%, -50%);
     font-size: 0.85em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     text-shadow: 0 0 3px white;
 }
 
@@ -540,7 +540,7 @@
 
 .portfolio-resources-header h2 {
     margin: 0 0 15px 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.8em;
 }
 
@@ -558,14 +558,14 @@
 
 .summary-label {
     font-size: 0.9em;
-    color: #6c757d;
+    color: var(--np-muted);
     font-weight: 600;
 }
 
 .summary-value {
     font-size: 1.8em;
     font-weight: 700;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .portfolio-resources-table-wrapper {
@@ -581,15 +581,15 @@
 }
 
 .portfolio-resources-table thead {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-resources-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
-    color: #333;
-    border-bottom: 2px solid #e0e0e0;
+    color: var(--np-ink);
+    border-bottom: 2px solid var(--np-border);
     cursor: pointer;
     user-select: none;
     transition: background 0.2s;
@@ -601,7 +601,7 @@
 
 .portfolio-resources-table td {
     padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-resources-table tbody tr {
@@ -609,7 +609,7 @@
 }
 
 .portfolio-resources-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-resources-table tbody tr:last-child td {
@@ -618,13 +618,13 @@
 
 .resource-name {
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .project-count-badge {
     display: inline-block;
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     padding: 4px 8px;
     border-radius: 10px;
     font-size: 0.85em;
@@ -632,7 +632,7 @@
 }
 
 .projects-tooltip {
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.9em;
 }
 
@@ -664,7 +664,7 @@
 
 .workload-badge.workload-high {
     background: #ffc107;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .workload-badge.workload-overloaded {
@@ -674,8 +674,8 @@
 
 /* Small Button */
 .btn-small {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     border: none;
     padding: 6px 12px;
     border-radius: 4px;
@@ -686,7 +686,7 @@
 }
 
 .btn-small:hover {
-    background: #5568d3;
+    background: var(--np-accent-hover, #5568d3);
     transform: translateY(-1px);
 }
 
@@ -735,7 +735,7 @@
 
 .resource-details-content .close-btn:hover {
     background: rgba(0, 0, 0, 0.1);
-    color: #333;
+    color: var(--np-ink);
 }
 
 #resourceDetailsBody {
@@ -744,19 +744,19 @@
 
 #resourceDetailsBody h2 {
     margin: 0 0 20px 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.8em;
 }
 
 #resourceDetailsBody h3 {
     margin: 25px 0 15px 0;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.4em;
 }
 
 #resourceDetailsBody h4 {
     margin: 15px 0 10px 0;
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.1em;
 }
 
@@ -765,7 +765,7 @@
     gap: 30px;
     margin-bottom: 25px;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 8px;
 }
 
@@ -777,20 +777,20 @@
 
 .stat-label {
     font-size: 0.9em;
-    color: #6c757d;
+    color: var(--np-muted);
     font-weight: 600;
 }
 
 .stat-value {
     font-size: 1.5em;
     font-weight: 700;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .project-assignments {
     margin-bottom: 25px;
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 8px;
 }
 
@@ -804,8 +804,8 @@
 }
 
 .assignments-table th {
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     padding: 10px;
     text-align: left;
     font-weight: 600;
@@ -813,7 +813,7 @@
 
 .assignments-table td {
     padding: 10px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .assignments-table tr:last-child td {
@@ -836,7 +836,7 @@
 
 .task-status-badge.status-in-progress {
     background: #ffc107;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .task-status-badge.status-not-started {
@@ -858,7 +858,7 @@
 
 .portfolio-timeline-header h2 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.2em;
 }
 
@@ -870,15 +870,15 @@
 
 .timeline-controls label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .timeline-controls select {
     padding: 8px 15px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -886,7 +886,7 @@
 
 .timeline-controls select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 #portfolioTimelineView.portfolio-timeline-active {
@@ -910,7 +910,7 @@
 .portfolio-timeline-container .timeline-scale {
     display: flex;
     margin-bottom: 10px;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--np-border);
     position: relative;
     bottom: auto;
     left: auto;
@@ -922,7 +922,7 @@
     width: 200px;
     padding: 10px;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -937,17 +937,17 @@
 }
 
 .timeline-scale-track {
-    border-left: 1px solid #e0e0e0;
+    border-left: 1px solid var(--np-border);
 }
 
 .timeline-scale-item {
     position: absolute;
     top: 0;
     height: 100%;
-    border-right: 1px solid #e0e0e0;
+    border-right: 1px solid var(--np-border);
     padding: 10px 5px;
     font-size: 0.85em;
-    color: #6c757d;
+    color: var(--np-muted);
     font-weight: 600;
     text-align: center;
 }
@@ -984,7 +984,7 @@
 }
 
 .timeline-project-row:nth-child(even) {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .timeline-project-row:nth-child(even) .timeline-project-label {
@@ -996,12 +996,12 @@
 }
 
 .timeline-project-row .timeline-project-label {
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 4px 0 0 4px;
 }
 
 .timeline-project-track {
-    border-left: 1px solid #e0e0e0;
+    border-left: 1px solid var(--np-border);
     padding: 5px 0;
 }
 
@@ -1176,8 +1176,8 @@
 }
 
 .portfolio-projects-table thead {
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
+    background: var(--np-paper);
+    border-bottom: 2px solid var(--np-border);
 }
 
 .portfolio-projects-table th {
@@ -1199,7 +1199,7 @@
 }
 
 .portfolio-projects-table tbody tr {
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-projects-table tbody tr:last-child {
@@ -1212,7 +1212,7 @@
 }
 
 .project-table-row:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .project-table-row.active-project-row {
@@ -1230,7 +1230,7 @@
 
 .project-name-cell {
     font-weight: 600;
-    color: #212529;
+    color: var(--np-ink);
 }
 
 .project-name-editable {
@@ -1241,9 +1241,9 @@
     font-family: inherit;
     font-size: inherit;
     font-weight: 600;
-    color: #212529;
-    background: #fff;
-    border: 1px solid #667eea;
+    color: var(--np-ink);
+    background: var(--np-surface);
+    border: 1px solid var(--np-accent);
     border-radius: 3px;
     padding: 2px 6px;
     outline: none;
@@ -1252,7 +1252,7 @@
 }
 
 .active-indicator {
-    color: #667eea;
+    color: var(--np-accent);
     font-size: 1.2em;
     margin-right: 4px;
 }
@@ -1260,11 +1260,11 @@
 /* Project table action buttons */
 .project-action-btn {
     background: none;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--np-border);
     border-radius: 4px;
     padding: 5px 7px;
     cursor: pointer;
-    color: #6c757d;
+    color: var(--np-muted);
     transition: all 0.2s;
     margin: 0 2px;
     vertical-align: middle;
@@ -1272,12 +1272,12 @@
 }
 
 .project-action-btn:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .project-action-btn.project-action-save:hover {
-    color: #667eea;
-    border-color: #667eea;
+    color: var(--np-accent);
+    border-color: var(--np-accent);
 }
 
 .project-action-btn.project-action-delete:hover {
@@ -1317,7 +1317,7 @@
 
 .status-badge-gray {
     background: #e9ecef;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 /* Highlight cell */
@@ -1327,7 +1327,7 @@
 
 .highlight-preview {
     font-size: 0.9em;
-    color: #6c757d;
+    color: var(--np-muted);
     line-height: 1.4;
 }
 
@@ -1337,8 +1337,89 @@
 }
 
 .highlight-author {
-    color: #667eea;
+    color: var(--np-accent);
     font-weight: 500;
+}
+
+/* Multi-select, programme badge and lasso (issue #952) */
+.project-select-col {
+    width: 32px;
+}
+
+.project-select-cell {
+    width: 32px;
+    text-align: center;
+}
+
+.project-select-checkbox {
+    cursor: pointer;
+}
+
+.project-table-row.project-row-selected {
+    background: var(--np-bg-hover, #e7f3ff);
+}
+
+.project-table-row.project-row-selected:hover {
+    background: var(--np-bg-hover, #d0e7ff);
+}
+
+.programme-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78em;
+    font-weight: 600;
+    background: var(--np-badge-bg, #e0e0e0);
+    color: var(--np-text-secondary, #495057);
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+/* Clickable since issue #953: drills into the programme-altitude view. */
+.programme-badge:hover {
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+}
+
+.portfolio-selection-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: var(--np-surface-alt, #eef1fb);
+    border: 1px solid var(--np-border, #dee2e6);
+    border-radius: 8px;
+}
+
+.portfolio-selection-count {
+    font-weight: 600;
+    color: var(--np-text, #333333);
+    margin-right: 4px;
+}
+
+.portfolio-selection-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-size: 1.3em;
+    line-height: 1;
+    color: var(--np-text-secondary, #6c757d);
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.portfolio-selection-clear:hover {
+    color: var(--np-text, #333333);
+}
+
+.portfolio-lasso-box {
+    position: fixed;
+    border: 1px solid var(--np-accent);
+    background: rgba(16, 139, 185, 0.12);
+    pointer-events: none;
+    z-index: 9999;
 }
 
 /* Responsive table */
@@ -1412,7 +1493,7 @@
 
 .portfolio-actions-header h2 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.8em;
     flex-shrink: 0;
 }
@@ -1432,7 +1513,7 @@
 
 .actions-summary-item .summary-label {
     font-size: 0.8em;
-    color: #6c757d;
+    color: var(--np-muted);
     text-transform: uppercase;
     font-weight: 600;
 }
@@ -1440,7 +1521,7 @@
 .actions-summary-item .summary-value {
     font-size: 1.6em;
     font-weight: 700;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .portfolio-actions-filters {
@@ -1451,15 +1532,15 @@
 
 .portfolio-actions-filters label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .portfolio-actions-filters select {
     padding: 8px 15px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -1467,7 +1548,7 @@
 
 .portfolio-actions-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-actions-table-wrapper {
@@ -1483,15 +1564,15 @@
 }
 
 .portfolio-actions-table thead {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-actions-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
-    color: #333;
-    border-bottom: 2px solid #e0e0e0;
+    color: var(--np-ink);
+    border-bottom: 2px solid var(--np-border);
     cursor: pointer;
     user-select: none;
     transition: background 0.2s;
@@ -1503,7 +1584,7 @@
 
 .portfolio-actions-table td {
     padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-actions-table tbody tr {
@@ -1512,7 +1593,7 @@
 }
 
 .portfolio-actions-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-actions-table tbody tr:last-child td {
@@ -1521,17 +1602,17 @@
 
 .actions-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .actions-task-name {
-    color: #333;
+    color: var(--np-ink);
 }
 
 .actions-finish-date {
     white-space: nowrap;
     font-size: 0.9em;
-    color: #555;
+    color: var(--np-body);
 }
 
 .actions-finish-date.actions-overdue {
@@ -1557,7 +1638,7 @@
 
 .portfolio-risks-header h2 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.8em;
     flex-shrink: 0;
 }
@@ -1577,7 +1658,7 @@
 
 .risks-summary-item .summary-label {
     font-size: 0.8em;
-    color: #6c757d;
+    color: var(--np-muted);
     text-transform: uppercase;
     font-weight: 600;
 }
@@ -1585,7 +1666,7 @@
 .risks-summary-item .summary-value {
     font-size: 1.6em;
     font-weight: 700;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .portfolio-risks-filters {
@@ -1597,15 +1678,15 @@
 
 .portfolio-risks-filters label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .portfolio-risks-filters select {
     padding: 8px 15px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -1613,7 +1694,7 @@
 
 .portfolio-risks-filters select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .portfolio-risks-new {
@@ -1624,10 +1705,10 @@
 
 .portfolio-risks-new select {
     padding: 8px 15px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -1635,13 +1716,13 @@
 
 .portfolio-risks-new select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--np-accent);
 }
 
 .new-risk-btn {
     padding: 8px 18px;
-    background: #667eea;
-    color: white;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
     border: none;
     border-radius: 6px;
     font-size: 0.95em;
@@ -1652,7 +1733,7 @@
 }
 
 .new-risk-btn:hover {
-    background: #5a6fd6;
+    background: var(--np-accent);
 }
 
 .portfolio-risks-table-wrapper {
@@ -1668,15 +1749,15 @@
 }
 
 .portfolio-risks-table thead {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-risks-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
-    color: #333;
-    border-bottom: 2px solid #e0e0e0;
+    color: var(--np-ink);
+    border-bottom: 2px solid var(--np-border);
     cursor: pointer;
     user-select: none;
     transition: background 0.2s;
@@ -1688,7 +1769,7 @@
 
 .portfolio-risks-table td {
     padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-risks-table tbody tr {
@@ -1697,7 +1778,7 @@
 }
 
 .portfolio-risks-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-risks-table tbody tr:last-child td {
@@ -1706,16 +1787,16 @@
 
 .risks-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .risks-title {
-    color: #333;
+    color: var(--np-ink);
     font-weight: 500;
 }
 
 .risks-description {
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.9em;
     max-width: 250px;
 }
@@ -1743,7 +1824,7 @@
 
 .risk-score-badge.rag-amber {
     background: #ffc107;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .risk-score-badge.rag-green {
@@ -1769,7 +1850,7 @@
 
 .portfolio-lookahead-header h2 {
     margin: 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.8em;
     flex-shrink: 0;
 }
@@ -1789,7 +1870,7 @@
 
 .lookahead-summary-item .summary-label {
     font-size: 0.8em;
-    color: #6c757d;
+    color: var(--np-muted);
     text-transform: uppercase;
     font-weight: 600;
 }
@@ -1797,7 +1878,7 @@
 .lookahead-summary-item .summary-value {
     font-size: 1.6em;
     font-weight: 700;
-    color: #333;
+    color: var(--np-ink);
 }
 
 .portfolio-lookahead-filters {
@@ -1815,16 +1896,16 @@
 
 .portfolio-lookahead-filters label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
     white-space: nowrap;
 }
 
 .portfolio-lookahead-filters select {
     padding: 8px 15px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--np-border);
     border-radius: 6px;
     background: white;
-    color: #333;
+    color: var(--np-ink);
     font-size: 0.95em;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -1833,7 +1914,7 @@
 
 .portfolio-lookahead-filters select:focus-visible {
     outline: 2px solid #108BB9;
-    border-color: #108BB9;
+    border-color: var(--np-accent);
 }
 
 /* RAG toggle buttons for look-ahead filtering */
@@ -1885,7 +1966,7 @@
 
 .lookahead-rag-toggle.rag-toggle-amber {
     background: #ffc107;
-    color: #333;
+    color: var(--np-ink);
     border-color: #e0a800;
 }
 
@@ -1902,7 +1983,7 @@
 }
 
 .portfolio-lookahead-daterange {
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.9em;
 }
 
@@ -1943,15 +2024,15 @@
 }
 
 .portfolio-lookahead-table thead {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-lookahead-table th {
     padding: 15px;
     text-align: left;
     font-weight: 600;
-    color: #333;
-    border-bottom: 2px solid #e0e0e0;
+    color: var(--np-ink);
+    border-bottom: 2px solid var(--np-border);
     cursor: pointer;
     user-select: none;
     transition: background 0.2s;
@@ -1963,7 +2044,7 @@
 
 .portfolio-lookahead-table td {
     padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--np-border);
 }
 
 .portfolio-lookahead-table tbody tr {
@@ -1972,7 +2053,7 @@
 }
 
 .portfolio-lookahead-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-paper);
 }
 
 .portfolio-lookahead-table tbody tr:last-child td {
@@ -1981,11 +2062,11 @@
 
 .lookahead-project-name {
     font-weight: 600;
-    color: #667eea;
+    color: var(--np-accent);
 }
 
 .lookahead-task-name {
-    color: #333;
+    color: var(--np-ink);
 }
 
 .lookahead-days-late {
@@ -2044,14 +2125,14 @@
     align-items: center;
     justify-content: center;
     padding: 60px 20px;
-    color: #6c757d;
+    color: var(--np-muted);
 }
 
 .portfolio-loading-spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #e0e0e0;
-    border-top-color: #667eea;
+    border: 4px solid var(--np-border);
+    border-top-color: var(--np-accent);
     border-radius: 50%;
     animation: portfolio-spin 0.8s linear infinite;
     margin-bottom: 15px;
@@ -2079,13 +2160,13 @@
 
 .resource-heatmap-container h3 {
     margin: 0 0 15px 0;
-    color: #333;
+    color: var(--np-ink);
     font-size: 1.3em;
 }
 
 .resource-heatmap-span {
     margin: -8px 0 12px 0;
-    color: #6c757d;
+    color: var(--np-muted);
     font-size: 0.85em;
 }
 
@@ -2103,13 +2184,13 @@
 .resource-heatmap-label {
     padding: 6px 10px;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
-    background: #f8f9fa;
+    background: var(--np-paper);
     border-radius: 3px;
     position: sticky;
     left: 0;
@@ -2119,7 +2200,7 @@
 .resource-heatmap-header-cell {
     padding: 6px 4px;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--np-muted);
     text-align: center;
     font-size: 0.85em;
     white-space: nowrap;
@@ -2135,7 +2216,7 @@
     justify-content: center;
     font-size: 0.8em;
     font-weight: 600;
-    color: #333;
+    color: var(--np-ink);
     transition: transform 0.15s;
 }
 
@@ -2146,7 +2227,7 @@
 }
 
 .resource-heatmap-cell.heatmap-none {
-    background: #f0f0f0;
+    background: var(--np-sunken);
     color: #adb5bd;
 }
 
@@ -2176,9 +2257,9 @@
     gap: 15px;
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--np-border);
     font-size: 0.85em;
-    color: #6c757d;
+    color: var(--np-muted);
     flex-wrap: wrap;
 }
 
@@ -2201,7 +2282,7 @@
 .resource-task-timeline {
     position: relative;
     height: 20px;
-    background: #f0f0f0;
+    background: var(--np-sunken);
     border-radius: 4px;
     margin: 8px 0;
     overflow: hidden;
@@ -2234,38 +2315,39 @@
     gap: 12px;
     margin-bottom: 16px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--np-border, #dee2e6);
 }
 
 .dep-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
-    background: #fff;
+    background: var(--np-surface, #fff);
     border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 3px var(--np-shadow, rgba(0, 0, 0, 0.08));
 }
 
 .dep-table th,
 .dep-table td {
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--np-border-light, #f0f0f0);
     vertical-align: middle;
+    color: var(--np-text, #333333);
 }
 
 .dep-table th {
-    background: #f8f9fa;
+    background: var(--np-bg-alt, #f8f9fa);
     font-weight: 600;
-    color: #495057;
+    color: var(--np-text-secondary, #495057);
     font-size: 0.82em;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
 .dep-table tbody tr:hover {
-    background: #f8f9fa;
+    background: var(--np-table-hover, #f8f9fa);
 }
 
 .dep-table tbody tr:last-child td {

@@ -1,477 +1,846 @@
 /**
- * Parse-once in-memory plan model (issue #905, sub-issues #914/#915/#916).
+ * Parse-once, editable representation of a NoodlePlanner markdown plan.
  *
- * NoodlePlanner has always treated a plan as text: reorder, rename, and
- * dependency lookup are all regex operations against the raw markdown
- * (root cause of #747, #748, #838 -- see those issues and #905 for the
- * full write-up). This module is the additive first step towards a real
- * in-memory object graph: it parses a plan's task outline into a tree of
- * `TaskNode`s exactly once (#914/#915), and can write that tree back to
- * markdown on request (#916).
- *
- * Scope, deliberately narrow (see #905's sub-issue breakdown):
- *  - This module is NOT wired into any existing view, editor, or Kanban
- *    code path. Nothing in the app depends on it yet. It is safe to load
- *    and safe to ignore.
- *  - It models the task outline only. Front matter and every back-matter
- *    section (---raid log---, ---comms---, ...) are captured verbatim as
- *    opaque text -- not modelled, but preserved exactly -- so the existing
- *    round-trip guarantee (docs/reference/plan-format.rst,
- *    tests/test_markdown_roundtrip.*) keeps holding for a parse->serialise
- *    pass with no edits.
- *  - Resolving a task's `dependencies` (and the `*` shorthand) into actual
- *    object references to predecessor nodes is #917's job, not this one --
- *    see the TaskNode `dependencies`/`hasStar` doc below for exactly what
- *    this module hands off. Likewise reorder (#918), rename (#919),
- *    successor lookup (#920), and retiring the regex operations this
- *    replaces (#921) are separate, later issues.
- *
- * JS-only, not ported to noodle_core/Python: every follow-on consumer
- * (#917-#921 -- Board view, drag/drop reorder, rename, dependency
- * highlighting) is browser/editor-side. The Python side already has its
- * own established models for what it actually does (FrontMatterParser,
- * scheduling_engine.py's task parsing) and neither needs nor is planned to
- * need a mutable task graph -- see the PR description for the full
- * reasoning. If a Python consumer materialises later, port then rather
- * than maintaining an unused parallel implementation now.
- *
- * ---------------------------------------------------------------------
- * The TaskNode shape
- * ---------------------------------------------------------------------
- * Tree links are object references (`parent`, `children`), not names or
- * indices -- the entire point of this model is that "where is this task"
- * and "what is this task called" stop being the same question.
- *
- *   id            Synthetic, human-debuggable identity: the chain of
- *                 ancestor names down to this node, joined by ' › ',
- *                 with a `#2`/`#3`... suffix disambiguating same-named
- *                 siblings under the same parent. Mirrors
- *                 msproject-task-diff.js's parseTaskOutline() key scheme
- *                 (same rationale: #838, duplicate sibling names must not
- *                 collide). NOT a stable identity across edits -- a
- *                 rename or move changes it, same limitation
- *                 msproject-task-diff.js documents for its keys. Tree
- *                 position/identity that survives an edit is real object
- *                 references (`parent`/`children`), which is what makes
- *                 this model worth having; `id` is a convenience label.
- *   name          The task's display name/description, with every
- *                 recognised inline token stripped out.
- *   indent        Leading-whitespace character count of the raw line
- *                 (matches scheduling_engine.py's
- *                 `len(line) - len(line.lstrip())`).
- *   lineIndex     0-based index into the *whole plan text's* lines
- *                 (`text.split("\n")`), so a consumer can map a node back
- *                 to an editor cursor position without re-scanning.
- *   raw           The exact original line text (no trailing newline).
- *                 Serialising an unedited node replays this verbatim,
- *                 which is what makes the round-trip guarantee absolute
- *                 rather than "as good as the formatter." See
- *                 `formatTaskLine` below for the field-based alternative
- *                 used when `raw` is absent (a node built from scratch).
- *   parent        The parent TaskNode, or null at the top level.
- *   children      Ordered array of child TaskNodes.
- *   isSummary     Live getter: true iff `children.length > 0`. Computed,
- *                 not cached, so it stays correct if a future consumer
- *                 (#918/#919) mutates `children`.
- *   duration      The full duration token as written, *including* its
- *                 unit letter (e.g. "5d", "2w", "0d"), or "" if absent.
- *                 Deliberately differs from task-tokenizer.js's
- *                 `metadata().duration`, which drops the unit character
- *                 (`text.slice(0, -1)`) -- fine for that module's use
- *                 (display only), but it would make `formatTaskLine`
- *                 unable to reconstruct the token at all. Same token,
- *                 captured without the information loss.
- *   startDate     First ISO date token on the line ("" if none).
- *   finishDate    Second ISO date token on the line ("" if none).
- *   percent       Percent-complete, as a numeric string without "%"
- *                 ("" if absent). Auto-derived from effort if the line
- *                 carries an effort token, same as task-tokenizer.js.
- *   resources     Array of `@name` resource tags (without the `@`).
- *   labels        Array of `#label` tags (without the `#`).
- *   comment       Double/smart-quoted note text, without the quotes ("").
- *                 A single-quoted note (`'...'`) is NOT recognised by this
- *                 grammar (task-tokenizer.js doesn't either) and stays
- *                 embedded in `name` -- an existing quirk, not new here.
- *   priority      "Low" | "Medium" | "Important" | "Urgent".
- *   bucket        `{Bucket}` tag content, without the braces ("").
- *   dependencies  Array of raw, UNRESOLVED dependency description
- *                 strings -- the content of `[depends ...]`, split on
- *                 commas and trimmed, exactly as written (so
- *                 "Wireframes:SS +2d" stays one string; the dependency
- *                 type/lag suffix is not parsed out). This does NOT
- *                 include the `*` shorthand's implied predecessor -- see
- *                 `hasStar` below for why. #917 is expected to turn each
- *                 string into a resolved `{ node, type, lag }` (or
- *                 similar) by matching against the tree this module
- *                 builds.
- *   hasStar       True if the line starts with the `*` "depends on the
- *                 previous task" shorthand.
- *   starLagLead   The `+Nd`/`-Nd` lag/lead immediately after a `*`, if
- *                 any ("" otherwise).
- *                 Deliberately NOT resolved to an actual predecessor
- *                 here: script.js's getPreviousTaskName() (the current
- *                 behaviour this needs to match) walks backwards through
- *                 the *raw line list*, skipping summaries, and is not
- *                 simply "the previous sibling" -- reproducing that
- *                 correctly needs the tree-edge walk #920 ("successor
- *                 lookup via edges") is explicitly chartered to build.
- *                 Re-deriving it here with different logic risks a
- *                 second, silently-diverging implementation of the same
- *                 rule. `hasStar`/`starLagLead` give #917/#920 everything
- *                 they need to resolve it correctly once, via the tree.
- *   recurrence    Lower-cased `[repeats ...]` content ("" if absent).
- *   productType   "internal" | "group" | "external" | undefined, from a
- *                 `$name` / `/$name` / `^$name` token. Same value as
- *                 task-tokenizer.js's `metadata().product_type`, just
- *                 camelCased for consistency with every other field here
- *                 (the only other naming difference from that function;
- *                 `duration`'s deviation above is a real value change).
- *   deliverable   The product/deliverable name after `$`, or undefined.
- *   effortCompleted, effortCompletedUnit, effortRemaining,
- *   effortRemainingUnit, effortTotal, effortTotalUnit
- *                 From a `~8h`/`~2d/5d`-style effort token, unit-per-value
- *                 (these already keep their unit in task-tokenizer.js, so
- *                 no deviation here).
- *
- * Everything else on a raw line that isn't one of the above tokens stays
- * folded into `name` (unmodelled but not lost -- and irrelevant to the
- * round-trip guarantee anyway, since serialisation replays `raw`).
+ * Markdown remains canonical: every byte is retained on parse and an
+ * unchanged model serialises byte-for-byte.  Structural editor operations
+ * work with TaskNode objects, rather than locating tasks with name regexes.
  */
+(function (root, factory) {
+    const api = factory();
+    if (typeof module !== 'undefined' && module.exports) module.exports = api;
+    root.NoodlePlanModel = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+    const BACK_MATTER = /^---[a-z][a-z -]*---$/i;
+    const DEPENDS = /\[depends\s*:?\s*([^\]]*)\]/i;
+    const DEP_TYPE = /^(.+?):(FS|SS|FF|SF)$/i;
+    const LAG = /^(.+?)\s+([+-]\d+[dwmy])$/i;
+    const DELIVERABLE = /(?:^|\s)[/^]?\$([A-Za-z_][A-Za-z0-9_-]*)/;
 
-// The task-line grammar below is a deliberate, faithful duplicate of
-// TaskLineTokenizer in static/task-tokenizer.js (same patterns, same
-// order), not an import: that file is a plain global `<script>` (loaded
-// for editor syntax highlighting), not an ES module, so it can't be
-// imported into this one. msproject-task-diff.js's extractTaskName()
-// already establishes this exact precedent, for the same reason -- see
-// its header comment. tests/test_plan_model.mjs cross-checks this copy
-// against the real TaskLineTokenizer (lifted from task-tokenizer.js) over
-// the whole fixture corpus, to catch drift a plain code review might miss.
-const TOKEN_PATTERNS = [
-    ['comment', /["“][^"”]*["”]/g],
-    ['dependency', /\[depends(?::\s*|\s+)[^\]]+\]/gi],
-    ['recurrence', /\[repeats\s+[^\]]+\]/gi],
-    ['bucket', /\{[^}]+\}/g],
-];
-const TOKEN_PATTERN = /~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?|(?<![\w!])(!!!|!!|!)(?![\w!"'{])|@\w+|#\w+|[/^]?\$[A-Za-z_][A-Za-z0-9_-]*|\b\d+[dmwy]\b|(?<!\w)\d+%(?!\w)|\b\d{4}-\d{2}-\d{2}\b/g;
-
-function addToken(tokens, line, type, start, end) {
-    tokens.push({ type, start, end, text: line.slice(start, end) });
-}
-
-/** Faithful copy of TaskLineTokenizer.tokenize -- see the header comment above. */
-export function tokenizeTaskLine(line) {
-    const tokens = [];
-    const protectedRanges = [];
-    const trimmedStart = line.search(/\S/);
-    if (trimmedStart !== -1 && line[trimmedStart] === '*') {
-        addToken(tokens, line, 'star', trimmedStart, trimmedStart + 1);
-        const lag = /^[+\-]\d+[dwmy]\b/.exec(line.slice(trimmedStart + 1).trimStart());
-        if (lag) {
-            const lagStart = line.indexOf(lag[0], trimmedStart + 1);
-            addToken(tokens, line, 'star-lag', lagStart, lagStart + lag[0].length);
-        }
-    }
-
-    for (const [type, pattern] of TOKEN_PATTERNS) {
-        pattern.lastIndex = 0;
+    function splitPhysicalLines(text) {
+        const lines = [];
+        const pattern = /([^\r\n]*)(\r\n|\n|\r|$)/g;
         let match;
-        while ((match = pattern.exec(line))) {
-            addToken(tokens, line, type, match.index, match.index + match[0].length);
-            protectedRanges.push([match.index, match.index + match[0].length]);
+        while ((match = pattern.exec(text)) && (match[0] || pattern.lastIndex < text.length)) {
+            lines.push({ text: match[1], eol: match[2] });
+            if (!match[2]) break;
+        }
+        return lines;
+    }
+
+    function isTrailingOutlineSeparator(lines, index) {
+        if (lines[index].text.trim() !== '---') return false;
+        for (let next = index + 1; next < lines.length; next++) {
+            if (!lines[next].text.trim()) continue;
+            return BACK_MATTER.test(lines[next].text.trim());
+        }
+        return true;
+    }
+
+    function fallbackMetadata(line) {
+        const protectedLine = line
+            .replace(/\[depends\s*:?\s*[^\]]*\]/gi, '')
+            .replace(/\[repeats\s+[^\]]*\]/gi, '')
+            .replace(/\{[^}]*\}/g, '')
+            .replace(/["\u201c][^"\u201d]*["\u201d]/g, '')
+            .replace(/~\d+(?:\.\d+)?[hd](?:\/\d+(?:\.\d+)?[hd])?/gi, '')
+            .replace(/(?<!\w)(?:!!!|!!|!)(?![\w"'])/g, '')
+            .replace(/(?:^|\s)@[A-Za-z0-9_.-]+/g, ' ')
+            .replace(/(?:^|\s)#[^\s]+/g, ' ')
+            .replace(/(?:^|\s)[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, ' ')
+            .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
+            .replace(/(?<!~)\b\d+(?:\.\d+)?[dwmy]\b/gi, '')
+            .replace(/\b\d{1,3}%\b/g, '');
+        return {
+            name: protectedLine.replace(/^\s*\*(?:\s*[+-]\d+[dwmy])?/i, '').replace(/\s+/g, ' ').trim(),
+        };
+    }
+
+    function taskMetadata(line) {
+        if (typeof TaskLineTokenizer !== 'undefined') {
+            return TaskLineTokenizer.metadata(line).values;
+        }
+        return fallbackMetadata(line);
+    }
+
+    function parseDependencySpec(spec) {
+        let value = spec.trim();
+        let lag = '';
+        let type = 'FS';
+        const lagMatch = LAG.exec(value);
+        if (lagMatch) {
+            value = lagMatch[1].trim();
+            lag = lagMatch[2];
+        }
+        const typeMatch = DEP_TYPE.exec(value);
+        if (typeMatch) {
+            value = typeMatch[1].trim();
+            type = typeMatch[2].toUpperCase();
+        }
+        return { rawName: value, type, lag };
+    }
+
+    class TaskNode {
+        constructor(id, physical, indentText, content, metadata) {
+            this.id = id;
+            this.name = metadata.name;
+            this.metadata = { ...metadata };
+            this.indentText = indentText;
+            this.indent = indentText.length;
+            this.content = content;
+            this.eol = physical.eol;
+            this.parent = null;
+            this.children = [];
+            this.trailing = [];
+            this.dependencies = [];
+            this.successors = new Set();
+            this.sequential = /^\*(?:\s*[+-]\d+[dwmy])?/i.test(content);
+            const outsideDependencies = content.replace(/\[depends\s*:?\s*[^\]]*\]/gi, '');
+            this.deliverable = (DELIVERABLE.exec(outsideDependencies) || [])[1] || null;
+            this.originalName = this.name;
+            this._nameDirty = false;
         }
     }
 
-    TOKEN_PATTERN.lastIndex = 0;
-    let match;
-    while ((match = TOKEN_PATTERN.exec(line))) {
-        const start = match.index;
-        if (protectedRanges.some(([rangeStart, rangeEnd]) => start >= rangeStart && start < rangeEnd) ||
-            tokens.some((token) => start >= token.start && start < token.end)) continue;
-        const text = match[0];
-        const type = text[0] === '~' ? 'effort'
-            : text[0] === '!' ? 'priority'
-                : text[0] === '@' ? 'resource'
-                    : text[0] === '#' ? 'label'
-                        : text.includes('$') ? 'product'
-                            : text.endsWith('%') ? 'percent'
-                                : /^\d{4}-/.test(text) ? 'date'
-                                    : 'duration';
-        addToken(tokens, line, type, start, start + text.length);
-    }
-    return tokens.sort((a, b) => a.start - b.start || b.end - a.end);
-}
-
-/**
- * Faithful copy of TaskLineTokenizer.metadata's *token extraction*, with
- * one deliberate deviation: `duration` keeps its unit letter (see the
- * TaskNode doc above for why). Everything else matches field for field.
- */
-export function taskLineMetadata(line) {
-    const tokens = tokenizeTaskLine(line);
-    const values = {
-        name: '', duration: '', startDate: '', finishDate: '', percent: '',
-        resources: [], labels: [], comment: '', priority: 'Low', bucket: '',
-        dependencies: [], recurrence: '', productType: undefined, deliverable: undefined,
-        effortCompleted: '', effortCompletedUnit: 'h', effortRemaining: '',
-        effortRemainingUnit: 'h', effortTotal: '', effortTotalUnit: 'h',
-        hasStar: false, starLagLead: '',
-    };
-    const removable = new Array(line.length).fill(false);
-    const dates = [];
-    for (const token of tokens) {
-        if (token.type !== 'star' && token.type !== 'star-lag') {
-            for (let i = token.start; i < token.end; i++) removable[i] = true;
+    class PlanModel {
+        constructor(text) {
+            this.originalText = String(text == null ? '' : text);
+            this.leading = [];
+            this.suffix = [];
+            this.roots = [];
+            this.tasks = [];
+            this._parse();
         }
-        const text = token.text;
-        if (token.type === 'star') values.hasStar = true;
-        else if (token.type === 'star-lag') values.starLagLead = text;
-        else if (token.type === 'comment' && !values.comment) values.comment = text.slice(1, -1);
-        else if (token.type === 'bucket' && !values.bucket) values.bucket = text.slice(1, -1).trim();
-        else if (token.type === 'priority') values.priority = text === '!!!' ? 'Urgent' : text === '!!' ? 'Important' : 'Medium';
-        else if (token.type === 'recurrence' && !values.recurrence) values.recurrence = text.replace(/^\[repeats\s+|\]$/gi, '').trim().toLowerCase();
-        else if (token.type === 'dependency') {
-            const content = text.replace(/^\[depends(?::\s*|\s+)|\]$/gi, '');
-            values.dependencies.push(...content.split(',').map((value) => value.trim()).filter(Boolean));
-        } else if (token.type === 'resource') values.resources.push(text.slice(1));
-        else if (token.type === 'label') values.labels.push(text.slice(1));
-        else if (token.type === 'duration') values.duration = text; // unit kept -- see header doc
-        else if (token.type === 'percent') values.percent = text.slice(0, -1);
-        else if (token.type === 'date') dates.push(text);
-        else if (token.type === 'product') {
-            values.productType = text[0] === '/' ? 'group' : text[0] === '^' ? 'external' : 'internal';
-            values.deliverable = text.replace(/^[/^]?\$/, '');
-        } else if (token.type === 'effort' && !values.effortTotal) {
-            const effort = /^~(\d+(?:\.\d+)?)([hd])(?:\/(\d+(?:\.\d+)?)([hd]))?$/.exec(text);
-            if (effort[3] !== undefined) {
-                values.effortCompleted = effort[1]; values.effortCompletedUnit = effort[2];
-                values.effortTotal = effort[3]; values.effortTotalUnit = effort[4];
-                values.effortRemaining = String(parseFloat(effort[3]) - parseFloat(effort[1]));
-                values.effortRemainingUnit = effort[4];
-            } else {
-                values.effortCompleted = '0'; values.effortCompletedUnit = effort[2];
-                values.effortTotal = effort[1]; values.effortTotalUnit = effort[2];
-                values.effortRemaining = effort[1]; values.effortRemainingUnit = effort[2];
+
+        static parse(text) { return new PlanModel(text); }
+
+        _parse() {
+            const physical = splitPhysicalLines(this.originalText);
+            let inFrontMatter = physical.length > 0 && physical[0].text === '---';
+            let frontMatterClosed = !inFrontMatter;
+            let inSuffix = false;
+            let previousTask = null;
+            const stack = [];
+
+            for (let index = 0; index < physical.length; index++) {
+                const line = physical[index];
+                if (inSuffix) { this.suffix.push(line); continue; }
+                if (inFrontMatter) {
+                    this.leading.push(line);
+                    if (index > 0 && line.text === '---') {
+                        inFrontMatter = false;
+                        frontMatterClosed = true;
+                    }
+                    continue;
+                }
+                if (frontMatterClosed && BACK_MATTER.test(line.text.trim())) {
+                    inSuffix = true;
+                    this.suffix.push(line);
+                    continue;
+                }
+                if (isTrailingOutlineSeparator(physical, index)) {
+                    if (previousTask) previousTask.trailing.push(line);
+                    else this.leading.push(line);
+                    continue;
+                }
+                if (!line.text.trim() || line.text.trimStart().startsWith('//')) {
+                    if (previousTask) previousTask.trailing.push(line);
+                    else this.leading.push(line);
+                    continue;
+                }
+
+                const indentText = (line.text.match(/^\s*/) || [''])[0];
+                const content = line.text.slice(indentText.length);
+                const metadata = taskMetadata(content);
+                const node = new TaskNode(this.tasks.length, line, indentText, content, metadata);
+                while (stack.length && stack[stack.length - 1].indent >= node.indent) stack.pop();
+                node.parent = stack.length ? stack[stack.length - 1] : null;
+                (node.parent ? node.parent.children : this.roots).push(node);
+                stack.push(node);
+                this.tasks.push(node);
+                previousTask = node;
+            }
+            this._resolveDependencies();
+        }
+
+        _resolveDependencies() {
+            for (const task of this.tasks) {
+                task.dependencies = [];
+                task.successors.clear();
+            }
+            const byName = new Map();
+            const byProduct = new Map();
+            for (const task of this.tasks) {
+                if (task.name) byName.set(task.name.toLowerCase(), task);
+                if (task.deliverable) byProduct.set(task.deliverable.toLowerCase(), task);
+            }
+            for (let index = 0; index < this.tasks.length; index++) {
+                const task = this.tasks[index];
+                const block = DEPENDS.exec(task.content);
+                const specs = block && block[1].trim()
+                    ? block[1].split(',').map(parseDependencySpec)
+                    : [];
+                if (task.sequential && this.tasks[index - 1]) {
+                    specs.unshift({ rawName: this.tasks[index - 1].name, type: 'FS', lag: '', shorthand: true });
+                }
+                for (const spec of specs) {
+                    const key = spec.rawName.toLowerCase();
+                    const target = spec.rawName.startsWith('$')
+                        ? byProduct.get(spec.rawName.slice(1).toLowerCase()) || null
+                        : byName.get(key) || null;
+                    const edge = { ...spec, target, shorthand: Boolean(spec.shorthand) };
+                    task.dependencies.push(edge);
+                    if (target) target.successors.add(task);
+                }
             }
         }
-    }
-    if (values.effortTotal) {
-        const completed = parseFloat(values.effortCompleted) * (values.effortCompletedUnit === 'd' ? 8 : 1);
-        const total = parseFloat(values.effortTotal) * (values.effortTotalUnit === 'd' ? 8 : 1);
-        values.percent = String(Math.max(0, Math.min(100, Math.round(completed / total * 100))));
-    }
-    values.startDate = dates[0] || '';
-    values.finishDate = dates[1] || '';
-    values.name = line.split('').filter((_, index) => !removable[index]).join('')
-        .replace(/^\s*\*(?:\s*[+\-]\d+[dwmy])?/, '').replace(/\s+/g, ' ').trim();
-    return values;
-}
 
-const LEVEL_SEP = ' › '; // matches msproject-task-diff.js's LEVEL_SEP
+        taskAt(index) { return this.tasks[index] || null; }
 
-/** One task line -- see the module header for the full field reference. */
-export class TaskNode {
-    constructor(raw, lineIndex) {
-        this.kind = 'task';
-        this.raw = raw;
-        this.lineIndex = lineIndex;
-        this.indent = raw.length - raw.replace(/^\s*/, '').length;
-        this.parent = null;
-        this.children = [];
-        this.id = '';
-        Object.assign(this, taskLineMetadata(raw));
-    }
+        findById(id) { return this.tasks.find(task => task.id === id) || null; }
 
-    get isSummary() {
-        return this.children.length > 0;
-    }
-}
-
-/** A non-task line inside the task outline: blank, or a `//` line comment. */
-function makeOutlineLine(raw, lineIndex, kind) {
-    return { kind, raw, lineIndex };
-}
-
-/**
- * Build the task tree from the task-outline segment's lines. Mirrors
- * msproject-task-diff.js's parseTaskOutline() indent-stack approach and
- * its duplicate-sibling-name disambiguation (#838), adapted to build real
- * object links instead of string keys -- see that module for the
- * original, narrower-purpose version this generalises.
- *
- * Blank lines and `//`-prefixed comment lines are not tasks -- this
- * matches how both scheduling engines already treat them
- * (scheduling_engine.py and static/engine/scheduler.js both skip them),
- * not msproject-task-diff.js's more permissive parseTaskOutline (built
- * for a narrower diffing purpose, so it doesn't need to agree with the
- * scheduler on what counts as a task).
- */
-function buildOutline(taskOutlineRaw, lineOffset) {
-    const rawLines = taskOutlineRaw.split('\n');
-    const lines = [];
-    const roots = [];
-    const nodes = [];
-    const stack = []; // { indent, node }
-    const childOccurrences = new Map(); // parentId -> Map(name -> count)
-
-    rawLines.forEach((raw, i) => {
-        const lineIndex = lineOffset + i;
-        if (!raw.trim()) {
-            lines.push(makeOutlineLine(raw, lineIndex, 'blank'));
-            return;
-        }
-        if (raw.trimStart().startsWith('//')) {
-            lines.push(makeOutlineLine(raw, lineIndex, 'comment'));
-            return;
+        findByName(name, level) {
+            const wanted = String(name || '');
+            return this.tasks.find(task => task.name === wanted &&
+                (level == null || Math.floor(task.indent / 2) + 1 === level)) || null;
         }
 
-        const node = new TaskNode(raw, lineIndex);
-        while (stack.length && stack[stack.length - 1].indent >= node.indent) stack.pop();
-        const parent = stack.length ? stack[stack.length - 1].node : null;
-        node.parent = parent;
-        if (parent) parent.children.push(node);
-        else roots.push(node);
+        successorsOf(task) { return task ? Array.from(task.successors) : []; }
 
-        const parentId = parent ? parent.id : '';
-        if (!childOccurrences.has(parentId)) childOccurrences.set(parentId, new Map());
-        const counts = childOccurrences.get(parentId);
-        const occurrence = (counts.get(node.name) || 0) + 1;
-        counts.set(node.name, occurrence);
-        const segment = occurrence > 1 ? `${node.name}#${occurrence}` : node.name;
-        node.id = parentId ? parentId + LEVEL_SEP + segment : segment;
+        findSuccessors(task) { return this.successorsOf(task); }
 
-        lines.push(node);
-        nodes.push(node);
-        stack.push({ indent: node.indent, node });
-    });
+        rename(task, newName) {
+            if (!task || !String(newName).trim()) return false;
+            const oldName = task.name;
+            // A name becomes one physical line via _serialiseContent/serialize;
+            // an embedded newline would split it into extra lines that could be
+            // mistaken for structure (e.g. a back-matter marker) on the next
+            // parse, so collapse rather than pass it through.
+            task.name = String(newName).replace(/[\r\n]+/g, ' ').trim();
+            task.metadata.name = task.name;
+            task._nameDirty = task.name !== task.originalName;
+            this._renameThemeEntry(oldName, task.name);
+            this._renameWhiteboardRows(oldName, task.name);
+            return true;
+        }
 
-    return { lines, roots, nodes };
-}
+        _renameThemeEntry(oldName, newName) {
+            let inTheme = false;
+            for (const line of this.leading) {
+                if (/^Theme:\s*$/.test(line.text)) { inTheme = true; continue; }
+                if (!inTheme) continue;
+                const entry = /^(\s*-\s*)(.*?)(\s*:\s*#[0-9a-f]{6}\s*)$/i.exec(line.text);
+                if (entry) {
+                    if (entry[2] === oldName) line.text = entry[1] + newName + entry[3];
+                    continue;
+                }
+                if (/^\S/.test(line.text) && line.text.trim()) inTheme = false;
+            }
+        }
 
-// Same generic back-matter marker already established for this exact
-// purpose in static/engine/local-parse.js's planBody() (issue #844) --
-// reused here rather than re-deriving a marker list, so a new back-matter
-// section type needs no change in either place.
-const BACK_MATTER_MARKER = /^---[a-z][a-z -]*---$/m;
-const FRONT_MATTER_BLOCK = /^---\r?\n[\s\S]*?\r?\n---/;
+        _renameWhiteboardRows(oldName, newName) {
+            let inWhiteboard = false;
+            let taskColumn = -1;
+            for (const line of this.suffix) {
+                const marker = line.text.trim().toLowerCase();
+                if (BACK_MATTER.test(marker)) {
+                    inWhiteboard = marker === '---whiteboard---';
+                    taskColumn = -1;
+                    continue;
+                }
+                if (!inWhiteboard || !line.text.includes('|')) continue;
+                const cells = line.text.split('|');
+                if (taskColumn < 0) {
+                    taskColumn = cells.findIndex(cell => cell.trim().toLowerCase() === 'task');
+                    continue;
+                }
+                if (taskColumn >= cells.length || cells[taskColumn].trim() !== oldName) continue;
+                const cell = cells[taskColumn];
+                const leading = (cell.match(/^\s*/) || [''])[0];
+                const trailing = (cell.match(/\s*$/) || [''])[0];
+                cells[taskColumn] = leading + newName + trailing;
+                line.text = cells.join('|');
+            }
+        }
 
-/**
- * Split plan text into front matter / task outline / back matter, each
- * captured as an exact substring. The split is a plain string partition
- * (`frontMatterRaw + taskOutlineRaw + backMatterRaw === text` always,
- * by construction -- see below), so nothing here can break byte-identical
- * round-tripping even in an edge case the marker regexes get "wrong".
- */
-function splitPlanText(text) {
-    let frontMatterRaw = '';
-    let rest = text;
-    const fm = FRONT_MATTER_BLOCK.exec(text);
-    if (fm && fm.index === 0) {
-        frontMatterRaw = fm[0];
-        rest = text.slice(frontMatterRaw.length);
+        updateLine(task, updater) {
+            if (!task || typeof updater !== 'function') return false;
+            const fullLine = task.indentText + this._serialiseContent(task);
+            const updated = updater(fullLine);
+            if (typeof updated !== 'string') return false;
+            const indent = (updated.match(/^\s*/) || [''])[0].length;
+            task.indent = indent;
+            task.indentText = updated.slice(0, indent);
+            task.content = updated.slice(indent);
+            const metadata = taskMetadata(task.content);
+            task.metadata = { ...metadata };
+            if (metadata.name) {
+                task.name = metadata.name;
+                task.originalName = metadata.name;
+                task._nameDirty = false;
+            }
+            this._resolveDependencies();
+            return true;
+        }
+
+        moveAsChild(task, target, afterChildren) {
+            if (!task || !target || task === target || this._contains(task, target)) return false;
+            const sequentialTargets = this._captureSequentialTargets();
+            const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
+            const oldList = task.parent ? task.parent.children : this.roots;
+            const oldIndex = oldList.indexOf(task);
+            if (oldIndex < 0) return false;
+            oldList.splice(oldIndex, 1);
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
+            task.parent = target;
+            if (afterChildren) target.children.push(task);
+            else target.children.unshift(task);
+            this._setIndent(task, target.indent + 2);
+            this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._expandBrokenSequentialLinks(sequentialTargets);
+            this._resolveDependencies();
+            return true;
+        }
+
+        moveBefore(task, target) { return this._moveBeside(task, target, false); }
+
+        moveAfter(task, target) { return this._moveBeside(task, target, true); }
+
+        moveAsRoot(task) {
+            if (!task) return false;
+            const sequentialTargets = this._captureSequentialTargets();
+            const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
+            const oldList = task.parent ? task.parent.children : this.roots;
+            const oldIndex = oldList.indexOf(task);
+            if (oldIndex < 0) return false;
+            if (!task.parent && oldIndex === this.roots.length - 1) return false;
+            oldList.splice(oldIndex, 1);
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
+            task.parent = null;
+            this.roots.push(task);
+            this._setIndent(task, 0);
+            this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._expandBrokenSequentialLinks(sequentialTargets);
+            this._resolveDependencies();
+            return true;
+        }
+
+        _moveBeside(task, target, after) {
+            if (!task || !target || task === target || this._contains(task, target)) return false;
+            const sequentialTargets = this._captureSequentialTargets();
+            const hadFinalEol = this._hasFinalLineEnding();
+            const oldPredecessor = this._predecessorOf(task);
+            const oldList = task.parent ? task.parent.children : this.roots;
+            const oldIndex = oldList.indexOf(task);
+            if (oldIndex < 0) return false;
+            oldList.splice(oldIndex, 1);
+
+            const targetList = target.parent ? target.parent.children : this.roots;
+            const targetIndex = targetList.indexOf(target);
+            if (targetIndex < 0) {
+                oldList.splice(oldIndex, 0, task);
+                return false;
+            }
+            this._dropTrailingBlankLines(task);
+            if (oldPredecessor) this._dropTrailingBlankLines(oldPredecessor);
+            task.parent = target.parent;
+            targetList.splice(targetIndex + (after ? 1 : 0), 0, task);
+            this._setIndent(task, target.indent);
+            this._refreshTaskOrder();
+            this._dropPredecessorBlankTrailing(task);
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._expandBrokenSequentialLinks(sequentialTargets);
+            this._resolveDependencies();
+            return true;
+        }
+
+        _captureSequentialTargets() {
+            const targets = new Map();
+            for (const task of this.tasks) {
+                const edge = task.dependencies.find(dependency => dependency.shorthand);
+                if (edge && edge.target) targets.set(task, edge.target);
+            }
+            return targets;
+        }
+
+        _expandBrokenSequentialLinks(targets) {
+            for (const [task, predecessor] of targets) {
+                const index = this.tasks.indexOf(task);
+                if (index > 0 && this.tasks[index - 1] === predecessor) continue;
+
+                const star = /^(\*)\s*([+-]\d+[dwmy])?\s*/i.exec(task.content);
+                if (!star) continue;
+                const dependency = predecessor.name + (star[2] ? ' ' + star[2] : '');
+                let content = task.content.slice(star[0].length);
+                const block = DEPENDS.exec(content);
+                if (block) {
+                    const separator = block[1].trim() ? ', ' : '';
+                    const replacement = block[0].replace(
+                        block[1],
+                        block[1] + separator + dependency
+                    );
+                    content = content.slice(0, block.index) + replacement +
+                        content.slice(block.index + block[0].length);
+                } else {
+                    content = content.trimEnd() + ' [depends: ' + dependency + ']';
+                }
+                task.content = content;
+                task.sequential = false;
+                task.metadata = { ...taskMetadata(content) };
+            }
+        }
+
+        // insertTaskAfter()/removeTask() -- the notepad surface's own
+        // structural operations -- live further down (after
+        // _normalisePhysicalLineEndings()), where the #1049 implementation
+        // that ships in main defines them; no separate copy needed here.
+
+        /**
+         * Check whether `task` could be made to depend on `predecessor`
+         * (predecessor finishes before task starts, a plain FS link) --
+         * without mutating anything. Used for live drag-hover feedback
+         * (#1052), where re-checking on every pointer move must be cheap
+         * and side-effect-free.
+         */
+        canAddDependency(task, predecessor) {
+            if (!task || !predecessor) return { ok: false, reason: 'Pick two tasks to link.' };
+            if (task === predecessor) return { ok: false, reason: 'A task cannot depend on itself.' };
+            if (task.dependencies.some(edge => edge.target === predecessor)) {
+                return { ok: false, reason: `"${task.name}" already depends on "${predecessor.name}".` };
+            }
+            if (this._wouldCreateCycle(task, predecessor)) {
+                return { ok: false, reason: 'That would create a circular dependency.' };
+            }
+            return { ok: true, reason: '' };
+        }
+
+        /**
+         * Would adding the edge predecessor -> task (task depends on
+         * predecessor) close a cycle? True iff `predecessor` is already
+         * reachable from `task` by following existing dependency edges
+         * forward (task -> ... -> predecessor already exists, so the new
+         * edge would complete a loop). Reuses the successors graph
+         * _resolveDependencies() already builds -- no separate traversal
+         * structure to keep in sync.
+         */
+        _wouldCreateCycle(task, predecessor) {
+            const stack = [task];
+            const visited = new Set();
+            while (stack.length) {
+                const current = stack.pop();
+                if (current === predecessor) return true;
+                if (visited.has(current)) continue;
+                visited.add(current);
+                for (const successor of current.successors) stack.push(successor);
+            }
+            return false;
+        }
+
+        /**
+         * Make `task` depend on `predecessor` (a plain FS link), appending
+         * to task's existing [depends: ...] block or creating one. Refuses
+         * -- returns false, changes nothing -- for a self-dependency, a
+         * duplicate, or one that would create a cycle (see
+         * canAddDependency(), which this reuses for the check).
+         */
+        addDependency(task, predecessor) {
+            if (!this.canAddDependency(task, predecessor).ok) return false;
+
+            this.updateLine(task, (line) => {
+                const block = DEPENDS.exec(line);
+                if (block) {
+                    const inner = block[1].trim();
+                    const newInner = inner ? inner + ', ' + predecessor.name : predecessor.name;
+                    const replacement = block[0].replace(block[1], newInner);
+                    return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+                }
+                return line.replace(/\s+$/, '') + ' [depends: ' + predecessor.name + ']';
+            });
+            return true;
+        }
+
+        /**
+         * Remove task's dependency on predecessor. Only removes an
+         * explicit [depends: ...] entry -- an implicit sequential (`*`)
+         * dependency isn't stored as text to remove from, so it isn't
+         * handled here; the caller would need to drop the `*` prefix
+         * itself (a different edit, out of this method's scope).
+         */
+        removeDependency(task, predecessor) {
+            if (!task || !predecessor) return false;
+            const edge = task.dependencies.find(d => d.target === predecessor && !d.shorthand);
+            if (!edge) return false;
+
+            this.updateLine(task, (line) => {
+                const block = DEPENDS.exec(line);
+                if (!block) return line;
+                const specs = block[1].split(',').map(s => s.trim()).filter(Boolean);
+                const remaining = specs.filter(spec => {
+                    const parsed = parseDependencySpec(spec);
+                    const key = parsed.rawName.toLowerCase();
+                    if (key.startsWith('$')) {
+                        return !(predecessor.deliverable && key.slice(1) === predecessor.deliverable.toLowerCase());
+                    }
+                    return key !== predecessor.name.toLowerCase();
+                });
+                if (remaining.length) {
+                    const replacement = block[0].replace(block[1], remaining.join(', '));
+                    return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+                }
+                // No specs left: drop the whole [depends: ...] block and
+                // any single trailing/leading space it leaves behind.
+                const before = line.slice(0, block.index);
+                const after = line.slice(block.index + block[0].length);
+                if (before.endsWith(' ') && !after.startsWith(' ')) return (before.slice(0, -1) + after).replace(/\s+$/, '');
+                return (before + after).replace(/\s+$/, '');
+            });
+            return true;
+        }
+
+        /**
+         * Serialise `task` and its whole subtree as a portable, self-
+         * contained fragment (#1050 "cards"): each line is `task.content`
+         * (no indentText from the source plan), indented purely relative to
+         * `task` itself -- `task` sits at column 0, its children at column
+         * 2, and so on -- so the fragment can be re-inserted at any depth
+         * in a different plan via insertCardAfter() without carrying the
+         * source plan's own absolute indentation along.
+         */
+        cardTextFor(task) {
+            if (!task) return '';
+            const lines = [];
+            const baseIndent = task.indent;
+            const walk = node => {
+                const relative = Math.max(0, node.indent - baseIndent);
+                lines.push(' '.repeat(relative) + node.content);
+                node.children.forEach(walk);
+            };
+            walk(task);
+            return lines.join('\n');
+        }
+
+        /**
+         * Insert a card fragment (as produced by cardTextFor(), or any
+         * outline text with the shallowest line at relative indent 0) as
+         * new sibling tasks starting immediately after `afterTask`, at
+         * `indent` (a `task.indent` value, matching insertTaskAfter()).
+         * Each line becomes its own TaskNode via insertTaskAfter(),
+         * chaining each newly inserted node as the anchor for the next --
+         * the same placement rule a user gets by typing the lines in one
+         * at a time -- so the fragment's own internal hierarchy (however
+         * deep) is reconstructed relative to `indent`, not just appended
+         * flat. Blank lines in the fragment are dropped. Returns the
+         * inserted nodes in document order (empty array if `cardText` had
+         * no non-blank lines).
+         */
+        insertCardAfter(afterTask, indent, cardText) {
+            const rawLines = String(cardText || '').split(/\r\n|\n|\r/).filter(line => line.trim() !== '');
+            if (!rawLines.length) return [];
+            const parsedLines = rawLines.map(line => {
+                const indentText = (line.match(/^\s*/) || [''])[0];
+                return { indent: indentText.length, content: line.slice(indentText.length) };
+            });
+            const minIndent = Math.min(...parsedLines.map(line => line.indent));
+            const baseIndent = Math.max(0, indent);
+            const inserted = [];
+            let anchor = afterTask;
+            for (const line of parsedLines) {
+                const relative = line.indent - minIndent;
+                const node = this.insertTaskAfter(anchor, baseIndent + relative, line.content);
+                inserted.push(node);
+                anchor = node;
+            }
+            return inserted;
+        }
+
+        _preferredEol() {
+            const physical = [];
+            this.leading.forEach(line => physical.push(line));
+            const collect = t => { physical.push(t); t.trailing.forEach(l => physical.push(l)); t.children.forEach(collect); };
+            this.roots.forEach(collect);
+            this.suffix.forEach(line => physical.push(line));
+            return physical.find(line => line.eol)?.eol || '\n';
+        }
+
+        _hasFinalLineEnding() {
+            return /(?:\r\n|\n|\r)$/.test(this.serialize());
+        }
+
+        _normalisePhysicalLineEndings(hadFinalEol) {
+            const physical = [];
+            this.leading.forEach(line => physical.push(line));
+            const collect = task => {
+                physical.push(task);
+                task.trailing.forEach(line => physical.push(line));
+                task.children.forEach(collect);
+            };
+            this.roots.forEach(collect);
+            this.suffix.forEach(line => physical.push(line));
+            if (!physical.length) return;
+
+            const preferred = physical.find(line => line.eol)?.eol || '\n';
+            for (let index = 0; index < physical.length - 1; index++) {
+                if (!physical[index].eol) physical[index].eol = preferred;
+            }
+            const last = physical[physical.length - 1];
+            last.eol = hadFinalEol ? (last.eol || preferred) : '';
+        }
+
+        /**
+         * Insert a new task as a sibling immediately after `afterTask` (or as
+         * the last root task when `afterTask` is null), at the given indent
+         * depth (a `task.indent` value, i.e. spaces not outline levels).
+         * The counterpart writers (notepad list surface, #1049; the "+ Add
+         * Task" row helpers) create tasks this way instead of splicing raw
+         * text, so a freshly-typed task gets exactly the same TaskNode
+         * shape -- metadata, dependants, physical-line bookkeeping -- as one
+         * parsed from a file.
+         */
+        insertTaskAfter(afterTask, indent, name) {
+            const hadFinalEol = this._hasFinalLineEnding();
+            indent = Math.max(0, indent);
+            const indentText = ' '.repeat(indent);
+            const content = String(name || '').replace(/[\r\n]+/g, ' ').trim();
+            const physical = { text: indentText + content, eol: '' };
+            const node = new TaskNode(this.tasks.length, physical, indentText, content, taskMetadata(content));
+
+            if (!afterTask) {
+                node.parent = null;
+                this.roots.push(node);
+            } else if (indent > afterTask.indent) {
+                // Deeper than the anchor: nest as its last child.
+                node.parent = afterTask;
+                afterTask.children.push(node);
+            } else {
+                // Same depth or shallower: walk up to the ancestor-or-self of
+                // afterTask that sits at (or just above) the requested depth,
+                // and insert as its next sibling. Descendants of that
+                // ancestor live in its own nested children array rather than
+                // this list, so the new node lands after its whole subtree.
+                let boundary = afterTask;
+                while (boundary.parent && boundary.parent.indent >= indent) boundary = boundary.parent;
+                node.parent = boundary.parent;
+                const list = boundary.parent ? boundary.parent.children : this.roots;
+                list.splice(list.indexOf(boundary) + 1, 0, node);
+            }
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return node;
+        }
+
+        /**
+         * Remove a leaf task (one with no children) from the document.  Any
+         * blank/comment lines trailing it are folded onto the previous
+         * physical line so deleting a task never silently drops content.
+         * Refuses to remove a task that has children -- callers should
+         * outdent or remove those first, the same way a user would have to
+         * clear a summary row's children before deleting it.
+         *
+         * Also used to drop a phase header left with nothing under it once
+         * its last task moved elsewhere, rather than leave a dead,
+         * permanently empty column on the board (#1055, #1065).
+         */
+        removeTask(task) {
+            if (!task || task.children.length) return false;
+            const list = task.parent ? task.parent.children : this.roots;
+            const index = list.indexOf(task);
+            if (index < 0) return false;
+            const hadFinalEol = this._hasFinalLineEnding();
+            const order = this.tasks;
+            const position = order.indexOf(task);
+            list.splice(index, 1);
+            if (task.trailing.length) {
+                const previous = order[position - 1];
+                if (previous) previous.trailing.push(...task.trailing);
+                else this.leading.push(...task.trailing);
+            }
+            this._refreshTaskOrder();
+            this._normalisePhysicalLineEndings(hadFinalEol);
+            this._resolveDependencies();
+            return true;
+        }
+
+        indentTasks(tasks) {
+            const selected = new Set(tasks);
+            const roots = tasks.filter(task => {
+                for (let parent = task.parent; parent; parent = parent.parent) if (selected.has(parent)) return false;
+                return true;
+            });
+            for (const task of roots) this._setIndent(task, task.indent + 2);
+            this._rebuildHierarchyFromIndents();
+            return tasks.length > 0;
+        }
+
+        outdentTasks(tasks) {
+            const selected = new Set(tasks);
+            const roots = tasks.filter(task => {
+                for (let parent = task.parent; parent; parent = parent.parent) if (selected.has(parent)) return false;
+                return true;
+            });
+            for (const task of roots) this._setIndent(task, Math.max(0, task.indent - 2));
+            this._rebuildHierarchyFromIndents();
+            return tasks.length > 0;
+        }
+
+        _rebuildHierarchyFromIndents() {
+            this.roots = [];
+            const stack = [];
+            for (const task of this.tasks) {
+                task.children = [];
+                while (stack.length && stack[stack.length - 1].indent >= task.indent) stack.pop();
+                task.parent = stack.length ? stack[stack.length - 1] : null;
+                (task.parent ? task.parent.children : this.roots).push(task);
+                stack.push(task);
+            }
+            this._resolveDependencies();
+        }
+
+        // A task's `trailing` lines are blank/comment lines that happened to
+        // follow it at its *old* physical position. Blank ones are purely
+        // cosmetic spacing between neighbours -- carrying them along on a
+        // move re-homes them next to whatever now follows the task instead,
+        // which reads as a stray/misplaced blank line rather than the
+        // separator it used to be (#911). Non-blank trailing lines (e.g. a
+        // `//` comment) are real content and stay with the task.
+        _dropTrailingBlankLines(task) {
+            task.trailing = task.trailing.filter(line => line.text.trim() !== '');
+        }
+
+        // The task immediately before `task` in the current serialization
+        // order, or null if `task` is first. Read this.tasks *before*
+        // mutating the tree for a move's old predecessor, or after
+        // _refreshTaskOrder() for its new one.
+        _predecessorOf(task) {
+            const index = this.tasks.indexOf(task);
+            return index > 0 ? this.tasks[index - 1] : null;
+        }
+
+        // The task now immediately before `task` in serialization order (if
+        // any) used to be followed by something else -- its own blank
+        // trailing lines represented that old gap, not this new one, so
+        // they'd otherwise land as a stray blank line right before `task`
+        // at its new position (#911). Call after _refreshTaskOrder() so
+        // this.tasks reflects the post-move order.
+        _dropPredecessorBlankTrailing(task) {
+            const predecessor = this._predecessorOf(task);
+            if (predecessor) this._dropTrailingBlankLines(predecessor);
+        }
+
+        _contains(ancestor, possibleChild) {
+            for (let node = possibleChild; node; node = node.parent) if (node === ancestor) return true;
+            return false;
+        }
+
+        _setIndent(task, indent) {
+            const difference = indent - task.indent;
+            const walk = node => {
+                node.indent = Math.max(0, node.indent + difference);
+                node.indentText = ' '.repeat(node.indent);
+                node.children.forEach(walk);
+            };
+            walk(task);
+        }
+
+        _refreshTaskOrder() {
+            const ordered = [];
+            const walk = task => { ordered.push(task); task.children.forEach(walk); };
+            this.roots.forEach(walk);
+            ordered.forEach((task, index) => { task.id = index; });
+            this.tasks = ordered;
+        }
+
+        _serialiseContent(task) {
+            let content = task.content;
+            if (task._nameDirty) {
+                const star = /^(\*(?:\s*[+-]\d+[dwmy])?\s*)/i.exec(content);
+                const offset = star ? star[0].length : 0;
+                const oldAt = content.indexOf(task.originalName, offset);
+                if (oldAt >= 0) {
+                    content = content.slice(0, oldAt) + task.name + content.slice(oldAt + task.originalName.length);
+                }
+            }
+            const block = DEPENDS.exec(content);
+            if (block) {
+                const explicit = task.dependencies.filter(edge => !edge.shorthand);
+                let changed = false;
+                const values = explicit.map(edge => {
+                    let name = edge.rawName;
+                    if (edge.target && edge.target._nameDirty && !name.startsWith('$')) {
+                        name = edge.target.name;
+                        changed = true;
+                    }
+                    const type = edge.type && edge.type !== 'FS' ? ':' + edge.type : '';
+                    return name + type + (edge.lag ? ' ' + edge.lag : '');
+                });
+                if (changed) {
+                    const replacement = block[0].replace(block[1], values.join(', '));
+                    content = content.slice(0, block.index) + replacement + content.slice(block.index + block[0].length);
+                }
+            }
+            return content;
+        }
+
+        serialize() {
+            const output = [];
+            const emitPhysical = line => output.push(line.text + line.eol);
+            this.leading.forEach(emitPhysical);
+            const emitTask = task => {
+                output.push(task.indentText + this._serialiseContent(task) + task.eol);
+                task.trailing.forEach(emitPhysical);
+                task.children.forEach(emitTask);
+            };
+            this.roots.forEach(emitTask);
+            this.suffix.forEach(emitPhysical);
+            return output.join('');
+        }
+
+        serialise() { return this.serialize(); }
+
+        toMarkdown() { return this.serialize(); }
+
+        lineNumber(task) {
+            if (!task) return -1;
+            const before = [];
+            const walk = node => {
+                if (node === task) return true;
+                before.push(node);
+                for (const child of node.children) if (walk(child)) return true;
+                return false;
+            };
+            let found = false;
+            for (const rootTask of this.roots) { if (walk(rootTask)) { found = true; break; } }
+            if (!found) return -1;
+            let lines = this.leading.reduce((sum, line) => sum + (line.eol ? 1 : 0), 0) + 1;
+            for (const node of before) lines += 1 + node.trailing.reduce((sum, line) => sum + (line.eol ? 1 : 0), 0);
+            return lines;
+        }
     }
 
-    let taskOutlineRaw = rest;
-    let backMatterRaw = '';
-    const marker = BACK_MATTER_MARKER.exec(rest);
-    if (marker) {
-        taskOutlineRaw = rest.slice(0, marker.index);
-        backMatterRaw = rest.slice(marker.index);
+    function modelForEditor(editor) {
+        if (!editor) return null;
+        if (!editor._noodlePlanModel || editor._noodlePlanModelText !== editor.value) {
+            editor._noodlePlanModel = PlanModel.parse(editor.value);
+            editor._noodlePlanModelText = editor.value;
+        }
+        return editor._noodlePlanModel;
     }
 
-    return { frontMatterRaw, taskOutlineRaw, backMatterRaw };
-}
-
-/**
- * Parse a plan's full markdown text into a PlanModel:
- *   { frontMatterRaw, taskOutlineRaw, backMatterRaw, lines, roots, nodes }
- *
- * - frontMatterRaw / backMatterRaw: opaque, verbatim text (front matter
- *   and every back-matter section are explicitly out of scope for deep
- *   parsing -- see #915).
- * - lines: every line of the task-outline segment, in document order --
- *   TaskNodes and blank/comment passthrough entries alike. This is what
- *   `serializePlan` replays; it is the reason serialisation is exact.
- * - roots / nodes: the task tree (top-level nodes) and a flat, document-
- *   order list of every TaskNode, for convenient traversal/lookup.
- */
-export function parsePlan(text) {
-    const source = String(text ?? '');
-    const { frontMatterRaw, taskOutlineRaw, backMatterRaw } = splitPlanText(source);
-
-    // How many lines precede the task outline, for TaskNode.lineIndex to
-    // be a real index into source.split('\n') rather than into the
-    // outline segment alone.
-    const lineOffset = frontMatterRaw ? frontMatterRaw.split('\n').length - 1 : 0;
-
-    const { lines, roots, nodes } = buildOutline(taskOutlineRaw, lineOffset);
-
-    return { frontMatterRaw, taskOutlineRaw, backMatterRaw, lines, roots, nodes };
-}
-
-/**
- * Best-effort canonical line formatter: builds a task line from a node's
- * structured fields rather than replaying `raw`. This is what
- * `serializePlan` falls back to for a node with no captured `raw` (i.e.
- * one built programmatically rather than parsed) -- there is no such node
- * anywhere in this module yet, since nothing here mutates or creates
- * nodes, but #918/#919 will need exactly this kind of formatter once they
- * do.
- *
- * NOT asserted byte-identical to any particular original line: token
- * order, spacing, and quoting style vary across real plans (see
- * tests/fixtures/*.md) in ways a single canonical order cannot reproduce.
- * The round-trip guarantee this module is responsible for
- * (parse -> serialise with no edits is byte-identical) is carried by
- * `raw`, not by this function -- see the TaskNode doc for `raw`. Deciding
- * a real spacing/ordering policy for edited lines is left to #918/#919,
- * which are the first consumers that will actually need one.
- */
-export function formatTaskLine(node) {
-    const parts = [];
-    if (node.hasStar) parts.push(node.starLagLead ? `*${node.starLagLead}` : '*');
-    parts.push(node.name);
-    if (node.duration) parts.push(node.duration);
-    if (node.startDate) parts.push(node.startDate);
-    if (node.finishDate) parts.push(node.finishDate);
-    if (node.percent !== '') parts.push(`${node.percent}%`);
-    for (const resource of node.resources) parts.push(`@${resource}`);
-    if (node.priority === 'Urgent') parts.push('!!!');
-    else if (node.priority === 'Important') parts.push('!!');
-    else if (node.priority === 'Medium') parts.push('!');
-    if (node.effortTotal) {
-        parts.push(node.effortCompleted && node.effortCompleted !== '0'
-            ? `~${node.effortCompleted}${node.effortCompletedUnit}/${node.effortTotal}${node.effortTotalUnit}`
-            : `~${node.effortTotal}${node.effortTotalUnit}`);
+    function commitToEditor(editor, model) {
+        if (!editor || !model) return false;
+        editor.value = model.serialize();
+        editor._noodlePlanModel = model;
+        editor._noodlePlanModelText = editor.value;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
     }
-    if (node.deliverable) {
-        const sigil = node.productType === 'group' ? '/$' : node.productType === 'external' ? '^$' : '$';
-        parts.push(`${sigil}${node.deliverable}`);
-    }
-    if (node.bucket) parts.push(`{${node.bucket}}`);
-    if (node.dependencies.length) parts.push(`[depends ${node.dependencies.join(', ')}]`);
-    if (node.recurrence) parts.push(`[repeats ${node.recurrence}]`);
-    for (const label of node.labels) parts.push(`#${label}`);
-    if (node.comment) parts.push(`"${node.comment}"`);
-    return ' '.repeat(node.indent) + parts.join(' ');
-}
 
-/**
- * Write a PlanModel back to markdown text.
- *
- * front matter (verbatim) + serialised task outline + back matter
- * (verbatim), in the plan's original section order -- the round-trip
- * guarantee this module is required to uphold (see tests/test_plan_model
- * .mjs, which checks this against the full tests/fixtures/roundtrip and
- * tests/fixtures/conformance corpus, byte-identical, with no edits).
- *
- * Each outline line is `raw` when present (every parsed node has one --
- * this is what makes the guarantee exact rather than approximate) and
- * `formatTaskLine(node)` otherwise.
- */
-export function serializePlan(model) {
-    const outline = model.lines
-        .map((line) => (line.kind === 'task' ? (line.raw ?? formatTaskLine(line)) : line.raw))
-        .join('\n');
-    return model.frontMatterRaw + outline + model.backMatterRaw;
-}
+    return { PlanModel, TaskNode, modelForEditor, commitToEditor };
+});

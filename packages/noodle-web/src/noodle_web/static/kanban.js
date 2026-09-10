@@ -81,13 +81,15 @@ class KanbanBoard {
         this.tasks = [];
         this.columns = [];
         this.phases = [];
+        this.phaseLineNumbers = new Map();
+        this.phaseNodes = new Map();
+        this.planModel = null;
         this.resourceMap = {}; // Maps shortname to full name from front matter
         this.stakeholderShortnames = new Set(); // Shortnames declared in the stakeholders: section
         this.labelsFromFrontMatter = []; // Labels defined in front matter
         this.themeColours = {}; // Column background colours from front matter Theme section
         this.currentParentTask = null; // Track current hierarchy level for drill-down
         this.hierarchyBreadcrumb = []; // Breadcrumb trail for navigation
-        this.collapsedColumns = new Set();
         this.activeDrag = null;
         this.restorePreferences();
         this.handleDragEscape = event => {
@@ -111,16 +113,12 @@ class KanbanBoard {
         this.viewMode = this.defaultViewMode;
         this.sortByPriority = false;
         this.hideCompleted = false;
-        this.collapsedColumns = new Set();
         try {
             const saved = JSON.parse(localStorage.getItem(key) || '{}');
             const modes = ['phase', 'resource', 'progress', 'label', 'bucket'];
             if (modes.includes(saved.viewMode)) this.viewMode = saved.viewMode;
             this.sortByPriority = saved.sortByPriority === true;
             this.hideCompleted = saved.hideCompleted === true;
-            this.collapsedColumns = new Set(
-                Array.isArray(saved.collapsedColumns) ? saved.collapsedColumns : []
-            );
         } catch (error) {
             console.warn('Could not restore Kanban preferences:', error);
         }
@@ -134,8 +132,7 @@ class KanbanBoard {
             localStorage.setItem(key, JSON.stringify({
                 viewMode: this.viewMode,
                 sortByPriority: this.sortByPriority,
-                hideCompleted: this.hideCompleted,
-                collapsedColumns: Array.from(this.collapsedColumns)
+                hideCompleted: this.hideCompleted
             }));
             this.loadedPreferenceKey = key;
         } catch (error) {
@@ -162,8 +159,29 @@ class KanbanBoard {
 
         if (window.kanbanIsUpdating) window.kanbanIsUpdating(true);
         editor.value = nextText;
+        if (options.model) {
+            editor._noodlePlanModel = options.model;
+            editor._noodlePlanModelText = nextText;
+        }
         const kanbanEditor = document.getElementById('kanbanPlanEditor');
-        if (kanbanEditor) kanbanEditor.value = nextText;
+        if (kanbanEditor) {
+            kanbanEditor.value = nextText;
+            // Setting kanbanEditor.value here means it already matches
+            // editor.value by the time the 'input' dispatch below reaches
+            // the main->kanban mirror listener (script.js), so that listener's
+            // `kanbanEditor.value !== mainEditor.value` guard is false and it
+            // never re-dispatches 'input' on kanbanEditor. Without an 'input'
+            // event of its own, kanbanEditor's line-number gutter and syntax
+            // highlight overlay (populated by editor.js's per-editor
+            // _updateLineNumbers closure) never redraw, so the Kanban board's
+            // plan panel keeps showing the pre-drop markdown until some other
+            // edit happens to touch it -- same mechanism as #974, but for
+            // every board write-back (drag/drop included) rather than just
+            // switching projects (#1061).
+            if (kanbanEditor._updateLineNumbers) {
+                kanbanEditor._updateLineNumbers();
+            }
+        }
         if (typeof getCurrentProjectId === 'function') {
             const projectId = getCurrentProjectId();
             if (projectId && typeof updateCachedProject === 'function') {
@@ -194,7 +212,7 @@ class KanbanBoard {
         document.querySelectorAll(
             '.kanban-card.dragging, .kanban-card.drop-before, .kanban-card.drop-after, ' +
             '.kanban-column.dragging-column, .kanban-column.drop-left, .kanban-column.drop-right, ' +
-            '.kanban-column-body.drag-over'
+            '.kanban-column-body.drag-over, .kanban-add-column.drag-over'
         ).forEach(element => element.classList.remove(
             'dragging', 'drop-before', 'drop-after', 'dragging-column',
             'drop-left', 'drop-right', 'drag-over'
@@ -215,6 +233,11 @@ class KanbanBoard {
         this.tasks = [];
         this.columns = [];
         this.phases = [];
+        this.phaseLineNumbers = new Map();
+        this.phaseNodes = new Map();
+        this.planModel = typeof NoodlePlanModel !== 'undefined'
+            ? NoodlePlanModel.modelForEditor(editor)
+            : null;
         this.resourceMap = {};
         this.stakeholderShortnames = new Set();
         this.labelsFromFrontMatter = [];
@@ -456,6 +479,11 @@ class KanbanBoard {
                 currentPhase = cleanPhaseName(trimmed);
                 currentIndent = indent;
                 this.phases.push(currentPhase);
+                this.phaseLineNumbers.set(currentPhase, lineNum);
+                if (this.planModel) {
+                    this.phaseNodes.set(currentPhase,
+                        this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null);
+                }
                 continue;
             }
 
@@ -470,6 +498,11 @@ class KanbanBoard {
                     currentPhase = cleanPhaseName(trimmed);
                     currentIndent = indent;
                     this.phases.push(currentPhase);
+                    this.phaseLineNumbers.set(currentPhase, lineNum);
+                    if (this.planModel) {
+                        this.phaseNodes.set(currentPhase,
+                            this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null);
+                    }
                     continue;
                 }
             }
@@ -483,6 +516,9 @@ class KanbanBoard {
                 task.phase = currentPhase || 'Unassigned';
                 task.indent = indent;
                 task.originalLine = line;
+                task.planNode = this.planModel
+                    ? this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null
+                    : null;
 
                 // Parse resources into array and normalize to lowercase
                 const rawResources = task.resources ?
@@ -545,6 +581,44 @@ class KanbanBoard {
     }
 
     /**
+     * Resolve a task rendered from an earlier parse against the editor's
+     * latest PlanModel.  Object identity is used while the editor snapshot is
+     * unchanged; after an autosave/collaboration/editor rewrite, the node is
+     * re-resolved by its content and ancestry instead of its old line number.
+     */
+    resolveTaskNode(taskOrLineNumber, model) {
+        const renderedTask = typeof taskOrLineNumber === 'object'
+            ? taskOrLineNumber
+            : this.tasks.find(task => task.lineNumber === taskOrLineNumber);
+        const oldNode = renderedTask && renderedTask.planNode;
+        if (!oldNode || !model) return null;
+        if (model.tasks.includes(oldNode)) return oldNode;
+
+        const ancestry = node => {
+            const names = [];
+            for (let parent = node.parent; parent; parent = parent.parent) names.unshift(parent.name);
+            return names.join('\u0000');
+        };
+        let candidates = model.tasks.filter(node =>
+            node.content === oldNode.content && ancestry(node) === ancestry(oldNode));
+        if (candidates.length === 1) return candidates[0];
+        candidates = model.tasks.filter(node =>
+            node.name === oldNode.name && ancestry(node) === ancestry(oldNode));
+        return candidates.length === 1 ? candidates[0] : null;
+    }
+
+    resolvePhaseNode(columnOrTitle, model) {
+        const column = typeof columnOrTitle === 'object'
+            ? columnOrTitle
+            : this.columns.find(item => item.title === columnOrTitle);
+        const oldNode = column && (column.planNode || this.phaseNodes.get(column.title));
+        if (!oldNode || !model) return null;
+        if (model.tasks.includes(oldNode)) return oldNode;
+        const candidates = model.roots.filter(node => node.content === oldNode.content);
+        return candidates.length === 1 ? candidates[0] : null;
+    }
+
+    /**
      * Check if a column would be empty after filtering out completed tasks
      */
     isColumnEmptyAfterFilter(column) {
@@ -555,6 +629,7 @@ class KanbanBoard {
      * Check if a task has subtasks (is a summary task)
      */
     hasSubtasks(task) {
+        if (task.planNode) return task.planNode.children.length > 0;
         const taskIndent = task.indent;
         const taskLineNumber = task.lineNumber;
 
@@ -723,12 +798,18 @@ class KanbanBoard {
      * Group tasks based on current view mode
      */
     groupTasksByViewMode() {
+        // Cache this cycle's full task list before filtering by hierarchy level
+        // -- filterTasksByHierarchyLevel() (and getAllTasks()) read allTasksCache,
+        // so caching it afterwards left them reading the previous parse's tasks
+        // for the whole call, e.g. showing a just-dropped card under its old
+        // label/column until the next unrelated re-render caught the cache up (#973).
+        const allTasks = this.tasks;
+        this.allTasksCache = allTasks; // Cache for getAllTasks()
+
         // Filter tasks by hierarchy level first
         const filteredTasks = this.filterTasksByHierarchyLevel();
 
         // Temporarily replace this.tasks with filtered tasks for grouping
-        const allTasks = this.tasks;
-        this.allTasksCache = allTasks; // Cache for getAllTasks()
         this.tasks = filteredTasks;
 
         switch (this.viewMode) {
@@ -786,6 +867,9 @@ class KanbanBoard {
 
                 // Find all children of this summary task from the full task list
                 const children = this.getAllTasks().filter(t => {
+                    if (summaryTask.planNode && t.planNode) {
+                        return t.planNode.parent === summaryTask.planNode;
+                    }
                     // Must be after the summary task
                     if (t.lineNumber <= summaryTask.lineNumber) return false;
 
@@ -816,6 +900,8 @@ class KanbanBoard {
                 columns.push({
                     id: this.sanitizeId(summaryTask.name),
                     title: summaryTask.name,
+                    summaryLineNumber: summaryTask.lineNumber,
+                    planNode: summaryTask.planNode,
                     tasks: children,
                     count: children.length
                 });
@@ -838,6 +924,8 @@ class KanbanBoard {
                 columns.push({
                     id: this.sanitizeId(phase),
                     title: phase,
+                    summaryLineNumber: this.phaseLineNumbers.get(phase),
+                    planNode: this.phaseNodes.get(phase) || null,
                     tasks: phaseTasks,
                     count: phaseTasks.length
                 });
@@ -1065,6 +1153,10 @@ class KanbanBoard {
         const columns = [];
         const bucketSet = new Set();
 
+        // Declared columns lead, in front-matter declaration order. Buckets
+        // discovered only from task tokens follow in first-use order.
+        this.createdBuckets.forEach(bucket => bucketSet.add(bucket));
+
         // Collect all unique buckets from tasks
         this.tasks.forEach(task => {
             const bucket = task.bucket ? task.bucket.trim() : '';
@@ -1072,9 +1164,6 @@ class KanbanBoard {
                 bucketSet.add(bucket);
             }
         });
-
-        // Merge user-created buckets
-        this.createdBuckets.forEach(b => bucketSet.add(b));
 
         // Add "No Bucket" column
         bucketSet.add('No Bucket');
@@ -1385,6 +1474,8 @@ class KanbanBoard {
     renderAddColumnButton() {
         const addColumnEl = document.createElement('div');
         addColumnEl.className = 'kanban-add-column';
+        const acceptsCardDrop = ['phase', 'label', 'bucket'].includes(this.viewMode);
+        if (acceptsCardDrop) addColumnEl.setAttribute('data-drop-target', 'new-column');
 
         const button = document.createElement('button');
         button.className = 'kanban-add-column-btn';
@@ -1420,6 +1511,32 @@ class KanbanBoard {
         }
 
         addColumnEl.appendChild(button);
+
+        // #1070: the creation tile is also the natural drop target at the
+        // right edge of the board.  Keep the normal click behaviour, while a
+        // card drop creates the named grouping and assigns the card to it.
+        if (acceptsCardDrop) {
+            addColumnEl.addEventListener('dragover', (event) => {
+                if (!document.querySelector('.kanban-card.dragging')) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                addColumnEl.classList.add('drag-over');
+            });
+            addColumnEl.addEventListener('dragleave', (event) => {
+                if (!addColumnEl.contains(event.relatedTarget)) {
+                    addColumnEl.classList.remove('drag-over');
+                }
+            });
+            addColumnEl.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                addColumnEl.classList.remove('drag-over');
+                const taskLineNumber = parseInt(event.dataTransfer.getData('text/plain'), 10);
+                if (!this.activeDrag?.cancelled && Number.isInteger(taskLineNumber)) {
+                    this.handleNewColumnDrop(taskLineNumber);
+                }
+            });
+        }
         return addColumnEl;
     }
 
@@ -1434,9 +1551,6 @@ class KanbanBoard {
         columnEl.setAttribute('data-column-index', this.columns.indexOf(column));
         columnEl.setAttribute('role', 'region');
         columnEl.setAttribute('aria-label', `${column.name} column with ${column.tasks.length} task${column.tasks.length !== 1 ? 's' : ''}`);
-        const columnKey = `${this.viewMode}:${column.id}`;
-        const isCollapsed = this.collapsedColumns.has(columnKey);
-        columnEl.classList.toggle('collapsed', isCollapsed);
 
         // Filter out completed tasks if hideCompleted is enabled
         const visibleTasks = this.hideCompleted
@@ -1451,7 +1565,9 @@ class KanbanBoard {
         const titleEl = document.createElement('h3');
         titleEl.className = 'kanban-column-title';
         // Strip product markers (/$name, ^$name, $name) and clean up for display
-        titleEl.textContent = column.title.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '').replace(/_/g, ' ').trim();
+        const displayTitle = column.title.replace(/[/^]?\$[A-Za-z_][A-Za-z0-9_-]*/g, '').replace(/_/g, ' ').trim();
+        titleEl.textContent = displayTitle;
+        titleEl.title = displayTitle;
 
         // Make title editable in phase view
         if (this.viewMode === 'phase') {
@@ -1489,25 +1605,6 @@ class KanbanBoard {
         countEl.className = 'kanban-column-count';
         countEl.textContent = `${visibleCount} ${visibleCount === 1 ? 'task' : 'tasks'}`;
         headerEl.appendChild(countEl);
-
-        const collapseBtn = document.createElement('button');
-        collapseBtn.type = 'button';
-        collapseBtn.className = 'kanban-column-collapse';
-        collapseBtn.textContent = isCollapsed ? '\u25b6' : '\u25bc';
-        collapseBtn.title = `${isCollapsed ? 'Expand' : 'Collapse'} ${column.title}`;
-        collapseBtn.setAttribute('aria-label', collapseBtn.title);
-        collapseBtn.setAttribute('aria-expanded', String(!isCollapsed));
-        collapseBtn.addEventListener('click', event => {
-            event.stopPropagation();
-            if (this.collapsedColumns.has(columnKey)) {
-                this.collapsedColumns.delete(columnKey);
-            } else {
-                this.collapsedColumns.add(columnKey);
-            }
-            this.savePreferences();
-            this.render();
-        });
-        headerEl.appendChild(collapseBtn);
 
         // Add delete button for label view (except Unlabeled)
         if (this.viewMode === 'label' && column.title !== 'Unlabeled') {
@@ -1675,6 +1772,9 @@ class KanbanBoard {
 
             const taskLineNumber = parseInt(e.dataTransfer.getData('text/plain'));
             if (this.activeDrag?.cancelled || !Number.isInteger(taskLineNumber)) return;
+            const sourceBody = document.querySelector('.kanban-card.dragging')
+                ?.closest('.kanban-column-body');
+            if (this.viewMode !== 'phase' && sourceBody === bodyEl) return;
             this.handleCardDrop(taskLineNumber, column);
         });
 
@@ -1803,8 +1903,9 @@ class KanbanBoard {
             e.preventDefault();
             const draggingCard = document.querySelector('.dragging');
             if (draggingCard && draggingCard !== cardEl) {
-                // In bucket/label view, only show drop indicator for cross-column moves
-                if (this.viewMode === 'bucket' || this.viewMode === 'label') {
+                // Grouped views can change a task's grouping across columns, but
+                // order inside one group has no structural meaning (#926).
+                if (this.viewMode !== 'phase') {
                     const draggedColumn = draggingCard.closest('.kanban-column-body');
                     const targetColumn = cardEl.closest('.kanban-column-body');
                     if (draggedColumn === targetColumn) {
@@ -1839,9 +1940,12 @@ class KanbanBoard {
             const draggedLineNumber = parseInt(e.dataTransfer.getData('text/plain'));
             if (this.activeDrag?.cancelled || !Number.isInteger(draggedLineNumber)) return;
 
-            if (this.viewMode === 'bucket' || this.viewMode === 'label') {
-                // In bucket/label view, update assignment instead of reordering
+            if (this.viewMode !== 'phase') {
+                // In grouped views, update assignment/status instead of reordering.
                 const targetColumnBody = cardEl.closest('.kanban-column-body');
+                const sourceColumnBody = document.querySelector('.kanban-card.dragging')
+                    ?.closest('.kanban-column-body');
+                if (sourceColumnBody === targetColumnBody) return;
                 const targetColumnTitle = targetColumnBody ? targetColumnBody.getAttribute('data-column-title') : null;
                 if (targetColumnTitle) {
                     const column = this.columns.find(c => c.title === targetColumnTitle);
@@ -1860,9 +1964,11 @@ class KanbanBoard {
             this.handleCardReorder(draggedLineNumber, task.lineNumber, insertBefore);
         });
 
-        // Title row: checkbox on the left + header
-        const titleRowEl = document.createElement('div');
-        titleRowEl.className = 'kanban-card-title-row';
+        // Controls row: quick-complete checkbox, move dropdown, up/down buttons.
+        // Kept separate from the title row so the move dropdown never overlaps
+        // the card title (#956).
+        const controlsRowEl = document.createElement('div');
+        controlsRowEl.className = 'kanban-card-controls-row';
 
         // Quick-complete checkbox (round, on the left)
         const checkboxEl = document.createElement('input');
@@ -1879,40 +1985,7 @@ class KanbanBoard {
             }
             this.quickSetPercent(task, newPercent, cardEl);
         });
-        titleRowEl.appendChild(checkboxEl);
-
-        // Card header with title and resources
-        const headerEl = document.createElement('div');
-        headerEl.className = 'kanban-card-header';
-
-        const titleEl = document.createElement('h4');
-        titleEl.className = 'kanban-card-title';
-        titleEl.textContent = task.name;
-        headerEl.appendChild(titleEl);
-
-        // Resources avatars
-        if (task.resourcesArray.length > 0) {
-            const resourcesEl = document.createElement('div');
-            resourcesEl.className = 'kanban-card-resources';
-
-            // Show up to 10 resources
-            const resourcesToShow = task.resourcesArray.slice(0, 10);
-            resourcesToShow.forEach(resource => {
-                const avatarEl = document.createElement('div');
-                avatarEl.className = 'resource-avatar';
-                avatarEl.title = resource;
-
-                // Get initials (first letter of first and last name, or first 2 letters)
-                const initials = this.getInitials(resource);
-                avatarEl.textContent = initials;
-
-                resourcesEl.appendChild(avatarEl);
-            });
-
-            headerEl.appendChild(resourcesEl);
-        }
-
-        titleRowEl.appendChild(headerEl);
+        controlsRowEl.appendChild(checkboxEl);
 
         const moveSelect = document.createElement('select');
         moveSelect.className = 'kanban-card-move-select';
@@ -1934,9 +2007,9 @@ class KanbanBoard {
             const targetColumn = this.columns[parseInt(moveSelect.value, 10)];
             if (targetColumn) this.handleCardDrop(task.lineNumber, targetColumn);
         });
-        titleRowEl.appendChild(moveSelect);
+        controlsRowEl.appendChild(moveSelect);
 
-        if (this.viewMode !== 'bucket' && this.viewMode !== 'label') {
+        if (this.viewMode === 'phase') {
             const orderActions = document.createElement('div');
             orderActions.className = 'kanban-card-order-actions';
             const taskIndex = column.tasks.indexOf(task);
@@ -1963,9 +2036,72 @@ class KanbanBoard {
                 });
                 orderActions.appendChild(button);
             });
-            titleRowEl.appendChild(orderActions);
+            controlsRowEl.appendChild(orderActions);
         }
-        cardEl.appendChild(titleRowEl);
+        cardEl.appendChild(controlsRowEl);
+
+        // Title row: task title + resource avatars, on its own line below the
+        // controls so a long title never crowds the move dropdown (#956).
+        const headerEl = document.createElement('div');
+        headerEl.className = 'kanban-card-header';
+
+        const titleEl = document.createElement('h4');
+        titleEl.className = 'kanban-card-title';
+        titleEl.textContent = task.name;
+        titleEl.title = task.name;
+
+        let titleClickTimer = null;
+        const clearTitleClickTimer = () => {
+            if (titleClickTimer) {
+                clearTimeout(titleClickTimer);
+                titleClickTimer = null;
+            }
+        };
+        titleEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (cardEl.dataset.suppressNextClick === 'true') {
+                delete cardEl.dataset.suppressNextClick;
+                return;
+            }
+            // Wait a beat to see if this is the first click of a double-click
+            // (which opens inline rename instead) before opening the modal.
+            clearTitleClickTimer();
+            titleClickTimer = setTimeout(() => {
+                titleClickTimer = null;
+                this.openTaskModal(task);
+            }, 250);
+        });
+        titleEl.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearTitleClickTimer();
+            this.startInlineCardTitleRename(titleEl, task);
+        });
+        headerEl.appendChild(titleEl);
+
+        // Resources avatars
+        if (task.resourcesArray.length > 0) {
+            const resourcesEl = document.createElement('div');
+            resourcesEl.className = 'kanban-card-resources';
+
+            // Show up to 10 resources
+            const resourcesToShow = task.resourcesArray.slice(0, 10);
+            resourcesToShow.forEach(resource => {
+                const avatarEl = document.createElement('div');
+                avatarEl.className = 'resource-avatar';
+                avatarEl.title = resource;
+
+                // Get initials (first letter of first and last name, or first 2 letters)
+                const initials = this.getInitials(resource);
+                avatarEl.textContent = initials;
+
+                resourcesEl.appendChild(avatarEl);
+            });
+
+            headerEl.appendChild(resourcesEl);
+        }
+
+        cardEl.appendChild(headerEl);
 
         // Card body with metadata
         const bodyEl = document.createElement('div');
@@ -1982,22 +2118,8 @@ class KanbanBoard {
             metaEl.appendChild(durationEl);
         }
 
-        if (task.percent) {
-            const progressEl = document.createElement('span');
-            progressEl.className = 'kanban-meta-progress';
-            progressEl.textContent = `${task.percent}%`;
-
-            // Add color based on progress
-            if (task.progressStatus === 'complete') {
-                progressEl.classList.add('progress-complete');
-            } else if (task.progressStatus === 'in_progress') {
-                progressEl.classList.add('progress-in-progress');
-            } else {
-                progressEl.classList.add('progress-not-started');
-            }
-
-            metaEl.appendChild(progressEl);
-        }
+        // No percentage badge here — the round completion checkbox already
+        // conveys progress, and a duplicate "100%" label was pure noise (#956).
 
         bodyEl.appendChild(metaEl);
 
@@ -2164,12 +2286,16 @@ class KanbanBoard {
                 .forEach(item => item.classList.remove('drop-before', 'drop-after'));
             document.querySelectorAll('.kanban-column-body.drag-over')
                 .forEach(item => item.classList.remove('drag-over'));
+            document.querySelectorAll('.kanban-add-column.drag-over')
+                .forEach(item => item.classList.remove('drag-over'));
 
             const hit = document.elementFromPoint(event.clientX, event.clientY);
             const targetCard = hit?.closest('.kanban-card');
             const targetColumn = hit?.closest('.kanban-column-body');
+            const targetNewColumn = hit?.closest('[data-drop-target="new-column"]');
             gesture.targetCard = targetCard && targetCard !== cardEl ? targetCard : null;
             gesture.targetColumn = targetColumn;
+            gesture.targetNewColumn = targetNewColumn;
 
             if (gesture.targetCard) {
                 const rect = gesture.targetCard.getBoundingClientRect();
@@ -2179,6 +2305,8 @@ class KanbanBoard {
                 );
             } else if (targetColumn) {
                 targetColumn.classList.add('drag-over');
+            } else if (targetNewColumn) {
+                targetNewColumn.classList.add('drag-over');
             }
         });
 
@@ -2190,6 +2318,8 @@ class KanbanBoard {
             document.querySelectorAll('.kanban-card.drop-before, .kanban-card.drop-after')
                 .forEach(item => item.classList.remove('drop-before', 'drop-after'));
             document.querySelectorAll('.kanban-column-body.drag-over')
+                .forEach(item => item.classList.remove('drag-over'));
+            document.querySelectorAll('.kanban-add-column.drag-over')
                 .forEach(item => item.classList.remove('drag-over'));
             if (cardEl.hasPointerCapture(event.pointerId)) {
                 cardEl.releasePointerCapture(event.pointerId);
@@ -2203,7 +2333,13 @@ class KanbanBoard {
             const wasCancelled = this.activeDrag?.cancelled;
             this.activeDrag = null;
             if (event.type === 'pointercancel' || wasCancelled ||
-                !completedGesture.dragging || !completedGesture.targetColumn) return;
+                !completedGesture.dragging) return;
+
+            if (completedGesture.targetNewColumn) {
+                this.handleNewColumnDrop(task.lineNumber);
+                return;
+            }
+            if (!completedGesture.targetColumn) return;
 
             const targetColumnIndex = parseInt(
                 completedGesture.targetColumn.dataset.columnIndex,
@@ -2213,8 +2349,7 @@ class KanbanBoard {
             if (!targetColumn) return;
 
             const sameColumn = targetColumn === sourceColumn;
-            if (completedGesture.targetCard && sameColumn &&
-                this.viewMode !== 'bucket' && this.viewMode !== 'label') {
+            if (completedGesture.targetCard && sameColumn && this.viewMode === 'phase') {
                 this.handleCardReorder(
                     task.lineNumber,
                     parseInt(completedGesture.targetCard.dataset.taskLine),
@@ -2270,49 +2405,46 @@ class KanbanBoard {
      * Handle card drop event - update task and sync back to editor
      */
     handleCardDrop(taskLineNumber, targetColumn) {
-        // Find the task
         const task = this.tasks.find(t => t.lineNumber === taskLineNumber);
         if (!task) {
             console.error('Task not found:', taskLineNumber);
             return;
         }
 
-        // Update task based on view mode
-        let updated = false;
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        const taskLine = lines[taskLineNumber - 1];
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const taskNode = this.resolveTaskNode(task, model);
+        if (!taskNode) return;
+        let updated = false;
 
         switch (this.viewMode) {
             case 'phase':
-                // Move task to a different phase by relocating the line
-                updated = this.moveTaskToPhase(lines, taskLineNumber, targetColumn);
-                break;
+                // A phase header can't represent having zero tasks in the
+                // markdown, so once this move empties it out, drop the
+                // header line too rather than leave a dead, permanently
+                // empty column on the board (#1055).
+                let oldPhaseNode = taskNode.parent;
+                while (oldPhaseNode && oldPhaseNode.parent) oldPhaseNode = oldPhaseNode.parent;
+                updated = this.moveTaskToPhase(model, task, taskNode, targetColumn);
+                if (updated && oldPhaseNode && oldPhaseNode.parent === null && oldPhaseNode.children.length === 0) {
+                    model.removeTask(oldPhaseNode);
+                }
+                if (updated) this.commitMarkdown(model.serialize(), { model: model });
+                return;
 
             case 'resource':
-                // Replace resource assignment
                 const shortname = targetColumn.shortname;
-                if (shortname !== null) {
-                    // Moving to a resource column - replace with new resource
-                    const updatedLine = this.replaceResourceInTaskLine(taskLine, shortname);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
-                } else {
-                    // Moving to Unassigned - remove all resources
-                    const updatedLine = this.removeResourcesFromTaskLine(taskLine);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
-                }
+                updated = model.updateLine(taskNode, line => shortname !== null
+                    ? this.replaceResourceInTaskLine(line, shortname)
+                    : this.removeResourcesFromTaskLine(line));
                 break;
 
             case 'progress':
                 // Update percentage based on column
                 const newPercent = this.getPercentFromProgressColumn(targetColumn.id);
-                const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
-                lines[taskLineNumber - 1] = updatedLine;
-                updated = true;
+                updated = model.updateLine(taskNode,
+                    line => this.updatePercentInTaskLine(line, newPercent));
                 break;
 
             case 'label':
@@ -2320,14 +2452,12 @@ class KanbanBoard {
                 const labelName = targetColumn.title;
                 if (labelName !== 'Unlabeled') {
                     // Add the new label (replace existing labels)
-                    const updatedLine = this.replaceLabelsInTaskLine(taskLine, labelName);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
+                    updated = model.updateLine(taskNode,
+                        line => this.replaceLabelsInTaskLine(line, labelName));
                 } else {
                     // Moving to Unlabeled - remove all labels
-                    const updatedLine = this.removeLabelsFromTaskLine(taskLine);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
+                    updated = model.updateLine(taskNode,
+                        line => this.removeLabelsFromTaskLine(line));
                 }
                 break;
 
@@ -2339,19 +2469,89 @@ class KanbanBoard {
                     (bucketName !== 'No Bucket' && currentBucket === bucketName);
                 if (!isAlreadyInBucket) {
                     if (bucketName !== 'No Bucket') {
-                        const updatedLine = this.replaceBucketInTaskLine(taskLine, bucketName);
-                        lines[taskLineNumber - 1] = updatedLine;
-                        updated = true;
+                        updated = model.updateLine(taskNode,
+                            line => this.replaceBucketInTaskLine(line, bucketName));
                     } else {
-                        const updatedLine = this.removeBucketFromTaskLine(taskLine);
-                        lines[taskLineNumber - 1] = updatedLine;
-                        updated = true;
+                        updated = model.updateLine(taskNode,
+                            line => this.removeBucketFromTaskLine(line));
                     }
                 }
                 break;
         }
 
-        if (updated) this.commitMarkdown(lines.join('\n'));
+        if (updated) this.commitMarkdown(model.serialize(), { model: model });
+    }
+
+    /** Create a phase/label/bucket from the add-column drop zone and move the card. */
+    handleNewColumnDrop(taskLineNumber) {
+        const task = this.tasks.find(item => item.lineNumber === taskLineNumber);
+        const editor = document.getElementById('planEditor');
+        if (!task || !editor || !['phase', 'label', 'bucket'].includes(this.viewMode)) return false;
+
+        const promptLabel = this.viewMode === 'phase'
+            ? 'Enter new column name:'
+            : this.viewMode === 'label' ? 'Enter new label name:' : 'Bucket name:';
+        const entered = prompt(promptLabel);
+        if (!entered || !entered.trim()) return false;
+        const name = this.viewMode === 'label' ? entered.trim().toLowerCase() : entered.trim();
+
+        if (this.columns.some(column => column.title.toLowerCase() === name.toLowerCase())) return false;
+
+        if (this.viewMode === 'phase') {
+            if (typeof NoodlePlanModel === 'undefined') return false;
+            const model = NoodlePlanModel.modelForEditor(editor);
+            const taskNode = model.tasks.find(node => model.lineNumber(node) === taskLineNumber);
+            const sourceColumn = this.columns.find(column =>
+                column.tasks.some(columnTask => columnTask.lineNumber === taskLineNumber)
+            );
+            const lastColumn = this.columns[this.columns.length - 1];
+            const anchor = lastColumn?.summaryLineNumber
+                ? model.tasks.find(node => model.lineNumber(node) === lastColumn.summaryLineNumber)
+                : null;
+            if (!taskNode) return false;
+            const indent = anchor ? anchor.indent : (this.currentParentTask?.indent || 0);
+            const phaseNode = model.insertTaskAfter(anchor, indent, name);
+            const sourceSummaryNode = sourceColumn?.summaryLineNumber
+                ? model.tasks.find(node => model.lineNumber(node) === sourceColumn.summaryLineNumber)
+                : null;
+            if (!model.moveAsChild(taskNode, phaseNode, true)) return false;
+            if (sourceSummaryNode && sourceSummaryNode.children.length === 0) {
+                model.removeTask(sourceSummaryNode);
+            }
+            return this.commitMarkdown(model.serialize(), { model });
+        }
+
+        const lines = editor.value.split('\n');
+        const taskIndex = taskLineNumber - 1;
+        lines[taskIndex] = this.viewMode === 'label'
+            ? this.replaceLabelsInTaskLine(lines[taskIndex], name)
+            : this.replaceBucketInTaskLine(lines[taskIndex], name);
+        this.addFrontMatterListValue(lines, this.viewMode === 'label' ? 'labels' : 'buckets', name);
+        return this.commitMarkdown(lines.join('\n'));
+    }
+
+    /** Add one value to an inline YAML front-matter list without committing. */
+    addFrontMatterListValue(lines, key, value) {
+        let inFrontMatter = false;
+        let frontMatterEnd = -1;
+        let listLine = -1;
+        for (let index = 0; index < lines.length; index++) {
+            if (lines[index].trim() === '---') {
+                if (!inFrontMatter) inFrontMatter = true;
+                else { frontMatterEnd = index; break; }
+            } else if (inFrontMatter && new RegExp(`^${key}:\\s*\\[`).test(lines[index].trim())) {
+                listLine = index;
+            }
+        }
+        if (listLine >= 0) {
+            const match = lines[listLine].match(/^(\s*[^:]+:\s*\[)([^\]]*)(\].*)$/);
+            const existing = match[2].trim();
+            lines[listLine] = `${match[1]}${existing ? `${existing}, ` : ''}${value}${match[3]}`;
+        } else if (frontMatterEnd >= 0) {
+            lines.splice(frontMatterEnd, 0, `${key}: [${value}]`);
+        } else {
+            lines.unshift('---', `${key}: [${value}]`, '---', '');
+        }
     }
 
     /**
@@ -2359,75 +2559,18 @@ class KanbanBoard {
      */
     handleColumnReorder(draggedPhaseTitle, targetPhaseTitle, insertBefore) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const draggedColumn = this.columns.find(column => column.title === draggedPhaseTitle);
+        const targetColumn = this.columns.find(column => column.title === targetPhaseTitle);
+        if (!draggedColumn?.summaryLineNumber || !targetColumn?.summaryLineNumber) return;
 
-        const lines = editor.value.split('\n');
-
-        // Find the dragged phase and all its tasks
-        let draggedPhaseStart = -1;
-        let draggedPhaseEnd = -1;
-        let targetPhaseStart = -1;
-
-        for (let i = 0; i < lines.length; i++) {
-            const trimmed = lines[i].trim();
-            if (trimmed === draggedPhaseTitle && draggedPhaseStart === -1) {
-                draggedPhaseStart = i;
-            } else if (trimmed === targetPhaseTitle) {
-                targetPhaseStart = i;
-            }
-        }
-
-        if (draggedPhaseStart === -1 || targetPhaseStart === -1) {
-            return;
-        }
-
-        // Find end of dragged phase (next phase header or end of file)
-        draggedPhaseEnd = draggedPhaseStart + 1;
-        while (draggedPhaseEnd < lines.length) {
-            const trimmed = lines[draggedPhaseEnd].trim();
-            const indent = lines[draggedPhaseEnd].match(/^(\s*)/)[1].length;
-            const hasMetadata = /@|#|\d+[dmw]|\d+%|\d{4}-\d{2}-\d{2}/.test(trimmed);
-
-            // Stop at next phase (non-indented, no metadata, not empty)
-            if (indent === 0 && !hasMetadata && trimmed.length > 0) {
-                break;
-            }
-            draggedPhaseEnd++;
-        }
-
-        // Extract the phase block
-        const phaseBlock = lines.slice(draggedPhaseStart, draggedPhaseEnd);
-
-        // Remove the phase block
-        lines.splice(draggedPhaseStart, draggedPhaseEnd - draggedPhaseStart);
-
-        // Adjust target position if needed
-        let adjustedTargetPos = targetPhaseStart;
-        if (draggedPhaseStart < targetPhaseStart) {
-            adjustedTargetPos -= (draggedPhaseEnd - draggedPhaseStart);
-        }
-
-        // Find end of target phase
-        let targetPhaseEnd = adjustedTargetPos + 1;
-        while (targetPhaseEnd < lines.length) {
-            const trimmed = lines[targetPhaseEnd].trim();
-            const indent = lines[targetPhaseEnd].match(/^(\s*)/)[1].length;
-            const hasMetadata = /@|#|\d+[dmw]|\d+%|\d{4}-\d{2}-\d{2}/.test(trimmed);
-
-            if (indent === 0 && !hasMetadata && trimmed.length > 0) {
-                break;
-            }
-            targetPhaseEnd++;
-        }
-
-        // Insert phase block
-        if (insertBefore) {
-            lines.splice(adjustedTargetPos, 0, ...phaseBlock);
-        } else {
-            lines.splice(targetPhaseEnd, 0, ...phaseBlock);
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const dragged = this.resolvePhaseNode(draggedColumn, model);
+        const target = this.resolvePhaseNode(targetColumn, model);
+        const updated = insertBefore
+            ? model.moveBefore(dragged, target)
+            : model.moveAfter(dragged, target);
+        if (updated) this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -2439,30 +2582,29 @@ class KanbanBoard {
         }
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
+        if (!editor || this.viewMode !== 'phase' || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const draggedTask = this.tasks.find(task => task.lineNumber === draggedLineNumber);
+        const targetTask = this.tasks.find(task => task.lineNumber === targetLineNumber);
+        const dragged = this.resolveTaskNode(draggedTask, model);
+        const target = this.resolveTaskNode(targetTask, model);
+        if (!dragged || !target) return;
 
-        const lines = editor.value.split('\n');
+        // Dropping a card directly onto a card in another phase (rather than
+        // onto the target column's empty body) reorders through here too, so
+        // this needs the same "drop the now-pointless header" cleanup as
+        // handleCardDrop's phase case, or a phase emptied out this way is
+        // left behind forever (#1065).
+        let oldPhaseNode = dragged.parent;
+        while (oldPhaseNode && oldPhaseNode.parent) oldPhaseNode = oldPhaseNode.parent;
 
-        // Get the dragged line
-        const draggedLine = lines[draggedLineNumber - 1];
-
-        // Remove the dragged line
-        lines.splice(draggedLineNumber - 1, 1);
-
-        // Adjust target line number if needed (if dragged line was before target)
-        let adjustedTargetLine = targetLineNumber;
-        if (draggedLineNumber < targetLineNumber) {
-            adjustedTargetLine--;
+        const updated = insertBefore
+            ? model.moveBefore(dragged, target)
+            : model.moveAfter(dragged, target);
+        if (updated && oldPhaseNode && oldPhaseNode.children.length === 0) {
+            model.removeTask(oldPhaseNode);
         }
-
-        // Insert at new position
-        if (insertBefore) {
-            lines.splice(adjustedTargetLine - 1, 0, draggedLine);
-        } else {
-            lines.splice(adjustedTargetLine, 0, draggedLine);
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        if (updated) this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -2554,50 +2696,12 @@ class KanbanBoard {
      */
     quickSetPercent(task, newPercent, cardEl) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        const taskLineNumber = task.lineNumber;
-        const taskLine = lines[taskLineNumber - 1];
-
-        if (!taskLine) return;
-
-        const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
-        lines[taskLineNumber - 1] = updatedLine;
-
-        this.commitMarkdown(lines.join('\n'));
-    }
-
-    /**
-     * Immediately update a card's visual state after checkbox change
-     */
-    updateCardVisual(cardEl, task, newPercent) {
-        const isComplete = newPercent >= 100;
-
-        // Update progress badge text and class
-        const progressEl = cardEl.querySelector('.kanban-meta-progress');
-        if (progressEl) {
-            progressEl.textContent = `${newPercent}%`;
-            progressEl.classList.remove('progress-complete', 'progress-in-progress', 'progress-not-started');
-            if (isComplete) {
-                progressEl.classList.add('progress-complete');
-            } else if (newPercent > 0) {
-                progressEl.classList.add('progress-in-progress');
-            } else {
-                progressEl.classList.add('progress-not-started');
-            }
-        }
-
-        // Update progress bar if present
-        const progressBar = cardEl.querySelector('.kanban-card-progress-bar');
-        if (progressBar) {
-            progressBar.style.width = `${newPercent}%`;
-        }
-
-        // Update checkbox tooltip
-        const checkbox = cardEl.querySelector('.round-checkbox');
-        if (checkbox) {
-            checkbox.title = isComplete ? 'Mark as incomplete' : 'Mark as complete';
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const taskNode = this.resolveTaskNode(task, model);
+        if (taskNode && model.updateLine(taskNode,
+            line => this.updatePercentInTaskLine(line, newPercent))) {
+            this.commitMarkdown(model.serialize(), { model: model });
         }
     }
 
@@ -2619,6 +2723,82 @@ class KanbanBoard {
         }
 
         return indent + updated;
+    }
+
+    /**
+     * Replace a card's title text-in-place with an input, committing the
+     * rename on blur/Enter (Escape cancels). Used for double-click-to-rename
+     * on the card title (#956), mirroring startInlineBucketRename.
+     */
+    startInlineCardTitleRename(titleEl, task) {
+        const oldName = task.name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldName;
+        input.className = 'kanban-card-title-input';
+        input.setAttribute('aria-label', `Rename task "${oldName}"`);
+
+        const commitRename = () => {
+            const newName = input.value.trim();
+            if (input.parentNode) input.parentNode.removeChild(input);
+            titleEl.textContent = oldName;
+            titleEl.style.display = '';
+            if (newName && newName !== oldName) {
+                this.renameTask(task, newName);
+            }
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            } else if (e.key === 'Escape') {
+                input.value = oldName;
+                input.blur();
+            }
+        });
+        input.addEventListener('click', e => e.stopPropagation());
+        input.addEventListener('dblclick', e => e.stopPropagation());
+        input.addEventListener('blur', () => commitRename(), { once: true });
+
+        titleEl.textContent = '';
+        titleEl.style.display = 'none';
+        titleEl.parentNode.insertBefore(input, titleEl);
+        input.focus();
+        input.select();
+    }
+
+    /**
+     * Rename a task in place on the Markdown line, preserving every other
+     * token on the line (dates, resources, effort, dependencies, etc.).
+     */
+    renameTask(task, newName) {
+        const editor = document.getElementById('planEditor');
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const taskNode = this.resolveTaskNode(task, model);
+        if (taskNode && model.rename(taskNode, newName)) {
+            this.commitMarkdown(model.serialize(), { model: model });
+        }
+    }
+
+    /**
+     * Replace the free-text name portion of a task line. TaskLineTokenizer
+     * treats whatever text is left over after removing recognised tokens as
+     * the name, so this re-emits every other token unchanged and places the
+     * new name right after any star/star-lag dependency prefix.
+     */
+    updateNameInTaskLine(line, newName) {
+        const indent = (line.match(/^\s*/) || [''])[0];
+        const tokens = TaskLineTokenizer.tokenize(line);
+        const starTokens = tokens.filter(t => t.type === 'star' || t.type === 'star-lag');
+        const otherTokens = tokens.filter(t => t.type !== 'star' && t.type !== 'star-lag');
+        const starPrefix = starTokens.map(t => t.text).join(' ');
+        const rest = otherTokens.map(t => t.text).join(' ');
+        const trimmedName = newName.trim();
+
+        const parts = [starPrefix, trimmedName, rest].filter(Boolean);
+        return indent + parts.join(' ');
     }
 
     /**
@@ -2729,78 +2909,19 @@ class KanbanBoard {
     /**
      * Move task to a different phase
      */
-    moveTaskToPhase(lines, taskLineNumber, targetColumn) {
-        // Don't move if already in the correct phase
-        const task = this.tasks.find(t => t.lineNumber === taskLineNumber);
-        if (!task) return false;
+    moveTaskToPhase(model, task, taskNode, targetColumn) {
+        if (!task || !taskNode) return false;
 
         // Check if task is already in this phase
         if (task.phase === targetColumn.title) {
             return false;
         }
 
-        // Get the task line (with indentation)
-        const taskLine = lines[taskLineNumber - 1];
-
-        // Remove the task from its current position
-        lines.splice(taskLineNumber - 1, 1);
-
-        // Find where to insert in the target phase
-        let insertIndex = lines.length;
-        let needsIndentation = false;
-
         if (targetColumn.title === 'Unassigned') {
-            // For unassigned, add at the end with no indentation
-            insertIndex = lines.length;
-            needsIndentation = false;
-        } else {
-            // Find the phase header and last line of that phase
-            let foundPhase = false;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Check if this is the target phase header
-                if (trimmed === targetColumn.title) {
-                    foundPhase = true;
-                    insertIndex = i + 1;
-                    needsIndentation = true; // Tasks under a phase need indentation
-                    continue;
-                }
-
-                // If we found the phase, keep updating insert index until we hit another phase
-                if (foundPhase) {
-                    const indent = line.match(/^(\s*)/)[1].length;
-                    const hasMetadata = /@|#|\d+[dmw]|\d+%|\d{4}-\d{2}-\d{2}/.test(trimmed);
-
-                    // If we hit another non-indented line, it's a new phase or section
-                    if (indent === 0 && trimmed.length > 0 && !hasMetadata) {
-                        break;
-                    }
-
-                    // If line is part of this phase, update insert index
-                    if (trimmed.length > 0) {
-                        insertIndex = i + 1;
-                    }
-                }
-            }
+            return model.moveAsRoot(taskNode);
         }
-
-        // Prepare the task line with proper indentation
-        let lineToInsert = taskLine;
-        if (needsIndentation) {
-            // Remove existing indentation and add 2 spaces
-            const trimmedTask = taskLine.trim();
-            lineToInsert = '  ' + trimmedTask;
-        } else {
-            // For unassigned, remove indentation
-            lineToInsert = taskLine.trim();
-        }
-
-        // Insert the task at the new location
-        lines.splice(insertIndex, 0, lineToInsert);
-
-        return true;
+        const parentNode = this.resolvePhaseNode(targetColumn, model);
+        return parentNode ? model.moveAsChild(taskNode, parentNode, true) : false;
     }
 
     /**
@@ -2824,120 +2945,61 @@ class KanbanBoard {
      */
     addNewCard(column) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        // Determine indentation based on hierarchy level
-        let indentStr;
-        if (this.currentParentTask) {
-            // When drilling down, new tasks should be children of the current parent
-            const parentIndent = this.currentParentTask.indent;
-            indentStr = ' '.repeat(parentIndent + 2);
-        } else {
-            // Root level: standard indentation
-            indentStr = '  ';
-        }
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
 
         // Determine what to add based on view mode and column
-        let newTaskLine = '';
+        let content = 'New Task';
 
         switch (this.viewMode) {
             case 'phase':
-                // Add task under this phase
-                newTaskLine = `${indentStr}New Task`;
                 break;
 
             case 'resource':
                 // Add task with this resource
                 if (column.shortname && column.shortname !== null) {
-                    newTaskLine = `${indentStr}New Task @${column.shortname}`;
-                } else {
-                    newTaskLine = `${indentStr}New Task`;
+                    content += ` @${column.shortname}`;
                 }
                 break;
 
             case 'progress':
                 // Add task with appropriate progress
                 const percent = this.getPercentFromProgressColumn(column.id);
-                newTaskLine = `${indentStr}New Task ${percent}%`;
+                content += ` ${percent}%`;
                 break;
 
             case 'label':
                 // Add task with this label
                 if (column.id && column.id !== 'no_label') {
-                    newTaskLine = `${indentStr}New Task #${column.id}`;
-                } else {
-                    newTaskLine = `${indentStr}New Task`;
+                    content += ` #${column.id}`;
                 }
+                break;
+            case 'bucket':
+                if (column.title !== 'No Bucket') content += ` {${column.title}}`;
                 break;
         }
 
-        // Find appropriate place to insert
-        const lines = editor.value.split('\n');
-        let insertIndex = lines.length;
-
+        let anchor = model.tasks[model.tasks.length - 1] || null;
+        let indent = 2;
         if (this.currentParentTask) {
-            // When drilling down, insert at end of parent task's children
-            const parentIndent = this.currentParentTask.indent;
-            const parentLineNumber = this.currentParentTask.lineNumber;
-
-            insertIndex = parentLineNumber; // Start after parent
-
-            for (let i = parentLineNumber; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Skip empty lines
-                if (!trimmed) continue;
-
-                const indent = line.search(/\S/);
-
-                // If we hit a line at same or lower indentation than parent, we've found the end
-                if (indent <= parentIndent) {
-                    insertIndex = i;
-                    break;
-                }
-
-                // Keep moving forward through children
-                insertIndex = i + 1;
-            }
+            const parent = this.resolveTaskNode(this.currentParentTask, model);
+            if (!parent) return;
+            anchor = parent.children[parent.children.length - 1] || parent;
+            indent = parent.indent + 2;
         } else if (this.viewMode === 'phase' && column.title !== 'Unassigned') {
-            // Root level phase view: find the last line of this phase
-            let foundPhase = false;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Check if this is the phase header
-                if (trimmed === column.title) {
-                    foundPhase = true;
-                    insertIndex = i + 1;
-                    continue;
-                }
-
-                // If we found the phase, keep updating insert index until we hit another phase or end
-                if (foundPhase) {
-                    const indent = line.match(/^(\s*)/)[1].length;
-                    const hasMetadata = /@|#|\d+[dmw]|\d+%|\d{4}-\d{2}-\d{2}/.test(trimmed);
-
-                    // If we hit another non-indented line without metadata, it's a new phase
-                    if (indent === 0 && !hasMetadata && trimmed.length > 0 && trimmed !== column.title) {
-                        break;
-                    }
-
-                    // If line is part of this phase, update insert index
-                    if (trimmed.length > 0) {
-                        insertIndex = i + 1;
-                    }
-                }
-            }
+            const phase = this.resolvePhaseNode(column, model);
+            if (!phase) return;
+            anchor = phase.children[phase.children.length - 1] || phase;
+            indent = phase.indent + 2;
+        } else if (this.viewMode === 'phase') {
+            indent = 0;
         }
 
-        // Insert the new task
-        lines.splice(insertIndex, 0, newTaskLine);
-
-        // Calculate the line number of the new task (insertIndex is 0-based, line numbers are 1-based)
-        const newTaskLineNumber = insertIndex + 1;
-        this.commitMarkdown(lines.join('\n'), { openTaskLine: newTaskLineNumber });
+        const inserted = model.insertTaskAfter(anchor, indent, content);
+        this.commitMarkdown(model.serialize(), {
+            model: model,
+            openTaskLine: model.lineNumber(inserted)
+        });
     }
 
     /**
@@ -2950,80 +3012,17 @@ class KanbanBoard {
         }
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let insertIndex;
-        let indentStr = '';
-        let linesToAdd = [];
-
-        // If we're drilling down, add a sibling to the current task at the same level
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
         if (this.currentParentTask) {
-            // When drilling down, we're viewing siblings at the same level
-            // So the new column should be at the SAME indent as currentParentTask (a sibling)
-            const siblingIndent = this.currentParentTask.indent;
-            const siblingLineNumber = this.currentParentTask.lineNumber;
-
-            // New summary task should be at the same indent level (sibling)
-            indentStr = ' '.repeat(siblingIndent);
-            const childIndentStr = ' '.repeat(siblingIndent + 2);
-
-            // Create summary task with a child task to make it appear as a column
-            linesToAdd = [
-                indentStr + phaseName.trim(),
-                childIndentStr + 'New Task'
-            ];
-
-            // Find the end of all siblings at this level
-            // We need to find the parent of the current task first
-            let actualParentIndent = -1;
-            for (let i = siblingLineNumber - 2; i >= 0; i--) {
-                const line = lines[i];
-                if (!line.trim()) continue;
-                const indent = line.search(/\S/);
-                if (indent < siblingIndent) {
-                    actualParentIndent = indent;
-                    break;
-                }
-            }
-
-            // Now find the end of the siblings (where we hit a task at same or lower level than parent)
-            insertIndex = siblingLineNumber;
-            for (let i = siblingLineNumber; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Skip empty lines
-                if (!trimmed) continue;
-
-                const indent = line.search(/\S/);
-
-                // If we hit a line at same or lower indentation than actual parent, we've found the end
-                if (actualParentIndent >= 0 && indent <= actualParentIndent) {
-                    insertIndex = i;
-                    break;
-                }
-
-                // Keep moving forward
-                insertIndex = i + 1;
-            }
+            const sibling = this.resolveTaskNode(this.currentParentTask, model);
+            if (!sibling) return;
+            const phase = model.insertTaskAfter(sibling, sibling.indent, phaseName.trim());
+            model.insertTaskAfter(phase, phase.indent + 2, 'New Task');
         } else {
-            // Root level: add a phase header
-            insertIndex = lines.length;
-
-            // Add blank line if last line is not blank
-            if (lines[lines.length - 1].trim() !== '') {
-                lines.push('');
-                insertIndex++;
-            }
-
-            linesToAdd = [phaseName.trim()];
+            model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, phaseName.trim());
         }
-
-        // Insert the new lines at the calculated position
-        lines.splice(insertIndex, 0, ...linesToAdd);
-
-        this.commitMarkdown(lines.join('\n'));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3130,50 +3129,20 @@ class KanbanBoard {
      */
     addFirstTask(phaseName = null, percent = null) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let insertIndex = lines.length;
-
-        // Find end of front matter if it exists
-        let inFrontMatter = false;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    // Found closing ---, insert after this
-                    insertIndex = i + 1;
-                    break;
-                }
-            }
-        }
-
-        // Add blank line if needed
-        if (insertIndex < lines.length && lines[insertIndex].trim() !== '') {
-            lines.splice(insertIndex, 0, '');
-            insertIndex++;
-        }
-
-        // Add phase header if provided
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const content = `New Task${percent ? ` ${percent}` : ''}`;
+        let inserted;
         if (phaseName && phaseName.trim()) {
-            lines.splice(insertIndex, 0, '', phaseName.trim());
-            insertIndex += 2;
+            const phase = model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, phaseName.trim());
+            inserted = model.insertTaskAfter(phase, 2, content);
+        } else {
+            inserted = model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, content);
         }
-
-        // Add task line with appropriate indent
-        const indent = phaseName ? '  ' : '';
-        let taskLine = `${indent}New Task`;
-
-        if (percent) {
-            taskLine += ` ${percent}`;
-        }
-
-        lines.splice(insertIndex, 0, taskLine);
-        const newTaskLineNumber = insertIndex + 1; // Line numbers are 1-based
-
-        this.commitMarkdown(lines.join('\n'), { openTaskLine: newTaskLineNumber });
+        this.commitMarkdown(model.serialize(), {
+            model: model,
+            openTaskLine: model.lineNumber(inserted)
+        });
     }
 
     /**
@@ -3195,82 +3164,28 @@ class KanbanBoard {
             return;
         }
 
-        const trimmedNewName = newPhaseName.trim();
-
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const trimmedNewName = newPhaseName.trim();
+        let updated = false;
 
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-        let phaseHeaderFound = false;
-        let firstTaskIndex = -1;
-
-        // Find and rename the phase header
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Track front matter to skip it
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    inFrontMatter = false;
-                }
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Check if this line is the phase header (no indentation, matches old name)
-            const trimmedLine = line.trim();
-            if (line.indexOf('  ') !== 0 && trimmedLine === oldPhaseName && !line.includes('[') && !line.includes('#')) {
-                // This is a phase header line (no indentation, no resources, no labels)
-                lines[i] = trimmedNewName;
-                phaseHeaderFound = true;
-            }
-
-            // Track first task line (for Unassigned phase case)
-            if (firstTaskIndex === -1 && !inFrontMatter && line.trim() && !line.trim().startsWith('#')) {
-                // Check if it's a task line (has indentation or is first non-front-matter content)
-                if (line.indexOf('  ') === 0 || line.trim().match(/^\*?[\w\s]+/)) {
-                    firstTaskIndex = i;
-                }
-            }
+        if (oldPhaseName === 'Unassigned') {
+            const roots = this.tasks
+                .filter(task => task.phase === 'Unassigned')
+                .map(task => this.resolveTaskNode(task, model))
+                .filter(node => node && node.parent === null);
+            if (!roots.length) return;
+            const phase = model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, trimmedNewName);
+            model.moveBefore(phase, roots[0]);
+            roots.forEach(node => model.moveAsChild(node, phase, true));
+            updated = true;
+        } else {
+            const phase = this.resolvePhaseNode(oldPhaseName, model);
+            updated = phase ? model.rename(phase, trimmedNewName) : false;
         }
 
-        // Special case: If renaming "Unassigned" phase and no phase header was found,
-        // we need to CREATE a phase header before the first task
-        if (oldPhaseName === 'Unassigned' && !phaseHeaderFound && firstTaskIndex !== -1) {
-            // Insert phase header before first task
-            lines.splice(firstTaskIndex, 0, trimmedNewName);
-
-            // Indent all subsequent tasks that should be under this phase
-            for (let i = firstTaskIndex + 1; i < lines.length; i++) {
-                const line = lines[i];
-                // Only indent non-empty lines that aren't already indented and aren't phase headers
-                if (line.trim() && line.indexOf('  ') !== 0 && !line.includes('---')) {
-                    lines[i] = '  ' + line;
-                }
-            }
-        }
-
-        // Update theme colour key if phase had a colour
-        if (this.themeColours[oldPhaseName]) {
-            this.themeColours[trimmedNewName] = this.themeColours[oldPhaseName];
-            delete this.themeColours[oldPhaseName];
-        }
-
-        // Update the phase's whiteboard row(s), if any (issue #844). The
-        // whiteboard's Task column lives in the plan body, not front
-        // matter, so this operates on the text directly rather than a
-        // themeColours-style in-memory key.
-        let renamedText = lines.join('\n');
-        if (typeof renamePlanWhiteboardTask === 'function') {
-            renamedText = renamePlanWhiteboardTask(renamedText, oldPhaseName, trimmedNewName);
-        }
-
-        // Save the renamed phase, its theme colour, and its whiteboard
-        // row in one Markdown commit.
-        this.saveThemeColours(renamedText);
+        if (updated) this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3286,67 +3201,22 @@ class KanbanBoard {
         const normalizedNewName = newLabelName.trim().toLowerCase();
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-        let labelsLineIndex = -1;
-
-        // Find front matter and labels line
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    break;
-                }
-                continue;
-            }
-
-            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
-                labelsLineIndex = i;
-            }
-        }
-
-        // Rename label in front matter
-        if (labelsLineIndex >= 0) {
-            const labelsLine = lines[labelsLineIndex];
-            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const labelsLine = model.leading.find(line => /^\s*labels:\s*\[/.test(line.text));
+        if (labelsLine) {
+            const match = labelsLine.text.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
             if (match) {
                 const existingLabels = match[2].trim();
                 const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
                 const updatedLabels = labelArray.map(l => l === oldLabelName ? normalizedNewName : l);
-                lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
+                labelsLine.text = match[1] + updatedLabels.join(', ') + match[3];
             }
         }
-
-        // Rename label in all tasks
-        inFrontMatter = false;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Skip front matter
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    inFrontMatter = false;
-                }
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Check if line has the old label
-            const labelPattern = new RegExp(`#${oldLabelName}\\b`, 'g');
-            if (labelPattern.test(line)) {
-                // Replace the old label with the new label
-                lines[i] = line.replace(labelPattern, `#${trimmedNewName}`);
-            }
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        const labelPattern = new RegExp(`#${this.escapeRegExp(oldLabelName)}(?=\\s|$)`, 'g');
+        model.tasks.forEach(node => model.updateLine(node,
+            line => line.replace(labelPattern, `#${normalizedNewName}`)));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3395,30 +3265,15 @@ class KanbanBoard {
      */
     renameBucket(oldBucketName, newBucketName) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const bucketPattern = new RegExp(`\\{${this.escapeRegExp(oldBucketName)}\\}`, 'g');
+        model.tasks.forEach(node => model.updateLine(node,
+            line => line.replace(bucketPattern, `{${newBucketName}}`)));
 
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.trim() === '---') {
-                inFrontMatter = !inFrontMatter;
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Replace {oldBucketName} with {newBucketName} in task lines
-            lines[i] = line.replace(
-                new RegExp(`\\{${this.escapeRegExp(oldBucketName)}\\}`, 'g'),
-                `{${newBucketName}}`
-            );
-        }
-
-        const bucketLine = lines.findIndex(line => /^\s*buckets:\s*\[/.test(line));
-        if (bucketLine >= 0) {
-            lines[bucketLine] = lines[bucketLine].replace(
+        const bucketLine = model.leading.find(line => /^\s*buckets:\s*\[/.test(line.text));
+        if (bucketLine) {
+            bucketLine.text = bucketLine.text.replace(
                 /\[([^\]]*)\]/,
                 (_match, values) => `[${values.split(',').map(value =>
                     value.trim() === oldBucketName ? newBucketName : value.trim()
@@ -3426,13 +3281,7 @@ class KanbanBoard {
             );
         }
 
-        // Update user-created buckets list
-        const bucketIndex = this.createdBuckets.indexOf(oldBucketName);
-        if (bucketIndex !== -1) {
-            this.createdBuckets[bucketIndex] = newBucketName;
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3444,76 +3293,30 @@ class KanbanBoard {
         }
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-        let labelsLineIndex = -1;
-
-        // Find front matter and labels line
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    break;
-                }
-                continue;
-            }
-
-            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
-                labelsLineIndex = i;
-            }
-        }
-
-        // Remove label from front matter
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const labelsLineIndex = model.leading.findIndex(line => /^\s*labels:\s*\[/.test(line.text));
         if (labelsLineIndex >= 0) {
-            const labelsLine = lines[labelsLineIndex];
-            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+            const labelsLine = model.leading[labelsLineIndex];
+            const match = labelsLine.text.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
             if (match) {
                 const existingLabels = match[2].trim();
                 const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
                 const updatedLabels = labelArray.filter(l => l !== labelName);
 
                 if (updatedLabels.length > 0) {
-                    lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
+                    labelsLine.text = match[1] + updatedLabels.join(', ') + match[3];
                 } else {
-                    // Remove the entire labels line if no labels left
-                    lines.splice(labelsLineIndex, 1);
+                    model.leading.splice(labelsLineIndex, 1);
                 }
             }
         }
-
-        // Remove label from all tasks
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Skip front matter
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    inFrontMatter = false;
-                }
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Check if line has the label
-            const labelPattern = new RegExp(`#${labelName}\\b`, 'g');
-            if (labelPattern.test(line)) {
-                // Remove the label from this line
-                lines[i] = line.replace(labelPattern, '').replace(/\s+/g, ' ').trim();
-
-                // Restore indentation
-                const indent = line.match(/^(\s*)/)[1];
-                lines[i] = indent + lines[i];
-            }
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        const labelPattern = new RegExp(`#${this.escapeRegExp(labelName)}(?=\\s|$)`, 'g');
+        model.tasks.forEach(node => model.updateLine(node, line => {
+            const indent = (line.match(/^\s*/) || [''])[0];
+            return indent + line.trim().replace(labelPattern, '').replace(/\s+/g, ' ').trim();
+        }));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3767,9 +3570,26 @@ function setupKanbanAutoSync() {
         let editorChangeTimeout = null;
         let isKanbanUpdating = false; // Prevent circular updates
 
-        editor.addEventListener('input', () => {
+        editor.addEventListener('input', (event) => {
             // Only auto-sync if Kanban tab is active and we're not in the middle of a Kanban update
             if (!document.getElementById('kanban-tab').classList.contains('active') || isKanbanUpdating) {
+                return;
+            }
+
+            // Real keystrokes in the editor fire a trusted 'input' event, so
+            // debounce those to avoid re-rendering the board on every
+            // character. Everything else (task form saves, imports, syncs,
+            // etc.) sets editor.value and dispatches an untrusted 'input'
+            // event -- those are discrete, one-off writes, so reflect them
+            // on the board immediately rather than waiting out the debounce
+            // (the board should always reflect what is in the markdown).
+            if (!event.isTrusted) {
+                clearTimeout(editorChangeTimeout);
+                if (kanbanBoard) {
+                    kanbanBoard.parse();
+                    kanbanBoard.render();
+                    kanbanBoard.renderBreadcrumb();
+                }
                 return;
             }
 
@@ -3788,15 +3608,5 @@ function setupKanbanAutoSync() {
         window.kanbanIsUpdating = function(value) {
             isKanbanUpdating = value;
         };
-    }
-
-    // Listen for task form saves to refresh Kanban
-    const saveButton = document.querySelector('[onclick*="saveTask"]');
-    if (saveButton) {
-        saveButton.addEventListener('click', () => {
-            if (document.getElementById('kanban-tab').classList.contains('active') && kanbanBoard) {
-                syncKanbanFromEditor();
-            }
-        });
     }
 }

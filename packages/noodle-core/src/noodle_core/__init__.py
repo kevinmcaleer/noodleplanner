@@ -47,6 +47,9 @@ from .format_converter import (
     extract_budget,
     strip_budget,
     parse_budget_markdown,
+    extract_estimates,
+    strip_estimates,
+    parse_estimates_markdown,
     extract_comms_plan,
     strip_comms,
     parse_comms_markdown,
@@ -74,6 +77,11 @@ from .format_converter import (
     validate_whiteboard_rows,
     generate_whiteboard_text,
     update_plan_whiteboard,
+    extract_parking_lot,
+    strip_parking_lot,
+    parse_parking_lot_markdown,
+    generate_parking_lot_text,
+    update_plan_parking_lot,
 )
 
 from .excel_importer import (
@@ -142,6 +150,9 @@ __all__ = [
     "extract_budget",
     "strip_budget",
     "parse_budget_markdown",
+    "extract_estimates",
+    "strip_estimates",
+    "parse_estimates_markdown",
     "extract_comms_plan",
     "strip_comms",
     "parse_comms_markdown",
@@ -167,6 +178,11 @@ __all__ = [
     "validate_whiteboard_rows",
     "generate_whiteboard_text",
     "update_plan_whiteboard",
+    "extract_parking_lot",
+    "strip_parking_lot",
+    "parse_parking_lot_markdown",
+    "generate_parking_lot_text",
+    "update_plan_parking_lot",
     # Excel importer
     "analyze_workbook",
     "convert_excel_to_markdown",

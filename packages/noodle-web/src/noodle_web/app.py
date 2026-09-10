@@ -1,17 +1,19 @@
 import os
 import io
 import re
+import asyncio
 import hashlib
 import logging
 import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 import yaml
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +50,17 @@ from noodle_core import (
     import_from_msproject_xml,
 )
 import json
+from .collab_session import (
+    CLOSE_HOST_DISCONNECTED,
+    CLOSE_HOST_ENDED,
+    CLOSE_KICKED,
+    CLOSE_REASON_HOST_DISCONNECTED,
+    CLOSE_REASON_HOST_ENDED,
+    CLOSE_REASON_KICKED,
+    SessionState,
+    collab_sessions,
+    run_idle_sweep_forever,
+)
 from .plan_service import PlanService, export_to_file
 from .ai_service import (
     AIChatRequest,
@@ -65,6 +78,9 @@ from .security import (
     BodySizeLimitMiddleware,
     ErrorSanitizationMiddleware,
     APIKeyAuthMiddleware,
+    get_websocket_client_ip,
+    forgive_join_attempt,
+    is_join_rate_limited,
     is_production,
 )
 
@@ -102,10 +118,31 @@ def _resolve_templates_dir() -> Path:
 
 TEMPLATES_DIR = _resolve_templates_dir()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run the collab-session idle sweep for the lifetime of the app.
+
+    See collab_session.run_idle_sweep_forever(): a background safety net on
+    top of the lazy per-request expiry check, so a session nobody ever
+    touches again still gets torn down instead of leaking forever.
+    """
+    sweep_task = asyncio.create_task(run_idle_sweep_forever())
+    try:
+        yield
+    finally:
+        sweep_task.cancel()
+        try:
+            await sweep_task
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
     title="Noodle Planner API",
     description="Project planning and scheduling tool",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Mount static files and setup templates
@@ -1834,6 +1871,415 @@ async def ai_agent_detail(agent_id: str):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
+
+
+# ==============================================================================
+# COLLAB SESSION ROUTES (#963) -- WebSocket relay foundation for #766.
+#
+# See collab_session.py's module docstring for the full wire protocol. In
+# short: POST /api/collab/start creates a session; the host's browser then
+# opens /ws/session/{session_id}?token=... and joiners open the same
+# endpoint with no token, sending a {"type": "join", ...} handshake as their
+# first message. Everything after that is an opaque relay -- no plan
+# content is parsed, stored, or logged here.
+#
+# #964 (end-to-end encryption): every payload relayed here is, by
+# construction, AES-GCM ciphertext produced client-side by
+# static/collab-crypto.js -- this relay still never decrypts or interprets
+# it. The one bit of bootstrapping plumbing added for #964 is
+# `_maybe_cache_host_pubkey`: it peeks only at a message's `type`
+# discriminator (never plan content) to cache the host's ephemeral ECDH
+# public-key announcement, so a joiner who connects after the host already
+# broadcast it still receives it on admission. See collab_session.py's
+# docstring and collab-crypto.js's module docstring for the full design.
+#
+# Post-security-review update: `join_code` (the six-digit code) is
+# ADMISSION-ONLY -- it has no cryptographic role. The ECDH handshake in
+# collab-crypto.js is authenticated by a separate `handshake_secret`, which
+# this route hands back below but which never travels through any other
+# server request (see collab_session.py's docstring for why: this relay
+# legitimately learns `join_code`, so it can never be what proves the
+# handshake wasn't MITM'd by the relay itself).
+# ==============================================================================
+
+
+@app.post("/api/collab/start")
+async def start_collab_session():
+    """Start a new collab session and return its id, host token, join code,
+    and handshake secret.
+
+    Deliberately takes no request body -- there is nothing project- or
+    plan-related for the relay to know about, by design (see #766's
+    architecture constraint).
+    """
+    info = collab_sessions.create_session()
+    return {
+        "session_id": info.session_id,
+        "host_token": info.host_token,
+        "join_code": info.join_code,
+        "handshake_secret": info.handshake_secret,
+        "holding_url": info.holding_url,
+    }
+
+
+@app.get("/join/{session_id}", response_class=HTMLResponse)
+async def collab_join_page(request: Request, session_id: str):
+    """Serve the minimal joiner page: enter the code and a display name."""
+    return templates.TemplateResponse(request, "collab_join.html", {
+        "v": STATIC_VERSION,
+        "session_id": session_id,
+    })
+
+
+async def _admit_joiner(websocket: WebSocket, session_id: str) -> tuple[Optional[SessionState], str]:
+    """Read the joiner's handshake message and admit or reject them.
+
+    On rejection the socket is closed here and (None, "") is returned.
+    """
+    try:
+        raw = await websocket.receive_text()
+    except WebSocketDisconnect:
+        return None, ""
+
+    try:
+        handshake = json.loads(raw)
+    except (TypeError, ValueError):
+        handshake = None
+
+    code = handshake.get("code") if isinstance(handshake, dict) else None
+    display_name = handshake.get("display_name") if isinstance(handshake, dict) else None
+
+    if (
+        not isinstance(handshake, dict)
+        or handshake.get("type") != "join"
+        or not isinstance(code, str)
+        or not isinstance(display_name, str)
+        or not display_name.strip()
+    ):
+        await websocket.close(code=4400, reason="Malformed join request.")
+        return None, ""
+
+    display_name = display_name.strip()[:100]
+    state = collab_sessions.join_session(session_id, code, display_name, websocket)
+    if state is None:
+        # #1057: distinct from the malformed-handshake case above -- the
+        # request was well-formed but the code didn't match a live session
+        # (wrong code, or a code for a session that already ended/expired).
+        # collab_join.html surfaces this `reason` directly to the joiner
+        # instead of always guessing "check the code", which was misleading
+        # when the real cause was something else entirely (e.g. #1057's
+        # report: a corporate network's proxy interfering with the
+        # WebSocket, which closes with no reason at all -- see that
+        # module's close handler for how it tells the two apart).
+        await websocket.close(code=4401, reason="Incorrect or expired code.")
+        return None, ""
+
+    await websocket.send_text(json.dumps({"type": "joined", "display_name": display_name}))
+    # #964: if the host already broadcast its ECDH public-key handshake
+    # announcement before this joiner connected, that broadcast is long
+    # gone -- hand the joiner the cached copy now so it can still complete
+    # the key exchange. Not secret content (see collab-crypto.js), so no
+    # architecture constraint is bent by caching/replaying it here.
+    if state.host_public_key_msg is not None:
+        await websocket.send_text(state.host_public_key_msg)
+    # #966: the host's presence panel needs to know about this joiner right
+    # away, not just the next time something else happens to trigger a
+    # broadcast.
+    await _broadcast_presence(state)
+    return state, display_name
+
+
+def _maybe_cache_host_pubkey(state: SessionState, message: str) -> None:
+    """Cache the host's ECDH public-key handshake announcement (#964).
+
+    Peeks only at the message's ``type`` discriminator -- never at plan
+    content -- so a joiner admitted after the host already broadcast this
+    still gets it (see ``_admit_joiner``). Anything that isn't a
+    recognizable ``host_pubkey`` announcement (in particular, every
+    encrypted plan-content envelope) is a silent no-op: this relay still
+    has no opinion about ordinary traffic.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return
+    if isinstance(parsed, dict) and parsed.get("type") == "host_pubkey":
+        state.host_public_key_msg = message
+
+
+def _is_end_session_message(message: str) -> bool:
+    """True if `message` is the host's explicit "end session" control
+    message (#965): ``{"type": "end_session"}``, sent over the same
+    WebSocket that's already carrying the relay -- chosen over a separate
+    HTTP endpoint because ending a session is a live action on an
+    already-open connection (like every other relay message), not a fresh
+    resource request the way `POST /api/collab/start` is.
+
+    Peeks only at the `type` discriminator, same as
+    `_maybe_cache_host_pubkey` above: never interprets anything else about
+    message content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("type") == "end_session"
+
+
+def _parse_kick_message(message: str) -> Optional[int]:
+    """Return the `joiner_id` from the host's `{"type": "kick", "joiner_id":
+    ...}` control message (#966), or None if `message` isn't one.
+    `joiner_id` is the same opaque `Joiner.joiner_id` key `SessionState.joiners`
+    is keyed by, which is exactly what `SessionState.presence_snapshot()`
+    hands the host in each presence update -- so the host never has to
+    invent or track its own identifier for a joiner.
+
+    Same type-discriminator-only peek as `_is_end_session_message` above:
+    never interprets anything else about message content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict) or parsed.get("type") != "kick":
+        return None
+    joiner_id = parsed.get("joiner_id")
+    return joiner_id if isinstance(joiner_id, int) else None
+
+
+def _parse_to_joiner_envelope(message: str) -> Optional[tuple[int, str]]:
+    """Return `(joiner_id, inner_frame)` from the host's ``{"type":
+    "to_joiner", "joiner_id": N, "frame": "..."}`` envelope (#967), or None
+    if `message` isn't one.
+
+    #963 gave the host a single broadcast channel, which was enough while
+    every joiner shared one session key. #967 gives each joiner its own
+    ECDH session key with the host, so the same logical update has to be
+    encrypted separately per joiner -- meaning the host needs to address a
+    frame at one joiner rather than broadcast it.
+
+    Only the envelope is read. `frame` is passed through untouched, still
+    the opaque AES-GCM ciphertext collab-crypto.js produced: this relay
+    learns who a frame is for, which is ordinary routing metadata it
+    already holds (it assigned the id and reports it in every presence
+    snapshot), and never what the frame says.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict) or parsed.get("type") != "to_joiner":
+        return None
+    joiner_id = parsed.get("joiner_id")
+    frame = parsed.get("frame")
+    if not isinstance(joiner_id, int) or not isinstance(frame, str):
+        return None
+    return joiner_id, frame
+
+
+def _wrap_from_joiner(joiner_id: int, frame: str) -> str:
+    """Tag a joiner's frame with its sender id before relaying it to the
+    host (#967).
+
+    Without this the host cannot tell two joiners apart on the inbound
+    side, so it could only ever hold one joiner's session key at a time
+    (see collab-session.js's `collabSessionKeys`). `frame` is embedded
+    verbatim -- this adds an addressing header around ciphertext, it does
+    not inspect or alter it.
+    """
+    return json.dumps({"type": "from_joiner", "joiner_id": joiner_id, "frame": frame})
+
+
+def _is_presence_ping_message(message: str) -> bool:
+    """True if `message` is a joiner's lightweight `{"type":
+    "presence_ping"}` heartbeat (#966), sent periodically by
+    collab_join.html purely so the host's presence panel can show this
+    joiner as active even when they haven't sent any real content --
+    see collab_session.py's `PRESENCE_ACTIVE_WINDOW_SECONDS`. Intercepted
+    here, same as `_is_end_session_message` above, so it is never relayed
+    to the host as if it were opaque content.
+    """
+    try:
+        parsed = json.loads(message)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("type") == "presence_ping"
+
+
+async def _broadcast_presence(state: SessionState) -> None:
+    """Push a full presence snapshot to the host (#966).
+
+    Called whenever the joiner list or an active/inactive status might have
+    changed: a joiner is admitted, disconnects, or is kicked, or a joiner's
+    heartbeat ping arrives (see `_is_presence_ping_message`) -- that last
+    one is this feature's substitute for a wall-clock periodic refresh,
+    piggybacking on traffic that already exists instead of adding another
+    background task, so a quiet single-joiner session's status doesn't go
+    stale. A no-op if no host is currently attached (e.g. between a page
+    refresh and reconnect).
+    """
+    if state.host is None:
+        return
+    message = json.dumps({"type": "presence", "joiners": state.presence_snapshot()})
+    async with state.host_send_lock:
+        try:
+            await state.host.send_text(message)
+        except Exception:
+            pass
+
+
+async def _relay_as_host(state: SessionState, websocket: WebSocket, session_id: str) -> None:
+    ended_explicitly = False
+    try:
+        while True:
+            message = await websocket.receive_text()
+            state.touch()
+
+            if _is_end_session_message(message):
+                # #965: explicit host-initiated end. Tear down every joiner
+                # socket with a close reason the joiner's UI can display
+                # (see CLOSE_REASON_HOST_ENDED / collab_join.html), then
+                # close the host's own socket the same way. `exclude`
+                # avoids teardown() redundantly trying to close this same
+                # socket a second time.
+                ended_explicitly = True
+                await collab_sessions.teardown(
+                    session_id, code=CLOSE_HOST_ENDED, reason=CLOSE_REASON_HOST_ENDED, exclude=websocket
+                )
+                await websocket.close(code=CLOSE_HOST_ENDED, reason=CLOSE_REASON_HOST_ENDED)
+                return
+
+            kick_joiner_id = _parse_kick_message(message)
+            if kick_joiner_id is not None:
+                # #966: host removed one participant from the presence
+                # panel. Only that joiner's socket is closed -- the session
+                # and every other joiner are unaffected -- then the host
+                # gets an updated presence snapshot reflecting the removal,
+                # same as any other presence-changing event.
+                await collab_sessions.kick_joiner(session_id, kick_joiner_id, code=CLOSE_KICKED, reason=CLOSE_REASON_KICKED)
+                await _broadcast_presence(state)
+                continue
+
+            addressed = _parse_to_joiner_envelope(message)
+            if addressed is not None:
+                # #967: a frame encrypted for one specific joiner. Deliver
+                # the inner frame to just that socket -- unwrapped, so the
+                # joiner's own handling is unchanged from #963/#964 and it
+                # never has to know this addressing layer exists. Silently
+                # dropped if that joiner has since left, exactly as a
+                # broadcast to a departed joiner would be.
+                target_id, inner_frame = addressed
+                target = state.joiners.get(target_id)
+                if target is not None:
+                    try:
+                        await target.websocket.send_text(inner_frame)
+                    except Exception:
+                        pass
+                continue
+
+            _maybe_cache_host_pubkey(state, message)
+            for joiner in list(state.joiners.values()):
+                try:
+                    await joiner.websocket.send_text(message)
+                except Exception:
+                    pass
+    except WebSocketDisconnect:
+        pass
+    finally:
+        # Only tear down if this socket is still the attached host -- a
+        # stale connection from a page refresh mustn't kill the live one.
+        # Skipped when `ended_explicitly`: that branch above already tore
+        # the session down with a more specific close reason.
+        if not ended_explicitly and state.host is websocket:
+            # #965: host disconnected without an explicit end_session
+            # message -- closed laptop, crash, network drop are all
+            # indistinguishable from here, so all of them get the same
+            # "host disconnected" reason (as opposed to CLOSE_HOST_ENDED,
+            # which only the explicit action above uses).
+            await collab_sessions.teardown(
+                session_id, code=CLOSE_HOST_DISCONNECTED, reason=CLOSE_REASON_HOST_DISCONNECTED, exclude=websocket
+            )
+
+
+async def _relay_as_joiner(state: SessionState, websocket: WebSocket, session_id: str) -> None:
+    try:
+        while True:
+            message = await websocket.receive_text()
+            state.touch()
+            # Re-resolved per message rather than captured once: a joiner
+            # kicked mid-loop is removed from `joiners`, and this must then
+            # stop attributing traffic (or a sender id) to them.
+            joiner_id = state.joiner_id_for(websocket)
+            joiner = state.joiners.get(joiner_id) if joiner_id is not None else None
+            if joiner is not None:
+                # #966: per-joiner activity, distinct from `state.touch()`
+                # above -- drives this one joiner's active/inactive status
+                # in the host's presence panel, not session-level idle
+                # expiry.
+                joiner.touch()
+
+            if _is_presence_ping_message(message):
+                # #966: a heartbeat, not content -- never relay it to the
+                # host, just let it refresh this joiner's activity (above)
+                # and push the host an updated presence snapshot.
+                await _broadcast_presence(state)
+                continue
+
+            host = state.host
+            if host is not None and joiner_id is not None:
+                # #967: tag the frame with this joiner's id so the host can
+                # tell concurrent joiners apart and keep a separate session
+                # key per joiner. The ciphertext itself is untouched.
+                tagged = _wrap_from_joiner(joiner_id, message)
+                async with state.host_send_lock:
+                    try:
+                        await host.send_text(tagged)
+                    except Exception:
+                        pass
+    except WebSocketDisconnect:
+        pass
+    finally:
+        collab_sessions.remove_joiner(session_id, websocket)
+        # #966: the presence panel must reflect this departure right away,
+        # not just the next time some other event happens to broadcast it.
+        await _broadcast_presence(state)
+
+
+@app.websocket("/ws/session/{session_id}")
+async def collab_session_ws(websocket: WebSocket, session_id: str):
+    """Host and joiner relay endpoint. See this module's header comment
+    and collab_session.py for the full handshake protocol."""
+    await websocket.accept()
+    token = websocket.query_params.get("token")
+
+    if token:
+        state = collab_sessions.attach_host(session_id, token, websocket)
+        if state is None:
+            await websocket.close(code=4401)
+            return
+        await _relay_as_host(state, websocket, session_id)
+        return
+
+    # #965: rate limit join attempts per source IP. Each WebSocket
+    # connection reaching this branch is one attempt -- checked before
+    # `_admit_joiner` reads the handshake message, since a flood of
+    # connection attempts is itself the thing being rate limited, whether
+    # or not each one gets as far as sending a (possibly wrong) code.
+    ip = get_websocket_client_ip(websocket)
+    limited, retry_after = is_join_rate_limited(ip)
+    if limited:
+        await websocket.close(code=4429, reason=f"Too many join attempts. Retry in {retry_after}s.")
+        return
+
+    state, _display_name = await _admit_joiner(websocket, session_id)
+    if state is None:
+        return
+    # #971: this one presented the correct code, so it was a colleague
+    # arriving rather than an attempt at the 6-digit space. Give the budget
+    # back, or a team behind one office IP cannot get past its tenth member
+    # -- see forgive_join_attempt's docstring.
+    forgive_join_attempt(ip)
+    await _relay_as_joiner(state, websocket, session_id)
 
 
 if __name__ == "__main__":

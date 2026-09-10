@@ -13,4 +13,18 @@ dev-dependencies = [
     "xlwt>=1.3.0",
     "selenium>=4.25.0",
     "webdriver-manager>=4.0.2",
+    # Dev-only: used exclusively by tests/helpers/collab_crypto_stub.py, a
+    # Python port of static/collab-crypto.js (#964) that drives the
+    # server-side relay-opacity test. Production encryption/decryption for
+    # real collab sessions runs entirely in the browser via the native
+    # SubtleCrypto API -- the app itself never imports `cryptography`.
+    "cryptography>=42.0.0",
+    # Dev-only: a real WebSocket *client*, used by tests/test_collab_load.py
+    # (#971) to put 10+ genuinely concurrent joiners on one session against a
+    # real uvicorn server. Starlette's TestClient runs each socket through its
+    # own blocking portal, which is exactly the arrangement that deadlocks
+    # under concurrency (see that file's docstring), so it cannot answer the
+    # "does the relay hold up with a room full of people" question this issue
+    # asks. The app itself never imports this.
+    "websockets>=12.0",
 ]

@@ -472,7 +472,8 @@ async function getAgentSystemPrompt() {
         '- `---raid log---` — risks, assumptions, issues, dependencies table\n' +
         '- `---comms---` — communications plan table\n' +
         '- `---baseline---` — baseline snapshot\n' +
-        '- `---whiteboard---` — whiteboard/todo-list note layout (Task, X, Y, Colour, Width, Height, Collapsed); never treat its rows as tasks\n\n' +
+        '- `---whiteboard---` — whiteboard/todo-list note layout (Task, X, Y, Colour, Width, Height, Collapsed); never treat its rows as tasks. ' +
+        'Some rows may instead be free-floating text objects (Kind=text, with Id/Text columns instead of Task/Colour/Width/Height/Collapsed) — bare canvas text with no backing task at all; never treat these as tasks either\n\n' +
         '## How to make changes to the plan\n\n' +
         'You have tools available to modify the plan. ALWAYS use the provided tools (like add_stakeholder, add_task, etc.) ' +
         'to make changes. NEVER output plan text directly. Just call the appropriate tool and then explain what you did.';

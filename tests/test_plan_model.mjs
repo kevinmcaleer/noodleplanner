@@ -1,326 +1,431 @@
-// Tests for the parse-once in-memory plan model (issue #905, sub-issues
-// #914 node model / #915 parser / #916 serialiser).
-//
-// The single most important test here is the round-trip corpus check at
-// the bottom: every fixture in tests/fixtures/roundtrip/ and
-// tests/fixtures/conformance/ must come back byte-identical from
-// parsePlan -> serializePlan with no edits. See plan-model.js's header
-// comment for the design this is testing.
-//
-// Run with: node --test tests/test_plan_model.mjs
-
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import vm from 'node:vm';
+import planModel from '../packages/noodle-web/src/noodle_web/static/plan-model.js';
 
-import {
-  parsePlan,
-  serializePlan,
-  formatTaskLine,
-  tokenizeTaskLine,
-  taskLineMetadata,
-  TaskNode,
-} from '../packages/noodle-web/src/noodle_web/static/plan-model.js';
-
+const { PlanModel } = planModel;
 const repo = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-const staticDir = join(repo, 'packages', 'noodle-web', 'src', 'noodle_web', 'static');
-const roundtripDir = join(repo, 'tests', 'fixtures', 'roundtrip');
-const conformanceDir = join(repo, 'tests', 'fixtures', 'conformance');
 
-// --- the real TaskLineTokenizer, lifted from the classic <script>, to
-// cross-check plan-model.js's deliberately-duplicated copy for drift.
-// Run with vm.runInThisContext (same realm as this module), NOT
-// runInNewContext (a sandbox object) -- a different realm gives its
-// plain objects/arrays a different Array/Object prototype than this
-// module's, which trips assert.deepEqual's cross-realm guard even when
-// the values are structurally identical. ---
-const realTokenizerSource = readFileSync(join(staticDir, 'task-tokenizer.js'), 'utf8');
-vm.runInThisContext(realTokenizerSource + '\nglobalThis.__RealTaskLineTokenizer = TaskLineTokenizer;');
-const RealTaskLineTokenizer = globalThis.__RealTaskLineTokenizer;
-delete globalThis.__RealTaskLineTokenizer;
-
-// =====================================================================
-// Grammar parity: plan-model.js's duplicated tokenizer must extract the
-// same fields as the real TaskLineTokenizer (task-tokenizer.js), for
-// every task line in the whole fixture corpus -- the one deliberate,
-// documented exception being `duration`, which this module keeps its
-// unit letter for (see plan-model.js's header comment).
-// =====================================================================
-
-function allTaskLines() {
-  const lines = [];
-  for (const dir of [roundtripDir, conformanceDir]) {
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith('.md')) continue;
-      const text = readFileSync(join(dir, name), 'utf8');
-      const model = parsePlan(text);
-      for (const node of model.nodes) lines.push({ file: name, raw: node.raw });
+test('all real plans round-trip byte for byte through the model', () => {
+    const paths = [
+        ...readdirSync(join(repo, 'templates'), { withFileTypes: true })
+            .filter(entry => entry.isDirectory())
+            .map(entry => join(repo, 'templates', entry.name, 'plan.md')),
+        ...readdirSync(join(repo, 'tests', 'fixtures', 'roundtrip'))
+            .filter(name => name.endsWith('.md'))
+            .map(name => join(repo, 'tests', 'fixtures', 'roundtrip', name)),
+    ];
+    for (const path of paths) {
+        let text;
+        try { text = readFileSync(path, 'utf8'); } catch { continue; }
+        assert.equal(PlanModel.parse(text).serialize(), text, path);
     }
-  }
-  return lines;
-}
-
-test('taskLineMetadata matches the real TaskLineTokenizer field-for-field (except two documented deviations)', () => {
-  const lines = allTaskLines();
-  assert.ok(lines.length > 50, 'expected a substantial number of task lines across the corpus');
-  for (const { file, raw } of lines) {
-    const mine = taskLineMetadata(raw);
-    const real = RealTaskLineTokenizer.metadata(raw).values;
-    for (const key of Object.keys(real)) {
-      // deliberate deviations -- see plan-model.js's header doc
-      if (key === 'duration') continue;
-      if (key === 'product_type') { assert.equal(mine.productType, real.product_type, file); continue; }
-      assert.deepEqual(mine[key], real[key], `${file}: ${JSON.stringify(raw)} field "${key}" diverged`);
-    }
-    // the duration deviation itself: same digits, unit letter kept (the
-    // real tokenizer's `duration` has already dropped it)
-    assert.equal(mine.duration.replace(/[dmwy]$/, ''), real.duration, `${file}: ${JSON.stringify(raw)} duration digits diverged`);
-    if (mine.duration) assert.match(mine.duration, /^\d+[dmwy]$/, `${file}: ${JSON.stringify(raw)} duration missing unit letter`);
-  }
 });
 
-test('tokenizeTaskLine matches the real tokenizer token-for-token', () => {
-  const lines = allTaskLines();
-  for (const { file, raw } of lines) {
-    const mine = tokenizeTaskLine(raw);
-    const real = RealTaskLineTokenizer.tokenize(raw);
-    assert.deepEqual(mine, real, `${file}: ${JSON.stringify(raw)} tokens diverged`);
-  }
+test('front matter, comments, CRLF and back matter remain opaque', () => {
+    const text = '---\r\ntitle: Odd\r\n---\r\n// note\r\nPhase\r\n  A 1d\r\n\r\n---whiteboard---\r\n{"task":"A"}';
+    const model = PlanModel.parse(text);
+    assert.deepEqual(model.tasks.map(task => task.name), ['Phase', 'A']);
+    assert.equal(model.serialize(), text);
 });
 
-// =====================================================================
-// TaskNode / tree structure
-// =====================================================================
-
-test('TaskNode captures every inline token type', () => {
-  const model = parsePlan('Task $deliverable 5d 2026-01-01 2026-01-10 40% @kev @adam !! ~2h/8h {Bucket} [depends Other:SS +1d, Another] [repeats weekly mon] #urgent "a note"\n');
-  const node = model.nodes[0];
-  assert.equal(node.name, 'Task');
-  assert.equal(node.duration, '5d');
-  assert.equal(node.startDate, '2026-01-01');
-  assert.equal(node.finishDate, '2026-01-10');
-  assert.deepEqual(node.resources, ['kev', 'adam']);
-  assert.equal(node.priority, 'Important');
-  assert.equal(node.effortCompleted, '2');
-  assert.equal(node.effortCompletedUnit, 'h');
-  assert.equal(node.effortTotal, '8');
-  assert.equal(node.effortTotalUnit, 'h');
-  assert.equal(node.bucket, 'Bucket');
-  assert.deepEqual(node.dependencies, ['Other:SS +1d', 'Another']);
-  assert.equal(node.recurrence, 'weekly mon');
-  assert.deepEqual(node.labels, ['urgent']);
-  assert.equal(node.comment, 'a note');
-  assert.equal(node.productType, 'internal');
-  assert.equal(node.deliverable, 'deliverable');
-  // percent is overridden by the effort-derived value (25%), same as
-  // TaskLineTokenizer.metadata -- the literal 40% token is consumed as
-  // part of removable text either way.
-  assert.equal(node.percent, '25');
+test('unchanged tabs and mixed indentation round-trip exactly', () => {
+    const text = 'Phase\n\tTabbed 1d\n   Three spaces 1d\n';
+    assert.equal(PlanModel.parse(text).serialize(), text);
 });
 
-test('deliverable sigils map to product types', () => {
-  const model = parsePlan('A $internal 1d\nB /$grouped 1d\nC ^$external 1d\n');
-  assert.equal(model.nodes[0].productType, 'internal');
-  assert.equal(model.nodes[1].productType, 'group');
-  assert.equal(model.nodes[2].productType, 'external');
+test('a bare divider before back matter is not parsed as a task', () => {
+    const text = 'Task 1d\n---\n---whiteboard---\n| Task |\n';
+    const model = PlanModel.parse(text);
+    assert.deepEqual(model.tasks.map(task => task.name), ['Task']);
+    assert.equal(model.serialize(), text);
 });
 
-test('star shorthand is captured raw, not resolved', () => {
-  const model = parsePlan('A 1d\n*B 2d\n*+3d C 2d\n');
-  assert.equal(model.nodes[0].hasStar, false);
-  assert.equal(model.nodes[1].hasStar, true);
-  assert.equal(model.nodes[1].starLagLead, '');
-  assert.equal(model.nodes[2].hasStar, true);
-  assert.equal(model.nodes[2].starLagLead, '+3d');
-  assert.equal(model.nodes[2].name, 'C');
-  // deliberately not resolved into a predecessor reference -- see
-  // plan-model.js's TaskNode.hasStar doc
-  assert.deepEqual(model.nodes[2].dependencies, []);
+test('dependencies are object edges and successors are graph queries', () => {
+    const model = PlanModel.parse('Build $artifact 1d\nTest 1d [depends Build:SS +2d]\nShip 1d [depends $artifact]\n');
+    const [build, verify, ship] = model.tasks;
+    assert.equal(verify.dependencies[0].target, build);
+    assert.equal(verify.dependencies[0].type, 'SS');
+    assert.equal(verify.dependencies[0].lag, '+2d');
+    assert.equal(ship.dependencies[0].target, build);
+    assert.deepEqual(model.successorsOf(build), [verify, ship]);
 });
 
-test('indent/parent-child tree structure for a nested outline', () => {
-  const text = [
-    'Phase 1',
-    '  Task A 1d',
-    '  Task B 2d',
-    '    Subtask B1 1d',
-    'Phase 2',
-    '  Task C 1d',
-  ].join('\n') + '\n';
-  const model = parsePlan(text);
-  assert.equal(model.roots.length, 2);
-  const [phase1, phase2] = model.roots;
-  assert.equal(phase1.name, 'Phase 1');
-  assert.equal(phase1.children.length, 2);
-  assert.equal(phase1.isSummary, true);
-  const [taskA, taskB] = phase1.children;
-  assert.equal(taskA.name, 'Task A');
-  assert.equal(taskA.isSummary, false);
-  assert.equal(taskA.parent, phase1);
-  assert.equal(taskB.children.length, 1);
-  assert.equal(taskB.isSummary, true);
-  assert.equal(taskB.children[0].name, 'Subtask B1');
-  assert.equal(taskB.children[0].parent, taskB);
-  assert.equal(phase2.name, 'Phase 2');
-  assert.equal(phase2.children[0].name, 'Task C');
-
-  // ids: ancestor chain joined by ' › '
-  assert.equal(phase1.id, 'Phase 1');
-  assert.equal(taskA.id, 'Phase 1 › Task A');
-  assert.equal(taskB.children[0].id, 'Phase 1 › Task B › Subtask B1');
+test('star shorthand points to the preceding task object', () => {
+    const model = PlanModel.parse('First 1d\n*Second 1d\n');
+    assert.equal(model.tasks[1].dependencies[0].target, model.tasks[0]);
+    assert.equal(model.tasks[1].dependencies[0].shorthand, true);
 });
 
-test('isSummary stays live if children are mutated after the fact', () => {
-  const model = parsePlan('A 1d\n');
-  const node = model.nodes[0];
-  assert.equal(node.isSummary, false);
-  node.children.push(new TaskNode('  fake child', 1));
-  assert.equal(node.isSummary, true);
+test('rename cascades through explicit dependency edges', () => {
+    const model = PlanModel.parse('A 1d\nB 1d [depends A:SS +2d]\n');
+    model.rename(model.tasks[0], 'Foundation');
+    assert.equal(model.serialize(), 'Foundation 1d\nB 1d [depends Foundation:SS +2d]\n');
 });
 
-test('duplicate sibling names are disambiguated in id, matching #838\'s fix elsewhere', () => {
-  const text = 'Phase\n  Design\n    Wireframe 2d\n  Design\n    Wireframe 1d\n';
-  const model = parsePlan(text);
-  const designs = model.roots[0].children;
-  assert.equal(designs.length, 2);
-  assert.equal(designs[0].id, 'Phase › Design');
-  assert.equal(designs[1].id, 'Phase › Design#2');
-  assert.equal(designs[0].children[0].id, 'Phase › Design › Wireframe');
-  assert.equal(designs[1].children[0].id, 'Phase › Design#2 › Wireframe');
+test('rename migrates Theme colours and whiteboard task rows', () => {
+    const text = '---\nTheme:\n- Phase: #AABBCC\n---\nPhase\n  Work 1d\n---whiteboard---\n| Task | X |\n| --- | --- |\n| Phase | 10 |\n';
+    const model = PlanModel.parse(text);
+    model.rename(model.tasks[0], 'Delivery');
+    const output = model.serialize();
+    assert.match(output, /- Delivery: #AABBCC/);
+    assert.match(output, /\| Delivery \| 10 \|/);
 });
 
-test('blank lines and // comment lines are preserved but not modelled as tasks', () => {
-  const text = '// a leading comment\n\nA 1d\n\n// another comment\nB 2d\n';
-  const model = parsePlan(text);
-  assert.equal(model.nodes.length, 2);
-  // text.split('\n') on a trailing-newline string yields a final '' entry
-  // -- that's a real (blank) line in the model too, so round-tripping the
-  // trailing newline works.
-  assert.equal(model.lines.length, 7);
-  assert.equal(model.lines[0].kind, 'comment');
-  assert.equal(model.lines[1].kind, 'blank');
-  assert.equal(model.lines[2].kind, 'task');
-  assert.equal(model.lines[3].kind, 'blank');
-  assert.equal(model.lines[4].kind, 'comment');
-  assert.equal(model.lines[5].kind, 'task');
-  assert.equal(model.lines[6].kind, 'blank');
-  assert.equal(serializePlan(model), text);
+test('rename collapses an embedded newline instead of splitting the task onto extra lines', () => {
+    // #1006: a name is spliced into one physical line by _serialiseContent
+    // /serialize(); an embedded newline would turn that into several lines,
+    // and one of them could be mistaken for structure (e.g. a back-matter
+    // marker) on the document's next parse.
+    const model = PlanModel.parse('A 1d\nB 1d\n');
+    model.rename(model.tasks[0], 'Foo\n---whiteboard---\nBar');
+    assert.equal(model.tasks[0].name, 'Foo ---whiteboard--- Bar');
+    assert.equal(model.serialize(), 'Foo ---whiteboard--- Bar 1d\nB 1d\n');
 });
 
-test('lineIndex accounts for front matter lines preceding the outline', () => {
-  const text = '---\ntitle: T\n---\nA 1d\n  B 2d\n';
-  const model = parsePlan(text);
-  assert.equal(model.nodes[0].lineIndex, 3);
-  assert.equal(model.nodes[1].lineIndex, 4);
-  assert.equal(text.split('\n')[model.nodes[0].lineIndex], 'A 1d');
-  assert.equal(text.split('\n')[model.nodes[1].lineIndex], '  B 2d');
+test('duplicate names keep distinct identities and last definition wins for lookup', () => {
+    const model = PlanModel.parse('Same 1d\nSame 2d\nAfter 1d [depends Same]\n');
+    assert.notEqual(model.tasks[0].id, model.tasks[1].id);
+    assert.equal(model.tasks[2].dependencies[0].target, model.tasks[1]);
 });
 
-test('empty plan and single task edge cases', () => {
-  const empty = parsePlan('');
-  assert.deepEqual(empty.roots, []);
-  assert.deepEqual(empty.nodes, []);
-
-  const single = parsePlan('Only task 1d\n');
-  assert.equal(single.nodes.length, 1);
-  assert.equal(single.roots.length, 1);
-  assert.equal(single.roots[0].name, 'Only task');
+test('tree move carries descendants and never leaves splice blank lines', () => {
+    const model = PlanModel.parse('One\n  Child 1d\n\nTwo 1d\n');
+    const one = model.tasks[0];
+    const two = model.tasks[2];
+    assert.equal(model.moveAsChild(one, two, true), true);
+    assert.equal(model.serialize(), 'Two 1d\n  One\n    Child 1d\n\n');
+    assert.equal(one.parent, two);
+    assert.equal(model.taskAt(0), two);
 });
 
-test('deeply nested outline builds a correct chain', () => {
-  const depth = 8;
-  const lines = [];
-  for (let i = 0; i < depth; i++) lines.push('  '.repeat(i) + `Level ${i} 1d`);
-  const model = parsePlan(lines.join('\n') + '\n');
-  assert.equal(model.roots.length, 1);
-  let node = model.roots[0];
-  for (let i = 0; i < depth; i++) {
-    assert.equal(node.name, `Level ${i}`);
-    assert.equal(node.indent, i * 2);
-    node = node.children[0];
-  }
+test('a node cannot be moved into its own descendant', () => {
+    const model = PlanModel.parse('Parent\n  Child 1d\n');
+    assert.equal(model.moveAsChild(model.tasks[0], model.tasks[1], true), false);
+    assert.equal(model.serialize(), 'Parent\n  Child 1d\n');
 });
 
-// =====================================================================
-// formatTaskLine: canonical, best-effort, NOT the round-trip guarantee
-// =====================================================================
-
-test('formatTaskLine reconstructs a plausible line from fields', () => {
-  const model = parsePlan('Task 5d @kev 40% !! #urgent "a note"\n');
-  const node = model.nodes[0];
-  const formatted = formatTaskLine(node);
-  const reparsed = parsePlan(formatted + '\n').nodes[0];
-  assert.equal(reparsed.name, node.name);
-  assert.equal(reparsed.duration, node.duration);
-  assert.deepEqual(reparsed.resources, node.resources);
-  assert.equal(reparsed.percent, node.percent);
-  assert.equal(reparsed.priority, node.priority);
-  assert.deepEqual(reparsed.labels, node.labels);
-  assert.equal(reparsed.comment, node.comment);
+test('sibling reorder moves the whole subtree through the model', () => {
+    const model = PlanModel.parse('Phase\n  A\n    A child 1d\n  B 1d\n  C 1d\n');
+    const a = model.findByName('A');
+    const c = model.findByName('C');
+    assert.equal(model.moveAfter(a, c), true);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  B 1d\n  C 1d\n  A\n    A child 1d\n'
+    );
+    assert.equal(a.parent.name, 'Phase');
 });
 
-test('formatTaskLine preserves indent', () => {
-  const model = parsePlan('Phase\n    Deep task 1d\n');
-  const node = model.roots[0].children[0];
-  assert.equal(formatTaskLine(node), '    Deep task 1d');
+test('reorder expands star shorthand when adjacency breaks', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  *B 1d\n  C 1d\n');
+    const b = model.findByName('B');
+    const c = model.findByName('C');
+    assert.equal(model.moveBefore(c, b), true);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  A 1d\n  C 1d\n  B 1d [depends: A]\n'
+    );
+    assert.equal(b.dependencies[0].target.name, 'A');
+    assert.equal(b.dependencies[0].shorthand, false);
 });
 
-// =====================================================================
-// Round-trip guarantee: the single most important test in this suite.
-// parse -> serialise with NO edits must be byte-identical for every
-// fixture in the real corpus (not fixtures invented for this task).
-// =====================================================================
-
-function corpusFiles() {
-  const files = [];
-  for (const dir of [roundtripDir, conformanceDir]) {
-    for (const name of readdirSync(dir).sort()) {
-      if (name.endsWith('.md')) files.push(join(dir, name));
-    }
-  }
-  return files;
-}
-
-const corpus = corpusFiles();
-
-test('round-trip corpus is non-trivial', () => {
-  const roundtripCount = readdirSync(roundtripDir).filter((n) => n.endsWith('.md')).length;
-  // The conformance corpus pairs each .md fixture with a .expected.json
-  // (16 files total, 8 of them .md) -- see tests/test_engine_conformance.mjs.
-  const conformanceCount = readdirSync(conformanceDir).filter((n) => n.endsWith('.md')).length;
-  assert.equal(roundtripCount, 9, 'tests/fixtures/roundtrip should hold 9 fixtures');
-  assert.equal(conformanceCount, 8, 'tests/fixtures/conformance should hold 8 .md fixtures');
+test('an expanded sequential dependency stays explicit when adjacency returns', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  *B 1d\n  C 1d\n');
+    const b = model.findByName('B');
+    const c = model.findByName('C');
+    assert.equal(model.moveBefore(c, b), true);
+    assert.equal(model.moveBefore(b, c), true);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  A 1d\n  B 1d [depends: A]\n  C 1d\n'
+    );
+    assert.equal(b.dependencies[0].shorthand, false);
 });
 
-for (const path of corpus) {
-  test(`round-trip: ${path.replace(repo + '/', '')} is byte-identical after parse -> serialise with no edits`, () => {
-    const text = readFileSync(path, 'utf8');
-    const model = parsePlan(text);
-    const out = serializePlan(model);
-    assert.equal(out, text);
-  });
-}
-
-test('round-trip holds even when the plan has no front matter', () => {
-  const text = readFileSync(join(roundtripDir, 'no-front-matter.md'), 'utf8');
-  const model = parsePlan(text);
-  assert.equal(model.frontMatterRaw, '');
-  assert.equal(serializePlan(model), text);
+test('moving between parents preserves descendants and adjusts indentation', () => {
+    const model = PlanModel.parse('One\n  Work\n    Child 1d\nTwo\n');
+    const work = model.findByName('Work');
+    const two = model.findByName('Two');
+    assert.equal(model.moveAsChild(work, two, true), true);
+    assert.equal(model.serialize(), 'One\nTwo\n  Work\n    Child 1d\n');
 });
 
-test('round-trip holds for a file with no trailing newline', () => {
-  const text = readFileSync(join(roundtripDir, 'whitespace-edges.md'), 'utf8');
-  assert.ok(!text.endsWith('\n'));
-  const model = parsePlan(text);
-  assert.equal(serializePlan(model), text);
+test('reorder preserves CRLF and the absence of a final newline', () => {
+    const model = PlanModel.parse('Phase\r\n  A 1d\r\n  B 1d');
+    assert.equal(model.moveAfter(model.findByName('A'), model.findByName('B')), true);
+    assert.equal(model.serialize(), 'Phase\r\n  B 1d\r\n  A 1d');
 });
 
-test('front matter, task outline, and back matter concatenate back to the exact original text (split identity)', () => {
-  for (const path of corpus) {
-    const text = readFileSync(path, 'utf8');
-    const model = parsePlan(text);
-    assert.equal(model.frontMatterRaw + model.taskOutlineRaw + model.backMatterRaw, text, path);
-  }
+// ---- addDependency / removeDependency / cycle detection (#1052) ----
+
+test('addDependency creates a new [depends: ...] block when none exists', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n');
+    const [a, b] = [model.findByName('A'), model.findByName('B')];
+    assert.equal(model.addDependency(b, a), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d [depends: A]\n');
+    assert.equal(b.dependencies.length, 1);
+    assert.equal(b.dependencies[0].target, a);
+});
+
+test('addDependency appends to an existing [depends: ...] block', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n  C 1d [depends: A]\n');
+    const c = model.findByName('C');
+    assert.equal(model.addDependency(c, model.findByName('B')), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n  C 1d [depends: A, B]\n');
+});
+
+test('addDependency refuses a self-dependency', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n');
+    const a = model.findByName('A');
+    const before = model.serialize();
+    assert.equal(model.addDependency(a, a), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency refuses a duplicate', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('B'), model.findByName('A')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency refuses a direct cycle (A depends on B, B depends on A)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('A'), model.findByName('B')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency refuses a transitive cycle (A -> B -> C, then C -> A)', () => {
+    const model = PlanModel.parse('Phase\n  A 1d [depends: B]\n  B 1d [depends: C]\n  C 1d\n');
+    const before = model.serialize();
+    assert.equal(model.addDependency(model.findByName('C'), model.findByName('A')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('canAddDependency reports a reason without mutating anything', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    const before = model.serialize();
+    const check = model.canAddDependency(model.findByName('A'), model.findByName('B'));
+    assert.equal(check.ok, false);
+    assert.match(check.reason, /circular/);
+    assert.equal(model.serialize(), before, 'a check must never mutate the model');
+});
+
+test('removeDependency drops the whole block when it was the only entry', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d [depends: A]\n');
+    assert.equal(model.removeDependency(model.findByName('B'), model.findByName('A')), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n');
+});
+
+test('removeDependency keeps the remaining entries when there are several', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n  C 1d [depends: A, B]\n');
+    assert.equal(model.removeDependency(model.findByName('C'), model.findByName('A')), true);
+    assert.equal(model.serialize(), 'Phase\n  A 1d\n  B 1d\n  C 1d [depends: B]\n');
+});
+
+test('removeDependency returns false for a dependency that does not exist', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  B 1d\n');
+    assert.equal(model.removeDependency(model.findByName('B'), model.findByName('A')), false);
+});
+
+test('removeDependency does not remove an implicit sequential (*) dependency', () => {
+    const model = PlanModel.parse('Phase\n  A 1d\n  *B 1d\n');
+    const before = model.serialize();
+    assert.equal(model.removeDependency(model.findByName('B'), model.findByName('A')), false);
+    assert.equal(model.serialize(), before);
+});
+
+test('addDependency then removeDependency round-trips back to the original text', () => {
+    const original = 'Phase\n  A 1d\n  B 1d\n  C 1d\n';
+    const model = PlanModel.parse(original);
+    const [a, b, c] = [model.findByName('A'), model.findByName('B'), model.findByName('C')];
+    model.addDependency(c, a);
+    model.addDependency(c, b);
+    model.removeDependency(c, a);
+    model.removeDependency(c, b);
+    assert.equal(model.serialize(), original);
+});
+
+// ---- insertTaskAfter / removeTask (#1049 notepad surface) ----
+
+test('insertTaskAfter appends a root task with matching indentation', () => {
+    const model = PlanModel.parse('First\n');
+    const node = model.insertTaskAfter(model.tasks[0], 0, 'Second');
+    assert.equal(node.name, 'Second');
+    assert.equal(model.serialize(), 'First\nSecond\n');
+    assert.deepEqual(model.tasks.map(task => task.name), ['First', 'Second']);
+});
+
+test('insertTaskAfter with no anchor appends to an empty document', () => {
+    const model = PlanModel.parse('');
+    const node = model.insertTaskAfter(null, 0, 'First task');
+    assert.equal(node.name, 'First task');
+    assert.equal(model.serialize(), 'First task');
+});
+
+test('insertTaskAfter at a deeper indent nests under the anchor task', () => {
+    const model = PlanModel.parse('Phase\n');
+    const phase = model.tasks[0];
+    const child = model.insertTaskAfter(phase, 2, 'Child task');
+    assert.equal(child.parent, phase);
+    assert.deepEqual(phase.children, [child]);
+    assert.equal(model.serialize(), 'Phase\n  Child task\n');
+});
+
+test('insertTaskAfter nests after an existing last child, not before it', () => {
+    const model = PlanModel.parse('Phase\n  Existing child 1d\n');
+    const phase = model.tasks[0];
+    model.insertTaskAfter(phase, 2, 'New child');
+    assert.deepEqual(model.tasks.map(task => task.name), ['Phase', 'Existing child', 'New child']);
+    assert.equal(model.serialize(), 'Phase\n  Existing child 1d\n  New child\n');
+});
+
+test('insertTaskAfter at a shallower indent closes out the anchor\'s whole subtree first', () => {
+    const model = PlanModel.parse('Phase\n  Task\n    Sub task 1d\nOther phase\n');
+    const subTask = model.findByName('Sub task');
+    const node = model.insertTaskAfter(subTask, 0, 'New root');
+    assert.equal(node.parent, null);
+    assert.deepEqual(
+        model.tasks.map(task => task.name),
+        ['Phase', 'Task', 'Sub task', 'New root', 'Other phase']
+    );
+    assert.equal(
+        model.serialize(),
+        'Phase\n  Task\n    Sub task 1d\nNew root\nOther phase\n'
+    );
+});
+
+test('insertTaskAfter preserves CRLF and a missing final newline', () => {
+    const model = PlanModel.parse('First\r\nSecond');
+    model.insertTaskAfter(model.tasks[0], 0, 'Between');
+    assert.equal(model.serialize(), 'First\r\nBetween\r\nSecond');
+});
+
+test('removeTask drops a leaf task and keeps the rest of the document intact', () => {
+    const model = PlanModel.parse('First\nSecond\nThird\n');
+    const second = model.findByName('Second');
+    assert.equal(model.removeTask(second), true);
+    assert.equal(model.serialize(), 'First\nThird\n');
+    assert.deepEqual(model.tasks.map(task => task.name), ['First', 'Third']);
+});
+
+test('removeTask refuses to remove a task that still has children', () => {
+    const model = PlanModel.parse('Phase\n  Child 1d\n');
+    assert.equal(model.removeTask(model.tasks[0]), false);
+    assert.equal(model.serialize(), 'Phase\n  Child 1d\n');
+});
+
+test('removeTask folds trailing comment lines onto the previous task', () => {
+    const model = PlanModel.parse('First\nSecond\n// a note\nThird\n');
+    const second = model.findByName('Second');
+    assert.equal(model.removeTask(second), true);
+    assert.equal(model.serialize(), 'First\n// a note\nThird\n');
+});
+
+// ---- cardTextFor / insertCardAfter (#1050 reusable cards) ----
+
+test('cardTextFor serialises a leaf task as a single line', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n  Task B 2d\n');
+    const text = model.cardTextFor(model.findByName('Task A'));
+    assert.equal(text, 'Task A 1d');
+});
+
+test('cardTextFor serialises a subtree relative to its own root, dropping the source indent', () => {
+    const model = PlanModel.parse('Phase\n  Sub-phase\n    Task A 1d\n    Task B 2d\n  Other\n');
+    const text = model.cardTextFor(model.findByName('Sub-phase'));
+    assert.equal(text, 'Sub-phase\n  Task A 1d\n  Task B 2d');
+});
+
+test('cardTextFor on a task with no children is just that one line, even deeply nested', () => {
+    const model = PlanModel.parse('Phase\n  Sub-phase\n    Task A 1d\n');
+    const text = model.cardTextFor(model.findByName('Task A'));
+    assert.equal(text, 'Task A 1d');
+});
+
+test('cardTextFor returns an empty string for a null task', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    assert.equal(model.cardTextFor(null), '');
+});
+
+test('insertCardAfter inserts a flat card as new siblings at the anchor indent', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const inserted = model.insertCardAfter(anchor, anchor.indent, 'Task B 1d\nTask C 1d');
+    assert.equal(inserted.length, 2);
+    assert.equal(model.serialize(), 'Phase\n  Task A 1d\n  Task B 1d\n  Task C 1d\n');
+});
+
+test('insertCardAfter reconstructs the card\'s own nested hierarchy at the anchor point', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const cardText = 'Sub-phase\n  Nested A 1d\n  Nested B 1d\nOther root';
+    model.insertCardAfter(anchor, anchor.indent, cardText);
+    assert.equal(
+        model.serialize(),
+        'Phase\n  Task A 1d\n  Sub-phase\n    Nested A 1d\n    Nested B 1d\n  Other root\n'
+    );
+    const subPhase = model.findByName('Sub-phase');
+    assert.deepEqual(subPhase.children.map(t => t.name), ['Nested A', 'Nested B']);
+});
+
+test('insertCardAfter round-trips with cardTextFor: saving a subtree and re-inserting it reproduces the same shape', () => {
+    const source = PlanModel.parse('Phase\n  Sub-phase\n    Task A 1d\n    Task B 2d\n');
+    const cardText = source.cardTextFor(source.findByName('Sub-phase'));
+
+    const target = PlanModel.parse('Other Phase\n  Existing 1d\n');
+    const anchor = target.findByName('Existing');
+    target.insertCardAfter(anchor, anchor.indent, cardText);
+
+    const reinserted = target.findByName('Sub-phase');
+    assert.ok(reinserted);
+    assert.equal(reinserted.indent, anchor.indent);
+    assert.deepEqual(reinserted.children.map(t => t.name), ['Task A', 'Task B']);
+});
+
+test('insertCardAfter ignores blank lines within the card text', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const inserted = model.insertCardAfter(anchor, anchor.indent, 'Task B 1d\n\n  \nTask C 1d');
+    assert.equal(inserted.length, 2);
+});
+
+test('insertCardAfter with empty card text inserts nothing', () => {
+    const model = PlanModel.parse('Phase\n  Task A 1d\n');
+    const anchor = model.findByName('Task A');
+    const inserted = model.insertCardAfter(anchor, anchor.indent, '   \n\n');
+    assert.equal(inserted.length, 0);
+    assert.equal(model.serialize(), 'Phase\n  Task A 1d\n');
+});
+
+// #911: reordering spliced a blank line -- which had separated two other
+// tasks in the original text -- into the gap the move created, instead of
+// it just disappearing along with the boundary it used to mark.
+test('reorder does not splice a stray blank line into the new gap', () => {
+    const model = PlanModel.parse('Task A\nTask B\n\nTask C\n');
+    const a = model.findByName('Task A');
+    const b = model.findByName('Task B');
+    assert.equal(model.moveAfter(a, b), true);
+    assert.equal(model.serialize(), 'Task B\nTask A\nTask C\n');
+});
+
+// #911: the moved task's *old* predecessor is left just as exposed -- its
+// blank trailing line described the boundary to the task that just left,
+// not to whatever now follows it.
+test('reorder does not leave a stray blank line at the old predecessor', () => {
+    const model = PlanModel.parse('Task A\n\nTask B\nTask C\n');
+    const b = model.findByName('Task B');
+    const a = model.findByName('Task A');
+    assert.equal(model.moveBefore(b, a), true);
+    assert.equal(model.serialize(), 'Task B\nTask A\nTask C\n');
+});
+
+test('reorder keeps a non-blank trailing comment attached to its task', () => {
+    const model = PlanModel.parse('Task A\n// keep me\nTask B\n\nTask C\n');
+    const a = model.findByName('Task A');
+    const b = model.findByName('Task B');
+    assert.equal(model.moveAfter(a, b), true);
+    assert.equal(model.serialize(), 'Task B\nTask A\n// keep me\nTask C\n');
 });

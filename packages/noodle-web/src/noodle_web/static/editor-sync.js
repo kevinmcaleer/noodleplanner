@@ -3,10 +3,52 @@
  * Depends on: state.js (globals)
  */
 
+function updateEditorTaskViaModel(editor, task, taskIndex, updater) {
+    if (typeof NoodlePlanModel === 'undefined') return false;
+    const model = NoodlePlanModel.modelForEditor(editor);
+    const node = task && task._uid != null ? model.findById(task._uid) : model.taskAt(taskIndex);
+    if (!node || !model.updateLine(node, updater)) return false;
+    NoodlePlanModel.commitToEditor(editor, model);
+    return true;
+}
+
 function syncGanttEditToEditor(task, taskIndex, field, newValue, oldName = null) {
     // Get the editor content
     const editor = document.getElementById('planEditor');
     if (!editor) return;
+
+    if (typeof NoodlePlanModel !== 'undefined') {
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const node = task && task._uid != null ? model.findById(task._uid) : model.taskAt(taskIndex);
+        if (!node) return;
+        if (field === 'name') {
+            model.rename(node, newValue);
+        } else {
+            model.updateLine(node, line => {
+                if (field === 'resources') {
+                    const pattern = /\[([^\]]+)\]/;
+                    return newValue
+                        ? (pattern.test(line) ? line.replace(pattern, `[${newValue}]`) : line.trimEnd() + ` [${newValue}]`)
+                        : line.replace(pattern, '').trimEnd();
+                }
+                if (field === 'comment') {
+                    const pattern = /"([^"]*)"/;
+                    return newValue
+                        ? (pattern.test(line) ? line.replace(pattern, `"${newValue}"`) : line.trimEnd() + ` "${newValue}"`)
+                        : line.replace(pattern, '').trimEnd();
+                }
+                if (field === 'bucket') {
+                    const pattern = /\{([^}]*)\}/;
+                    return newValue
+                        ? (pattern.test(line) ? line.replace(pattern, `{${newValue}}`) : line.trimEnd() + ` {${newValue}}`)
+                        : line.replace(pattern, '').trimEnd();
+                }
+                return line;
+            });
+        }
+        NoodlePlanModel.commitToEditor(editor, model);
+        return;
+    }
 
     const lines = editor.value.split('\n');
 
@@ -96,6 +138,17 @@ function syncGanttPriorityToEditor(task, taskIndex) {
     const priorityMarkers = { 'Urgent': '!!!', 'Important': '!!', 'Medium': '!' };
     const marker = priorityMarkers[task.priority] || '';
 
+    if (updateEditorTaskViaModel(editor, task, taskIndex, line => {
+        const indentLength = (line.match(/^\s*/) || [''])[0].length;
+        line = line.replace(/(?<!\w)(!!!|!!|!)(?!["'{])/g, '').replace(/\s{2,}/g, ' ').trimEnd();
+        if (marker) {
+            const prefixLength = line.substring(indentLength).startsWith('*') ? 1 : 0;
+            const nameEnd = indentLength + prefixLength + task.name.length;
+            line = line.substring(0, nameEnd) + ' ' + marker + line.substring(nameEnd);
+        }
+        return line;
+    })) return;
+
     for (let i = 0; i < lines.length; i++) {
         if (taskNamePattern.test(lines[i])) {
             // Remove existing priority markers (standalone !, !!, !!!)
@@ -123,6 +176,11 @@ function syncGanttDurationToEditor(task, taskIndex) {
         console.error('Editor not found!');
         return;
     }
+
+    if (updateEditorTaskViaModel(editor, task, taskIndex, line => {
+        const indent = (line.match(/^\s*/) || [''])[0];
+        return updateDurationInLine(line, task.duration_days, indent, task.name);
+    })) return;
 
     const lines = editor.value.split('\n');
 
@@ -174,6 +232,11 @@ function syncGanttStartDateToEditor(task, taskIndex) {
         return;
     }
 
+    if (updateEditorTaskViaModel(editor, task, taskIndex, line => {
+        const indent = (line.match(/^\s*/) || [''])[0];
+        return updateStartDateInLine(line, task.start, indent, task.name);
+    })) return;
+
     const lines = editor.value.split('\n');
 
     // Calculate indent
@@ -221,6 +284,11 @@ function syncGanttFinishDateToEditor(task, taskIndex) {
         console.error('Editor not found!');
         return;
     }
+
+    if (updateEditorTaskViaModel(editor, task, taskIndex, line => {
+        const indent = (line.match(/^\s*/) || [''])[0];
+        return updateFinishDateInLine(line, task.finish, indent, task.name);
+    })) return;
 
     const lines = editor.value.split('\n');
 
@@ -432,6 +500,11 @@ function syncGanttPercentToEditor(task, taskIndex) {
         return;
     }
 
+    if (updateEditorTaskViaModel(editor, task, taskIndex, line => {
+        const indent = (line.match(/^\s*/) || [''])[0];
+        return updatePercentInLine(line, task.percent, indent, task.name);
+    })) return;
+
     const lines = editor.value.split('\n');
 
     // Calculate indent
@@ -476,6 +549,22 @@ function syncGanttPredecessorsToEditor(task, taskIndex) {
         console.error('Editor not found!');
         return;
     }
+
+    if (updateEditorTaskViaModel(editor, task, taskIndex, line => {
+        let depends = '';
+        if (task.depends && task.depends.length) {
+            const types = task.dependency_types || {};
+            const parts = task.depends.map(name => {
+                const type = types[name] && types[name] !== 'FS' ? ':' + types[name] : '';
+                const lag = task.lag_lead && task.lag_lead[name] ? ' ' + task.lag_lead[name] : '';
+                return name + type + lag;
+            });
+            depends = '[depends ' + parts.join(', ') + ']';
+        }
+        const pattern = /\[depends(?::\s*|\s+)[^\]]+\]/i;
+        if (pattern.test(line)) return depends ? line.replace(pattern, depends) : line.replace(pattern, '').replace(/\s{2,}/g, ' ').trimEnd();
+        return depends ? line.trimEnd() + ' ' + depends : line;
+    })) return;
 
     const lines = editor.value.split('\n');
 
@@ -829,5 +918,4 @@ function updatePercentInLine(line, newPercent, indent, taskName) {
     // Rebuild line with indent preserved
     return indent + tokens.join(' ');
 }
-
 

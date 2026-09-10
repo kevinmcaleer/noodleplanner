@@ -54,9 +54,24 @@
  *      colour picked from any of the three views shows up in the other
  *      two). This is what the `...` menu writes.
  *   3. A palette colour derived from the task's position in `result.tasks`
- *      (wbDerivedPaletteColour(), reusing mindmap.js's MM_BRANCH_COLOURS --
- *      not a new palette) -- always defined, so a note is never left
- *      uncoloured; "clear" in the menu means "fall back to this".
+ *      (wbDerivedPaletteColour(), drawing from WB_NOTE_PASTEL_COLOURS --
+ *      the fixed pastel "post-it" palette issue #1017 introduced,
+ *      dedicated to this file and not shared with the mind map's or the
+ *      boards view's own palettes) -- always defined, so a note is never
+ *      left uncoloured; "clear" in the menu means "fall back to this".
+ *
+ * A note's colour is manual, per-note shorthand: picking a swatch has no
+ * semantic or conditional-formatting meaning, and is entirely unrelated
+ * to the boards view's rule-based conditional formatting (kanban.js/
+ * state.js's CF_PASTEL_COLOURS/CF_DARK_COLOURS, a different, rule-driven
+ * system -- see #1017). It still writes into the plan's shared `Theme:`
+ * front matter (tier 2 above), exactly as #849 did -- that storage/
+ * precedence mechanism is unchanged; only the swatches offered changed.
+ * An old colour value that doesn't match any current swatch (e.g. one
+ * picked from #849's old MM_BRANCH_COLOURS/CF_* grids, or a hand-edited
+ * hex) still renders exactly as stored -- rendering never requires a
+ * value to match a known swatch, it just won't show as "selected" in
+ * the menu until a new pick is made.
  *
  * See wbResolveNoteColour() for the implementation and
  * docs/reference/plan-format.rst's "Whiteboard rows" section for the
@@ -118,6 +133,130 @@
  * wbOpenChildTask() to openTaskFormByName() (the same task-details form
  * product views open), not the read-only Task Inspector that badge click
  * used to jump to directly.
+ *
+ * Nested subtasks several layers deep (issue #1016, part of #885): #850's
+ * peek above already IS the generic, multi-level mechanism -- confirmed by
+ * reading task-peek.js's tpPushLevel()/tpPopToIndex()/tpDrillInto() (a
+ * plain, uncapped stack of {task, children} levels with a breadcrumb) and
+ * wbBuildPeekLevel() (which only ever answers "does *this* task have
+ * children", for whatever task name it's asked about) before writing a
+ * single line for #1016. Neither has, or ever had, any notion of "level 0
+ * vs level 1" to remove: a child row's drill-down badge already shows
+ * whenever *that* child has its own children, at any depth, because
+ * wbBuildPeekLevel(name, wbLastTasks) is called fresh every time
+ * tpDrillInto() asks for a new level via the resolveLevel callback (see
+ * wbOpenChildPeek() below) -- it was never wired to only ever be called
+ * once. #1016 is therefore a verification-and-regression-test issue, not
+ * an implementation one: tests/test_task_peek.py's TestPeekDeepNesting
+ * drills four levels deep with no code change required, and
+ * TestPeekPlanTextRerender locks in that the breadcrumb stack survives an
+ * ordinary plan-text auto-render while several levels in (it already did,
+ * because the popover lives in document.body, decoupled from the note
+ * cards that re-render rebuilds in place -- see wbUpdateNoteNode()).
+ *
+ * Free-form notes (issue #1015, the other half of #846's checklist post-it,
+ * per #885): a note's task is looked up purely by name (see
+ * wbBuildNoteViewModel()'s own comment on this), so nothing about a
+ * whiteboard row itself ever required its task to have children -- a note
+ * for a childless task has always been a legal, if slightly odd, thing to
+ * render. What #846 never distinguished is that a childless note is a
+ * *different kind of thought* from a checklist: "a sticky thought, no
+ * checklist, no tasks underneath" per the issue, matching #885's "everything
+ * starts loose and earns structure only when it proves it deserves it."
+ * wbIsFreeformNote() is the single predicate this file uses to tell the two
+ * apart -- true iff the task has zero direct children *at all* (counting
+ * ones already drawn as noodles to their own notes, not just this note's
+ * own visible rows, since a child noodled elsewhere still means real
+ * checklist structure exists in the outline even though this note's body
+ * doesn't draw it) -- and wbUpdateNoteNode() uses it to switch a note
+ * between two renderings: checklist (unchanged from #846: child rows,
+ * progress footer) and free-form (this note's own `comment` field --
+ * task-details form's "Comment" textarea, the same single-line free-text
+ * already round-tripped through the task's own outline line by
+ * script.js's saveTask()/openTaskForm() -- shown as the note's body if set,
+ * blank otherwise; no footer). No new ---whiteboard--- column and no new
+ * "kind" of stored object: a free-form note is simply what a checklist
+ * note with zero children already was, rendered honestly instead of as an
+ * empty checklist. See this file's own note on the architectural choice in
+ * the #1015 PR description for why a second, task-less note type (a
+ * `Text` column, closer to #1018's free-floating text) was rejected.
+ *
+ * Creation defaults to free-form, per #885's "nothing is mandatory; nothing
+ * prompts for detail": both ways to make a brand-new note --
+ * wbCreateNoteAt() (canvas double-click / `n` / the toolbar's "New post-it",
+ * via whiteboard-structure.js's wbAppendTopLevelTask()) and
+ * wbCreateAndAddSummaryTask() (the Add-note picker's "+ New phase" form,
+ * via wbInsertNewSummaryTaskLine() below) -- write a bare, childless task
+ * line, so a brand-new note is free-form until the user gives it its first
+ * child (from the task form, the outline, or noodling an existing note
+ * under it), at which point it renders as a checklist automatically on the
+ * very next render pass, with no separate "convert to checklist" action
+ * anywhere. wbInsertNewSummaryTaskLine() used to also write a "New Task"
+ * placeholder child so the new line would parse as a summary task
+ * immediately; that placeholder is exactly the "forced checklist
+ * structure" #1015 asks not to impose, so it is gone.
+ *
+ * Promote to task (issue #1020, part of #885, building on #1015 above): a
+ * free-form note's own task is *already* a real outline task per #1015 --
+ * there is no "create a task that didn't exist before" step. What a
+ * free-form note is missing is structure, so "promote to task" here means
+ * turning its loose `comment` text into one real child task
+ * (wbPromoteFreeformNote(), reached from the note `...` menu's "Promote to
+ * task" item -- wbAppendPromoteMenuSection() -- shown only when
+ * wbIsFreeformNote() is true). Adding that child is exactly what flips
+ * wbIsFreeformNote() to false and switches the note to checklist rendering
+ * on the very next render pass -- no new rendering path needed, reusing
+ * #1015's split as-is. The child line itself is written by
+ * whiteboard-structure.js's wbAppendChildTask() (last child, same
+ * insertion point wbReparentTaskInPlanText() uses for a noodle drop), and
+ * named via wbSanitiseChildTaskName() + wbUniqueTaskName() so a long,
+ * multi-line, or quote-containing comment can't corrupt the outline the
+ * way #1006 found collab-ops.js's untrusted rename/add_task input could.
+ * A blank free-form note (no comment to promote) falls back to a
+ * `prompt()`, same "cancelled or blank -> silent no-op" shape as
+ * kanban.js's addNewPhase(). One wbCommitMarkdown() call either way, so
+ * promotion is a single undo step like every other whiteboard mutation.
+ *
+ * Free-floating text objects (issue #1018, part of #885): a second, wholly
+ * separate canvas object type living alongside post-it notes -- bare text
+ * at a position, no card, no border, no background, not backed by a task
+ * at all. Explicitly distinct from #1015's free-form note above: a
+ * free-form note is still a post-it (a bordered `.wb-note-card`, backed by
+ * a real task in the outline, with a title/menu/footer that just happen to
+ * be visually minimal because it has no children) -- a text object has
+ * none of that. It is rendered as its own `.wb-text-object`
+ * <foreignObject> (wbRenderTextObjects()/wbCreateTextObjectNode()/
+ * wbUpdateTextObjectNode()), sharing the same notes layer (so it pans/
+ * zooms/z-orders alongside post-its) but never touching `wbNoteNodes`,
+ * `wbBuildNoteViewModel()`, or the task outline.
+ *
+ * Storage: see script.js's "Whiteboard back matter" header comment for the
+ * full rationale -- a text object is a second row shape (`{ kind: 'text',
+ * id, text, x, y }`) in the *same* ---whiteboard--- table post-it rows use
+ * (Kind/Id/Text columns), not a second section, precisely because every
+ * existing whiteboard mutation already rewrites the *entire* table from
+ * `items` on every commit (wbCommitNoteChange() et al.) -- a separate
+ * section would be silently wiped by the next unrelated post-it drag.
+ * `id` (wbGenerateTextObjectId()) stands in for a post-it row's Task as
+ * this row's unique key, since a text object has no task name to key off.
+ *
+ * Interaction: deliberately a smaller, parallel implementation of #848's
+ * drag machinery (wbActiveTextDrag/wbBeginTextDrag()/
+ * wbUpdateTextDragFromClient()/wbFinishTextDrag()) rather than a
+ * generalisation of wbActiveDrag itself -- text objects have no resize
+ * handle, no z-order-to-front commit, no noodles, so folding them into the
+ * note drag state machine would mean threading a `kind` branch through
+ * code that already carries a lot of state for a feature this one doesn't
+ * need. A click that doesn't move past WB_DRAG_MOVE_THRESHOLD enters
+ * inline edit (wbBeginTextObjectEdit()) instead of starting a drag --
+ * exactly the same click-vs-drag disambiguation #848 already uses for a
+ * note's header, just without that separate double-press-to-rename step
+ * (there is nothing else to distinguish "edit" from here: the whole object
+ * *is* its text). No resize: per the issue, bare text has no fixed box to
+ * resize -- it simply grows/shrinks with its own content
+ * (`.wb-text-object` renders with `overflow: visible` over a generous
+ * fixed <foreignObject> box rather than a content-fitted one, since SVG
+ * foreignObject sizing requires an explicit width/height).
  */
 
 // ── Configuration ───────────────────────────────────────────────────────
@@ -148,6 +287,22 @@ const WB_TOUCH_LONG_PRESS_MS = 350;
 // this threshold drives).
 const WB_NOTE_TITLE_ONLY_ZOOM = 0.4;
 
+/** Two presses on the same note header within this window, and within
+ * WB_HEADER_DOUBLE_PRESS_SLOP pixels, mean "rename" -- see
+ * wbIsRepeatHeaderPress(). Matches the platform double-click default
+ * rather than WB_TOUCH_LONG_PRESS_MS, which is a different gesture. */
+const WB_HEADER_DOUBLE_PRESS_MS = 450;
+const WB_HEADER_DOUBLE_PRESS_SLOP = 6;
+
+// Issue #1018: a text object's <foreignObject> box. Generous and fixed
+// (SVG foreignObject sizing needs an explicit width/height) but rendered
+// with `overflow: visible` and an inner element that only occupies as
+// much of that box as its own text needs -- see views/whiteboard.css's
+// `.wb-text-object`/`.wb-text-object-content` -- so in practice the object
+// reads as "however big its text is", not as a fixed box.
+const WB_TEXT_DEFAULT_WIDTH = 320;
+const WB_TEXT_DEFAULT_HEIGHT = 120;
+
 // ── Module state ─────────────────────────────────────────────────────────
 // Cache of the most recently parsed tasks/planText (see file header) plus
 // a map from summary task name -> the DOM we built for it last render, so
@@ -157,11 +312,19 @@ let wbLastTasks = [];
 let wbLastPlanText = '';
 let wbNoteNodes = new Map(); // summary task name -> { fo, refs: {...} }
 
+// Issue #1018: same idea as wbNoteNodes, keyed by a text object's own
+// generated `id` (never a task name) instead of a task name.
+let wbTextNodes = new Map(); // text-object id -> { fo, refs: {...} }
+
 // Colour-menu state (issue #849). Only one `...` menu is ever open at a
 // time (matches mindmap.js's single mmColourPicker / status-bar.js's
 // single statusBarHistoryPopup convention), so this is a single slot
 // rather than a map.
 let wbNoteMenuState = null; // { taskName, btn } while open, else null
+
+/** Last header press, for the double-press rename gesture. See
+ * wbIsRepeatHeaderPress(). */
+let wbLastHeaderPress = null;
 
 // Swatch picks are applied to the note's DOM immediately (see
 // wbApplyOptimisticNoteColour()) but the actual Markdown write is
@@ -292,24 +455,52 @@ function wbContrastTextColour(bgHex) {
 }
 
 /**
- * The swatch palette to offer, reusing mindmap.js's MM_BRANCH_COLOURS
- * rather than inventing a second one (per the issue's explicit "do not
- * invent a third palette" instruction -- the mind map's own is already
- * the second, alongside kanban.js's Theme: values). Falls back to a
- * literal copy of the same values only for this file's own vm-sandboxed
- * unit tests (test_whiteboard_notes.js loads whiteboard-notes.js alone,
- * without mindmap.js) -- the real app always has mindmap.js loaded first
- * (see index.html's <script> order), so the fallback never runs there.
+ * A fixed pastel "post-it" palette, dedicated to whiteboard notes (issue
+ * #1017 -- supersedes #849/#840's choice of swatch source, not #849's
+ * menu/interaction pattern itself, which is unchanged). Two soft shades
+ * each of yellow, pink, green, blue and red -- genuinely pastel (high
+ * lightness, low saturation) rather than the saturated hues elsewhere in
+ * the app, so notes read like real paper stickies.
+ *
+ * Deliberately NOT mindmap.js's MM_BRANCH_COLOURS (the mind map's own
+ * branch palette) and NOT kanban.js/state.js's CF_PASTEL_COLOURS /
+ * CF_DARK_COLOURS (the boards view's rule-based *conditional formatting*
+ * swatches -- "CF" == Conditional Formatting) -- #849 borrowed both of
+ * those (see git history), which is exactly the coupling #1017 removes:
+ * a note's colour is personal shorthand picked by hand, with no
+ * relationship to the boards view's rule engine and no third system's
+ * palette silently doubling as this one's. A colour picked here still
+ * writes into the plan's `Theme:` front matter, same as #849 (see
+ * wbApplyNoteColourToPlanText() below) -- that write path, and the
+ * row-Colour -> Theme: -> derived-palette precedence built on it, is a
+ * markdown-format/storage concern this issue does not touch, only which
+ * swatches the menu *offers* changes.
+ *
+ * Contrast is verified by tests/test_whiteboard_note_colour.py's
+ * TestNoteColourContrast against the real rendered header in both
+ * themes; a swatch's raw value is never applied directly as a
+ * background (wbUpdateNoteNode() always darkens it via wbShadeColour(_,
+ * 0.3) first — see that call for why every pastel here still yields a
+ * dark, legible header fill).
+ */
+const WB_NOTE_PASTEL_COLOURS = [
+    '#FFF3B0', '#FCE38A', // yellow
+    '#FFD6E0', '#F7A8B8', // pink
+    '#CFF4D2', '#B8E6B8', // green
+    '#C7E5FF', '#A9D6F5', // blue
+    '#FFCBC1', '#FFAFA3', // red
+];
+
+/**
+ * The swatch palette to offer -- see WB_NOTE_PASTEL_COLOURS above for why
+ * this is its own fixed list rather than a reuse of some other system's
+ * palette. Also backs tier 3 of the colour precedence
+ * (wbDerivedPaletteColour() below), so a note that has never had a
+ * colour picked still gets a soft, on-brand default instead of an
+ * arbitrary saturated one.
  */
 function wbPalette() {
-    if (typeof MM_BRANCH_COLOURS !== 'undefined' && MM_BRANCH_COLOURS.length) {
-        return MM_BRANCH_COLOURS;
-    }
-    return [
-        '#4A90D9', '#D97B4A', '#5CB85C', '#D95B5B',
-        '#9B6BBF', '#3DBFA8', '#D9A84A', '#5B8FD9',
-        '#4ABF7F', '#D9534F', '#D9B84A', '#8E5BBF',
-    ];
+    return WB_NOTE_PASTEL_COLOURS;
 }
 
 /**
@@ -428,7 +619,7 @@ function wbNoteZoomTier(zoom, collapsed) {
  * right for a caller (e.g. the existing unit tests) that only cares
  * about a note's children/progress, not its colour.
  */
-function wbBuildNoteViewModel(row, tasks, themeColours = {}) {
+function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null) {
     if (!row || !row.task || !tasks) return null;
     const key = row.task.toLowerCase();
     // Matched by name only, not is_summary: the outline parser
@@ -443,12 +634,27 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}) {
     const task = tasks.find(t => t && String(t.name).toLowerCase() === key);
     if (!task) return null;
 
-    const children = wbDirectChildren(tasks, task.name).map(child => ({
+    // A direct child that has a post-it of its own is shown as a *noodle*
+    // to that note, not as a row inside this one -- otherwise the same
+    // relationship would be drawn twice, once as a line and once as a
+    // checklist item, and ticking the row would silently be a different
+    // gesture from cutting the line. `boardNames` is the set of task names
+    // with a row on the board; passing none (the default) keeps the old
+    // "every direct child is a row" behaviour, which is what the pure unit
+    // tests and any caller that doesn't care about the board exercise.
+    const onBoard = boardNames instanceof Set
+        ? boardNames
+        : new Set((boardNames || []).map(n => String(n).toLowerCase()));
+
+    const allChildren = wbDirectChildren(tasks, task.name).map(child => ({
         task: child,
         hasChildren: wbHasChildren(tasks, child.name),
         childCount: wbChildCount(tasks, child.name),
         complete: wbIsChildComplete(child),
+        onBoard: onBoard.has(String(child.name).toLowerCase()),
     }));
+    const children = allChildren.filter(c => !c.onBoard);
+    const linkedChildren = allChildren.filter(c => c.onBoard);
 
     // A pending, not-yet-committed swatch pick (see wbHandleNoteColourPick())
     // wins over the precedence rule so the note recolours the instant the
@@ -469,6 +675,14 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}) {
         row,
         task,
         children,
+        linkedChildren,
+        // The note's own parent, when that parent is itself on the board --
+        // i.e. the noodle arriving at this note. Drives the header's
+        // "under X" caption and the `...` menu's Unlink item.
+        linkedParent: (task.parent && onBoard.has(String(task.parent).toLowerCase()))
+            ? task.parent
+            : null,
+        parentName: task.parent || null,
         progress: wbNoteProgress(tasks, task.name),
         resources: wbResourceList(task.resources),
         colour: resolvedColour.colour,
@@ -476,10 +690,75 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}) {
     };
 }
 
+/**
+ * Whether a note's view model should render as a free-form note (issue
+ * #1015) rather than a checklist: true iff its task has literally zero
+ * direct children of its own -- not merely zero *visible* body rows.
+ * A task whose every child has already been noodled out onto its own note
+ * (all of them in `vm.linkedChildren`, `vm.children` itself empty) still
+ * counts as a checklist: the checklist structure is real in the outline,
+ * this note's body just doesn't draw it (see wbBuildNoteViewModel()'s
+ * children/linkedChildren split). Equivalent to `vm.progress.total === 0`
+ * (wbNoteProgress() sums both groups), spelled out as its own named
+ * predicate so the rendering code in wbUpdateNoteNode() -- and any test
+ * asserting this rule -- reads as English rather than leaning on an
+ * incidental property of how progress happens to be computed.
+ */
+function wbIsFreeformNote(vm) {
+    return !!(vm && vm.progress) && vm.progress.total === 0;
+}
+
+/** Cap length for a task name built from free text (issue #1020's
+ * "promote to task" -- see wbSanitiseChildTaskName() below): long enough
+ * to stay legible as a single outline line, short enough that promoting a
+ * whole paragraph of comment text doesn't produce one unreadable task. */
+const WB_PROMOTED_TASK_NAME_MAX = 80;
+
+/**
+ * Turn arbitrary free text -- a free-form note's own `comment`, or
+ * whatever the user types into the "name this task" prompt when there is
+ * no comment to promote (see wbPromoteFreeformNote() below) -- into a
+ * single valid outline task name:
+ *
+ *   - embedded newlines collapsed to a space, the same defence #1006
+ *     applied to collab-ops.js's add_task/rename ops: `comment` is a
+ *     <textarea> value (task-details form's "Comment" field) and can
+ *     already contain them, and an unescaped newline surviving into a
+ *     spliced-in outline line would split it into extra physical lines
+ *     that could be mistaken for structure -- or, worse, a back-matter
+ *     marker -- on the plan's next parse;
+ *   - double quotes replaced with single quotes, since `"` is both the
+ *     outline's own comment delimiter and the one character
+ *     parseFromLine()'s (script.js) name regex treats as a hard
+ *     terminator -- a literal `"` surviving into the name would silently
+ *     truncate it on the next parse;
+ *   - whitespace runs collapsed to one space and trimmed, matching
+ *     wbBeginTitleEdit()'s own typed-name normalisation;
+ *   - capped to WB_PROMOTED_TASK_NAME_MAX characters (an ellipsis marks
+ *     the cut).
+ *
+ * Returns '' for text that sanitises down to nothing (blank/whitespace
+ * comment), which wbPromoteFreeformNote() treats as "nothing to promote".
+ */
+function wbSanitiseChildTaskName(text) {
+    let name = String(text || '')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/"/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (name.length > WB_PROMOTED_TASK_NAME_MAX) {
+        name = name.slice(0, WB_PROMOTED_TASK_NAME_MAX).trim() + '…';
+    }
+    return name;
+}
+
 /** wbBuildNoteViewModel() for every row, skipping orphans. */
-function wbNoteViewModels(rows, tasks, themeColours = {}) {
+function wbNoteViewModels(rows, tasks, themeColours = {}, boardNames = null) {
+    const names = boardNames || new Set(
+        (rows || []).map(r => r && r.task).filter(Boolean).map(n => String(n).toLowerCase())
+    );
     return (rows || [])
-        .map(row => wbBuildNoteViewModel(row, tasks, themeColours))
+        .map(row => wbBuildNoteViewModel(row, tasks, themeColours, names))
         .filter(Boolean);
 }
 
@@ -553,6 +832,17 @@ function wbExceedsMoveThreshold(startClientX, startClientY, clientX, clientY, th
     const dx = clientX - startClientX;
     const dy = clientY - startClientY;
     return Math.sqrt(dx * dx + dy * dy) > threshold;
+}
+
+/**
+ * A short, opaque id for a brand-new text object (issue #1018) -- stands
+ * in for a post-it row's Task as the whiteboard row's unique key (see
+ * script.js's "Whiteboard back matter" header comment). Not a UUID: just
+ * distinct enough that two objects created back-to-back never collide,
+ * and short enough to keep the ---whiteboard--- table's Id column narrow.
+ */
+function wbGenerateTextObjectId() {
+    return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 /**
@@ -653,18 +943,28 @@ function wbTaskAncestorPath(tasks, taskName) {
 }
 
 /**
- * Every summary task (`is_summary === true`, matching how every other
- * view in this codebase distinguishes a phase/sub-phase from a leaf --
- * see e.g. portfolio-status.js) as a picker entry: `{ name, path }`, in
- * `tasks`' own document order. Each entry's path is built from *its own*
- * task object (see wbAncestorNamesForTask()), so two summary tasks that
- * happen to share a name still each get their own correct path.
+ * Every task that can be put on the board, as a picker entry:
+ * `{ name, path, isSummary }`, in `tasks`' own document order. Each
+ * entry's path is built from *its own* task object (see
+ * wbAncestorNamesForTask()), so two tasks that happen to share a name
+ * still each get their own correct path.
+ *
+ * Originally summary tasks only (`is_summary === true`), because the board
+ * could only ever *display* an existing phase. It now creates tasks too,
+ * and every post-it starts life as a leaf -- so a picker that hid leaves
+ * would refuse to re-add a note the user had just removed from the board.
+ * Leaf and summary are still told apart (`isSummary`) so the picker can
+ * group and label them; they are simply both offerable.
  */
 function wbSummaryTaskEntries(tasks) {
     const byName = wbTasksByName(tasks);
     return (tasks || [])
-        .filter(t => t && t.is_summary && t.name)
-        .map(t => ({ name: t.name, path: wbAncestorNamesForTask(byName, t).join(WB_TASK_PATH_SEP) }));
+        .filter(t => t && t.name)
+        .map(t => ({
+            name: t.name,
+            path: wbAncestorNamesForTask(byName, t).join(WB_TASK_PATH_SEP),
+            isSummary: !!t.is_summary,
+        }));
 }
 
 /**
@@ -796,14 +1096,16 @@ if (typeof module !== 'undefined' && module.exports) {
         wbDirectChildren, wbHasChildren, wbChildCount, wbIsChildComplete,
         wbNoteProgress, wbGetInitials, wbResourceList, wbRelativeLuminance,
         wbContrastRatio, wbContrastTextColour, wbNoteZoomTier,
-        wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel,
-        wbPalette, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
+        wbBuildNoteViewModel, wbNoteViewModels, wbBuildPeekLevel, wbIsFreeformNote,
+        wbSanitiseChildTaskName,
+        wbPalette, WB_NOTE_PASTEL_COLOURS, wbShadeColour, wbDerivedPaletteColour, wbThemeColourFor,
         wbResolveNoteColour,
         wbDragBoardDelta, wbClampNoteWidth, wbClampNoteHeight,
         wbExceedsMoveThreshold, wbMoveTaskToEnd,
         wbTaskAncestorNames, wbTaskAncestorPath, wbSummaryTaskEntries,
         wbTasksNotOnBoard, wbFilterPickerEntries, wbRectsOverlap,
-        wbFindFreeSpacePosition, wbBuildAddNoteRows,
+        wbFindFreeSpacePosition, wbBuildAddNoteRows, wbInsertNewSummaryTaskLine,
+        wbGenerateTextObjectId,
     };
 }
 
@@ -877,13 +1179,32 @@ function wbRenderNotes() {
         }
     }
 
+    // Issue #1018: free-floating text objects are their own row shape in
+    // the same `rows` this pass already parsed (see script.js's header
+    // comment) -- rendered in the same pass so they never lag a post-it's
+    // own render by a frame, into the same notes layer so they pan/zoom/
+    // z-order together.
+    const textItems = rows.filter(r => r && r.kind === 'text' && r.id);
+    wbRenderTextObjects(layer, textItems);
+
+    // Noodles and the floating outline panel are rendered from the exact
+    // same rows/tasks this pass just used, in the same pass, so a note, the
+    // noodle arriving at it, and its row in the outline can never disagree
+    // about the hierarchy. Both are no-ops if their file isn't loaded.
+    if (typeof wbRenderNoodles === 'function') wbRenderNoodles(rows, wbLastTasks);
+    if (typeof wbRenderDependencyNoodles === 'function') wbRenderDependencyNoodles(rows);
+    if (typeof wbRenderOutlinePanel === 'function') wbRenderOutlinePanel();
+
     // Empty state (issue #847): purposeful "what is this board for" copy
     // + Add note / Add all summary tasks, shown whenever nothing actually
     // rendered -- covers both a genuinely empty ---whiteboard--- section
     // and one that only has orphan rows (rows naming a task that no
     // longer exists), which is exactly right: an orphan-only board is, to
-    // the user looking at it, indistinguishable from an empty one.
-    wbUpdateEmptyState(viewModels.length > 0);
+    // the user looking at it, indistinguishable from an empty one. A
+    // board with only text objects and no post-its (issue #1018) also
+    // counts as having content -- the empty-state CTA would otherwise sit
+    // on top of the very text the user just added.
+    wbUpdateEmptyState(viewModels.length > 0 || textItems.length > 0);
 }
 
 /** Build the static DOM skeleton for one note, cached refs for updates. */
@@ -924,8 +1245,45 @@ function wbCreateNoteNode() {
         }
     });
 
+    // The noodle handle: drag from here to another note to make that note
+    // a child of this one. Lives in the header rather than floating over
+    // the card edge so it never sits on top of the note's own content.
+    const linkHandle = document.createElementNS(XHTML_NS, 'button');
+    linkHandle.setAttribute('class', 'wb-note-link-handle');
+    linkHandle.setAttribute('type', 'button');
+    linkHandle.setAttribute('title', 'Drag to another note to make it a subtask');
+    linkHandle.setAttribute('aria-label', 'Draw a noodle to another note');
+    linkHandle.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+        '<circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/>' +
+        '<path d="M4 6 C4 11, 7 12, 10 12"/></svg>';
+    linkHandle.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        if (taskName && typeof wbBeginLinkDrag === 'function') {
+            wbBeginLinkDrag(taskName, e.clientX, e.clientY);
+        }
+    });
+    linkHandle.addEventListener('touchstart', (e) => {
+        const taskName = fo.dataset.wbTask;
+        if (taskName && typeof wbLinkHandleTouchStart === 'function') {
+            wbLinkHandleTouchStart(e, taskName);
+        }
+    }, { passive: false });
+    linkHandle.addEventListener('click', (e) => e.stopPropagation());
+
     header.appendChild(title);
+    header.appendChild(linkHandle);
     header.appendChild(menuBtn);
+
+    // A caption naming the note this one hangs off, when its parent is
+    // also on the board -- the noodle says *that* there is a link, this
+    // says which way round it goes without following the curve by eye.
+    const parentCaption = document.createElementNS(XHTML_NS, 'div');
+    parentCaption.setAttribute('class', 'wb-note-parent');
 
     const body = document.createElementNS(XHTML_NS, 'div');
     body.setAttribute('class', 'wb-note-body');
@@ -949,12 +1307,19 @@ function wbCreateNoteNode() {
     resizeHandle.setAttribute('aria-hidden', 'true');
 
     card.appendChild(header);
+    card.appendChild(parentCaption);
     card.appendChild(body);
     card.appendChild(footer);
     card.appendChild(resizeHandle);
     fo.appendChild(card);
 
-    const entry = { fo, refs: { card, header, title, menuBtn, body, footer, progress, avatars, resizeHandle } };
+    const entry = {
+        fo,
+        refs: {
+            card, header, title, menuBtn, linkHandle, parentCaption,
+            body, footer, progress, avatars, resizeHandle,
+        },
+    };
 
     // Drag (header) and resize (corner handle) wiring -- issue #848. Both
     // read the note's *current* rect off entry.fo's own dataset at
@@ -1027,27 +1392,84 @@ function wbUpdateNoteNode(entry, vm) {
     refs.card.style.setProperty('--wb-note-accent', vm.colour);
     refs.header.style.color = wbContrastTextColour(headerFill) || '';
 
-    wbSetText(refs.title, vm.task.name);
-    refs.title.setAttribute('title', vm.task.name);
+    // Don't clobber a title the user is in the middle of retyping.
+    if (!refs.title.isContentEditable) {
+        wbSetText(refs.title, vm.task.name);
+        refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
+    }
+
+    // "under Discovery" caption: only when the parent has a note of its
+    // own, i.e. exactly when a noodle is drawn into this note.
+    if (vm.linkedParent) {
+        refs.parentCaption.textContent = 'under ' + vm.linkedParent;
+        refs.parentCaption.setAttribute('title', 'Linked under ' + vm.linkedParent);
+        refs.parentCaption.style.display = '';
+    } else {
+        refs.parentCaption.textContent = '';
+        refs.parentCaption.style.display = 'none';
+    }
 
     // Body: direct children only, one row each (empty state if none).
+    // Children that have a post-it of their own are *not* listed here --
+    // they are the noodles leaving this note (see wbBuildNoteViewModel()).
     // Save/restore scrollTop across the rebuild so an in-progress scroll
     // inside a long note survives a plan-text-driven re-render.
     const savedScrollTop = refs.body.scrollTop;
     refs.body.innerHTML = '';
-    if (!vm.children.length) {
+
+    // Free-form vs. checklist (issue #1015) -- see wbIsFreeformNote() and
+    // this file's header comment. The class drives the footer's CSS-only
+    // hide (views/whiteboard.css's `.wb-note-freeform .wb-note-footer`),
+    // so "is this note free-form right now" has exactly one source of
+    // truth rather than a second condition down by the footer that could
+    // quietly drift from this one.
+    const freeform = wbIsFreeformNote(vm);
+    refs.card.classList.toggle('wb-note-freeform', freeform);
+
+    if (freeform) {
+        // A free-form note's body is its own `comment` field -- the same
+        // single-line free-text the task-details form's "Comment" textarea
+        // reads/writes for this note's own task (see this file's header
+        // comment) -- shown if the user set one, and otherwise left
+        // completely blank. Deliberately no placeholder copy here ("No
+        // subtasks yet", a nudge to add a comment, ...): per #885, nothing
+        // is mandatory and nothing prompts for detail.
+        const comment = String((vm.task && vm.task.comment) || '').trim();
+        if (comment) {
+            const text = document.createElementNS(XHTML_NS, 'div');
+            text.setAttribute('class', 'wb-note-freetext');
+            text.textContent = comment;
+            refs.body.appendChild(text);
+        }
+    } else if (!vm.children.length) {
         const empty = document.createElementNS(XHTML_NS, 'div');
         empty.setAttribute('class', 'wb-note-empty');
-        empty.textContent = 'No subtasks yet';
+        empty.textContent = vm.linkedChildren.length
+            ? `${vm.linkedChildren.length} linked note${vm.linkedChildren.length === 1 ? '' : 's'}`
+            : 'No subtasks yet';
         refs.body.appendChild(empty);
     } else {
         vm.children.forEach(childVm => {
             refs.body.appendChild(wbBuildChildRow(childVm));
         });
     }
+    // A note that has both kinds gets a quiet footer line naming the ones
+    // that left, so nothing a user typed into this note appears to vanish
+    // when they noodle it out onto the board.
+    if (vm.children.length && vm.linkedChildren.length) {
+        const linked = document.createElementNS(XHTML_NS, 'div');
+        linked.setAttribute('class', 'wb-note-linked-summary');
+        linked.textContent = `+ ${vm.linkedChildren.length} linked note${vm.linkedChildren.length === 1 ? '' : 's'}`;
+        linked.setAttribute('title', vm.linkedChildren.map(c => c.task.name).join(', '));
+        refs.body.appendChild(linked);
+    }
     refs.body.scrollTop = savedScrollTop;
 
-    // Footer: completed/total fraction + resource avatar chips.
+    // Footer: completed/total fraction + resource avatar chips. Populated
+    // unconditionally even for a free-form note -- CSS hides the whole
+    // footer for `.wb-note-freeform` (see the class toggled above), so
+    // there is nothing here to gate; `vm.progress` is always `0 / 0` in
+    // that case anyway (wbIsFreeformNote() is defined in terms of it).
     wbSetText(refs.progress, `${vm.progress.completed} / ${vm.progress.total}`);
     refs.avatars.innerHTML = '';
     vm.resources.slice(0, 6).forEach(resource => {
@@ -1057,6 +1479,121 @@ function wbUpdateNoteNode(entry, vm) {
         avatar.textContent = wbGetInitials(resource);
         refs.avatars.appendChild(avatar);
     });
+}
+
+// ── Free-floating text objects (issue #1018) ────────────────────────────
+//
+// See the file header comment for the overall design. Deliberately a
+// small, self-contained sibling to the post-it rendering above: its own
+// node map (wbTextNodes), its own drag state (wbActiveTextDrag), never
+// touching wbNoteNodes/wbBuildNoteViewModel/the task outline.
+
+/**
+ * Render (or update in place) every text object `items` (already filtered
+ * to `kind === 'text'` rows by wbRenderNotes()) calls for -- the text-
+ * object twin of the note-rendering loop just above, appended into the
+ * same `layer` (the notes layer) so text objects pan/zoom/z-order
+ * alongside post-its.
+ */
+function wbRenderTextObjects(layer, items) {
+    if (!layer) return;
+    const seen = new Set();
+    items.forEach(item => {
+        seen.add(item.id);
+        let entry = wbTextNodes.get(item.id);
+        if (!entry) {
+            entry = wbCreateTextObjectNode();
+            layer.appendChild(entry.fo);
+            wbTextNodes.set(item.id, entry);
+        }
+        wbUpdateTextObjectNode(entry, item);
+    });
+
+    for (const [id, entry] of wbTextNodes) {
+        if (!seen.has(id)) {
+            entry.fo.remove();
+            wbTextNodes.delete(id);
+        }
+    }
+}
+
+/**
+ * Build the static DOM skeleton for one text object: a <foreignObject>
+ * (`.wb-text-object`) containing a single content div (`.wb-text-object-
+ * content`) and a small hover-only delete button -- deliberately nothing
+ * else. No header, no card, no border, no footer: see views/whiteboard.css
+ * for the "reads as part of the canvas surface itself" styling this is
+ * built to carry.
+ */
+function wbCreateTextObjectNode() {
+    const fo = document.createElementNS(SVG_NS, 'foreignObject');
+    fo.setAttribute('class', 'wb-text-object');
+
+    const wrap = document.createElementNS(XHTML_NS, 'div');
+    wrap.setAttribute('class', 'wb-text-object-wrap');
+
+    const content = document.createElementNS(XHTML_NS, 'div');
+    content.setAttribute('class', 'wb-text-object-content');
+    content.setAttribute('spellcheck', 'false');
+
+    const deleteBtn = document.createElementNS(XHTML_NS, 'button');
+    deleteBtn.setAttribute('class', 'wb-text-object-delete');
+    deleteBtn.setAttribute('type', 'button');
+    deleteBtn.setAttribute('title', 'Delete this text');
+    deleteBtn.setAttribute('aria-label', 'Delete this text object');
+    deleteBtn.textContent = '×'; // multiplication sign, reused as a small close glyph
+    deleteBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = fo.dataset.wbTextId;
+        if (id) wbDeleteTextObject(id);
+    });
+    deleteBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
+    wrap.appendChild(content);
+    wrap.appendChild(deleteBtn);
+    fo.appendChild(wrap);
+
+    const entry = { fo, refs: { wrap, content, deleteBtn } };
+
+    // Drag-vs-edit-click wiring -- see wbTextObjectMouseDown()'s doc
+    // comment for the disambiguation rule. Attached to `content` (not
+    // `wrap`) so the delete button's own mousedown (already stopped above)
+    // is never mistaken for the start of a drag.
+    content.addEventListener('mousedown', (e) => wbTextObjectMouseDown(e, entry));
+    content.addEventListener('touchstart', (e) => wbTextObjectTouchStart(e, entry), { passive: false });
+
+    return entry;
+}
+
+/** Update one text object's DOM in place from its current row item. */
+function wbUpdateTextObjectNode(entry, item) {
+    const { fo, refs } = entry;
+    const width = WB_TEXT_DEFAULT_WIDTH;
+    const height = WB_TEXT_DEFAULT_HEIGHT;
+    const x = Math.round(item.x || 0);
+    const y = Math.round(item.y || 0);
+
+    fo.setAttribute('x', String(x));
+    fo.setAttribute('y', String(y));
+    fo.setAttribute('width', String(width));
+    fo.setAttribute('height', String(height));
+    fo.dataset.wbTextId = item.id;
+    fo.dataset.wbX = String(x);
+    fo.dataset.wbY = String(y);
+    fo.dataset.wbWidth = String(width);
+    fo.dataset.wbHeight = String(height);
+
+    // Never stomp on live-typed content: while this object is mid-edit,
+    // its DOM is the source of truth (nothing has committed to plan text
+    // yet), so a re-render triggered by something else on the board must
+    // leave it alone.
+    if (refs.content.isContentEditable) return;
+
+    const text = String(item.text || '');
+    refs.content.textContent = text;
+    refs.content.classList.toggle('wb-text-object-placeholder', !text);
+    if (!text) refs.content.textContent = 'Text…';
 }
 
 /**
@@ -1114,7 +1651,15 @@ function wbNoteCurrentRect(entry) {
  */
 function wbRaiseNoteToFront(entry) {
     const layer = wbNotesLayer();
-    if (layer && entry && entry.fo) layer.appendChild(entry.fo);
+    if (!layer || !entry || !entry.fo) return;
+    // Already frontmost: skip the appendChild entirely. Re-appending an
+    // element that is already the last child is not a no-op in the DOM --
+    // it detaches and re-attaches the node, which cancels an in-progress
+    // native double-click (see wbNoteHeaderMouseDown()'s own manual
+    // double-click detection for why that matters here) and throws away
+    // any running CSS animation on it.
+    if (layer.lastElementChild === entry.fo) return;
+    layer.appendChild(entry.fo);
 }
 
 /** Global cursor feedback for the duration of a drag/resize gesture. */
@@ -1166,6 +1711,16 @@ function wbUpdateNoteDragFromClient(clientX, clientY) {
         fo.setAttribute('height', String(height));
         fo.dataset.wbWidth = String(width);
         fo.dataset.wbHeight = String(height);
+    }
+
+    // Keep the noodles attached to this note glued to it as it moves.
+    // Scoped to this one task's links so a drag frame stays O(1) in the
+    // number of *other* notes on the board -- see whiteboard-noodles.js.
+    if (typeof wbRefreshNoodleGeometry === 'function') {
+        wbRefreshNoodleGeometry(fo.dataset.wbTask);
+    }
+    if (typeof wbRefreshDependencyNoodleGeometry === 'function') {
+        wbRefreshDependencyNoodleGeometry(fo.dataset.wbTask);
     }
 }
 
@@ -1237,13 +1792,51 @@ function wbFindTouchById(touchList, id) {
     return null;
 }
 
+/**
+ * Whether this press is the second of a double-press on the same note's
+ * header -- the rename gesture. "Same" means the same note, within
+ * WB_HEADER_DOUBLE_PRESS_MS, and without the pointer having wandered more
+ * than a few pixels, so a quick drag-drag on two different notes (or a
+ * deliberate reposition-then-reposition) is never mistaken for a rename.
+ *
+ * Records this press either way, so the *next* one can be compared
+ * against it.
+ */
+function wbIsRepeatHeaderPress(entry, clientX, clientY) {
+    const now = Date.now();
+    const last = wbLastHeaderPress;
+    wbLastHeaderPress = { entry, x: clientX, y: clientY, at: now };
+
+    if (!last || last.entry !== entry) return false;
+    if (now - last.at > WB_HEADER_DOUBLE_PRESS_MS) return false;
+    return !wbExceedsMoveThreshold(last.x, last.y, clientX, clientY, WB_HEADER_DOUBLE_PRESS_SLOP);
+}
+
 // ── Mouse entry points (wired in wbCreateNoteNode()) ────────────────────
 
 function wbNoteHeaderMouseDown(e, entry) {
     if (e.button !== 0 || wbActiveDrag) return;
+    // Double-click-to-rename is detected here, from consecutive
+    // mousedowns, rather than from a native 'dblclick' listener: the first
+    // press of the pair raises the note to the front of the notes layer,
+    // and moving a node in the DOM cancels the browser's own double-click
+    // tracking, so a dblclick handler on the header would simply never
+    // fire for any note that wasn't already frontmost. Detecting it
+    // ourselves also gives touch the same gesture for free (see
+    // wbNoteHeaderTouchStart()), which 'dblclick' does not.
+    if (wbIsRepeatHeaderPress(entry, e.clientX, e.clientY)) {
+        e.preventDefault();
+        e.stopPropagation();
+        wbBeginTitleEdit(entry);
+        return;
+    }
     // The menu button (issue #849, not this issue's to build or wire) is
     // a sibling inside the same header -- never hijack its own click.
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
+    // Nor the noodle handle, nor a title mid-rename: both are their own
+    // gestures that happen to start inside the drag handle.
+    if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
+    if (e.target && e.target.isContentEditable) return;
     e.preventDefault();
     e.stopPropagation(); // never let this fall through to canvas panning
     wbBeginDrag('move', entry, e.clientX, e.clientY);
@@ -1281,8 +1874,18 @@ function wbNoteDragMouseUp(e) {
 function wbNoteHeaderTouchStart(e, entry) {
     if (wbActiveDrag || e.touches.length !== 1) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
 
     const touch = e.touches[0];
+    // Double-tap the header to rename, the touch twin of the mouse
+    // double-press (see wbIsRepeatHeaderPress()). Checked before the
+    // long-press timer is armed so a rename never also starts a drag.
+    if (wbIsRepeatHeaderPress(entry, touch.clientX, touch.clientY)) {
+        e.preventDefault();
+        e.stopPropagation();
+        wbBeginTitleEdit(entry);
+        return;
+    }
     const rect = wbNoteCurrentRect(entry);
     wbActiveDrag = {
         phase: 'pending',
@@ -1355,6 +1958,358 @@ if (typeof window !== 'undefined') {
     window.addEventListener('touchmove', wbNoteDragTouchMove, { passive: false });
     window.addEventListener('touchend', wbNoteDragTouchEnd);
     window.addEventListener('touchcancel', wbNoteDragTouchEnd);
+}
+
+// ── Text object drag / edit interaction (issue #1018) ───────────────────
+//
+// A deliberately smaller, parallel state machine to the note drag/resize
+// one above -- see the file header comment for why this isn't a
+// generalisation of wbActiveDrag. Move-only (no resize, no z-order-to-
+// front commit, no noodles); a press that never exceeds
+// WB_DRAG_MOVE_THRESHOLD is a click, which enters inline edit instead of
+// starting a drag.
+
+let wbActiveTextDrag = null;
+
+/** A text object's current board position, read off its own <foreignObject> dataset. */
+function wbTextObjectCurrentRect(entry) {
+    const fo = entry.fo;
+    return {
+        x: parseFloat(fo.dataset.wbX || fo.getAttribute('x') || '0') || 0,
+        y: parseFloat(fo.dataset.wbY || fo.getAttribute('y') || '0') || 0,
+    };
+}
+
+function wbBeginTextDrag(entry, clientX, clientY, touchId) {
+    const rect = wbTextObjectCurrentRect(entry);
+    wbActiveTextDrag = {
+        phase: 'active',
+        entry,
+        touchId: (touchId === undefined) ? null : touchId,
+        startClientX: clientX,
+        startClientY: clientY,
+        startX: rect.x,
+        startY: rect.y,
+        moved: false,
+    };
+    wbSetDragCursor('grabbing');
+}
+
+/** Apply the live pointer position to the dragged text object's DOM only. */
+function wbUpdateTextDragFromClient(clientX, clientY) {
+    const drag = wbActiveTextDrag;
+    if (!drag || drag.phase !== 'active') return;
+    if (!drag.moved && wbExceedsMoveThreshold(drag.startClientX, drag.startClientY, clientX, clientY, WB_DRAG_MOVE_THRESHOLD)) {
+        drag.moved = true;
+    }
+    if (!drag.moved) return;
+    const { dx, dy } = wbDragBoardDelta(drag.startClientX, drag.startClientY, clientX, clientY, wbCurrentZoom());
+    const x = Math.round(drag.startX + dx);
+    const y = Math.round(drag.startY + dy);
+    const fo = drag.entry.fo;
+    fo.setAttribute('x', String(x));
+    fo.setAttribute('y', String(y));
+    fo.dataset.wbX = String(x);
+    fo.dataset.wbY = String(y);
+}
+
+/**
+ * The one markdown commit for a text-object gesture -- re-read the
+ * whiteboard table fresh from #planEditor, apply `mutateItemFn` to this
+ * object's own row (matched by `id`, never `task` -- see the file header
+ * comment), and commit through the same wbCommitMarkdown() path every
+ * other whiteboard write uses.
+ */
+function wbCommitTextObjectChange(id, mutateItemFn) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !id) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText));
+    const idx = items.findIndex(it => it && it.kind === 'text' && it.id === id);
+    if (idx === -1) return false; // row vanished from underneath us -- nothing to persist
+
+    if (typeof mutateItemFn === 'function') mutateItemFn(items[idx]);
+
+    const nextText = updatePlanWhiteboardText(planText, items);
+    return wbCommitMarkdown(nextText);
+}
+
+/** End the active text-object drag gesture: commit its new position, or
+ * (a click that never moved) enter inline edit instead. */
+function wbFinishTextDrag() {
+    const drag = wbActiveTextDrag;
+    if (!drag) return;
+    wbActiveTextDrag = null;
+    wbSetDragCursor('');
+
+    if (!drag.moved) {
+        wbBeginTextObjectEdit(drag.entry);
+        return;
+    }
+    const rect = wbTextObjectCurrentRect(drag.entry);
+    wbCommitTextObjectChange(drag.entry.fo.dataset.wbTextId, (item) => {
+        item.x = Math.round(rect.x);
+        item.y = Math.round(rect.y);
+    });
+}
+
+function wbTextObjectFindTouchById(touchList, id) {
+    return wbFindTouchById(touchList, id);
+}
+
+/**
+ * A press on a text object's content: never hijack an already-editing
+ * object (so cursor placement/text selection inside it works normally),
+ * otherwise start a drag-or-click gesture -- resolved on release by
+ * wbFinishTextDrag() into either a committed reposition or an inline edit.
+ */
+function wbTextObjectMouseDown(e, entry) {
+    if (e.button !== 0 || wbActiveTextDrag) return;
+    if (entry.refs.content.isContentEditable) return;
+    e.preventDefault();
+    e.stopPropagation(); // never let this fall through to canvas panning
+    wbBeginTextDrag(entry, e.clientX, e.clientY);
+}
+
+function wbTextDragMouseMove(e) {
+    if (!wbActiveTextDrag || wbActiveTextDrag.touchId !== null) return;
+    wbUpdateTextDragFromClient(e.clientX, e.clientY);
+}
+
+function wbTextDragMouseUp(e) {
+    if (!wbActiveTextDrag || wbActiveTextDrag.touchId !== null) return;
+    if (typeof e.button === 'number' && e.button !== 0) return;
+    wbFinishTextDrag();
+}
+
+/**
+ * Touch twin of wbTextObjectMouseDown() -- same pending/long-press-to-
+ * drag shape as wbNoteHeaderTouchStart() (issue #848), so a touch that
+ * turns out to be an attempted canvas pan/scroll is abandoned rather than
+ * dragging a text object by accident, and a quick tap enters edit mode
+ * exactly like a mouse click does.
+ */
+function wbTextObjectTouchStart(e, entry) {
+    if (wbActiveTextDrag || e.touches.length !== 1) return;
+    if (entry.refs.content.isContentEditable) return;
+
+    const touch = e.touches[0];
+    const rect = wbTextObjectCurrentRect(entry);
+    wbActiveTextDrag = {
+        phase: 'pending',
+        entry,
+        touchId: touch.identifier,
+        startClientX: touch.clientX,
+        startClientY: touch.clientY,
+        startX: rect.x,
+        startY: rect.y,
+        moved: false,
+        longPressTimer: setTimeout(() => {
+            if (!wbActiveTextDrag || wbActiveTextDrag.entry !== entry) return;
+            wbActiveTextDrag.phase = 'active';
+            wbActiveTextDrag.longPressTimer = null;
+            wbSetDragCursor('grabbing');
+        }, WB_TOUCH_LONG_PRESS_MS),
+    };
+}
+
+function wbTextDragTouchMove(e) {
+    const drag = wbActiveTextDrag;
+    if (!drag || drag.touchId === null) return;
+    const touch = wbTextObjectFindTouchById(e.touches, drag.touchId);
+    if (!touch) return;
+
+    if (drag.phase === 'pending') {
+        if (wbExceedsMoveThreshold(drag.startClientX, drag.startClientY, touch.clientX, touch.clientY, WB_TOUCH_CANCEL_THRESHOLD)) {
+            if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+            wbActiveTextDrag = null;
+        }
+        return;
+    }
+
+    e.preventDefault();
+    wbUpdateTextDragFromClient(touch.clientX, touch.clientY);
+}
+
+function wbTextDragTouchEnd(e) {
+    const drag = wbActiveTextDrag;
+    if (!drag || drag.touchId === null) return;
+    if (wbTextObjectFindTouchById(e.touches, drag.touchId)) return; // a different touch ended
+
+    if (drag.phase === 'pending') {
+        if (drag.longPressTimer) clearTimeout(drag.longPressTimer);
+        wbActiveTextDrag = null;
+        wbBeginTextObjectEdit(drag.entry); // a plain tap: same as a mouse click
+        return;
+    }
+    wbFinishTextDrag();
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('mousemove', wbTextDragMouseMove);
+    window.addEventListener('mouseup', wbTextDragMouseUp);
+    window.addEventListener('touchmove', wbTextDragTouchMove, { passive: false });
+    window.addEventListener('touchend', wbTextDragTouchEnd);
+    window.addEventListener('touchcancel', wbTextDragTouchEnd);
+}
+
+/**
+ * Put a text object into inline edit mode: contentEditable directly on its
+ * content div (the whole object *is* its text, unlike a note's separate
+ * title-only rename), caret placed at the end. Blur or Escape settle it --
+ * Escape reverts to the last-committed text, blur (including the natural
+ * one from clicking elsewhere on the board) commits whatever was typed.
+ * A newly-created, still-empty object that's left empty is not deleted
+ * automatically -- see wbUpdateTextObjectNode()'s placeholder handling --
+ * matching #885's "nothing is mandatory".
+ */
+function wbBeginTextObjectEdit(entry) {
+    const content = entry.refs.content;
+    if (!content || content.isContentEditable) return;
+
+    const id = entry.fo.dataset.wbTextId;
+    const wasPlaceholder = content.classList.contains('wb-text-object-placeholder');
+    const originalText = wasPlaceholder ? '' : content.textContent;
+
+    content.textContent = originalText;
+    content.classList.remove('wb-text-object-placeholder');
+    content.contentEditable = 'true';
+    content.classList.add('editing');
+    content.focus();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    let settled = false;
+    const finish = (commit) => {
+        if (settled) return;
+        settled = true;
+        content.contentEditable = 'false';
+        content.classList.remove('editing');
+        content.removeEventListener('keydown', onKeydown);
+        content.removeEventListener('blur', onBlur);
+
+        const typed = (content.innerText || content.textContent || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
+        if (!commit || typed === originalText) {
+            content.textContent = originalText || 'Text…';
+            content.classList.toggle('wb-text-object-placeholder', !originalText);
+            return;
+        }
+        content.textContent = typed || 'Text…';
+        content.classList.toggle('wb-text-object-placeholder', !typed);
+        wbCommitTextObjectChange(id, (item) => { item.text = typed; });
+    };
+
+    const onKeydown = (e) => {
+        e.stopPropagation(); // canvas shortcuts must not fire while typing
+        if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    };
+    const onBlur = () => finish(true);
+
+    content.addEventListener('keydown', onKeydown);
+    content.addEventListener('blur', onBlur);
+}
+
+/**
+ * Delete one text object's row, confirmation-free -- unlike deleting a
+ * post-it's task (wbDeleteNoteTask()), this destroys nothing but the
+ * object's own position/text: there is no task, no subtree, no other view
+ * of this content anywhere else in the plan.
+ */
+function wbDeleteTextObject(id) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !id) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText))
+        .filter(item => !(item && item.kind === 'text' && item.id === id));
+    return wbCommitMarkdown(updatePlanWhiteboardText(planText, items));
+}
+
+/**
+ * Create a brand-new text object centred on the board point (x, y),
+ * committed as its own whiteboard row (never a task -- see the file
+ * header comment). Falls back to the same free-space scan wbCreateNoteAt()
+ * uses when the centred point would overlap an existing note or text
+ * object, and goes straight into edit mode so typing the text is part of
+ * the same gesture, mirroring wbCreateNoteAt()'s title-edit handoff.
+ */
+function wbCreateTextObjectAt(boardX, boardY) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor) return null;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return null;
+    }
+
+    const planText = editor.value;
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(planText));
+    const id = wbGenerateTextObjectId();
+
+    const width = WB_TEXT_DEFAULT_WIDTH;
+    const height = WB_TEXT_DEFAULT_HEIGHT;
+    let x = Math.round(boardX - width / 2);
+    let y = Math.round(boardY - height / 2);
+
+    const existingRects = items.map(item => ({
+        x: item.x || 0,
+        y: item.y || 0,
+        width: (item.kind === 'text') ? WB_TEXT_DEFAULT_WIDTH : (item.width || WB_NOTE_DEFAULT_WIDTH),
+        height: (item.kind === 'text') ? WB_TEXT_DEFAULT_HEIGHT : (item.height || WB_NOTE_DEFAULT_HEIGHT),
+    }));
+    const wanted = { x, y, width, height };
+    const clashes = existingRects.some(rect => wbRectsOverlap(wanted, rect, 8));
+    if (clashes && typeof wbFindFreeSpacePosition === 'function' &&
+        typeof wbCurrentViewportBoardRect === 'function') {
+        const free = wbFindFreeSpacePosition(existingRects, wbCurrentViewportBoardRect(), width, height);
+        if (free) { x = Math.round(free.x); y = Math.round(free.y); }
+    }
+
+    items.push({ kind: 'text', id, text: '', x, y });
+    if (!wbCommitMarkdown(updatePlanWhiteboardText(planText, items))) return null;
+
+    // Same reasoning as wbCreateNoteAt(): the commit's renderText() is
+    // async, so poll briefly for the new node rather than guessing a delay.
+    let attempts = 0;
+    const focusWhenReady = () => {
+        const entry = wbTextNodes.get(id);
+        if (entry) { wbBeginTextObjectEdit(entry); return; }
+        if (++attempts < 20) setTimeout(focusWhenReady, 50);
+    };
+    setTimeout(focusWhenReady, 50);
+
+    return id;
+}
+
+/** wbCreateTextObjectAt() for a client-space point. */
+function wbCreateTextObjectAtClientPoint(clientX, clientY) {
+    if (typeof wbClientToBoard !== 'function') return null;
+    const point = wbClientToBoard(clientX, clientY);
+    return wbCreateTextObjectAt(point.x, point.y);
+}
+
+/** wbCreateTextObjectAt() for the middle of whatever is currently on
+ * screen -- the toolbar's "New text" button and the `t` keyboard shortcut. */
+function wbCreateTextObjectInViewportCentre() {
+    if (typeof wbCurrentViewportBoardRect !== 'function') return null;
+    const rect = wbCurrentViewportBoardRect();
+    return wbCreateTextObjectAt(rect.x + rect.width / 2, rect.y + rect.height / 2);
 }
 
 /** Build one child-task row for a note body. */
@@ -1664,10 +2619,101 @@ function wbBuildNoteMenu(taskName) {
     menu.appendChild(list);
 
     wbAppendColourMenuSection(list, taskName);
+    wbAppendStructureMenuSection(list, taskName);
+    wbAppendPromoteMenuSection(list, taskName);
     wbAppendOpenTaskMenuSection(list, taskName);
+    wbAppendParkMenuSection(list, taskName);
     wbAppendRemoveMenuSection(list, taskName);
 
     return menu;
+}
+
+/**
+ * The structure actions -- rename, and unlink from whatever note this one
+ * currently hangs off. Both have direct gestures too (double-click the
+ * title; click the noodle then its cut button), so these exist for
+ * discoverability and for the cases where the gesture is awkward: a noodle
+ * on a dense board can be genuinely hard to hit, and a title-only note at
+ * low zoom has no room for an editable title.
+ *
+ * "Unlink" only appears when there *is* a noodle to cut -- a menu item
+ * that is present but inert teaches the wrong thing about what the board
+ * can do.
+ */
+function wbAppendStructureMenuSection(list, taskName) {
+    // These carry .wb-note-menu-action, NOT .wb-note-menu-open-task: that
+    // class identifies exactly one item ("Open task details") and is what
+    // callers and tests select it by, so borrowing it for a second item
+    // would silently make that selector ambiguous.
+    const dividerLi = document.createElement('li');
+    dividerLi.className = 'wb-note-menu-divider';
+    dividerLi.setAttribute('role', 'separator');
+    list.appendChild(dividerLi);
+
+    const renameLi = document.createElement('li');
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'wb-note-menu-action';
+    renameBtn.setAttribute('role', 'menuitem');
+    renameBtn.textContent = 'Rename';
+    renameBtn.title = 'Rename this task (or just double-click its title)';
+    renameBtn.setAttribute('aria-label', `Rename ${taskName}`);
+    renameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        const entry = wbNoteNodes.get(taskName);
+        if (entry) wbBeginTitleEdit(entry);
+    });
+    renameLi.appendChild(renameBtn);
+    list.appendChild(renameLi);
+
+    const task = (wbLastTasks || []).find(t => t && t.name === taskName);
+    if (!task || !task.parent) return;
+
+    const unlinkLi = document.createElement('li');
+    const unlinkBtn = document.createElement('button');
+    unlinkBtn.type = 'button';
+    unlinkBtn.className = 'wb-note-menu-action';
+    unlinkBtn.setAttribute('role', 'menuitem');
+    unlinkBtn.textContent = `Unlink from "${task.parent}"`;
+    unlinkBtn.title = 'Moves this task back to the top level of the plan; nothing is deleted';
+    unlinkBtn.setAttribute('aria-label',
+        `Unlink ${taskName} from ${task.parent}, moving it back to the top level`);
+    unlinkBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbUnlinkNoteFromParent(taskName);
+    });
+    unlinkLi.appendChild(unlinkBtn);
+    list.appendChild(unlinkLi);
+}
+
+/**
+ * Append issue #1020's entire contribution to the note menu: a single
+ * "Promote to task" action, shown only for a free-form note (checked via
+ * wbHasChildren() directly rather than building a full view model just for
+ * this -- equivalent to wbIsFreeformNote(), see that predicate's own doc
+ * comment) -- a note that already has a child is already a checklist, and
+ * offering to "promote" it a second time would be a confusing no-op.
+ */
+function wbAppendPromoteMenuSection(list, taskName) {
+    if (wbHasChildren(wbLastTasks, taskName)) return;
+
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-promote';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Promote to task';
+    btn.title = "Turn this note's comment into a real child task";
+    btn.setAttribute('aria-label', `Promote ${taskName} to a task`);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbPromoteFreeformNote(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
 }
 
 /**
@@ -1688,6 +2734,39 @@ function wbAppendOpenTaskMenuSection(list, taskName) {
         e.stopPropagation();
         wbCloseNoteMenu();
         wbOpenChildTask(taskName);
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+}
+
+/**
+ * Append issue #1019's entire contribution to the note menu: a divider
+ * followed by a single "Send to parking lot" action -- the "good idea,
+ * not now" counterpart to Remove/Delete just below it, set apart with its
+ * own divider so it doesn't read as a third flavour of the same
+ * destructive group. Styled with the same neutral `.wb-note-menu-action`
+ * look as Rename/Unlink/Open task details above (not
+ * `.wb-note-menu-remove`'s red): parking an idea is not destructive, it
+ * relocates the text (see wbSendNoteToParkingLot()'s own doc comment).
+ */
+function wbAppendParkMenuSection(list, taskName) {
+    const dividerLi = document.createElement('li');
+    dividerLi.className = 'wb-note-menu-divider';
+    dividerLi.setAttribute('role', 'separator');
+    list.appendChild(dividerLi);
+
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wb-note-menu-action';
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = 'Send to parking lot';
+    btn.title = 'Not ready yet? Park this idea -- it leaves the board and the plan, but its text is kept in the parking lot';
+    btn.setAttribute('aria-label', `Send ${taskName} to the parking lot`);
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbSendNoteToParkingLot(taskName);
     });
     li.appendChild(btn);
     list.appendChild(li);
@@ -1730,16 +2809,46 @@ function wbAppendRemoveMenuSection(list, taskName) {
     });
     li.appendChild(btn);
     list.appendChild(li);
+
+    // Now that a note can *create* a task, it needs a way to destroy one
+    // too -- otherwise a mistyped post-it can only be taken off the board,
+    // leaving the stray task behind in the plan with no note pointing at
+    // it. Set apart from "Remove from board" by wording, styling and a
+    // confirmation prompt (see wbDeleteNoteTask()), because these two
+    // adjacent items are the one pair on this menu it would genuinely hurt
+    // to confuse.
+    const deleteLi = document.createElement('li');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'wb-note-menu-remove wb-note-menu-delete';
+    deleteBtn.setAttribute('role', 'menuitem');
+    deleteBtn.textContent = 'Delete task';
+    deleteBtn.title = 'Deletes the task and its subtasks from the plan, not just this note';
+    deleteBtn.setAttribute('aria-label',
+        'Delete task. This removes the task and its subtasks from the plan, not just the note.');
+    deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbCloseNoteMenu();
+        wbDeleteNoteTask(taskName);
+    });
+    deleteLi.appendChild(deleteBtn);
+    list.appendChild(deleteLi);
 }
 
 /**
- * Append this issue's entire contribution to the note menu: a "Default
- * colour" action (tier 3 of the precedence -- clears any row/Theme:
- * override) followed by the mind map's own swatch grids (Palette ==
- * MM_BRANCH_COLOURS, Pastel == CF_PASTEL_COLOURS, Dark == CF_DARK_COLOURS
- * -- see the issue's "do not invent a third palette" instruction), each
- * as a labelled <li> + a grid <li> so keyboard users can jump between
- * items with wbNoteMenuKeydown()'s Arrow/Home/End handling.
+ * Append the colour section of the note menu: a "Default colour" action
+ * (tier 3 of the precedence -- clears any row/Theme: override) followed
+ * by a single labelled swatch grid drawing from wbPalette() -- the fixed
+ * pastel "post-it" palette (WB_NOTE_PASTEL_COLOURS, issue #1017), as one
+ * labelled <li> + a grid <li> so keyboard users can jump between items
+ * with wbNoteMenuKeydown()'s Arrow/Home/End handling.
+ *
+ * #849 originally offered three grids here (a saturated "Palette" plus
+ * the boards view's own "Pastel"/"Dark" conditional-formatting swatches,
+ * CF_PASTEL_COLOURS/CF_DARK_COLOURS from kanban.js/state.js) -- #1017
+ * replaced all three with this one dedicated pastel palette, precisely
+ * so a note's colour stops borrowing another system's swatches. See
+ * WB_NOTE_PASTEL_COLOURS's own doc comment for the full rationale.
  */
 function wbAppendColourMenuSection(list, taskName) {
     const currentColour = wbCurrentNoteColour(taskName);
@@ -1778,9 +2887,7 @@ function wbAppendColourMenuSection(list, taskName) {
         list.appendChild(gridLi);
     }
 
-    addSection('Palette', wbPalette());
-    addSection('Pastel', (typeof CF_PASTEL_COLOURS !== 'undefined') ? CF_PASTEL_COLOURS : []);
-    addSection('Dark', (typeof CF_DARK_COLOURS !== 'undefined') ? CF_DARK_COLOURS : []);
+    addSection('Colour', wbPalette());
 }
 
 /**
@@ -2148,14 +3255,116 @@ function wbCommitAddNotes(taskNames) {
     return wbCommitMarkdown(nextText);
 }
 
-/** "Add all summary tasks" (the empty state's second action): every
- * not-yet-added summary task, in one commit. False (no-op) if the board
- * already includes every summary task (including "there are no summary
- * tasks at all yet"). */
+/** "Add all summary tasks": every not-yet-added summary task, in one
+ * commit. False (no-op) if the board already includes every summary task
+ * (including "there are no summary tasks at all yet").
+ *
+ * Deliberately still summary-only even though the picker now offers leaves
+ * too (see wbSummaryTaskEntries()): this button means "lay my phases out",
+ * and dumping every leaf task onto the canvas as well would bury them. */
 function wbAddAllSummaryTasks() {
-    const entries = wbSummaryTasksNotOnBoard();
+    const entries = wbSummaryTasksNotOnBoard().filter(entry => entry.isSummary);
     if (!entries.length) return false;
     return wbCommitAddNotes(entries.map(entry => entry.name));
+}
+
+/**
+ * Insert a brand-new, top-level, bare task line named `taskName` at the end
+ * of the plan's task outline -- i.e. after every existing outline line but
+ * before the first back-matter section marker (Highlights, Budget,
+ * Benefits, RAID log, Comms, Lessons learned, Baseline, Whiteboard --
+ * the same marker list extractWhiteboardFromPlanText()/
+ * updatePlanWhiteboardText() scan for), so the new task lands inside the
+ * outline itself rather than inside, or after, some other back-matter
+ * section.
+ *
+ * Deliberately just the one line, no placeholder child: this used to also
+ * write a "New Task" placeholder (2-space indented) underneath, so the
+ * outline parser (engine/scheduler.js buildTasks(), which only classifies
+ * a task as a summary once it *has* a child) would treat the new line as a
+ * summary task immediately. Issue #1015 removed that -- a childless task
+ * is exactly a free-form note's natural backing (see wbIsFreeformNote()
+ * and this file's header comment), and forcing an immediate child was
+ * exactly the kind of premature structure #885 asks new notes not to
+ * impose. This now matches wbAppendTopLevelTask() (whiteboard-structure.js),
+ * the other new-note path (canvas double-click / `n` / "New post-it"): both
+ * write a bare leaf, so a note is free-form until the user gives it its
+ * first child, whichever creation path made it.
+ *
+ * Pure text transform -- no DOM, no commit -- so
+ * wbCreateAndAddSummaryTask() below can compose it with the whiteboard-row
+ * edit into a single wbCommitMarkdown() call rather than two.
+ */
+function wbInsertNewSummaryTaskLine(planText, taskName) {
+    const text = planText || '';
+    const name = String(taskName || '').trim();
+    if (!name) return text;
+
+    const markers = [HIGHLIGHTS_START, BUDGET_START, BENEFITS_START, RAID_LOG_START,
+                      COMMS_START, LESSONS_START, BASELINE_START, WHITEBOARD_START];
+    let insertIdx = text.length;
+    markers.forEach(marker => {
+        const idx = text.indexOf(marker);
+        if (idx !== -1 && idx < insertIdx) insertIdx = idx;
+    });
+
+    const before = text.substring(0, insertIdx).replace(/\n+$/, '');
+    const after = text.substring(insertIdx);
+
+    // A blank-line separator before the new line (when there's existing
+    // outline content to separate it from) matches how top-level
+    // phases/sections are conventionally spaced in a plan's outline (see
+    // e.g. SAMPLE_PLAN in tests/test_whiteboard_board_membership.py) --
+    // the new task reads as its own top-level entry, not a continuation
+    // of whatever came before it.
+    let result = before ? before + '\n\n' + name : name;
+    result = after ? result + '\n\n' + after.replace(/^\n+/, '') : result + '\n';
+    return result;
+}
+
+/**
+ * The Add-note picker's "create new" affordance's entire action: create a
+ * brand-new top-level summary task named `taskName` in the outline (see
+ * wbInsertNewSummaryTaskLine()) AND add it to the board as a note, as one
+ * combined edit -- a single wbCommitMarkdown() call, so what the user
+ * experiences as one action ("type a name, hit Create") is also one undo
+ * step, matching wbCommitAddNotes()'s own "one Markdown commit" rule (see
+ * this section's header comment). Mirrors wbCommitAddNotes() for the
+ * row-building half (same free-space placement via wbBuildAddNoteRows(),
+ * same updatePlanWhiteboardText() call) but folds the outline insertion
+ * into the same text transform first instead of committing twice.
+ *
+ * Returns false (no-op, no commit) for a blank/whitespace-only name or a
+ * name that already exists in the outline (case-insensitively) -- the
+ * caller is expected to surface that back to the user rather than silently
+ * create a confusing duplicate.
+ */
+function wbCreateAndAddSummaryTask(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    const name = String(taskName || '').trim();
+    if (!editor || !name) return false;
+    if (typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const key = name.toLowerCase();
+    const duplicate = (wbLastTasks || []).some(t => t && t.name && t.name.toLowerCase() === key);
+    if (duplicate) return false;
+
+    const withNewTask = wbInsertNewSummaryTaskLine(editor.value, name);
+
+    const section = extractWhiteboardFromPlanText(withNewTask);
+    const items = parseWhiteboardMarkdown(section);
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    const newRows = wbBuildAddNoteRows(items, viewport, [name], {
+        width: WB_NOTE_DEFAULT_WIDTH,
+        height: WB_NOTE_DEFAULT_HEIGHT,
+    });
+
+    const nextText = updatePlanWhiteboardText(withNewTask, items.concat(newRows));
+    return wbCommitMarkdown(nextText);
 }
 
 // ── Empty state ──────────────────────────────────────────────────────────
@@ -2171,20 +3380,27 @@ function wbEnsureEmptyStateEl() {
 
     el = document.createElement('div');
     el.className = 'wb-empty-state';
+    // Leads with starting from nothing, because that is now the primary
+    // way to use this board: a post-it creates a task, and noodling two
+    // together builds the plan's outline. Pulling existing tasks onto the
+    // board is the secondary action it used to be the only one.
     el.innerHTML = [
         '<div class="wb-empty-state-inner">',
         '<h3 class="wb-empty-state-title">Nothing on the board yet</h3>',
-        '<p class="wb-empty-state-body">The whiteboard is a curated view of your plan, not every phase automatically &mdash; add the summary tasks you want to track here.</p>',
+        '<p class="wb-empty-state-body">Start with a post-it. Double-click anywhere (or press <kbd>n</kbd>) to add one &mdash; each post-it is a task in your plan. Drag a note\'s noodle handle onto another to make it a subtask, and the structure appears in the panel on the left.</p>',
         '<div class="wb-empty-state-actions">',
-        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" id="wbEmptyStateAddBtn">Add note</button>',
+        '<button type="button" class="wb-empty-state-btn wb-empty-state-btn-primary" id="wbEmptyStateNewBtn">New post-it</button>',
+        '<button type="button" class="wb-empty-state-btn" id="wbEmptyStateAddBtn">Add an existing task</button>',
         '<button type="button" class="wb-empty-state-btn" id="wbEmptyStateAddAllBtn">Add all summary tasks</button>',
         '</div>',
         '</div>',
     ].join('');
     container.appendChild(el);
 
+    const newBtn = el.querySelector('#wbEmptyStateNewBtn');
     const addBtn = el.querySelector('#wbEmptyStateAddBtn');
     const addAllBtn = el.querySelector('#wbEmptyStateAddAllBtn');
+    if (newBtn) newBtn.addEventListener('click', () => wbCreateNoteInViewportCentre());
     if (addBtn) addBtn.addEventListener('click', () => wbOpenAddNotePicker());
     if (addAllBtn) addAllBtn.addEventListener('click', () => wbAddAllSummaryTasks());
 
@@ -2209,9 +3425,13 @@ let wbAddPickerState = null;
  * Open the Add-note picker: a modal dialog listing every summary task not
  * already on the board (see wbSummaryTasksNotOnBoard()), each showing its
  * "Phase › Sub-phase" parent path so same-named tasks in different phases
- * are tellable apart, with a search box and multi-select checkboxes.
- * Building the entry list fresh on open (not cached) means it can never
- * go stale across repeated opens in one session.
+ * are tellable apart, with a search box and multi-select checkboxes, plus
+ * a "+ New phase" create-new-task affordance (see wbBuildCreateSection()
+ * below) that stays available whether or not there's anything left to
+ * pick -- so a brainstorming session is never blocked on "does a phase
+ * for this already exist?" Building the entry list fresh on open (not
+ * cached) means it can never go stale across repeated opens in one
+ * session.
  */
 function wbOpenAddNotePicker() {
     wbCloseAddNotePicker();
@@ -2220,6 +3440,7 @@ function wbOpenAddNotePicker() {
         entries: wbSummaryTasksNotOnBoard(),
         selected: new Set(),
         query: '',
+        creatingOpen: false,
     };
 
     const overlay = document.createElement('div');
@@ -2270,6 +3491,8 @@ function wbOpenAddNotePicker() {
     list.setAttribute('aria-multiselectable', 'true');
     list.setAttribute('aria-label', 'Summary tasks not on the board');
 
+    const createSection = wbBuildCreateSection();
+
     const footer = document.createElement('div');
     footer.className = 'wb-add-note-footer';
     const cancelBtn = document.createElement('button');
@@ -2290,13 +3513,101 @@ function wbOpenAddNotePicker() {
     dialog.appendChild(header);
     dialog.appendChild(search);
     dialog.appendChild(list);
+    dialog.appendChild(createSection);
     dialog.appendChild(footer);
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
     wbRenderAddNoteList();
     document.addEventListener('keydown', wbAddNotePickerKeydown, true);
-    search.focus();
+
+    // The dead-end case (nothing left to pick) forces the create form
+    // open in place of the list/search -- see wbRenderAddNoteList() --
+    // so the create input, not the now-hidden search box, is what should
+    // actually get the picker's opening focus.
+    if (!wbAddPickerState.entries.length) {
+        const createInput = document.getElementById('wbAddNoteCreateInput');
+        if (createInput) createInput.focus();
+    } else {
+        search.focus();
+    }
+}
+
+/**
+ * Build the picker's "create a new summary task" affordance: a collapsed
+ * "+ New phase" toggle button plus the (initially hidden) name input +
+ * "Create and add" button it reveals, wired to wbSubmitCreateSummaryTask().
+ * Kept as one self-contained block -- appended as a sibling of #wbAddNoteList
+ * rather than inserted inside it -- both because it needs to survive
+ * wbRenderAddNoteList()'s `list.innerHTML = ''` rebuilds on every keystroke
+ * in the search box, and because it is deliberately a separate, secondary
+ * action from the list's checkbox multi-select rather than another kind of
+ * row in it (see wbRenderAddNoteList()'s doc comment for how the two ends
+ * -- the always-available toggle here and the forced-open dead-end case --
+ * share this exact same form).
+ */
+function wbBuildCreateSection() {
+    const section = document.createElement('div');
+    section.id = 'wbAddNoteCreate';
+    section.className = 'wb-add-note-create';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'wbAddNoteCreateToggle';
+    toggle.className = 'wb-add-note-create-toggle';
+    toggle.textContent = '+ New phase';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', 'wbAddNoteCreateForm');
+    toggle.addEventListener('click', () => wbToggleCreateSummaryTaskForm());
+
+    const intro = document.createElement('p');
+    intro.id = 'wbAddNoteCreateIntro';
+    intro.className = 'wb-add-note-create-intro';
+    intro.hidden = true;
+
+    const form = document.createElement('div');
+    form.id = 'wbAddNoteCreateForm';
+    form.className = 'wb-add-note-create-form';
+    form.hidden = true;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'wbAddNoteCreateInput';
+    input.className = 'wb-add-note-create-input';
+    input.placeholder = 'New phase name…';
+    input.setAttribute('aria-label', 'New summary task name');
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            wbSubmitCreateSummaryTask();
+        }
+    });
+    input.addEventListener('input', () => {
+        const errorEl = document.getElementById('wbAddNoteCreateError');
+        if (errorEl && !errorEl.hidden) { errorEl.hidden = true; errorEl.textContent = ''; }
+    });
+
+    const createBtn = document.createElement('button');
+    createBtn.type = 'button';
+    createBtn.id = 'wbAddNoteCreateBtn';
+    createBtn.className = 'wb-add-note-create-btn';
+    createBtn.textContent = 'Create and add';
+    createBtn.addEventListener('click', () => wbSubmitCreateSummaryTask());
+
+    form.appendChild(input);
+    form.appendChild(createBtn);
+
+    const error = document.createElement('p');
+    error.id = 'wbAddNoteCreateError';
+    error.className = 'wb-add-note-create-error';
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+
+    section.appendChild(toggle);
+    section.appendChild(intro);
+    section.appendChild(form);
+    section.appendChild(error);
+    return section;
 }
 
 /** Close the picker, if open, and return focus to the toolbar/empty-state
@@ -2311,25 +3622,152 @@ function wbCloseAddNotePicker() {
     if (returnFocusBtn) returnFocusBtn.focus();
 }
 
-/** Rebuild the picker's <ul> from the current search query + selection. */
+/**
+ * Rebuild the picker's <ul> from the current search query + selection.
+ *
+ * The true dead-end case -- `entries` itself is empty, i.e. there is
+ * nothing left to pick no matter what's typed in search -- hides the now-
+ * pointless search box and list entirely and forces the create-new-task
+ * form (see wbBuildCreateSection()/wbShowCreateSummaryTaskForm()) open in
+ * their place, instead of the old non-actionable "Every summary task is
+ * already on the board" message. That's different from a *search*
+ * producing no matches (there's still something to pick, the query just
+ * doesn't match it), which keeps its own, unrelated, already-correct
+ * "No summary tasks match your search" message untouched.
+ */
 function wbRenderAddNoteList() {
     const list = document.getElementById('wbAddNoteList');
+    const search = document.getElementById('wbAddNoteSearch');
     if (!list || !wbAddPickerState) return;
 
-    const filtered = wbFilterPickerEntries(wbAddPickerState.entries, wbAddPickerState.query);
-    list.innerHTML = '';
-    if (!filtered.length) {
-        const empty = document.createElement('li');
-        empty.className = 'wb-add-note-empty';
-        empty.setAttribute('role', 'presentation');
-        empty.textContent = wbAddPickerState.entries.length
-            ? 'No summary tasks match your search'
-            : 'Every summary task is already on the board';
-        list.appendChild(empty);
+    const deadEnd = wbAddPickerState.entries.length === 0;
+    list.hidden = deadEnd;
+    if (search) search.hidden = deadEnd;
+
+    if (deadEnd) {
+        list.innerHTML = '';
+        wbShowCreateSummaryTaskForm({ forced: true });
     } else {
-        filtered.forEach(entry => list.appendChild(wbBuildAddNoteListItem(entry)));
+        const filtered = wbFilterPickerEntries(wbAddPickerState.entries, wbAddPickerState.query);
+        list.innerHTML = '';
+        if (!filtered.length) {
+            const empty = document.createElement('li');
+            empty.className = 'wb-add-note-empty';
+            empty.setAttribute('role', 'presentation');
+            empty.textContent = 'No summary tasks match your search';
+            list.appendChild(empty);
+        } else {
+            filtered.forEach(entry => list.appendChild(wbBuildAddNoteListItem(entry)));
+        }
     }
     wbUpdateAddNoteSubmitState();
+}
+
+/**
+ * Open the create-new-task form, either as the persistent "+ New phase"
+ * toggle's voluntary action (`forced: false` -- the toggle itself hides,
+ * an unlabelled form appears) or as the dead-end case's forced state
+ * (`forced: true` -- the toggle hides since it'd be redundant, and an
+ * intro line explains why the form is here instead of a picker list).
+ * Idempotent: safe to call again while already open.
+ */
+function wbShowCreateSummaryTaskForm(options) {
+    const forced = !!(options && options.forced);
+    const toggle = document.getElementById('wbAddNoteCreateToggle');
+    const intro = document.getElementById('wbAddNoteCreateIntro');
+    const form = document.getElementById('wbAddNoteCreateForm');
+    if (!form || !wbAddPickerState) return;
+
+    form.hidden = false;
+    wbAddPickerState.creatingOpen = true;
+    if (toggle) {
+        toggle.hidden = forced;
+        toggle.setAttribute('aria-expanded', 'true');
+    }
+    if (intro) {
+        intro.hidden = !forced;
+        intro.textContent = forced
+            ? 'Every summary task is already on the board — create a new one to add:'
+            : '';
+    }
+}
+
+/** The persistent "+ New phase" toggle's click handler: open the create
+ * form if it's closed, or close it (and clear any error) if it's already
+ * open. Never called for the forced-open dead-end case -- the toggle
+ * itself is hidden then (see wbShowCreateSummaryTaskForm()) -- so this is
+ * always a voluntary open/close. */
+function wbToggleCreateSummaryTaskForm() {
+    const toggle = document.getElementById('wbAddNoteCreateToggle');
+    const form = document.getElementById('wbAddNoteCreateForm');
+    if (!form || !wbAddPickerState) return;
+
+    if (form.hidden) {
+        wbShowCreateSummaryTaskForm({ forced: false });
+        const input = document.getElementById('wbAddNoteCreateInput');
+        if (input) input.focus();
+        return;
+    }
+
+    form.hidden = true;
+    wbAddPickerState.creatingOpen = false;
+    const errorEl = document.getElementById('wbAddNoteCreateError');
+    if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+    }
+}
+
+/**
+ * The create-new-task form's submit action (the "Create and add" button,
+ * or Enter in its name field): validate the typed name, then hand off to
+ * wbCreateAndAddSummaryTask() for the actual outline-insert-plus-board-add
+ * commit. A blank name or one that collides (case-insensitively) with an
+ * existing task name in the plan shows an inline error instead of
+ * submitting -- matching this form's own "plain text name only, stay in
+ * the picker" brief rather than falling back to a browser `alert()`.
+ * Closes the whole picker on success, exactly like
+ * wbSubmitAddNotePicker()'s existing multi-select "Add note" path.
+ */
+function wbSubmitCreateSummaryTask() {
+    const input = document.getElementById('wbAddNoteCreateInput');
+    const errorEl = document.getElementById('wbAddNoteCreateError');
+    if (!input || !wbAddPickerState) return;
+
+    const name = input.value.trim();
+    if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+
+    if (!name) {
+        if (errorEl) {
+            errorEl.textContent = 'Enter a name for the new phase.';
+            errorEl.hidden = false;
+        }
+        input.focus();
+        return;
+    }
+
+    const key = name.toLowerCase();
+    const duplicate = (wbLastTasks || []).some(t => t && t.name && t.name.toLowerCase() === key);
+    if (duplicate) {
+        if (errorEl) {
+            errorEl.textContent = `"${name}" already exists in the plan.`;
+            errorEl.hidden = false;
+        }
+        input.focus();
+        input.select();
+        return;
+    }
+
+    const created = wbCreateAndAddSummaryTask(name);
+    if (!created) {
+        if (errorEl) {
+            errorEl.textContent = 'Could not create the new phase — try again.';
+            errorEl.hidden = false;
+        }
+        return;
+    }
+    wbCloseAddNotePicker();
 }
 
 /** One picker row: a checkbox + name + (if any) "Phase › Sub-phase" path. */
@@ -2426,9 +3864,17 @@ function wbAddNotePickerKeydown(e) {
         return;
     }
 
+    const active = document.activeElement;
+
+    // Inside the create-new-task form (the name input, its submit button,
+    // or the "+ New phase" toggle): leave Arrow/Home/End alone so they
+    // behave as ordinary text-field/button navigation instead of jumping
+    // focus into the summary-task list below (Enter is handled by the
+    // input's own keydown listener; see wbBuildCreateSection()).
+    if (active && active.closest && active.closest('#wbAddNoteCreate')) return;
+
     const items = wbAddNoteListItems();
     const search = document.getElementById('wbAddNoteSearch');
-    const active = document.activeElement;
     const onSearch = !!(search && active === search);
     const index = items.indexOf(active);
 
@@ -2466,4 +3912,555 @@ function wbSubmitAddNotePicker() {
     const taskNames = Array.from(wbAddPickerState.selected);
     wbCloseAddNotePicker();
     wbCommitAddNotes(taskNames);
+}
+
+// ── Authoring: creating, naming and unfiling notes ──────────────────────
+//
+// The board used to be a curated *view* of tasks that already existed --
+// the only way onto it was the Add-note picker, which could only offer
+// summary tasks someone had already typed into the outline. These are the
+// other direction: a post-it dropped on the canvas creates the task, and
+// naming, unlinking or deleting it edits the plan.
+//
+// Every one of them is a single wbCommitMarkdown() call, so each is one
+// undo step, exactly like a drag or a colour pick. Where a change touches
+// both the outline and the ---whiteboard--- table (creating a note writes
+// a task line *and* a row), the two edits are composed into one plan text
+// before that single commit -- never committed separately, which would
+// leave a half-created note behind if the second write failed and would
+// cost the user two Ctrl+Z presses to undo one action.
+
+/**
+ * Create a brand-new post-it centred on the board point (x, y): a new
+ * top-level task in the outline plus a whiteboard row positioning it,
+ * committed together. The new note's title goes straight into edit mode
+ * so naming it is part of the same gesture.
+ *
+ * Placement: centred on the point asked for, unless that would overlap an
+ * existing note, in which case it falls back to the same free-space scan
+ * the Add-note picker uses (wbFindFreeSpacePosition()) so notes never
+ * stack invisibly on top of each other.
+ */
+function wbCreateNoteAt(boardX, boardY) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor) return null;
+    if (typeof wbAppendTopLevelTask !== 'function' ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return null;
+    }
+
+    const planText = editor.value;
+    const existingNames = (typeof wbOutlineTaskNames === 'function')
+        ? wbOutlineTaskNames(planText)
+        : (wbLastTasks || []).map(t => t && t.name).filter(Boolean);
+    const name = wbUniqueTaskName(existingNames, WB_NEW_NOTE_BASE_NAME);
+
+    const width = WB_NOTE_DEFAULT_WIDTH;
+    const height = WB_NOTE_DEFAULT_HEIGHT;
+
+    const withTask = wbAppendTopLevelTask(planText, name);
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(withTask));
+
+    let x = Math.round(boardX - width / 2);
+    let y = Math.round(boardY - height / 2);
+    const existingRects = items.map(item => ({
+        x: item.x || 0,
+        y: item.y || 0,
+        width: item.width || WB_NOTE_DEFAULT_WIDTH,
+        height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+    }));
+    const wanted = { x, y, width, height };
+    const clashes = existingRects.some(rect => wbRectsOverlap(wanted, rect, 8));
+    if (clashes && typeof wbFindFreeSpacePosition === 'function' &&
+        typeof wbCurrentViewportBoardRect === 'function') {
+        const free = wbFindFreeSpacePosition(existingRects, wbCurrentViewportBoardRect(), width, height);
+        if (free) { x = Math.round(free.x); y = Math.round(free.y); }
+    }
+
+    items.push({ task: name, x, y, colour: '', width, height, collapsed: false });
+
+    if (!wbCommitMarkdown(updatePlanWhiteboardText(withTask, items))) return null;
+
+    // The commit's renderText() is async, so the note's DOM does not exist
+    // yet. Poll briefly for it rather than guessing a delay -- a slow
+    // render must still land in "type the name straight away", and a
+    // render that never happens must not leave a dangling timer.
+    let attempts = 0;
+    const focusWhenReady = () => {
+        const entry = wbNoteNodes.get(name);
+        if (entry) { wbBeginTitleEdit(entry); return; }
+        if (++attempts < 20) setTimeout(focusWhenReady, 50);
+    };
+    setTimeout(focusWhenReady, 50);
+
+    return name;
+}
+
+/** wbCreateNoteAt() for a client-space point (a canvas double-click). */
+function wbCreateNoteAtClientPoint(clientX, clientY) {
+    if (typeof wbClientToBoard !== 'function') return null;
+    const point = wbClientToBoard(clientX, clientY);
+    return wbCreateNoteAt(point.x, point.y);
+}
+
+/** wbCreateNoteAt() for the middle of whatever is currently on screen --
+ * the toolbar's "New note" button and the `n` keyboard shortcut. */
+function wbCreateNoteInViewportCentre() {
+    if (typeof wbCurrentViewportBoardRect !== 'function') return null;
+    const rect = wbCurrentViewportBoardRect();
+    return wbCreateNoteAt(rect.x + rect.width / 2, rect.y + rect.height / 2);
+}
+
+/**
+ * Put one note's title into inline edit mode: the whole name selected, so
+ * typing replaces it. Enter or blur commits, Escape reverts.
+ *
+ * contentEditable rather than swapping in an <input> so the text keeps its
+ * exact position, font and colour while being edited -- a note's title
+ * jumping half a pixel as you click it reads as a glitch on a surface that
+ * is meant to feel like paper.
+ */
+function wbBeginTitleEdit(entry) {
+    if (!entry || !entry.refs || !entry.refs.title) return;
+    const title = entry.refs.title;
+    if (title.isContentEditable) return;
+
+    const originalName = entry.fo.dataset.wbTask || title.textContent;
+    title.contentEditable = 'true';
+    title.spellcheck = false;
+    title.classList.add('editing');
+    title.focus();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(title);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    let settled = false;
+    const finish = (commit) => {
+        if (settled) return;
+        settled = true;
+        title.contentEditable = 'false';
+        title.classList.remove('editing');
+        title.removeEventListener('keydown', onKeydown);
+        title.removeEventListener('blur', onBlur);
+
+        const typed = title.textContent.replace(/\s+/g, ' ').trim();
+        if (!commit || !typed || typed === originalName) {
+            title.textContent = originalName;
+            return;
+        }
+        if (!wbRenameNoteTask(originalName, typed)) title.textContent = originalName;
+    };
+
+    const onKeydown = (e) => {
+        e.stopPropagation(); // canvas shortcuts must not fire while typing
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    };
+    const onBlur = () => finish(true);
+
+    title.addEventListener('keydown', onKeydown);
+    title.addEventListener('blur', onBlur);
+}
+
+/**
+ * Rename the task behind a note, in one commit: the outline line itself,
+ * every `[depends ...]` that referenced the old name, and the note's own
+ * whiteboard row. Chains script.js's existing updateDependencyReferences()
+ * and renamePlanWhiteboardTask() rather than reimplementing either, so a
+ * rename from the board behaves identically to one from the task form.
+ *
+ * Refused (with a message, not silently) when another task already has
+ * that name: whiteboard rows, dependencies and Theme: colours all key on
+ * the name, so two tasks sharing one would make those references
+ * ambiguous.
+ */
+function wbRenameNoteTask(oldName, newName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !oldName || !newName || oldName === newName) return false;
+    if (typeof wbRenameTaskInPlanText !== 'function') return false;
+
+    const clash = (wbLastTasks || []).some(t =>
+        t && t.name && t.name !== oldName &&
+        String(t.name).toLowerCase() === String(newName).toLowerCase());
+    if (clash) {
+        if (typeof wbFlashNoodleMessage === 'function') {
+            wbFlashNoodleMessage(`Another task is already called "${newName}".`);
+        }
+        return false;
+    }
+
+    let next = wbRenameTaskInPlanText(editor.value, oldName, newName);
+    if (next === editor.value) return false;
+
+    if (typeof updateDependencyReferences === 'function') {
+        const lines = next.split('\n');
+        updateDependencyReferences(lines, oldName, newName);
+        next = lines.join('\n');
+    }
+    if (typeof renamePlanWhiteboardTask === 'function') {
+        next = renamePlanWhiteboardTask(next, oldName, newName);
+    }
+
+    // The note's DOM is keyed by task name; re-key it now so the in-flight
+    // render updates the existing node instead of building a second one
+    // and leaving the old one behind until the next pass sweeps it.
+    const entry = wbNoteNodes.get(oldName);
+    if (entry) {
+        wbNoteNodes.delete(oldName);
+        wbNoteNodes.set(newName, entry);
+        entry.fo.dataset.wbTask = newName;
+    }
+
+    return wbCommitMarkdown(next);
+}
+
+/**
+ * Cut the noodle arriving at this note: move the task back out to the top
+ * level of the plan. Same write as clicking a selected noodle's cut
+ * button -- offered on the note's own `...` menu too, since the noodle
+ * itself can be hard to hit on a dense board.
+ */
+function wbUnlinkNoteFromParent(taskName) {
+    const task = (wbLastTasks || []).find(t => t && t.name === taskName);
+    if (!task || !task.parent) return false;
+    if (typeof wbCutNoodle !== 'function') return false;
+    return wbCutNoodle(task.parent, taskName);
+}
+
+/**
+ * "Promote to task" (issue #1020, part of #885): turn a free-form note's
+ * loose `comment` text into a real child task, in one commit. Per #1015's
+ * already-landed free-form/checklist split, a note's own task is already a
+ * real outline task -- what a free-form note is missing is *structure*, so
+ * promotion's whole job is materialising the comment as a genuine child
+ * task line (wbAppendChildTask(), whiteboard-structure.js), which is
+ * exactly what flips wbIsFreeformNote() to false and switches the note to
+ * checklist rendering on the very next render pass. No new rendering code
+ * needed here -- see this file's header comment on #1015 for why.
+ *
+ * Source text is the task's own comment if it has one; otherwise (a
+ * genuinely blank free-form note) a `prompt()` asks for a name, matching
+ * this file's own prompt() convention elsewhere (see kanban.js's
+ * addNewPhase() for the same "cancelled or blank -> silent no-op" shape).
+ * Either way the text is run through wbSanitiseChildTaskName() (embedded
+ * newlines/quotes stripped, length-capped) and, since outline task names
+ * are expected to be unique (wbRenameNoteTask() above refuses a clash for
+ * the same reason), disambiguated against every existing task name via
+ * wbUniqueTaskName() before being written.
+ *
+ * Only ever called for a free-form note (the menu item that calls this is
+ * itself only shown when wbIsFreeformNote() is true -- see
+ * wbAppendPromoteMenuSection() below), but re-checked here too since this
+ * is also the function tests exercise directly.
+ */
+function wbPromoteFreeformNote(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof wbAppendChildTask !== 'function' || typeof wbUniqueTaskName !== 'function' ||
+        typeof wbOutlineTaskNames !== 'function') {
+        return false;
+    }
+
+    const task = (wbLastTasks || []).find(t => t && t.name === taskName);
+    if (!task || wbHasChildren(wbLastTasks, taskName)) return false;
+
+    let source = String(task.comment || '').trim();
+    if (!source) {
+        const typed = (typeof prompt === 'function')
+            ? prompt(`Name the first task under "${taskName}":`, '')
+            : null;
+        if (typed == null) return false; // cancelled
+        source = typed.trim();
+        if (!source) return false;
+    }
+
+    const childName = wbSanitiseChildTaskName(source);
+    if (!childName) return false;
+
+    const planText = editor.value;
+    const uniqueChildName = wbUniqueTaskName(wbOutlineTaskNames(planText), childName);
+
+    const nextText = wbAppendChildTask(planText, taskName, uniqueChildName);
+    return wbCommitMarkdown(nextText);
+}
+
+/**
+ * Delete the task behind a note, subtree and all, and take its row off the
+ * board. Deliberately distinct from "Remove from board", which only drops
+ * the row -- and deliberately confirmed, because unlike every other board
+ * action this one destroys plan content that the board is not the only
+ * view of.
+ */
+function wbDeleteNoteTask(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof wbDeleteTaskFromPlanText !== 'function') return false;
+
+    const childCount = wbChildCount(wbLastTasks, taskName);
+    const detail = childCount
+        ? ` and its ${childCount} subtask${childCount === 1 ? '' : 's'}`
+        : '';
+    if (typeof confirm === 'function' &&
+        !confirm(`Delete "${taskName}"${detail} from the plan?\n\nThis removes the task itself, not just its note.`)) {
+        return false;
+    }
+
+    let next = wbDeleteTaskFromPlanText(editor.value, taskName);
+    if (next === editor.value) return false;
+
+    // Take the (now orphaned) whiteboard row with it, in the same commit.
+    if (typeof extractWhiteboardFromPlanText === 'function' &&
+        typeof parseWhiteboardMarkdown === 'function' &&
+        typeof updatePlanWhiteboardText === 'function') {
+        const gone = new Set([String(taskName).toLowerCase()]);
+        wbDescendantNames(wbLastTasks, taskName).forEach(n => gone.add(n));
+        const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(next))
+            .filter(item => !(item && item.task && gone.has(String(item.task).toLowerCase())));
+        next = updatePlanWhiteboardText(next, items);
+    }
+
+    return wbCommitMarkdown(next);
+}
+
+/** Today's date as YYYY-MM-DD, local time -- matches every other date
+ * field this app writes into plan text (front matter's `last_saved`,
+ * highlights headings, etc). */
+function wbTodayIsoDate() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** The text a parked item carries into the ---parking lot--- section: the
+ * note's title, plus its free-form comment (issue #1015's `!"text"` body)
+ * if it had one -- everything a "Delete task" confirmation would otherwise
+ * throw away, folded into one line (the parking lot table, like every
+ * other back-matter table here, is one row per item). */
+function wbBuildParkedItemText(taskName, task) {
+    const name = String(taskName || '').trim();
+    const comment = (task && task.comment) ? String(task.comment).trim() : '';
+    return comment ? `${name} — ${comment}` : name;
+}
+
+/**
+ * Send a note to the parking lot (issue #1019): the "good idea, not now"
+ * counterpart to "Remove from board"/"Delete task". A parked idea is, by
+ * the issue's own framing, meant to genuinely leave the working plan --
+ * not just come off the board -- so this deletes the task (subtree and
+ * all, same as wbDeleteNoteTask()) *and* takes its whiteboard row with it,
+ * but instead of discarding the task's text it is preserved as a new row
+ * in the ---parking lot--- section (see extractParkingLotFromPlanText()/
+ * parseParkingLotMarkdown()/updatePlanParkingLotText() in script.js).
+ *
+ * Every #1015 note -- free-form or checklist -- is still task-backed, so
+ * this one action covers both: a checklist note's children go with it
+ * (their own titles are not individually preserved as separate parking
+ * rows -- this is a "stray thought", not a task-import tool; see this
+ * issue's PR description for the trade-off). No confirmation prompt,
+ * unlike "Delete task": nothing is actually lost -- the idea moves to the
+ * parking lot rather than being destroyed -- and this is one
+ * wbCommitMarkdown() call, so it is one ordinary undo step like every
+ * other board action.
+ */
+function wbSendNoteToParkingLot(taskName) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || !taskName) return false;
+    if (typeof wbDeleteTaskFromPlanText !== 'function' ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function' ||
+        typeof extractParkingLotFromPlanText !== 'function' ||
+        typeof parseParkingLotMarkdown !== 'function' ||
+        typeof updatePlanParkingLotText !== 'function') {
+        return false;
+    }
+
+    const task = (wbLastTasks || []).find(t => t && t.name === taskName);
+    const parkedText = wbBuildParkedItemText(taskName, task);
+
+    let next = wbDeleteTaskFromPlanText(editor.value, taskName);
+    if (next === editor.value) return false;
+
+    const gone = new Set([String(taskName).toLowerCase()]);
+    wbDescendantNames(wbLastTasks, taskName).forEach(n => gone.add(n));
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(next))
+        .filter(item => !(item && item.task && gone.has(String(item.task).toLowerCase())));
+    next = updatePlanWhiteboardText(next, items);
+
+    const parkedItems = parseParkingLotMarkdown(extractParkingLotFromPlanText(next));
+    const nextId = parkedItems.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+    parkedItems.push({ id: nextId, text: parkedText, date_parked: wbTodayIsoDate() });
+    next = updatePlanParkingLotText(next, parkedItems);
+
+    return wbCommitMarkdown(next);
+}
+
+// ── Parking lot panel (issue #1019) ─────────────────────────────────────
+//
+// The "viewable/manageable" half of #1019's acceptance criteria: a simple
+// list, deliberately no more than that (the issue's own words: "doesn't
+// have to be fancy"). Follows the Add-note picker's floating-dialog
+// convention (wbOpenAddNotePicker()/wbCloseAddNotePicker() above) --
+// single overlay appended to document.body, rebuilt fresh on each open so
+// it can never go stale across repeated opens in one session -- just
+// without that picker's search/multi-select machinery, since "manage"
+// here only means "see what's parked, and remove one you no longer want".
+// Deliberately offers no "restore to board" action: that would mean
+// re-creating a task from parked text, which is #1020's promote-to-task
+// territory, not this issue's.
+
+/** Close the panel, if open, and return focus to the toolbar button that
+ * opened it. */
+function wbCloseParkingLotPanel() {
+    const overlay = document.getElementById('wbParkingLotOverlay');
+    if (overlay) overlay.remove();
+    document.removeEventListener('keydown', wbParkingLotPanelKeydown, true);
+
+    const btn = document.getElementById('whiteboardParkingLotBtn');
+    if (btn) btn.focus();
+}
+
+/** Escape closes the panel, matching every other floating dialog here. */
+function wbParkingLotPanelKeydown(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        wbCloseParkingLotPanel();
+    }
+}
+
+/** The parking lot's current items, straight off the plan text --
+ * re-read on every open/render rather than cached, so the panel can never
+ * show something that's already been edited out from under it (a hand
+ * edit in the raw markdown editor, say). */
+function wbCurrentParkingLotItems() {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor ||
+        typeof extractParkingLotFromPlanText !== 'function' ||
+        typeof parseParkingLotMarkdown !== 'function') {
+        return [];
+    }
+    return parseParkingLotMarkdown(extractParkingLotFromPlanText(editor.value));
+}
+
+/** Remove one parked item permanently (its text is not going anywhere
+ * else -- unlike sending a note here, this is the actual delete). One
+ * wbCommitMarkdown() call, one undo step. */
+function wbDeleteParkedItem(itemId) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor || typeof updatePlanParkingLotText !== 'function') return false;
+
+    const items = wbCurrentParkingLotItems();
+    const next = items.filter(item => item && item.id !== itemId);
+    if (next.length === items.length) return false;
+
+    const nextText = updatePlanParkingLotText(editor.value, next);
+    const committed = wbCommitMarkdown(nextText);
+    if (committed) wbRenderParkingLotList();
+    return committed;
+}
+
+/** Rebuild the panel's <ul> from the current parking lot items. */
+function wbRenderParkingLotList() {
+    const list = document.getElementById('wbParkingLotList');
+    if (!list) return;
+
+    const items = wbCurrentParkingLotItems();
+    list.innerHTML = '';
+
+    if (!items.length) {
+        const empty = document.createElement('li');
+        empty.className = 'wb-parking-lot-empty';
+        empty.textContent = 'Nothing parked yet. Use a note\'s "..." menu to send an idea here.';
+        list.appendChild(empty);
+        return;
+    }
+
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'wb-parking-lot-item';
+
+        const textEl = document.createElement('span');
+        textEl.className = 'wb-parking-lot-item-text';
+        textEl.textContent = item.text;
+        li.appendChild(textEl);
+
+        if (item.date_parked) {
+            const dateEl = document.createElement('span');
+            dateEl.className = 'wb-parking-lot-item-date';
+            dateEl.textContent = item.date_parked;
+            li.appendChild(dateEl);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'wb-parking-lot-item-remove';
+        removeBtn.textContent = 'Remove';
+        removeBtn.setAttribute('aria-label', `Permanently remove "${item.text}" from the parking lot`);
+        removeBtn.addEventListener('click', () => wbDeleteParkedItem(item.id));
+        li.appendChild(removeBtn);
+
+        list.appendChild(li);
+    });
+}
+
+/** Open the parking lot panel: a modal dialog listing every parked item
+ * with a per-row "Remove" action -- see this section's header comment for
+ * why there is no "restore to board" here. */
+function wbOpenParkingLotPanel() {
+    wbCloseParkingLotPanel();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'wbParkingLotOverlay';
+    overlay.className = 'wb-add-note-overlay';
+    overlay.addEventListener('mousedown', (e) => {
+        if (e.target === overlay) wbCloseParkingLotPanel();
+    });
+
+    const dialog = document.createElement('div');
+    dialog.id = 'wbParkingLotDialog';
+    dialog.className = 'wb-add-note-dialog wb-parking-lot-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'wbParkingLotTitle');
+    dialog.addEventListener('mousedown', (e) => e.stopPropagation());
+
+    const header = document.createElement('div');
+    header.className = 'wb-add-note-header';
+    const title = document.createElement('h2');
+    title.id = 'wbParkingLotTitle';
+    title.className = 'wb-add-note-title';
+    title.textContent = 'Parking lot';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'wb-add-note-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => wbCloseParkingLotPanel());
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const intro = document.createElement('p');
+    intro.className = 'wb-parking-lot-intro';
+    intro.textContent = 'Good ideas, not now -- sent here from the whiteboard, kept in your plan file.';
+
+    const list = document.createElement('ul');
+    list.id = 'wbParkingLotList';
+    list.className = 'wb-parking-lot-list';
+    list.setAttribute('role', 'list');
+    list.setAttribute('aria-label', 'Parked items');
+
+    dialog.appendChild(header);
+    dialog.appendChild(intro);
+    dialog.appendChild(list);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    wbRenderParkingLotList();
+    document.addEventListener('keydown', wbParkingLotPanelKeydown, true);
+    closeBtn.focus();
 }

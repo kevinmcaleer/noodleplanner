@@ -4,7 +4,7 @@ Views Reference
 NoodlePlanner provides multiple views of your project plan. All views are accessible from the sub-navigation bar below the main navigation, most of them grouped under the **Views** dropdown.
 
 .. figure:: /_static/img/reference/vw-02-views-menu.png
-   :alt: The Views dropdown expanded, listing Tasks, Gantt, Board, Calendar, Milestones, Timeline, Mind Map and Whiteboard
+   :alt: The Views dropdown expanded, listing Tasks, Notepad, Gantt, Board, Calendar, Milestones, Timeline, Mind Map and Whiteboard
    :width: 100%
 
    The Views dropdown, showing every view including Whiteboard.
@@ -29,7 +29,28 @@ Tasks
 
 A flat table of all tasks with columns: Task Name, Start, Finish, Duration, Resources, %, RAG.
 
-Click any row to open the Task Details panel.
+Click any row to open the Task Details panel. Each row's **⋯** menu offers
+**Estimate…**, opening the three-point estimating popup (see
+:doc:`plan-syntax`), alongside Inspect Task, Promote/Demote and the other
+row actions.
+
+Notepad
+~~~~~~~~
+
+A deliberately minimal, notepad-style way to build a plan: type a line, press
+Enter, get a task; ``Tab``/``Shift+Tab`` indent and outdent; drag the handle
+to reorder. No front matter, no token syntax, no PM-only controls — only
+task names — but it edits the exact same Markdown document as the Plan
+Editor, with no round-trip loss. A **Kanban** toggle in the toolbar switches
+to a lightweight card board over the same content, grouped by top-level
+phase (or a single "All Tasks" column for a plan with no phases yet); drag a
+card's handle to move it into another phase. Each row's ⏱ button opens the
+three-point estimating popup (see :doc:`plan-syntax`).
+
+Notepad
+~~~~~~~~
+
+A plain notepad-style list: type a line, press Enter, get a task; ``Tab``/``Shift+Tab`` build the outline; drag to reorder. No front matter, no syntax, no jargon on screen, but it edits the same document as every other view. A **Board view** button switches to the Kanban board — the two are different lenses over the same plan text, so a change in one shows up in the other immediately. See :doc:`../how-to/use-the-notepad`.
 
 Gantt
 ~~~~~~

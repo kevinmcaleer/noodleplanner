@@ -51,3 +51,8 @@ Build [depends Discovery]
 |-----------|-----|----|---------|-------|--------|-----------|
 | Discovery | 120 | 80 | #4A90D9 | 240   | 200    | no        |
 | Build     | 420 | 80 |         | 240   | 260    | yes       |
+
+---parking lot---
+| ID | Text                      | Date Parked |
+|----|---------------------------|-------------|
+| 1  | Consider a phase 2 launch | 2026-06-20  |

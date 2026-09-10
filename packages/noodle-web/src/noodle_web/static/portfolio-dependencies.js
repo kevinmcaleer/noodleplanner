@@ -1,10 +1,45 @@
 /**
- * Portfolio Programme Dependencies
- * Manage and display inter-project dependencies in the portfolio view.
+ * Portfolio Programme Dependencies (#731's original architecture; #737
+ * reconciles it with the front-matter `dependencies:` field and adds a
+ * programme-scoped read of it -- see below).
  *
- * Dependencies are stored in localStorage and link a task in one project
- * to a task in another.  The /api/programme-dependencies/propagate endpoint
- * evaluates each link and returns RAG status with a propagated start date.
+ * Dependencies live in exactly one place: the browser-local dependency
+ * store (localStorage, or NoodleStore's `programmeDependencies` meta
+ * record when the IndexedDB store is active -- project-store.js's
+ * DEPS_META_KEY/LEGACY_DEPS_KEY), a flat list linking a task in one project
+ * to a task in another, portfolio-wide (not scoped to any one programme).
+ * Every create/update/delete mirrors the change one-way into the
+ * *dependent* project's own front matter `dependencies:` section
+ * (syncDependenciesToFrontMatter(), below) so the link travels with that
+ * project's plan text when it's exported, shared, or opened elsewhere, and
+ * so it's human-readable in the raw markdown. That front matter is a
+ * read-only projection, not a second editable copy: FrontMatterParser.
+ * parse_dependencies() (front_matter_parser.py) reads it back only for a
+ * one-way sanity check in the status bar (updateStatusBarDependencies(),
+ * status-bar.js) -- warning when a dependency's upstream project can't be
+ * found locally, or the live propagation cache says it's gone red/amber.
+ * Nothing writes the store from parsed front matter, so the two can't
+ * drift into conflicting sources of truth.
+ *
+ * This deliberately doesn't follow #910/#951's "programme is inferred, not
+ * stored" pattern the way programme *membership* does (a project's
+ * `programme:` slug is the sole source of truth for which programme it's
+ * in): a dependency link is a relationship *between* two projects -- often
+ * in different programmes, or between a programme member and a
+ * non-member -- not an attribute either project's front matter alone could
+ * own, so there's no single project whose front matter could be the whole
+ * story. #737 adds a programme-scoped *read* of this same store
+ * (filterDependenciesForProgramme(), programme.js) for the programme
+ * dashboard's dependency RAG board, rather than inventing a second store
+ * or a second edit path.
+ *
+ * The /api/programme-dependencies/propagate endpoint evaluates each link
+ * and returns RAG status with a propagated start date. Both this
+ * portfolio-wide dependencies view and the programme-scoped dependency RAG
+ * board (programme.js, #737) call it with the same dependency shape (scoped
+ * differently) and share its RAG conventions (ragToColour, ragCircleHtml,
+ * dependencyPropagationCache below) -- the programme board reuses this
+ * computation as-is rather than reimplementing it.
  */
 
 const PROGRAMME_DEPS_KEY = 'noodleplanner_programme_deps';
@@ -650,7 +685,7 @@ function saveDependencyForm(event) {
     }
 
     closeDependencyDialog();
-    renderPortfolioDependencies();
+    refreshDependencyViews();
 }
 
 /**
@@ -667,7 +702,25 @@ function confirmDeleteProgrammeDependency(depId) {
 
     deleteProgrammeDependency(depId);
     showNotification('Dependency deleted.');
-    renderPortfolioDependencies();
+    refreshDependencyViews();
+}
+
+/**
+ * Re-render whichever dependency views are currently in the page after a
+ * create/update/delete (#737): the portfolio-wide dependencies view
+ * (renderPortfolioDependencies(), above) when its container exists, and the
+ * current programme's dependency RAG board (programme.js) when one is
+ * being viewed -- both read the same store, so both need to pick up the
+ * change.
+ */
+function refreshDependencyViews() {
+    if (typeof renderPortfolioDependencies === 'function') {
+        renderPortfolioDependencies();
+    }
+    if (typeof getCurrentPortfolioProgramme === 'function' && typeof renderProgrammeView === 'function' &&
+        getCurrentPortfolioProgramme()) {
+        renderProgrammeView();
+    }
 }
 
 // -------------------------------------------------------------------

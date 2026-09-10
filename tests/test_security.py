@@ -25,12 +25,14 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limits():
-    """Reset the rate limit store before each test."""
-    from noodle_web.security import reset_rate_limit_store
+    """Reset the rate limit stores before each test."""
+    from noodle_web.security import reset_join_rate_limit_store, reset_rate_limit_store
 
     reset_rate_limit_store()
+    reset_join_rate_limit_store()
     yield
     reset_rate_limit_store()
+    reset_join_rate_limit_store()
 
 
 @pytest.fixture
@@ -235,6 +237,143 @@ class TestRateLimiting:
             assert limited
             limited, _ = _is_rate_limited("10.0.0.2")
             assert limited
+
+
+class TestJoinRateLimiting:
+    """Unit tests for #965's collab-session join-attempt rate limiter.
+
+    This is the same sliding-window algorithm as `_is_rate_limited()`
+    above, applied via a separate store/threshold to join attempts
+    specifically (see collab_session_ws() in app.py, which calls
+    `is_join_rate_limited()` directly since a WebSocket handshake never
+    passes through RateLimitMiddleware). End-to-end coverage over the real
+    WebSocket endpoint lives in tests/test_collab_session.py.
+    """
+
+    def test_attempts_within_limit_are_allowed(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 3):
+            for _ in range(3):
+                limited, _ = is_join_rate_limited("10.0.0.1")
+                assert not limited
+
+    def test_attempts_beyond_limit_are_rejected(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            is_join_rate_limited("10.0.0.1")
+            is_join_rate_limited("10.0.0.1")
+            limited, retry_after = is_join_rate_limited("10.0.0.1")
+            assert limited
+            assert retry_after > 0
+
+    def test_limit_resets_after_window_passes(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1), \
+             patch("noodle_web.security.JOIN_RATE_LIMIT_WINDOW", 60):
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert limited
+
+            # Simulate the window having passed by backdating the one
+            # recorded attempt, rather than sleeping in the test.
+            from noodle_web import security as security_module
+
+            security_module._join_rate_limit_store["10.0.0.1"] = [time.time() - 61]
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert not limited
+
+    def test_different_ips_have_separate_join_limits(self):
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.2")
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.1")
+            assert limited
+            limited, _ = is_join_rate_limited("10.0.0.2")
+            assert limited
+
+    # -- #971: successful joins are forgiven -------------------------------
+    #
+    # The budget throttles *guessing* at a six-digit code. Counting correct
+    # codes too made the limiter contradict #766's own acceptance criterion
+    # (at least 10 concurrent joiners), because a team in one office shares
+    # a public IP. These tests pin both halves: successes stop consuming
+    # budget, and wrong guesses still exhaust it exactly as before.
+
+    def test_a_successful_join_gives_its_attempt_back(self):
+        from noodle_web.security import forgive_join_attempt, is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 2):
+            for _ in range(10):
+                limited, _ = is_join_rate_limited("10.0.0.1")
+                assert not limited, "a colleague joining correctly is not a guess"
+                forgive_join_attempt("10.0.0.1")
+
+    def test_a_whole_team_behind_one_ip_can_join(self):
+        """The regression this fixes: with the real limit of 10, the
+        eleventh colleague used to be refused."""
+        from noodle_web.security import forgive_join_attempt, is_join_rate_limited
+
+        for _ in range(25):
+            limited, _ = is_join_rate_limited("203.0.113.7")
+            assert not limited
+            forgive_join_attempt("203.0.113.7")
+
+    def test_wrong_codes_still_exhaust_the_budget(self):
+        """The security property must be untouched: a failed join is never
+        forgiven, so a brute-forcer is throttled exactly as before."""
+        from noodle_web.security import is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 3):
+            for _ in range(3):
+                limited, _ = is_join_rate_limited("10.0.0.9")
+                assert not limited
+            limited, retry_after = is_join_rate_limited("10.0.0.9")
+            assert limited
+            assert retry_after > 0
+
+    def test_failures_still_accumulate_between_successes(self):
+        """A guesser who occasionally lands a real join must not be able to
+        launder their failed attempts away -- only the successful one is
+        forgiven, so the failures still add up to a lockout."""
+        from noodle_web.security import forgive_join_attempt, is_join_rate_limited
+
+        with patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 3):
+            is_join_rate_limited("10.0.0.5")                       # failed guess
+            is_join_rate_limited("10.0.0.5")                       # failed guess
+            is_join_rate_limited("10.0.0.5")
+            forgive_join_attempt("10.0.0.5")                       # this one succeeded
+            limited, _ = is_join_rate_limited("10.0.0.5")          # back to 3 recorded
+            assert not limited
+            limited, _ = is_join_rate_limited("10.0.0.5")
+            assert limited, "the two real failures still count"
+
+    def test_forgiving_an_unknown_ip_is_harmless(self):
+        from noodle_web.security import forgive_join_attempt
+
+        forgive_join_attempt("198.51.100.1")  # never seen; must not raise
+
+    def test_join_and_general_rate_limits_are_independent_stores(self):
+        """A join attempt must not consume the general per-IP HTTP request
+        budget, and vice versa -- they're different actions with different
+        sensitivity, tracked separately (see security.py's module comment
+        above `_join_rate_limit_store`)."""
+        from noodle_web.security import _is_rate_limited, is_join_rate_limited
+
+        with patch("noodle_web.security.RATE_LIMIT_REQUESTS", 1), \
+             patch("noodle_web.security.JOIN_RATE_LIMIT_ATTEMPTS", 1):
+            limited, _ = is_join_rate_limited("10.0.0.9")
+            assert not limited
+            # The general HTTP limiter for the same IP is untouched.
+            limited, _ = _is_rate_limited("10.0.0.9")
+            assert not limited
 
 
 # ---------------------------------------------------------------------------

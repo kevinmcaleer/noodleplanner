@@ -4,8 +4,25 @@
     {
       "name": "noodle-web",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "uvicorn", "noodle_web.app:app", "--host", "0.0.0.0", "--port", "8007"],
+      "runtimeArgs": [
+        "run",
+        "uvicorn",
+        "noodle_web.app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8007"
+      ],
       "port": 8007
+    },
+    {
+      "name": "noodle-web-preview",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "RATE_LIMIT_REQUESTS=100000 exec uv run uvicorn noodle_web.app:app --host 127.0.0.1 --port 8017 --reload --reload-dir packages/noodle-web/src/noodle_web --reload-include \"*.js\" --reload-include \"*.css\" --reload-include \"*.html\""
+      ],
+      "port": 8017
     }
   ]
 }

@@ -1,0 +1,49 @@
+How to Use the Guided Plan Wizard
+====================================
+
+The Guided Plan wizard walks a first-time user through building a plan one step at a time — **D**\ esign, **A**\ dd tasks, **D**\ ependencies, **E**\ stimating, **S**\ cheduling, **R**\ isks, **C**\ omms (DADESRC) — without needing to know Markdown syntax or find the right view on their own.
+
+Each stage of the wizard is a small floating panel that sits over whatever view it switches you to; it never blocks you from using that view directly, and every stage can be skipped or revisited in any order.
+
+Open the Wizard
+------------------
+
+Open **Plan > Wizard > Guided Plan** in the ribbon.
+
+The wizard panel appears in the corner of the screen with seven numbered steps across the top, a short description of the current stage, and **Back**, **Skip** and **Next** controls.
+
+Move Through the Stages
+--------------------------
+
+- **Click a step number** to jump straight to that stage — stages are never locked behind earlier ones.
+- **Next** marks the current stage visited (shown with a check) and moves to the next one.
+- **Skip** marks the current stage skipped (shown with a dash) without visiting it, and moves on.
+- **Back** returns to the previous stage.
+- On the last stage, **Next** becomes **Finish** and closes the wizard.
+- The **×** in the panel header closes the wizard at any point — your progress is remembered, so reopening **Guided Plan** later picks up exactly where you left off.
+
+What Each Stage Does
+------------------------
+
+Every stage hosts an existing NoodlePlanner view rather than a separate mini version of it — entering a stage switches you to that view and, where relevant, sets it up automatically:
+
+- **Design** — opens Backstage, where you start a blank plan or pick a template to start from.
+- **Add Tasks** — opens the :doc:`Notepad view <use-the-notepad>` for typing tasks without Markdown.
+- **Dependencies** — opens the :doc:`Whiteboard <use-the-whiteboard>` and switches it into dependency-link mode automatically, so dragging between two tasks links them.
+- **Estimating** — opens the Tasks view; use a task's **Estimate…** menu item for a three-point or t-shirt estimate.
+- **Scheduling** — opens the Tasks view, colour-coded by schedule health.
+- **Risks** — opens the RAID log for capturing risks against tasks.
+- **Comms** — opens the communications plan.
+
+Each stage also switches on the matching highlighting preset (see :doc:`../reference/plan-syntax`'s Syntax Highlighting section), so the editor only colours what's relevant to the step you're on — for example, the Dependencies stage highlights dependency links and nothing else.
+
+.. note::
+
+   The Scheduling stage shows each task's schedule-health colour, but does not yet check entered deadlines for conflicts (that needs a deadline field, tracked separately). This doesn't block the rest of the flow — every stage is independently skippable.
+
+Related
+--------
+
+- :doc:`use-the-notepad` — the Add Tasks stage's host view
+- :doc:`use-the-whiteboard` — the Dependencies stage's host view
+- :doc:`use-conditional-formatting` — the highlighting presets each stage applies
