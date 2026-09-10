@@ -269,6 +269,9 @@ const WB_NOTE_MIN_HEIGHT = 120;
 // a note into something that dwarfs the rest of the board.
 const WB_NOTE_MAX_WIDTH = 900;
 const WB_NOTE_MAX_HEIGHT = 900;
+const WB_LAYOUT_GAP_COMPACT = 8;
+const WB_LAYOUT_GAP_DEFAULT = 24;
+const WB_LAYOUT_GAP_COMFY = 56;
 
 // Screen-space pixels of pointer movement before a mousedown-on-header/
 // resize-handle counts as an actual drag rather than a click (issue #848).
@@ -1091,6 +1094,164 @@ function wbBuildAddNoteRows(existingItems, viewportRect, taskNames, options = {}
     return rows;
 }
 
+/**
+ * Reposition whiteboard note rows for a named layout mode.
+ *
+ * Only rows with a Task are repositioned; free-floating text rows (`kind:
+ * "text"`) are preserved as-is. Returns a fresh items array.
+ */
+function wbLayoutRows(items, tasks, mode, options = {}) {
+    const list = (items || []).map(item => (item && typeof item === 'object') ? { ...item } : item);
+    const notes = [];
+    const noteIndexes = [];
+    list.forEach((item, idx) => {
+        if (item && item.task) {
+            notes.push(item);
+            noteIndexes.push(idx);
+        }
+    });
+    if (!notes.length) return list;
+
+    const key = String(mode || 'tidy').toLowerCase();
+    const viewport = options.viewportRect || { x: 0, y: 0, width: 1200, height: 800 };
+    const gap = options.gap != null ? options.gap : WB_LAYOUT_GAP_DEFAULT;
+    const standardSize = !!options.standardSize;
+    const width = options.width || WB_NOTE_DEFAULT_WIDTH;
+    const height = options.height || WB_NOTE_DEFAULT_HEIGHT;
+    const startX = Math.round((viewport.x || 0) + gap);
+    const startY = Math.round((viewport.y || 0) + gap);
+    const maxWidth = notes.reduce((max, row) => Math.max(max, row.width || width), width);
+    const maxHeight = notes.reduce((max, row) => Math.max(max, row.height || height), height);
+    const rowStep = maxHeight + gap;
+    const colStep = maxWidth + gap;
+    const columns = Math.max(1, Math.floor(((viewport.width || 1200) - gap) / colStep));
+
+    const taskOrder = new Map();
+    const byName = new Map();
+    (tasks || []).forEach((task, idx) => {
+        if (!task || !task.name) return;
+        const taskKey = String(task.name).toLowerCase();
+        if (!taskOrder.has(taskKey)) taskOrder.set(taskKey, idx);
+        if (!byName.has(taskKey)) byName.set(taskKey, task);
+    });
+    const orderOf = (taskName, fallback) => taskOrder.has(taskName) ? taskOrder.get(taskName) : fallback;
+
+    function topRootKeyFor(taskName) {
+        let currentKey = taskName;
+        let current = byName.get(currentKey);
+        const seen = new Set();
+        while (current && current.parent) {
+            const parentKey = String(current.parent).toLowerCase();
+            if (seen.has(parentKey)) break;
+            seen.add(parentKey);
+            const parent = byName.get(parentKey);
+            if (!parent) break;
+            current = parent;
+            currentKey = parentKey;
+        }
+        return currentKey;
+    }
+
+    function depthFor(taskName) {
+        let depth = 0;
+        let current = byName.get(taskName);
+        const seen = new Set();
+        while (current && current.parent) {
+            const parentKey = String(current.parent).toLowerCase();
+            if (seen.has(parentKey)) break;
+            seen.add(parentKey);
+            if (!byName.has(parentKey)) break;
+            depth += 1;
+            current = byName.get(parentKey);
+        }
+        return depth;
+    }
+
+    function dependencyDepthFor(taskName, cache, visiting) {
+        if (cache.has(taskName)) return cache.get(taskName);
+        if (visiting.has(taskName)) return 0;
+        visiting.add(taskName);
+        const task = byName.get(taskName);
+        let depth = 0;
+        const deps = (task && Array.isArray(task.dependencies)) ? task.dependencies : [];
+        deps.forEach(edge => {
+            if (!edge || !edge.target || !edge.target.name) return;
+            const parentKey = String(edge.target.name).toLowerCase();
+            const parentDepth = dependencyDepthFor(parentKey, cache, visiting);
+            depth = Math.max(depth, parentDepth + 1);
+        });
+        visiting.delete(taskName);
+        cache.set(taskName, depth);
+        return depth;
+    }
+
+    const placed = new Array(notes.length);
+
+    if (key === 'hierarchy') {
+        const grouped = new Map();
+        let maxDepth = 0;
+        notes.forEach((row, idx) => {
+            const taskKey = String(row.task).toLowerCase();
+            const rootKey = topRootKeyFor(taskKey);
+            if (!grouped.has(rootKey)) grouped.set(rootKey, []);
+            const depth = depthFor(taskKey);
+            maxDepth = Math.max(maxDepth, depth);
+            grouped.get(rootKey).push({ row, idx, depth, order: orderOf(taskKey, idx) });
+        });
+        const rootOrder = Array.from(grouped.keys()).sort((a, b) => orderOf(a, Number.MAX_SAFE_INTEGER) - orderOf(b, Number.MAX_SAFE_INTEGER));
+        const indentStep = Math.round((maxWidth + gap) * 0.7);
+        const rootStride = Math.max(colStep * 2, (maxDepth + 1) * indentStep + colStep);
+        rootOrder.forEach((rootKey, rootIndex) => {
+            const groupRows = grouped.get(rootKey).sort((a, b) => a.order - b.order);
+            groupRows.forEach((entry, rowIndex) => {
+                placed[entry.idx] = {
+                    x: startX + rootIndex * rootStride + entry.depth * indentStep,
+                    y: startY + rowIndex * rowStep,
+                };
+            });
+        });
+    } else if (key === 'flow') {
+        const depthCache = new Map();
+        const levels = new Map();
+        notes.forEach((row, idx) => {
+            const taskKey = String(row.task).toLowerCase();
+            const level = dependencyDepthFor(taskKey, depthCache, new Set());
+            if (!levels.has(level)) levels.set(level, []);
+            levels.get(level).push({ row, idx, order: orderOf(taskKey, idx) });
+        });
+        Array.from(levels.keys()).sort((a, b) => a - b).forEach(level => {
+            const levelRows = levels.get(level).sort((a, b) => a.order - b.order);
+            levelRows.forEach((entry, rowIndex) => {
+                placed[entry.idx] = {
+                    x: startX + level * colStep,
+                    y: startY + rowIndex * rowStep,
+                };
+            });
+        });
+    } else {
+        notes.forEach((_, idx) => {
+            const row = Math.floor(idx / columns);
+            const col = idx % columns;
+            placed[idx] = {
+                x: startX + col * colStep,
+                y: startY + row * rowStep,
+            };
+        });
+    }
+
+    notes.forEach((row, idx) => {
+        const pos = placed[idx] || { x: row.x || 0, y: row.y || 0 };
+        row.x = Math.round(pos.x);
+        row.y = Math.round(pos.y);
+        if (standardSize) {
+            row.width = width;
+            row.height = height;
+        }
+    });
+
+    return list;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         wbDirectChildren, wbHasChildren, wbChildCount, wbIsChildComplete,
@@ -1104,7 +1265,7 @@ if (typeof module !== 'undefined' && module.exports) {
         wbExceedsMoveThreshold, wbMoveTaskToEnd,
         wbTaskAncestorNames, wbTaskAncestorPath, wbSummaryTaskEntries,
         wbTasksNotOnBoard, wbFilterPickerEntries, wbRectsOverlap,
-        wbFindFreeSpacePosition, wbBuildAddNoteRows, wbInsertNewSummaryTaskLine,
+        wbFindFreeSpacePosition, wbBuildAddNoteRows, wbLayoutRows, wbInsertNewSummaryTaskLine,
         wbGenerateTextObjectId,
     };
 }
@@ -3185,6 +3346,61 @@ function wbCurrentWhiteboardItems() {
     }
     const section = extractWhiteboardFromPlanText(wbLastPlanText);
     return section ? parseWhiteboardMarkdown(section) : [];
+}
+
+/** Apply one layout mode to all note rows and commit as one edit. */
+function wbCommitLayout(mode, options = {}) {
+    const editor = (typeof document !== 'undefined') ? document.getElementById('planEditor') : null;
+    if (!editor ||
+        typeof extractWhiteboardFromPlanText !== 'function' ||
+        typeof parseWhiteboardMarkdown !== 'function' ||
+        typeof updatePlanWhiteboardText !== 'function') {
+        return false;
+    }
+
+    const planText = editor.value;
+    const section = extractWhiteboardFromPlanText(planText);
+    const items = parseWhiteboardMarkdown(section);
+    if (!items.some(item => item && item.task)) return false;
+
+    const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
+    const nextItems = wbLayoutRows(items, wbLastTasks, mode, {
+        ...options,
+        viewportRect: viewport || options.viewportRect,
+    });
+
+    const nextText = updatePlanWhiteboardText(planText, nextItems);
+    return wbCommitMarkdown(nextText);
+}
+
+/** Tidy up notes into a uniform grid with standard-size cards. */
+function wbLayoutTidyNotes() {
+    return wbCommitLayout('tidy', {
+        gap: WB_LAYOUT_GAP_DEFAULT,
+        standardSize: true,
+        width: WB_NOTE_DEFAULT_WIDTH,
+        height: WB_NOTE_DEFAULT_HEIGHT,
+    });
+}
+
+/** Arrange notes by plan hierarchy, with top-level summaries in columns. */
+function wbLayoutHierarchyView() {
+    return wbCommitLayout('hierarchy', { gap: WB_LAYOUT_GAP_DEFAULT });
+}
+
+/** Tight spacing between notes. */
+function wbLayoutCompact() {
+    return wbCommitLayout('compact', { gap: WB_LAYOUT_GAP_COMPACT });
+}
+
+/** Spacious spacing between notes. */
+function wbLayoutComfy() {
+    return wbCommitLayout('comfy', { gap: WB_LAYOUT_GAP_COMFY });
+}
+
+/** Left-to-right dependency flow layout. */
+function wbLayoutFlowView() {
+    return wbCommitLayout('flow', { gap: WB_LAYOUT_GAP_DEFAULT });
 }
 
 /** Every summary task not currently on the board, right now. */

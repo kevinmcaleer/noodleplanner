@@ -1437,6 +1437,23 @@ Press Enter to render..."></textarea>
                                         </button>
                                     </div>
                                     <div class="wb-toolbar-group">
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardTidyLayoutBtn" onclick="wbLayoutTidyNotes()" title="Tidy up notes into a uniform grid" aria-label="Tidy up notes">
+                                            <span>Tidy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardHierarchyLayoutBtn" onclick="wbLayoutHierarchyView()" title="Arrange notes by plan hierarchy" aria-label="Hierarchy view">
+                                            <span>Hierarchy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardCompactLayoutBtn" onclick="wbLayoutCompact()" title="Use compact spacing between notes" aria-label="Compact spacing">
+                                            <span>Compact</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardComfyLayoutBtn" onclick="wbLayoutComfy()" title="Use roomy spacing between notes" aria-label="Comfy spacing">
+                                            <span>Comfy</span>
+                                        </button>
+                                        <button class="wb-toolbar-btn wb-toolbar-btn-add" id="whiteboardFlowLayoutBtn" onclick="wbLayoutFlowView()" title="Arrange notes left-to-right by dependencies" aria-label="Flow view">
+                                            <span>Flow</span>
+                                        </button>
+                                    </div>
+                                    <div class="wb-toolbar-group">
                                         <button class="wb-toolbar-btn wb-link-mode-btn" id="whiteboardLinkModeBtn" onclick="wbToggleLinkMode()" title="Dragging a noodle handle makes a subtask (Hierarchy) or a dependency (Dependency) -- click to switch" aria-label="Link mode: Hierarchy. Click to switch to Dependency mode." aria-pressed="false">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v12a3 3 0 003 3h6"/><path d="M12 15l3 3-3 3"/></svg>
                                             <span id="whiteboardLinkModeLabel">Hierarchy</span>
