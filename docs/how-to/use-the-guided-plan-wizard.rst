@@ -27,7 +27,7 @@ What Each Stage Does
 
 Every stage hosts an existing NoodlePlanner view rather than a separate mini version of it — entering a stage switches you to that view and, where relevant, sets it up automatically:
 
-- **Design** — opens Backstage to start a blank plan.
+- **Design** — opens Backstage, where you start a blank plan or pick a template to start from.
 - **Add Tasks** — opens the :doc:`Notepad view <use-the-notepad>` for typing tasks without Markdown.
 - **Dependencies** — opens the :doc:`Whiteboard <use-the-whiteboard>` and switches it into dependency-link mode automatically, so dragging between two tasks links them.
 - **Estimating** — opens the Tasks view; use a task's **Estimate…** menu item for a three-point or t-shirt estimate.
@@ -39,7 +39,7 @@ Each stage also switches on the matching highlighting preset (see :doc:`../refer
 
 .. note::
 
-   The Design stage's Backstage panel currently only creates a blank plan — choosing a template card is not wired up yet. The Scheduling stage shows each task's schedule-health colour, but does not yet check entered deadlines for conflicts (that needs a deadline field, tracked separately). Neither limitation blocks the rest of the flow — every stage is independently skippable.
+   The Scheduling stage shows each task's schedule-health colour, but does not yet check entered deadlines for conflicts (that needs a deadline field, tracked separately). This doesn't block the rest of the flow — every stage is independently skippable.
 
 Related
 --------
