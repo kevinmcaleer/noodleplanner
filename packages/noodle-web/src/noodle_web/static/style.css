@@ -5834,6 +5834,13 @@ tr:hover .task-context-btn,
     color: #108BB9;
 }
 
+.kanban-add-column.drag-over .kanban-add-column-btn {
+    background: #e8f5fb;
+    border-color: #108BB9;
+    color: #108BB9;
+    transform: scale(1.02);
+}
+
 .kanban-add-column-btn:focus {
     outline: 3px solid #108BB9;
     outline-offset: 2px;

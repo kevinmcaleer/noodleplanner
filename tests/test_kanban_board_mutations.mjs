@@ -159,6 +159,44 @@ test('addNewPhase() adds a new root-level phase column (stubbing the window.prom
   assert.deepEqual(namesOf(phaseThree.tasks), []);
 });
 
+test('dropping a card on Add Phase creates the phase and moves the card (#1070)', () => {
+  const { board, editor } = buildBoard('phase', { promptValue: 'Phase Two' });
+  loadPlan(board, editor, 'Phase One\n  Task A 0%\n  Task B 0%');
+  board.handleNewColumnDrop(board.tasks.find(t => t.name === 'Task A').lineNumber);
+  board.parse();
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase One').tasks), ['Task B']);
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Phase Two').tasks), ['Task A']);
+});
+
+test('dropping the last card on Add Phase removes the emptied source phase (#1070)', () => {
+  const { board, editor } = buildBoard('phase', { promptValue: 'Phase Two' });
+  loadPlan(board, editor, 'Phase One\n  Task A 0%');
+  board.handleNewColumnDrop(board.tasks[0].lineNumber);
+  board.parse();
+  assert.deepEqual(Array.from(board.phases), ['Phase Two']);
+  assert.deepEqual(namesOf(board.columns[0].tasks), ['Task A']);
+});
+
+test('dropping a card on Add Label creates and assigns the label (#1070)', () => {
+  const { board, editor } = buildBoard('label', { promptValue: 'Urgent' });
+  loadPlan(board, editor, 'Task A #old 0%');
+  board.handleNewColumnDrop(board.tasks[0].lineNumber);
+  board.parse();
+  assert.match(editor.value, /labels: \[urgent\]/);
+  assert.match(editor.value, /Task A #urgent 0%/);
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'urgent').tasks), ['Task A']);
+});
+
+test('dropping a card on Add Bucket creates and assigns the bucket (#1070)', () => {
+  const { board, editor } = buildBoard('bucket', { promptValue: 'Doing' });
+  loadPlan(board, editor, '---\nbuckets: [Backlog]\n---\n\nTask A {Backlog} 0%');
+  board.handleNewColumnDrop(board.tasks[0].lineNumber);
+  board.parse();
+  assert.match(editor.value, /buckets: \[Backlog, Doing\]/);
+  assert.match(editor.value, /Task A \{Doing\} 0%/);
+  assert.deepEqual(namesOf(board.columns.find(c => c.title === 'Doing').tasks), ['Task A']);
+});
+
 // ---------------------------------------------------------------------------
 // Moving cards
 // ---------------------------------------------------------------------------
