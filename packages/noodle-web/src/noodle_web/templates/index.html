@@ -145,6 +145,7 @@
     <link rel="stylesheet" href="/static/responsive.css?v={{ v }}">
     <link rel="stylesheet" href="/static/noodlesheet.css?v={{ v }}">
     <link rel="stylesheet" href="/static/ai-chat.css?v={{ v }}">
+    <link rel="stylesheet" href="/static/front-matter-panel.css?v={{ v }}">
 </head>
 <body>
     <!-- SVG Icon Sprite (hidden, reference with use#id) -->
@@ -581,6 +582,7 @@
                         <div style="padding: 6px 10px; background: #3a3a3a; border-left: 4px solid #108BB9; margin-bottom: 0; font-size: 0.85em; color: #d4d4d4;">
                             💡 <strong>Tip:</strong> Double-click or double-tap any task line to edit it
                         </div>
+                        <div id="frontMatterPanel" class="fm-panel"></div>
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="lineNumbers">1</div>
                             <div class="editor-area">
@@ -4287,6 +4289,7 @@ Build
     <script src="/static/nav.js?v={{ v }}"></script>
     <script src="/static/task-tokenizer.js?v={{ v }}"></script>
     <script src="/static/plan-model.js?v={{ v }}"></script>
+    <script src="/static/front-matter-model.js?v={{ v }}"></script>
     <script src="/static/estimating.js?v={{ v }}"></script>
     <script src="/static/cards.js?v={{ v }}"></script>
     <script src="/static/highlight-toggles.js?v={{ v }}"></script>
@@ -4310,6 +4313,7 @@ Build
     <script src="/static/version-history.js?v={{ v }}"></script>
     <script src="/static/portfolio.js?v={{ v }}"></script>
     <script src="/static/multi-plan-loader.js?v={{ v }}"></script>
+    <script src="/static/front-matter-panel.js?v={{ v }}"></script>
     <script src="/static/portfolio-status.js?v={{ v }}"></script>
     <script src="/static/portfolio-resources.js?v={{ v }}"></script>
     <script src="/static/portfolio-leveling.js?v={{ v }}"></script>
