@@ -382,7 +382,7 @@
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Tasks
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="notepad" onclick="switchToView('notepad'); event.stopPropagation();">
-                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Notepad
+                            <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-task-list"/></svg> Outline
                         </div>
                         <div class="nav-menu-item" role="menuitem" tabindex="-1" data-view="gantt" onclick="switchToView('gantt'); event.stopPropagation();">
                             <svg class="icon" width="18" height="18" aria-hidden="true"><use href="#icon-gantt-chart"/></svg> Gantt
@@ -1073,7 +1073,7 @@ Press Enter to render..."></textarea>
                             </div>
                         </div>
 
-                        <!-- Notepad View (#1049): a plain notepad-style list surface --
+                        <!-- Outline View (#1049): a plain task-outline list surface --
                              no front matter, no syntax, no jargon on screen. Populated
                              by notepad.js's activateNotepadView(), called from
                              switchOutputTab() in nav.js. -->
@@ -1255,6 +1255,28 @@ Press Enter to render..."></textarea>
                                     <!-- No Tasks Message -->
                                     <div class="lookahead-empty" id="lookaheadEmpty" style="display: none;">
                                         <p>✅ No overdue or upcoming tasks in the next 2 weeks!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Escalations View -->
+                        <div id="escalations-view" class="output-tab-content">
+                            <div class="escalations-container">
+                                <div class="view-header">
+                                    <div>
+                                        <h2>Escalations</h2>
+                                        <p class="view-subtitle">RAID items escalated to the Board or Programme.</p>
+                                    </div>
+                                </div>
+                                <div class="raid-table-wrapper">
+                                    <table class="raid-table" aria-label="Escalated RAID items">
+                                        <thead><tr><th>Type</th><th>Title</th><th>Description</th><th>Owner</th><th>Escalate To</th><th>Status</th></tr></thead>
+                                        <tbody id="escalationsTableBody"></tbody>
+                                    </table>
+                                    <div class="raid-empty-state" id="escalationsEmptyState">
+                                        <h3>No escalations</h3>
+                                        <p>RAID items escalated to the Board or Programme will appear here.</p>
                                     </div>
                                 </div>
                             </div>
@@ -2791,9 +2813,14 @@ Build
                                 </tbody>
                             </table>
                         </div>
-                        <a href="javascript:void(0)" class="add-item-link" onclick="addDependencyRow()" style="margin-top: 10px; display: inline-block;">
-                            <span class="add-icon">+</span> Add Dependency
-                        </a>
+                        <div class="dependency-inline-add autocomplete-container" style="position: relative; margin-top: 10px;">
+                            <input type="text" id="addDependencyInput" class="dependency-add-input"
+                                   placeholder="Add dependency" autocomplete="off"
+                                   data-dropdown="addDependencyAutocomplete"
+                                   oninput="handleDependencyInput(this)"
+                                   onkeydown="handleAddDependencyKeydown(event, this)">
+                            <div id="addDependencyAutocomplete" class="autocomplete-dropdown"></div>
+                        </div>
                         <small style="display: block; margin-top: 5px;">Lag: +2d (wait after), Lead: -1d (start before)</small>
                     </div>
 

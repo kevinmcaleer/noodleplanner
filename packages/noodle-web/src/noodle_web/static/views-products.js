@@ -192,18 +192,18 @@ function pbsComputeRag(deliverableTask, allTasks) {
     if (!deliverableTask) return null;
     const rollup = pbsComputeRollup(deliverableTask, allTasks);
     const actual = rollup ? rollup.percent : 0;
-    const start = deliverableTask.start_date;
-    const end = deliverableTask.end_date;
+    const start = deliverableTask.start || deliverableTask.start_date;
+    const end = deliverableTask.finish || deliverableTask.end || deliverableTask.end_date;
     if (!start || !end) {
-        // Without dates, only strongly signal when clearly done
+        // Every product gets a colour, even when its schedule is incomplete.
         if (actual >= 100) return 'green';
-        return null;
+        return actual > 0 ? 'amber' : 'red';
     }
     const now = new Date();
     const s = new Date(start);
     const e = new Date(end);
     if (isNaN(s) || isNaN(e) || e <= s) return null;
-    if (now <= s) return actual >= 100 ? 'green' : null;
+    if (now <= s) return actual >= 100 || actual > 0 ? 'green' : 'amber';
     if (now >= e) return actual >= 100 ? 'green' : 'red';
     const expected = ((now - s) / (e - s)) * 100;
     const delta = actual - expected;
@@ -895,9 +895,12 @@ function pbsZoomFit() {
     const bw = bounds.maxX - bounds.minX + padding * 2;
     const bh = bounds.maxY - bounds.minY + padding * 2;
 
-    pbsZoom = Math.min(cw / bw, ch / bh, 1.5);
+    // Fit against whichever available dimension binds first.  Keep the
+    // resulting diagram centred horizontally, but anchor its top edge so a
+    // tall tree does not appear vertically floating in the canvas.
+    pbsZoom = Math.min(cw / bw, ch / bh);
     pbsPanX = (cw - bw * pbsZoom) / 2 - bounds.minX * pbsZoom + padding * pbsZoom;
-    pbsPanY = (ch - bh * pbsZoom) / 2 - bounds.minY * pbsZoom + padding * pbsZoom;
+    pbsPanY = padding * pbsZoom - bounds.minY * pbsZoom;
     pbsApplyTransform();
 }
 

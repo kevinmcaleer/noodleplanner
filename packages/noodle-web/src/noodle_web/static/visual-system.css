@@ -180,12 +180,13 @@ input::placeholder, textarea::placeholder { color: var(--np-faint); opacity: 1; 
 :root body .project-report-details { font-size: 12.5px; color: var(--np-muted); }
 :root body .project-report-detail { min-width: 0; flex-wrap: wrap; }
 :root body .ribbon-doc-title { min-width: 0; }
-:root body .lookahead-section-title.overdue { color: var(--np-danger-ink); }
-:root body .lookahead-section-title.upcoming { color: var(--np-accent-ink); }
+:root body .lookahead-section-title.overdue,
+:root body .lookahead-section-title.upcoming { color: #fff; }
 :root body .ai-chat-header { background: var(--np-surface-alt); color: var(--np-ink); }
 :root body .ai-chat-header button { color: var(--np-body); }
 :root body :is(.ns-col-header.selected, .ns-row-num.selected) { background: var(--np-selected); color: var(--np-ink); }
 :root body .close-btn { color: var(--np-body); flex-shrink: 0; }
+:root body #taskInspectorSection .close-btn { color: #fff; }
 :root body .close-btn:hover { background: var(--np-sunken); color: var(--np-ink); }
 :root body .modal-header { gap: 12px; border-radius: 14px 14px 0 0; }
 :root body .modal-header :is(h2, input) { min-width: 0; font-family: var(--np-font-heading); font-weight: 400; }

@@ -1327,6 +1327,7 @@ body.detail-pane-open {
 .inspector-rag-banner.rag-blue {
     background: #e3f2fd;
     border-left: 5px solid #1976d2;
+    color: #111;
 }
 
 .inspector-rag-banner.rag-none {
@@ -1981,7 +1982,7 @@ tr:hover .task-context-btn,
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--np-muted);
+    color: var(--np-ink, #111);
     margin: 0 0 16px 0;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--np-hairline);
@@ -2087,7 +2088,7 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table td {
-    padding: 10px;
+    padding: 5px 10px;
     border-bottom: 1px solid var(--np-border);
 }
 
@@ -2118,12 +2119,21 @@ tr:hover .task-context-btn,
 }
 
 .dependencies-table tbody:empty::after {
-    content: 'No dependencies. Click "+ Add Dependency" to add one.';
+    content: 'No dependencies. Add one below.';
     display: block;
     padding: 20px;
     text-align: center;
     color: var(--np-faint);
     font-style: italic;
+}
+
+.dependency-add-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--np-border);
+    border-radius: 4px;
+    background: var(--np-input-bg, #fff);
+    color: var(--np-text, #333);
 }
 
 .form-actions {
@@ -5850,6 +5860,11 @@ tr:hover .task-context-btn,
     border: 1px solid var(--np-border);
     border-radius: 8px;
     padding: 4px;
+}
+
+.stakeholder-grid-wrapper.stakeholder-grid-expanded {
+    width: min(800px, 70vw);
+    height: min(800px, 70vh);
 }
 
 .stakeholder-grid-wrapper .copy-image-btn {
