@@ -7940,6 +7940,7 @@ function renderRaidTable() {
             </td>
             <td>
                 <button class="raid-action-btn" onclick="openRaidForm(${item.id})" title="Edit">✏️</button>
+                <button class="raid-action-btn" onclick="SectionFolding.jumpToBackMatterSection('---raid log---', ${item.id}, 'tasks')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>
                 <button class="raid-action-btn delete" onclick="deleteRaidItem(${item.id})" title="Delete">🗑️</button>
             </td>
         `;
@@ -11763,6 +11764,7 @@ function renderCommsTable() {
                     <td><span class="raid-status-badge raid-status-${statusClass}">${escapeHtml(item.status)}</span></td>
                     <td>
                         <button class="raid-action-btn" onclick="openCommsForm(${item.id})" title="Edit">&#9998;&#65039;</button>
+                        <button class="raid-action-btn" onclick="SectionFolding.jumpToBackMatterSection('---comms---', ${item.id}, 'tasks')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>
                         <button class="raid-action-btn delete" onclick="deleteCommsItem(${item.id})" title="Delete">&#128465;&#65039;</button>
                     </td>
                 `;
@@ -12288,6 +12290,7 @@ function renderBudgetTable() {
                     '<td>' + escapeHtml(item.date_received) + '</td>' +
                     '<td>' +
                         '<button class="budget-action-btn" onclick="openBudgetForm(' + item.id + ')" title="Edit">&#9998;&#65039;</button>' +
+                        '<button class="budget-action-btn" onclick="SectionFolding.jumpToBackMatterSection(\'---budget---\', ' + item.id + ', \'tasks\')" title="Open source row in plan editor"><i class="bi bi-code-slash"></i></button>' +
                         '<button class="budget-action-btn delete" onclick="deleteBudgetItem(' + item.id + ')" title="Delete">&#128465;&#65039;</button>' +
                     '</td>';
                 tbody.appendChild(row);

@@ -88,6 +88,23 @@ git branch -d <branch>
 
 Leave `/home/kev/noodleplanner` on a clean `main` at all times.
 
+## Session naming for `/goal`
+
+When a session's `/goal` condition names a GitHub issue number (e.g. "complete 777"),
+rename the Claude session to that issue's title so it's identifiable in the desktop/web
+session manager instead of showing only the issue number or a generic auto-generated name:
+
+1. Look up the issue with `mcp__github__issue_read` (`method: "get"`) to get its title.
+2. Get this session's id with `mcp__Claude_Code_Remote__get_session` (omit `session_id` to
+   target the current session).
+3. Call `mcp__Claude_Code_Remote__set_session_title` with that id and a title of the form
+   `#<issue> <issue title>` (e.g. `#777 Multiple named baselines with a management UI`).
+
+Do this once, early — right after picking up the goal, before starting the actual work —
+not on every `/goal` tick. These `Claude_Code_Remote` MCP tools are only available when the
+session is running through Claude Code on the web/desktop (cloud sessions); skip this step
+if they aren't present.
+
 ## Documentation screenshots
 
 Screenshots used in the Sphinx docs are stored in `docs/_static/img/` and are
@@ -115,3 +132,6 @@ The screenshot script uses headless Chrome via Selenium — the same setup as
   navigation element, or change the editor, re-run `make screenshots` so the
   docs stay accurate. Check the RST files under `docs/` for `.. figure::`
   directives that reference screenshots.
+- **Name the session after the issue when `/goal` targets one.** See
+  "Session naming for `/goal`" above — rename the session to `#<issue> <title>`
+  so it's easy to find in the session manager.
