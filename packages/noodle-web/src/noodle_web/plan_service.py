@@ -391,7 +391,7 @@ class PlanService:
             resource_roles = parse_resource_roles(plan_text)
             front_matter = parse_front_matter(plan_text)
             tasks_data = self._schedule_and_build_tasks(
-                converted, resolved_name, resource_map
+                converted, resolved_name, resource_map, fm_parser
             )
 
             labels = collect_labels_from_plan(plan_text)
@@ -693,7 +693,11 @@ class PlanService:
         return []
 
     def _schedule_and_build_tasks(
-        self, converted_content: str, project_name: str, resource_map: dict
+        self,
+        converted_content: str,
+        project_name: str,
+        resource_map: dict,
+        fm_parser: FrontMatterParser,
     ) -> list:
         """Schedule tasks and build the task data list for the frontend."""
         yaml_data = natural_language_to_yaml(converted_content, project_name)
@@ -706,7 +710,13 @@ class PlanService:
         else:
             phases = []
 
-        tasks = schedule_tasks(phases)
+        tasks = schedule_tasks(
+            phases,
+            holidays=fm_parser.parse_non_working_days(),
+            resource_non_working_days=fm_parser.parse_resource_non_working_days(),
+            calendar=fm_parser.active_calendar(),
+            resource_calendars=fm_parser.resource_calendars(),
+        )
         tasks_data = []
 
         for idx, task in enumerate(tasks, start=1):

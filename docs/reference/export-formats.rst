@@ -141,8 +141,30 @@ Exports the plan as a Microsoft Project XML file that can be opened in Microsoft
 The file follows the MSPDI schema, so Microsoft Project, ProjectLibre and
 Smartsheet all open it directly — use **File → Open** and pick the ``.xml``
 file. Tasks carry their outline hierarchy, durations, dependencies, percent
-complete, notes and resource assignments, scheduled against a standard
-Monday–Friday 08:00–17:00 calendar.
+complete, notes and resource assignments.
+
+Every calendar the plan declares (see :doc:`front-matter`'s ``calendar`` /
+``calendars`` fields, issue #1133) is written as its own MS Project
+calendar — working/non-working days, optional daily hours, and dated
+exceptions, with the plan's project-wide ``non-working-days:`` layered onto
+every one of them so a declared shutdown is honoured regardless of which
+calendar governs a given task. The project opens set to whichever calendar
+is active, and a resource assigned its own calendar (a ``calendar <Name>``
+suffix on its ``Resources:`` line) carries that calendar in Microsoft
+Project too. A plan with no ``calendar``/``calendars`` fields at all still
+exports a single Monday–Friday 08:00–17:00 Standard calendar, exactly as
+before this was added — nothing changes for a plan that never mentions
+calendars. A calendar's optional ``hours`` becomes one working-time block
+per day (Microsoft Project's own lunch-split default is used when a
+calendar sets no hours of its own); a shift-rotation calendar (a bracketed,
+multi-week pattern) is represented with Microsoft Project's ``WorkWeeks``
+date-bounded overrides, spanning the exported project's actual date range —
+Microsoft Project's calendar model has no way to say "alternate forever",
+only "these specific weeks differ". Re-importing such a file reconstructs
+the rotation when every overridden week shares one pattern (true of every
+file this app exports); a calendar with irregular, varying overrides —
+possible in a file hand-edited in Microsoft Project — imports as its plain
+base pattern instead of a guessed cycle.
 
 Microsoft Project is stricter about dependencies than NoodlePlanner. It
 refuses to open a file in which a task is linked to its own summary task, or

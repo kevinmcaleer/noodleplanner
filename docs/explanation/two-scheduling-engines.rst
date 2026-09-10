@@ -108,18 +108,23 @@ engine bug — from the browser console::
 Known differences
 ------------------
 
-One difference is deliberate, and worth knowing about because it looks like a
-bug in the browser engine and is not.
-
-**The front-matter calendar is ignored on the web path.** Both engines can
-schedule around project-wide and per-resource non-working days, but
-``PlanService`` does not pass them: ``_schedule_and_build_tasks`` calls
-``schedule_tasks(phases)`` with no holidays, so the ``non-working-days:``
-front matter is parsed and then unused when the server answers
-``/api/parse``. The browser engine matches that, so the two agree. Wiring the
-calendar through is a one-line change on the Python side, and when it is made
-the corpus will need regenerating and the browser engine will need
-``applyCalendar`` turned on to match.
+None currently. Both engines schedule around the same front-matter calendar:
+project-wide ``non-working-days:``/``holidays:``, per-resource
+``non-working [...]`` exceptions (issue #837), a named ``calendar:`` /
+``calendars:`` week pattern or shift rotation (issue #1132), and a
+resource's own ``calendar <Name>`` assignment overriding the project's for
+that resource's tasks (issue #1136) -- see :doc:`../reference/front-matter`.
+``PlanService._schedule_and_build_tasks`` passes
+``FrontMatterParser.parse_non_working_days()``,
+``parse_resource_non_working_days()``, ``active_calendar()`` and
+``resource_calendars()`` into ``schedule_tasks``, and the browser engine's
+``localParse`` applies the same calendar by default (``local-parse.js``'s
+``applyCalendar`` option, on unless passed ``false``, computing the active
+and per-resource calendars via ``calendar.js``'s ``activeCalendar()`` and
+``resolvedResourceCalendars()``). ``tests/test_engine_conformance.mjs``
+passes the same calendars through for both, including a fixture with a
+named Sun-Thu calendar and a resource assigned to it
+(``named-calendar.md``), so the two engines keep agreeing.
 
 Related
 --------

@@ -9,8 +9,10 @@ renderers, exporters) but every name is re-exported here so that existing
 import os
 import re
 import logging
+import dataclasses
 from datetime import datetime, timedelta
 
+from .calendar_model import STANDARD_CALENDAR
 from .date_math import (
     get_next_working_day,
     today_working_day,
@@ -102,6 +104,51 @@ def _subtract_working_days(end_date, num_days, holidays=None):
     """Subtract *num_days* working days from *end_date* (exclusive convention)."""
     return add_working_days(end_date, -num_days, holidays)
 
+def _task_resource_keys(task):
+    """A task's resource shortnames, lowercased, in task-line order."""
+    return [
+        r.strip().lstrip('@').lower()
+        for r in task.get('resources', '').split(',')
+        if r.strip()
+    ]
+
+def _calendar_or_holidays_for_task(task, holidays, resource_non_working_days, calendar, resource_calendars):
+    """The value to pass as ``holidays`` to date_math for one task.
+
+    A plain set when no calendar is in play at all (the historical
+    behaviour, unchanged bit-for-bit). Otherwise a Calendar: the task's
+    first resource with an assigned calendar (`resource_calendars`),
+    falling back to the project's `calendar` (or Standard), with the
+    project-wide and resource-specific exception dates layered on top as
+    extra exceptions (issue #1132).
+    """
+    task_resource_keys = _task_resource_keys(task)
+
+    if calendar is None and not resource_calendars:
+        task_holidays = set(holidays)
+        if resource_non_working_days:
+            for res_key in task_resource_keys:
+                if res_key in resource_non_working_days:
+                    task_holidays |= resource_non_working_days[res_key]
+        return task_holidays
+
+    base = calendar or STANDARD_CALENDAR
+    if resource_calendars:
+        for res_key in task_resource_keys:
+            if res_key in resource_calendars:
+                base = resource_calendars[res_key]
+                break
+
+    extra_exceptions = set(holidays)
+    if resource_non_working_days:
+        for res_key in task_resource_keys:
+            if res_key in resource_non_working_days:
+                extra_exceptions |= resource_non_working_days[res_key]
+
+    if not extra_exceptions:
+        return base
+    return dataclasses.replace(base, exceptions=base.exceptions | extra_exceptions)
+
 def calculate_critical_path(tasks, holidays=None):
     """Calculate critical path, slack/float for each leaf task.
 
@@ -168,7 +215,13 @@ def calculate_critical_path(tasks, holidays=None):
 # Core scheduling
 # ---------------------------------------------------------------------------
 
-def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
+def schedule_tasks(
+    phases,
+    holidays=None,
+    resource_non_working_days=None,
+    calendar=None,
+    resource_calendars=None,
+):
     """Schedule tasks from arbitrarily nested structure.
 
     Args:
@@ -182,6 +235,16 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         holidays: Set of project-wide holiday dates to skip when scheduling.
         resource_non_working_days: Dict mapping lowercase resource shortnames to
                 sets of datetime.date for resource-specific non-working days.
+        calendar: Optional Calendar (see noodle_core.calendar_model) giving the
+                project's active calendar -- a work week or shift rotation other
+                than the default Mon-Fri, with optional daily hours. When given,
+                every task schedules against it (layering `holidays` on top as
+                extra exception dates) instead of the hardcoded Mon-Fri rule
+                (issue #1132).
+        resource_calendars: Optional dict mapping lowercase resource shortnames
+                to a Calendar that resource uses instead of `calendar`. A task
+                with more than one resource uses the first one (in task-line
+                order) that has an assigned calendar.
 
     Returns:
         List of tasks, each with: name, description, level, resources, start, finish,
@@ -369,14 +432,11 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         if t.get('summary'):
             continue
 
-        # Build per-task holiday set: project-wide + assigned resource's non-working days
-        task_holidays = set(holidays)
-        task_resources = t.get('resources', '')
-        if task_resources and resource_non_working_days:
-            for res in task_resources.split(','):
-                res_key = res.strip().lstrip('@').lower()
-                if res_key in resource_non_working_days:
-                    task_holidays |= resource_non_working_days[res_key]
+        # Per-task calendar: project-wide + assigned resource's non-working
+        # days, plus (issue #1132) whichever calendar applies to this task.
+        task_holidays = _calendar_or_holidays_for_task(
+            t, holidays, resource_non_working_days, calendar, resource_calendars
+        )
 
         logger.debug("[SCHEDULE] Task %d: %s (sequential: %s, depends: %s, start: %s)", idx, t.get('name'), t.get('sequential'), t.get('depends'), t.get('start'))
 
@@ -719,8 +779,16 @@ def schedule_tasks(phases, holidays=None, resource_non_working_days=None):
         task['loop_warning'] = conflicts[0]['message']
         logger.warning("Hierarchy dependency conflict: %s", conflicts[0]['message'])
 
-    # Calculate critical path (slack/float and critical flag)
-    calculate_critical_path(ordered_tasks, holidays)
+    # Calculate critical path (slack/float and critical flag). Uses the
+    # project-wide calendar only -- per-resource calendars vary float
+    # differently per task, which the current float model doesn't represent.
+    project_calendar_or_holidays = holidays
+    if calendar is not None:
+        project_calendar_or_holidays = (
+            dataclasses.replace(calendar, exceptions=calendar.exceptions | set(holidays))
+            if holidays else calendar
+        )
+    calculate_critical_path(ordered_tasks, project_calendar_or_holidays)
 
     return ordered_tasks
 
