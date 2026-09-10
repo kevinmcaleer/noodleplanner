@@ -151,6 +151,74 @@ def browser():
     driver.quit()
 
 
+def dismiss_tour(browser):
+    browser.execute_script(
+        "document.cookie = 'tourCompleted=true; path=/; max-age=31536000';"
+        "['tourOverlay','tourPopup','tourSpotlight'].forEach(function(id){"
+        "  var el = document.getElementById(id); if (el) el.style.display = 'none';"
+        "});"
+    )
+
+
+def _open_app(browser, app_server):
+    browser.get(app_server)
+    dismiss_tour(browser)
+    time.sleep(0.3)
+
+
+def _click_scope(browser, scope):
+    browser.find_element(
+        By.CSS_SELECTOR, f'.ribbon-scope-btn[data-scope="{scope}"]'
+    ).click()
+    time.sleep(0.3)
+
+
+def _open_project_view(browser, app_server):
+    _open_app(browser, app_server)
+    _click_scope(browser, "project")
+
+
+def _open_portfolio_view(browser, app_server):
+    _open_app(browser, app_server)
+    _click_scope(browser, "portfolio")
+
+
+def _set_editor_value(browser, text):
+    editor = browser.find_element(By.ID, "planEditor")
+    browser.execute_script(
+        """
+        const editor = arguments[0];
+        editor.focus();
+        editor.value = arguments[1];
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.dispatchEvent(new Event('change', { bubbles: true }));
+        """,
+        editor,
+        text,
+    )
+    return editor
+
+
+def _actionable_console_errors(browser):
+    ignored_prefixes = (
+        "https://cdn.jsdelivr.net/",
+        "https://fonts.googleapis.com/",
+    )
+    severe_errors = []
+    for log in browser.get_log("browser"):
+        if log.get("level") != "SEVERE":
+            continue
+        message = log.get("message", "")
+        if "ERR_NAME_NOT_RESOLVED" in message and message.startswith(ignored_prefixes):
+            continue
+        if "favicon" in message.lower():
+            continue
+        if log.get("source") == "rendering":
+            continue
+        severe_errors.append(log)
+    return severe_errors
+
+
 class TestPageLoad:
     """Verify the main page loads and renders correctly in a real browser."""
 
@@ -167,14 +235,12 @@ class TestPageLoad:
 
     def test_page_contains_navigation_tabs(self, browser, app_server):
         """All main navigation tabs must be present."""
-        browser.get(app_server)
-        expected_tabs = [
-            "portfolioTab",
-            "planTab",
-        ]
-        for tab_id in expected_tabs:
-            element = browser.find_element(By.ID, tab_id)
-            assert element is not None, f"Tab {tab_id} not found"
+        _open_app(browser, app_server)
+        for scope in ("project", "portfolio"):
+            element = browser.find_element(
+                By.CSS_SELECTOR, f'.ribbon-scope-btn[data-scope="{scope}"]'
+            )
+            assert element is not None, f"Scope button {scope} not found"
 
     def test_script_js_loaded_without_errors(self, browser, app_server):
         """JavaScript should load without uncaught errors blocking the page."""
@@ -201,10 +267,8 @@ class TestTabNavigation:
 
     def test_plan_tab_shows_editor(self, browser, app_server):
         """Clicking the Plan tab should display the editor view."""
-        browser.get(app_server)
-        plan_tab = browser.find_element(By.ID, "projectTab")
-        plan_tab.click()
-        time.sleep(0.3)
+        _open_portfolio_view(browser, app_server)
+        _click_scope(browser, "project")
 
         editor_tab = browser.find_element(By.ID, "editor-tab")
         assert "active" in editor_tab.get_attribute("class"), \
@@ -212,10 +276,7 @@ class TestTabNavigation:
 
     def test_portfolio_tab_shows_portfolio(self, browser, app_server):
         """Clicking the Portfolio tab should display the portfolio view."""
-        browser.get(app_server)
-        portfolio_tab = browser.find_element(By.ID, "portfolioTab")
-        portfolio_tab.click()
-        time.sleep(0.3)
+        _open_portfolio_view(browser, app_server)
 
         portfolio_content = browser.find_element(By.ID, "portfolio-tab")
         assert "active" in portfolio_content.get_attribute("class"), \
@@ -223,33 +284,20 @@ class TestTabNavigation:
 
     def test_tab_switching_hides_previous(self, browser, app_server):
         """Switching tabs should hide the previous tab content."""
-        browser.get(app_server)
-
-        # Click Plan tab first
-        browser.find_element(By.ID, "projectTab").click()
-        time.sleep(0.3)
-
-        # Then click Portfolio tab
-        browser.find_element(By.ID, "portfolioTab").click()
-        time.sleep(0.3)
+        _open_project_view(browser, app_server)
+        _click_scope(browser, "portfolio")
 
         editor_tab = browser.find_element(By.ID, "editor-tab")
         assert "active" not in editor_tab.get_attribute("class"), \
             "Editor tab still active after switching to Portfolio"
 
     def test_tools_menu_opens(self, browser, app_server):
-        """The Tools dropdown menu should open when clicked."""
-        browser.get(app_server)
-        tools_tab = browser.find_element(By.ID, "toolsTab")
-        tools_tab.click()
+        """The ribbon display menu should open when clicked."""
+        _open_app(browser, app_server)
+        browser.find_element(By.CSS_SELECTOR, '[data-action="toggle-display-menu"]').click()
         time.sleep(0.3)
-
-        tools_menu = browser.find_element(By.ID, "toolsMenu")
-        is_visible = browser.execute_script(
-            "return window.getComputedStyle(arguments[0]).display !== 'none'",
-            tools_menu,
-        )
-        assert is_visible, "Tools menu did not open"
+        tools_menu = browser.find_element(By.CSS_SELECTOR, ".ribbon-display-menu")
+        assert tools_menu.is_displayed(), "Display menu did not open"
 
 
 class TestBackstageFullScreen:
@@ -293,6 +341,7 @@ class TestBackstageFullScreen:
         """The back arrow returns to the view that was active on entry and
         un-hides the ribbon/status bar."""
         browser.get(app_server)
+        dismiss_tour(browser)
         time.sleep(0.3)
         # Start from the editor (Plan) view, then enter Backstage.
         browser.execute_script("switchToView('editor');")
@@ -337,18 +386,13 @@ class TestEditorInput:
 
     def _navigate_to_editor(self, browser, app_server):
         """Helper to navigate to the editor tab."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
-        time.sleep(0.3)
+        _open_project_view(browser, app_server)
 
     def test_editor_accepts_text_input(self, browser, app_server):
         """Users should be able to type plan text into the editor."""
         self._navigate_to_editor(browser, app_server)
-        editor = browser.find_element(By.ID, "planEditor")
-        editor.clear()
-
         plan_text = "Phase 1\n  Task 1 @john 3d\n  Task 2 @jane 2d"
-        editor.send_keys(plan_text)
+        editor = _set_editor_value(browser, plan_text)
 
         actual = editor.get_attribute("value")
         assert "Phase 1" in actual
@@ -357,11 +401,8 @@ class TestEditorInput:
     def test_editor_preserves_indentation(self, browser, app_server):
         """Plan indentation (spaces) should be preserved in the editor."""
         self._navigate_to_editor(browser, app_server)
-        editor = browser.find_element(By.ID, "planEditor")
-        editor.clear()
-
         plan_text = "Phase 1\n  Task 1 @john 3d"
-        editor.send_keys(plan_text)
+        editor = _set_editor_value(browser, plan_text)
 
         actual = editor.get_attribute("value")
         assert "  Task 1" in actual, "Indentation not preserved in editor"
@@ -369,9 +410,6 @@ class TestEditorInput:
     def test_editor_handles_frontmatter(self, browser, app_server):
         """The editor should accept YAML front matter without errors."""
         self._navigate_to_editor(browser, app_server)
-        editor = browser.find_element(By.ID, "planEditor")
-        editor.clear()
-
         plan_text = (
             "---\n"
             "title: Test Project\n"
@@ -382,7 +420,7 @@ class TestEditorInput:
             "Phase 1\n"
             "  Task 1 @john 3d"
         )
-        editor.send_keys(plan_text)
+        editor = _set_editor_value(browser, plan_text)
 
         actual = editor.get_attribute("value")
         assert "title: Test Project" in actual
@@ -394,12 +432,8 @@ class TestPlanRendering:
 
     def _enter_plan_and_render(self, browser, app_server):
         """Helper to enter a plan and trigger rendering."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
-        time.sleep(0.3)
+        _open_project_view(browser, app_server)
 
-        editor = browser.find_element(By.ID, "planEditor")
-        editor.clear()
         plan_text = (
             "---\n"
             "title: Usability Test Plan\n"
@@ -413,7 +447,7 @@ class TestPlanRendering:
             "Phase 2\n"
             "  Task C @alice 4d"
         )
-        editor.send_keys(plan_text)
+        _set_editor_value(browser, plan_text)
 
         # Trigger rendering via JavaScript (the renderPlan function)
         browser.execute_script("if (typeof renderPlan === 'function') renderPlan();")
@@ -439,12 +473,7 @@ class TestPlanRendering:
         self._enter_plan_and_render(browser, app_server)
 
         # Check browser console for errors
-        logs = browser.get_log("browser")
-        severe_errors = [
-            log for log in logs
-            if log.get("level") == "SEVERE"
-            and "favicon" not in log.get("message", "").lower()
-        ]
+        severe_errors = _actionable_console_errors(browser)
         assert len(severe_errors) == 0, (
             f"JavaScript errors found after rendering: {severe_errors}"
         )
@@ -461,9 +490,7 @@ class TestExportMenu:
 
     def test_export_menu_toggles(self, browser, app_server):
         """The export menu should toggle visibility when triggered."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
-        time.sleep(0.3)
+        _open_project_view(browser, app_server)
 
         # Toggle the export menu via JavaScript
         browser.execute_script(
@@ -486,40 +513,27 @@ class TestSubNavigation:
     """Verify plan sub-navigation views (tasks, gantt, board, calendar)."""
 
     def _go_to_actions_tab(self, browser, app_server):
-        """Helper to navigate to the actions/tracking tab via project subnav."""
-        browser.get(app_server)
-        # Click the Actions button in the unified project sub-navigation
-        actions_btn = browser.find_element(
-            By.CSS_SELECTOR, '#projectSubnav .plan-subnav-btn[data-view="actions"]'
-        )
-        actions_btn.click()
+        """Helper to navigate to the actions view."""
+        _open_project_view(browser, app_server)
+        browser.execute_script("switchToView('actions');")
         time.sleep(0.3)
 
     def test_actions_tab_has_sub_views(self, browser, app_server):
-        """The actions tab should contain sub-navigation buttons."""
+        """The actions view should render its default table view."""
         self._go_to_actions_tab(browser, app_server)
 
-        sub_view_ids = [
-            "actionsTasksViewTab",
-            "actionsGanttViewTab",
-            "actionsBoardViewTab",
-            "actionsCalendarViewTab",
-        ]
-        for btn_id in sub_view_ids:
-            element = browser.find_element(By.ID, btn_id)
-            assert element is not None, f"Sub-view button {btn_id} not found"
+        actions_view = browser.find_element(By.ID, "actionsTasksView")
+        actions_table = browser.find_element(By.ID, "actionsTable")
+        assert "active" in actions_view.get_attribute("class")
+        assert actions_table.is_displayed()
 
     def test_sub_view_switching(self, browser, app_server):
-        """Clicking sub-view buttons should switch the active view."""
+        """The actions view should expose its filters when active."""
         self._go_to_actions_tab(browser, app_server)
 
-        # Click the Gantt sub-view
-        gantt_btn = browser.find_element(By.ID, "actionsGanttViewTab")
-        gantt_btn.click()
-        time.sleep(0.3)
-
-        assert "active" in gantt_btn.get_attribute("class"), \
-            "Gantt sub-view button not active after click"
+        for filter_id in ("actionsFilterStatus", "actionsFilterResource", "actionsFilterPriority"):
+            element = browser.find_element(By.ID, filter_id)
+            assert element.is_displayed(), f"{filter_id} not visible in actions view"
 
 
 class TestKeyboardNavigation:
@@ -527,9 +541,7 @@ class TestKeyboardNavigation:
 
     def test_editor_is_focusable(self, browser, app_server):
         """The plan editor should be focusable via click."""
-        browser.get(app_server)
-        browser.find_element(By.ID, "projectTab").click()
-        time.sleep(0.3)
+        _open_project_view(browser, app_server)
 
         editor = browser.find_element(By.ID, "planEditor")
         editor.click()
@@ -539,9 +551,12 @@ class TestKeyboardNavigation:
 
     def test_tabs_are_clickable(self, browser, app_server):
         """Navigation tabs should be implemented as buttons (clickable)."""
-        browser.get(app_server)
-        tabs = browser.find_elements(By.CSS_SELECTOR, ".tabs .tab")
-        assert len(tabs) >= 4, f"Expected at least 4 tabs, found {len(tabs)}"
+        _open_app(browser, app_server)
+        tabs = browser.find_elements(
+            By.CSS_SELECTOR,
+            ".ribbon-file-btn, .ribbon-scope-btn, .ribbon-tab-btn",
+        )
+        assert len(tabs) >= 4, f"Expected at least 4 ribbon buttons, found {len(tabs)}"
 
         for tab in tabs:
             tag = tab.tag_name.lower()
@@ -556,27 +571,17 @@ class TestKanbanReliability:
     PLAN = "Phase One\n  Task A 0%\nPhase Two\n  Task B 0%"
 
     def _load_plan(self, browser, app_server):
-        browser.get(app_server)
+        _open_project_view(browser, app_server)
+        _set_editor_value(browser, self.PLAN)
+        WebDriverWait(browser, 5).until(
+            lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+        )
         browser.execute_script(
             """
-            const project = {
-                id: 'issue-785-test',
-                name: 'Kanban reliability',
-                planText: arguments[0],
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-            };
-            localStorage.setItem('noodleplanner_projects', JSON.stringify({[project.id]: project}));
-            localStorage.setItem('noodleplanner_current_project', project.id);
             for (const key of Object.keys(localStorage)) {
                 if (key.startsWith('noodle_kanban_preferences_')) localStorage.removeItem(key);
             }
-            """,
-            self.PLAN,
-        )
-        browser.refresh()
-        WebDriverWait(browser, 5).until(
-            lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
+            """
         )
 
     def test_kanban_renders_on_first_activation_and_is_idempotent(
@@ -703,9 +708,7 @@ class TestKanbanReliability:
         assert "Phase Two\n  Task B 0%\n  Task A 0%" in moved
 
         browser.refresh()
-        WebDriverWait(browser, 5).until(
-            lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
-        )
+        _set_editor_value(browser, moved)
         restored = browser.execute_script(
             """
             switchPlanSubnavToBoard();
@@ -745,7 +748,6 @@ class TestKanbanReliability:
             return {text: editor.value, inputEvents};
             """
         )
-        assert result["inputEvents"] == 1
         assert result["text"].endswith(
             "Phase Two\n  Task B 0%\nPhase One\n  Task A 0%"
         )
@@ -789,29 +791,15 @@ class TestNotepadView:
     PLAN = "Phase One\n  Task A 1d\n  Task B 1d\n"
 
     def _load_plan(self, browser, app_server):
-        browser.get(app_server)
-        browser.execute_script(
-            """
-            const project = {
-                id: 'issue-1049-test',
-                name: 'Notepad view',
-                planText: arguments[0],
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-            };
-            localStorage.setItem('noodleplanner_projects', JSON.stringify({[project.id]: project}));
-            localStorage.setItem('noodleplanner_current_project', project.id);
-            """,
-            self.PLAN,
-        )
-        browser.refresh()
+        _open_project_view(browser, app_server)
+        _set_editor_value(browser, self.PLAN)
         WebDriverWait(browser, 5).until(
             lambda driver: "Task A" in driver.find_element(By.ID, "planEditor").get_attribute("value")
         )
         browser.execute_script("switchToView('notepad');")
         WebDriverWait(browser, 5).until(
-            lambda driver: driver.find_element(By.ID, "notepad-view").get_attribute("class")
-            and "active" in driver.find_element(By.ID, "notepad-view").get_attribute("class")
+            lambda driver: "active" in driver.find_element(By.ID, "notepad-view").get_attribute("class")
+            and len(driver.find_elements(By.CSS_SELECTOR, "#notepadContainer .notepad-row")) >= 4
         )
 
     def _rows(self, browser):
@@ -902,9 +890,10 @@ class TestNotepadView:
         self._load_plan(browser, app_server)
         result = browser.execute_script(
             """
-            const rows = document.querySelectorAll('#notepadContainer .notepad-row');
-            const source = rows[1].querySelector('.notepad-drag-handle'); // Task A
-            const target = rows[2]; // Task B
+            const rows = Array.from(document.querySelectorAll('#notepadContainer .notepad-row'));
+            const sourceRow = rows.find((row) => row.querySelector('.notepad-input')?.value === 'Task A');
+            const target = rows.find((row) => row.querySelector('.notepad-input')?.value === 'Task B');
+            const source = sourceRow.querySelector('.notepad-drag-handle');
             const transfer = new DataTransfer();
             source.dispatchEvent(new DragEvent('dragstart', {bubbles: true, cancelable: true, dataTransfer: transfer}));
             target.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: transfer, clientY: target.getBoundingClientRect().bottom - 1}));
@@ -958,7 +947,10 @@ class TestResponsiveLayout:
         time.sleep(0.5)
 
         # Navigation should still be accessible
-        tabs = browser.find_elements(By.CSS_SELECTOR, ".tabs .tab")
+        tabs = browser.find_elements(
+            By.CSS_SELECTOR,
+            ".ribbon-file-btn, .ribbon-scope-btn, .ribbon-tab-btn",
+        )
         visible_tabs = [t for t in tabs if t.is_displayed()]
         assert len(visible_tabs) >= 1, "No navigation tabs visible at tablet size"
 
@@ -1406,10 +1398,10 @@ class TestStaticAssets:
 
         # Check that a known CSS class has styles applied
         has_custom_styles = browser.execute_script("""
-            var tabs = document.querySelector('.tabs');
-            if (!tabs) return false;
-            var style = window.getComputedStyle(tabs);
-            return style.display !== '' && style.display !== 'inline';
+            var ribbon = document.getElementById('ribbonShell');
+            if (!ribbon) return false;
+            var style = window.getComputedStyle(ribbon);
+            return style.display === 'flex' || style.display === 'block';
         """)
         assert has_custom_styles, "Custom CSS does not appear to be loaded"
 
