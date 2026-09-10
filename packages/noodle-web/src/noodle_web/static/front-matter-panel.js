@@ -340,14 +340,14 @@ const FrontMatterPanel = (function () {
         _renderRow(row, isFirst, isLast) {
             const schema = NoodleFrontMatter.schemaFor(row.key);
             const reorder = el('div', { className: 'fm-row-reorder' }, [
-                el('button', { className: 'fm-row-btn', type: 'button', text: '↑', disabled: isFirst ? '' : null, title: 'Move up', onclick: () => this.moveKey(row.id, -1) }),
-                el('button', { className: 'fm-row-btn', type: 'button', text: '↓', disabled: isLast ? '' : null, title: 'Move down', onclick: () => this.moveKey(row.id, 1) }),
+                el('button', { className: 'fm-row-btn fm-row-move-up', type: 'button', text: '▲', disabled: isFirst ? '' : null, title: 'Move up', onclick: () => this.moveKey(row.id, -1) }),
+                el('button', { className: 'fm-row-btn fm-row-move-down', type: 'button', text: '▼', disabled: isLast ? '' : null, title: 'Move down', onclick: () => this.moveKey(row.id, 1) }),
             ]);
             const keyLabel = schema
                 ? el('span', { className: 'fm-row-key', text: schema.label, title: schema.description || '' })
                 : this._renderEditableKey(row);
             const widget = this._renderWidget(row, schema);
-            const remove = el('button', { className: 'fm-row-btn fm-row-remove', type: 'button', text: '✕', title: 'Remove key', onclick: () => this.removeKey(row.id) });
+            const remove = el('button', { className: 'fm-row-btn fm-row-remove', type: 'button', text: '🗑️', title: 'Remove key', onclick: () => this.removeKey(row.id) });
             const rowEl = el('div', { className: 'fm-row', 'data-row-id': String(row.id) }, [reorder, keyLabel, widget, remove]);
             if (schema && schema.description) rowEl.title = schema.description;
             return rowEl;
@@ -469,7 +469,7 @@ const FrontMatterPanel = (function () {
                         entryEl.appendChild(input);
                     });
                     entryEl.appendChild(el('button', {
-                        className: 'fm-row-btn fm-row-remove', type: 'button', text: '✕', title: 'Remove entry',
+                        className: 'fm-row-btn fm-row-remove', type: 'button', text: '🗑️', title: 'Remove entry',
                         onclick: () => { entries.splice(idx, 1); commitEntries(); renderEntries(); },
                     }));
                     wrap.appendChild(entryEl);
