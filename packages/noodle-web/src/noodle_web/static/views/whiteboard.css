@@ -193,6 +193,134 @@
     background: rgba(0, 0, 0, 0.08);
 }
 
+.wb-note-coach-btn,
+.wb-note-row-coach {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.72;
+}
+
+.wb-note-coach-btn:hover,
+.wb-note-coach-btn:focus-visible,
+.wb-note-row-coach:hover,
+.wb-note-row-coach:focus-visible {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: currentColor;
+}
+
+.wb-note-coach-btn.suspected-activity,
+.wb-note-row-coach.suspected-activity {
+    opacity: 1;
+    background: #fff3b0;
+    color: #5b4300;
+    border-color: #d9b72f;
+}
+
+.wb-note-coach-btn.typed,
+.wb-note-row-coach:not(.suspected-activity) {
+    border-color: currentColor;
+}
+
+.wb-note-row-coach {
+    width: 18px;
+    height: 18px;
+    color: var(--np-text-secondary, #666);
+}
+
+.wb-coaching-menu {
+    position: fixed;
+    z-index: 1400;
+    width: 300px;
+    padding: 12px;
+    border: 1px solid var(--np-border, #d8dce1);
+    border-radius: 9px;
+    background: var(--np-surface, #fff);
+    color: var(--np-text, #222);
+    box-shadow: 0 10px 28px var(--np-shadow, rgba(0, 0, 0, 0.22));
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.wb-coaching-menu > strong {
+    display: block;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wb-coaching-hint {
+    margin: 0 0 10px;
+    padding: 8px;
+    border-radius: 6px;
+    background: #fff8d8;
+    color: #4d3b00;
+    line-height: 1.35;
+}
+
+.wb-coaching-types {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.wb-coaching-types button,
+.wb-coaching-prompt {
+    border: 1px solid var(--np-border, #d8dce1);
+    border-radius: 6px;
+    background: var(--np-bg-alt, #f5f6f8);
+    color: inherit;
+    cursor: pointer;
+}
+
+.wb-coaching-types button {
+    flex: 1;
+    padding: 5px 8px;
+}
+
+.wb-coaching-types button.selected {
+    border-color: var(--np-accent, #667eea);
+    background: var(--np-accent, #667eea);
+    color: var(--np-on-accent, #fff);
+}
+
+.wb-coaching-label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--np-text-muted, #777);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.wb-coaching-prompt {
+    display: block;
+    width: 100%;
+    margin-top: 5px;
+    padding: 7px 8px;
+    text-align: left;
+}
+
+.wb-coaching-prompt:hover,
+.wb-coaching-prompt:focus-visible {
+    border-color: var(--np-accent, #667eea);
+    background: var(--np-bg-hover, #eceef2);
+}
+
 .wb-note-body {
     flex: 1;
     min-height: 0;

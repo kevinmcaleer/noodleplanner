@@ -35,7 +35,9 @@ function assertClose(actual, expected, msg, eps = 1e-6) {
     assert(Math.abs(actual - expected) < eps, `${msg} (actual=${actual}, expected=${expected})`);
 }
 
-const sandbox = { console };
+const NoodlePlanModel = require(path.join(__dirname, '..', 'packages', 'noodle-web', 'src',
+    'noodle_web', 'static', 'plan-model.js'));
+const sandbox = { console, NoodlePlanModel };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
 
@@ -66,6 +68,11 @@ const {
     wbClampNoteHeight,
     wbExceedsMoveThreshold,
     wbMoveTaskToEnd,
+    wbActivityLanguageHint,
+    wbTaskPlanningType,
+    wbReplacePlanningTypeToken,
+    wbApplyPlanningTypeToPlanText,
+    wbAddNamedDependencyToPlanText,
 } = sandbox;
 
 // WB_NOTE_TITLE_ONLY_ZOOM is declared `const` at module scope in
@@ -159,6 +166,38 @@ const tasks = [
     const list = wbResourceList('Sam Smith, Jo Lee');
     assert(list.length === 2 && list[0] === 'Sam Smith' && list[1] === 'Jo Lee', 'resource list splits and trims');
     assert(wbResourceList('').length === 0, 'empty resources string yields an empty list');
+}
+
+// ── Parser-only facilitator hints and planning type (#875) ─────────────
+{
+    assert(wbActivityLanguageHint('Draft the business case').word === 'draft',
+        'curated leading producer verb gets a gentle activity hint');
+    assert(wbActivityLanguageHint('Installing the agent').kind === 'gerund',
+        'leading gerund gets an activity hint');
+    assert(wbActivityLanguageHint('Test plan') === null,
+        'product-shaped “Test plan” is not misclassified as an activity');
+    assert(wbActivityLanguageHint('Test the integration').word === 'test',
+        'verb-shaped “Test the integration” still gets a hint');
+    assert(wbActivityLanguageHint('Approved design') === null,
+        'ordinary product noun phrase remains untyped');
+
+    assert(wbTaskPlanningType({ labels: 'urgent, product' }) === 'product',
+        '#product is read from ordinary task labels');
+    assert(wbTaskPlanningType({ labels: 'activity' }) === 'activity',
+        '#activity is read from ordinary task labels');
+    assert(wbTaskPlanningType({ labels: '' }) === null, 'classification stays optional');
+
+    const typed = wbReplacePlanningTypeToken('  Draft case 2d #urgent #activity "say #product here"', 'product');
+    assert(typed.includes('#urgent') && typed.endsWith('#product'),
+        'changing planning type preserves other metadata and writes the new ordinary label');
+    assert(typed.includes('"say #product here"'), 'planning type tokens inside comments are never rewritten');
+    assert(!typed.includes('#activity'), 'old planning type is removed');
+
+    const plan = 'Phase\n  Draft case 2d #urgent\n  Review 1d\n';
+    const classified = wbApplyPlanningTypeToPlanText(plan, 'Draft case', 'activity');
+    assert(classified.includes('Draft case 2d #urgent #activity'), 'classification updates the canonical task line');
+    const linked = wbAddNamedDependencyToPlanText(classified, 'Review', 'Draft case');
+    assert(linked.includes('Review 1d [depends Draft case]'), 'facilitator-created relation is a real scheduling dependency');
 }
 
 // ── WCAG contrast helpers ────────────────────────────────────────────────

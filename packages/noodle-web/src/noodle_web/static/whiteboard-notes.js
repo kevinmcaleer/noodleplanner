@@ -321,6 +321,7 @@ let wbTextNodes = new Map(); // text-object id -> { fo, refs: {...} }
 // single statusBarHistoryPopup convention), so this is a single slot
 // rather than a map.
 let wbNoteMenuState = null; // { taskName, btn } while open, else null
+let wbCoachingMenuState = null; // { taskName, trigger, popup }
 
 /** Last header press, for the double-press rename gesture. See
  * wbIsRepeatHeaderPress(). */
@@ -410,6 +411,81 @@ function wbGetInitials(name) {
 function wbResourceList(resources) {
     if (!resources) return [];
     return String(resources).split(',').map(r => r.trim()).filter(Boolean);
+}
+
+// ── Facilitator coaching (#875) ───────────────────────────────────────
+
+const WB_ACTIVITY_VERBS = new Set([
+    'approve', 'build', 'configure', 'coordinate', 'create', 'deploy',
+    'design', 'develop', 'draft', 'implement', 'install', 'manage',
+    'migrate', 'prepare', 'produce', 'review', 'run', 'update',
+]);
+
+/** A deliberately small, explainable language heuristic. It only suggests;
+ * it never changes a task. "Test plan" is explicitly kept as a product-like
+ * noun phrase while "test the plan" remains an activity-shaped phrase. */
+function wbActivityLanguageHint(value) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    const words = text.toLowerCase().match(/[a-z][a-z'-]*/g) || [];
+    if (!words.length) return null;
+    const first = words[0];
+    if (/^[a-z]{4,}ing$/.test(first)) {
+        return { kind: 'gerund', word: first };
+    }
+    if (first === 'test') {
+        const second = words[1] || '';
+        if (!['a', 'an', 'the', 'this', 'that', 'our', 'their'].includes(second)) return null;
+        return { kind: 'verb', word: first };
+    }
+    return WB_ACTIVITY_VERBS.has(first) ? { kind: 'verb', word: first } : null;
+}
+
+function wbTaskPlanningType(task) {
+    const labels = String((task && task.labels) || '').split(',')
+        .map(label => label.trim().toLowerCase()).filter(Boolean);
+    if (labels.includes('product')) return 'product';
+    if (labels.includes('activity')) return 'activity';
+    return null;
+}
+
+/** Replace only unquoted #activity/#product tokens, preserving comments. */
+function wbReplacePlanningTypeToken(line, type) {
+    const wanted = type === 'activity' || type === 'product' ? type : null;
+    const segments = String(line || '').split(/("[^"]*")/g);
+    for (let i = 0; i < segments.length; i += 2) {
+        segments[i] = segments[i].replace(/(^|\s)#(?:activity|product)(?=\s|$)/gi, '$1')
+            .replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+$/g, '');
+    }
+    let result = segments.join('');
+    if (wanted) result += ` #${wanted}`;
+    return result;
+}
+
+function wbApplyPlanningTypeToPlanText(planText, taskName, type) {
+    if (typeof NoodlePlanModel === 'undefined') return planText;
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const key = String(taskName || '').toLowerCase();
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === key);
+    if (!task) return planText;
+    model.updateLine(task, line => wbReplacePlanningTypeToken(line, type));
+    return model.serialize();
+}
+
+function wbAddNamedDependencyToPlanText(planText, taskName, predecessorName) {
+    if (typeof NoodlePlanModel === 'undefined') return planText;
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const key = String(taskName || '').toLowerCase();
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === key);
+    if (!task) return planText;
+    model.updateLine(task, line => {
+        const block = /\[depends\s*:?[\s]*([^\]]*)\]/i.exec(line);
+        if (!block) return `${line} [depends ${predecessorName}]`;
+        const current = block[1].trim();
+        const replacement = `[depends ${current ? `${current}, ` : ''}${predecessorName}]`;
+        return line.slice(0, block.index) + replacement + line.slice(block.index + block[0].length);
+    });
+    return model.serialize();
 }
 
 /**
@@ -1275,8 +1351,21 @@ function wbCreateNoteNode() {
     }, { passive: false });
     linkHandle.addEventListener('click', (e) => e.stopPropagation());
 
+    const coachBtn = document.createElementNS(XHTML_NS, 'button');
+    coachBtn.setAttribute('class', 'wb-note-coach-btn');
+    coachBtn.setAttribute('type', 'button');
+    coachBtn.setAttribute('aria-label', 'Planning prompts');
+    coachBtn.setAttribute('aria-haspopup', 'dialog');
+    coachBtn.textContent = '✦';
+    coachBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const taskName = fo.dataset.wbTask;
+        if (taskName) wbToggleCoachingMenu(taskName, coachBtn);
+    });
+
     header.appendChild(title);
     header.appendChild(linkHandle);
+    header.appendChild(coachBtn);
     header.appendChild(menuBtn);
 
     // A caption naming the note this one hangs off, when its parent is
@@ -1316,7 +1405,7 @@ function wbCreateNoteNode() {
     const entry = {
         fo,
         refs: {
-            card, header, title, menuBtn, linkHandle, parentCaption,
+            card, header, title, menuBtn, linkHandle, coachBtn, parentCaption,
             body, footer, progress, avatars, resizeHandle,
         },
     };
@@ -1397,6 +1486,16 @@ function wbUpdateNoteNode(entry, vm) {
         wbSetText(refs.title, vm.task.name);
         refs.title.setAttribute('title', vm.task.name + ' — double-click to rename');
     }
+    const planningType = wbTaskPlanningType(vm.task);
+    const languageHint = wbActivityLanguageHint(vm.task && vm.task.name);
+    refs.coachBtn.classList.toggle('suspected-activity', !!languageHint && !planningType);
+    refs.coachBtn.classList.toggle('typed', !!planningType);
+    refs.coachBtn.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
+    refs.coachBtn.title = planningType
+        ? `Planning type: ${planningType}`
+        : languageHint
+            ? 'This sounds activity-shaped — open a gentle planning hint'
+            : 'Open facilitator prompts';
 
     // "under Discovery" caption: only when the parent has a note of its
     // own, i.e. exactly when a noodle is drawn into this note.
@@ -1833,6 +1932,7 @@ function wbNoteHeaderMouseDown(e, entry) {
     // The menu button (issue #849, not this issue's to build or wire) is
     // a sibling inside the same header -- never hijack its own click.
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
     // Nor the noodle handle, nor a title mid-rename: both are their own
     // gestures that happen to start inside the drag handle.
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
@@ -1874,6 +1974,7 @@ function wbNoteDragMouseUp(e) {
 function wbNoteHeaderTouchStart(e, entry) {
     if (wbActiveDrag || e.touches.length !== 1) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-menu-btn')) return;
+    if (e.target && e.target.closest && e.target.closest('.wb-note-coach-btn')) return;
     if (e.target && e.target.closest && e.target.closest('.wb-note-link-handle')) return;
 
     const touch = e.touches[0];
@@ -2350,6 +2451,22 @@ function wbBuildChildRow(childVm) {
     name.setAttribute('title', child.name);
     row.appendChild(name);
 
+    const planningType = wbTaskPlanningType(child);
+    const languageHint = wbActivityLanguageHint(child.name);
+    if (languageHint || planningType) {
+        const coach = document.createElementNS(XHTML_NS, 'button');
+        coach.setAttribute('type', 'button');
+        coach.setAttribute('class', 'wb-note-row-coach' + (languageHint && !planningType ? ' suspected-activity' : ''));
+        coach.setAttribute('aria-label', `Planning hint for ${child.name}`);
+        coach.textContent = planningType === 'product' ? 'P' : planningType === 'activity' ? 'A' : '✦';
+        coach.title = planningType ? `Planning type: ${planningType}` : 'This wording may describe an activity';
+        coach.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wbToggleCoachingMenu(child.name, coach);
+        });
+        row.appendChild(coach);
+    }
+
     if (childVm.hasChildren) {
         const badge = document.createElementNS(XHTML_NS, 'button');
         badge.setAttribute('type', 'button');
@@ -2504,6 +2621,175 @@ function wbCommitMarkdown(nextText) {
         });
     }
     return true;
+}
+
+// ── Contextual facilitator menu (issue #875) ──────────────────────────
+
+function wbCloseCoachingMenu() {
+    if (!wbCoachingMenuState) return;
+    const { popup, trigger } = wbCoachingMenuState;
+    if (popup && popup.parentNode) popup.remove();
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    wbCoachingMenuState = null;
+    document.removeEventListener('mousedown', wbCoachingOutsideClick, true);
+    document.removeEventListener('keydown', wbCoachingEscape, true);
+}
+
+function wbCoachingOutsideClick(event) {
+    if (!wbCoachingMenuState) return;
+    if (wbCoachingMenuState.popup.contains(event.target) || wbCoachingMenuState.trigger.contains(event.target)) return;
+    wbCloseCoachingMenu();
+}
+
+function wbCoachingEscape(event) {
+    if (event.key !== 'Escape' || !wbCoachingMenuState) return;
+    const trigger = wbCoachingMenuState.trigger;
+    wbCloseCoachingMenu();
+    if (trigger) trigger.focus();
+}
+
+function wbToggleCoachingMenu(taskName, trigger) {
+    if (wbCoachingMenuState && wbCoachingMenuState.taskName === taskName) {
+        wbCloseCoachingMenu();
+        return;
+    }
+    wbCloseCoachingMenu();
+    const task = wbLastTasks.find(item => item && item.name === taskName);
+    if (!task) return;
+
+    const popup = document.createElement('section');
+    popup.className = 'wb-coaching-menu';
+    popup.setAttribute('role', 'dialog');
+    popup.setAttribute('aria-label', `Planning prompts for ${taskName}`);
+
+    const heading = document.createElement('strong');
+    heading.textContent = taskName;
+    popup.appendChild(heading);
+
+    const hint = wbActivityLanguageHint(taskName);
+    if (hint && !wbTaskPlanningType(task)) {
+        const question = document.createElement('p');
+        question.className = 'wb-coaching-hint';
+        question.textContent = 'This looks like something you are doing rather than something you are making. Is the real deliverable the thing it produces?';
+        popup.appendChild(question);
+    }
+
+    const typeRow = document.createElement('div');
+    typeRow.className = 'wb-coaching-types';
+    const currentType = wbTaskPlanningType(task);
+    for (const type of ['product', 'activity']) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = type === 'product' ? 'Product' : 'Activity';
+        button.classList.toggle('selected', currentType === type);
+        button.addEventListener('click', () => {
+            const nextType = currentType === type ? null : type;
+            wbCommitMarkdown(wbApplyPlanningTypeToPlanText(wbLastPlanText, taskName, nextType));
+            wbCloseCoachingMenu();
+        });
+        typeRow.appendChild(button);
+    }
+    popup.appendChild(typeRow);
+
+    const promptHeading = document.createElement('span');
+    promptHeading.className = 'wb-coaching-label';
+    promptHeading.textContent = 'Ask a useful question';
+    popup.appendChild(promptHeading);
+
+    const prompts = [
+        { label: 'Does this need approval?', relation: 'predecessor', suggested: `Approval for ${taskName}` },
+        { label: 'What does this produce?', relation: 'successor', suggested: `${taskName} output` },
+        { label: 'What must be true before this can start?', relation: 'predecessor', suggested: `${taskName} prerequisite` },
+    ];
+    for (const item of prompts) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wb-coaching-prompt';
+        button.textContent = item.label;
+        button.addEventListener('click', () => {
+            wbCloseCoachingMenu();
+            wbSpawnCoachingNote(taskName, item.relation, item.suggested);
+        });
+        popup.appendChild(button);
+    }
+
+    const owner = document.createElement('button');
+    owner.type = 'button';
+    owner.className = 'wb-coaching-prompt';
+    owner.textContent = 'Who owns it?';
+    owner.addEventListener('click', () => {
+        wbCloseCoachingMenu();
+        wbOpenChildTask(taskName);
+        setTimeout(() => {
+            const field = document.getElementById('taskResources');
+            if (field) field.focus();
+        }, 0);
+    });
+    popup.appendChild(owner);
+
+    document.body.appendChild(popup);
+    const rect = trigger.getBoundingClientRect();
+    const width = 300;
+    popup.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, rect.left))}px`;
+    popup.style.top = `${Math.min(window.innerHeight - popup.offsetHeight - 8, rect.bottom + 6)}px`;
+    trigger.setAttribute('aria-expanded', 'true');
+    wbCoachingMenuState = { taskName, trigger, popup };
+    setTimeout(() => {
+        document.addEventListener('mousedown', wbCoachingOutsideClick, true);
+        document.addEventListener('keydown', wbCoachingEscape, true);
+    }, 0);
+}
+
+function wbBoardRowForTaskOrAncestor(items, taskName) {
+    let current = wbLastTasks.find(task => task && task.name === taskName);
+    while (current) {
+        const row = items.find(item => item && item.task && item.task.toLowerCase() === current.name.toLowerCase());
+        if (row) return row;
+        current = current.parent
+            ? wbLastTasks.find(task => task && task.name === current.parent)
+            : null;
+    }
+    return null;
+}
+
+/** Turn one facilitator answer into a real task and scheduling edge, and
+ * place its new post-it beside the note that prompted it. */
+function wbSpawnCoachingNote(sourceTaskName, relation, suggestedName) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || typeof wbAppendTopLevelTask !== 'function') return null;
+    const answer = prompt('Name the new linked note:', suggestedName || 'New note');
+    if (!answer || !answer.trim()) return null;
+    const existingNames = typeof wbOutlineTaskNames === 'function'
+        ? wbOutlineTaskNames(editor.value)
+        : wbLastTasks.map(task => task && task.name).filter(Boolean);
+    const name = wbUniqueTaskName(existingNames, answer.trim().replace(/[\r\n]+/g, ' '));
+    let nextText = wbAppendTopLevelTask(editor.value, name);
+    nextText = relation === 'successor'
+        ? wbAddNamedDependencyToPlanText(nextText, name, sourceTaskName)
+        : wbAddNamedDependencyToPlanText(nextText, sourceTaskName, name);
+
+    const items = parseWhiteboardMarkdown(extractWhiteboardFromPlanText(nextText));
+    const source = wbBoardRowForTaskOrAncestor(items, sourceTaskName);
+    const width = WB_NOTE_DEFAULT_WIDTH;
+    const height = WB_NOTE_DEFAULT_HEIGHT;
+    let x = source ? (source.x || 0) + (relation === 'successor' ? width + 60 : -width - 60) : 80;
+    let y = source ? (source.y || 0) : 80;
+    const wanted = { x, y, width, height };
+    if (items.some(item => wbRectsOverlap(wanted, {
+        x: item.x || 0, y: item.y || 0,
+        width: item.width || WB_NOTE_DEFAULT_WIDTH,
+        height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+    }, 8)) && typeof wbFindFreeSpacePosition === 'function' && typeof wbCurrentViewportBoardRect === 'function') {
+        const free = wbFindFreeSpacePosition(items.map(item => ({
+            x: item.x || 0, y: item.y || 0,
+            width: item.width || WB_NOTE_DEFAULT_WIDTH,
+            height: item.height || WB_NOTE_DEFAULT_HEIGHT,
+        })), wbCurrentViewportBoardRect(), width, height);
+        if (free) { x = free.x; y = free.y; }
+    }
+    items.push({ task: name, x: Math.round(x), y: Math.round(y), colour: '', width, height, collapsed: false });
+    wbCommitMarkdown(updatePlanWhiteboardText(nextText, items));
+    return name;
 }
 
 // ── Note colour menu (issue #849) ───────────────────────────────────────

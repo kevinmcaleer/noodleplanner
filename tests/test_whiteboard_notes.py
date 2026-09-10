@@ -490,6 +490,51 @@ class TestNoteRendering:
         assert after == before, "merely rendering a free-form note must not write anything to the plan"
 
 
+class TestFacilitatorCoaching:
+    """Browser-level coverage for #875's hint, optional type and linked-note path."""
+
+    def test_activity_hint_is_optional_and_persists_as_an_ordinary_label(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        coach = browser.find_element(
+            By.CSS_SELECTOR, '.wb-note[data-wb-task="Build"] .wb-note-coach-btn'
+        )
+        assert "suspected-activity" in coach.get_attribute("class")
+        coach.click()
+        menu = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-coaching-menu"))
+        )
+        assert "something you are doing" in menu.text
+
+        menu.find_element(By.XPATH, ".//button[normalize-space()='Product']").click()
+        WebDriverWait(browser, 5).until(lambda d: "Build #product" in get_plan_text(d))
+        assert "Build #product" in get_plan_text(browser)
+
+    def test_contextual_prompt_creates_a_successor_note_and_dependency(self, browser, app_server):
+        open_app(browser, app_server)
+        load_sample_plan(browser)
+        switch_to_whiteboard(browser)
+
+        browser.find_element(
+            By.CSS_SELECTOR, '.wb-note[data-wb-task="Build"] .wb-note-coach-btn'
+        ).click()
+        menu = WebDriverWait(browser, 3).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".wb-coaching-menu"))
+        )
+        menu.find_element(By.XPATH, ".//button[normalize-space()='What does this produce?']").click()
+        WebDriverWait(browser, 3).until(EC.alert_is_present())
+        dialog = browser.switch_to.alert
+        dialog.send_keys("Finished widget")
+        dialog.accept()
+
+        WebDriverWait(browser, 8).until(lambda d: get_note(d, "Finished widget") is not None)
+        text = get_plan_text(browser)
+        assert "Finished widget [depends Build]" in text
+        assert get_note(browser, "Finished widget") is not None
+
+
 class TestChecklistTicking:
     def test_ticking_writes_100_percent_and_updates_editor(self, browser, app_server):
         open_app(browser, app_server)

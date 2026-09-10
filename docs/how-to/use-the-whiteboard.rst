@@ -42,6 +42,30 @@ The moment you give the note its *first* subtask — indenting a task under it i
 
 **Promote to task** on a free-form note's ``...`` menu is a shortcut for exactly that first-subtask step: it turns the note's own **Comment** text into a real subtask underneath it, and the note switches to a checklist right away. If the note has no comment yet, it asks you to name the new subtask instead. Either way it is one action, and undoing it removes the subtask and returns the note to free-form.
 
+Use Facilitator Prompts
+-------------------------
+
+Select the ``✦`` on a note to open a small set of planning questions. If
+the task starts with activity-shaped language such as "Draft", "Build" or
+"Installing", the sparkle is highlighted and offers a gentle hint that
+the real deliverable may be the thing the activity produces. It is only a
+suggestion; NoodlePlanner never silently rewrites or classifies the task.
+
+You can optionally mark the item as **Product** or **Activity**. These are
+ordinary ``#product`` and ``#activity`` task labels, so they stay visible
+and editable everywhere else. Select the active type again to leave the
+task untyped.
+
+The same panel asks a short, fixed set of useful questions: whether the
+item needs approval, what it produces, and what must be true before it can
+start. Choosing one asks you to name the answer, creates it as a new
+post-it beside the current note, and adds a real predecessor or successor
+dependency to the plan. **Who owns it?** opens the existing task-details
+resource field rather than inventing a second assignment interface.
+
+Activity-shaped checklist rows carry the same small ``✦`` hint, so you do
+not have to turn a subtask into its own note just to use the prompts.
+
 Rename a Note
 ---------------
 
