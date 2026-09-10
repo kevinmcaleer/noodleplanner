@@ -757,6 +757,7 @@ class PlanService:
                     "resources": resources,
                     "percent": task.get("percent", ""),
                     "rag": rag_status,
+                    "deadline": task.get("deadline", ""),
                     "comment": task.get("comment", ""),
                     "priority": task.get("priority", "Low"),
                     "bucket": task.get("bucket", ""),

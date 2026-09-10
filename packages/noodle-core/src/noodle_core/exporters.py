@@ -72,6 +72,19 @@ def calculate_rag_status(task, current_date=None):
     if percent_complete == 100:
         return 'Complete'
 
+    # Red: deadline slippage (#877). A deadline is a fixed marker, distinct
+    # from the on-track/behind-schedule comparison below and from the
+    # start/finish dates that drive the schedule -- it never moves them. It
+    # flags the task once the deadline date has passed while the task is
+    # still incomplete (checked above), or once the computed finish
+    # (start + duration) is later than the deadline.
+    deadline = task.get('deadline')
+    if deadline:
+        deadline_date = deadline.date() if hasattr(deadline, 'date') else parse_date(deadline).date()
+        deadline_finish = finish_date.date() if hasattr(finish_date, 'date') else finish_date
+        if deadline_date < current_date or (deadline_finish is not None and deadline_finish > deadline_date):
+            return 'Task Overdue'
+
     if not start_date or not finish_date:
         # Fallback when dates are missing: use percentage thresholds
         if percent_complete is None or percent_complete == 0:

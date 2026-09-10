@@ -113,6 +113,26 @@ Explicit Start Date
 
 Date format: ``YYYY-MM-DD``.
 
+Deadline
+~~~~~~~~
+
+Mark a fixed deadline with the ``D`` prefix followed by a date:
+
+.. code-block:: text
+
+   Task A @alice 3d D2026-09-10
+
+Date format: ``DYYYY-MM-DD`` (no space between the ``D`` and the date).
+
+A deadline is not a finish date, following the Microsoft Project model: it
+does not move the schedule, and setting one has no effect on the task's
+computed start, finish, or duration. It is a marker that sits still and
+flags the task once it slips past it -- either because the deadline date has
+already passed and the task is not complete, or because the task is not on
+track to finish (``start + duration``) by the deadline. A task in that state
+is shown RED and, on the Gantt view, marked with a downward red arrow at the
+deadline date.
+
 Comments
 ~~~~~~~~~
 

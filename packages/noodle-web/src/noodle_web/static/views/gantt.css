@@ -555,6 +555,22 @@
     pointer-events: none;
 }
 
+/* Deadline slippage marker: a downward red arrow at the deadline date (#877).
+   Independent of the task bar -- a deadline never moves the schedule, it
+   only marks where it sits on the timeline. */
+.gantt-deadline-marker {
+    position: absolute;
+    top: -1px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 10px solid #e03131;
+    transform: translateX(-6px);
+    cursor: default;
+    z-index: 6;
+}
+
 /* Critical path highlighting */
 .gantt-critical-bar {
     background: #e03131 !important;
@@ -1131,6 +1147,11 @@
     color: #dcdcaa;
 }
 
+.syntax-deadline {
+    color: #f48771;
+    font-weight: 600;
+}
+
 .syntax-dependency {
     color: #569cd6;
 }
@@ -1190,6 +1211,7 @@
    element, so this can never alter text, length, or caret position. */
 body.hl-off-duration .syntax-duration,
 body.hl-off-duration .syntax-date,
+body.hl-off-duration .syntax-deadline,
 body.hl-off-duration .syntax-effort,
 body.hl-off-duration .syntax-recurrence,
 body.hl-off-duration .syntax-lag-lead {
