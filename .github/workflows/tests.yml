@@ -10,10 +10,21 @@ on:
     branches: [main]
   pull_request:
 
+# A new push supersedes whatever is still running for the same ref: these
+# suites take minutes, and a superseded run tells you nothing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pytest:
     name: pytest
     runs-on: ubuntu-latest
+    # The whole suite is well under a minute of actual work. A job that runs
+    # far past that is wedged, not slow, and the default six-hour ceiling
+    # would sit there burning runner time -- fail fast instead, and read the
+    # log to see which test it stopped on.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -28,15 +39,20 @@ jobs:
       - name: Install the workspace
         run: uv sync --all-packages
 
-      # The Selenium tests in tests/test_usability.py skip themselves when
-      # there is no browser and no server to drive, so the whole suite runs
-      # here as-is -- nothing is excluded.
+      # Verbose on purpose. Nothing here needs the extra output when it
+      # passes, but if the job is killed on the timeout above, the last line
+      # of the log is the test that hung -- which `-q` would not tell you.
+      #
+      # Note tests/test_usability.py does NOT skip here. It skips only where
+      # Selenium cannot reach a browser, and GitHub's runners ship Chrome, so
+      # its 50 tests really run, each against a uvicorn server of its own.
       - name: Run the Python suite
-        run: uv run pytest -q -p no:cacheprovider
+        run: uv run pytest -v -p no:cacheprovider
 
   js:
     name: npm run test:js
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
