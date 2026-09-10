@@ -108,6 +108,242 @@ let collabBackmatterConflicts = null;
 // below.
 let collabAutosaveTimer = null;
 
+// #876: session chat is intentionally memory-only. It is never placed in
+// localStorage, the project record, the autosave snapshot, or a server
+// request. The only durable path is the explicit "Add to task comment"
+// action below, which writes one chosen message into the canonical plan.
+const collabChatEntries = [];
+const collabChatEntryIds = new Set();
+let collabChatUnread = 0;
+
+function collabChatId() {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+        return globalThis.crypto.randomUUID();
+    }
+    return `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Build a bounded, display-safe chat/activity frame. The sender supplied
+ * by a joiner is never trusted by the host; handleCollabMessage replaces it
+ * with the authenticated presence name before calling this helper. */
+function buildCollabChatEntry(type, sender, text, id, timestamp) {
+    if (type !== 'chat' && type !== 'activity') return null;
+    const cleanText = String(text || '').replace(/\0/g, '').trim().slice(0, 2000);
+    if (!cleanText) return null;
+    const cleanSender = String(sender || 'Participant').replace(/[\r\n\0]+/g, ' ').trim().slice(0, 100);
+    return {
+        type,
+        id: String(id || collabChatId()).slice(0, 120),
+        sender: cleanSender || 'Participant',
+        text: cleanText,
+        timestamp: Number.isFinite(Number(timestamp)) ? Number(timestamp) : Date.now(),
+    };
+}
+
+function resetCollabChat() {
+    collabChatEntries.length = 0;
+    collabChatEntryIds.clear();
+    collabChatUnread = 0;
+    const list = document.getElementById('collabChatList');
+    if (list) list.innerHTML = '';
+    const panel = document.getElementById('collabChatPanel');
+    if (panel) { panel.hidden = true; panel.classList.remove('expanded'); }
+    const button = document.getElementById('collabChatBtn');
+    if (button) button.setAttribute('aria-expanded', 'false');
+    updateCollabChatUnread();
+}
+
+function setCollabChatActive(active) {
+    const wrap = document.getElementById('collabChatWrap');
+    if (wrap) wrap.hidden = !active;
+    if (!active) resetCollabChat();
+}
+
+function updateCollabChatUnread() {
+    const badge = document.getElementById('collabChatUnread');
+    if (!badge) return;
+    badge.hidden = collabChatUnread < 1;
+    badge.textContent = collabChatUnread > 99 ? '99+' : String(collabChatUnread);
+}
+
+function collabChatIsOpen() {
+    const panel = document.getElementById('collabChatPanel');
+    return !!(panel && !panel.hidden);
+}
+
+function toggleCollabChatPanel() {
+    const panel = document.getElementById('collabChatPanel');
+    const button = document.getElementById('collabChatBtn');
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    if (button) button.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) {
+        collabChatUnread = 0;
+        updateCollabChatUnread();
+        renderCollabChat();
+        const input = document.getElementById('collabChatInput');
+        if (input) input.focus();
+    }
+}
+
+function closeCollabChatPanel() {
+    const panel = document.getElementById('collabChatPanel');
+    const button = document.getElementById('collabChatBtn');
+    if (panel) { panel.hidden = true; panel.classList.remove('expanded'); }
+    if (button) { button.setAttribute('aria-expanded', 'false'); button.focus(); }
+}
+
+function toggleCollabChatExpanded() {
+    const panel = document.getElementById('collabChatPanel');
+    if (panel) panel.classList.toggle('expanded');
+}
+
+function receiveCollabChatEntry(entry, countUnread) {
+    const clean = buildCollabChatEntry(entry && entry.type, entry && entry.sender,
+        entry && entry.text, entry && entry.id, entry && entry.timestamp);
+    if (!clean || collabChatEntryIds.has(clean.id)) return false;
+    collabChatEntryIds.add(clean.id);
+    collabChatEntries.push(clean);
+    if (collabChatEntries.length > 500) {
+        const removed = collabChatEntries.shift();
+        collabChatEntryIds.delete(removed.id);
+    }
+    if (countUnread && !collabChatIsOpen()) {
+        collabChatUnread++;
+        updateCollabChatUnread();
+    }
+    renderCollabChat();
+    return true;
+}
+
+function collabChatTime(timestamp) {
+    try { return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    catch { return ''; }
+}
+
+function renderCollabChat() {
+    const list = document.getElementById('collabChatList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!collabChatEntries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'collab-chat-empty';
+        empty.textContent = 'Messages and session activity will appear here.';
+        list.appendChild(empty);
+        return;
+    }
+    for (const entry of collabChatEntries) {
+        const row = document.createElement('article');
+        row.className = `collab-chat-entry ${entry.type}`;
+        if (entry.type === 'activity') {
+            row.textContent = `${entry.sender} ${entry.text}`;
+        } else {
+            const meta = document.createElement('div');
+            meta.className = 'collab-chat-meta';
+            const author = document.createElement('span');
+            author.className = 'collab-chat-author';
+            author.textContent = entry.sender;
+            const time = document.createElement('time');
+            time.dateTime = new Date(entry.timestamp).toISOString();
+            time.textContent = collabChatTime(entry.timestamp);
+            const promote = document.createElement('button');
+            promote.type = 'button';
+            promote.className = 'collab-chat-promote';
+            promote.textContent = 'Add to task';
+            promote.title = 'Promote this message to a task comment';
+            promote.addEventListener('click', () => promoteCollabChatToComment(entry.id));
+            meta.append(author, time, promote);
+            const text = document.createElement('div');
+            text.className = 'collab-chat-text';
+            text.textContent = entry.text;
+            row.append(meta, text);
+        }
+        list.appendChild(row);
+    }
+    list.scrollTop = list.scrollHeight;
+}
+
+async function submitCollabChat(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('collabChatInput');
+    if (!input || !input.value.trim()) return;
+    const entry = buildCollabChatEntry('chat', 'Host', input.value);
+    input.value = '';
+    receiveCollabChatEntry(entry, false);
+    await sendCollabMessage(JSON.stringify(entry));
+}
+
+function collabChatTranscript(entries) {
+    return (entries || []).map(entry => {
+        const stamp = new Date(entry.timestamp).toISOString();
+        return entry.type === 'activity'
+            ? `[${stamp}] * ${entry.sender} ${entry.text}`
+            : `[${stamp}] ${entry.sender}: ${entry.text}`;
+    }).join('\n');
+}
+
+function exportCollabChat() {
+    const blob = new Blob([collabChatTranscript(collabChatEntries)], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `noodleplanner-session-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+/** Pure plan-text update used by the explicit durable path. */
+function appendCollabTaskComment(planText, taskName, addition) {
+    if (typeof NoodlePlanModel === 'undefined') return { ok: false, reason: 'model_unavailable' };
+    const model = NoodlePlanModel.PlanModel.parse(planText);
+    const wanted = String(taskName || '').trim().toLowerCase();
+    const task = model.tasks.find(node => String(node.name || '').toLowerCase() === wanted);
+    if (!task) return { ok: false, reason: 'unknown_task' };
+    const safe = String(addition || '').replace(/[\r\n]+/g, ' ').replace(/["\u201c\u201d]/g, "'").trim();
+    if (!safe) return { ok: false, reason: 'empty_comment' };
+    model.updateLine(task, line => {
+        const existing = /"([^"]*)"/.exec(line);
+        if (!existing) return `${line} "${safe}"`;
+        const joined = existing[1] ? `${existing[1]} · ${safe}` : safe;
+        return line.slice(0, existing.index) + `"${joined}"` + line.slice(existing.index + existing[0].length);
+    });
+    return { ok: true, text: model.serialize() };
+}
+
+function promoteCollabChatToComment(entryId) {
+    const entry = collabChatEntries.find(item => item.id === entryId && item.type === 'chat');
+    const editor = collabEditor();
+    if (!entry || !editor) return false;
+    const taskName = prompt('Add this message as a comment to which task? Enter the exact task name.');
+    if (!taskName) return false;
+    const result = appendCollabTaskComment(editor.value, taskName, `[${entry.sender}] ${entry.text}`);
+    if (!result.ok) {
+        if (typeof showToast === 'function') showToast('Task not found; the chat message was not saved', 'error');
+        return false;
+    }
+    editor.value = result.text;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof renderText === 'function') Promise.resolve(renderText());
+    if (typeof showToast === 'function') showToast('Chat message added to the task comment', 'success');
+    return true;
+}
+
+function describeCollabPlanActivity(op) {
+    if (!op) return 'updated the plan';
+    if (op.op === 'add_task') return `added task “${op.name || 'Untitled'}”`;
+    if (op.op === 'rename') return `renamed task “${op.expect || 'Untitled'}”`;
+    if (op.op === 'delete_task') return `removed task “${op.expect || 'Untitled'}”`;
+    return `updated task “${op.expect || op.id || 'Untitled'}”`;
+}
+
+async function recordCollabActivity(sender, text) {
+    const entry = buildCollabChatEntry('activity', sender || 'Participant', text);
+    receiveCollabChatEntry(entry, true);
+    await sendCollabMessage(JSON.stringify(entry));
+}
+
 /** The host's authoritative plan document. This is the same textarea the
  * PM edits by hand -- there is deliberately no second copy of the plan for
  * the session, so a joiner's edit and the host's own edit go through
@@ -430,6 +666,7 @@ async function applyCollabPlanOp(joinerId, op) {
     const editor_name = collabJoinerNames.get(joinerId);
     const raced = collabConflicts.record(op.expect || String(op.id), editor_name);
     await broadcastCollabPlan(raced ? describeConflict(op, result.previous, editor_name) : null, null);
+    await recordCollabActivity(editor_name || 'Participant', describeCollabPlanActivity(op));
 }
 
 /** #969: apply one joiner's RAID row edit intent to the host's plan, then
@@ -486,6 +723,8 @@ async function applyCollabBackmatterOp(joinerId, op) {
     } else {
         await broadcastCollabPlan(null, null, notice ? { section: op.section, text: notice } : null);
     }
+    const sectionLabel = op.section === 'raid' ? 'RAID log' : op.section;
+    await recordCollabActivity(editor_name || 'Participant', `updated the ${sectionLabel}`);
 }
 
 /** Push the host's own typing out to joiners (#967).
@@ -513,7 +752,8 @@ function scheduleCollabPlanBroadcast() {
     clearTimeout(collabLocalEditTimer);
     collabLocalEditTimer = setTimeout(() => {
         collabPlanRev++;
-        broadcastCollabPlan(null, null);
+        broadcastCollabPlan(null, null)
+            .then(() => recordCollabActivity('Host', 'updated the plan'));
     }, 250);
 }
 
@@ -579,6 +819,12 @@ async function handleCollabMessage(raw) {
                     await sendCollabMessageTo(joinerId, JSON.stringify(snapshot));
                 }
             }
+            // Chat is ephemeral but session-scoped, not connection-scoped:
+            // someone joining late should see the conversation and activity
+            // that happened earlier in this still-live session.
+            for (const entry of collabChatEntries) {
+                await sendCollabMessageTo(joinerId, JSON.stringify(entry));
+            }
         }
         return;
     }
@@ -614,6 +860,18 @@ async function handleCollabMessage(raw) {
         }
         if (isBackmatterOp(parsed)) {
             await applyCollabBackmatterOp(joinerId, parsed);
+            return;
+        }
+        if (parsed && parsed.type === 'chat') {
+            // The relay envelope authenticated the sender; discard any
+            // display name supplied inside their payload to prevent spoofing.
+            const entry = buildCollabChatEntry(
+                'chat', collabJoinerNames.get(joinerId) || 'Participant',
+                parsed.text, collabChatId(), Date.now()
+            );
+            if (entry && receiveCollabChatEntry(entry, true)) {
+                await sendCollabMessage(JSON.stringify(entry));
+            }
             return;
         }
         collabLog(`joiner: ${plaintext}`);
@@ -661,6 +919,7 @@ async function startCollabSession() {
     collabSessionKeys.clear();
     collabJoinerNames.clear();
     collabPlanRev = 0;
+    resetCollabChat();
     if (collabConflicts) collabConflicts.reset();
     if (collabBackmatterConflicts) collabBackmatterConflicts.reset();
     attachCollabLocalEditListener();
@@ -692,6 +951,7 @@ async function startCollabSession() {
 
     status.textContent = 'Session live. Share the code and link below with your team.';
     details.style.display = 'block';
+    setCollabChatActive(true);
 
     const { deriveConnectKey, generateEphemeralKeyPair, buildPubkeyAnnouncement } = await loadCollabCrypto();
 
@@ -734,6 +994,7 @@ async function startCollabSession() {
         collabSocket = null;
         collabSessionKeys.clear();
         collabJoinerNames.clear();
+        setCollabChatActive(false);
         // Nothing left to broadcast to; a pending timer would only wake up
         // and find no keys.
         clearTimeout(collabLocalEditTimer);
