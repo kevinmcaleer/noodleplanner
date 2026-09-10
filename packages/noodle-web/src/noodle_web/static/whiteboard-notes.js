@@ -655,6 +655,12 @@ function wbBuildNoteViewModel(row, tasks, themeColours = {}, boardNames = null) 
         childCount: wbChildCount(tasks, child.name),
         complete: wbIsChildComplete(child),
         onBoard: onBoard.has(String(child.name).toLowerCase()),
+        // Issue #1162's resource-assign bubble shows a child row's own
+        // current assignees (not the summary task's, unlike the note
+        // footer's avatars) -- same shape as wbBuildPeekLevel()'s own
+        // per-child `resources`, so the bubble and the peek can never
+        // disagree about who a child is assigned to.
+        resources: wbResourceList(child.resources),
     }));
     const children = allChildren.filter(c => !c.onBoard);
     const linkedChildren = allChildren.filter(c => c.onBoard);
@@ -2539,7 +2545,45 @@ function wbBuildChildRow(childVm) {
         row.addEventListener('click', () => wbTogglePeekFor(child.name, badge));
     }
 
+    wbAppendChildResourceControls(row, childVm);
+
     return row;
+}
+
+/**
+ * Append the quick resource-assign affordance (issue #1162, part of epic
+ * #878) to the right-hand end of a checklist row: a small avatar per
+ * already-assigned resource (mirrors the note footer's own
+ * `.wb-note-avatar` treatment -- wbGetInitials(), same initials -- just
+ * smaller, since several may sit in one row), then a "+" bubble that opens
+ * a dropdown of the plan's resources for one-click assignment. Deliberately
+ * the row's last children in DOM order -- "a bubble at the right of a
+ * task", per the epic's own wording.
+ */
+function wbAppendChildResourceControls(row, childVm) {
+    const child = childVm.task;
+
+    (childVm.resources || []).forEach(resource => {
+        const avatar = document.createElementNS(XHTML_NS, 'span');
+        avatar.setAttribute('class', 'wb-note-row-avatar');
+        avatar.textContent = wbGetInitials(resource);
+        avatar.title = resource;
+        row.appendChild(avatar);
+    });
+
+    const bubble = document.createElementNS(XHTML_NS, 'button');
+    bubble.setAttribute('type', 'button');
+    bubble.setAttribute('class', 'wb-note-assign-bubble');
+    bubble.setAttribute('aria-haspopup', 'menu');
+    bubble.setAttribute('aria-expanded', 'false');
+    bubble.textContent = '+';
+    bubble.title = `Assign a resource to "${child.name}"`;
+    bubble.setAttribute('aria-label', `Assign a resource to ${child.name}`);
+    bubble.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wbToggleAssignMenu(child.name, bubble);
+    });
+    row.appendChild(bubble);
 }
 
 /**
@@ -2671,6 +2715,229 @@ function wbCommitMarkdown(nextText) {
         });
     }
     return true;
+}
+
+// ── Quick resource-assign bubble (issue #1162, part of epic #878) ───────
+//
+// A child row's own resource list, not the summary task's -- see
+// wbBuildNoteViewModel()'s `resources` addition above. Follows
+// wbToggleChildComplete()'s exact commit shape: findTaskLineNumber()
+// locates the child's own markdown line (it need not have a whiteboard
+// row of its own -- it is only ever shown as a row *inside* this note's
+// body), a small pure line-rewriter adds the `@shortname` token, and
+// wbCommitMarkdown() pushes the result through #planEditor like every
+// other whiteboard mutation.
+//
+// The resource *list* offered is getAllResourceNames() (script.js) -- the
+// exact same list the task-details form's own resource field draws from
+// -- which is the "reusing the task details form['s] resource-assignment
+// logic" #878 asks for. Writing the chosen name onto the line is its own
+// small, free-standing tokenizer rather than a call through
+// `window.kanbanBoard.addResourceToTaskLine()` (kanban.js already has an
+// equivalent method): that singleton is only ever constructed once the
+// Kanban view has been opened this session, and this bubble must work on
+// the whiteboard whether or not Kanban has ever been visible.
+
+/**
+ * Add `@shortname` to a task line -- mirrors kanban.js's
+ * KanbanBoard.addResourceToTaskLine() exactly (see that method for the
+ * same logic used by the boards view's own drag-drop resource assignment).
+ */
+function wbAddResourceToLine(line, shortname) {
+    const trimmed = line.trim();
+    const indent = (line.match(/^(\s*)/) || ['', ''])[1];
+
+    if (trimmed.includes('@')) {
+        return line.replace(/(@\w+(?:\s+@\w+)*)/, `$1 @${shortname}`);
+    }
+
+    const tokens = trimmed.split(/\s+/);
+    let insertIndex = 0;
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.startsWith('*')) { insertIndex = i + 1; continue; }
+        if (token.startsWith('@') || token.startsWith('#') || /^\d+[dwmy]$/.test(token) ||
+            /^\d+%$/.test(token) || /^\d{4}-\d{2}-\d{2}$/.test(token) || token.startsWith('"')) {
+            break;
+        }
+        insertIndex = i + 1;
+    }
+    tokens.splice(insertIndex, 0, `@${shortname}`);
+    return indent + tokens.join(' ');
+}
+
+/** Write `shortname` onto `childTaskName`'s own line and commit. */
+function wbAssignResourceToChild(childTaskName, shortname) {
+    const editor = document.getElementById('planEditor');
+    if (!editor || !shortname) return false;
+    if (typeof findTaskLineNumber !== 'function') return false;
+
+    const lineNumber = findTaskLineNumber({ name: childTaskName });
+    if (lineNumber === -1) return false;
+
+    const lines = editor.value.split('\n');
+    const line = lines[lineNumber - 1];
+    if (!line && line !== '') return false;
+
+    lines[lineNumber - 1] = wbAddResourceToLine(line, shortname);
+    return wbCommitMarkdown(lines.join('\n'));
+}
+
+/**
+ * Build the assign bubble's dropdown: every plan resource
+ * (getAllResourceNames(), script.js) not already assigned to `taskName`,
+ * each a clickable menuitem -- reuses `.wb-note-menu`/`.wb-note-menu-list`/
+ * `.wb-note-menu-action` as-is (see views/whiteboard.css's note on that
+ * section) rather than a second popup skin, since this is the exact same
+ * "single floating list, appended to document.body" shape as the note's
+ * own `...` menu (wbBuildNoteMenu()).
+ */
+function wbBuildAssignMenu(taskName) {
+    const menu = document.createElement('div');
+    menu.id = 'wbAssignMenu';
+    menu.className = 'wb-note-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', `Assign a resource to ${taskName}`);
+
+    const list = document.createElement('ul');
+    list.className = 'wb-note-menu-list';
+    menu.appendChild(list);
+
+    const key = String(taskName).toLowerCase();
+    const task = (wbLastTasks || []).find(t => t && String(t.name).toLowerCase() === key);
+    const assigned = new Set(wbResourceList(task && task.resources).map(r => r.toLowerCase()));
+    const allNames = (typeof getAllResourceNames === 'function') ? getAllResourceNames() : [];
+    const available = allNames.filter(name => !assigned.has(String(name).toLowerCase()));
+
+    if (!available.length) {
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.className = 'wb-note-menu-empty';
+        span.textContent = allNames.length ? 'All resources already assigned' : 'No resources defined yet';
+        li.appendChild(span);
+        list.appendChild(li);
+        return menu;
+    }
+
+    available.forEach(name => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'wb-note-menu-action';
+        btn.setAttribute('role', 'menuitem');
+        btn.textContent = name;
+        btn.setAttribute('aria-label', `Assign ${name} to ${taskName}`);
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wbCloseAssignMenu();
+            wbAssignResourceToChild(taskName, name);
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+    });
+
+    return menu;
+}
+
+/** Single-slot popup state, mirrors wbNoteMenuState. */
+let wbAssignMenuState = null;
+
+/** Toggle the assign menu for `taskName`: closes it if already open for
+ * this same task, otherwise opens (re-rooting if a different task's menu
+ * was open) -- mirrors wbTogglePeekFor()'s own open/close toggle. */
+function wbToggleAssignMenu(taskName, anchorEl) {
+    if (wbAssignMenuState && wbAssignMenuState.taskName === taskName) {
+        wbCloseAssignMenu();
+        return;
+    }
+    wbOpenAssignMenu(taskName, anchorEl);
+}
+
+/** Open the assign menu, positioned/clamped exactly like wbOpenNoteMenu()
+ * (reuses wbNoteMenuSafeBounds() as-is). */
+function wbOpenAssignMenu(taskName, btn) {
+    wbCloseAssignMenu();
+    wbCloseNoteMenu();
+
+    const menu = wbBuildAssignMenu(taskName);
+    document.body.appendChild(menu);
+
+    const edgeGap = 8;
+    const bounds = wbNoteMenuSafeBounds(edgeGap);
+    const btnRect = btn.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+
+    let left = Math.min(btnRect.left, window.innerWidth - menuRect.width - edgeGap);
+    left = Math.max(edgeGap, left);
+
+    const spaceBelow = bounds.bottom - (btnRect.bottom + 4);
+    const spaceAbove = (btnRect.top - 4) - bounds.top;
+
+    let top;
+    if (menuRect.height <= spaceBelow || spaceBelow >= spaceAbove) {
+        top = btnRect.bottom + 4;
+        menu.style.maxHeight = `${Math.max(80, Math.min(menuRect.height, spaceBelow))}px`;
+    } else {
+        const height = Math.max(80, Math.min(menuRect.height, spaceAbove));
+        top = btnRect.top - 4 - height;
+        menu.style.maxHeight = `${height}px`;
+    }
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+
+    btn.setAttribute('aria-expanded', 'true');
+    wbAssignMenuState = { taskName, btn };
+
+    document.addEventListener('mousedown', wbAssignMenuOutsideClick, true);
+    document.addEventListener('keydown', wbAssignMenuKeydown, true);
+
+    const first = menu.querySelector('[role="menuitem"]');
+    if (first) first.focus();
+}
+
+function wbCloseAssignMenu() {
+    const menu = document.getElementById('wbAssignMenu');
+    if (menu) menu.remove();
+    document.removeEventListener('mousedown', wbAssignMenuOutsideClick, true);
+    document.removeEventListener('keydown', wbAssignMenuKeydown, true);
+    if (wbAssignMenuState && wbAssignMenuState.btn) {
+        wbAssignMenuState.btn.setAttribute('aria-expanded', 'false');
+    }
+    wbAssignMenuState = null;
+}
+
+function wbAssignMenuOutsideClick(e) {
+    const menu = document.getElementById('wbAssignMenu');
+    if (!menu) return;
+    if (menu.contains(e.target)) return;
+    if (wbAssignMenuState && wbAssignMenuState.btn && wbAssignMenuState.btn.contains(e.target)) return;
+    wbCloseAssignMenu();
+}
+
+function wbAssignMenuKeydown(e) {
+    const menu = document.getElementById('wbAssignMenu');
+    if (!menu) return;
+
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        const btn = wbAssignMenuState && wbAssignMenuState.btn;
+        wbCloseAssignMenu();
+        if (btn) btn.focus();
+        return;
+    }
+
+    const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+    if (!items.length) return;
+    const index = items.indexOf(document.activeElement);
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        items[(index + 1 + items.length) % items.length].focus();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        items[(index - 1 + items.length) % items.length].focus();
+    }
 }
 
 // ── Note colour menu (issue #849) ───────────────────────────────────────

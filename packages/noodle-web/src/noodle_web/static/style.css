@@ -4929,6 +4929,73 @@ tr:hover .task-context-btn,
     font-size: 0.9em;
 }
 
+/* Smart-tag date suggestions (issue #1161, part of epic #878): a small
+   bar under the task-details form's Comment field, populated by
+   smart-date-tags.js when it finds a date-like phrase in that text.
+   Hidden (no `.active` class) whenever there is nothing to suggest --
+   see #878's "suggestion layer, never silent assumption" -- so an empty
+   bar never reserves visible space under the textarea. */
+.task-date-suggestions {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.task-date-suggestions.active {
+    display: flex;
+}
+
+.task-date-suggestion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.task-date-suggestion-label {
+    font-size: 12px;
+    color: #666;
+    margin-right: 2px;
+}
+
+.task-date-suggestion-btn {
+    border: 1px solid #108BB9;
+    border-radius: 4px;
+    background: white;
+    color: #108BB9;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.task-date-suggestion-btn:hover,
+.task-date-suggestion-btn:focus-visible {
+    background: #108BB9;
+    color: white;
+    outline: none;
+}
+
+.task-date-suggestion-dismiss {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: #999;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+}
+
+.task-date-suggestion-dismiss:hover,
+.task-date-suggestion-dismiss:focus-visible {
+    color: #333;
+}
+
 /* Non-working days exceptions table */
 .nwd-exceptions-table {
     width: 100%;
