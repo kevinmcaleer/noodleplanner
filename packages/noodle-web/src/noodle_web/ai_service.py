@@ -276,7 +276,7 @@ async def proxy_chat_with_tools(
                     "AI response: finish_reason=%s, has_tool_calls=%s, content_len=%d",
                     finish_reason,
                     bool(message.get("tool_calls")),
-                    len(message.get("content", "")),
+                    len(message.get("content") or ""),
                 )
 
                 has_tool_calls = (
