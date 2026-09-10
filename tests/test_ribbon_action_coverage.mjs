@@ -110,7 +110,7 @@ const DELIBERATE_STUBS = new Set([
   "Slack", "Sync", "Filter", "Sort", "Group",
   // No dedicated function exists (checked: grepped the codebase, found none).
   "Delete", "Milestone", "Fit", "Today", "Go to Task", "Unlink",
-  "Calendars", "Durations",
+  "Durations",
   "Interest", "Owner", "Grid",
   "Categorise", "Tag", "Link to Risk", "Review", "Publish",
   // Programme scope (#936/#909): Programmes aren't built yet (#731/#910).

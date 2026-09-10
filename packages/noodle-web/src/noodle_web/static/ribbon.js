@@ -109,6 +109,29 @@ function notAvailable(label) {
     if (typeof showToast === 'function') showToast(`${label} isn't available yet`, 'info');
 }
 
+/**
+ * #1047 ribbon follow-up: the ribbon's "Calendars" buttons (Plan > Schedule,
+ * Resources > People, and the Resource Tools contextual tab's "Calendar")
+ * used to be reviewed "not available yet" stubs. Calendar management
+ * itself already shipped (#1135) as a Calendars list + Active Calendar
+ * selector inside the Front Matter panel -- these buttons just never
+ * pointed at it. This opens the plan editor if it isn't already showing
+ * (the panel lives above the editor textarea) and reveals that section.
+ */
+function revealCalendarsPanel() {
+    const editorTab = document.getElementById('editor-tab');
+    if (!editorTab || !editorTab.classList.contains('active')) switchToView('notepad');
+    const editorPanel = document.querySelector('.editor-panel');
+    if (editorPanel && editorPanel.classList.contains('collapsed') && typeof toggleMainEditor === 'function') {
+        toggleMainEditor();
+    }
+    if (typeof FrontMatterPanel !== 'undefined' && FrontMatterPanel.instance) {
+        FrontMatterPanel.revealCalendars();
+    } else {
+        notAvailable('Calendars');
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Action resolution: label -> real function.
 //
@@ -257,6 +280,10 @@ function scopedAction(scopeId, label) {
         'portfolio:Benefits': switchPortfolioSubview('benefits'),
         'portfolio:Capacity': switchPortfolioSubview('resources'),
 
+        // #1047 ribbon follow-up: Plan tab's Schedule group "Calendars" --
+        // see the 'resources:Calendars' comment above for the full story.
+        'plan:Calendars': () => revealCalendarsPanel(),
+
         'raid:Import': () => openFormatMenu(RAID_IMPORT_FORMATS, 'Import'),
         'raid:Export': () => openFormatMenu(RAID_EXPORT_FORMATS, 'Export'),
         'raid:New Risk': () => addRaidItem(),
@@ -282,6 +309,15 @@ function scopedAction(scopeId, label) {
         'stakeholders:Add Stakeholder': () => addStakeholderRow(),
         'stakeholders:Comms Plan': switchView('comms'),
         'resources:Add Resource': () => openResourceForm(),
+        // #1047 ribbon follow-up: "Calendars" (main Resources tab) and
+        // "Calendar" (Resource Tools contextual tab) both land in the
+        // Front Matter panel's Calendars section -- see
+        // revealCalendarsPanel() above. The contextual tab's singular
+        // "Calendar" used to fall through to VIEW_FOR_LABEL's generic
+        // task-calendar view, which isn't what a resource calendar button
+        // should open.
+        'resources:Calendars': () => revealCalendarsPanel(),
+        'resources:Calendar': () => revealCalendarsPanel(),
         'resources:Timesheet': switchView('timesheet'),
         'resources:Workload': () => { window.onlyOverallocatedWorkload = false; switchToView('user-workload'); },
         'resources:Level': () => showLevellingSuggestions(),
