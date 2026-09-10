@@ -91,8 +91,9 @@ export const TABS = [
         groups: [
             // Rates, Skills and Availability removed (#1116): none had a
             // real function behind them and none are on the near-term
-            // roadmap. Calendars stays a reviewed stub -- resource calendar
-            // support is tracked under the #1047 epic, not built here.
+            // roadmap. Calendars (#1047/#1135) now opens the Front Matter
+            // panel's Calendars section -- see ribbon.js's
+            // revealCalendarsPanel().
             { name: 'People', launcher: true, lg: [['resources', 'Resources'], ['people', 'Stakeholders']], cols: [[['calendar', 'Calendars']]] },
             { name: 'Effort', launcher: true, lg: [['clock', 'Timesheet']], cols: [[['chart', 'Workload'], ['refresh', 'Level']], [['warn', 'Overallocation'], ['grid', 'Resource Sheet']]] },
             { name: 'Comms', lg: [['doc', 'Comms Plan']], cols: [[['people', 'Influence'], ['print', 'Print']]] },
