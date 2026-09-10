@@ -107,6 +107,20 @@ class TestSessionCreation:
         assert "text/html" in response.headers["content-type"]
         assert info["session_id"] in response.text
 
+    def test_join_page_uses_the_minimal_post_its_and_list_surface(self, client):
+        info = _start_session(client)
+        response = client.get(info["holding_url"])
+        assert response.status_code == 200
+        assert 'id="joinWhiteboardCanvas"' in response.text
+        assert 'id="joinNotepadContainer"' in response.text
+        assert "/static/notepad.js" in response.text
+        assert 'id="planTasks"' not in response.text
+        assert 'id="raidRows"' not in response.text
+        assert "RAID / risk log" not in response.text
+        assert "Benefits" not in response.text
+        assert "Comms plan" not in response.text
+        assert "Weekly updates" not in response.text
+
 
 class TestHostConnection:
     def test_host_connects_with_valid_token(self, client):
