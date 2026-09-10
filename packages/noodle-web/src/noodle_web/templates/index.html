@@ -91,14 +91,17 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
-    <!-- NoodlePlanner typeface (issue #1024): Manrope for headings/chrome,
-         Inter for body/UI text. Loaded with font-display: swap so a slow or
-         offline fetch falls straight back to the system stack in base.css/
-         dark-mode.css (--np-font-heading / --np-font-ui) instead of
+    <!-- NoodlePlanner typeface. Newsreader for headings, Instrument Sans for
+         body/UI text, IBM Plex Mono for data (dates, durations, ids) -- the
+         approved Warm Paper + Marigold pairing for #998, replacing the
+         Manrope/Inter interim chosen for #1024 while the design handoff was
+         unavailable. Loaded with font-display: swap so a slow or offline
+         fetch falls straight back to the system stack in visual-system.css
+         (--np-font-heading / --np-font-ui / --np-font-data) instead of
          blocking or flashing invisible text. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:wght@300;400;500&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Custom CSS (modular) -->
     <link rel="stylesheet" href="/static/base.css?v={{ v }}">
@@ -121,6 +124,11 @@
     <link rel="stylesheet" href="/static/views/programme.css?v={{ v }}">
     <link rel="stylesheet" href="/static/status-bar.css?v={{ v }}">
     <link rel="stylesheet" href="/static/dark-mode.css?v={{ v }}">
+    <!-- Approved #998 palette. Deliberately last: it redefines the same
+         semantic --np-* roles the stylesheets above already consume, so it
+         must win the cascade. Nothing here introduces new selectors for
+         views to depend on -- swap these values and the whole app restyles. -->
+    <link rel="stylesheet" href="/static/visual-system.css?v={{ v }}">
 
     <!-- Apply saved theme immediately to prevent flash of wrong theme -->
     <script>

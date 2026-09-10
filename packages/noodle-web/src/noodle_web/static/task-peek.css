@@ -115,7 +115,7 @@
 .task-peek-open-details-btn:hover,
 .task-peek-open-details-btn:focus-visible {
     background: var(--np-accent);
-    color: #ffffff;
+    color: var(--np-on-accent);
     border-color: var(--np-accent);
 }
 
