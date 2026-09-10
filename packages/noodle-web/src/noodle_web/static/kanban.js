@@ -82,6 +82,8 @@ class KanbanBoard {
         this.columns = [];
         this.phases = [];
         this.phaseLineNumbers = new Map();
+        this.phaseNodes = new Map();
+        this.planModel = null;
         this.resourceMap = {}; // Maps shortname to full name from front matter
         this.stakeholderShortnames = new Set(); // Shortnames declared in the stakeholders: section
         this.labelsFromFrontMatter = []; // Labels defined in front matter
@@ -232,6 +234,10 @@ class KanbanBoard {
         this.columns = [];
         this.phases = [];
         this.phaseLineNumbers = new Map();
+        this.phaseNodes = new Map();
+        this.planModel = typeof NoodlePlanModel !== 'undefined'
+            ? NoodlePlanModel.modelForEditor(editor)
+            : null;
         this.resourceMap = {};
         this.stakeholderShortnames = new Set();
         this.labelsFromFrontMatter = [];
@@ -474,6 +480,10 @@ class KanbanBoard {
                 currentIndent = indent;
                 this.phases.push(currentPhase);
                 this.phaseLineNumbers.set(currentPhase, lineNum);
+                if (this.planModel) {
+                    this.phaseNodes.set(currentPhase,
+                        this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null);
+                }
                 continue;
             }
 
@@ -489,6 +499,10 @@ class KanbanBoard {
                     currentIndent = indent;
                     this.phases.push(currentPhase);
                     this.phaseLineNumbers.set(currentPhase, lineNum);
+                    if (this.planModel) {
+                        this.phaseNodes.set(currentPhase,
+                            this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null);
+                    }
                     continue;
                 }
             }
@@ -502,6 +516,9 @@ class KanbanBoard {
                 task.phase = currentPhase || 'Unassigned';
                 task.indent = indent;
                 task.originalLine = line;
+                task.planNode = this.planModel
+                    ? this.planModel.tasks.find(node => this.planModel.lineNumber(node) === lineNum) || null
+                    : null;
 
                 // Parse resources into array and normalize to lowercase
                 const rawResources = task.resources ?
@@ -564,6 +581,44 @@ class KanbanBoard {
     }
 
     /**
+     * Resolve a task rendered from an earlier parse against the editor's
+     * latest PlanModel.  Object identity is used while the editor snapshot is
+     * unchanged; after an autosave/collaboration/editor rewrite, the node is
+     * re-resolved by its content and ancestry instead of its old line number.
+     */
+    resolveTaskNode(taskOrLineNumber, model) {
+        const renderedTask = typeof taskOrLineNumber === 'object'
+            ? taskOrLineNumber
+            : this.tasks.find(task => task.lineNumber === taskOrLineNumber);
+        const oldNode = renderedTask && renderedTask.planNode;
+        if (!oldNode || !model) return null;
+        if (model.tasks.includes(oldNode)) return oldNode;
+
+        const ancestry = node => {
+            const names = [];
+            for (let parent = node.parent; parent; parent = parent.parent) names.unshift(parent.name);
+            return names.join('\u0000');
+        };
+        let candidates = model.tasks.filter(node =>
+            node.content === oldNode.content && ancestry(node) === ancestry(oldNode));
+        if (candidates.length === 1) return candidates[0];
+        candidates = model.tasks.filter(node =>
+            node.name === oldNode.name && ancestry(node) === ancestry(oldNode));
+        return candidates.length === 1 ? candidates[0] : null;
+    }
+
+    resolvePhaseNode(columnOrTitle, model) {
+        const column = typeof columnOrTitle === 'object'
+            ? columnOrTitle
+            : this.columns.find(item => item.title === columnOrTitle);
+        const oldNode = column && (column.planNode || this.phaseNodes.get(column.title));
+        if (!oldNode || !model) return null;
+        if (model.tasks.includes(oldNode)) return oldNode;
+        const candidates = model.roots.filter(node => node.content === oldNode.content);
+        return candidates.length === 1 ? candidates[0] : null;
+    }
+
+    /**
      * Check if a column would be empty after filtering out completed tasks
      */
     isColumnEmptyAfterFilter(column) {
@@ -574,6 +629,7 @@ class KanbanBoard {
      * Check if a task has subtasks (is a summary task)
      */
     hasSubtasks(task) {
+        if (task.planNode) return task.planNode.children.length > 0;
         const taskIndent = task.indent;
         const taskLineNumber = task.lineNumber;
 
@@ -811,6 +867,9 @@ class KanbanBoard {
 
                 // Find all children of this summary task from the full task list
                 const children = this.getAllTasks().filter(t => {
+                    if (summaryTask.planNode && t.planNode) {
+                        return t.planNode.parent === summaryTask.planNode;
+                    }
                     // Must be after the summary task
                     if (t.lineNumber <= summaryTask.lineNumber) return false;
 
@@ -842,6 +901,7 @@ class KanbanBoard {
                     id: this.sanitizeId(summaryTask.name),
                     title: summaryTask.name,
                     summaryLineNumber: summaryTask.lineNumber,
+                    planNode: summaryTask.planNode,
                     tasks: children,
                     count: children.length
                 });
@@ -865,6 +925,7 @@ class KanbanBoard {
                     id: this.sanitizeId(phase),
                     title: phase,
                     summaryLineNumber: this.phaseLineNumbers.get(phase),
+                    planNode: this.phaseNodes.get(phase) || null,
                     tasks: phaseTasks,
                     count: phaseTasks.length
                 });
@@ -1092,6 +1153,10 @@ class KanbanBoard {
         const columns = [];
         const bucketSet = new Set();
 
+        // Declared columns lead, in front-matter declaration order. Buckets
+        // discovered only from task tokens follow in first-use order.
+        this.createdBuckets.forEach(bucket => bucketSet.add(bucket));
+
         // Collect all unique buckets from tasks
         this.tasks.forEach(task => {
             const bucket = task.bucket ? task.bucket.trim() : '';
@@ -1099,9 +1164,6 @@ class KanbanBoard {
                 bucketSet.add(bucket);
             }
         });
-
-        // Merge user-created buckets
-        this.createdBuckets.forEach(b => bucketSet.add(b));
 
         // Add "No Bucket" column
         bucketSet.add('No Bucket');
@@ -2343,35 +2405,28 @@ class KanbanBoard {
      * Handle card drop event - update task and sync back to editor
      */
     handleCardDrop(taskLineNumber, targetColumn) {
-        // Find the task
         const task = this.tasks.find(t => t.lineNumber === taskLineNumber);
         if (!task) {
             console.error('Task not found:', taskLineNumber);
             return;
         }
 
-        // Update task based on view mode
-        let updated = false;
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        const taskLine = lines[taskLineNumber - 1];
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const taskNode = this.resolveTaskNode(task, model);
+        if (!taskNode) return;
+        let updated = false;
 
         switch (this.viewMode) {
             case 'phase':
-                // Structural moves go through the parse-once plan model (#927).
-                if (typeof NoodlePlanModel === 'undefined') return;
-                const model = NoodlePlanModel.modelForEditor(editor);
                 // A phase header can't represent having zero tasks in the
                 // markdown, so once this move empties it out, drop the
                 // header line too rather than leave a dead, permanently
                 // empty column on the board (#1055).
-                const oldPhaseLineNumber = this.phaseLineNumbers.get(task.phase);
-                const oldPhaseNode = oldPhaseLineNumber
-                    ? model.tasks.find(node => model.lineNumber(node) === oldPhaseLineNumber)
-                    : null;
-                updated = this.moveTaskToPhase(model, taskLineNumber, targetColumn);
+                let oldPhaseNode = taskNode.parent;
+                while (oldPhaseNode && oldPhaseNode.parent) oldPhaseNode = oldPhaseNode.parent;
+                updated = this.moveTaskToPhase(model, task, taskNode, targetColumn);
                 if (updated && oldPhaseNode && oldPhaseNode.parent === null && oldPhaseNode.children.length === 0) {
                     model.removeTask(oldPhaseNode);
                 }
@@ -2379,27 +2434,17 @@ class KanbanBoard {
                 return;
 
             case 'resource':
-                // Replace resource assignment
                 const shortname = targetColumn.shortname;
-                if (shortname !== null) {
-                    // Moving to a resource column - replace with new resource
-                    const updatedLine = this.replaceResourceInTaskLine(taskLine, shortname);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
-                } else {
-                    // Moving to Unassigned - remove all resources
-                    const updatedLine = this.removeResourcesFromTaskLine(taskLine);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
-                }
+                updated = model.updateLine(taskNode, line => shortname !== null
+                    ? this.replaceResourceInTaskLine(line, shortname)
+                    : this.removeResourcesFromTaskLine(line));
                 break;
 
             case 'progress':
                 // Update percentage based on column
                 const newPercent = this.getPercentFromProgressColumn(targetColumn.id);
-                const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
-                lines[taskLineNumber - 1] = updatedLine;
-                updated = true;
+                updated = model.updateLine(taskNode,
+                    line => this.updatePercentInTaskLine(line, newPercent));
                 break;
 
             case 'label':
@@ -2407,14 +2452,12 @@ class KanbanBoard {
                 const labelName = targetColumn.title;
                 if (labelName !== 'Unlabeled') {
                     // Add the new label (replace existing labels)
-                    const updatedLine = this.replaceLabelsInTaskLine(taskLine, labelName);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
+                    updated = model.updateLine(taskNode,
+                        line => this.replaceLabelsInTaskLine(line, labelName));
                 } else {
                     // Moving to Unlabeled - remove all labels
-                    const updatedLine = this.removeLabelsFromTaskLine(taskLine);
-                    lines[taskLineNumber - 1] = updatedLine;
-                    updated = true;
+                    updated = model.updateLine(taskNode,
+                        line => this.removeLabelsFromTaskLine(line));
                 }
                 break;
 
@@ -2426,19 +2469,17 @@ class KanbanBoard {
                     (bucketName !== 'No Bucket' && currentBucket === bucketName);
                 if (!isAlreadyInBucket) {
                     if (bucketName !== 'No Bucket') {
-                        const updatedLine = this.replaceBucketInTaskLine(taskLine, bucketName);
-                        lines[taskLineNumber - 1] = updatedLine;
-                        updated = true;
+                        updated = model.updateLine(taskNode,
+                            line => this.replaceBucketInTaskLine(line, bucketName));
                     } else {
-                        const updatedLine = this.removeBucketFromTaskLine(taskLine);
-                        lines[taskLineNumber - 1] = updatedLine;
-                        updated = true;
+                        updated = model.updateLine(taskNode,
+                            line => this.removeBucketFromTaskLine(line));
                     }
                 }
                 break;
         }
 
-        if (updated) this.commitMarkdown(lines.join('\n'));
+        if (updated) this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /** Create a phase/label/bucket from the add-column drop zone and move the card. */
@@ -2524,8 +2565,8 @@ class KanbanBoard {
         if (!draggedColumn?.summaryLineNumber || !targetColumn?.summaryLineNumber) return;
 
         const model = NoodlePlanModel.modelForEditor(editor);
-        const dragged = model.tasks.find(task => model.lineNumber(task) === draggedColumn.summaryLineNumber);
-        const target = model.tasks.find(task => model.lineNumber(task) === targetColumn.summaryLineNumber);
+        const dragged = this.resolvePhaseNode(draggedColumn, model);
+        const target = this.resolvePhaseNode(targetColumn, model);
         const updated = insertBefore
             ? model.moveBefore(dragged, target)
             : model.moveAfter(dragged, target);
@@ -2543,8 +2584,10 @@ class KanbanBoard {
         const editor = document.getElementById('planEditor');
         if (!editor || this.viewMode !== 'phase' || typeof NoodlePlanModel === 'undefined') return;
         const model = NoodlePlanModel.modelForEditor(editor);
-        const dragged = model.tasks.find(task => model.lineNumber(task) === draggedLineNumber);
-        const target = model.tasks.find(task => model.lineNumber(task) === targetLineNumber);
+        const draggedTask = this.tasks.find(task => task.lineNumber === draggedLineNumber);
+        const targetTask = this.tasks.find(task => task.lineNumber === targetLineNumber);
+        const dragged = this.resolveTaskNode(draggedTask, model);
+        const target = this.resolveTaskNode(targetTask, model);
         if (!dragged || !target) return;
 
         // Dropping a card directly onto a card in another phase (rather than
@@ -2653,18 +2696,13 @@ class KanbanBoard {
      */
     quickSetPercent(task, newPercent, cardEl) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        const taskLineNumber = task.lineNumber;
-        const taskLine = lines[taskLineNumber - 1];
-
-        if (!taskLine) return;
-
-        const updatedLine = this.updatePercentInTaskLine(taskLine, newPercent);
-        lines[taskLineNumber - 1] = updatedLine;
-
-        this.commitMarkdown(lines.join('\n'));
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const taskNode = this.resolveTaskNode(task, model);
+        if (taskNode && model.updateLine(taskNode,
+            line => this.updatePercentInTaskLine(line, newPercent))) {
+            this.commitMarkdown(model.serialize(), { model: model });
+        }
     }
 
     /**
@@ -2736,14 +2774,12 @@ class KanbanBoard {
      */
     renameTask(task, newName) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        const line = lines[task.lineNumber - 1];
-        if (line === undefined) return;
-
-        lines[task.lineNumber - 1] = this.updateNameInTaskLine(line, newName);
-        this.commitMarkdown(lines.join('\n'));
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const taskNode = this.resolveTaskNode(task, model);
+        if (taskNode && model.rename(taskNode, newName)) {
+            this.commitMarkdown(model.serialize(), { model: model });
+        }
     }
 
     /**
@@ -2873,10 +2909,7 @@ class KanbanBoard {
     /**
      * Move task to a different phase
      */
-    moveTaskToPhase(model, taskLineNumber, targetColumn) {
-        // Don't move if already in the correct phase
-        const task = this.tasks.find(t => t.lineNumber === taskLineNumber);
-        const taskNode = model.tasks.find(node => model.lineNumber(node) === taskLineNumber);
+    moveTaskToPhase(model, task, taskNode, targetColumn) {
         if (!task || !taskNode) return false;
 
         // Check if task is already in this phase
@@ -2887,9 +2920,7 @@ class KanbanBoard {
         if (targetColumn.title === 'Unassigned') {
             return model.moveAsRoot(taskNode);
         }
-        const parentNode = model.tasks.find(
-            node => model.lineNumber(node) === targetColumn.summaryLineNumber
-        );
+        const parentNode = this.resolvePhaseNode(targetColumn, model);
         return parentNode ? model.moveAsChild(taskNode, parentNode, true) : false;
     }
 
@@ -2914,120 +2945,61 @@ class KanbanBoard {
      */
     addNewCard(column) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        // Determine indentation based on hierarchy level
-        let indentStr;
-        if (this.currentParentTask) {
-            // When drilling down, new tasks should be children of the current parent
-            const parentIndent = this.currentParentTask.indent;
-            indentStr = ' '.repeat(parentIndent + 2);
-        } else {
-            // Root level: standard indentation
-            indentStr = '  ';
-        }
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
 
         // Determine what to add based on view mode and column
-        let newTaskLine = '';
+        let content = 'New Task';
 
         switch (this.viewMode) {
             case 'phase':
-                // Add task under this phase
-                newTaskLine = `${indentStr}New Task`;
                 break;
 
             case 'resource':
                 // Add task with this resource
                 if (column.shortname && column.shortname !== null) {
-                    newTaskLine = `${indentStr}New Task @${column.shortname}`;
-                } else {
-                    newTaskLine = `${indentStr}New Task`;
+                    content += ` @${column.shortname}`;
                 }
                 break;
 
             case 'progress':
                 // Add task with appropriate progress
                 const percent = this.getPercentFromProgressColumn(column.id);
-                newTaskLine = `${indentStr}New Task ${percent}%`;
+                content += ` ${percent}%`;
                 break;
 
             case 'label':
                 // Add task with this label
                 if (column.id && column.id !== 'no_label') {
-                    newTaskLine = `${indentStr}New Task #${column.id}`;
-                } else {
-                    newTaskLine = `${indentStr}New Task`;
+                    content += ` #${column.id}`;
                 }
+                break;
+            case 'bucket':
+                if (column.title !== 'No Bucket') content += ` {${column.title}}`;
                 break;
         }
 
-        // Find appropriate place to insert
-        const lines = editor.value.split('\n');
-        let insertIndex = lines.length;
-
+        let anchor = model.tasks[model.tasks.length - 1] || null;
+        let indent = 2;
         if (this.currentParentTask) {
-            // When drilling down, insert at end of parent task's children
-            const parentIndent = this.currentParentTask.indent;
-            const parentLineNumber = this.currentParentTask.lineNumber;
-
-            insertIndex = parentLineNumber; // Start after parent
-
-            for (let i = parentLineNumber; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Skip empty lines
-                if (!trimmed) continue;
-
-                const indent = line.search(/\S/);
-
-                // If we hit a line at same or lower indentation than parent, we've found the end
-                if (indent <= parentIndent) {
-                    insertIndex = i;
-                    break;
-                }
-
-                // Keep moving forward through children
-                insertIndex = i + 1;
-            }
+            const parent = this.resolveTaskNode(this.currentParentTask, model);
+            if (!parent) return;
+            anchor = parent.children[parent.children.length - 1] || parent;
+            indent = parent.indent + 2;
         } else if (this.viewMode === 'phase' && column.title !== 'Unassigned') {
-            // Root level phase view: find the last line of this phase
-            let foundPhase = false;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Check if this is the phase header
-                if (trimmed === column.title) {
-                    foundPhase = true;
-                    insertIndex = i + 1;
-                    continue;
-                }
-
-                // If we found the phase, keep updating insert index until we hit another phase or end
-                if (foundPhase) {
-                    const indent = line.match(/^(\s*)/)[1].length;
-                    const hasMetadata = /@|#|\d+[dmw]|\d+%|\d{4}-\d{2}-\d{2}/.test(trimmed);
-
-                    // If we hit another non-indented line without metadata, it's a new phase
-                    if (indent === 0 && !hasMetadata && trimmed.length > 0 && trimmed !== column.title) {
-                        break;
-                    }
-
-                    // If line is part of this phase, update insert index
-                    if (trimmed.length > 0) {
-                        insertIndex = i + 1;
-                    }
-                }
-            }
+            const phase = this.resolvePhaseNode(column, model);
+            if (!phase) return;
+            anchor = phase.children[phase.children.length - 1] || phase;
+            indent = phase.indent + 2;
+        } else if (this.viewMode === 'phase') {
+            indent = 0;
         }
 
-        // Insert the new task
-        lines.splice(insertIndex, 0, newTaskLine);
-
-        // Calculate the line number of the new task (insertIndex is 0-based, line numbers are 1-based)
-        const newTaskLineNumber = insertIndex + 1;
-        this.commitMarkdown(lines.join('\n'), { openTaskLine: newTaskLineNumber });
+        const inserted = model.insertTaskAfter(anchor, indent, content);
+        this.commitMarkdown(model.serialize(), {
+            model: model,
+            openTaskLine: model.lineNumber(inserted)
+        });
     }
 
     /**
@@ -3040,80 +3012,17 @@ class KanbanBoard {
         }
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let insertIndex;
-        let indentStr = '';
-        let linesToAdd = [];
-
-        // If we're drilling down, add a sibling to the current task at the same level
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
         if (this.currentParentTask) {
-            // When drilling down, we're viewing siblings at the same level
-            // So the new column should be at the SAME indent as currentParentTask (a sibling)
-            const siblingIndent = this.currentParentTask.indent;
-            const siblingLineNumber = this.currentParentTask.lineNumber;
-
-            // New summary task should be at the same indent level (sibling)
-            indentStr = ' '.repeat(siblingIndent);
-            const childIndentStr = ' '.repeat(siblingIndent + 2);
-
-            // Create summary task with a child task to make it appear as a column
-            linesToAdd = [
-                indentStr + phaseName.trim(),
-                childIndentStr + 'New Task'
-            ];
-
-            // Find the end of all siblings at this level
-            // We need to find the parent of the current task first
-            let actualParentIndent = -1;
-            for (let i = siblingLineNumber - 2; i >= 0; i--) {
-                const line = lines[i];
-                if (!line.trim()) continue;
-                const indent = line.search(/\S/);
-                if (indent < siblingIndent) {
-                    actualParentIndent = indent;
-                    break;
-                }
-            }
-
-            // Now find the end of the siblings (where we hit a task at same or lower level than parent)
-            insertIndex = siblingLineNumber;
-            for (let i = siblingLineNumber; i < lines.length; i++) {
-                const line = lines[i];
-                const trimmed = line.trim();
-
-                // Skip empty lines
-                if (!trimmed) continue;
-
-                const indent = line.search(/\S/);
-
-                // If we hit a line at same or lower indentation than actual parent, we've found the end
-                if (actualParentIndent >= 0 && indent <= actualParentIndent) {
-                    insertIndex = i;
-                    break;
-                }
-
-                // Keep moving forward
-                insertIndex = i + 1;
-            }
+            const sibling = this.resolveTaskNode(this.currentParentTask, model);
+            if (!sibling) return;
+            const phase = model.insertTaskAfter(sibling, sibling.indent, phaseName.trim());
+            model.insertTaskAfter(phase, phase.indent + 2, 'New Task');
         } else {
-            // Root level: add a phase header
-            insertIndex = lines.length;
-
-            // Add blank line if last line is not blank
-            if (lines[lines.length - 1].trim() !== '') {
-                lines.push('');
-                insertIndex++;
-            }
-
-            linesToAdd = [phaseName.trim()];
+            model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, phaseName.trim());
         }
-
-        // Insert the new lines at the calculated position
-        lines.splice(insertIndex, 0, ...linesToAdd);
-
-        this.commitMarkdown(lines.join('\n'));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3220,50 +3129,20 @@ class KanbanBoard {
      */
     addFirstTask(phaseName = null, percent = null) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let insertIndex = lines.length;
-
-        // Find end of front matter if it exists
-        let inFrontMatter = false;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    // Found closing ---, insert after this
-                    insertIndex = i + 1;
-                    break;
-                }
-            }
-        }
-
-        // Add blank line if needed
-        if (insertIndex < lines.length && lines[insertIndex].trim() !== '') {
-            lines.splice(insertIndex, 0, '');
-            insertIndex++;
-        }
-
-        // Add phase header if provided
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const content = `New Task${percent ? ` ${percent}` : ''}`;
+        let inserted;
         if (phaseName && phaseName.trim()) {
-            lines.splice(insertIndex, 0, '', phaseName.trim());
-            insertIndex += 2;
+            const phase = model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, phaseName.trim());
+            inserted = model.insertTaskAfter(phase, 2, content);
+        } else {
+            inserted = model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, content);
         }
-
-        // Add task line with appropriate indent
-        const indent = phaseName ? '  ' : '';
-        let taskLine = `${indent}New Task`;
-
-        if (percent) {
-            taskLine += ` ${percent}`;
-        }
-
-        lines.splice(insertIndex, 0, taskLine);
-        const newTaskLineNumber = insertIndex + 1; // Line numbers are 1-based
-
-        this.commitMarkdown(lines.join('\n'), { openTaskLine: newTaskLineNumber });
+        this.commitMarkdown(model.serialize(), {
+            model: model,
+            openTaskLine: model.lineNumber(inserted)
+        });
     }
 
     /**
@@ -3285,82 +3164,28 @@ class KanbanBoard {
             return;
         }
 
-        const trimmedNewName = newPhaseName.trim();
-
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const trimmedNewName = newPhaseName.trim();
+        let updated = false;
 
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-        let phaseHeaderFound = false;
-        let firstTaskIndex = -1;
-
-        // Find and rename the phase header
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Track front matter to skip it
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    inFrontMatter = false;
-                }
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Check if this line is the phase header (no indentation, matches old name)
-            const trimmedLine = line.trim();
-            if (line.indexOf('  ') !== 0 && trimmedLine === oldPhaseName && !line.includes('[') && !line.includes('#')) {
-                // This is a phase header line (no indentation, no resources, no labels)
-                lines[i] = trimmedNewName;
-                phaseHeaderFound = true;
-            }
-
-            // Track first task line (for Unassigned phase case)
-            if (firstTaskIndex === -1 && !inFrontMatter && line.trim() && !line.trim().startsWith('#')) {
-                // Check if it's a task line (has indentation or is first non-front-matter content)
-                if (line.indexOf('  ') === 0 || line.trim().match(/^\*?[\w\s]+/)) {
-                    firstTaskIndex = i;
-                }
-            }
+        if (oldPhaseName === 'Unassigned') {
+            const roots = this.tasks
+                .filter(task => task.phase === 'Unassigned')
+                .map(task => this.resolveTaskNode(task, model))
+                .filter(node => node && node.parent === null);
+            if (!roots.length) return;
+            const phase = model.insertTaskAfter(model.tasks[model.tasks.length - 1] || null, 0, trimmedNewName);
+            model.moveBefore(phase, roots[0]);
+            roots.forEach(node => model.moveAsChild(node, phase, true));
+            updated = true;
+        } else {
+            const phase = this.resolvePhaseNode(oldPhaseName, model);
+            updated = phase ? model.rename(phase, trimmedNewName) : false;
         }
 
-        // Special case: If renaming "Unassigned" phase and no phase header was found,
-        // we need to CREATE a phase header before the first task
-        if (oldPhaseName === 'Unassigned' && !phaseHeaderFound && firstTaskIndex !== -1) {
-            // Insert phase header before first task
-            lines.splice(firstTaskIndex, 0, trimmedNewName);
-
-            // Indent all subsequent tasks that should be under this phase
-            for (let i = firstTaskIndex + 1; i < lines.length; i++) {
-                const line = lines[i];
-                // Only indent non-empty lines that aren't already indented and aren't phase headers
-                if (line.trim() && line.indexOf('  ') !== 0 && !line.includes('---')) {
-                    lines[i] = '  ' + line;
-                }
-            }
-        }
-
-        // Update theme colour key if phase had a colour
-        if (this.themeColours[oldPhaseName]) {
-            this.themeColours[trimmedNewName] = this.themeColours[oldPhaseName];
-            delete this.themeColours[oldPhaseName];
-        }
-
-        // Update the phase's whiteboard row(s), if any (issue #844). The
-        // whiteboard's Task column lives in the plan body, not front
-        // matter, so this operates on the text directly rather than a
-        // themeColours-style in-memory key.
-        let renamedText = lines.join('\n');
-        if (typeof renamePlanWhiteboardTask === 'function') {
-            renamedText = renamePlanWhiteboardTask(renamedText, oldPhaseName, trimmedNewName);
-        }
-
-        // Save the renamed phase, its theme colour, and its whiteboard
-        // row in one Markdown commit.
-        this.saveThemeColours(renamedText);
+        if (updated) this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3376,67 +3201,22 @@ class KanbanBoard {
         const normalizedNewName = newLabelName.trim().toLowerCase();
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-        let labelsLineIndex = -1;
-
-        // Find front matter and labels line
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    break;
-                }
-                continue;
-            }
-
-            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
-                labelsLineIndex = i;
-            }
-        }
-
-        // Rename label in front matter
-        if (labelsLineIndex >= 0) {
-            const labelsLine = lines[labelsLineIndex];
-            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const labelsLine = model.leading.find(line => /^\s*labels:\s*\[/.test(line.text));
+        if (labelsLine) {
+            const match = labelsLine.text.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
             if (match) {
                 const existingLabels = match[2].trim();
                 const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
                 const updatedLabels = labelArray.map(l => l === oldLabelName ? normalizedNewName : l);
-                lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
+                labelsLine.text = match[1] + updatedLabels.join(', ') + match[3];
             }
         }
-
-        // Rename label in all tasks
-        inFrontMatter = false;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Skip front matter
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    inFrontMatter = false;
-                }
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Check if line has the old label
-            const labelPattern = new RegExp(`#${oldLabelName}\\b`, 'g');
-            if (labelPattern.test(line)) {
-                // Replace the old label with the new label
-                lines[i] = line.replace(labelPattern, `#${trimmedNewName}`);
-            }
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        const labelPattern = new RegExp(`#${this.escapeRegExp(oldLabelName)}(?=\\s|$)`, 'g');
+        model.tasks.forEach(node => model.updateLine(node,
+            line => line.replace(labelPattern, `#${normalizedNewName}`)));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3485,30 +3265,15 @@ class KanbanBoard {
      */
     renameBucket(oldBucketName, newBucketName) {
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const bucketPattern = new RegExp(`\\{${this.escapeRegExp(oldBucketName)}\\}`, 'g');
+        model.tasks.forEach(node => model.updateLine(node,
+            line => line.replace(bucketPattern, `{${newBucketName}}`)));
 
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.trim() === '---') {
-                inFrontMatter = !inFrontMatter;
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Replace {oldBucketName} with {newBucketName} in task lines
-            lines[i] = line.replace(
-                new RegExp(`\\{${this.escapeRegExp(oldBucketName)}\\}`, 'g'),
-                `{${newBucketName}}`
-            );
-        }
-
-        const bucketLine = lines.findIndex(line => /^\s*buckets:\s*\[/.test(line));
-        if (bucketLine >= 0) {
-            lines[bucketLine] = lines[bucketLine].replace(
+        const bucketLine = model.leading.find(line => /^\s*buckets:\s*\[/.test(line.text));
+        if (bucketLine) {
+            bucketLine.text = bucketLine.text.replace(
                 /\[([^\]]*)\]/,
                 (_match, values) => `[${values.split(',').map(value =>
                     value.trim() === oldBucketName ? newBucketName : value.trim()
@@ -3516,13 +3281,7 @@ class KanbanBoard {
             );
         }
 
-        // Update user-created buckets list
-        const bucketIndex = this.createdBuckets.indexOf(oldBucketName);
-        if (bucketIndex !== -1) {
-            this.createdBuckets[bucketIndex] = newBucketName;
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**
@@ -3534,82 +3293,30 @@ class KanbanBoard {
         }
 
         const editor = document.getElementById('planEditor');
-        if (!editor) return;
-
-        const lines = editor.value.split('\n');
-        let inFrontMatter = false;
-        let labelsLineIndex = -1;
-
-        // Find front matter and labels line
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    break;
-                }
-                continue;
-            }
-
-            if (inFrontMatter && line.trim().match(/^labels:\s*\[/)) {
-                labelsLineIndex = i;
-            }
-        }
-
-        // Remove label from front matter
+        if (!editor || typeof NoodlePlanModel === 'undefined') return;
+        const model = NoodlePlanModel.modelForEditor(editor);
+        const labelsLineIndex = model.leading.findIndex(line => /^\s*labels:\s*\[/.test(line.text));
         if (labelsLineIndex >= 0) {
-            const labelsLine = lines[labelsLineIndex];
-            const match = labelsLine.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
+            const labelsLine = model.leading[labelsLineIndex];
+            const match = labelsLine.text.match(/^(\s*labels:\s*\[)([^\]]*)(\].*)/);
             if (match) {
                 const existingLabels = match[2].trim();
                 const labelArray = existingLabels.split(',').map(l => l.trim()).filter(l => l);
                 const updatedLabels = labelArray.filter(l => l !== labelName);
 
                 if (updatedLabels.length > 0) {
-                    lines[labelsLineIndex] = match[1] + updatedLabels.join(', ') + match[3];
+                    labelsLine.text = match[1] + updatedLabels.join(', ') + match[3];
                 } else {
-                    // Remove the entire labels line if no labels left
-                    lines.splice(labelsLineIndex, 1);
+                    model.leading.splice(labelsLineIndex, 1);
                 }
             }
         }
-
-        // Remove label from all tasks. Reset inFrontMatter -- the loop above
-        // leaves it `true` (it breaks on the closing `---` without resetting),
-        // which used to make this loop misread that closing `---` as an
-        // opener and treat every task line after it as front matter, so the
-        // label was stripped from the front-matter list but never from the
-        // tasks themselves.
-        inFrontMatter = false;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            // Skip front matter
-            if (line.trim() === '---') {
-                if (!inFrontMatter) {
-                    inFrontMatter = true;
-                } else {
-                    inFrontMatter = false;
-                }
-                continue;
-            }
-            if (inFrontMatter) continue;
-
-            // Check if line has the label
-            const labelPattern = new RegExp(`#${labelName}\\b`, 'g');
-            if (labelPattern.test(line)) {
-                // Remove the label from this line
-                lines[i] = line.replace(labelPattern, '').replace(/\s+/g, ' ').trim();
-
-                // Restore indentation
-                const indent = line.match(/^(\s*)/)[1];
-                lines[i] = indent + lines[i];
-            }
-        }
-
-        this.commitMarkdown(lines.join('\n'));
+        const labelPattern = new RegExp(`#${this.escapeRegExp(labelName)}(?=\\s|$)`, 'g');
+        model.tasks.forEach(node => model.updateLine(node, line => {
+            const indent = (line.match(/^\s*/) || [''])[0];
+            return indent + line.trim().replace(labelPattern, '').replace(/\s+/g, ' ').trim();
+        }));
+        this.commitMarkdown(model.serialize(), { model: model });
     }
 
     /**

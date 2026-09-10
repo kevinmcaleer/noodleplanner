@@ -62,6 +62,7 @@ Welcome to NoodlePlanner — a powerful project planning tool that converts natu
    explanation/rag-status
    explanation/scheduling-engine
    explanation/browser-first-architecture
+   explanation/board-as-a-plan-lens
    explanation/two-scheduling-engines
    explanation/browser-local-store
    explanation/whiteboard-layout-vs-viewport
