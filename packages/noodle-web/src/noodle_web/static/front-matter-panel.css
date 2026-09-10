@@ -131,6 +131,13 @@
     gap: 4px;
     padding: 1px 0;
     border-bottom: 1px solid #2a2a2a;
+    transition: background-color 0.3s ease;
+}
+
+/* Ribbon "Calendars" button (#1047 follow-up): briefly flashes the row it
+   scrolled to, so landing in the panel is visibly tied to the click. */
+.fm-row-highlight {
+    background-color: rgba(16, 139, 185, 0.25);
 }
 
 .fm-row-reorder {

@@ -72,6 +72,7 @@ class FakeElement {
     querySelector(selectorList) { return this.querySelectorAll(selectorList)[0] || null; }
     contains(node) { for (let n = node; n; n = n.parentElement) if (n === this) return true; return false; }
     focus() { this._doc._active = this; }
+    scrollIntoView() { /* no-op: no real layout in this stub */ }
 }
 
 function matches(el, sel) {
@@ -277,4 +278,41 @@ test('choosing an active calendar commits the calendar: key', async () => {
     select.dispatchEvent({ type: 'change' });
     await wait(0);
     assert.match(editor.value, /^calendar: Gulf$/m);
+});
+
+// #1047 ribbon follow-up: revealCalendars() is what the ribbon's Calendars
+// button now calls (via ribbon.js's revealCalendarsPanel()) instead of
+// falling through to a "not available yet" toast.
+
+test('revealCalendars expands a collapsed panel into structured mode and focuses the add-key control when no calendars key exists', async () => {
+    const lines = ['---'];
+    for (let i = 0; i < 12; i++) lines.push(`key${i}: value${i}`);
+    lines.push('---', 'Phase', '  Task 1d', '');
+    const { panel, sandbox } = buildPanel(lines.join('\n'));
+    assert.equal(panel.collapsed, true, 'sanity check: panel starts collapsed');
+    panel.revealCalendars();
+    await wait(10);
+    assert.equal(panel.collapsed, false);
+    assert.equal(panel.mode, 'structured');
+    assert.equal(sandbox.document.activeElement && sandbox.document.activeElement.className, 'fm-add-key-select');
+});
+
+test('revealCalendars scrolls to and highlights an existing Calendars row', async () => {
+    const text = '---\ntitle: My Project\ncalendars:\n- Gulf: Sun-Thu\n---\nPhase\n  Task 1d\n';
+    const { panel, container } = buildPanel(text);
+    panel.setMode('raw');
+    panel.revealCalendars();
+    await wait(10);
+    assert.equal(panel.mode, 'structured');
+    const calendarsRow = container.querySelectorAll('.fm-row').find(r => r.querySelector('.fm-row-key')?.textContent === 'Calendars');
+    assert.ok(calendarsRow, 'expected a Calendars row once revealed');
+    assert.ok(calendarsRow.classList.contains('fm-row-highlight'));
+});
+
+test('revealCalendars scrolls to the "+ Add front matter" button when the plan has no front matter block', async () => {
+    const { panel, sandbox } = buildPanel('Phase\n  Task 1d\n');
+    assert.equal(panel.present, false, 'sanity check: no front matter present');
+    panel.revealCalendars();
+    await wait(10);
+    assert.equal(sandbox.document.activeElement && sandbox.document.activeElement.className, 'toolbar-btn fm-add-frontmatter-btn');
 });

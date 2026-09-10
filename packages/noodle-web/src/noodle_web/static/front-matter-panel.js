@@ -106,6 +106,38 @@ const FrontMatterPanel = (function () {
             this.render();
         }
 
+        /**
+         * #1047 ribbon follow-up: land the ribbon's "Calendars" button
+         * somewhere real. Expands the panel in structured mode and scrolls
+         * to the Calendars row, or -- if no `calendars` key exists in this
+         * plan yet -- to the "+ Add key" control it can be added from.
+         */
+        revealCalendars() {
+            if (!this.present) {
+                this.render();
+                requestAnimationFrame(() => {
+                    const btn = this.container.querySelector('.fm-add-frontmatter-btn');
+                    if (btn) { btn.scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.focus(); }
+                });
+                return;
+            }
+            this.setMode('structured');
+            this.setCollapsed(false);
+            requestAnimationFrame(() => {
+                const calendarsRow = Array.from(this.container.querySelectorAll('.fm-row'))
+                    .find((row) => row.querySelector('.fm-row-key')?.textContent === 'Calendars');
+                const target = calendarsRow || this.container.querySelector('.fm-add-key-select');
+                if (!target) return;
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (calendarsRow) {
+                    calendarsRow.classList.add('fm-row-highlight');
+                    setTimeout(() => calendarsRow.classList.remove('fm-row-highlight'), 1600);
+                } else {
+                    target.focus();
+                }
+            });
+        }
+
         // Splice the in-memory rows back into a FRESH parse of the editor's
         // current text (so concurrent edits to the task body aren't
         // clobbered), then hand the result back to the textarea exactly as
@@ -557,5 +589,6 @@ const FrontMatterPanel = (function () {
     return {
         init,
         get instance() { return instance; },
+        revealCalendars() { return instance ? instance.revealCalendars() : null; },
     };
 })();
