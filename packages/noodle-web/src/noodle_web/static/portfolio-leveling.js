@@ -67,8 +67,8 @@ function _toShortname(displayName) {
             if (short.toLowerCase() === lower) return short;
         }
     }
-    // Fallback: just use the display name as-is (lowercase, no spaces)
-    return displayName.trim().split(/\s+/)[0].toLowerCase();
+    // Fallback: use a stable lowercase token by hyphenating whitespace.
+    return displayName.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
 /**
