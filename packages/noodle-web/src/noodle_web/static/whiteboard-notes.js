@@ -1118,13 +1118,18 @@ function wbLayoutRows(items, tasks, mode, options = {}) {
     const standardSize = !!options.standardSize;
     const width = options.width || WB_NOTE_DEFAULT_WIDTH;
     const height = options.height || WB_NOTE_DEFAULT_HEIGHT;
-    const startX = Math.round((viewport.x || 0) + gap);
-    const startY = Math.round((viewport.y || 0) + gap);
     const maxWidth = notes.reduce((max, row) => Math.max(max, row.width || width), width);
     const maxHeight = notes.reduce((max, row) => Math.max(max, row.height || height), height);
+    const minX = viewport.x || 0;
+    const minY = viewport.y || 0;
+    const maxStartX = minX + Math.max(0, (viewport.width || 1200) - maxWidth);
+    const maxStartY = minY + Math.max(0, (viewport.height || 800) - maxHeight);
+    const startX = Math.round(Math.min(Math.max(minX + gap, minX), maxStartX));
+    const startY = Math.round(Math.min(Math.max(minY + gap, minY), maxStartY));
     const rowStep = maxHeight + gap;
     const colStep = maxWidth + gap;
-    const columns = Math.max(1, Math.floor(((viewport.width || 1200) - gap) / colStep));
+    const availableWidth = Math.max(0, (viewport.width || 1200) - maxWidth);
+    const columns = Math.max(1, Math.floor(availableWidth / colStep) + 1);
 
     const taskOrder = new Map();
     const byName = new Map();
@@ -1177,6 +1182,7 @@ function wbLayoutRows(items, tasks, mode, options = {}) {
         deps.forEach(edge => {
             if (!edge || !edge.target || !edge.target.name) return;
             const parentKey = String(edge.target.name).toLowerCase();
+            if (!byName.has(parentKey)) return;
             const parentDepth = dependencyDepthFor(parentKey, cache, visiting);
             depth = Math.max(depth, parentDepth + 1);
         });
@@ -3364,7 +3370,10 @@ function wbCommitLayout(mode, options = {}) {
     if (!items.some(item => item && item.task)) return false;
 
     const viewport = (typeof wbCurrentViewportBoardRect === 'function') ? wbCurrentViewportBoardRect() : null;
-    const nextItems = wbLayoutRows(items, wbLastTasks, mode, {
+    const tasks = (wbLastTasks && wbLastTasks.length)
+        ? wbLastTasks
+        : ((typeof lastRenderedTasks !== 'undefined' && Array.isArray(lastRenderedTasks)) ? lastRenderedTasks : []);
+    const nextItems = wbLayoutRows(items, tasks, mode, {
         ...options,
         viewportRect: viewport || options.viewportRect,
     });

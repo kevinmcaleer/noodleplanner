@@ -324,6 +324,15 @@ const tasks = [
     assert(flowByName.B.x > flowByName.A.x, 'flow view places a dependent task to the right of its prerequisite');
     assert(flowByName.C.x > flowByName.B.x, 'flow view continues dependency chains left-to-right');
     assert(flowByName.D.x > flowByName.A.x, 'flow view places sibling dependents to the right of shared prerequisites');
+
+    const missingDepTasks = [
+        { name: 'Only', parent: null, dependencies: [{ target: { name: 'Not On Board' } }] },
+    ];
+    const missingDepFlow = wbLayoutRows([{ task: 'Only', x: 0, y: 0 }], missingDepTasks, 'flow', {
+        viewportRect: viewport, gap: 24,
+    });
+    assert(missingDepFlow[0].x === 24,
+        'flow view ignores missing dependency targets rather than shifting a note right');
 }
 
 // ── wbInsertNewSummaryTaskLine: the picker's "create new" outline edit
