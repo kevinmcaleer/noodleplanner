@@ -18,6 +18,7 @@ from .format_converter import (
     _is_valid_yaml_value,
 )
 from .scheduling_engine import parse_resource_mappings
+from .calendar_model import Calendar, CalendarFormatError, STANDARD_CALENDAR, parse_calendar_entry
 
 logger = logging.getLogger(__name__)
 
@@ -386,3 +387,60 @@ class FrontMatterParser:
         """
         _, resource_nwd = parse_resource_mappings(self._plan_text)
         return resource_nwd
+
+    def parse_calendars(self) -> dict:
+        """Named project calendars from the ``calendars:`` front-matter list.
+
+        Returns ``{"Standard": Calendar(name="Standard")}`` when the plan
+        declares no ``calendars:`` block, so callers always have at least
+        one calendar to schedule against -- matching the engine's
+        long-standing Mon-Fri default.
+        """
+        calendars: dict[str, Calendar] = {}
+        lines = self._extract_front_matter_lines()
+        in_list = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.lower() == 'calendars:':
+                in_list = True
+                continue
+            if in_list:
+                if stripped.startswith('- ') and ':' in stripped[2:]:
+                    entry = stripped[2:]
+                    name, rest = entry.split(':', 1)
+                    name = name.strip()
+                    try:
+                        calendars[name] = parse_calendar_entry(name, rest.strip())
+                    except CalendarFormatError as exc:
+                        logger.warning("Skipping invalid calendar %r: %s", name, exc)
+                elif stripped and not stripped.startswith('#'):
+                    in_list = False
+
+        if not calendars:
+            calendars[STANDARD_CALENDAR.name] = STANDARD_CALENDAR
+        return calendars
+
+    def parse_active_calendar_name(self) -> str | None:
+        """The ``calendar:`` top-level key naming the active project calendar.
+
+        None when the plan doesn't set one -- callers fall back to the
+        Standard (Mon-Fri) calendar.
+        """
+        value = self.parse_key_values().get('calendar', '').strip()
+        return value or None
+
+    def active_calendar(self) -> Calendar:
+        """The project's active calendar: named by ``calendar:``, falling
+        back to Standard when unset or when the named calendar doesn't
+        exist among ``calendars:``.
+        """
+        calendars = self.parse_calendars()
+        active_name = self.parse_active_calendar_name()
+        if active_name:
+            if active_name in calendars:
+                return calendars[active_name]
+            logger.warning(
+                "calendar: %r not found among calendars:, falling back to Standard",
+                active_name,
+            )
+        return calendars.get(STANDARD_CALENDAR.name, STANDARD_CALENDAR)

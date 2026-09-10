@@ -130,6 +130,12 @@ Keys the app reads
    * - ``non-working [...]`` suffix on a resource line
      - ``- @kev: Kevin, PM non-working [2026-08-03, 2026-08-10:2026-08-14]``
      - Non-working days, single or ranged, for that resource only.
+   * - ``calendar`` / ``calendars``
+     - ``calendar: <Name>``; list of ``- Name: <week pattern> [hours
+       HH:MM-HH:MM] [exceptions [...]]``
+     - Named calendars (work week or shift rotation, optional daily hours,
+       dated exceptions) and which one is active. No ``calendars:`` block
+       means the implicit Standard (Mon-Fri) calendar.
    * - ``stakeholders``
      - list of maps
      - Stakeholder register, written by the Stakeholders view.

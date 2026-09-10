@@ -160,3 +160,41 @@ Fields for each dependency entry:
    Dependencies are updated automatically when you use the Portfolio Dependencies view. The status bar shows warnings if a dependent project is missing or if dependent activities have non-green RAG status.
 
 See :doc:`../how-to/use-the-portfolio-view` for details on managing programme dependencies.
+
+``non-working-days`` / ``holidays``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Project-wide non-working days, applied on top of whichever calendar is active. Accepts a flat list of dates, or a named list with optional ranges:
+
+.. code-block:: yaml
+
+   non-working-days:
+   - Christmas: 2026-12-25:2026-12-26
+   - Training Day: 2026-03-10
+
+A resource line's own ``non-working [...]`` suffix (see ``Resources`` above) adds non-working days for that resource alone, on top of both the project's non-working days and whichever calendar the resource uses (see ``calendars`` below and issue #1136 for resource-specific calendars).
+
+``calendar`` / ``calendars``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Named calendars a project can schedule against, and which one is active. A plan that declares neither key schedules against the implicit **Standard** calendar (Monday-Friday, no exceptions) -- exactly today's default behaviour, so existing plans are unaffected.
+
+.. code-block:: yaml
+
+   calendar: Fortnight Ops
+   calendars:
+   - Standard: Mon-Fri
+   - Night Shift: Sun-Thu hours 22:00-06:00
+   - Fortnight Ops: [Mon-Fri; Mon-Wed] hours 08:00-16:30 exceptions [Christmas: 2026-12-25:2026-12-26]
+
+Each ``calendars:`` entry is one line: ``- <Name>: <week pattern> [hours HH:MM-HH:MM] [exceptions [...]]``.
+
+- **Week pattern** — a work week as a day range or list (``Mon-Fri``, ``Sun-Thu``, ``Mon,Wed,Fri``), or a bracketed, semicolon-separated shift rotation for patterns that repeat over more than one week (``[Mon-Fri; Mon-Wed]`` for a two-week fortnight cycle). Day ranges wrap, so ``Sun-Thu`` is Sunday through Thursday (a Friday/Saturday weekend), not empty.
+- **``hours``** (optional) — the daily working-time window, applied to every working day in the pattern.
+- **``exceptions``** (optional) — dates that are non-working regardless of the week pattern, in the same named-entry format as ``non-working-days:`` above, comma-separated inside the brackets.
+
+``calendar: <Name>`` selects which calendar is active for scheduling; omit it to use **Standard** even when other calendars are declared. Naming a calendar that isn't declared in ``calendars:`` falls back to Standard rather than failing to parse.
+
+.. note::
+
+   This is the front-matter shape only (issue #1134). The scheduling engine consuming a non-Standard calendar (#1132), assigning calendars to individual resources (#1136), and a UI for managing calendars (#1135) are tracked separately as part of the Calendars epic (#1047).
